@@ -46,6 +46,7 @@ type FlunderSpec struct {
 	FischerReference string
 	// The reference type.
 	ReferenceType ReferenceType
+	TestValue string
 }
 
 // FlunderStatus is the status of a Flunder.

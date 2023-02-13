@@ -23,7 +23,6 @@ import (
 
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
-	v1alpha1 "k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1"
 	v1beta1 "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1"
 )
 
@@ -53,13 +52,7 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=wardle.example.com, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("fischers"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Wardle().V1alpha1().Fischers().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("flunders"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Wardle().V1alpha1().Flunders().Informer()}, nil
-
-		// Group=wardle.example.com, Version=v1beta1
+	// Group=wardle.example.com, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("flunders"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Wardle().V1beta1().Flunders().Informer()}, nil
 

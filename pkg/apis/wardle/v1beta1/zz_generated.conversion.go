@@ -137,6 +137,7 @@ func autoConvert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(in *FlunderSpec, out 
 	out.FlunderReference = in.FlunderReference
 	out.FischerReference = in.FischerReference
 	out.ReferenceType = wardle.ReferenceType(in.ReferenceType)
+	out.TestValue = in.TestValue
 	return nil
 }
 
@@ -149,6 +150,7 @@ func autoConvert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(in *wardle.FlunderSpe
 	out.FlunderReference = in.FlunderReference
 	out.FischerReference = in.FischerReference
 	out.ReferenceType = ReferenceType(in.ReferenceType)
+	out.TestValue = in.TestValue
 	return nil
 }
 
