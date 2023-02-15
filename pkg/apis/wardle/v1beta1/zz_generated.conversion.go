@@ -36,6 +36,106 @@ func init() {
 // RegisterConversions adds conversion functions to the given scheme.
 // Public to allow building arbitrary schemes.
 func RegisterConversions(s *runtime.Scheme) error {
+	if err := s.AddGeneratedConversionFunc((*Annotation)(nil), (*wardle.Annotation)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Annotation_To_wardle_Annotation(a.(*Annotation), b.(*wardle.Annotation), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Annotation)(nil), (*Annotation)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Annotation_To_v1beta1_Annotation(a.(*wardle.Annotation), b.(*Annotation), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Annotator)(nil), (*wardle.Annotator)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Annotator_To_wardle_Annotator(a.(*Annotator), b.(*wardle.Annotator), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Annotator)(nil), (*Annotator)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Annotator_To_v1beta1_Annotator(a.(*wardle.Annotator), b.(*Annotator), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ArtifactOfProject)(nil), (*wardle.ArtifactOfProject)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ArtifactOfProject_To_wardle_ArtifactOfProject(a.(*ArtifactOfProject), b.(*wardle.ArtifactOfProject), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.ArtifactOfProject)(nil), (*ArtifactOfProject)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_ArtifactOfProject_To_v1beta1_ArtifactOfProject(a.(*wardle.ArtifactOfProject), b.(*ArtifactOfProject), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Checksum)(nil), (*wardle.Checksum)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Checksum_To_wardle_Checksum(a.(*Checksum), b.(*wardle.Checksum), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Checksum)(nil), (*Checksum)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Checksum_To_v1beta1_Checksum(a.(*wardle.Checksum), b.(*Checksum), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*CreationInfo)(nil), (*wardle.CreationInfo)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_CreationInfo_To_wardle_CreationInfo(a.(*CreationInfo), b.(*wardle.CreationInfo), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.CreationInfo)(nil), (*CreationInfo)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_CreationInfo_To_v1beta1_CreationInfo(a.(*wardle.CreationInfo), b.(*CreationInfo), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Creator)(nil), (*wardle.Creator)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Creator_To_wardle_Creator(a.(*Creator), b.(*wardle.Creator), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Creator)(nil), (*Creator)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Creator_To_v1beta1_Creator(a.(*wardle.Creator), b.(*Creator), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*DocElementID)(nil), (*wardle.DocElementID)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_DocElementID_To_wardle_DocElementID(a.(*DocElementID), b.(*wardle.DocElementID), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.DocElementID)(nil), (*DocElementID)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_DocElementID_To_v1beta1_DocElementID(a.(*wardle.DocElementID), b.(*DocElementID), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Document)(nil), (*wardle.Document)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Document_To_wardle_Document(a.(*Document), b.(*wardle.Document), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Document)(nil), (*Document)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Document_To_v1beta1_Document(a.(*wardle.Document), b.(*Document), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ExternalDocumentRef)(nil), (*wardle.ExternalDocumentRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ExternalDocumentRef_To_wardle_ExternalDocumentRef(a.(*ExternalDocumentRef), b.(*wardle.ExternalDocumentRef), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.ExternalDocumentRef)(nil), (*ExternalDocumentRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_ExternalDocumentRef_To_v1beta1_ExternalDocumentRef(a.(*wardle.ExternalDocumentRef), b.(*ExternalDocumentRef), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*File)(nil), (*wardle.File)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_File_To_wardle_File(a.(*File), b.(*wardle.File), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.File)(nil), (*File)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_File_To_v1beta1_File(a.(*wardle.File), b.(*File), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*Flunder)(nil), (*wardle.Flunder)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Flunder_To_wardle_Flunder(a.(*Flunder), b.(*wardle.Flunder), scope)
 	}); err != nil {
@@ -76,7 +176,421 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*Originator)(nil), (*wardle.Originator)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Originator_To_wardle_Originator(a.(*Originator), b.(*wardle.Originator), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Originator)(nil), (*Originator)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Originator_To_v1beta1_Originator(a.(*wardle.Originator), b.(*Originator), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*OtherLicense)(nil), (*wardle.OtherLicense)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_OtherLicense_To_wardle_OtherLicense(a.(*OtherLicense), b.(*wardle.OtherLicense), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.OtherLicense)(nil), (*OtherLicense)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_OtherLicense_To_v1beta1_OtherLicense(a.(*wardle.OtherLicense), b.(*OtherLicense), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Package)(nil), (*wardle.Package)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Package_To_wardle_Package(a.(*Package), b.(*wardle.Package), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Package)(nil), (*Package)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Package_To_v1beta1_Package(a.(*wardle.Package), b.(*Package), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*PackageExternalReference)(nil), (*wardle.PackageExternalReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_PackageExternalReference_To_wardle_PackageExternalReference(a.(*PackageExternalReference), b.(*wardle.PackageExternalReference), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.PackageExternalReference)(nil), (*PackageExternalReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_PackageExternalReference_To_v1beta1_PackageExternalReference(a.(*wardle.PackageExternalReference), b.(*PackageExternalReference), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*PackageVerificationCode)(nil), (*wardle.PackageVerificationCode)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_PackageVerificationCode_To_wardle_PackageVerificationCode(a.(*PackageVerificationCode), b.(*wardle.PackageVerificationCode), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.PackageVerificationCode)(nil), (*PackageVerificationCode)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_PackageVerificationCode_To_v1beta1_PackageVerificationCode(a.(*wardle.PackageVerificationCode), b.(*PackageVerificationCode), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Relationship)(nil), (*wardle.Relationship)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Relationship_To_wardle_Relationship(a.(*Relationship), b.(*wardle.Relationship), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Relationship)(nil), (*Relationship)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Relationship_To_v1beta1_Relationship(a.(*wardle.Relationship), b.(*Relationship), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Review)(nil), (*wardle.Review)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Review_To_wardle_Review(a.(*Review), b.(*wardle.Review), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Review)(nil), (*Review)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Review_To_v1beta1_Review(a.(*wardle.Review), b.(*Review), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Snippet)(nil), (*wardle.Snippet)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Snippet_To_wardle_Snippet(a.(*Snippet), b.(*wardle.Snippet), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Snippet)(nil), (*Snippet)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Snippet_To_v1beta1_Snippet(a.(*wardle.Snippet), b.(*Snippet), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SnippetRange)(nil), (*wardle.SnippetRange)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SnippetRange_To_wardle_SnippetRange(a.(*SnippetRange), b.(*wardle.SnippetRange), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.SnippetRange)(nil), (*SnippetRange)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_SnippetRange_To_v1beta1_SnippetRange(a.(*wardle.SnippetRange), b.(*SnippetRange), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SnippetRangePointer)(nil), (*wardle.SnippetRangePointer)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SnippetRangePointer_To_wardle_SnippetRangePointer(a.(*SnippetRangePointer), b.(*wardle.SnippetRangePointer), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.SnippetRangePointer)(nil), (*SnippetRangePointer)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_SnippetRangePointer_To_v1beta1_SnippetRangePointer(a.(*wardle.SnippetRangePointer), b.(*SnippetRangePointer), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Supplier)(nil), (*wardle.Supplier)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Supplier_To_wardle_Supplier(a.(*Supplier), b.(*wardle.Supplier), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.Supplier)(nil), (*Supplier)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_Supplier_To_v1beta1_Supplier(a.(*wardle.Supplier), b.(*Supplier), scope)
+	}); err != nil {
+		return err
+	}
 	return nil
+}
+
+func autoConvert_v1beta1_Annotation_To_wardle_Annotation(in *Annotation, out *wardle.Annotation, s conversion.Scope) error {
+	if err := Convert_v1beta1_Annotator_To_wardle_Annotator(&in.Annotator, &out.Annotator, s); err != nil {
+		return err
+	}
+	out.AnnotationDate = in.AnnotationDate
+	out.AnnotationType = in.AnnotationType
+	if err := Convert_v1beta1_DocElementID_To_wardle_DocElementID(&in.AnnotationSPDXIdentifier, &out.AnnotationSPDXIdentifier, s); err != nil {
+		return err
+	}
+	out.AnnotationComment = in.AnnotationComment
+	return nil
+}
+
+// Convert_v1beta1_Annotation_To_wardle_Annotation is an autogenerated conversion function.
+func Convert_v1beta1_Annotation_To_wardle_Annotation(in *Annotation, out *wardle.Annotation, s conversion.Scope) error {
+	return autoConvert_v1beta1_Annotation_To_wardle_Annotation(in, out, s)
+}
+
+func autoConvert_wardle_Annotation_To_v1beta1_Annotation(in *wardle.Annotation, out *Annotation, s conversion.Scope) error {
+	if err := Convert_wardle_Annotator_To_v1beta1_Annotator(&in.Annotator, &out.Annotator, s); err != nil {
+		return err
+	}
+	out.AnnotationDate = in.AnnotationDate
+	out.AnnotationType = in.AnnotationType
+	if err := Convert_wardle_DocElementID_To_v1beta1_DocElementID(&in.AnnotationSPDXIdentifier, &out.AnnotationSPDXIdentifier, s); err != nil {
+		return err
+	}
+	out.AnnotationComment = in.AnnotationComment
+	return nil
+}
+
+// Convert_wardle_Annotation_To_v1beta1_Annotation is an autogenerated conversion function.
+func Convert_wardle_Annotation_To_v1beta1_Annotation(in *wardle.Annotation, out *Annotation, s conversion.Scope) error {
+	return autoConvert_wardle_Annotation_To_v1beta1_Annotation(in, out, s)
+}
+
+func autoConvert_v1beta1_Annotator_To_wardle_Annotator(in *Annotator, out *wardle.Annotator, s conversion.Scope) error {
+	out.Annotator = in.Annotator
+	out.AnnotatorType = in.AnnotatorType
+	return nil
+}
+
+// Convert_v1beta1_Annotator_To_wardle_Annotator is an autogenerated conversion function.
+func Convert_v1beta1_Annotator_To_wardle_Annotator(in *Annotator, out *wardle.Annotator, s conversion.Scope) error {
+	return autoConvert_v1beta1_Annotator_To_wardle_Annotator(in, out, s)
+}
+
+func autoConvert_wardle_Annotator_To_v1beta1_Annotator(in *wardle.Annotator, out *Annotator, s conversion.Scope) error {
+	out.Annotator = in.Annotator
+	out.AnnotatorType = in.AnnotatorType
+	return nil
+}
+
+// Convert_wardle_Annotator_To_v1beta1_Annotator is an autogenerated conversion function.
+func Convert_wardle_Annotator_To_v1beta1_Annotator(in *wardle.Annotator, out *Annotator, s conversion.Scope) error {
+	return autoConvert_wardle_Annotator_To_v1beta1_Annotator(in, out, s)
+}
+
+func autoConvert_v1beta1_ArtifactOfProject_To_wardle_ArtifactOfProject(in *ArtifactOfProject, out *wardle.ArtifactOfProject, s conversion.Scope) error {
+	out.Name = in.Name
+	out.HomePage = in.HomePage
+	out.URI = in.URI
+	return nil
+}
+
+// Convert_v1beta1_ArtifactOfProject_To_wardle_ArtifactOfProject is an autogenerated conversion function.
+func Convert_v1beta1_ArtifactOfProject_To_wardle_ArtifactOfProject(in *ArtifactOfProject, out *wardle.ArtifactOfProject, s conversion.Scope) error {
+	return autoConvert_v1beta1_ArtifactOfProject_To_wardle_ArtifactOfProject(in, out, s)
+}
+
+func autoConvert_wardle_ArtifactOfProject_To_v1beta1_ArtifactOfProject(in *wardle.ArtifactOfProject, out *ArtifactOfProject, s conversion.Scope) error {
+	out.Name = in.Name
+	out.HomePage = in.HomePage
+	out.URI = in.URI
+	return nil
+}
+
+// Convert_wardle_ArtifactOfProject_To_v1beta1_ArtifactOfProject is an autogenerated conversion function.
+func Convert_wardle_ArtifactOfProject_To_v1beta1_ArtifactOfProject(in *wardle.ArtifactOfProject, out *ArtifactOfProject, s conversion.Scope) error {
+	return autoConvert_wardle_ArtifactOfProject_To_v1beta1_ArtifactOfProject(in, out, s)
+}
+
+func autoConvert_v1beta1_Checksum_To_wardle_Checksum(in *Checksum, out *wardle.Checksum, s conversion.Scope) error {
+	out.Algorithm = wardle.ChecksumAlgorithm(in.Algorithm)
+	out.Value = in.Value
+	return nil
+}
+
+// Convert_v1beta1_Checksum_To_wardle_Checksum is an autogenerated conversion function.
+func Convert_v1beta1_Checksum_To_wardle_Checksum(in *Checksum, out *wardle.Checksum, s conversion.Scope) error {
+	return autoConvert_v1beta1_Checksum_To_wardle_Checksum(in, out, s)
+}
+
+func autoConvert_wardle_Checksum_To_v1beta1_Checksum(in *wardle.Checksum, out *Checksum, s conversion.Scope) error {
+	out.Algorithm = ChecksumAlgorithm(in.Algorithm)
+	out.Value = in.Value
+	return nil
+}
+
+// Convert_wardle_Checksum_To_v1beta1_Checksum is an autogenerated conversion function.
+func Convert_wardle_Checksum_To_v1beta1_Checksum(in *wardle.Checksum, out *Checksum, s conversion.Scope) error {
+	return autoConvert_wardle_Checksum_To_v1beta1_Checksum(in, out, s)
+}
+
+func autoConvert_v1beta1_CreationInfo_To_wardle_CreationInfo(in *CreationInfo, out *wardle.CreationInfo, s conversion.Scope) error {
+	out.LicenseListVersion = in.LicenseListVersion
+	out.Creators = *(*[]wardle.Creator)(unsafe.Pointer(&in.Creators))
+	out.Created = in.Created
+	out.CreatorComment = in.CreatorComment
+	return nil
+}
+
+// Convert_v1beta1_CreationInfo_To_wardle_CreationInfo is an autogenerated conversion function.
+func Convert_v1beta1_CreationInfo_To_wardle_CreationInfo(in *CreationInfo, out *wardle.CreationInfo, s conversion.Scope) error {
+	return autoConvert_v1beta1_CreationInfo_To_wardle_CreationInfo(in, out, s)
+}
+
+func autoConvert_wardle_CreationInfo_To_v1beta1_CreationInfo(in *wardle.CreationInfo, out *CreationInfo, s conversion.Scope) error {
+	out.LicenseListVersion = in.LicenseListVersion
+	out.Creators = *(*[]Creator)(unsafe.Pointer(&in.Creators))
+	out.Created = in.Created
+	out.CreatorComment = in.CreatorComment
+	return nil
+}
+
+// Convert_wardle_CreationInfo_To_v1beta1_CreationInfo is an autogenerated conversion function.
+func Convert_wardle_CreationInfo_To_v1beta1_CreationInfo(in *wardle.CreationInfo, out *CreationInfo, s conversion.Scope) error {
+	return autoConvert_wardle_CreationInfo_To_v1beta1_CreationInfo(in, out, s)
+}
+
+func autoConvert_v1beta1_Creator_To_wardle_Creator(in *Creator, out *wardle.Creator, s conversion.Scope) error {
+	out.Creator = in.Creator
+	out.CreatorType = in.CreatorType
+	return nil
+}
+
+// Convert_v1beta1_Creator_To_wardle_Creator is an autogenerated conversion function.
+func Convert_v1beta1_Creator_To_wardle_Creator(in *Creator, out *wardle.Creator, s conversion.Scope) error {
+	return autoConvert_v1beta1_Creator_To_wardle_Creator(in, out, s)
+}
+
+func autoConvert_wardle_Creator_To_v1beta1_Creator(in *wardle.Creator, out *Creator, s conversion.Scope) error {
+	out.Creator = in.Creator
+	out.CreatorType = in.CreatorType
+	return nil
+}
+
+// Convert_wardle_Creator_To_v1beta1_Creator is an autogenerated conversion function.
+func Convert_wardle_Creator_To_v1beta1_Creator(in *wardle.Creator, out *Creator, s conversion.Scope) error {
+	return autoConvert_wardle_Creator_To_v1beta1_Creator(in, out, s)
+}
+
+func autoConvert_v1beta1_DocElementID_To_wardle_DocElementID(in *DocElementID, out *wardle.DocElementID, s conversion.Scope) error {
+	out.DocumentRefID = in.DocumentRefID
+	out.ElementRefID = wardle.ElementID(in.ElementRefID)
+	out.SpecialID = in.SpecialID
+	return nil
+}
+
+// Convert_v1beta1_DocElementID_To_wardle_DocElementID is an autogenerated conversion function.
+func Convert_v1beta1_DocElementID_To_wardle_DocElementID(in *DocElementID, out *wardle.DocElementID, s conversion.Scope) error {
+	return autoConvert_v1beta1_DocElementID_To_wardle_DocElementID(in, out, s)
+}
+
+func autoConvert_wardle_DocElementID_To_v1beta1_DocElementID(in *wardle.DocElementID, out *DocElementID, s conversion.Scope) error {
+	out.DocumentRefID = in.DocumentRefID
+	out.ElementRefID = ElementID(in.ElementRefID)
+	out.SpecialID = in.SpecialID
+	return nil
+}
+
+// Convert_wardle_DocElementID_To_v1beta1_DocElementID is an autogenerated conversion function.
+func Convert_wardle_DocElementID_To_v1beta1_DocElementID(in *wardle.DocElementID, out *DocElementID, s conversion.Scope) error {
+	return autoConvert_wardle_DocElementID_To_v1beta1_DocElementID(in, out, s)
+}
+
+func autoConvert_v1beta1_Document_To_wardle_Document(in *Document, out *wardle.Document, s conversion.Scope) error {
+	out.DocumentDescribes = *(*[]string)(unsafe.Pointer(&in.DocumentDescribes))
+	out.SPDXVersion = in.SPDXVersion
+	out.DataLicense = in.DataLicense
+	out.SPDXIdentifier = wardle.ElementID(in.SPDXIdentifier)
+	out.DocumentName = in.DocumentName
+	out.DocumentNamespace = in.DocumentNamespace
+	out.ExternalDocumentReferences = *(*[]wardle.ExternalDocumentRef)(unsafe.Pointer(&in.ExternalDocumentReferences))
+	out.DocumentComment = in.DocumentComment
+	out.CreationInfo = (*wardle.CreationInfo)(unsafe.Pointer(in.CreationInfo))
+	out.Packages = *(*[]*wardle.Package)(unsafe.Pointer(&in.Packages))
+	out.Files = *(*[]*wardle.File)(unsafe.Pointer(&in.Files))
+	out.OtherLicenses = *(*[]*wardle.OtherLicense)(unsafe.Pointer(&in.OtherLicenses))
+	out.Relationships = *(*[]*wardle.Relationship)(unsafe.Pointer(&in.Relationships))
+	out.Annotations = *(*[]*wardle.Annotation)(unsafe.Pointer(&in.Annotations))
+	out.Snippets = *(*[]wardle.Snippet)(unsafe.Pointer(&in.Snippets))
+	out.Reviews = *(*[]*wardle.Review)(unsafe.Pointer(&in.Reviews))
+	return nil
+}
+
+// Convert_v1beta1_Document_To_wardle_Document is an autogenerated conversion function.
+func Convert_v1beta1_Document_To_wardle_Document(in *Document, out *wardle.Document, s conversion.Scope) error {
+	return autoConvert_v1beta1_Document_To_wardle_Document(in, out, s)
+}
+
+func autoConvert_wardle_Document_To_v1beta1_Document(in *wardle.Document, out *Document, s conversion.Scope) error {
+	out.DocumentDescribes = *(*[]string)(unsafe.Pointer(&in.DocumentDescribes))
+	out.SPDXVersion = in.SPDXVersion
+	out.DataLicense = in.DataLicense
+	out.SPDXIdentifier = ElementID(in.SPDXIdentifier)
+	out.DocumentName = in.DocumentName
+	out.DocumentNamespace = in.DocumentNamespace
+	out.ExternalDocumentReferences = *(*[]ExternalDocumentRef)(unsafe.Pointer(&in.ExternalDocumentReferences))
+	out.DocumentComment = in.DocumentComment
+	out.CreationInfo = (*CreationInfo)(unsafe.Pointer(in.CreationInfo))
+	out.Packages = *(*[]*Package)(unsafe.Pointer(&in.Packages))
+	out.Files = *(*[]*File)(unsafe.Pointer(&in.Files))
+	out.OtherLicenses = *(*[]*OtherLicense)(unsafe.Pointer(&in.OtherLicenses))
+	out.Relationships = *(*[]*Relationship)(unsafe.Pointer(&in.Relationships))
+	out.Annotations = *(*[]*Annotation)(unsafe.Pointer(&in.Annotations))
+	out.Snippets = *(*[]Snippet)(unsafe.Pointer(&in.Snippets))
+	out.Reviews = *(*[]*Review)(unsafe.Pointer(&in.Reviews))
+	return nil
+}
+
+// Convert_wardle_Document_To_v1beta1_Document is an autogenerated conversion function.
+func Convert_wardle_Document_To_v1beta1_Document(in *wardle.Document, out *Document, s conversion.Scope) error {
+	return autoConvert_wardle_Document_To_v1beta1_Document(in, out, s)
+}
+
+func autoConvert_v1beta1_ExternalDocumentRef_To_wardle_ExternalDocumentRef(in *ExternalDocumentRef, out *wardle.ExternalDocumentRef, s conversion.Scope) error {
+	out.DocumentRefID = in.DocumentRefID
+	out.URI = in.URI
+	if err := Convert_v1beta1_Checksum_To_wardle_Checksum(&in.Checksum, &out.Checksum, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_ExternalDocumentRef_To_wardle_ExternalDocumentRef is an autogenerated conversion function.
+func Convert_v1beta1_ExternalDocumentRef_To_wardle_ExternalDocumentRef(in *ExternalDocumentRef, out *wardle.ExternalDocumentRef, s conversion.Scope) error {
+	return autoConvert_v1beta1_ExternalDocumentRef_To_wardle_ExternalDocumentRef(in, out, s)
+}
+
+func autoConvert_wardle_ExternalDocumentRef_To_v1beta1_ExternalDocumentRef(in *wardle.ExternalDocumentRef, out *ExternalDocumentRef, s conversion.Scope) error {
+	out.DocumentRefID = in.DocumentRefID
+	out.URI = in.URI
+	if err := Convert_wardle_Checksum_To_v1beta1_Checksum(&in.Checksum, &out.Checksum, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_wardle_ExternalDocumentRef_To_v1beta1_ExternalDocumentRef is an autogenerated conversion function.
+func Convert_wardle_ExternalDocumentRef_To_v1beta1_ExternalDocumentRef(in *wardle.ExternalDocumentRef, out *ExternalDocumentRef, s conversion.Scope) error {
+	return autoConvert_wardle_ExternalDocumentRef_To_v1beta1_ExternalDocumentRef(in, out, s)
+}
+
+func autoConvert_v1beta1_File_To_wardle_File(in *File, out *wardle.File, s conversion.Scope) error {
+	out.FileName = in.FileName
+	out.FileSPDXIdentifier = wardle.ElementID(in.FileSPDXIdentifier)
+	out.FileTypes = *(*[]string)(unsafe.Pointer(&in.FileTypes))
+	out.Checksums = *(*[]wardle.Checksum)(unsafe.Pointer(&in.Checksums))
+	out.LicenseConcluded = in.LicenseConcluded
+	out.LicenseInfoInFiles = *(*[]string)(unsafe.Pointer(&in.LicenseInfoInFiles))
+	out.LicenseComments = in.LicenseComments
+	out.FileCopyrightText = in.FileCopyrightText
+	out.ArtifactOfProjects = *(*[]*wardle.ArtifactOfProject)(unsafe.Pointer(&in.ArtifactOfProjects))
+	out.FileComment = in.FileComment
+	out.FileNotice = in.FileNotice
+	out.FileContributors = *(*[]string)(unsafe.Pointer(&in.FileContributors))
+	out.FileAttributionTexts = *(*[]string)(unsafe.Pointer(&in.FileAttributionTexts))
+	out.FileDependencies = *(*[]string)(unsafe.Pointer(&in.FileDependencies))
+	out.Snippets = *(*map[wardle.ElementID]*wardle.Snippet)(unsafe.Pointer(&in.Snippets))
+	out.Annotations = *(*[]wardle.Annotation)(unsafe.Pointer(&in.Annotations))
+	return nil
+}
+
+// Convert_v1beta1_File_To_wardle_File is an autogenerated conversion function.
+func Convert_v1beta1_File_To_wardle_File(in *File, out *wardle.File, s conversion.Scope) error {
+	return autoConvert_v1beta1_File_To_wardle_File(in, out, s)
+}
+
+func autoConvert_wardle_File_To_v1beta1_File(in *wardle.File, out *File, s conversion.Scope) error {
+	out.FileName = in.FileName
+	out.FileSPDXIdentifier = ElementID(in.FileSPDXIdentifier)
+	out.FileTypes = *(*[]string)(unsafe.Pointer(&in.FileTypes))
+	out.Checksums = *(*[]Checksum)(unsafe.Pointer(&in.Checksums))
+	out.LicenseConcluded = in.LicenseConcluded
+	out.LicenseInfoInFiles = *(*[]string)(unsafe.Pointer(&in.LicenseInfoInFiles))
+	out.LicenseComments = in.LicenseComments
+	out.FileCopyrightText = in.FileCopyrightText
+	out.ArtifactOfProjects = *(*[]*ArtifactOfProject)(unsafe.Pointer(&in.ArtifactOfProjects))
+	out.FileComment = in.FileComment
+	out.FileNotice = in.FileNotice
+	out.FileContributors = *(*[]string)(unsafe.Pointer(&in.FileContributors))
+	out.FileAttributionTexts = *(*[]string)(unsafe.Pointer(&in.FileAttributionTexts))
+	out.FileDependencies = *(*[]string)(unsafe.Pointer(&in.FileDependencies))
+	out.Snippets = *(*map[ElementID]*Snippet)(unsafe.Pointer(&in.Snippets))
+	out.Annotations = *(*[]Annotation)(unsafe.Pointer(&in.Annotations))
+	return nil
+}
+
+// Convert_wardle_File_To_v1beta1_File is an autogenerated conversion function.
+func Convert_wardle_File_To_v1beta1_File(in *wardle.File, out *File, s conversion.Scope) error {
+	return autoConvert_wardle_File_To_v1beta1_File(in, out, s)
 }
 
 func autoConvert_v1beta1_Flunder_To_wardle_Flunder(in *Flunder, out *wardle.Flunder, s conversion.Scope) error {
@@ -137,7 +651,9 @@ func autoConvert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(in *FlunderSpec, out 
 	out.FlunderReference = in.FlunderReference
 	out.FischerReference = in.FischerReference
 	out.ReferenceType = wardle.ReferenceType(in.ReferenceType)
-	out.TestValue = in.TestValue
+	if err := Convert_v1beta1_Document_To_wardle_Document(&in.SPDX, &out.SPDX, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -150,7 +666,9 @@ func autoConvert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(in *wardle.FlunderSpe
 	out.FlunderReference = in.FlunderReference
 	out.FischerReference = in.FischerReference
 	out.ReferenceType = ReferenceType(in.ReferenceType)
-	out.TestValue = in.TestValue
+	if err := Convert_wardle_Document_To_v1beta1_Document(&in.SPDX, &out.SPDX, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -175,4 +693,356 @@ func autoConvert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(in *wardle.Flunde
 // Convert_wardle_FlunderStatus_To_v1beta1_FlunderStatus is an autogenerated conversion function.
 func Convert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(in *wardle.FlunderStatus, out *FlunderStatus, s conversion.Scope) error {
 	return autoConvert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(in, out, s)
+}
+
+func autoConvert_v1beta1_Originator_To_wardle_Originator(in *Originator, out *wardle.Originator, s conversion.Scope) error {
+	out.Originator = in.Originator
+	out.OriginatorType = in.OriginatorType
+	return nil
+}
+
+// Convert_v1beta1_Originator_To_wardle_Originator is an autogenerated conversion function.
+func Convert_v1beta1_Originator_To_wardle_Originator(in *Originator, out *wardle.Originator, s conversion.Scope) error {
+	return autoConvert_v1beta1_Originator_To_wardle_Originator(in, out, s)
+}
+
+func autoConvert_wardle_Originator_To_v1beta1_Originator(in *wardle.Originator, out *Originator, s conversion.Scope) error {
+	out.Originator = in.Originator
+	out.OriginatorType = in.OriginatorType
+	return nil
+}
+
+// Convert_wardle_Originator_To_v1beta1_Originator is an autogenerated conversion function.
+func Convert_wardle_Originator_To_v1beta1_Originator(in *wardle.Originator, out *Originator, s conversion.Scope) error {
+	return autoConvert_wardle_Originator_To_v1beta1_Originator(in, out, s)
+}
+
+func autoConvert_v1beta1_OtherLicense_To_wardle_OtherLicense(in *OtherLicense, out *wardle.OtherLicense, s conversion.Scope) error {
+	out.LicenseIdentifier = in.LicenseIdentifier
+	out.ExtractedText = in.ExtractedText
+	out.LicenseName = in.LicenseName
+	out.LicenseCrossReferences = *(*[]string)(unsafe.Pointer(&in.LicenseCrossReferences))
+	out.LicenseComment = in.LicenseComment
+	return nil
+}
+
+// Convert_v1beta1_OtherLicense_To_wardle_OtherLicense is an autogenerated conversion function.
+func Convert_v1beta1_OtherLicense_To_wardle_OtherLicense(in *OtherLicense, out *wardle.OtherLicense, s conversion.Scope) error {
+	return autoConvert_v1beta1_OtherLicense_To_wardle_OtherLicense(in, out, s)
+}
+
+func autoConvert_wardle_OtherLicense_To_v1beta1_OtherLicense(in *wardle.OtherLicense, out *OtherLicense, s conversion.Scope) error {
+	out.LicenseIdentifier = in.LicenseIdentifier
+	out.ExtractedText = in.ExtractedText
+	out.LicenseName = in.LicenseName
+	out.LicenseCrossReferences = *(*[]string)(unsafe.Pointer(&in.LicenseCrossReferences))
+	out.LicenseComment = in.LicenseComment
+	return nil
+}
+
+// Convert_wardle_OtherLicense_To_v1beta1_OtherLicense is an autogenerated conversion function.
+func Convert_wardle_OtherLicense_To_v1beta1_OtherLicense(in *wardle.OtherLicense, out *OtherLicense, s conversion.Scope) error {
+	return autoConvert_wardle_OtherLicense_To_v1beta1_OtherLicense(in, out, s)
+}
+
+func autoConvert_v1beta1_Package_To_wardle_Package(in *Package, out *wardle.Package, s conversion.Scope) error {
+	out.HasFiles = *(*[]string)(unsafe.Pointer(&in.HasFiles))
+	out.IsUnpackaged = in.IsUnpackaged
+	out.PackageName = in.PackageName
+	out.PackageSPDXIdentifier = wardle.ElementID(in.PackageSPDXIdentifier)
+	out.PackageVersion = in.PackageVersion
+	out.PackageFileName = in.PackageFileName
+	out.PackageSupplier = (*wardle.Supplier)(unsafe.Pointer(in.PackageSupplier))
+	out.PackageOriginator = (*wardle.Originator)(unsafe.Pointer(in.PackageOriginator))
+	out.PackageDownloadLocation = in.PackageDownloadLocation
+	out.FilesAnalyzed = in.FilesAnalyzed
+	out.IsFilesAnalyzedTagPresent = in.IsFilesAnalyzedTagPresent
+	out.PackageVerificationCode = (*wardle.PackageVerificationCode)(unsafe.Pointer(in.PackageVerificationCode))
+	out.PackageChecksums = *(*[]wardle.Checksum)(unsafe.Pointer(&in.PackageChecksums))
+	out.PackageHomePage = in.PackageHomePage
+	out.PackageSourceInfo = in.PackageSourceInfo
+	out.PackageLicenseConcluded = in.PackageLicenseConcluded
+	out.PackageLicenseInfoFromFiles = *(*[]string)(unsafe.Pointer(&in.PackageLicenseInfoFromFiles))
+	out.PackageLicenseDeclared = in.PackageLicenseDeclared
+	out.PackageLicenseComments = in.PackageLicenseComments
+	out.PackageCopyrightText = in.PackageCopyrightText
+	out.PackageSummary = in.PackageSummary
+	out.PackageDescription = in.PackageDescription
+	out.PackageComment = in.PackageComment
+	out.PackageExternalReferences = *(*[]*wardle.PackageExternalReference)(unsafe.Pointer(&in.PackageExternalReferences))
+	out.PackageAttributionTexts = *(*[]string)(unsafe.Pointer(&in.PackageAttributionTexts))
+	out.PrimaryPackagePurpose = in.PrimaryPackagePurpose
+	out.ReleaseDate = in.ReleaseDate
+	out.BuiltDate = in.BuiltDate
+	out.ValidUntilDate = in.ValidUntilDate
+	out.Files = *(*[]*wardle.File)(unsafe.Pointer(&in.Files))
+	out.Annotations = *(*[]wardle.Annotation)(unsafe.Pointer(&in.Annotations))
+	return nil
+}
+
+// Convert_v1beta1_Package_To_wardle_Package is an autogenerated conversion function.
+func Convert_v1beta1_Package_To_wardle_Package(in *Package, out *wardle.Package, s conversion.Scope) error {
+	return autoConvert_v1beta1_Package_To_wardle_Package(in, out, s)
+}
+
+func autoConvert_wardle_Package_To_v1beta1_Package(in *wardle.Package, out *Package, s conversion.Scope) error {
+	out.HasFiles = *(*[]string)(unsafe.Pointer(&in.HasFiles))
+	out.IsUnpackaged = in.IsUnpackaged
+	out.PackageName = in.PackageName
+	out.PackageSPDXIdentifier = ElementID(in.PackageSPDXIdentifier)
+	out.PackageVersion = in.PackageVersion
+	out.PackageFileName = in.PackageFileName
+	out.PackageSupplier = (*Supplier)(unsafe.Pointer(in.PackageSupplier))
+	out.PackageOriginator = (*Originator)(unsafe.Pointer(in.PackageOriginator))
+	out.PackageDownloadLocation = in.PackageDownloadLocation
+	out.FilesAnalyzed = in.FilesAnalyzed
+	out.IsFilesAnalyzedTagPresent = in.IsFilesAnalyzedTagPresent
+	out.PackageVerificationCode = (*PackageVerificationCode)(unsafe.Pointer(in.PackageVerificationCode))
+	out.PackageChecksums = *(*[]Checksum)(unsafe.Pointer(&in.PackageChecksums))
+	out.PackageHomePage = in.PackageHomePage
+	out.PackageSourceInfo = in.PackageSourceInfo
+	out.PackageLicenseConcluded = in.PackageLicenseConcluded
+	out.PackageLicenseInfoFromFiles = *(*[]string)(unsafe.Pointer(&in.PackageLicenseInfoFromFiles))
+	out.PackageLicenseDeclared = in.PackageLicenseDeclared
+	out.PackageLicenseComments = in.PackageLicenseComments
+	out.PackageCopyrightText = in.PackageCopyrightText
+	out.PackageSummary = in.PackageSummary
+	out.PackageDescription = in.PackageDescription
+	out.PackageComment = in.PackageComment
+	out.PackageExternalReferences = *(*[]*PackageExternalReference)(unsafe.Pointer(&in.PackageExternalReferences))
+	out.PackageAttributionTexts = *(*[]string)(unsafe.Pointer(&in.PackageAttributionTexts))
+	out.PrimaryPackagePurpose = in.PrimaryPackagePurpose
+	out.ReleaseDate = in.ReleaseDate
+	out.BuiltDate = in.BuiltDate
+	out.ValidUntilDate = in.ValidUntilDate
+	out.Files = *(*[]*File)(unsafe.Pointer(&in.Files))
+	out.Annotations = *(*[]Annotation)(unsafe.Pointer(&in.Annotations))
+	return nil
+}
+
+// Convert_wardle_Package_To_v1beta1_Package is an autogenerated conversion function.
+func Convert_wardle_Package_To_v1beta1_Package(in *wardle.Package, out *Package, s conversion.Scope) error {
+	return autoConvert_wardle_Package_To_v1beta1_Package(in, out, s)
+}
+
+func autoConvert_v1beta1_PackageExternalReference_To_wardle_PackageExternalReference(in *PackageExternalReference, out *wardle.PackageExternalReference, s conversion.Scope) error {
+	out.Category = in.Category
+	out.RefType = in.RefType
+	out.Locator = in.Locator
+	out.ExternalRefComment = in.ExternalRefComment
+	return nil
+}
+
+// Convert_v1beta1_PackageExternalReference_To_wardle_PackageExternalReference is an autogenerated conversion function.
+func Convert_v1beta1_PackageExternalReference_To_wardle_PackageExternalReference(in *PackageExternalReference, out *wardle.PackageExternalReference, s conversion.Scope) error {
+	return autoConvert_v1beta1_PackageExternalReference_To_wardle_PackageExternalReference(in, out, s)
+}
+
+func autoConvert_wardle_PackageExternalReference_To_v1beta1_PackageExternalReference(in *wardle.PackageExternalReference, out *PackageExternalReference, s conversion.Scope) error {
+	out.Category = in.Category
+	out.RefType = in.RefType
+	out.Locator = in.Locator
+	out.ExternalRefComment = in.ExternalRefComment
+	return nil
+}
+
+// Convert_wardle_PackageExternalReference_To_v1beta1_PackageExternalReference is an autogenerated conversion function.
+func Convert_wardle_PackageExternalReference_To_v1beta1_PackageExternalReference(in *wardle.PackageExternalReference, out *PackageExternalReference, s conversion.Scope) error {
+	return autoConvert_wardle_PackageExternalReference_To_v1beta1_PackageExternalReference(in, out, s)
+}
+
+func autoConvert_v1beta1_PackageVerificationCode_To_wardle_PackageVerificationCode(in *PackageVerificationCode, out *wardle.PackageVerificationCode, s conversion.Scope) error {
+	out.Value = in.Value
+	out.ExcludedFiles = *(*[]string)(unsafe.Pointer(&in.ExcludedFiles))
+	return nil
+}
+
+// Convert_v1beta1_PackageVerificationCode_To_wardle_PackageVerificationCode is an autogenerated conversion function.
+func Convert_v1beta1_PackageVerificationCode_To_wardle_PackageVerificationCode(in *PackageVerificationCode, out *wardle.PackageVerificationCode, s conversion.Scope) error {
+	return autoConvert_v1beta1_PackageVerificationCode_To_wardle_PackageVerificationCode(in, out, s)
+}
+
+func autoConvert_wardle_PackageVerificationCode_To_v1beta1_PackageVerificationCode(in *wardle.PackageVerificationCode, out *PackageVerificationCode, s conversion.Scope) error {
+	out.Value = in.Value
+	out.ExcludedFiles = *(*[]string)(unsafe.Pointer(&in.ExcludedFiles))
+	return nil
+}
+
+// Convert_wardle_PackageVerificationCode_To_v1beta1_PackageVerificationCode is an autogenerated conversion function.
+func Convert_wardle_PackageVerificationCode_To_v1beta1_PackageVerificationCode(in *wardle.PackageVerificationCode, out *PackageVerificationCode, s conversion.Scope) error {
+	return autoConvert_wardle_PackageVerificationCode_To_v1beta1_PackageVerificationCode(in, out, s)
+}
+
+func autoConvert_v1beta1_Relationship_To_wardle_Relationship(in *Relationship, out *wardle.Relationship, s conversion.Scope) error {
+	if err := Convert_v1beta1_DocElementID_To_wardle_DocElementID(&in.RefA, &out.RefA, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_DocElementID_To_wardle_DocElementID(&in.RefB, &out.RefB, s); err != nil {
+		return err
+	}
+	out.Relationship = in.Relationship
+	out.RelationshipComment = in.RelationshipComment
+	return nil
+}
+
+// Convert_v1beta1_Relationship_To_wardle_Relationship is an autogenerated conversion function.
+func Convert_v1beta1_Relationship_To_wardle_Relationship(in *Relationship, out *wardle.Relationship, s conversion.Scope) error {
+	return autoConvert_v1beta1_Relationship_To_wardle_Relationship(in, out, s)
+}
+
+func autoConvert_wardle_Relationship_To_v1beta1_Relationship(in *wardle.Relationship, out *Relationship, s conversion.Scope) error {
+	if err := Convert_wardle_DocElementID_To_v1beta1_DocElementID(&in.RefA, &out.RefA, s); err != nil {
+		return err
+	}
+	if err := Convert_wardle_DocElementID_To_v1beta1_DocElementID(&in.RefB, &out.RefB, s); err != nil {
+		return err
+	}
+	out.Relationship = in.Relationship
+	out.RelationshipComment = in.RelationshipComment
+	return nil
+}
+
+// Convert_wardle_Relationship_To_v1beta1_Relationship is an autogenerated conversion function.
+func Convert_wardle_Relationship_To_v1beta1_Relationship(in *wardle.Relationship, out *Relationship, s conversion.Scope) error {
+	return autoConvert_wardle_Relationship_To_v1beta1_Relationship(in, out, s)
+}
+
+func autoConvert_v1beta1_Review_To_wardle_Review(in *Review, out *wardle.Review, s conversion.Scope) error {
+	out.Reviewer = in.Reviewer
+	out.ReviewerType = in.ReviewerType
+	out.ReviewDate = in.ReviewDate
+	out.ReviewComment = in.ReviewComment
+	return nil
+}
+
+// Convert_v1beta1_Review_To_wardle_Review is an autogenerated conversion function.
+func Convert_v1beta1_Review_To_wardle_Review(in *Review, out *wardle.Review, s conversion.Scope) error {
+	return autoConvert_v1beta1_Review_To_wardle_Review(in, out, s)
+}
+
+func autoConvert_wardle_Review_To_v1beta1_Review(in *wardle.Review, out *Review, s conversion.Scope) error {
+	out.Reviewer = in.Reviewer
+	out.ReviewerType = in.ReviewerType
+	out.ReviewDate = in.ReviewDate
+	out.ReviewComment = in.ReviewComment
+	return nil
+}
+
+// Convert_wardle_Review_To_v1beta1_Review is an autogenerated conversion function.
+func Convert_wardle_Review_To_v1beta1_Review(in *wardle.Review, out *Review, s conversion.Scope) error {
+	return autoConvert_wardle_Review_To_v1beta1_Review(in, out, s)
+}
+
+func autoConvert_v1beta1_Snippet_To_wardle_Snippet(in *Snippet, out *wardle.Snippet, s conversion.Scope) error {
+	out.SnippetSPDXIdentifier = wardle.ElementID(in.SnippetSPDXIdentifier)
+	out.SnippetFromFileSPDXIdentifier = wardle.ElementID(in.SnippetFromFileSPDXIdentifier)
+	out.Ranges = *(*[]wardle.SnippetRange)(unsafe.Pointer(&in.Ranges))
+	out.SnippetLicenseConcluded = in.SnippetLicenseConcluded
+	out.LicenseInfoInSnippet = *(*[]string)(unsafe.Pointer(&in.LicenseInfoInSnippet))
+	out.SnippetLicenseComments = in.SnippetLicenseComments
+	out.SnippetCopyrightText = in.SnippetCopyrightText
+	out.SnippetComment = in.SnippetComment
+	out.SnippetName = in.SnippetName
+	out.SnippetAttributionTexts = *(*[]string)(unsafe.Pointer(&in.SnippetAttributionTexts))
+	return nil
+}
+
+// Convert_v1beta1_Snippet_To_wardle_Snippet is an autogenerated conversion function.
+func Convert_v1beta1_Snippet_To_wardle_Snippet(in *Snippet, out *wardle.Snippet, s conversion.Scope) error {
+	return autoConvert_v1beta1_Snippet_To_wardle_Snippet(in, out, s)
+}
+
+func autoConvert_wardle_Snippet_To_v1beta1_Snippet(in *wardle.Snippet, out *Snippet, s conversion.Scope) error {
+	out.SnippetSPDXIdentifier = ElementID(in.SnippetSPDXIdentifier)
+	out.SnippetFromFileSPDXIdentifier = ElementID(in.SnippetFromFileSPDXIdentifier)
+	out.Ranges = *(*[]SnippetRange)(unsafe.Pointer(&in.Ranges))
+	out.SnippetLicenseConcluded = in.SnippetLicenseConcluded
+	out.LicenseInfoInSnippet = *(*[]string)(unsafe.Pointer(&in.LicenseInfoInSnippet))
+	out.SnippetLicenseComments = in.SnippetLicenseComments
+	out.SnippetCopyrightText = in.SnippetCopyrightText
+	out.SnippetComment = in.SnippetComment
+	out.SnippetName = in.SnippetName
+	out.SnippetAttributionTexts = *(*[]string)(unsafe.Pointer(&in.SnippetAttributionTexts))
+	return nil
+}
+
+// Convert_wardle_Snippet_To_v1beta1_Snippet is an autogenerated conversion function.
+func Convert_wardle_Snippet_To_v1beta1_Snippet(in *wardle.Snippet, out *Snippet, s conversion.Scope) error {
+	return autoConvert_wardle_Snippet_To_v1beta1_Snippet(in, out, s)
+}
+
+func autoConvert_v1beta1_SnippetRange_To_wardle_SnippetRange(in *SnippetRange, out *wardle.SnippetRange, s conversion.Scope) error {
+	if err := Convert_v1beta1_SnippetRangePointer_To_wardle_SnippetRangePointer(&in.StartPointer, &out.StartPointer, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_SnippetRangePointer_To_wardle_SnippetRangePointer(&in.EndPointer, &out.EndPointer, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SnippetRange_To_wardle_SnippetRange is an autogenerated conversion function.
+func Convert_v1beta1_SnippetRange_To_wardle_SnippetRange(in *SnippetRange, out *wardle.SnippetRange, s conversion.Scope) error {
+	return autoConvert_v1beta1_SnippetRange_To_wardle_SnippetRange(in, out, s)
+}
+
+func autoConvert_wardle_SnippetRange_To_v1beta1_SnippetRange(in *wardle.SnippetRange, out *SnippetRange, s conversion.Scope) error {
+	if err := Convert_wardle_SnippetRangePointer_To_v1beta1_SnippetRangePointer(&in.StartPointer, &out.StartPointer, s); err != nil {
+		return err
+	}
+	if err := Convert_wardle_SnippetRangePointer_To_v1beta1_SnippetRangePointer(&in.EndPointer, &out.EndPointer, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_wardle_SnippetRange_To_v1beta1_SnippetRange is an autogenerated conversion function.
+func Convert_wardle_SnippetRange_To_v1beta1_SnippetRange(in *wardle.SnippetRange, out *SnippetRange, s conversion.Scope) error {
+	return autoConvert_wardle_SnippetRange_To_v1beta1_SnippetRange(in, out, s)
+}
+
+func autoConvert_v1beta1_SnippetRangePointer_To_wardle_SnippetRangePointer(in *SnippetRangePointer, out *wardle.SnippetRangePointer, s conversion.Scope) error {
+	out.Offset = in.Offset
+	out.LineNumber = in.LineNumber
+	out.FileSPDXIdentifier = wardle.ElementID(in.FileSPDXIdentifier)
+	return nil
+}
+
+// Convert_v1beta1_SnippetRangePointer_To_wardle_SnippetRangePointer is an autogenerated conversion function.
+func Convert_v1beta1_SnippetRangePointer_To_wardle_SnippetRangePointer(in *SnippetRangePointer, out *wardle.SnippetRangePointer, s conversion.Scope) error {
+	return autoConvert_v1beta1_SnippetRangePointer_To_wardle_SnippetRangePointer(in, out, s)
+}
+
+func autoConvert_wardle_SnippetRangePointer_To_v1beta1_SnippetRangePointer(in *wardle.SnippetRangePointer, out *SnippetRangePointer, s conversion.Scope) error {
+	out.Offset = in.Offset
+	out.LineNumber = in.LineNumber
+	out.FileSPDXIdentifier = ElementID(in.FileSPDXIdentifier)
+	return nil
+}
+
+// Convert_wardle_SnippetRangePointer_To_v1beta1_SnippetRangePointer is an autogenerated conversion function.
+func Convert_wardle_SnippetRangePointer_To_v1beta1_SnippetRangePointer(in *wardle.SnippetRangePointer, out *SnippetRangePointer, s conversion.Scope) error {
+	return autoConvert_wardle_SnippetRangePointer_To_v1beta1_SnippetRangePointer(in, out, s)
+}
+
+func autoConvert_v1beta1_Supplier_To_wardle_Supplier(in *Supplier, out *wardle.Supplier, s conversion.Scope) error {
+	out.Supplier = in.Supplier
+	out.SupplierType = in.SupplierType
+	return nil
+}
+
+// Convert_v1beta1_Supplier_To_wardle_Supplier is an autogenerated conversion function.
+func Convert_v1beta1_Supplier_To_wardle_Supplier(in *Supplier, out *wardle.Supplier, s conversion.Scope) error {
+	return autoConvert_v1beta1_Supplier_To_wardle_Supplier(in, out, s)
+}
+
+func autoConvert_wardle_Supplier_To_v1beta1_Supplier(in *wardle.Supplier, out *Supplier, s conversion.Scope) error {
+	out.Supplier = in.Supplier
+	out.SupplierType = in.SupplierType
+	return nil
+}
+
+// Convert_wardle_Supplier_To_v1beta1_Supplier is an autogenerated conversion function.
+func Convert_wardle_Supplier_To_v1beta1_Supplier(in *wardle.Supplier, out *Supplier, s conversion.Scope) error {
+	return autoConvert_wardle_Supplier_To_v1beta1_Supplier(in, out, s)
 }

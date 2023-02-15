@@ -16,7 +16,9 @@ limitations under the License.
 
 package wardle
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -46,7 +48,7 @@ type FlunderSpec struct {
 	FischerReference string
 	// The reference type.
 	ReferenceType ReferenceType
-	TestValue string
+	SPDX Document
 }
 
 // FlunderStatus is the status of a Flunder.
