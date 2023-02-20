@@ -3294,27 +3294,6 @@ func schema_pkg_apis_wardle_v1beta1_FlunderSpec(ref common.ReferenceCallback) co
 				Description: "FlunderSpec is the specification of a Flunder.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"flunderReference": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A name of another flunder, mutually exclusive to the FischerReference.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"fischerReference": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A name of a fischer, mutually exclusive to the FlunderReference.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"referenceType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The reference type.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"spdx": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},

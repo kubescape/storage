@@ -648,9 +648,6 @@ func Convert_wardle_FlunderList_To_v1beta1_FlunderList(in *wardle.FlunderList, o
 }
 
 func autoConvert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(in *FlunderSpec, out *wardle.FlunderSpec, s conversion.Scope) error {
-	out.FlunderReference = in.FlunderReference
-	out.FischerReference = in.FischerReference
-	out.ReferenceType = wardle.ReferenceType(in.ReferenceType)
 	if err := Convert_v1beta1_Document_To_wardle_Document(&in.SPDX, &out.SPDX, s); err != nil {
 		return err
 	}
@@ -663,9 +660,6 @@ func Convert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(in *FlunderSpec, out *war
 }
 
 func autoConvert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(in *wardle.FlunderSpec, out *FlunderSpec, s conversion.Scope) error {
-	out.FlunderReference = in.FlunderReference
-	out.FischerReference = in.FischerReference
-	out.ReferenceType = ReferenceType(in.ReferenceType)
 	if err := Convert_wardle_Document_To_v1beta1_Document(&in.SPDX, &out.SPDX, s); err != nil {
 		return err
 	}

@@ -30,24 +30,8 @@ type FlunderList struct {
 	Items []Flunder
 }
 
-// ReferenceType defines the type of an object reference.
-type ReferenceType string
-
-const (
-	// FlunderReferenceType is used for Flunder references.
-	FlunderReferenceType = ReferenceType("Flunder")
-	// FischerReferenceType is used for Fischer references.
-	FischerReferenceType = ReferenceType("Fischer")
-)
-
 // FlunderSpec is the specification of a Flunder.
 type FlunderSpec struct {
-	// A name of another flunder, mutually exclusive to the FischerReference.
-	FlunderReference string
-	// A name of a fischer, mutually exclusive to the FlunderReference.
-	FischerReference string
-	// The reference type.
-	ReferenceType ReferenceType
 	SPDX Document
 }
 
@@ -65,29 +49,4 @@ type Flunder struct {
 
 	Spec   FlunderSpec
 	Status FlunderStatus
-}
-
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// Fischer is an example type with a list of disallowed Flunder.Names
-type Fischer struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	// DisallowedFlunders holds a list of Flunder.Names that are disallowed.
-	DisallowedFlunders []string
-}
-
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// FischerList is a list of Fischer objects.
-type FischerList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	// Items is a list of Fischers
-	Items []Fischer
 }

@@ -30,24 +30,8 @@ type FlunderList struct {
 	Items []Flunder `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// ReferenceType defines the type of an object reference.
-type ReferenceType string
-
-const (
-	// FlunderReferenceType is used for Flunder references.
-	FlunderReferenceType = ReferenceType("Flunder")
-	// FischerReferenceType is used for Fischer references.
-	FischerReferenceType = ReferenceType("Fischer")
-)
-
 // FlunderSpec is the specification of a Flunder.
 type FlunderSpec struct {
-	// A name of another flunder, mutually exclusive to the FischerReference.
-	FlunderReference string `json:"flunderReference,omitempty" protobuf:"bytes,1,opt,name=flunderReference"`
-	// A name of a fischer, mutually exclusive to the FlunderReference.
-	FischerReference string `json:"fischerReference,omitempty" protobuf:"bytes,2,opt,name=fischerReference"`
-	// The reference type.
-	ReferenceType ReferenceType `json:"referenceType,omitempty" protobuf:"bytes,3,opt,name=referenceType"`
 	SPDX Document `json:"spdx,omitempty"`
 }
 
