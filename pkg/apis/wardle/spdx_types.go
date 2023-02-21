@@ -68,8 +68,8 @@ const (
 // Checksum provides a unique identifier to match analysis information on each specific file in a package.
 // The Algorithm field describes the ChecksumAlgorithm used and the Value represents the file checksum
 type Checksum struct {
-	Algorithm ChecksumAlgorithm `json:"algorithm"`
-	Value     string            `json:"checksumValue"`
+	Algorithm ChecksumAlgorithm 
+	Value     string            
 }
 
 // Creator is a wrapper around the Creator SPDX field. The SPDX field contains two values, which requires special
@@ -424,52 +424,52 @@ func (o Originator) MarshalJSON() ([]byte, error) {
 type PackageVerificationCode struct {
 	// Cardinality: mandatory, one if filesAnalyzed is true / omitted;
 	//              zero (must be omitted) if filesAnalyzed is false
-	Value string `json:"packageVerificationCodeValue"`
+	Value string 
 	// Spec also allows specifying files to exclude from the
 	// verification code algorithm; intended to enable exclusion of
 	// the SPDX document file itself.
-	ExcludedFiles []string `json:"packageVerificationCodeExcludedFiles,omitempty"`
+	ExcludedFiles []string 
 }
 
 type SnippetRangePointer struct {
 	// 5.3: Snippet Byte Range: [start byte]:[end byte]
 	// Cardinality: mandatory, one
-	Offset int `json:"offset,omitempty"`
+	Offset int 
 
 	// 5.4: Snippet Line Range: [start line]:[end line]
 	// Cardinality: optional, one
-	LineNumber int `json:"lineNumber,omitempty"`
+	LineNumber int 
 
-	FileSPDXIdentifier ElementID `json:"reference"`
+	FileSPDXIdentifier ElementID 
 }
 
 type SnippetRange struct {
-	StartPointer SnippetRangePointer `json:"startPointer"`
-	EndPointer   SnippetRangePointer `json:"endPointer"`
+	StartPointer SnippetRangePointer 
+	EndPointer   SnippetRangePointer 
 }
 
 // Annotation is an Annotation section of an SPDX Document for version 2.3 of the spec.
 type Annotation struct {
 	// 12.1: Annotator
 	// Cardinality: conditional (mandatory, one) if there is an Annotation
-	Annotator Annotator `json:"annotator"`
+	Annotator Annotator 
 
 	// 12.2: Annotation Date: YYYY-MM-DDThh:mm:ssZ
 	// Cardinality: conditional (mandatory, one) if there is an Annotation
-	AnnotationDate string `json:"annotationDate"`
+	AnnotationDate string 
 
 	// 12.3: Annotation Type: "REVIEW" or "OTHER"
 	// Cardinality: conditional (mandatory, one) if there is an Annotation
-	AnnotationType string `json:"annotationType"`
+	AnnotationType string 
 
 	// 12.4: SPDX Identifier Reference
 	// Cardinality: conditional (mandatory, one) if there is an Annotation
 	// This field is not used in hierarchical data formats where the referenced element is clear, such as JSON or YAML.
-	AnnotationSPDXIdentifier DocElementID `json:"-" yaml:"-"`
+	AnnotationSPDXIdentifier DocElementID 
 
 	// 12.5: Annotation Comment
 	// Cardinality: conditional (mandatory, one) if there is an Annotation
-	AnnotationComment string `json:"comment"`
+	AnnotationComment string 
 }
 
 // CreationInfo is a Document Creation Information section of an
@@ -477,20 +477,20 @@ type Annotation struct {
 type CreationInfo struct {
 	// 6.7: License List Version
 	// Cardinality: optional, one
-	LicenseListVersion string `json:"licenseListVersion"`
+	LicenseListVersion string 
 
 	// 6.8: Creators: may have multiple keys for Person, Organization
 	//      and/or Tool
 	// Cardinality: mandatory, one or many
-	Creators []Creator `json:"creators"`
+	Creators []Creator 
 
 	// 6.9: Created: data format YYYY-MM-DDThh:mm:ssZ
 	// Cardinality: mandatory, one
-	Created string `json:"created"`
+	Created string 
 
 	// 6.10: Creator Comment
 	// Cardinality: optional, one
-	CreatorComment string `json:"comment,omitempty"`
+	CreatorComment string 
 }
 
 // ExternalDocumentRef is a reference to an external SPDX document
@@ -499,129 +499,129 @@ type ExternalDocumentRef struct {
 	// DocumentRefID is the ID string defined in the start of the
 	// reference. It should _not_ contain the "DocumentRef-" part
 	// of the mandatory ID string.
-	DocumentRefID string `json:"externalDocumentId"`
+	DocumentRefID string 
 
 	// URI is the URI defined for the external document
-	URI string `json:"spdxDocument"`
+	URI string 
 
 	// Checksum is the actual hash data
-	Checksum Checksum `json:"checksum"`
+	Checksum Checksum 
 }
 
 // Document is an SPDX Document for version 2.3 of the spec.
 // See https://spdx.github.io/spdx-spec/v2.3/document-creation-information
 type Document struct {
 	// Added
-	DocumentDescribes []string `json:"documentDescribes"`
+	DocumentDescribes []string 
 
 	// 6.1: SPDX Version; should be in the format "SPDX-2.3"
 	// Cardinality: mandatory, one
-	SPDXVersion string `json:"spdxVersion"`
+	SPDXVersion string 
 
 	// 6.2: Data License; should be "CC0-1.0"
 	// Cardinality: mandatory, one
-	DataLicense string `json:"dataLicense"`
+	DataLicense string 
 
 	// 6.3: SPDX Identifier; should be "DOCUMENT" to represent
 	//      mandatory identifier of SPDXRef-DOCUMENT
 	// Cardinality: mandatory, one
-	SPDXIdentifier ElementID `json:"SPDXID"`
+	SPDXIdentifier ElementID 
 
 	// 6.4: Document Name
 	// Cardinality: mandatory, one
-	DocumentName string `json:"name"`
+	DocumentName string 
 
 	// 6.5: Document Namespace
 	// Cardinality: mandatory, one
-	DocumentNamespace string `json:"documentNamespace"`
+	DocumentNamespace string 
 
 	// 6.6: External Document References
 	// Cardinality: optional, one or many
-	ExternalDocumentReferences []ExternalDocumentRef `json:"externalDocumentRefs,omitempty"`
+	ExternalDocumentReferences []ExternalDocumentRef 
 
 	// 6.11: Document Comment
 	// Cardinality: optional, one
-	DocumentComment string `json:"comment,omitempty"`
+	DocumentComment string 
 
-	CreationInfo  *CreationInfo   `json:"creationInfo"`
-	Packages      []*Package      `json:"packages,omitempty"`
-	Files         []*File         `json:"files,omitempty"`
-	OtherLicenses []*OtherLicense `json:"hasExtractedLicensingInfos,omitempty"`
-	Relationships []*Relationship `json:"relationships,omitempty"`
-	Annotations   []*Annotation   `json:"annotations,omitempty"`
-	Snippets      []Snippet       `json:"snippets,omitempty"`
+	CreationInfo  *CreationInfo   
+	Packages      []*Package      
+	Files         []*File         
+	OtherLicenses []*OtherLicense 
+	Relationships []*Relationship 
+	Annotations   []Annotation   
+	Snippets      []Snippet       
 
 	// DEPRECATED in version 2.0 of spec
-	Reviews []*Review `json:"-" yaml:"-"`
+	Reviews []*Review 
 }
 
 // File is a File section of an SPDX Document for version 2.3 of the spec.
 type File struct {
 	// 8.1: File Name
 	// Cardinality: mandatory, one
-	FileName string `json:"fileName"`
+	FileName string 
 
 	// 8.2: File SPDX Identifier: "SPDXRef-[idstring]"
 	// Cardinality: mandatory, one
-	FileSPDXIdentifier ElementID `json:"SPDXID"`
+	FileSPDXIdentifier ElementID 
 
 	// 8.3: File Types
 	// Cardinality: optional, multiple
-	FileTypes []string `json:"fileTypes,omitempty"`
+	FileTypes []string 
 
 	// 8.4: File Checksum: may have keys for SHA1, SHA256, MD5, SHA3-256, SHA3-384, SHA3-512, BLAKE2b-256, BLAKE2b-384, BLAKE2b-512, BLAKE3, ADLER32
 	// Cardinality: mandatory, one SHA1, others may be optionally provided
-	Checksums []Checksum `json:"checksums"`
+	Checksums []Checksum 
 
 	// 8.5: Concluded License: SPDX License Expression, "NONE" or "NOASSERTION"
 	// Cardinality: optional, one
-	LicenseConcluded string `json:"licenseConcluded,omitempty"`
+	LicenseConcluded string 
 
 	// 8.6: License Information in File: SPDX License Expression, "NONE" or "NOASSERTION"
 	// Cardinality: optional, one or many
-	LicenseInfoInFiles []string `json:"licenseInfoInFiles,omitempty"`
+	LicenseInfoInFiles []string 
 
 	// 8.7: Comments on License
 	// Cardinality: optional, one
-	LicenseComments string `json:"licenseComments,omitempty"`
+	LicenseComments string 
 
 	// 8.8: Copyright Text: copyright notice(s) text, "NONE" or "NOASSERTION"
 	// Cardinality: mandatory, one
-	FileCopyrightText string `json:"copyrightText"`
+	FileCopyrightText string 
 
 	// DEPRECATED in version 2.1 of spec
 	// 8.9-8.11: Artifact of Project variables (defined below)
 	// Cardinality: optional, one or many
-	ArtifactOfProjects []*ArtifactOfProject `json:"artifactOfs,omitempty"`
+	ArtifactOfProjects []*ArtifactOfProject 
 
 	// 8.12: File Comment
 	// Cardinality: optional, one
-	FileComment string `json:"comment,omitempty"`
+	FileComment string 
 
 	// 8.13: File Notice
 	// Cardinality: optional, one
-	FileNotice string `json:"noticeText,omitempty"`
+	FileNotice string 
 
 	// 8.14: File Contributor
 	// Cardinality: optional, one or many
-	FileContributors []string `json:"fileContributors,omitempty"`
+	FileContributors []string 
 
 	// 8.15: File Attribution Text
 	// Cardinality: optional, one or many
-	FileAttributionTexts []string `json:"attributionTexts,omitempty"`
+	FileAttributionTexts []string 
 
 	// DEPRECATED in version 2.0 of spec
 	// 8.16: File Dependencies
 	// Cardinality: optional, one or many
-	FileDependencies []string `json:"fileDependencies,omitempty"`
+	FileDependencies []string 
 
 	// Snippets contained in this File
 	// Note that Snippets could be defined in a different Document! However,
 	// the only ones that _THIS_ document can contain are this ones that are
 	// defined here -- so this should just be an ElementID.
-	Snippets map[ElementID]*Snippet `json:"-" yaml:"-"`
+	Snippets map[ElementID]*Snippet 
 
-	Annotations []Annotation `json:"annotations,omitempty"`
+	Annotations []Annotation 
 }
 
 // ArtifactOfProject is a DEPRECATED collection of data regarding
@@ -633,17 +633,17 @@ type ArtifactOfProject struct {
 	// DEPRECATED in version 2.1 of spec
 	// 8.9: Artifact of Project Name
 	// Cardinality: conditional, required if present, one per AOP
-	Name string `json:"name"`
+	Name string 
 
 	// DEPRECATED in version 2.1 of spec
 	// 8.10: Artifact of Project Homepage: URL or "UNKNOWN"
 	// Cardinality: optional, one per AOP
-	HomePage string `json:"homePage"`
+	HomePage string 
 
 	// DEPRECATED in version 2.1 of spec
 	// 8.11: Artifact of Project Uniform Resource Identifier
 	// Cardinality: optional, one per AOP
-	URI string `json:"URI"`
+	URI string 
 }
 
 // OtherLicense is an Other License Information section of an
@@ -652,126 +652,126 @@ type OtherLicense struct {
 	// 10.1: License Identifier: "LicenseRef-[idstring]"
 	// Cardinality: conditional (mandatory, one) if license is not
 	//              on SPDX License List
-	LicenseIdentifier string `json:"licenseId"`
+	LicenseIdentifier string 
 
 	// 10.2: Extracted Text
 	// Cardinality: conditional (mandatory, one) if there is a
 	//              License Identifier assigned
-	ExtractedText string `json:"extractedText"`
+	ExtractedText string 
 
 	// 10.3: License Name: single line of text or "NOASSERTION"
 	// Cardinality: conditional (mandatory, one) if license is not
 	//              on SPDX License List
-	LicenseName string `json:"name,omitempty"`
+	LicenseName string 
 
 	// 10.4: License Cross Reference
 	// Cardinality: conditional (optional, one or many) if license
 	//              is not on SPDX License List
-	LicenseCrossReferences []string `json:"seeAlsos,omitempty"`
+	LicenseCrossReferences []string 
 
 	// 10.5: License Comment
 	// Cardinality: optional, one
-	LicenseComment string `json:"comment,omitempty"`
+	LicenseComment string 
 }
 
 // Package is a Package section of an SPDX Document for version 2.3 of the spec.
 type Package struct {
 	// Added
-	HasFiles []string `json:"hasFiles,omitempty"`
+	HasFiles []string 
 
 	// NOT PART OF SPEC
 	// flag: does this "package" contain files that were in fact "unpackaged",
 	// e.g. included directly in the Document without being in a Package?
-	IsUnpackaged bool `json:"-" yaml:"-"`
+	IsUnpackaged bool 
 
 	// 7.1: Package Name
 	// Cardinality: mandatory, one
-	PackageName string `json:"name"`
+	PackageName string 
 
 	// 7.2: Package SPDX Identifier: "SPDXRef-[idstring]"
 	// Cardinality: mandatory, one
-	PackageSPDXIdentifier ElementID `json:"SPDXID"`
+	PackageSPDXIdentifier ElementID 
 
 	// 7.3: Package Version
 	// Cardinality: optional, one
-	PackageVersion string `json:"versionInfo,omitempty"`
+	PackageVersion string 
 
 	// 7.4: Package File Name
 	// Cardinality: optional, one
-	PackageFileName string `json:"packageFileName,omitempty"`
+	PackageFileName string 
 
 	// 7.5: Package Supplier: may have single result for either Person or Organization,
 	//                        or NOASSERTION
 	// Cardinality: optional, one
-	PackageSupplier *Supplier `json:"supplier,omitempty"`
+	PackageSupplier *Supplier 
 
 	// 7.6: Package Originator: may have single result for either Person or Organization,
 	//                          or NOASSERTION
 	// Cardinality: optional, one
-	PackageOriginator *Originator `json:"originator,omitempty"`
+	PackageOriginator *Originator 
 
 	// 7.7: Package Download Location
 	// Cardinality: mandatory, one
-	PackageDownloadLocation string `json:"downloadLocation"`
+	PackageDownloadLocation string 
 
 	// 7.8: FilesAnalyzed
 	// Cardinality: optional, one; default value is "true" if omitted
-	FilesAnalyzed bool `json:"filesAnalyzed,omitempty"`
+	FilesAnalyzed bool 
 	// NOT PART OF SPEC: did FilesAnalyzed tag appear?
-	IsFilesAnalyzedTagPresent bool `json:"-" yaml:"-"`
+	IsFilesAnalyzedTagPresent bool 
 
 	// 7.9: Package Verification Code
 	// Cardinality: if FilesAnalyzed == true must be present, if FilesAnalyzed == false must be omitted
-	PackageVerificationCode *PackageVerificationCode `json:"packageVerificationCode,omitempty"`
+	PackageVerificationCode *PackageVerificationCode 
 
 	// 7.10: Package Checksum: may have keys for SHA1, SHA256, SHA512, MD5, SHA3-256, SHA3-384, SHA3-512, BLAKE2b-256, BLAKE2b-384, BLAKE2b-512, BLAKE3, ADLER32
 	// Cardinality: optional, one or many
-	PackageChecksums []Checksum `json:"checksums,omitempty"`
+	PackageChecksums []Checksum 
 
 	// 7.11: Package Home Page
 	// Cardinality: optional, one
-	PackageHomePage string `json:"homepage,omitempty"`
+	PackageHomePage string 
 
 	// 7.12: Source Information
 	// Cardinality: optional, one
-	PackageSourceInfo string `json:"sourceInfo,omitempty"`
+	PackageSourceInfo string 
 
 	// 7.13: Concluded License: SPDX License Expression, "NONE" or "NOASSERTION"
 	// Cardinality: optional, one
-	PackageLicenseConcluded string `json:"licenseConcluded,omitempty"`
+	PackageLicenseConcluded string 
 
 	// 7.14: All Licenses Info from Files: SPDX License Expression, "NONE" or "NOASSERTION"
 	// Cardinality: optional, one or many if filesAnalyzed is true / omitted;
 	//              zero (must be omitted) if filesAnalyzed is false
-	PackageLicenseInfoFromFiles []string `json:"licenseInfoFromFiles,omitempty"`
+	PackageLicenseInfoFromFiles []string 
 
 	// 7.15: Declared License: SPDX License Expression, "NONE" or "NOASSERTION"
 	// Cardinality: optional, one
-	PackageLicenseDeclared string `json:"licenseDeclared,omitempty"`
+	PackageLicenseDeclared string 
 
 	// 7.16: Comments on License
 	// Cardinality: optional, one
-	PackageLicenseComments string `json:"licenseComments,omitempty"`
+	PackageLicenseComments string 
 
 	// 7.17: Copyright Text: copyright notice(s) text, "NONE" or "NOASSERTION"
 	// Cardinality: mandatory, one
-	PackageCopyrightText string `json:"copyrightText"`
+	PackageCopyrightText string 
 
 	// 7.18: Package Summary Description
 	// Cardinality: optional, one
-	PackageSummary string `json:"summary,omitempty"`
+	PackageSummary string 
 
 	// 7.19: Package Detailed Description
 	// Cardinality: optional, one
-	PackageDescription string `json:"description,omitempty"`
+	PackageDescription string 
 
 	// 7.20: Package Comment
 	// Cardinality: optional, one
-	PackageComment string `json:"comment,omitempty"`
+	PackageComment string 
 
 	// 7.21: Package External Reference
 	// Cardinality: optional, one or many
-	PackageExternalReferences []*PackageExternalReference `json:"externalRefs,omitempty"`
+	PackageExternalReferences []*PackageExternalReference 
 
 	// 7.22: Package External Reference Comment
 	// Cardinality: conditional (optional, one) for each External Reference
@@ -779,48 +779,48 @@ type Package struct {
 
 	// 7.23: Package Attribution Text
 	// Cardinality: optional, one or many
-	PackageAttributionTexts []string `json:"attributionTexts,omitempty"`
+	PackageAttributionTexts []string 
 
 	// 7.24: Primary Package Purpose
 	// Cardinality: optional, one or many
 	// Allowed values: APPLICATION, FRAMEWORK, LIBRARY, CONTAINER, OPERATING-SYSTEM, DEVICE, FIRMWARE, SOURCE, ARCHIVE, FILE, INSTALL, OTHER
-	PrimaryPackagePurpose string `json:"primaryPackagePurpose,omitempty"`
+	PrimaryPackagePurpose string 
 
 	// 7.25: Release Date: YYYY-MM-DDThh:mm:ssZ
 	// Cardinality: optional, one
-	ReleaseDate string `json:"releaseDate,omitempty"`
+	ReleaseDate string 
 
 	// 7.26: Build Date: YYYY-MM-DDThh:mm:ssZ
 	// Cardinality: optional, one
-	BuiltDate string `json:"builtDate,omitempty"`
+	BuiltDate string 
 
 	// 7.27: Valid Until Date: YYYY-MM-DDThh:mm:ssZ
 	// Cardinality: optional, one
-	ValidUntilDate string `json:"validUntilDate,omitempty"`
+	ValidUntilDate string 
 
 	// Files contained in this Package
-	Files []*File `json:"files,omitempty"`
+	Files []*File 
 
-	Annotations []Annotation `json:"annotations,omitempty"`
+	Annotations []Annotation 
 }
 
 // PackageExternalReference is an External Reference to additional info
 // about a Package, as defined in section 7.21 in version 2.3 of the spec.
 type PackageExternalReference struct {
 	// category is "SECURITY", "PACKAGE-MANAGER" or "OTHER"
-	Category string `json:"referenceCategory"`
+	Category string 
 
 	// type is an [idstring] as defined in Appendix VI;
 	// called RefType here due to "type" being a Golang keyword
-	RefType string `json:"referenceType"`
+	RefType string 
 
 	// locator is a unique string to access the package-specific
 	// info, metadata or content within the target location
-	Locator string `json:"referenceLocator"`
+	Locator string 
 
 	// 7.22: Package External Reference Comment
 	// Cardinality: conditional (optional, one) for each External Reference
-	ExternalRefComment string `json:"comment,omitempty"`
+	ExternalRefComment string 
 }
 
 // Relationship is a Relationship section of an SPDX Document for
@@ -832,13 +832,13 @@ type Relationship struct {
 	//              one mandatory for SPDX Document with multiple packages
 	// RefA and RefB are first and second item
 	// Relationship is type from 11.1.1
-	RefA         DocElementID `json:"spdxElementId"`
-	RefB         DocElementID `json:"relatedSpdxElement"`
-	Relationship string              `json:"relationshipType"`
+	RefA         DocElementID 
+	RefB         DocElementID 
+	Relationship string              
 
 	// 11.2: Relationship Comment
 	// Cardinality: optional, one
-	RelationshipComment string `json:"comment,omitempty"`
+	RelationshipComment string 
 }
 
 // Review is a Review section of an SPDX Document for version 2.3 of the spec.
@@ -868,40 +868,40 @@ type Snippet struct {
 
 	// 9.1: Snippet SPDX Identifier: "SPDXRef-[idstring]"
 	// Cardinality: mandatory, one
-	SnippetSPDXIdentifier ElementID `json:"SPDXID"`
+	SnippetSPDXIdentifier ElementID 
 
 	// 9.2: Snippet from File SPDX Identifier
 	// Cardinality: mandatory, one
-	SnippetFromFileSPDXIdentifier ElementID `json:"snippetFromFile"`
+	SnippetFromFileSPDXIdentifier ElementID 
 
 	// Ranges denotes the start/end byte offsets or line numbers that the snippet is relevant to
-	Ranges []SnippetRange `json:"ranges"`
+	Ranges []SnippetRange 
 
 	// 9.5: Snippet Concluded License: SPDX License Expression, "NONE" or "NOASSERTION"
 	// Cardinality: optional, one
-	SnippetLicenseConcluded string `json:"licenseConcluded,omitempty"`
+	SnippetLicenseConcluded string 
 
 	// 9.6: License Information in Snippet: SPDX License Expression, "NONE" or "NOASSERTION"
 	// Cardinality: optional, one or many
-	LicenseInfoInSnippet []string `json:"licenseInfoInSnippets,omitempty"`
+	LicenseInfoInSnippet []string 
 
 	// 9.7: Snippet Comments on License
 	// Cardinality: optional, one
-	SnippetLicenseComments string `json:"licenseComments,omitempty"`
+	SnippetLicenseComments string 
 
 	// 9.8: Snippet Copyright Text: copyright notice(s) text, "NONE" or "NOASSERTION"
 	// Cardinality: mandatory, one
-	SnippetCopyrightText string `json:"copyrightText"`
+	SnippetCopyrightText string 
 
 	// 9.9: Snippet Comment
 	// Cardinality: optional, one
-	SnippetComment string `json:"comment,omitempty"`
+	SnippetComment string 
 
 	// 9.10: Snippet Name
 	// Cardinality: optional, one
-	SnippetName string `json:"name,omitempty"`
+	SnippetName string 
 
 	// 9.11: Snippet Attribution Text
 	// Cardinality: optional, one or many
-	SnippetAttributionTexts []string `json:"-" yaml:"-"`
+	SnippetAttributionTexts []string 
 }

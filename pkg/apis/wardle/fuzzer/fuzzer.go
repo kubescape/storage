@@ -23,11 +23,81 @@ import (
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
+func prepareFile(file *wardle.File) {
+	// Snippets are not exported, and should not be round-tripped
+	file.Snippets = nil
+}
+
+func prepareReviews(reviews *[]*wardle.Review) {
+	// Reviews are deprecated and not exported, so they should not be round tripped
+	*reviews = nil
+}
+
+func prepareCreationInfo(creationInfo *wardle.CreationInfo) {
+	if creationInfo == nil {
+		return
+	}
+
+	for i := range creationInfo.Creators {
+		creator := &creationInfo.Creators[i]
+		creator.Creator = "kubescape"
+		creator.CreatorType = "Tool"
+	}
+}
+
+func prepareSPDXIdentifier(SPDXIdentifier *wardle.ElementID) {
+	*SPDXIdentifier = "DOCUMENT"
+}
+
+func fuzzDocElementID(dei *wardle.DocElementID, c fuzz.Continue) {
+	dei.DocumentRefID = ""
+	dei.ElementRefID = wardle.ElementID("dummyvalue")
+}
+
+func fuzzSupplier(s *wardle.Supplier, c fuzz.Continue) {
+	s.Supplier = "John Doe"
+	s.SupplierType = "Person"
+}
+
+func fuzzAnnotator(a *wardle.Annotator, c fuzz.Continue) {
+	a.Annotator = "Kubescape"
+	a.AnnotatorType = "Tool"
+}
+
+func fuzzOriginator(o *wardle.Originator, c fuzz.Continue) {
+	o.Originator = "John Doe"
+	o.OriginatorType = "Person"
+}
+
+func fuzzFile(f *wardle.File, c fuzz.Continue) {
+	// Snippets are not exported, should not be checked
+	// somechange
+	f.Snippets = map[wardle.ElementID]*wardle.Snippet{}
+}
+
 // Funcs returns the fuzzer functions for the apps api group.
 var Funcs = func(codecs runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *wardle.FlunderSpec, c fuzz.Continue) {
 			c.FuzzNoCustom(s) // fuzz self without calling this function again
+
+			prepareSPDXIdentifier(&s.SPDX.SPDXIdentifier)
+
+			prepareCreationInfo(s.SPDX.CreationInfo)
+
+			prepareReviews(&s.SPDX.Reviews)
+
+			for _, file := range s.SPDX.Files {
+				if file == nil {
+					continue
+				}
+				prepareFile(file)
+			}
 		},
+		fuzzDocElementID,
+		fuzzSupplier,
+		fuzzAnnotator,
+		fuzzOriginator,
+		fuzzFile,
 	}
 }

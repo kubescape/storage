@@ -2722,12 +2722,13 @@ func schema_pkg_apis_wardle_v1beta1_CreationInfo(ref common.ReferenceCallback) c
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "6.10: Creator Comment Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"licenseListVersion", "creators", "created"},
+				Required: []string{"licenseListVersion", "creators", "created", "comment"},
 			},
 		},
 		Dependencies: []string{
@@ -2878,6 +2879,7 @@ func schema_pkg_apis_wardle_v1beta1_Document(ref common.ReferenceCallback) commo
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "6.11: Document Comment Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2941,7 +2943,8 @@ func schema_pkg_apis_wardle_v1beta1_Document(ref common.ReferenceCallback) commo
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Annotation"),
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Annotation"),
 									},
 								},
 							},
@@ -2961,7 +2964,7 @@ func schema_pkg_apis_wardle_v1beta1_Document(ref common.ReferenceCallback) commo
 						},
 					},
 				},
-				Required: []string{"documentDescribes", "spdxVersion", "dataLicense", "SPDXID", "name", "documentNamespace", "creationInfo"},
+				Required: []string{"documentDescribes", "spdxVersion", "dataLicense", "SPDXID", "name", "documentNamespace", "externalDocumentRefs", "comment", "creationInfo", "packages", "files", "hasExtractedLicensingInfos", "relationships", "annotations", "snippets"},
 			},
 		},
 		Dependencies: []string{
@@ -3063,6 +3066,7 @@ func schema_pkg_apis_wardle_v1beta1_File(ref common.ReferenceCallback) common.Op
 					"licenseConcluded": {
 						SchemaProps: spec.SchemaProps{
 							Description: "8.5: Concluded License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3085,6 +3089,7 @@ func schema_pkg_apis_wardle_v1beta1_File(ref common.ReferenceCallback) common.Op
 					"licenseComments": {
 						SchemaProps: spec.SchemaProps{
 							Description: "8.7: Comments on License Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3113,6 +3118,7 @@ func schema_pkg_apis_wardle_v1beta1_File(ref common.ReferenceCallback) common.Op
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "8.12: File Comment Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3120,6 +3126,7 @@ func schema_pkg_apis_wardle_v1beta1_File(ref common.ReferenceCallback) common.Op
 					"noticeText": {
 						SchemaProps: spec.SchemaProps{
 							Description: "8.13: File Notice Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3183,7 +3190,7 @@ func schema_pkg_apis_wardle_v1beta1_File(ref common.ReferenceCallback) common.Op
 						},
 					},
 				},
-				Required: []string{"fileName", "SPDXID", "checksums", "copyrightText"},
+				Required: []string{"fileName", "SPDXID", "fileTypes", "checksums", "licenseConcluded", "licenseInfoInFiles", "licenseComments", "copyrightText", "artifactOfs", "comment", "noticeText", "fileContributors", "attributionTexts", "fileDependencies", "annotations"},
 			},
 		},
 		Dependencies: []string{
@@ -3374,6 +3381,7 @@ func schema_pkg_apis_wardle_v1beta1_OtherLicense(ref common.ReferenceCallback) c
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Description: "10.3: License Name: single line of text or \"NOASSERTION\" Cardinality: conditional (mandatory, one) if license is not\n             on SPDX License List",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3396,12 +3404,13 @@ func schema_pkg_apis_wardle_v1beta1_OtherLicense(ref common.ReferenceCallback) c
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "10.5: License Comment Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"licenseId", "extractedText"},
+				Required: []string{"licenseId", "extractedText", "name", "seeAlsos", "comment"},
 			},
 		},
 	}
@@ -3448,6 +3457,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"versionInfo": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.3: Package Version Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3455,6 +3465,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"packageFileName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.4: Package File Name Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3482,6 +3493,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"filesAnalyzed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.8: FilesAnalyzed Cardinality: optional, one; default value is \"true\" if omitted",
+							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -3509,6 +3521,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"homepage": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.11: Package Home Page Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3516,6 +3529,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"sourceInfo": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.12: Source Information Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3523,6 +3537,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"licenseConcluded": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.13: Concluded License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3545,6 +3560,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"licenseDeclared": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.15: Declared License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3552,6 +3568,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"licenseComments": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.16: Comments on License Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3567,6 +3584,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"summary": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.18: Package Summary Description Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3574,6 +3592,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"description": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.19: Package Detailed Description Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3581,6 +3600,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.20: Package Comment Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3616,6 +3636,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"primaryPackagePurpose": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.24: Primary Package Purpose Cardinality: optional, one or many Allowed values: APPLICATION, FRAMEWORK, LIBRARY, CONTAINER, OPERATING-SYSTEM, DEVICE, FIRMWARE, SOURCE, ARCHIVE, FILE, INSTALL, OTHER",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3623,6 +3644,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"releaseDate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.25: Release Date: YYYY-MM-DDThh:mm:ssZ Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3630,6 +3652,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"builtDate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.26: Build Date: YYYY-MM-DDThh:mm:ssZ Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3637,6 +3660,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 					"validUntilDate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.27: Valid Until Date: YYYY-MM-DDThh:mm:ssZ Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3668,7 +3692,7 @@ func schema_pkg_apis_wardle_v1beta1_Package(ref common.ReferenceCallback) common
 						},
 					},
 				},
-				Required: []string{"hasFiles", "name", "SPDXID", "downloadLocation", "copyrightText"},
+				Required: []string{"hasFiles", "name", "SPDXID", "versionInfo", "packageFileName", "supplier", "originator", "downloadLocation", "filesAnalyzed", "packageVerificationCode", "checksums", "homepage", "sourceInfo", "licenseConcluded", "licenseInfoFromFiles", "licenseDeclared", "licenseComments", "copyrightText", "summary", "description", "comment", "externalRefs", "attributionTexts", "primaryPackagePurpose", "releaseDate", "builtDate", "validUntilDate", "files", "annotations"},
 			},
 		},
 		Dependencies: []string{
@@ -3710,12 +3734,13 @@ func schema_pkg_apis_wardle_v1beta1_PackageExternalReference(ref common.Referenc
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "7.22: Package External Reference Comment Cardinality: conditional (optional, one) for each External Reference",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"referenceCategory", "referenceType", "referenceLocator"},
+				Required: []string{"referenceCategory", "referenceType", "referenceLocator", "comment"},
 			},
 		},
 	}
@@ -3751,7 +3776,7 @@ func schema_pkg_apis_wardle_v1beta1_PackageVerificationCode(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"packageVerificationCodeValue"},
+				Required: []string{"packageVerificationCodeValue", "packageVerificationCodeExcludedFiles"},
 			},
 		},
 	}
@@ -3787,12 +3812,13 @@ func schema_pkg_apis_wardle_v1beta1_Relationship(ref common.ReferenceCallback) c
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "11.2: Relationship Comment Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"spdxElementId", "relatedSpdxElement", "relationshipType"},
+				Required: []string{"spdxElementId", "relatedSpdxElement", "relationshipType", "comment"},
 			},
 		},
 		Dependencies: []string{
@@ -3886,6 +3912,7 @@ func schema_pkg_apis_wardle_v1beta1_Snippet(ref common.ReferenceCallback) common
 					"licenseConcluded": {
 						SchemaProps: spec.SchemaProps{
 							Description: "9.5: Snippet Concluded License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3908,6 +3935,7 @@ func schema_pkg_apis_wardle_v1beta1_Snippet(ref common.ReferenceCallback) common
 					"licenseComments": {
 						SchemaProps: spec.SchemaProps{
 							Description: "9.7: Snippet Comments on License Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3923,6 +3951,7 @@ func schema_pkg_apis_wardle_v1beta1_Snippet(ref common.ReferenceCallback) common
 					"comment": {
 						SchemaProps: spec.SchemaProps{
 							Description: "9.9: Snippet Comment Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3930,12 +3959,13 @@ func schema_pkg_apis_wardle_v1beta1_Snippet(ref common.ReferenceCallback) common
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Description: "9.10: Snippet Name Cardinality: optional, one",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"SPDXID", "snippetFromFile", "ranges", "copyrightText"},
+				Required: []string{"SPDXID", "snippetFromFile", "ranges", "licenseConcluded", "licenseInfoInSnippets", "licenseComments", "copyrightText", "comment", "name"},
 			},
 		},
 		Dependencies: []string{
@@ -3979,6 +4009,7 @@ func schema_pkg_apis_wardle_v1beta1_SnippetRangePointer(ref common.ReferenceCall
 					"offset": {
 						SchemaProps: spec.SchemaProps{
 							Description: "5.3: Snippet Byte Range: [start byte]:[end byte] Cardinality: mandatory, one",
+							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -3986,6 +4017,7 @@ func schema_pkg_apis_wardle_v1beta1_SnippetRangePointer(ref common.ReferenceCall
 					"lineNumber": {
 						SchemaProps: spec.SchemaProps{
 							Description: "5.4: Snippet Line Range: [start line]:[end line] Cardinality: optional, one",
+							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -3998,7 +4030,7 @@ func schema_pkg_apis_wardle_v1beta1_SnippetRangePointer(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"reference"},
+				Required: []string{"offset", "lineNumber", "reference"},
 			},
 		},
 	}

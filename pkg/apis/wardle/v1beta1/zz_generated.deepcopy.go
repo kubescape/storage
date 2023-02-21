@@ -208,14 +208,8 @@ func (in *Document) DeepCopyInto(out *Document) {
 	}
 	if in.Annotations != nil {
 		in, out := &in.Annotations, &out.Annotations
-		*out = make([]*Annotation, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(Annotation)
-				**out = **in
-			}
-		}
+		*out = make([]Annotation, len(*in))
+		copy(*out, *in)
 	}
 	if in.Snippets != nil {
 		in, out := &in.Snippets, &out.Snippets

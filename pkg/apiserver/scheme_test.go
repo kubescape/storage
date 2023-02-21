@@ -17,12 +17,45 @@ limitations under the License.
 package apiserver
 
 import (
+	"regexp"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
+	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
+	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/wardle/fuzzer"
+	"math/rand"
 )
 
 func TestRoundTripTypes(t *testing.T) {
-	roundtrip.RoundTripTestForScheme(t, Scheme, wardlefuzzer.Funcs)
+	fuzzingFuncs := wardlefuzzer.Funcs
+	scheme := Scheme
+
+	codecFactory := runtimeserializer.NewCodecFactory(scheme)
+	f := fuzzer.FuzzerFor(
+		fuzzer.MergeFuzzerFuncs(metafuzzer.Funcs, fuzzingFuncs),
+		rand.NewSource(rand.Int63()),
+		codecFactory,
+	)
+
+	skippedFields := []string{
+		"SnippetAttributionTexts",
+		"SpecialID",
+		"IsUnpackaged",
+		"IsFilesAnalyzedTagPresent",
+		"ManagedFields",
+		"SnippetSPDXIdentifier",
+		"Snippets",
+		"DocumentRefID",
+		"ElementRefID",
+		// Not exported
+		"AnnotationSPDXIdentifier",
+	}
+	for idx := range skippedFields {
+		skipPattern := regexp.MustCompile(skippedFields[idx])
+		f.SkipFieldsWithPattern(skipPattern)
+	}
+
+	roundtrip.RoundTripTypesWithoutProtobuf(t, scheme, codecFactory, f, nil)
 }

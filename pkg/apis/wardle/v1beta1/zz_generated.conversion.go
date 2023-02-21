@@ -479,7 +479,7 @@ func autoConvert_v1beta1_Document_To_wardle_Document(in *Document, out *wardle.D
 	out.Files = *(*[]*wardle.File)(unsafe.Pointer(&in.Files))
 	out.OtherLicenses = *(*[]*wardle.OtherLicense)(unsafe.Pointer(&in.OtherLicenses))
 	out.Relationships = *(*[]*wardle.Relationship)(unsafe.Pointer(&in.Relationships))
-	out.Annotations = *(*[]*wardle.Annotation)(unsafe.Pointer(&in.Annotations))
+	out.Annotations = *(*[]wardle.Annotation)(unsafe.Pointer(&in.Annotations))
 	out.Snippets = *(*[]wardle.Snippet)(unsafe.Pointer(&in.Snippets))
 	out.Reviews = *(*[]*wardle.Review)(unsafe.Pointer(&in.Reviews))
 	return nil
@@ -504,7 +504,7 @@ func autoConvert_wardle_Document_To_v1beta1_Document(in *wardle.Document, out *D
 	out.Files = *(*[]*File)(unsafe.Pointer(&in.Files))
 	out.OtherLicenses = *(*[]*OtherLicense)(unsafe.Pointer(&in.OtherLicenses))
 	out.Relationships = *(*[]*Relationship)(unsafe.Pointer(&in.Relationships))
-	out.Annotations = *(*[]*Annotation)(unsafe.Pointer(&in.Annotations))
+	out.Annotations = *(*[]Annotation)(unsafe.Pointer(&in.Annotations))
 	out.Snippets = *(*[]Snippet)(unsafe.Pointer(&in.Snippets))
 	out.Reviews = *(*[]*Review)(unsafe.Pointer(&in.Reviews))
 	return nil

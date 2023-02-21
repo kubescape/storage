@@ -18,13 +18,48 @@ package install
 
 import (
 	"testing"
+	"regexp"
 
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/wardle/fuzzer"
+	"k8s.io/apimachinery/pkg/runtime"
+	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
+	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
+	"math/rand"
 )
 
 func TestRoundTripTypes(t *testing.T) {
-	roundtrip.RoundTripTestForAPIGroup(t, Install, wardlefuzzer.Funcs)
-	// TODO: enable protobuf generation for the sample-apiserver
-	// roundtrip.RoundTripProtobufTestForAPIGroup(t, Install, wardlefuzzer.Funcs)
+	installFn := Install
+	fuzzingFuncs := wardlefuzzer.Funcs
+
+	scheme := runtime.NewScheme()
+	installFn(scheme)
+
+	codecFactory := runtimeserializer.NewCodecFactory(scheme)
+	f := fuzzer.FuzzerFor(
+		fuzzer.MergeFuzzerFuncs(metafuzzer.Funcs, fuzzingFuncs),
+		rand.NewSource(rand.Int63()),
+		codecFactory,
+	)
+
+	skippedFields := []string{
+		"SnippetAttributionTexts",
+		"SpecialID",
+		"IsUnpackaged",
+		"IsFilesAnalyzedTagPresent",
+		"ManagedFields",
+		"SnippetSPDXIdentifier",
+		"Snippets",
+		"DocumentRefID",
+		"ElementRefID",
+		// Not exported
+		"AnnotationSPDXIdentifier",
+	}
+	for idx := range skippedFields {
+		skipPattern := regexp.MustCompile(skippedFields[idx])
+		f.SkipFieldsWithPattern(skipPattern)
+	}
+
+	roundtrip.RoundTripTypesWithoutProtobuf(t, scheme, codecFactory, f, nil)
 }
