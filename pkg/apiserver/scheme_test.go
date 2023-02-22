@@ -39,6 +39,9 @@ func TestRoundTripTypes(t *testing.T) {
 		codecFactory,
 	)
 
+	f.NumElements(1,2)
+	f.NilChance(0)
+
 	skippedFields := []string{
 		"SnippetAttributionTexts",
 		"SpecialID",

@@ -87,8 +87,11 @@ type Creator struct {
 // UnmarshalJSON takes an annotator in the typical one-line format and parses it into a Creator struct.
 // This function is also used when unmarshalling YAML
 func (c *Creator) UnmarshalJSON(data []byte) error {
-	str := string(data)
-	str = strings.Trim(str, "\"")
+	var str string
+	err := json.Unmarshal(data, &str)
+	if err != nil {
+		return err
+	}
 	fields := strings.SplitN(str, ": ", 2)
 
 	if len(fields) != 2 {
@@ -199,8 +202,6 @@ func (d *ElementID) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-
-	idStr = strings.Trim(idStr, "\"")
 
 	e, err := trimElementIdPrefix(idStr)
 	if err != nil {
