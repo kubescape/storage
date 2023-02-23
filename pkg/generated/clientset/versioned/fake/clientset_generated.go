@@ -25,8 +25,8 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
-	spdxv1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/wardle/v1beta1"
-	fakespdxv1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/wardle/v1beta1/fake"
+	spdxv1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	fakespdxv1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.

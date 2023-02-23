@@ -33,7 +33,7 @@ import (
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/sample-apiserver/pkg/admission/wardleinitializer"
-	"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1"
+	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
 	"k8s.io/sample-apiserver/pkg/apiserver"
 	clientset "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
 	informers "k8s.io/sample-apiserver/pkg/generated/informers/externalversions"

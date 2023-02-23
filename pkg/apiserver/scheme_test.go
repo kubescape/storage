@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/wardle/fuzzer"
+	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/fuzzer"
 	"math/rand"
 )
 

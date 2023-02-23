@@ -26,10 +26,10 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	wardlev1beta1 "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
+	softwarecompositionv1beta1 "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
 	versioned "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
 	internalinterfaces "k8s.io/sample-apiserver/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "k8s.io/sample-apiserver/pkg/generated/listers/wardle/v1beta1"
+	v1beta1 "k8s.io/sample-apiserver/pkg/generated/listers/softwarecomposition/v1beta1"
 )
 
 // SBOMSPDXv2p3Informer provides access to a shared informer and lister for
@@ -71,7 +71,7 @@ func NewFilteredSBOMSPDXv2p3Informer(client versioned.Interface, namespace strin
 				return client.SpdxV1beta1().SBOMSPDXv2p3s(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&wardlev1beta1.SBOMSPDXv2p3{},
+		&softwarecompositionv1beta1.SBOMSPDXv2p3{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,7 +82,7 @@ func (f *sBOMSPDXv2p3Informer) defaultInformer(client versioned.Interface, resyn
 }
 
 func (f *sBOMSPDXv2p3Informer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&wardlev1beta1.SBOMSPDXv2p3{}, f.defaultInformer)
+	return f.factory.InformerFor(&softwarecompositionv1beta1.SBOMSPDXv2p3{}, f.defaultInformer)
 }
 
 func (f *sBOMSPDXv2p3Informer) Lister() v1beta1.SBOMSPDXv2p3Lister {

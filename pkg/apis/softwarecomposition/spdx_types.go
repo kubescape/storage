@@ -1,4 +1,4 @@
-package wardle
+package softwarecomposition
 
 import (
 	"encoding/json"

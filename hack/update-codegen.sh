@@ -28,7 +28,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
 "${CODEGEN_PKG}/generate-groups.sh" all \
   k8s.io/sample-apiserver/pkg/generated \
   k8s.io/sample-apiserver/pkg/apis \
-  "wardle:v1beta1" \
+  "softwarecomposition:v1beta1" \
   --output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt
 
@@ -36,7 +36,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
   k8s.io/sample-apiserver/pkg/generated \
   k8s.io/sample-apiserver/pkg/apis \
   k8s.io/sample-apiserver/pkg/apis \
-  "wardle:v1beta1" \
+  "softwarecomposition:v1beta1" \
   --output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
   --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 

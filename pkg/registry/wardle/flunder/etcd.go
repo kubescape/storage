@@ -21,7 +21,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/sample-apiserver/pkg/apis/wardle"
+	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
 	"k8s.io/sample-apiserver/pkg/registry"
 )
 
@@ -30,18 +30,18 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*reg
 	strategy := NewStrategy(scheme)
 
 	store := &genericregistry.Store{
-		NewFunc:                   func() runtime.Object { return &wardle.SBOMSPDXv2p3{} },
-		NewListFunc:               func() runtime.Object { return &wardle.SBOMSPDXv2p3List{} },
+		NewFunc:                   func() runtime.Object { return &softwarecomposition.SBOMSPDXv2p3{} },
+		NewListFunc:               func() runtime.Object { return &softwarecomposition.SBOMSPDXv2p3List{} },
 		PredicateFunc:             MatchFlunder,
-		DefaultQualifiedResource:  wardle.Resource("sbomspdxv2p3s"),
-		SingularQualifiedResource: wardle.Resource("sbomspdxv2p3"),
+		DefaultQualifiedResource:  softwarecomposition.Resource("sbomspdxv2p3s"),
+		SingularQualifiedResource: softwarecomposition.Resource("sbomspdxv2p3"),
 
 		CreateStrategy: strategy,
 		UpdateStrategy: strategy,
 		DeleteStrategy: strategy,
 
 		// TODO: define table converter that exposes more than name/creation timestamp
-		TableConvertor: rest.NewDefaultTableConvertor(wardle.Resource("sbomspdxv2p3s")),
+		TableConvertor: rest.NewDefaultTableConvertor(softwarecomposition.Resource("sbomspdxv2p3s")),
 	}
 	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
 	if err := store.CompleteWithOptions(options); err != nil {

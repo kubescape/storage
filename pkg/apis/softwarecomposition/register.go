@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package wardle
+package softwarecomposition
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"

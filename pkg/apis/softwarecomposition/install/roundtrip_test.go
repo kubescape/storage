@@ -21,7 +21,7 @@ import (
 	"regexp"
 
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
-	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/wardle/fuzzer"
+	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"

@@ -24,7 +24,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	spdxv1beta1 "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1"
+	spdxv1beta1 "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
 )
 
 var Scheme = runtime.NewScheme()

@@ -29,7 +29,7 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 	versioned "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
 	internalinterfaces "k8s.io/sample-apiserver/pkg/generated/informers/externalversions/internalinterfaces"
-	wardle "k8s.io/sample-apiserver/pkg/generated/informers/externalversions/wardle"
+	softwarecomposition "k8s.io/sample-apiserver/pkg/generated/informers/externalversions/softwarecomposition"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.
@@ -243,9 +243,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	Spdx() wardle.Interface
+	Spdx() softwarecomposition.Interface
 }
 
-func (f *sharedInformerFactory) Spdx() wardle.Interface {
-	return wardle.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Spdx() softwarecomposition.Interface {
+	return softwarecomposition.New(f, f.namespace, f.tweakListOptions)
 }
