@@ -57,7 +57,7 @@ type sBOMSPDXv2p3s struct {
 }
 
 // newSBOMSPDXv2p3s returns a SBOMSPDXv2p3s
-func newSBOMSPDXv2p3s(c *WardleV1beta1Client, namespace string) *sBOMSPDXv2p3s {
+func newSBOMSPDXv2p3s(c *SpdxV1beta1Client, namespace string) *sBOMSPDXv2p3s {
 	return &sBOMSPDXv2p3s{
 		client: c.RESTClient(),
 		ns:     namespace,

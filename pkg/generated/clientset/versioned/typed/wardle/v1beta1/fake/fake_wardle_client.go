@@ -24,17 +24,17 @@ import (
 	v1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/wardle/v1beta1"
 )
 
-type FakeWardleV1beta1 struct {
+type FakeSpdxV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeWardleV1beta1) SBOMSPDXv2p3s(namespace string) v1beta1.SBOMSPDXv2p3Interface {
+func (c *FakeSpdxV1beta1) SBOMSPDXv2p3s(namespace string) v1beta1.SBOMSPDXv2p3Interface {
 	return &FakeSBOMSPDXv2p3s{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeWardleV1beta1) RESTClient() rest.Interface {
+func (c *FakeSpdxV1beta1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

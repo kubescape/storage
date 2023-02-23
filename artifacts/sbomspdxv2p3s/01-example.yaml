@@ -1,4 +1,4 @@
-apiVersion: wardle.example.com/v1beta1
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
 kind: SBOMSPDXv2p3
 metadata:
   name: sbom-01

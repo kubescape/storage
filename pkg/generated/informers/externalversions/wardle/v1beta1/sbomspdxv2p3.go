@@ -62,13 +62,13 @@ func NewFilteredSBOMSPDXv2p3Informer(client versioned.Interface, namespace strin
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WardleV1beta1().SBOMSPDXv2p3s(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().SBOMSPDXv2p3s(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WardleV1beta1().SBOMSPDXv2p3s(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().SBOMSPDXv2p3s(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&wardlev1beta1.SBOMSPDXv2p3{},

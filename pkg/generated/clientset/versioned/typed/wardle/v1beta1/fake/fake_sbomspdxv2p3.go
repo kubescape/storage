@@ -31,7 +31,7 @@ import (
 
 // FakeSBOMSPDXv2p3s implements SBOMSPDXv2p3Interface
 type FakeSBOMSPDXv2p3s struct {
-	Fake *FakeWardleV1beta1
+	Fake *FakeSpdxV1beta1
 	ns   string
 }
 

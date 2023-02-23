@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package
-// +groupName=wardle.example.com
+// +groupName=spdx.softwarecomposition.kubescape.io
 
 // Package wardle is the internal version of the API.
 package wardle
