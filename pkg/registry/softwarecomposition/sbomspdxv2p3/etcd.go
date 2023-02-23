@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package flunder
+package sbomspdxv2p3
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
