@@ -28,8 +28,8 @@ type FakeWardleV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeWardleV1beta1) Flunders(namespace string) v1beta1.FlunderInterface {
-	return &FakeFlunders{c, namespace}
+func (c *FakeWardleV1beta1) SBOMSPDXv2p3s(namespace string) v1beta1.SBOMSPDXv2p3Interface {
+	return &FakeSBOMSPDXv2p3s{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

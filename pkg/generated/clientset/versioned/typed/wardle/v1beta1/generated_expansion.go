@@ -18,4 +18,4 @@ limitations under the License.
 
 package v1beta1
 
-type FlunderExpansion interface{}
+type SBOMSPDXv2p3Expansion interface{}

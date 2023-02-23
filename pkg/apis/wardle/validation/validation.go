@@ -22,7 +22,7 @@ import (
 )
 
 // ValidateFlunder validates a Flunder.
-func ValidateFlunder(f *wardle.Flunder) field.ErrorList {
+func ValidateFlunder(f *wardle.SBOMSPDXv2p3) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateFlunderSpec(&f.Spec, field.NewPath("spec"))...)
@@ -31,7 +31,7 @@ func ValidateFlunder(f *wardle.Flunder) field.ErrorList {
 }
 
 // ValidateFlunderSpec validates a FlunderSpec.
-func ValidateFlunderSpec(s *wardle.FlunderSpec, fldPath *field.Path) field.ErrorList {
+func ValidateFlunderSpec(s *wardle.SBOMSPDXv2p3Spec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	return allErrs

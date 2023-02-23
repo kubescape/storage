@@ -30,18 +30,18 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*reg
 	strategy := NewStrategy(scheme)
 
 	store := &genericregistry.Store{
-		NewFunc:                   func() runtime.Object { return &wardle.Flunder{} },
-		NewListFunc:               func() runtime.Object { return &wardle.FlunderList{} },
+		NewFunc:                   func() runtime.Object { return &wardle.SBOMSPDXv2p3{} },
+		NewListFunc:               func() runtime.Object { return &wardle.SBOMSPDXv2p3List{} },
 		PredicateFunc:             MatchFlunder,
-		DefaultQualifiedResource:  wardle.Resource("flunders"),
-		SingularQualifiedResource: wardle.Resource("flunder"),
+		DefaultQualifiedResource:  wardle.Resource("sbomspdxv2p3s"),
+		SingularQualifiedResource: wardle.Resource("sbomspdxv2p3"),
 
 		CreateStrategy: strategy,
 		UpdateStrategy: strategy,
 		DeleteStrategy: strategy,
 
 		// TODO: define table converter that exposes more than name/creation timestamp
-		TableConvertor: rest.NewDefaultTableConvertor(wardle.Resource("flunders")),
+		TableConvertor: rest.NewDefaultTableConvertor(wardle.Resource("sbomspdxv2p3s")),
 	}
 	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
 	if err := store.CompleteWithOptions(options); err != nil {

@@ -32,59 +32,59 @@ import (
 	v1beta1 "k8s.io/sample-apiserver/pkg/generated/listers/wardle/v1beta1"
 )
 
-// FlunderInformer provides access to a shared informer and lister for
-// Flunders.
-type FlunderInformer interface {
+// SBOMSPDXv2p3Informer provides access to a shared informer and lister for
+// SBOMSPDXv2p3s.
+type SBOMSPDXv2p3Informer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.FlunderLister
+	Lister() v1beta1.SBOMSPDXv2p3Lister
 }
 
-type flunderInformer struct {
+type sBOMSPDXv2p3Informer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewFlunderInformer constructs a new informer for Flunder type.
+// NewSBOMSPDXv2p3Informer constructs a new informer for SBOMSPDXv2p3 type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFlunderInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredFlunderInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewSBOMSPDXv2p3Informer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredSBOMSPDXv2p3Informer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredFlunderInformer constructs a new informer for Flunder type.
+// NewFilteredSBOMSPDXv2p3Informer constructs a new informer for SBOMSPDXv2p3 type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredFlunderInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredSBOMSPDXv2p3Informer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WardleV1beta1().Flunders(namespace).List(context.TODO(), options)
+				return client.WardleV1beta1().SBOMSPDXv2p3s(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WardleV1beta1().Flunders(namespace).Watch(context.TODO(), options)
+				return client.WardleV1beta1().SBOMSPDXv2p3s(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&wardlev1beta1.Flunder{},
+		&wardlev1beta1.SBOMSPDXv2p3{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *flunderInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredFlunderInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *sBOMSPDXv2p3Informer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredSBOMSPDXv2p3Informer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *flunderInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&wardlev1beta1.Flunder{}, f.defaultInformer)
+func (f *sBOMSPDXv2p3Informer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&wardlev1beta1.SBOMSPDXv2p3{}, f.defaultInformer)
 }
 
-func (f *flunderInformer) Lister() v1beta1.FlunderLister {
-	return v1beta1.NewFlunderLister(f.Informer().GetIndexer())
+func (f *sBOMSPDXv2p3Informer) Lister() v1beta1.SBOMSPDXv2p3Lister {
+	return v1beta1.NewSBOMSPDXv2p3Lister(f.Informer().GetIndexer())
 }

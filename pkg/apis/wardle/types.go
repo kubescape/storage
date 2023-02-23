@@ -22,31 +22,31 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// FlunderList is a list of Flunder objects.
-type FlunderList struct {
+// SBOMSPDXv2p3List is a list of Flunder objects.
+type SBOMSPDXv2p3List struct {
 	metav1.TypeMeta
 	metav1.ListMeta
 
-	Items []Flunder
+	Items []SBOMSPDXv2p3
 }
 
-// FlunderSpec is the specification of a Flunder.
-type FlunderSpec struct {
+// SBOMSPDXv2p3Spec is the specification of an SPDX SBOM.
+type SBOMSPDXv2p3Spec struct {
 	SPDX Document
 }
 
-// FlunderStatus is the status of a Flunder.
-type FlunderStatus struct {
+// SBOMSPDXv2p3Status is the status of an SPDX SBOM.
+type SBOMSPDXv2p3Status struct {
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Flunder is an example type with a spec and a status.
-type Flunder struct {
+// SBOMSPDXv2p3 is a custom resource that describes an SBOM in the SPDX 2.3 format.
+type SBOMSPDXv2p3 struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   FlunderSpec
-	Status FlunderStatus
+	Spec   SBOMSPDXv2p3Spec
+	Status SBOMSPDXv2p3Status
 }

@@ -39,7 +39,7 @@ func NewStrategy(typer runtime.ObjectTyper) flunderStrategy {
 
 // GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Flunder
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
-	apiserver, ok := obj.(*wardle.Flunder)
+	apiserver, ok := obj.(*wardle.SBOMSPDXv2p3)
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not a Flunder")
 	}
@@ -57,7 +57,7 @@ func MatchFlunder(label labels.Selector, field fields.Selector) storage.Selectio
 }
 
 // SelectableFields returns a field set that represents the object.
-func SelectableFields(obj *wardle.Flunder) fields.Set {
+func SelectableFields(obj *wardle.SBOMSPDXv2p3) fields.Set {
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 
@@ -77,7 +77,7 @@ func (flunderStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Ob
 }
 
 func (flunderStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	flunder := obj.(*wardle.Flunder)
+	flunder := obj.(*wardle.SBOMSPDXv2p3)
 	return validation.ValidateFlunder(flunder)
 }
 

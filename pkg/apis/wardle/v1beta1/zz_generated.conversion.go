@@ -136,46 +136,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*Flunder)(nil), (*wardle.Flunder)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_Flunder_To_wardle_Flunder(a.(*Flunder), b.(*wardle.Flunder), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*wardle.Flunder)(nil), (*Flunder)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_wardle_Flunder_To_v1beta1_Flunder(a.(*wardle.Flunder), b.(*Flunder), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FlunderList)(nil), (*wardle.FlunderList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_FlunderList_To_wardle_FlunderList(a.(*FlunderList), b.(*wardle.FlunderList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*wardle.FlunderList)(nil), (*FlunderList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_wardle_FlunderList_To_v1beta1_FlunderList(a.(*wardle.FlunderList), b.(*FlunderList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FlunderSpec)(nil), (*wardle.FlunderSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(a.(*FlunderSpec), b.(*wardle.FlunderSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*wardle.FlunderSpec)(nil), (*FlunderSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(a.(*wardle.FlunderSpec), b.(*FlunderSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FlunderStatus)(nil), (*wardle.FlunderStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_FlunderStatus_To_wardle_FlunderStatus(a.(*FlunderStatus), b.(*wardle.FlunderStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*wardle.FlunderStatus)(nil), (*FlunderStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(a.(*wardle.FlunderStatus), b.(*FlunderStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*Originator)(nil), (*wardle.Originator)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Originator_To_wardle_Originator(a.(*Originator), b.(*wardle.Originator), scope)
 	}); err != nil {
@@ -243,6 +203,46 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*wardle.Review)(nil), (*Review)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_wardle_Review_To_v1beta1_Review(a.(*wardle.Review), b.(*Review), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSPDXv2p3)(nil), (*wardle.SBOMSPDXv2p3)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSPDXv2p3_To_wardle_SBOMSPDXv2p3(a.(*SBOMSPDXv2p3), b.(*wardle.SBOMSPDXv2p3), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.SBOMSPDXv2p3)(nil), (*SBOMSPDXv2p3)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_SBOMSPDXv2p3_To_v1beta1_SBOMSPDXv2p3(a.(*wardle.SBOMSPDXv2p3), b.(*SBOMSPDXv2p3), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSPDXv2p3List)(nil), (*wardle.SBOMSPDXv2p3List)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSPDXv2p3List_To_wardle_SBOMSPDXv2p3List(a.(*SBOMSPDXv2p3List), b.(*wardle.SBOMSPDXv2p3List), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.SBOMSPDXv2p3List)(nil), (*SBOMSPDXv2p3List)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_SBOMSPDXv2p3List_To_v1beta1_SBOMSPDXv2p3List(a.(*wardle.SBOMSPDXv2p3List), b.(*SBOMSPDXv2p3List), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSPDXv2p3Spec)(nil), (*wardle.SBOMSPDXv2p3Spec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSPDXv2p3Spec_To_wardle_SBOMSPDXv2p3Spec(a.(*SBOMSPDXv2p3Spec), b.(*wardle.SBOMSPDXv2p3Spec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.SBOMSPDXv2p3Spec)(nil), (*SBOMSPDXv2p3Spec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_SBOMSPDXv2p3Spec_To_v1beta1_SBOMSPDXv2p3Spec(a.(*wardle.SBOMSPDXv2p3Spec), b.(*SBOMSPDXv2p3Spec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSPDXv2p3Status)(nil), (*wardle.SBOMSPDXv2p3Status)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSPDXv2p3Status_To_wardle_SBOMSPDXv2p3Status(a.(*SBOMSPDXv2p3Status), b.(*wardle.SBOMSPDXv2p3Status), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*wardle.SBOMSPDXv2p3Status)(nil), (*SBOMSPDXv2p3Status)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_wardle_SBOMSPDXv2p3Status_To_v1beta1_SBOMSPDXv2p3Status(a.(*wardle.SBOMSPDXv2p3Status), b.(*SBOMSPDXv2p3Status), scope)
 	}); err != nil {
 		return err
 	}
@@ -593,102 +593,6 @@ func Convert_wardle_File_To_v1beta1_File(in *wardle.File, out *File, s conversio
 	return autoConvert_wardle_File_To_v1beta1_File(in, out, s)
 }
 
-func autoConvert_v1beta1_Flunder_To_wardle_Flunder(in *Flunder, out *wardle.Flunder, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_FlunderStatus_To_wardle_FlunderStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_Flunder_To_wardle_Flunder is an autogenerated conversion function.
-func Convert_v1beta1_Flunder_To_wardle_Flunder(in *Flunder, out *wardle.Flunder, s conversion.Scope) error {
-	return autoConvert_v1beta1_Flunder_To_wardle_Flunder(in, out, s)
-}
-
-func autoConvert_wardle_Flunder_To_v1beta1_Flunder(in *wardle.Flunder, out *Flunder, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_wardle_Flunder_To_v1beta1_Flunder is an autogenerated conversion function.
-func Convert_wardle_Flunder_To_v1beta1_Flunder(in *wardle.Flunder, out *Flunder, s conversion.Scope) error {
-	return autoConvert_wardle_Flunder_To_v1beta1_Flunder(in, out, s)
-}
-
-func autoConvert_v1beta1_FlunderList_To_wardle_FlunderList(in *FlunderList, out *wardle.FlunderList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]wardle.Flunder)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_v1beta1_FlunderList_To_wardle_FlunderList is an autogenerated conversion function.
-func Convert_v1beta1_FlunderList_To_wardle_FlunderList(in *FlunderList, out *wardle.FlunderList, s conversion.Scope) error {
-	return autoConvert_v1beta1_FlunderList_To_wardle_FlunderList(in, out, s)
-}
-
-func autoConvert_wardle_FlunderList_To_v1beta1_FlunderList(in *wardle.FlunderList, out *FlunderList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]Flunder)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_wardle_FlunderList_To_v1beta1_FlunderList is an autogenerated conversion function.
-func Convert_wardle_FlunderList_To_v1beta1_FlunderList(in *wardle.FlunderList, out *FlunderList, s conversion.Scope) error {
-	return autoConvert_wardle_FlunderList_To_v1beta1_FlunderList(in, out, s)
-}
-
-func autoConvert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(in *FlunderSpec, out *wardle.FlunderSpec, s conversion.Scope) error {
-	if err := Convert_v1beta1_Document_To_wardle_Document(&in.SPDX, &out.SPDX, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_FlunderSpec_To_wardle_FlunderSpec is an autogenerated conversion function.
-func Convert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(in *FlunderSpec, out *wardle.FlunderSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_FlunderSpec_To_wardle_FlunderSpec(in, out, s)
-}
-
-func autoConvert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(in *wardle.FlunderSpec, out *FlunderSpec, s conversion.Scope) error {
-	if err := Convert_wardle_Document_To_v1beta1_Document(&in.SPDX, &out.SPDX, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_wardle_FlunderSpec_To_v1beta1_FlunderSpec is an autogenerated conversion function.
-func Convert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(in *wardle.FlunderSpec, out *FlunderSpec, s conversion.Scope) error {
-	return autoConvert_wardle_FlunderSpec_To_v1beta1_FlunderSpec(in, out, s)
-}
-
-func autoConvert_v1beta1_FlunderStatus_To_wardle_FlunderStatus(in *FlunderStatus, out *wardle.FlunderStatus, s conversion.Scope) error {
-	return nil
-}
-
-// Convert_v1beta1_FlunderStatus_To_wardle_FlunderStatus is an autogenerated conversion function.
-func Convert_v1beta1_FlunderStatus_To_wardle_FlunderStatus(in *FlunderStatus, out *wardle.FlunderStatus, s conversion.Scope) error {
-	return autoConvert_v1beta1_FlunderStatus_To_wardle_FlunderStatus(in, out, s)
-}
-
-func autoConvert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(in *wardle.FlunderStatus, out *FlunderStatus, s conversion.Scope) error {
-	return nil
-}
-
-// Convert_wardle_FlunderStatus_To_v1beta1_FlunderStatus is an autogenerated conversion function.
-func Convert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(in *wardle.FlunderStatus, out *FlunderStatus, s conversion.Scope) error {
-	return autoConvert_wardle_FlunderStatus_To_v1beta1_FlunderStatus(in, out, s)
-}
-
 func autoConvert_v1beta1_Originator_To_wardle_Originator(in *Originator, out *wardle.Originator, s conversion.Scope) error {
 	out.Originator = in.Originator
 	out.OriginatorType = in.OriginatorType
@@ -925,6 +829,102 @@ func autoConvert_wardle_Review_To_v1beta1_Review(in *wardle.Review, out *Review,
 // Convert_wardle_Review_To_v1beta1_Review is an autogenerated conversion function.
 func Convert_wardle_Review_To_v1beta1_Review(in *wardle.Review, out *Review, s conversion.Scope) error {
 	return autoConvert_wardle_Review_To_v1beta1_Review(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSPDXv2p3_To_wardle_SBOMSPDXv2p3(in *SBOMSPDXv2p3, out *wardle.SBOMSPDXv2p3, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_SBOMSPDXv2p3Spec_To_wardle_SBOMSPDXv2p3Spec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_SBOMSPDXv2p3Status_To_wardle_SBOMSPDXv2p3Status(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SBOMSPDXv2p3_To_wardle_SBOMSPDXv2p3 is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSPDXv2p3_To_wardle_SBOMSPDXv2p3(in *SBOMSPDXv2p3, out *wardle.SBOMSPDXv2p3, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSPDXv2p3_To_wardle_SBOMSPDXv2p3(in, out, s)
+}
+
+func autoConvert_wardle_SBOMSPDXv2p3_To_v1beta1_SBOMSPDXv2p3(in *wardle.SBOMSPDXv2p3, out *SBOMSPDXv2p3, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_wardle_SBOMSPDXv2p3Spec_To_v1beta1_SBOMSPDXv2p3Spec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_wardle_SBOMSPDXv2p3Status_To_v1beta1_SBOMSPDXv2p3Status(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_wardle_SBOMSPDXv2p3_To_v1beta1_SBOMSPDXv2p3 is an autogenerated conversion function.
+func Convert_wardle_SBOMSPDXv2p3_To_v1beta1_SBOMSPDXv2p3(in *wardle.SBOMSPDXv2p3, out *SBOMSPDXv2p3, s conversion.Scope) error {
+	return autoConvert_wardle_SBOMSPDXv2p3_To_v1beta1_SBOMSPDXv2p3(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSPDXv2p3List_To_wardle_SBOMSPDXv2p3List(in *SBOMSPDXv2p3List, out *wardle.SBOMSPDXv2p3List, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]wardle.SBOMSPDXv2p3)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_SBOMSPDXv2p3List_To_wardle_SBOMSPDXv2p3List is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSPDXv2p3List_To_wardle_SBOMSPDXv2p3List(in *SBOMSPDXv2p3List, out *wardle.SBOMSPDXv2p3List, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSPDXv2p3List_To_wardle_SBOMSPDXv2p3List(in, out, s)
+}
+
+func autoConvert_wardle_SBOMSPDXv2p3List_To_v1beta1_SBOMSPDXv2p3List(in *wardle.SBOMSPDXv2p3List, out *SBOMSPDXv2p3List, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]SBOMSPDXv2p3)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_wardle_SBOMSPDXv2p3List_To_v1beta1_SBOMSPDXv2p3List is an autogenerated conversion function.
+func Convert_wardle_SBOMSPDXv2p3List_To_v1beta1_SBOMSPDXv2p3List(in *wardle.SBOMSPDXv2p3List, out *SBOMSPDXv2p3List, s conversion.Scope) error {
+	return autoConvert_wardle_SBOMSPDXv2p3List_To_v1beta1_SBOMSPDXv2p3List(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSPDXv2p3Spec_To_wardle_SBOMSPDXv2p3Spec(in *SBOMSPDXv2p3Spec, out *wardle.SBOMSPDXv2p3Spec, s conversion.Scope) error {
+	if err := Convert_v1beta1_Document_To_wardle_Document(&in.SPDX, &out.SPDX, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SBOMSPDXv2p3Spec_To_wardle_SBOMSPDXv2p3Spec is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSPDXv2p3Spec_To_wardle_SBOMSPDXv2p3Spec(in *SBOMSPDXv2p3Spec, out *wardle.SBOMSPDXv2p3Spec, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSPDXv2p3Spec_To_wardle_SBOMSPDXv2p3Spec(in, out, s)
+}
+
+func autoConvert_wardle_SBOMSPDXv2p3Spec_To_v1beta1_SBOMSPDXv2p3Spec(in *wardle.SBOMSPDXv2p3Spec, out *SBOMSPDXv2p3Spec, s conversion.Scope) error {
+	if err := Convert_wardle_Document_To_v1beta1_Document(&in.SPDX, &out.SPDX, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_wardle_SBOMSPDXv2p3Spec_To_v1beta1_SBOMSPDXv2p3Spec is an autogenerated conversion function.
+func Convert_wardle_SBOMSPDXv2p3Spec_To_v1beta1_SBOMSPDXv2p3Spec(in *wardle.SBOMSPDXv2p3Spec, out *SBOMSPDXv2p3Spec, s conversion.Scope) error {
+	return autoConvert_wardle_SBOMSPDXv2p3Spec_To_v1beta1_SBOMSPDXv2p3Spec(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSPDXv2p3Status_To_wardle_SBOMSPDXv2p3Status(in *SBOMSPDXv2p3Status, out *wardle.SBOMSPDXv2p3Status, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_v1beta1_SBOMSPDXv2p3Status_To_wardle_SBOMSPDXv2p3Status is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSPDXv2p3Status_To_wardle_SBOMSPDXv2p3Status(in *SBOMSPDXv2p3Status, out *wardle.SBOMSPDXv2p3Status, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSPDXv2p3Status_To_wardle_SBOMSPDXv2p3Status(in, out, s)
+}
+
+func autoConvert_wardle_SBOMSPDXv2p3Status_To_v1beta1_SBOMSPDXv2p3Status(in *wardle.SBOMSPDXv2p3Status, out *SBOMSPDXv2p3Status, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_wardle_SBOMSPDXv2p3Status_To_v1beta1_SBOMSPDXv2p3Status is an autogenerated conversion function.
+func Convert_wardle_SBOMSPDXv2p3Status_To_v1beta1_SBOMSPDXv2p3Status(in *wardle.SBOMSPDXv2p3Status, out *SBOMSPDXv2p3Status, s conversion.Scope) error {
+	return autoConvert_wardle_SBOMSPDXv2p3Status_To_v1beta1_SBOMSPDXv2p3Status(in, out, s)
 }
 
 func autoConvert_v1beta1_Snippet_To_wardle_Snippet(in *Snippet, out *wardle.Snippet, s conversion.Scope) error {

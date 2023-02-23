@@ -28,7 +28,7 @@ import (
 
 type WardleV1beta1Interface interface {
 	RESTClient() rest.Interface
-	FlundersGetter
+	SBOMSPDXv2p3sGetter
 }
 
 // WardleV1beta1Client is used to interact with features provided by the wardle.example.com group.
@@ -36,8 +36,8 @@ type WardleV1beta1Client struct {
 	restClient rest.Interface
 }
 
-func (c *WardleV1beta1Client) Flunders(namespace string) FlunderInterface {
-	return newFlunders(c, namespace)
+func (c *WardleV1beta1Client) SBOMSPDXv2p3s(namespace string) SBOMSPDXv2p3Interface {
+	return newSBOMSPDXv2p3s(c, namespace)
 }
 
 // NewForConfig creates a new WardleV1beta1Client for the given config.

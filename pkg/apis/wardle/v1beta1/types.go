@@ -22,31 +22,31 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// FlunderList is a list of Flunder objects.
-type FlunderList struct {
+// SBOMSPDXv2p3List is a list of Flunder objects.
+type SBOMSPDXv2p3List struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []Flunder `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Items []SBOMSPDXv2p3 `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// FlunderSpec is the specification of a Flunder.
-type FlunderSpec struct {
+// SBOMSPDXv2p3Spec is the specification of a Flunder.
+type SBOMSPDXv2p3Spec struct {
 	SPDX Document `json:"spdx,omitempty"`
 }
 
-// FlunderStatus is the status of a Flunder.
-type FlunderStatus struct {
+// SBOMSPDXv2p3Status is the status of a Flunder.
+type SBOMSPDXv2p3Status struct {
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Flunder is an example type with a spec and a status.
-type Flunder struct {
+// SBOMSPDXv2p3 is an example type with a spec and a status.
+type SBOMSPDXv2p3 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   FlunderSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status FlunderStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	Spec   SBOMSPDXv2p3Spec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status SBOMSPDXv2p3Status `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }

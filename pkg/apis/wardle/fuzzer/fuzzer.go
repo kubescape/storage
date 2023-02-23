@@ -67,7 +67,7 @@ func fuzzCreator(cr *wardle.Creator, c fuzz.Continue) {
 // Funcs returns the fuzzer functions for the apps api group.
 var Funcs = func(codecs runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *wardle.FlunderSpec, c fuzz.Continue) {
+		func(s *wardle.SBOMSPDXv2p3Spec, c fuzz.Continue) {
 			c.FuzzNoCustom(s) // fuzz self without calling this function again
 		},
 		fuzzDocument,

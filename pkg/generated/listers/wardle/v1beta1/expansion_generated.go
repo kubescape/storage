@@ -18,10 +18,10 @@ limitations under the License.
 
 package v1beta1
 
-// FlunderListerExpansion allows custom methods to be added to
-// FlunderLister.
-type FlunderListerExpansion interface{}
+// SBOMSPDXv2p3ListerExpansion allows custom methods to be added to
+// SBOMSPDXv2p3Lister.
+type SBOMSPDXv2p3ListerExpansion interface{}
 
-// FlunderNamespaceListerExpansion allows custom methods to be added to
-// FlunderNamespaceLister.
-type FlunderNamespaceListerExpansion interface{}
+// SBOMSPDXv2p3NamespaceListerExpansion allows custom methods to be added to
+// SBOMSPDXv2p3NamespaceLister.
+type SBOMSPDXv2p3NamespaceListerExpansion interface{}

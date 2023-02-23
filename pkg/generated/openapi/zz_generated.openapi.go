@@ -93,10 +93,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Document":                 schema_pkg_apis_wardle_v1beta1_Document(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.ExternalDocumentRef":      schema_pkg_apis_wardle_v1beta1_ExternalDocumentRef(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.File":                     schema_pkg_apis_wardle_v1beta1_File(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Flunder":                  schema_pkg_apis_wardle_v1beta1_Flunder(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderList":              schema_pkg_apis_wardle_v1beta1_FlunderList(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderSpec":              schema_pkg_apis_wardle_v1beta1_FlunderSpec(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderStatus":            schema_pkg_apis_wardle_v1beta1_FlunderStatus(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Originator":               schema_pkg_apis_wardle_v1beta1_Originator(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.OtherLicense":             schema_pkg_apis_wardle_v1beta1_OtherLicense(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Package":                  schema_pkg_apis_wardle_v1beta1_Package(ref),
@@ -104,6 +100,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.PackageVerificationCode":  schema_pkg_apis_wardle_v1beta1_PackageVerificationCode(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Relationship":             schema_pkg_apis_wardle_v1beta1_Relationship(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Review":                   schema_pkg_apis_wardle_v1beta1_Review(ref),
+		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3":             schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3(ref),
+		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3List":         schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3List(ref),
+		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3Spec":         schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3Spec(ref),
+		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3Status":       schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3Status(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Snippet":                  schema_pkg_apis_wardle_v1beta1_Snippet(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SnippetRange":             schema_pkg_apis_wardle_v1beta1_SnippetRange(ref),
 		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SnippetRangePointer":      schema_pkg_apis_wardle_v1beta1_SnippetRangePointer(ref),
@@ -3198,134 +3198,6 @@ func schema_pkg_apis_wardle_v1beta1_File(ref common.ReferenceCallback) common.Op
 	}
 }
 
-func schema_pkg_apis_wardle_v1beta1_Flunder(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Flunder is an example type with a spec and a status.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderSpec", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderStatus"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1beta1_FlunderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FlunderList is a list of Flunder objects.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Flunder"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Flunder"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1beta1_FlunderSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FlunderSpec is the specification of a Flunder.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"spdx": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Document"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Document"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1beta1_FlunderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FlunderStatus is the status of a Flunder.",
-				Type:        []string{"object"},
-			},
-		},
-	}
-}
-
 func schema_pkg_apis_wardle_v1beta1_Originator(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3867,6 +3739,134 @@ func schema_pkg_apis_wardle_v1beta1_Review(ref common.ReferenceCallback) common.
 					},
 				},
 				Required: []string{"Reviewer", "ReviewerType", "ReviewDate", "ReviewComment"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3 is an example type with a spec and a status.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3Spec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3Status"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3Spec", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3Status"},
+	}
+}
+
+func schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3List(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3List is a list of Flunder objects.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.SBOMSPDXv2p3"},
+	}
+}
+
+func schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3Spec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3Spec is the specification of a Flunder.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"spdx": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Document"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Document"},
+	}
+}
+
+func schema_pkg_apis_wardle_v1beta1_SBOMSPDXv2p3Status(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3Status is the status of a Flunder.",
+				Type:        []string{"object"},
 			},
 		},
 	}
