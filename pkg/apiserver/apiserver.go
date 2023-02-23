@@ -27,7 +27,7 @@ import (
 
 	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
 	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition/install"
-	wardleregistry "k8s.io/sample-apiserver/pkg/registry"
+	sbomregistry "k8s.io/sample-apiserver/pkg/registry"
 	sbomspdxv2p3storage "k8s.io/sample-apiserver/pkg/registry/softwarecomposition/sbomspdxv2p3"
 )
 
@@ -112,7 +112,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 
 	v1beta1storage := map[string]rest.Storage{}
-	v1beta1storage["sbomspdxv2p3s"] = wardleregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter))
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
