@@ -25,10 +25,10 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition/install"
-	sbomregistry "k8s.io/sample-apiserver/pkg/registry"
-	sbomspdxv2p3storage "k8s.io/sample-apiserver/pkg/registry/softwarecomposition/sbomspdxv2p3"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
+	sbomregistry "github.com/kubescape/storage/pkg/registry"
+	sbomspdxv2p3storage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3"
 )
 
 var (

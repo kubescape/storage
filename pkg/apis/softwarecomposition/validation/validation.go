@@ -18,7 +18,7 @@ package validation
 
 import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
 // ValidateFlunder validates a Flunder.

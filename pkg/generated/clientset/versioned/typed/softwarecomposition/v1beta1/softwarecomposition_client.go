@@ -21,9 +21,9 @@ package v1beta1
 import (
 	"net/http"
 
+	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
-	v1beta1 "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/sample-apiserver/pkg/generated/clientset/versioned/scheme"
 )
 
 type SpdxV1beta1Interface interface {

@@ -19,8 +19,8 @@ package install
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 )
 
 // Install registers the API group and adds types to a scheme

@@ -27,9 +27,9 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition/validation"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
 // NewStrategy creates and returns a flunderStrategy instance

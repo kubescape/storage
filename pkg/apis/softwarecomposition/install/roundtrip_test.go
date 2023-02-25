@@ -17,15 +17,15 @@ limitations under the License.
 package install
 
 import (
-	"testing"
 	"regexp"
+	"testing"
 
+	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
-	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/fuzzer"
+	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
-	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
+	wardlefuzzer "github.com/kubescape/storage/pkg/apis/softwarecomposition/fuzzer"
 	"math/rand"
 )
 

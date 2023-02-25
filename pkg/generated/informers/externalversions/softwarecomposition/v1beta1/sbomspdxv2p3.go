@@ -22,14 +22,14 @@ import (
 	"context"
 	time "time"
 
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
+	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
+	v1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	softwarecompositionv1beta1 "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
-	versioned "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
-	internalinterfaces "k8s.io/sample-apiserver/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "k8s.io/sample-apiserver/pkg/generated/listers/softwarecomposition/v1beta1"
 )
 
 // SBOMSPDXv2p3Informer provides access to a shared informer and lister for

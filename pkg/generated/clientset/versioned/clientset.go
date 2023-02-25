@@ -22,10 +22,10 @@ import (
 	"fmt"
 	"net/http"
 
+	spdxv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	spdxv1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
 )
 
 type Interface interface {

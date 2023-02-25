@@ -562,7 +562,7 @@ type Document struct {
 	Files         []*File         `json:"files"`
 	OtherLicenses []*OtherLicense `json:"hasExtractedLicensingInfos"`
 	Relationships []*Relationship `json:"relationships"`
-	Annotations   []Annotation   `json:"annotations"`
+	Annotations   []Annotation    `json:"annotations"`
 	Snippets      []Snippet       `json:"snippets"`
 
 	// DEPRECATED in version 2.0 of spec
@@ -849,7 +849,7 @@ type Relationship struct {
 	// Relationship is type from 11.1.1
 	RefA         DocElementID `json:"spdxElementId"`
 	RefB         DocElementID `json:"relatedSpdxElement"`
-	Relationship string              `json:"relationshipType"`
+	Relationship string       `json:"relationshipType"`
 
 	// 11.2: Relationship Comment
 	// Cardinality: optional, one

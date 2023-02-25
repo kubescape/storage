@@ -32,12 +32,12 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/sample-apiserver/pkg/admission/wardleinitializer"
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/sample-apiserver/pkg/apiserver"
-	clientset "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
-	informers "k8s.io/sample-apiserver/pkg/generated/informers/externalversions"
-	sampleopenapi "k8s.io/sample-apiserver/pkg/generated/openapi"
+	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/apiserver"
+	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
+	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
+	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
 	netutils "k8s.io/utils/net"
 )
 

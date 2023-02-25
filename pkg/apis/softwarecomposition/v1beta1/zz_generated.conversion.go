@@ -24,9 +24,9 @@ package v1beta1
 import (
 	unsafe "unsafe"
 
+	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	softwarecomposition "k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
 )
 
 func init() {

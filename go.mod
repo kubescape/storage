@@ -1,6 +1,6 @@
 // This is a generated file. Do not edit directly.
 
-module k8s.io/sample-apiserver
+module github.com/kubescape/storage
 
 go 1.19
 

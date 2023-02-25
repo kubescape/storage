@@ -16,7 +16,7 @@ limitations under the License.
 
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=package
-// +k8s:conversion-gen=k8s.io/sample-apiserver/pkg/apis/softwarecomposition
+// +k8s:conversion-gen=github.com/kubescape/storage/pkg/apis/softwarecomposition
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=spdx.softwarecomposition.kubescape.io
 

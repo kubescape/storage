@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	wardlefuzzer "k8s.io/sample-apiserver/pkg/apis/softwarecomposition/fuzzer"
+	wardlefuzzer "github.com/kubescape/storage/pkg/apis/softwarecomposition/fuzzer"
 	"math/rand"
 )
 
@@ -39,7 +39,7 @@ func TestRoundTripTypes(t *testing.T) {
 		codecFactory,
 	)
 
-	f.NumElements(1,2)
+	f.NumElements(1, 2)
 	f.NilChance(0)
 
 	skippedFields := []string{

@@ -18,7 +18,7 @@ spec:
       serviceAccountName: apiserver
       containers:
       - name: wardle-server
-        image: vklokun/kube-sample-apiserver:0.1.16
+        image: vklokun/kube-sample-apiserver:0.1.20
         imagePullPolicy: Always
         args: [ "--etcd-servers=http://localhost:2379" ]
       - name: etcd

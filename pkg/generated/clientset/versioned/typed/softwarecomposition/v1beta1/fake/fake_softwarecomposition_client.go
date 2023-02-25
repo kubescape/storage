@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
+	v1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-	v1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
 )
 
 type FakeSpdxV1beta1 struct {

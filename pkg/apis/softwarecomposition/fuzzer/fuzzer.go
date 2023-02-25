@@ -18,7 +18,7 @@ package fuzzer
 
 import (
 	fuzz "github.com/google/gofuzz"
-	"k8s.io/sample-apiserver/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 )
