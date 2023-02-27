@@ -29,7 +29,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
   github.com/kubescape/storage/pkg/generated \
   github.com/kubescape/storage/pkg/apis \
   "softwarecomposition:v1beta1" \
-  --output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
+  --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../.." \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt
 
 "${CODEGEN_PKG}/generate-internal-groups.sh" "deepcopy,defaulter,conversion,openapi" \
@@ -37,7 +37,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
   github.com/kubescape/storage/pkg/apis \
   github.com/kubescape/storage/pkg/apis \
   "softwarecomposition:v1beta1" \
-  --output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
+  --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../.." \
   --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 
 # To use your own boilerplate text append:
