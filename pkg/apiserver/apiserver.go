@@ -29,6 +29,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	sbomspdxv2p3storage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3"
+	sbomspdxv2p3filteredstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3filtered"
 )
 
 var (
@@ -113,6 +114,8 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	v1beta1storage := map[string]rest.Storage{}
 	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["sbomspdxv2p3filtereds"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter))
+
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
