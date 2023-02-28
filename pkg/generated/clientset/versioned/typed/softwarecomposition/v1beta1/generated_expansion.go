@@ -19,3 +19,5 @@ limitations under the License.
 package v1beta1
 
 type SBOMSPDXv2p3Expansion interface{}
+
+type SBOMSPDXv2p3FilteredExpansion interface{}

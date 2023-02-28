@@ -25,3 +25,11 @@ type SBOMSPDXv2p3ListerExpansion interface{}
 // SBOMSPDXv2p3NamespaceListerExpansion allows custom methods to be added to
 // SBOMSPDXv2p3NamespaceLister.
 type SBOMSPDXv2p3NamespaceListerExpansion interface{}
+
+// SBOMSPDXv2p3FilteredListerExpansion allows custom methods to be added to
+// SBOMSPDXv2p3FilteredLister.
+type SBOMSPDXv2p3FilteredListerExpansion interface{}
+
+// SBOMSPDXv2p3FilteredNamespaceListerExpansion allows custom methods to be added to
+// SBOMSPDXv2p3FilteredNamespaceLister.
+type SBOMSPDXv2p3FilteredNamespaceListerExpansion interface{}
