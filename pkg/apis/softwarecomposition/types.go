@@ -30,9 +30,27 @@ type SBOMSPDXv2p3List struct {
 	Items []SBOMSPDXv2p3
 }
 
+// ToolMeta describes metadata about a tool that generated an artifact
+type ToolMeta struct {
+	Name    string
+	Version string
+}
+
+// ReportMeta describes metadata about a report
+type ReportMeta struct {
+	CreatedAt metav1.Time
+}
+
+// SPDXMeta describes metadata about an SPDX-formatted SBOM
+type SPDXMeta struct {
+	Tool   ToolMeta
+	Report ReportMeta
+}
+
 // SBOMSPDXv2p3Spec is the specification of an SPDX SBOM.
 type SBOMSPDXv2p3Spec struct {
-	SPDX Document
+	Metadata SPDXMeta
+	SPDX     Document
 }
 
 // SBOMSPDXv2p3Status is the status of an SPDX SBOM.

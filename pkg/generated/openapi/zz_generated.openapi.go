@@ -47,15 +47,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference": schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":  schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship":             schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta":               schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Review":                   schema_pkg_apis_softwarecomposition_v1beta1_Review(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3":             schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3List":         schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3List(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Spec":         schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status":       schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta":                 schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                  schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":             schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer":      schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                 schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                 schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                              schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                          schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                           schema_pkg_apis_meta_v1_APIResource(ref),
@@ -1268,6 +1271,28 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref common.Referen
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReportMeta describes metadata about a report",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mandatory": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+				Required: []string{"mandatory"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_Review(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1417,6 +1442,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref common.Ref
 				Description: "SBOMSPDXv2p3Spec is the specification of a Flunder.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta"),
+						},
+					},
 					"spdx": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -1424,10 +1455,11 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref common.Ref
 						},
 					},
 				},
+				Required: []string{"metadata"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta"},
 	}
 }
 
@@ -1439,6 +1471,34 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref common.R
 				Type:        []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SPDXMeta describes metadata about an SPDX-formatted SBOM",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"tool": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta"),
+						},
+					},
+					"report": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta"),
+						},
+					},
+				},
+				Required: []string{"tool", "report"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta"},
 	}
 }
 
@@ -1630,6 +1690,34 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"Supplier", "SupplierType"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ToolMeta describes metadata about a tool that generated an artifact",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "version"},
 			},
 		},
 	}
