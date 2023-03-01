@@ -1,11 +1,12 @@
 // This is a generated file. Do not edit directly.
 
-module k8s.io/sample-apiserver
+module github.com/kubescape/storage
 
 go 1.19
 
 require (
 	github.com/google/gofuzz v1.1.0
+	github.com/spdx/tools-golang v0.4.0
 	github.com/spf13/cobra v1.6.0
 	k8s.io/apimachinery v0.0.0-20230207050124-7687996c715e
 	k8s.io/apiserver v0.0.0-20230207052343-3cee67d89e1b

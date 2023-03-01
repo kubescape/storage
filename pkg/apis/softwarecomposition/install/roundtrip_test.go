@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apiserver
+package install
 
 import (
 	"regexp"
@@ -23,14 +23,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
+	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	wardlefuzzer "github.com/kubescape/storage/pkg/apis/softwarecomposition/fuzzer"
 	"math/rand"
 )
 
 func TestRoundTripTypes(t *testing.T) {
+	installFn := Install
 	fuzzingFuncs := wardlefuzzer.Funcs
-	scheme := Scheme
+
+	scheme := runtime.NewScheme()
+	installFn(scheme)
 
 	codecFactory := runtimeserializer.NewCodecFactory(scheme)
 	f := fuzzer.FuzzerFor(
@@ -38,9 +42,6 @@ func TestRoundTripTypes(t *testing.T) {
 		rand.NewSource(rand.Int63()),
 		codecFactory,
 	)
-
-	f.NumElements(1, 2)
-	f.NilChance(0)
 
 	skippedFields := []string{
 		"SnippetAttributionTexts",

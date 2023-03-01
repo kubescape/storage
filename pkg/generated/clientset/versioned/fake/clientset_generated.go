@@ -19,16 +19,14 @@ limitations under the License.
 package fake
 
 import (
+	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
+	spdxv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	fakespdxv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
-	clientset "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
-	wardlev1alpha1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/wardle/v1alpha1"
-	fakewardlev1alpha1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/wardle/v1alpha1/fake"
-	wardlev1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/wardle/v1beta1"
-	fakewardlev1beta1 "k8s.io/sample-apiserver/pkg/generated/clientset/versioned/typed/wardle/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -81,12 +79,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// WardleV1alpha1 retrieves the WardleV1alpha1Client
-func (c *Clientset) WardleV1alpha1() wardlev1alpha1.WardleV1alpha1Interface {
-	return &fakewardlev1alpha1.FakeWardleV1alpha1{Fake: &c.Fake}
-}
-
-// WardleV1beta1 retrieves the WardleV1beta1Client
-func (c *Clientset) WardleV1beta1() wardlev1beta1.WardleV1beta1Interface {
-	return &fakewardlev1beta1.FakeWardleV1beta1{Fake: &c.Fake}
+// SpdxV1beta1 retrieves the SpdxV1beta1Client
+func (c *Clientset) SpdxV1beta1() spdxv1beta1.SpdxV1beta1Interface {
+	return &fakespdxv1beta1.FakeSpdxV1beta1{Fake: &c.Fake}
 }

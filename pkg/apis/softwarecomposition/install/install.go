@@ -14,15 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package wardleinitializer
+package install
 
 import (
-	"k8s.io/apiserver/pkg/admission"
-	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 )
 
-// WantsInternalWardleInformerFactory defines a function which sets InformerFactory for admission plugins that need it
-type WantsInternalWardleInformerFactory interface {
-	SetInternalWardleInformerFactory(informers.SharedInformerFactory)
-	admission.InitializationValidator
+// Install registers the API group and adds types to a scheme
+func Install(scheme *runtime.Scheme) {
+	utilruntime.Must(softwarecomposition.AddToScheme(scheme))
+	utilruntime.Must(v1beta1.AddToScheme(scheme))
+	utilruntime.Must(scheme.SetVersionPriority(v1beta1.SchemeGroupVersion))
 }

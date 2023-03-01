@@ -31,68 +31,1607 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                  schema_pkg_apis_meta_v1_APIGroup(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":              schema_pkg_apis_meta_v1_APIGroupList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":               schema_pkg_apis_meta_v1_APIResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":           schema_pkg_apis_meta_v1_APIResourceList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":               schema_pkg_apis_meta_v1_APIVersions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":              schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                 schema_pkg_apis_meta_v1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":             schema_pkg_apis_meta_v1_CreateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":             schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                  schema_pkg_apis_meta_v1_Duration(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                  schema_pkg_apis_meta_v1_FieldsV1(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                schema_pkg_apis_meta_v1_GetOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                 schema_pkg_apis_meta_v1_GroupKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":             schema_pkg_apis_meta_v1_GroupResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":              schema_pkg_apis_meta_v1_GroupVersion(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":  schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":          schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":      schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":             schema_pkg_apis_meta_v1_InternalEvent(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":             schema_pkg_apis_meta_v1_LabelSelector(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":  schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                      schema_pkg_apis_meta_v1_List(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                  schema_pkg_apis_meta_v1_ListMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":               schema_pkg_apis_meta_v1_ListOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":        schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                 schema_pkg_apis_meta_v1_MicroTime(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":            schema_pkg_apis_meta_v1_OwnerReference(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":     schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList": schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                     schema_pkg_apis_meta_v1_Patch(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":              schema_pkg_apis_meta_v1_PatchOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":             schema_pkg_apis_meta_v1_Preconditions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                 schema_pkg_apis_meta_v1_RootPaths(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR": schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                    schema_pkg_apis_meta_v1_Status(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":               schema_pkg_apis_meta_v1_StatusCause(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":             schema_pkg_apis_meta_v1_StatusDetails(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                     schema_pkg_apis_meta_v1_Table(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":     schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":              schema_pkg_apis_meta_v1_TableOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                  schema_pkg_apis_meta_v1_TableRow(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":         schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                      schema_pkg_apis_meta_v1_Time(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                 schema_pkg_apis_meta_v1_Timestamp(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                  schema_pkg_apis_meta_v1_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":             schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                schema_pkg_apis_meta_v1_WatchEvent(ref),
-		"k8s.io/apimachinery/pkg/runtime.RawExtension":                   schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                       schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/runtime.Unknown":                        schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		"k8s.io/apimachinery/pkg/version.Info":                           schema_k8sio_apimachinery_pkg_version_Info(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.Fischer":       schema_pkg_apis_wardle_v1alpha1_Fischer(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FischerList":   schema_pkg_apis_wardle_v1alpha1_FischerList(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.Flunder":       schema_pkg_apis_wardle_v1alpha1_Flunder(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FlunderList":   schema_pkg_apis_wardle_v1alpha1_FlunderList(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FlunderSpec":   schema_pkg_apis_wardle_v1alpha1_FlunderSpec(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FlunderStatus": schema_pkg_apis_wardle_v1alpha1_FlunderStatus(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Flunder":        schema_pkg_apis_wardle_v1beta1_Flunder(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderList":    schema_pkg_apis_wardle_v1beta1_FlunderList(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderSpec":    schema_pkg_apis_wardle_v1beta1_FlunderSpec(ref),
-		"k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderStatus":  schema_pkg_apis_wardle_v1beta1_FlunderStatus(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation":               schema_pkg_apis_softwarecomposition_v1beta1_Annotation(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator":                schema_pkg_apis_softwarecomposition_v1beta1_Annotator(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":        schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                 schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo":             schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator":                  schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID":             schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document":                 schema_pkg_apis_softwarecomposition_v1beta1_Document(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef":      schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File":                     schema_pkg_apis_softwarecomposition_v1beta1_File(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator":               schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":             schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                  schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference": schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":  schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship":             schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Review":                   schema_pkg_apis_softwarecomposition_v1beta1_Review(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3":             schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3List":         schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3List(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Spec":         schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status":       schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                  schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":             schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer":      schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                 schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                              schema_pkg_apis_meta_v1_APIGroup(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                          schema_pkg_apis_meta_v1_APIGroupList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                           schema_pkg_apis_meta_v1_APIResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                       schema_pkg_apis_meta_v1_APIResourceList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                           schema_pkg_apis_meta_v1_APIVersions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                          schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                             schema_pkg_apis_meta_v1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                         schema_pkg_apis_meta_v1_CreateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                         schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                              schema_pkg_apis_meta_v1_Duration(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                              schema_pkg_apis_meta_v1_FieldsV1(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                            schema_pkg_apis_meta_v1_GetOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                             schema_pkg_apis_meta_v1_GroupKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                         schema_pkg_apis_meta_v1_GroupResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                          schema_pkg_apis_meta_v1_GroupVersion(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                              schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                      schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                  schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                         schema_pkg_apis_meta_v1_InternalEvent(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                         schema_pkg_apis_meta_v1_LabelSelector(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                              schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                  schema_pkg_apis_meta_v1_List(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                              schema_pkg_apis_meta_v1_ListMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                           schema_pkg_apis_meta_v1_ListOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                    schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                             schema_pkg_apis_meta_v1_MicroTime(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                            schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                        schema_pkg_apis_meta_v1_OwnerReference(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                 schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                             schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                 schema_pkg_apis_meta_v1_Patch(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                          schema_pkg_apis_meta_v1_PatchOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                         schema_pkg_apis_meta_v1_Preconditions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                             schema_pkg_apis_meta_v1_RootPaths(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                             schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                schema_pkg_apis_meta_v1_Status(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                           schema_pkg_apis_meta_v1_StatusCause(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                         schema_pkg_apis_meta_v1_StatusDetails(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                 schema_pkg_apis_meta_v1_Table(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                 schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                          schema_pkg_apis_meta_v1_TableOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                              schema_pkg_apis_meta_v1_TableRow(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                     schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                  schema_pkg_apis_meta_v1_Time(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                             schema_pkg_apis_meta_v1_Timestamp(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                              schema_pkg_apis_meta_v1_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                         schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                            schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                               schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                   schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                    schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		"k8s.io/apimachinery/pkg/version.Info":                                                       schema_k8sio_apimachinery_pkg_version_Info(ref),
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Annotation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Annotation is an Annotation section of an SPDX Document for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"annotator": {
+						SchemaProps: spec.SchemaProps{
+							Description: "12.1: Annotator Cardinality: conditional (mandatory, one) if there is an Annotation",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator"),
+						},
+					},
+					"annotationDate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "12.2: Annotation Date: YYYY-MM-DDThh:mm:ssZ Cardinality: conditional (mandatory, one) if there is an Annotation",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"annotationType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "12.3: Annotation Type: \"REVIEW\" or \"OTHER\" Cardinality: conditional (mandatory, one) if there is an Annotation",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "12.5: Annotation Comment Cardinality: conditional (mandatory, one) if there is an Annotation",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"annotator", "annotationDate", "annotationType", "comment"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Annotator(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Annotator": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"AnnotatorType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "including AnnotatorType: one of \"Person\", \"Organization\" or \"Tool\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Annotator", "AnnotatorType"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ArtifactOfProject is a DEPRECATED collection of data regarding a Package, as defined in sections 8.9-8.11 in version 2.3 of the spec. NOTE: the JSON schema does not define the structure of this object: https://github.com/spdx/spdx-spec/blob/development/v2.3.1/schemas/spdx-schema.json#L480",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.1 of spec 8.9: Artifact of Project Name Cardinality: conditional, required if present, one per AOP",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"homePage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.1 of spec 8.10: Artifact of Project Homepage: URL or \"UNKNOWN\" Cardinality: optional, one per AOP",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"URI": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.1 of spec 8.11: Artifact of Project Uniform Resource Identifier Cardinality: optional, one per AOP",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "homePage", "URI"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Checksum provides a unique identifier to match analysis information on each specific file in a package. The Algorithm field describes the ChecksumAlgorithm used and the Value represents the file checksum",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"algorithm": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"checksumValue": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"algorithm", "checksumValue"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CreationInfo is a Document Creation Information section of an SPDX Document for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"licenseListVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.7: License List Version Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"creators": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.8: Creators: may have multiple keys for Person, Organization\n     and/or Tool\nCardinality: mandatory, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator"),
+									},
+								},
+							},
+						},
+					},
+					"created": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.9: Created: data format YYYY-MM-DDThh:mm:ssZ Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.10: Creator Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"licenseListVersion", "creators", "created", "comment"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Creator is a wrapper around the Creator SPDX field. The SPDX field contains two values, which requires special handling in order to marshal/unmarshal it to/from Go data types.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Creator": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"CreatorType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CreatorType should be one of \"Person\", \"Organization\", or \"Tool\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Creator", "CreatorType"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DocElementID represents an SPDX element identifier that could be defined in a different SPDX document, and therefore could have a \"DocumentRef-\" portion, such as Relationships and Annotations. ElementID is used for attributes in which a \"DocumentRef-\" portion cannot appear, such as a Package or File definition (since it is necessarily being defined in the present document). DocumentRefID will be the empty string for elements defined in the present document. DocElementIDs should NOT contain the mandatory 'DocumentRef-' or 'SPDXRef-' portions. SpecialID is used ONLY if the DocElementID matches a defined set of permitted special values for a particular field, e.g. \"NONE\" or \"NOASSERTION\" for the right-hand side of Relationships. If SpecialID is set, DocumentRefID and ElementRefID should be empty (and vice versa).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"DocumentRefID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"ElementRefID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"SpecialID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"DocumentRefID", "ElementRefID", "SpecialID"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Document(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Document is an SPDX Document for version 2.3 of the spec. See https://spdx.github.io/spdx-spec/v2.3/document-creation-information",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"documentDescribes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Added",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"spdxVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.1: SPDX Version; should be in the format \"SPDX-2.3\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dataLicense": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.2: Data License; should be \"CC0-1.0\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"SPDXID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.3: SPDX Identifier; should be \"DOCUMENT\" to represent\n     mandatory identifier of SPDXRef-DOCUMENT\nCardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.4: Document Name Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"documentNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.5: Document Namespace Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"externalDocumentRefs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.6: External Document References Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef"),
+									},
+								},
+							},
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "6.11: Document Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"creationInfo": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo"),
+						},
+					},
+					"packages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package"),
+									},
+								},
+							},
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File"),
+									},
+								},
+							},
+						},
+					},
+					"hasExtractedLicensingInfos": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense"),
+									},
+								},
+							},
+						},
+					},
+					"relationships": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship"),
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation"),
+									},
+								},
+							},
+						},
+					},
+					"snippets": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"documentDescribes", "spdxVersion", "dataLicense", "SPDXID", "name", "documentNamespace", "externalDocumentRefs", "comment", "creationInfo", "packages", "files", "hasExtractedLicensingInfos", "relationships", "annotations", "snippets"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ExternalDocumentRef is a reference to an external SPDX document as defined in section 6.6 for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"externalDocumentId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DocumentRefID is the ID string defined in the start of the reference. It should _not_ contain the \"DocumentRef-\" part of the mandatory ID string.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"spdxDocument": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URI is the URI defined for the external document",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"checksum": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Checksum is the actual hash data",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum"),
+						},
+					},
+				},
+				Required: []string{"externalDocumentId", "spdxDocument", "checksum"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_File(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "File is a File section of an SPDX Document for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"fileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.1: File Name Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"SPDXID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.2: File SPDX Identifier: \"SPDXRef-[idstring]\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"fileTypes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.3: File Types Cardinality: optional, multiple",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"checksums": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.4: File Checksum: may have keys for SHA1, SHA256, MD5, SHA3-256, SHA3-384, SHA3-512, BLAKE2b-256, BLAKE2b-384, BLAKE2b-512, BLAKE3, ADLER32 Cardinality: mandatory, one SHA1, others may be optionally provided",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum"),
+									},
+								},
+							},
+						},
+					},
+					"licenseConcluded": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.5: Concluded License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"licenseInfoInFiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.6: License Information in File: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"licenseComments": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.7: Comments on License Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"copyrightText": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.8: Copyright Text: copyright notice(s) text, \"NONE\" or \"NOASSERTION\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"artifactOfs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.1 of spec 8.9-8.11: Artifact of Project variables (defined below) Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject"),
+									},
+								},
+							},
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.12: File Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"noticeText": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.13: File Notice Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"fileContributors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.14: File Contributor Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"attributionTexts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "8.15: File Attribution Text Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"fileDependencies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.0 of spec 8.16: File Dependencies Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"fileName", "SPDXID", "fileTypes", "checksums", "licenseConcluded", "licenseInfoInFiles", "licenseComments", "copyrightText", "artifactOfs", "comment", "noticeText", "fileContributors", "attributionTexts", "fileDependencies", "annotations"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Originator": {
+						SchemaProps: spec.SchemaProps{
+							Description: "can be \"NOASSERTION\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"OriginatorType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OriginatorType can be one of \"Person\", \"Organization\", or empty if Originator is \"NOASSERTION\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Originator", "OriginatorType"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OtherLicense is an Other License Information section of an SPDX Document for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"licenseId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "10.1: License Identifier: \"LicenseRef-[idstring]\" Cardinality: conditional (mandatory, one) if license is not\n             on SPDX License List",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"extractedText": {
+						SchemaProps: spec.SchemaProps{
+							Description: "10.2: Extracted Text Cardinality: conditional (mandatory, one) if there is a\n             License Identifier assigned",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "10.3: License Name: single line of text or \"NOASSERTION\" Cardinality: conditional (mandatory, one) if license is not\n             on SPDX License List",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"seeAlsos": {
+						SchemaProps: spec.SchemaProps{
+							Description: "10.4: License Cross Reference Cardinality: conditional (optional, one or many) if license\n             is not on SPDX License List",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "10.5: License Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"licenseId", "extractedText", "name", "seeAlsos", "comment"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Package(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Package is a Package section of an SPDX Document for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"hasFiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Added",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.1: Package Name Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"SPDXID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.2: Package SPDX Identifier: \"SPDXRef-[idstring]\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"versionInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.3: Package Version Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"packageFileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.4: Package File Name Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"supplier": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.5: Package Supplier: may have single result for either Person or Organization,\n                       or NOASSERTION\nCardinality: optional, one",
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier"),
+						},
+					},
+					"originator": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.6: Package Originator: may have single result for either Person or Organization,\n                         or NOASSERTION\nCardinality: optional, one",
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator"),
+						},
+					},
+					"downloadLocation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.7: Package Download Location Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"filesAnalyzed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.8: FilesAnalyzed Cardinality: optional, one; default value is \"true\" if omitted",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"packageVerificationCode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.9: Package Verification Code Cardinality: if FilesAnalyzed == true must be present, if FilesAnalyzed == false must be omitted",
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode"),
+						},
+					},
+					"checksums": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.10: Package Checksum: may have keys for SHA1, SHA256, SHA512, MD5, SHA3-256, SHA3-384, SHA3-512, BLAKE2b-256, BLAKE2b-384, BLAKE2b-512, BLAKE3, ADLER32 Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum"),
+									},
+								},
+							},
+						},
+					},
+					"homepage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.11: Package Home Page Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sourceInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.12: Source Information Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"licenseConcluded": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.13: Concluded License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"licenseInfoFromFiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.14: All Licenses Info from Files: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one or many if filesAnalyzed is true / omitted;\n             zero (must be omitted) if filesAnalyzed is false",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"licenseDeclared": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.15: Declared License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"licenseComments": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.16: Comments on License Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"copyrightText": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.17: Copyright Text: copyright notice(s) text, \"NONE\" or \"NOASSERTION\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"summary": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.18: Package Summary Description Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.19: Package Detailed Description Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.20: Package Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"externalRefs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.21: Package External Reference Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference"),
+									},
+								},
+							},
+						},
+					},
+					"attributionTexts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.23: Package Attribution Text Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"primaryPackagePurpose": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.24: Primary Package Purpose Cardinality: optional, one or many Allowed values: APPLICATION, FRAMEWORK, LIBRARY, CONTAINER, OPERATING-SYSTEM, DEVICE, FIRMWARE, SOURCE, ARCHIVE, FILE, INSTALL, OTHER",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"releaseDate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.25: Release Date: YYYY-MM-DDThh:mm:ssZ Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"builtDate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.26: Build Date: YYYY-MM-DDThh:mm:ssZ Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"validUntilDate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.27: Valid Until Date: YYYY-MM-DDThh:mm:ssZ Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files contained in this Package",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File"),
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"hasFiles", "name", "SPDXID", "versionInfo", "packageFileName", "supplier", "originator", "downloadLocation", "filesAnalyzed", "packageVerificationCode", "checksums", "homepage", "sourceInfo", "licenseConcluded", "licenseInfoFromFiles", "licenseDeclared", "licenseComments", "copyrightText", "summary", "description", "comment", "externalRefs", "attributionTexts", "primaryPackagePurpose", "releaseDate", "builtDate", "validUntilDate", "files", "annotations"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageExternalReference is an External Reference to additional info about a Package, as defined in section 7.21 in version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"referenceCategory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "category is \"SECURITY\", \"PACKAGE-MANAGER\" or \"OTHER\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"referenceType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "type is an [idstring] as defined in Appendix VI; called RefType here due to \"type\" being a Golang keyword",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"referenceLocator": {
+						SchemaProps: spec.SchemaProps{
+							Description: "locator is a unique string to access the package-specific info, metadata or content within the target location",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "7.22: Package External Reference Comment Cardinality: conditional (optional, one) for each External Reference",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"referenceCategory", "referenceType", "referenceLocator", "comment"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"packageVerificationCodeValue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cardinality: mandatory, one if filesAnalyzed is true / omitted;\n             zero (must be omitted) if filesAnalyzed is false",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"packageVerificationCodeExcludedFiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec also allows specifying files to exclude from the verification code algorithm; intended to enable exclusion of the SPDX document file itself.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"packageVerificationCodeValue", "packageVerificationCodeExcludedFiles"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Relationship is a Relationship section of an SPDX Document for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"spdxElementId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "11.1: Relationship Cardinality: optional, one or more; one per Relationship\n             one mandatory for SPDX Document with multiple packages\nRefA and RefB are first and second item Relationship is type from 11.1.1",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID"),
+						},
+					},
+					"relatedSpdxElement": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID"),
+						},
+					},
+					"relationshipType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "11.2: Relationship Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"spdxElementId", "relatedSpdxElement", "relationshipType", "comment"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Review(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Review is a Review section of an SPDX Document for version 2.3 of the spec. DEPRECATED in version 2.0 of spec; retained here for compatibility.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Reviewer": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.0 of spec 13.1: Reviewer Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ReviewerType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "including AnnotatorType: one of \"Person\", \"Organization\" or \"Tool\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ReviewDate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.0 of spec 13.2: Review Date: YYYY-MM-DDThh:mm:ssZ Cardinality: conditional (mandatory, one) if there is a Reviewer",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ReviewComment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DEPRECATED in version 2.0 of spec 13.3: Review Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Reviewer", "ReviewerType", "ReviewDate", "ReviewComment"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3 is an example type with a spec and a status.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Spec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Spec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3List(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3List is a list of Flunder objects.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3Spec is the specification of a Flunder.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"spdx": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSPDXv2p3Status is the status of a Flunder.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Snippet is a Snippet section of an SPDX Document for version 2.3 of the spec.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"SPDXID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.1: Snippet SPDX Identifier: \"SPDXRef-[idstring]\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"snippetFromFile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.2: Snippet from File SPDX Identifier Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ranges": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ranges denotes the start/end byte offsets or line numbers that the snippet is relevant to",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange"),
+									},
+								},
+							},
+						},
+					},
+					"licenseConcluded": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.5: Snippet Concluded License: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"licenseInfoInSnippets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.6: License Information in Snippet: SPDX License Expression, \"NONE\" or \"NOASSERTION\" Cardinality: optional, one or many",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"licenseComments": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.7: Snippet Comments on License Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"copyrightText": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.8: Snippet Copyright Text: copyright notice(s) text, \"NONE\" or \"NOASSERTION\" Cardinality: mandatory, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"comment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.9: Snippet Comment Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "9.10: Snippet Name Cardinality: optional, one",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"SPDXID", "snippetFromFile", "ranges", "licenseConcluded", "licenseInfoInSnippets", "licenseComments", "copyrightText", "comment", "name"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startPointer": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer"),
+						},
+					},
+					"endPointer": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer"),
+						},
+					},
+				},
+				Required: []string{"startPointer", "endPointer"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Description: "5.3: Snippet Byte Range: [start byte]:[end byte] Cardinality: mandatory, one",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"lineNumber": {
+						SchemaProps: spec.SchemaProps{
+							Description: "5.4: Snippet Line Range: [start line]:[end line] Cardinality: optional, one",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"reference": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"offset", "lineNumber", "reference"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Supplier": {
+						SchemaProps: spec.SchemaProps{
+							Description: "can be \"NOASSERTION\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"SupplierType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SupplierType can be one of \"Person\", \"Organization\", or empty if Supplier is \"NOASSERTION\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Supplier", "SupplierType"},
+			},
+		},
 	}
 }
 
@@ -2521,376 +4060,6 @@ func schema_k8sio_apimachinery_pkg_version_Info(ref common.ReferenceCallback) co
 					},
 				},
 				Required: []string{"major", "minor", "gitVersion", "gitCommit", "gitTreeState", "buildDate", "goVersion", "compiler", "platform"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_wardle_v1alpha1_Fischer(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"disallowedFlunders": {
-						SchemaProps: spec.SchemaProps{
-							Description: "DisallowedFlunders holds a list of Flunder.Names that are disallowed.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1alpha1_FischerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FischerList is a list of Fischer objects.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.Fischer"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.Fischer"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1alpha1_Flunder(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FlunderSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FlunderStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FlunderSpec", "k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.FlunderStatus"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1alpha1_FlunderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FlunderList is a list of Flunder objects.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.Flunder"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1.Flunder"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1alpha1_FlunderSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"reference": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A name of another flunder or fischer, depending on the reference type.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"referenceType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The reference type, defaults to \"Flunder\" if reference is set.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_wardle_v1alpha1_FlunderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_wardle_v1beta1_Flunder(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Flunder is an example type with a spec and a status.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderSpec", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.FlunderStatus"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1beta1_FlunderList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FlunderList is a list of Flunder objects.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Flunder"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "k8s.io/sample-apiserver/pkg/apis/wardle/v1beta1.Flunder"},
-	}
-}
-
-func schema_pkg_apis_wardle_v1beta1_FlunderSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FlunderSpec is the specification of a Flunder.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"flunderReference": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A name of another flunder, mutually exclusive to the FischerReference.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"fischerReference": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A name of a fischer, mutually exclusive to the FlunderReference.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"referenceType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The reference type.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_wardle_v1beta1_FlunderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FlunderStatus is the status of a Flunder.",
-				Type:        []string{"object"},
 			},
 		},
 	}

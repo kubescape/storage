@@ -32,17 +32,16 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/sample-apiserver/pkg/admission/plugin/banflunder"
-	"k8s.io/sample-apiserver/pkg/admission/wardleinitializer"
-	"k8s.io/sample-apiserver/pkg/apis/wardle/v1alpha1"
-	"k8s.io/sample-apiserver/pkg/apiserver"
-	clientset "k8s.io/sample-apiserver/pkg/generated/clientset/versioned"
-	informers "k8s.io/sample-apiserver/pkg/generated/informers/externalversions"
-	sampleopenapi "k8s.io/sample-apiserver/pkg/generated/openapi"
+	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/apiserver"
+	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
+	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
+	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
 	netutils "k8s.io/utils/net"
 )
 
-const defaultEtcdPathPrefix = "/registry/wardle.example.com"
+const defaultEtcdPathPrefix = "/registry/spdx.softwarecomposition.kubescape.io"
 
 // WardleServerOptions contains state for master/api server
 type WardleServerOptions struct {
@@ -60,13 +59,13 @@ func NewWardleServerOptions(out, errOut io.Writer) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
-			apiserver.Codecs.LegacyCodec(v1alpha1.SchemeGroupVersion),
+			apiserver.Codecs.LegacyCodec(v1beta1.SchemeGroupVersion),
 		),
 
 		StdOut: out,
 		StdErr: errOut,
 	}
-	o.RecommendedOptions.Etcd.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1alpha1.SchemeGroupVersion, schema.GroupKind{Group: v1alpha1.GroupName})
+	o.RecommendedOptions.Etcd.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1beta1.SchemeGroupVersion, schema.GroupKind{Group: v1beta1.GroupName})
 	return o
 }
 
@@ -107,11 +106,6 @@ func (o WardleServerOptions) Validate(args []string) error {
 
 // Complete fills in fields required to have valid data
 func (o *WardleServerOptions) Complete() error {
-	// register admission plugins
-	banflunder.Register(o.RecommendedOptions.Admission.Plugins)
-
-	// add admission plugins to the RecommendedPluginOrder
-	o.RecommendedOptions.Admission.RecommendedPluginOrder = append(o.RecommendedOptions.Admission.RecommendedPluginOrder, "BanFlunder")
 
 	return nil
 }

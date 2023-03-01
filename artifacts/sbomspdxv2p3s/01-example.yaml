@@ -1,7 +1,7 @@
-apiVersion: wardle.example.com/v1beta1
-kind: Flunder
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
+kind: SBOMSPDXv2p3
 metadata:
-  name: my-first-flunder
+  name: sbom-01
   namespace: wardle
   labels:
     sample-label: "true"

@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+// +k8s:deepcopy-gen=package
+// +groupName=spdx.softwarecomposition.kubescape.io
 
-import (
-	"os"
-
-	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/component-base/cli"
-	"github.com/kubescape/storage/pkg/cmd/server"
-)
-
-func main() {
-	stopCh := genericapiserver.SetupSignalHandler()
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr)
-	cmd := server.NewCommandStartWardleServer(options, stopCh)
-	code := cli.Run(cmd)
-	os.Exit(code)
-}
+// Package softwarecomposition is the internal version of the API.
+package softwarecomposition

@@ -1,13 +1,13 @@
 apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
-  name: v1alpha1.wardle.example.com
+  name: v1beta1.spdx.softwarecomposition.kubescape.io
 spec:
   insecureSkipTLSVerify: true
-  group: wardle.example.com
+  group: spdx.softwarecomposition.kubescape.io
   groupPriorityMinimum: 1000
   versionPriority: 15
   service:
     name: api
     namespace: wardle
-  version: v1alpha1
+  version: v1beta1

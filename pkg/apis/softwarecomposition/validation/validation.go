@@ -14,20 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package validation
 
 import (
-	"os"
-
-	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/component-base/cli"
-	"github.com/kubescape/storage/pkg/cmd/server"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
-func main() {
-	stopCh := genericapiserver.SetupSignalHandler()
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr)
-	cmd := server.NewCommandStartWardleServer(options, stopCh)
-	code := cli.Run(cmd)
-	os.Exit(code)
+// ValidateFlunder validates a Flunder.
+func ValidateFlunder(f *softwarecomposition.SBOMSPDXv2p3) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateFlunderSpec(&f.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
+
+// ValidateFlunderSpec validates a FlunderSpec.
+func ValidateFlunderSpec(s *softwarecomposition.SBOMSPDXv2p3Spec, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	return allErrs
 }
