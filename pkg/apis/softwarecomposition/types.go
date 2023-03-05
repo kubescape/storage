@@ -92,3 +92,33 @@ type SBOMSPDXv2p3FilteredList struct {
 
 	Items []SBOMSPDXv2p3Filtered
 }
+
+type VulnerabilityManifestSpec struct {
+	Metadata string
+	Payload  string
+}
+
+type VulnerabilityManifestStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifest is a custom resource that describes a manifest of found vulnerabilities.
+type VulnerabilityManifest struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilityManifestSpec
+	Status VulnerabilityManifestStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestList is a list of Vulnerability manifests.
+type VulnerabilityManifestList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilityManifest
+}
