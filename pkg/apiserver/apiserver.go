@@ -33,6 +33,8 @@ import (
 	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
 )
 
+const maxRequestBodyBytes = 25 * 1024 * 1024
+
 var (
 	// Scheme defines methods for serializing and deserializing API objects.
 	Scheme = runtime.NewScheme()
@@ -96,6 +98,8 @@ func (cfg *Config) Complete() CompletedConfig {
 		Major: "1",
 		Minor: "0",
 	}
+
+	c.GenericConfig.MaxRequestBodyBytes = maxRequestBodyBytes
 
 	return CompletedConfig{&c}
 }
