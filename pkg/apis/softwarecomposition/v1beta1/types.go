@@ -93,9 +93,30 @@ type SBOMSPDXv2p3FilteredList struct {
 	Items []SBOMSPDXv2p3Filtered `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// VulnerabilityManifestReportMeta holds metadata about the specific report
+// tied to a vulnerability manifest
+type VulnerabilityManifestReportMeta struct {
+	CreatedAt metav1.Time `json:"createdAt"`
+}
+
+// VulnerabilityManifestToolMeta describes data about the tool used to generate
+// the vulnerability manifest’s report
+type VulnerabilityManifestToolMeta struct {
+	Name            string `json:"name"`
+	Version         string `json:"version"`
+	DatabaseVersion string `json:"databaseVersion"`
+}
+
+// VulnerabilityManifestMeta holds metadata about a vulnerability manifest
+type VulnerabilityManifestMeta struct {
+	WithRelevancy bool                            `json:"withRelevancy"`
+	Tool          VulnerabilityManifestToolMeta   `json:"tool"`
+	Report        VulnerabilityManifestReportMeta `json:"report"`
+}
+
 type VulnerabilityManifestSpec struct {
-	Metadata string        `json:"metadata,omitempty"`
-	Payload  GrypeDocument `json:"payload,omitempty"`
+	Metadata VulnerabilityManifestMeta `json:"metadata,omitempty"`
+	Payload  GrypeDocument             `json:"payload,omitempty"`
 }
 
 type VulnerabilityManifestStatus struct {
