@@ -93,8 +93,29 @@ type SBOMSPDXv2p3FilteredList struct {
 	Items []SBOMSPDXv2p3Filtered
 }
 
+// VulnerabilityManifestReportMeta holds metadata about the specific report
+// tied to a vulnerability manifest
+type VulnerabilityManifestReportMeta struct {
+	CreatedAt metav1.Time
+}
+
+// VulnerabilityManifestToolMeta describes data about the tool used to generate
+// the vulnerability manifest’s report
+type VulnerabilityManifestToolMeta struct {
+	Name            string
+	Version         string
+	DatabaseVersion string
+}
+
+// VulnerabilityManifestMeta holds metadata about a vulnerability manifest
+type VulnerabilityManifestMeta struct {
+	WithRelevancy bool
+	Tool          VulnerabilityManifestToolMeta
+	Report        VulnerabilityManifestReportMeta
+}
+
 type VulnerabilityManifestSpec struct {
-	Metadata string
+	Metadata VulnerabilityManifestMeta
 	Payload  GrypeDocument
 }
 

@@ -31,110 +31,113 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory":                    schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation":                  schema_pkg_apis_softwarecomposition_v1beta1_Annotation(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator":                   schema_pkg_apis_softwarecomposition_v1beta1_Annotator(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":           schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                    schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo":                schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator":                     schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss":                        schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics":                 schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor":                  schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution":                schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID":                schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document":                    schema_pkg_apis_softwarecomposition_v1beta1_Document(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef":         schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File":                        schema_pkg_apis_softwarecomposition_v1beta1_File(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix":                         schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument":               schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage":                schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule":                  schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage":           schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch":                schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                       schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator":                  schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                     schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference":    schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":     schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship":                schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta":                  schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Review":                      schema_pkg_apis_softwarecomposition_v1beta1_Review(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3":                schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Filtered":        schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Filtered(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3FilteredList":    schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3FilteredList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3List":            schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3List(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Spec":            schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status":          schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta":                    schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                     schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":                schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer":         schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                      schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                    schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":             schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                    schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":             schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability":               schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest":       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestList":   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSpec":   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus": schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata":       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                 schema_pkg_apis_meta_v1_APIGroup(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                             schema_pkg_apis_meta_v1_APIGroupList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                              schema_pkg_apis_meta_v1_APIResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                          schema_pkg_apis_meta_v1_APIResourceList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                              schema_pkg_apis_meta_v1_APIVersions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                             schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                                schema_pkg_apis_meta_v1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                            schema_pkg_apis_meta_v1_CreateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                            schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                                 schema_pkg_apis_meta_v1_Duration(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                                 schema_pkg_apis_meta_v1_FieldsV1(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                               schema_pkg_apis_meta_v1_GetOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                                schema_pkg_apis_meta_v1_GroupKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                            schema_pkg_apis_meta_v1_GroupResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                             schema_pkg_apis_meta_v1_GroupVersion(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                                 schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                         schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                     schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                            schema_pkg_apis_meta_v1_InternalEvent(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                            schema_pkg_apis_meta_v1_LabelSelector(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                                 schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                     schema_pkg_apis_meta_v1_List(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                                 schema_pkg_apis_meta_v1_ListMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                              schema_pkg_apis_meta_v1_ListOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                       schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                                schema_pkg_apis_meta_v1_MicroTime(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                               schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                           schema_pkg_apis_meta_v1_OwnerReference(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                    schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                                schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                    schema_pkg_apis_meta_v1_Patch(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                             schema_pkg_apis_meta_v1_PatchOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                            schema_pkg_apis_meta_v1_Preconditions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                                schema_pkg_apis_meta_v1_RootPaths(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                                schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                   schema_pkg_apis_meta_v1_Status(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                              schema_pkg_apis_meta_v1_StatusCause(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                            schema_pkg_apis_meta_v1_StatusDetails(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                    schema_pkg_apis_meta_v1_Table(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                    schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                             schema_pkg_apis_meta_v1_TableOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                                 schema_pkg_apis_meta_v1_TableRow(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                        schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                     schema_pkg_apis_meta_v1_Time(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                                schema_pkg_apis_meta_v1_Timestamp(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                                 schema_pkg_apis_meta_v1_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                            schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                               schema_pkg_apis_meta_v1_WatchEvent(ref),
-		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                                  schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                      schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                       schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		"k8s.io/apimachinery/pkg/version.Info":                                                          schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory":                        schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation":                      schema_pkg_apis_softwarecomposition_v1beta1_Annotation(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator":                       schema_pkg_apis_softwarecomposition_v1beta1_Annotator(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":               schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                        schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo":                    schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator":                         schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss":                            schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics":                     schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor":                      schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution":                    schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID":                    schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document":                        schema_pkg_apis_softwarecomposition_v1beta1_Document(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef":             schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File":                            schema_pkg_apis_softwarecomposition_v1beta1_File(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix":                             schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument":                   schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage":                    schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule":                      schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage":               schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch":                    schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                           schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                    schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator":                      schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                    schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                         schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference":        schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":         schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship":                    schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta":                      schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Review":                          schema_pkg_apis_softwarecomposition_v1beta1_Review(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3":                    schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Filtered":            schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Filtered(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3FilteredList":        schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3FilteredList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3List":                schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3List(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Spec":                schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status":              schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta":                        schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                         schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":                    schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer":             schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                          schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                        schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":                 schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                        schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":                 schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability":                   schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest":           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestList":       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestMeta":       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestMeta(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestReportMeta": schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestReportMeta(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSpec":       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus":     schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestToolMeta":   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestToolMeta(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata":           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                     schema_pkg_apis_meta_v1_APIGroup(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                                 schema_pkg_apis_meta_v1_APIGroupList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                                  schema_pkg_apis_meta_v1_APIResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                              schema_pkg_apis_meta_v1_APIResourceList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                                  schema_pkg_apis_meta_v1_APIVersions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                                 schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                                    schema_pkg_apis_meta_v1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                                schema_pkg_apis_meta_v1_CreateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                                schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                                     schema_pkg_apis_meta_v1_Duration(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                                     schema_pkg_apis_meta_v1_FieldsV1(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                                   schema_pkg_apis_meta_v1_GetOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                                    schema_pkg_apis_meta_v1_GroupKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                                schema_pkg_apis_meta_v1_GroupResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                                 schema_pkg_apis_meta_v1_GroupVersion(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                                     schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                             schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                         schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                                schema_pkg_apis_meta_v1_InternalEvent(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                                schema_pkg_apis_meta_v1_LabelSelector(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                                     schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                         schema_pkg_apis_meta_v1_List(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                                     schema_pkg_apis_meta_v1_ListMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                                  schema_pkg_apis_meta_v1_ListOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                           schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                                    schema_pkg_apis_meta_v1_MicroTime(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                                   schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                               schema_pkg_apis_meta_v1_OwnerReference(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                        schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                                    schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                        schema_pkg_apis_meta_v1_Patch(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                                 schema_pkg_apis_meta_v1_PatchOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                                schema_pkg_apis_meta_v1_Preconditions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                                    schema_pkg_apis_meta_v1_RootPaths(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                                    schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                       schema_pkg_apis_meta_v1_Status(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                                  schema_pkg_apis_meta_v1_StatusCause(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                                schema_pkg_apis_meta_v1_StatusDetails(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                        schema_pkg_apis_meta_v1_Table(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                        schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                                 schema_pkg_apis_meta_v1_TableOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                                     schema_pkg_apis_meta_v1_TableRow(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                            schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                         schema_pkg_apis_meta_v1_Time(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                                    schema_pkg_apis_meta_v1_Timestamp(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                                     schema_pkg_apis_meta_v1_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                                schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                                   schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                                      schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                          schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                           schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		"k8s.io/apimachinery/pkg/version.Info":                                                              schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -2639,6 +2642,63 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref c
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilityManifestMeta holds metadata about a vulnerability manifest",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"withRelevancy": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"tool": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestToolMeta"),
+						},
+					},
+					"report": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestReportMeta"),
+						},
+					},
+				},
+				Required: []string{"withRelevancy", "tool", "report"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestReportMeta", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestToolMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestReportMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilityManifestReportMeta holds metadata about the specific report tied to a vulnerability manifest",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+				Required: []string{"createdAt"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2647,8 +2707,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref c
 				Properties: map[string]spec.Schema{
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestMeta"),
 						},
 					},
 					"payload": {
@@ -2661,7 +2721,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestMeta"},
 	}
 }
 
@@ -2670,6 +2730,41 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestToolMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilityManifestToolMeta describes data about the tool used to generate the vulnerability manifest’s report",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"databaseVersion": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "version", "databaseVersion"},
 			},
 		},
 	}
