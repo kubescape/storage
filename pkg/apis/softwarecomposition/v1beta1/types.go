@@ -94,8 +94,8 @@ type SBOMSPDXv2p3FilteredList struct {
 }
 
 type VulnerabilityManifestSpec struct {
-	Metadata string `json:"metadata,omitempty"`
-	Payload  string `json:"payload,omitempty"`
+	Metadata string        `json:"metadata,omitempty"`
+	Payload  GrypeDocument `json:"payload,omitempty"`
 }
 
 type VulnerabilityManifestStatus struct {

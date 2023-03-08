@@ -95,7 +95,7 @@ type SBOMSPDXv2p3FilteredList struct {
 
 type VulnerabilityManifestSpec struct {
 	Metadata string
-	Payload  string
+	Payload  GrypeDocument
 }
 
 type VulnerabilityManifestStatus struct {
