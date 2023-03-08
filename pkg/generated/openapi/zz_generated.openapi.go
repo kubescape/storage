@@ -31,16 +31,29 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory":                    schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation":                  schema_pkg_apis_softwarecomposition_v1beta1_Annotation(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator":                   schema_pkg_apis_softwarecomposition_v1beta1_Annotator(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":           schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                    schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo":                schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator":                     schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss":                        schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics":                 schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor":                  schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution":                schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID":                schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document":                    schema_pkg_apis_softwarecomposition_v1beta1_Document(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef":         schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File":                        schema_pkg_apis_softwarecomposition_v1beta1_File(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix":                         schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument":               schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage":                schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule":                  schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage":           schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch":                schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                       schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator":                  schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                     schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
@@ -59,12 +72,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                     schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":                schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer":         schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                      schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                    schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":             schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                    schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":             schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability":               schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest":       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestList":   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSpec":   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus": schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata":       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                 schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                             schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                              schema_pkg_apis_meta_v1_APIResource(ref),
@@ -117,6 +135,33 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                      schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
 		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                       schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
 		"k8s.io/apimachinery/pkg/version.Info":                                                          schema_k8sio_apimachinery_pkg_version_Info(ref),
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"link": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "link"},
+			},
+		},
 	}
 }
 
@@ -339,6 +384,159 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref common.ReferenceCal
 					},
 				},
 				Required: []string{"Creator", "CreatorType"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"vector": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"metrics": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics"),
+						},
+					},
+					"vendorMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"version", "vector", "metrics"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"baseScore": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"number"},
+							Format:  "double",
+						},
+					},
+					"exploitabilityScore": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"number"},
+							Format: "double",
+						},
+					},
+					"impactScore": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"number"},
+							Format: "double",
+						},
+					},
+				},
+				Required: []string{"baseScore"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"configuration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"db": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"name", "version"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"idLike": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "version", "idLike"},
 			},
 		},
 	}
@@ -774,6 +972,408 @@ func schema_pkg_apis_softwarecomposition_v1beta1_File(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"versions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"versions", "state"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GrypeDocument is the document that represents the vulnerability manifest in the Grype’s JSON format",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"matches": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match"),
+									},
+								},
+							},
+						},
+					},
+					"ignoredMatches": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch"),
+									},
+								},
+							},
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source"),
+						},
+					},
+					"distro": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution"),
+						},
+					},
+					"descriptor": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor"),
+						},
+					},
+				},
+				Required: []string{"matches", "source", "distro", "descriptor"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"locations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates"),
+									},
+								},
+							},
+						},
+					},
+					"language": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"licenses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"cpes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"purl": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"upstreams": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage"),
+									},
+								},
+							},
+						},
+					},
+					"metadataType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"name", "version", "type", "locations", "language", "licenses", "cpes", "purl", "upstreams"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vulnerability": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"fix-state": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"package": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"location": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Match": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match"),
+						},
+					},
+					"appliedIgnoreRules": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"Match", "appliedIgnoreRules"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vulnerability": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability"),
+						},
+					},
+					"relatedVulnerabilities": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"),
+									},
+								},
+							},
+						},
+					},
+					"matchDetails": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails"),
+									},
+								},
+							},
+						},
+					},
+					"artifact": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage"),
+						},
+					},
+				},
+				Required: []string{"vulnerability", "relatedVulnerabilities", "matchDetails", "artifact"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"matcher": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"searchedBy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"found": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"type", "matcher"},
+			},
+		},
 	}
 }
 
@@ -1768,6 +2368,32 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref common.
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_Source(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1792,6 +2418,32 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"Supplier", "SupplierType"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"layerID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"path"},
 			},
 		},
 	}
@@ -1822,6 +2474,72 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref common.ReferenceCa
 				Required: []string{"name", "version"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"VulnerabilityMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"),
+						},
+					},
+					"fix": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix"),
+						},
+					},
+					"advisories": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"VulnerabilityMetadata", "fix", "advisories"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"},
 	}
 }
 
@@ -1935,13 +2653,15 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref c
 					},
 					"payload": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument"),
 						},
 					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument"},
 	}
 }
 
@@ -1952,6 +2672,80 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref
 				Type: []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"dataSource": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"severity": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"urls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cvss": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"id", "dataSource", "urls", "cvss"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss"},
 	}
 }
 
