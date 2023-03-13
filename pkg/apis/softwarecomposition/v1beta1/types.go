@@ -38,7 +38,7 @@ type ToolMeta struct {
 
 // ReportMeta describes metadata about a report
 type ReportMeta struct {
-	CreatedAt metav1.Time `json:"mandatory"`
+	CreatedAt metav1.Time `json:"createdAt"`
 }
 
 // SPDXMeta describes metadata about an SPDX-formatted SBOM
@@ -67,4 +67,28 @@ type SBOMSPDXv2p3 struct {
 
 	Spec   SBOMSPDXv2p3Spec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 	Status SBOMSPDXv2p3Status `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSPDXv2p3Filtered is a custom resource that describes a filtered SBOM in the SPDX 2.3 format.
+//
+// Being filtered means that the SBOM contains only the relevant vulnerable materials.
+type SBOMSPDXv2p3Filtered struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   SBOMSPDXv2p3Spec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status SBOMSPDXv2p3Status `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSPDXv2p3FilteredList is a list of SBOMSPDXv2p3Filtered objects.
+type SBOMSPDXv2p3FilteredList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []SBOMSPDXv2p3Filtered `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

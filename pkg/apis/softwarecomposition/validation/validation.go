@@ -36,3 +36,11 @@ func ValidateFlunderSpec(s *softwarecomposition.SBOMSPDXv2p3Spec, fldPath *field
 
 	return allErrs
 }
+
+func ValidateSBOMSPDXv2p3Filtered(s *softwarecomposition.SBOMSPDXv2p3Filtered) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateFlunderSpec(&s.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
