@@ -30,9 +30,27 @@ type SBOMSPDXv2p3List struct {
 	Items []SBOMSPDXv2p3 `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// ToolMeta describes metadata about a tool that generated an artifact
+type ToolMeta struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// ReportMeta describes metadata about a report
+type ReportMeta struct {
+	CreatedAt metav1.Time `json:"mandatory"`
+}
+
+// SPDXMeta describes metadata about an SPDX-formatted SBOM
+type SPDXMeta struct {
+	Tool   ToolMeta   `json:"tool"`
+	Report ReportMeta `json:"report"`
+}
+
 // SBOMSPDXv2p3Spec is the specification of a Flunder.
 type SBOMSPDXv2p3Spec struct {
-	SPDX Document `json:"spdx,omitempty"`
+	Metadata SPDXMeta `json:"metadata"`
+	SPDX     Document `json:"spdx,omitempty"`
 }
 
 // SBOMSPDXv2p3Status is the status of a Flunder.
