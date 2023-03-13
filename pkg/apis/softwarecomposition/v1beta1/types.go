@@ -92,3 +92,54 @@ type SBOMSPDXv2p3FilteredList struct {
 
 	Items []SBOMSPDXv2p3Filtered `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// VulnerabilityManifestReportMeta holds metadata about the specific report
+// tied to a vulnerability manifest
+type VulnerabilityManifestReportMeta struct {
+	CreatedAt metav1.Time `json:"createdAt"`
+}
+
+// VulnerabilityManifestToolMeta describes data about the tool used to generate
+// the vulnerability manifest’s report
+type VulnerabilityManifestToolMeta struct {
+	Name            string `json:"name"`
+	Version         string `json:"version"`
+	DatabaseVersion string `json:"databaseVersion"`
+}
+
+// VulnerabilityManifestMeta holds metadata about a vulnerability manifest
+type VulnerabilityManifestMeta struct {
+	WithRelevancy bool                            `json:"withRelevancy"`
+	Tool          VulnerabilityManifestToolMeta   `json:"tool"`
+	Report        VulnerabilityManifestReportMeta `json:"report"`
+}
+
+type VulnerabilityManifestSpec struct {
+	Metadata VulnerabilityManifestMeta `json:"metadata,omitempty"`
+	Payload  GrypeDocument             `json:"payload,omitempty"`
+}
+
+type VulnerabilityManifestStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifest is a custom resource that describes a manifest of found vulnerabilities.
+type VulnerabilityManifest struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   VulnerabilityManifestSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status VulnerabilityManifestStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestList is a list of Vulnerability manifests.
+type VulnerabilityManifestList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []VulnerabilityManifest `json:"items" protobuf:"bytes,2,rep,name=items"`
+}

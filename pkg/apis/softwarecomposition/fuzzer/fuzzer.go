@@ -17,6 +17,8 @@ limitations under the License.
 package fuzzer
 
 import (
+	"encoding/json"
+
 	fuzz "github.com/google/gofuzz"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 
@@ -64,6 +66,21 @@ func fuzzCreator(cr *softwarecomposition.Creator, c fuzz.Continue) {
 	cr.Creator = "John Doe <johndoe@example.com>"
 }
 
+// fuzzJsonRawMessage returns a fuzzed value for the apiextensions JSON format
+//
+// At the moment this returns a valid JSON-encoded string
+func fuzzJsonRawMessage(j *json.RawMessage, c fuzz.Continue) {
+	encodedString, err := json.Marshal(c.RandString())
+	if err != nil {
+		panic(err)
+	}
+
+	err = j.UnmarshalJSON(encodedString)
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Funcs returns the fuzzer functions for the apps api group.
 var Funcs = func(codecs runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
@@ -77,5 +94,6 @@ var Funcs = func(codecs runtimeserializer.CodecFactory) []interface{} {
 		fuzzOriginator,
 		fuzzFile,
 		fuzzCreator,
+		fuzzJsonRawMessage,
 	}
 }

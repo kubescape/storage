@@ -92,3 +92,54 @@ type SBOMSPDXv2p3FilteredList struct {
 
 	Items []SBOMSPDXv2p3Filtered
 }
+
+// VulnerabilityManifestReportMeta holds metadata about the specific report
+// tied to a vulnerability manifest
+type VulnerabilityManifestReportMeta struct {
+	CreatedAt metav1.Time
+}
+
+// VulnerabilityManifestToolMeta describes data about the tool used to generate
+// the vulnerability manifest’s report
+type VulnerabilityManifestToolMeta struct {
+	Name            string
+	Version         string
+	DatabaseVersion string
+}
+
+// VulnerabilityManifestMeta holds metadata about a vulnerability manifest
+type VulnerabilityManifestMeta struct {
+	WithRelevancy bool
+	Tool          VulnerabilityManifestToolMeta
+	Report        VulnerabilityManifestReportMeta
+}
+
+type VulnerabilityManifestSpec struct {
+	Metadata VulnerabilityManifestMeta
+	Payload  GrypeDocument
+}
+
+type VulnerabilityManifestStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifest is a custom resource that describes a manifest of found vulnerabilities.
+type VulnerabilityManifest struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilityManifestSpec
+	Status VulnerabilityManifestStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestList is a list of Vulnerability manifests.
+type VulnerabilityManifestList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilityManifest
+}

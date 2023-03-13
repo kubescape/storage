@@ -30,6 +30,7 @@ type SpdxV1beta1Interface interface {
 	RESTClient() rest.Interface
 	SBOMSPDXv2p3sGetter
 	SBOMSPDXv2p3FilteredsGetter
+	VulnerabilityManifestsGetter
 }
 
 // SpdxV1beta1Client is used to interact with features provided by the spdx.softwarecomposition.kubescape.io group.
@@ -43,6 +44,10 @@ func (c *SpdxV1beta1Client) SBOMSPDXv2p3s(namespace string) SBOMSPDXv2p3Interfac
 
 func (c *SpdxV1beta1Client) SBOMSPDXv2p3Filtereds(namespace string) SBOMSPDXv2p3FilteredInterface {
 	return newSBOMSPDXv2p3Filtereds(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) VulnerabilityManifestInterface {
+	return newVulnerabilityManifests(c, namespace)
 }
 
 // NewForConfig creates a new SpdxV1beta1Client for the given config.

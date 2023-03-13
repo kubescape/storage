@@ -36,6 +36,10 @@ func (c *FakeSpdxV1beta1) SBOMSPDXv2p3Filtereds(namespace string) v1beta1.SBOMSP
 	return &FakeSBOMSPDXv2p3Filtereds{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {
+	return &FakeVulnerabilityManifests{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeSpdxV1beta1) RESTClient() rest.Interface {

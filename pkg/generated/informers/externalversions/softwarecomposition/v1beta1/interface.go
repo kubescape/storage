@@ -28,6 +28,8 @@ type Interface interface {
 	SBOMSPDXv2p3s() SBOMSPDXv2p3Informer
 	// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
 	SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer
+	// VulnerabilityManifests returns a VulnerabilityManifestInformer.
+	VulnerabilityManifests() VulnerabilityManifestInformer
 }
 
 type version struct {
@@ -49,4 +51,9 @@ func (v *version) SBOMSPDXv2p3s() SBOMSPDXv2p3Informer {
 // SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
 func (v *version) SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer {
 	return &sBOMSPDXv2p3FilteredInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VulnerabilityManifests returns a VulnerabilityManifestInformer.
+func (v *version) VulnerabilityManifests() VulnerabilityManifestInformer {
+	return &vulnerabilityManifestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
