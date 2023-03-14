@@ -22,6 +22,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	json "encoding/json"
 	unsafe "unsafe"
 
 	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -36,6 +37,16 @@ func init() {
 // RegisterConversions adds conversion functions to the given scheme.
 // Public to allow building arbitrary schemes.
 func RegisterConversions(s *runtime.Scheme) error {
+	if err := s.AddGeneratedConversionFunc((*Advisory)(nil), (*softwarecomposition.Advisory)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Advisory_To_softwarecomposition_Advisory(a.(*Advisory), b.(*softwarecomposition.Advisory), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Advisory)(nil), (*Advisory)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Advisory_To_v1beta1_Advisory(a.(*softwarecomposition.Advisory), b.(*Advisory), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*Annotation)(nil), (*softwarecomposition.Annotation)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Annotation_To_softwarecomposition_Annotation(a.(*Annotation), b.(*softwarecomposition.Annotation), scope)
 	}); err != nil {
@@ -96,6 +107,46 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*Cvss)(nil), (*softwarecomposition.Cvss)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Cvss_To_softwarecomposition_Cvss(a.(*Cvss), b.(*softwarecomposition.Cvss), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Cvss)(nil), (*Cvss)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Cvss_To_v1beta1_Cvss(a.(*softwarecomposition.Cvss), b.(*Cvss), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*CvssMetrics)(nil), (*softwarecomposition.CvssMetrics)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_CvssMetrics_To_softwarecomposition_CvssMetrics(a.(*CvssMetrics), b.(*softwarecomposition.CvssMetrics), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.CvssMetrics)(nil), (*CvssMetrics)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_CvssMetrics_To_v1beta1_CvssMetrics(a.(*softwarecomposition.CvssMetrics), b.(*CvssMetrics), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Descriptor)(nil), (*softwarecomposition.Descriptor)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Descriptor_To_softwarecomposition_Descriptor(a.(*Descriptor), b.(*softwarecomposition.Descriptor), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Descriptor)(nil), (*Descriptor)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(a.(*softwarecomposition.Descriptor), b.(*Descriptor), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Distribution)(nil), (*softwarecomposition.Distribution)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Distribution_To_softwarecomposition_Distribution(a.(*Distribution), b.(*softwarecomposition.Distribution), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Distribution)(nil), (*Distribution)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Distribution_To_v1beta1_Distribution(a.(*softwarecomposition.Distribution), b.(*Distribution), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*DocElementID)(nil), (*softwarecomposition.DocElementID)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_DocElementID_To_softwarecomposition_DocElementID(a.(*DocElementID), b.(*softwarecomposition.DocElementID), scope)
 	}); err != nil {
@@ -133,6 +184,86 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.File)(nil), (*File)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_File_To_v1beta1_File(a.(*softwarecomposition.File), b.(*File), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Fix)(nil), (*softwarecomposition.Fix)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Fix_To_softwarecomposition_Fix(a.(*Fix), b.(*softwarecomposition.Fix), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Fix)(nil), (*Fix)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Fix_To_v1beta1_Fix(a.(*softwarecomposition.Fix), b.(*Fix), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*GrypeDocument)(nil), (*softwarecomposition.GrypeDocument)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_GrypeDocument_To_softwarecomposition_GrypeDocument(a.(*GrypeDocument), b.(*softwarecomposition.GrypeDocument), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.GrypeDocument)(nil), (*GrypeDocument)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_GrypeDocument_To_v1beta1_GrypeDocument(a.(*softwarecomposition.GrypeDocument), b.(*GrypeDocument), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*GrypePackage)(nil), (*softwarecomposition.GrypePackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_GrypePackage_To_softwarecomposition_GrypePackage(a.(*GrypePackage), b.(*softwarecomposition.GrypePackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.GrypePackage)(nil), (*GrypePackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_GrypePackage_To_v1beta1_GrypePackage(a.(*softwarecomposition.GrypePackage), b.(*GrypePackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*IgnoreRule)(nil), (*softwarecomposition.IgnoreRule)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_IgnoreRule_To_softwarecomposition_IgnoreRule(a.(*IgnoreRule), b.(*softwarecomposition.IgnoreRule), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.IgnoreRule)(nil), (*IgnoreRule)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_IgnoreRule_To_v1beta1_IgnoreRule(a.(*softwarecomposition.IgnoreRule), b.(*IgnoreRule), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*IgnoreRulePackage)(nil), (*softwarecomposition.IgnoreRulePackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_IgnoreRulePackage_To_softwarecomposition_IgnoreRulePackage(a.(*IgnoreRulePackage), b.(*softwarecomposition.IgnoreRulePackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.IgnoreRulePackage)(nil), (*IgnoreRulePackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_IgnoreRulePackage_To_v1beta1_IgnoreRulePackage(a.(*softwarecomposition.IgnoreRulePackage), b.(*IgnoreRulePackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*IgnoredMatch)(nil), (*softwarecomposition.IgnoredMatch)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_IgnoredMatch_To_softwarecomposition_IgnoredMatch(a.(*IgnoredMatch), b.(*softwarecomposition.IgnoredMatch), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.IgnoredMatch)(nil), (*IgnoredMatch)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_IgnoredMatch_To_v1beta1_IgnoredMatch(a.(*softwarecomposition.IgnoredMatch), b.(*IgnoredMatch), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Match)(nil), (*softwarecomposition.Match)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Match_To_softwarecomposition_Match(a.(*Match), b.(*softwarecomposition.Match), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Match)(nil), (*Match)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Match_To_v1beta1_Match(a.(*softwarecomposition.Match), b.(*Match), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*MatchDetails)(nil), (*softwarecomposition.MatchDetails)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_MatchDetails_To_softwarecomposition_MatchDetails(a.(*MatchDetails), b.(*softwarecomposition.MatchDetails), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.MatchDetails)(nil), (*MatchDetails)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(a.(*softwarecomposition.MatchDetails), b.(*MatchDetails), scope)
 	}); err != nil {
 		return err
 	}
@@ -226,6 +357,26 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSPDXv2p3Filtered)(nil), (*softwarecomposition.SBOMSPDXv2p3Filtered)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSPDXv2p3Filtered_To_softwarecomposition_SBOMSPDXv2p3Filtered(a.(*SBOMSPDXv2p3Filtered), b.(*softwarecomposition.SBOMSPDXv2p3Filtered), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSPDXv2p3Filtered)(nil), (*SBOMSPDXv2p3Filtered)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSPDXv2p3Filtered_To_v1beta1_SBOMSPDXv2p3Filtered(a.(*softwarecomposition.SBOMSPDXv2p3Filtered), b.(*SBOMSPDXv2p3Filtered), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSPDXv2p3FilteredList)(nil), (*softwarecomposition.SBOMSPDXv2p3FilteredList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSPDXv2p3FilteredList_To_softwarecomposition_SBOMSPDXv2p3FilteredList(a.(*SBOMSPDXv2p3FilteredList), b.(*softwarecomposition.SBOMSPDXv2p3FilteredList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSPDXv2p3FilteredList)(nil), (*SBOMSPDXv2p3FilteredList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSPDXv2p3FilteredList_To_v1beta1_SBOMSPDXv2p3FilteredList(a.(*softwarecomposition.SBOMSPDXv2p3FilteredList), b.(*SBOMSPDXv2p3FilteredList), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*SBOMSPDXv2p3List)(nil), (*softwarecomposition.SBOMSPDXv2p3List)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_SBOMSPDXv2p3List_To_softwarecomposition_SBOMSPDXv2p3List(a.(*SBOMSPDXv2p3List), b.(*softwarecomposition.SBOMSPDXv2p3List), scope)
 	}); err != nil {
@@ -296,6 +447,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*Source)(nil), (*softwarecomposition.Source)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Source_To_softwarecomposition_Source(a.(*Source), b.(*softwarecomposition.Source), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Source)(nil), (*Source)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Source_To_v1beta1_Source(a.(*softwarecomposition.Source), b.(*Source), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*Supplier)(nil), (*softwarecomposition.Supplier)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Supplier_To_softwarecomposition_Supplier(a.(*Supplier), b.(*softwarecomposition.Supplier), scope)
 	}); err != nil {
@@ -303,6 +464,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Supplier)(nil), (*Supplier)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_Supplier_To_v1beta1_Supplier(a.(*softwarecomposition.Supplier), b.(*Supplier), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SyftCoordinates)(nil), (*softwarecomposition.SyftCoordinates)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SyftCoordinates_To_softwarecomposition_SyftCoordinates(a.(*SyftCoordinates), b.(*softwarecomposition.SyftCoordinates), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftCoordinates)(nil), (*SyftCoordinates)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(a.(*softwarecomposition.SyftCoordinates), b.(*SyftCoordinates), scope)
 	}); err != nil {
 		return err
 	}
@@ -316,7 +487,129 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*UpstreamPackage)(nil), (*softwarecomposition.UpstreamPackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_UpstreamPackage_To_softwarecomposition_UpstreamPackage(a.(*UpstreamPackage), b.(*softwarecomposition.UpstreamPackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.UpstreamPackage)(nil), (*UpstreamPackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_UpstreamPackage_To_v1beta1_UpstreamPackage(a.(*softwarecomposition.UpstreamPackage), b.(*UpstreamPackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Vulnerability)(nil), (*softwarecomposition.Vulnerability)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Vulnerability_To_softwarecomposition_Vulnerability(a.(*Vulnerability), b.(*softwarecomposition.Vulnerability), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Vulnerability)(nil), (*Vulnerability)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability(a.(*softwarecomposition.Vulnerability), b.(*Vulnerability), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifest)(nil), (*softwarecomposition.VulnerabilityManifest)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifest_To_softwarecomposition_VulnerabilityManifest(a.(*VulnerabilityManifest), b.(*softwarecomposition.VulnerabilityManifest), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifest)(nil), (*VulnerabilityManifest)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifest_To_v1beta1_VulnerabilityManifest(a.(*softwarecomposition.VulnerabilityManifest), b.(*VulnerabilityManifest), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestList)(nil), (*softwarecomposition.VulnerabilityManifestList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestList_To_softwarecomposition_VulnerabilityManifestList(a.(*VulnerabilityManifestList), b.(*softwarecomposition.VulnerabilityManifestList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestList)(nil), (*VulnerabilityManifestList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestList_To_v1beta1_VulnerabilityManifestList(a.(*softwarecomposition.VulnerabilityManifestList), b.(*VulnerabilityManifestList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestMeta)(nil), (*softwarecomposition.VulnerabilityManifestMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestMeta_To_softwarecomposition_VulnerabilityManifestMeta(a.(*VulnerabilityManifestMeta), b.(*softwarecomposition.VulnerabilityManifestMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestMeta)(nil), (*VulnerabilityManifestMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestMeta_To_v1beta1_VulnerabilityManifestMeta(a.(*softwarecomposition.VulnerabilityManifestMeta), b.(*VulnerabilityManifestMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestReportMeta)(nil), (*softwarecomposition.VulnerabilityManifestReportMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestReportMeta_To_softwarecomposition_VulnerabilityManifestReportMeta(a.(*VulnerabilityManifestReportMeta), b.(*softwarecomposition.VulnerabilityManifestReportMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestReportMeta)(nil), (*VulnerabilityManifestReportMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestReportMeta_To_v1beta1_VulnerabilityManifestReportMeta(a.(*softwarecomposition.VulnerabilityManifestReportMeta), b.(*VulnerabilityManifestReportMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestSpec)(nil), (*softwarecomposition.VulnerabilityManifestSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestSpec_To_softwarecomposition_VulnerabilityManifestSpec(a.(*VulnerabilityManifestSpec), b.(*softwarecomposition.VulnerabilityManifestSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestSpec)(nil), (*VulnerabilityManifestSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestSpec_To_v1beta1_VulnerabilityManifestSpec(a.(*softwarecomposition.VulnerabilityManifestSpec), b.(*VulnerabilityManifestSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestStatus)(nil), (*softwarecomposition.VulnerabilityManifestStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestStatus_To_softwarecomposition_VulnerabilityManifestStatus(a.(*VulnerabilityManifestStatus), b.(*softwarecomposition.VulnerabilityManifestStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestStatus)(nil), (*VulnerabilityManifestStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(a.(*softwarecomposition.VulnerabilityManifestStatus), b.(*VulnerabilityManifestStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestToolMeta)(nil), (*softwarecomposition.VulnerabilityManifestToolMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestToolMeta_To_softwarecomposition_VulnerabilityManifestToolMeta(a.(*VulnerabilityManifestToolMeta), b.(*softwarecomposition.VulnerabilityManifestToolMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestToolMeta)(nil), (*VulnerabilityManifestToolMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestToolMeta_To_v1beta1_VulnerabilityManifestToolMeta(a.(*softwarecomposition.VulnerabilityManifestToolMeta), b.(*VulnerabilityManifestToolMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityMetadata)(nil), (*softwarecomposition.VulnerabilityMetadata)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityMetadata_To_softwarecomposition_VulnerabilityMetadata(a.(*VulnerabilityMetadata), b.(*softwarecomposition.VulnerabilityMetadata), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityMetadata)(nil), (*VulnerabilityMetadata)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityMetadata_To_v1beta1_VulnerabilityMetadata(a.(*softwarecomposition.VulnerabilityMetadata), b.(*VulnerabilityMetadata), scope)
+	}); err != nil {
+		return err
+	}
 	return nil
+}
+
+func autoConvert_v1beta1_Advisory_To_softwarecomposition_Advisory(in *Advisory, out *softwarecomposition.Advisory, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Link = in.Link
+	return nil
+}
+
+// Convert_v1beta1_Advisory_To_softwarecomposition_Advisory is an autogenerated conversion function.
+func Convert_v1beta1_Advisory_To_softwarecomposition_Advisory(in *Advisory, out *softwarecomposition.Advisory, s conversion.Scope) error {
+	return autoConvert_v1beta1_Advisory_To_softwarecomposition_Advisory(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Advisory_To_v1beta1_Advisory(in *softwarecomposition.Advisory, out *Advisory, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Link = in.Link
+	return nil
+}
+
+// Convert_softwarecomposition_Advisory_To_v1beta1_Advisory is an autogenerated conversion function.
+func Convert_softwarecomposition_Advisory_To_v1beta1_Advisory(in *softwarecomposition.Advisory, out *Advisory, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Advisory_To_v1beta1_Advisory(in, out, s)
 }
 
 func autoConvert_v1beta1_Annotation_To_softwarecomposition_Annotation(in *Annotation, out *softwarecomposition.Annotation, s conversion.Scope) error {
@@ -471,6 +764,110 @@ func Convert_softwarecomposition_Creator_To_v1beta1_Creator(in *softwarecomposit
 	return autoConvert_softwarecomposition_Creator_To_v1beta1_Creator(in, out, s)
 }
 
+func autoConvert_v1beta1_Cvss_To_softwarecomposition_Cvss(in *Cvss, out *softwarecomposition.Cvss, s conversion.Scope) error {
+	out.Version = in.Version
+	out.Vector = in.Vector
+	if err := Convert_v1beta1_CvssMetrics_To_softwarecomposition_CvssMetrics(&in.Metrics, &out.Metrics, s); err != nil {
+		return err
+	}
+	out.VendorMetadata = *(*json.RawMessage)(unsafe.Pointer(&in.VendorMetadata))
+	return nil
+}
+
+// Convert_v1beta1_Cvss_To_softwarecomposition_Cvss is an autogenerated conversion function.
+func Convert_v1beta1_Cvss_To_softwarecomposition_Cvss(in *Cvss, out *softwarecomposition.Cvss, s conversion.Scope) error {
+	return autoConvert_v1beta1_Cvss_To_softwarecomposition_Cvss(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Cvss_To_v1beta1_Cvss(in *softwarecomposition.Cvss, out *Cvss, s conversion.Scope) error {
+	out.Version = in.Version
+	out.Vector = in.Vector
+	if err := Convert_softwarecomposition_CvssMetrics_To_v1beta1_CvssMetrics(&in.Metrics, &out.Metrics, s); err != nil {
+		return err
+	}
+	out.VendorMetadata = *(*json.RawMessage)(unsafe.Pointer(&in.VendorMetadata))
+	return nil
+}
+
+// Convert_softwarecomposition_Cvss_To_v1beta1_Cvss is an autogenerated conversion function.
+func Convert_softwarecomposition_Cvss_To_v1beta1_Cvss(in *softwarecomposition.Cvss, out *Cvss, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Cvss_To_v1beta1_Cvss(in, out, s)
+}
+
+func autoConvert_v1beta1_CvssMetrics_To_softwarecomposition_CvssMetrics(in *CvssMetrics, out *softwarecomposition.CvssMetrics, s conversion.Scope) error {
+	out.BaseScore = in.BaseScore
+	out.ExploitabilityScore = (*float64)(unsafe.Pointer(in.ExploitabilityScore))
+	out.ImpactScore = (*float64)(unsafe.Pointer(in.ImpactScore))
+	return nil
+}
+
+// Convert_v1beta1_CvssMetrics_To_softwarecomposition_CvssMetrics is an autogenerated conversion function.
+func Convert_v1beta1_CvssMetrics_To_softwarecomposition_CvssMetrics(in *CvssMetrics, out *softwarecomposition.CvssMetrics, s conversion.Scope) error {
+	return autoConvert_v1beta1_CvssMetrics_To_softwarecomposition_CvssMetrics(in, out, s)
+}
+
+func autoConvert_softwarecomposition_CvssMetrics_To_v1beta1_CvssMetrics(in *softwarecomposition.CvssMetrics, out *CvssMetrics, s conversion.Scope) error {
+	out.BaseScore = in.BaseScore
+	out.ExploitabilityScore = (*float64)(unsafe.Pointer(in.ExploitabilityScore))
+	out.ImpactScore = (*float64)(unsafe.Pointer(in.ImpactScore))
+	return nil
+}
+
+// Convert_softwarecomposition_CvssMetrics_To_v1beta1_CvssMetrics is an autogenerated conversion function.
+func Convert_softwarecomposition_CvssMetrics_To_v1beta1_CvssMetrics(in *softwarecomposition.CvssMetrics, out *CvssMetrics, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_CvssMetrics_To_v1beta1_CvssMetrics(in, out, s)
+}
+
+func autoConvert_v1beta1_Descriptor_To_softwarecomposition_Descriptor(in *Descriptor, out *softwarecomposition.Descriptor, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Configuration = *(*json.RawMessage)(unsafe.Pointer(&in.Configuration))
+	out.VulnerabilityDBStatus = *(*json.RawMessage)(unsafe.Pointer(&in.VulnerabilityDBStatus))
+	return nil
+}
+
+// Convert_v1beta1_Descriptor_To_softwarecomposition_Descriptor is an autogenerated conversion function.
+func Convert_v1beta1_Descriptor_To_softwarecomposition_Descriptor(in *Descriptor, out *softwarecomposition.Descriptor, s conversion.Scope) error {
+	return autoConvert_v1beta1_Descriptor_To_softwarecomposition_Descriptor(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(in *softwarecomposition.Descriptor, out *Descriptor, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Configuration = *(*json.RawMessage)(unsafe.Pointer(&in.Configuration))
+	out.VulnerabilityDBStatus = *(*json.RawMessage)(unsafe.Pointer(&in.VulnerabilityDBStatus))
+	return nil
+}
+
+// Convert_softwarecomposition_Descriptor_To_v1beta1_Descriptor is an autogenerated conversion function.
+func Convert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(in *softwarecomposition.Descriptor, out *Descriptor, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(in, out, s)
+}
+
+func autoConvert_v1beta1_Distribution_To_softwarecomposition_Distribution(in *Distribution, out *softwarecomposition.Distribution, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.IDLike = *(*[]string)(unsafe.Pointer(&in.IDLike))
+	return nil
+}
+
+// Convert_v1beta1_Distribution_To_softwarecomposition_Distribution is an autogenerated conversion function.
+func Convert_v1beta1_Distribution_To_softwarecomposition_Distribution(in *Distribution, out *softwarecomposition.Distribution, s conversion.Scope) error {
+	return autoConvert_v1beta1_Distribution_To_softwarecomposition_Distribution(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Distribution_To_v1beta1_Distribution(in *softwarecomposition.Distribution, out *Distribution, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.IDLike = *(*[]string)(unsafe.Pointer(&in.IDLike))
+	return nil
+}
+
+// Convert_softwarecomposition_Distribution_To_v1beta1_Distribution is an autogenerated conversion function.
+func Convert_softwarecomposition_Distribution_To_v1beta1_Distribution(in *softwarecomposition.Distribution, out *Distribution, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Distribution_To_v1beta1_Distribution(in, out, s)
+}
+
 func autoConvert_v1beta1_DocElementID_To_softwarecomposition_DocElementID(in *DocElementID, out *softwarecomposition.DocElementID, s conversion.Scope) error {
 	out.DocumentRefID = in.DocumentRefID
 	out.ElementRefID = softwarecomposition.ElementID(in.ElementRefID)
@@ -621,6 +1018,240 @@ func autoConvert_softwarecomposition_File_To_v1beta1_File(in *softwarecompositio
 // Convert_softwarecomposition_File_To_v1beta1_File is an autogenerated conversion function.
 func Convert_softwarecomposition_File_To_v1beta1_File(in *softwarecomposition.File, out *File, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_File_To_v1beta1_File(in, out, s)
+}
+
+func autoConvert_v1beta1_Fix_To_softwarecomposition_Fix(in *Fix, out *softwarecomposition.Fix, s conversion.Scope) error {
+	out.Versions = *(*[]string)(unsafe.Pointer(&in.Versions))
+	out.State = in.State
+	return nil
+}
+
+// Convert_v1beta1_Fix_To_softwarecomposition_Fix is an autogenerated conversion function.
+func Convert_v1beta1_Fix_To_softwarecomposition_Fix(in *Fix, out *softwarecomposition.Fix, s conversion.Scope) error {
+	return autoConvert_v1beta1_Fix_To_softwarecomposition_Fix(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Fix_To_v1beta1_Fix(in *softwarecomposition.Fix, out *Fix, s conversion.Scope) error {
+	out.Versions = *(*[]string)(unsafe.Pointer(&in.Versions))
+	out.State = in.State
+	return nil
+}
+
+// Convert_softwarecomposition_Fix_To_v1beta1_Fix is an autogenerated conversion function.
+func Convert_softwarecomposition_Fix_To_v1beta1_Fix(in *softwarecomposition.Fix, out *Fix, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Fix_To_v1beta1_Fix(in, out, s)
+}
+
+func autoConvert_v1beta1_GrypeDocument_To_softwarecomposition_GrypeDocument(in *GrypeDocument, out *softwarecomposition.GrypeDocument, s conversion.Scope) error {
+	out.Matches = *(*[]softwarecomposition.Match)(unsafe.Pointer(&in.Matches))
+	out.IgnoredMatches = *(*[]softwarecomposition.IgnoredMatch)(unsafe.Pointer(&in.IgnoredMatches))
+	out.Source = (*softwarecomposition.Source)(unsafe.Pointer(in.Source))
+	if err := Convert_v1beta1_Distribution_To_softwarecomposition_Distribution(&in.Distro, &out.Distro, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_Descriptor_To_softwarecomposition_Descriptor(&in.Descriptor, &out.Descriptor, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_GrypeDocument_To_softwarecomposition_GrypeDocument is an autogenerated conversion function.
+func Convert_v1beta1_GrypeDocument_To_softwarecomposition_GrypeDocument(in *GrypeDocument, out *softwarecomposition.GrypeDocument, s conversion.Scope) error {
+	return autoConvert_v1beta1_GrypeDocument_To_softwarecomposition_GrypeDocument(in, out, s)
+}
+
+func autoConvert_softwarecomposition_GrypeDocument_To_v1beta1_GrypeDocument(in *softwarecomposition.GrypeDocument, out *GrypeDocument, s conversion.Scope) error {
+	out.Matches = *(*[]Match)(unsafe.Pointer(&in.Matches))
+	out.IgnoredMatches = *(*[]IgnoredMatch)(unsafe.Pointer(&in.IgnoredMatches))
+	out.Source = (*Source)(unsafe.Pointer(in.Source))
+	if err := Convert_softwarecomposition_Distribution_To_v1beta1_Distribution(&in.Distro, &out.Distro, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(&in.Descriptor, &out.Descriptor, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_GrypeDocument_To_v1beta1_GrypeDocument is an autogenerated conversion function.
+func Convert_softwarecomposition_GrypeDocument_To_v1beta1_GrypeDocument(in *softwarecomposition.GrypeDocument, out *GrypeDocument, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_GrypeDocument_To_v1beta1_GrypeDocument(in, out, s)
+}
+
+func autoConvert_v1beta1_GrypePackage_To_softwarecomposition_GrypePackage(in *GrypePackage, out *softwarecomposition.GrypePackage, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = softwarecomposition.SyftType(in.Type)
+	out.Locations = *(*[]softwarecomposition.SyftCoordinates)(unsafe.Pointer(&in.Locations))
+	out.Language = softwarecomposition.SyftLanguage(in.Language)
+	out.Licenses = *(*[]string)(unsafe.Pointer(&in.Licenses))
+	out.CPEs = *(*[]string)(unsafe.Pointer(&in.CPEs))
+	out.PURL = in.PURL
+	out.Upstreams = *(*[]softwarecomposition.UpstreamPackage)(unsafe.Pointer(&in.Upstreams))
+	out.MetadataType = softwarecomposition.MetadataType(in.MetadataType)
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_v1beta1_GrypePackage_To_softwarecomposition_GrypePackage is an autogenerated conversion function.
+func Convert_v1beta1_GrypePackage_To_softwarecomposition_GrypePackage(in *GrypePackage, out *softwarecomposition.GrypePackage, s conversion.Scope) error {
+	return autoConvert_v1beta1_GrypePackage_To_softwarecomposition_GrypePackage(in, out, s)
+}
+
+func autoConvert_softwarecomposition_GrypePackage_To_v1beta1_GrypePackage(in *softwarecomposition.GrypePackage, out *GrypePackage, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = SyftType(in.Type)
+	out.Locations = *(*[]SyftCoordinates)(unsafe.Pointer(&in.Locations))
+	out.Language = SyftLanguage(in.Language)
+	out.Licenses = *(*[]string)(unsafe.Pointer(&in.Licenses))
+	out.CPEs = *(*[]string)(unsafe.Pointer(&in.CPEs))
+	out.PURL = in.PURL
+	out.Upstreams = *(*[]UpstreamPackage)(unsafe.Pointer(&in.Upstreams))
+	out.MetadataType = MetadataType(in.MetadataType)
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_softwarecomposition_GrypePackage_To_v1beta1_GrypePackage is an autogenerated conversion function.
+func Convert_softwarecomposition_GrypePackage_To_v1beta1_GrypePackage(in *softwarecomposition.GrypePackage, out *GrypePackage, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_GrypePackage_To_v1beta1_GrypePackage(in, out, s)
+}
+
+func autoConvert_v1beta1_IgnoreRule_To_softwarecomposition_IgnoreRule(in *IgnoreRule, out *softwarecomposition.IgnoreRule, s conversion.Scope) error {
+	out.Vulnerability = in.Vulnerability
+	out.FixState = in.FixState
+	out.Package = (*softwarecomposition.IgnoreRulePackage)(unsafe.Pointer(in.Package))
+	return nil
+}
+
+// Convert_v1beta1_IgnoreRule_To_softwarecomposition_IgnoreRule is an autogenerated conversion function.
+func Convert_v1beta1_IgnoreRule_To_softwarecomposition_IgnoreRule(in *IgnoreRule, out *softwarecomposition.IgnoreRule, s conversion.Scope) error {
+	return autoConvert_v1beta1_IgnoreRule_To_softwarecomposition_IgnoreRule(in, out, s)
+}
+
+func autoConvert_softwarecomposition_IgnoreRule_To_v1beta1_IgnoreRule(in *softwarecomposition.IgnoreRule, out *IgnoreRule, s conversion.Scope) error {
+	out.Vulnerability = in.Vulnerability
+	out.FixState = in.FixState
+	out.Package = (*IgnoreRulePackage)(unsafe.Pointer(in.Package))
+	return nil
+}
+
+// Convert_softwarecomposition_IgnoreRule_To_v1beta1_IgnoreRule is an autogenerated conversion function.
+func Convert_softwarecomposition_IgnoreRule_To_v1beta1_IgnoreRule(in *softwarecomposition.IgnoreRule, out *IgnoreRule, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_IgnoreRule_To_v1beta1_IgnoreRule(in, out, s)
+}
+
+func autoConvert_v1beta1_IgnoreRulePackage_To_softwarecomposition_IgnoreRulePackage(in *IgnoreRulePackage, out *softwarecomposition.IgnoreRulePackage, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.Location = in.Location
+	return nil
+}
+
+// Convert_v1beta1_IgnoreRulePackage_To_softwarecomposition_IgnoreRulePackage is an autogenerated conversion function.
+func Convert_v1beta1_IgnoreRulePackage_To_softwarecomposition_IgnoreRulePackage(in *IgnoreRulePackage, out *softwarecomposition.IgnoreRulePackage, s conversion.Scope) error {
+	return autoConvert_v1beta1_IgnoreRulePackage_To_softwarecomposition_IgnoreRulePackage(in, out, s)
+}
+
+func autoConvert_softwarecomposition_IgnoreRulePackage_To_v1beta1_IgnoreRulePackage(in *softwarecomposition.IgnoreRulePackage, out *IgnoreRulePackage, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.Location = in.Location
+	return nil
+}
+
+// Convert_softwarecomposition_IgnoreRulePackage_To_v1beta1_IgnoreRulePackage is an autogenerated conversion function.
+func Convert_softwarecomposition_IgnoreRulePackage_To_v1beta1_IgnoreRulePackage(in *softwarecomposition.IgnoreRulePackage, out *IgnoreRulePackage, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_IgnoreRulePackage_To_v1beta1_IgnoreRulePackage(in, out, s)
+}
+
+func autoConvert_v1beta1_IgnoredMatch_To_softwarecomposition_IgnoredMatch(in *IgnoredMatch, out *softwarecomposition.IgnoredMatch, s conversion.Scope) error {
+	if err := Convert_v1beta1_Match_To_softwarecomposition_Match(&in.Match, &out.Match, s); err != nil {
+		return err
+	}
+	out.AppliedIgnoreRules = *(*[]softwarecomposition.IgnoreRule)(unsafe.Pointer(&in.AppliedIgnoreRules))
+	return nil
+}
+
+// Convert_v1beta1_IgnoredMatch_To_softwarecomposition_IgnoredMatch is an autogenerated conversion function.
+func Convert_v1beta1_IgnoredMatch_To_softwarecomposition_IgnoredMatch(in *IgnoredMatch, out *softwarecomposition.IgnoredMatch, s conversion.Scope) error {
+	return autoConvert_v1beta1_IgnoredMatch_To_softwarecomposition_IgnoredMatch(in, out, s)
+}
+
+func autoConvert_softwarecomposition_IgnoredMatch_To_v1beta1_IgnoredMatch(in *softwarecomposition.IgnoredMatch, out *IgnoredMatch, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_Match_To_v1beta1_Match(&in.Match, &out.Match, s); err != nil {
+		return err
+	}
+	out.AppliedIgnoreRules = *(*[]IgnoreRule)(unsafe.Pointer(&in.AppliedIgnoreRules))
+	return nil
+}
+
+// Convert_softwarecomposition_IgnoredMatch_To_v1beta1_IgnoredMatch is an autogenerated conversion function.
+func Convert_softwarecomposition_IgnoredMatch_To_v1beta1_IgnoredMatch(in *softwarecomposition.IgnoredMatch, out *IgnoredMatch, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_IgnoredMatch_To_v1beta1_IgnoredMatch(in, out, s)
+}
+
+func autoConvert_v1beta1_Match_To_softwarecomposition_Match(in *Match, out *softwarecomposition.Match, s conversion.Scope) error {
+	if err := Convert_v1beta1_Vulnerability_To_softwarecomposition_Vulnerability(&in.Vulnerability, &out.Vulnerability, s); err != nil {
+		return err
+	}
+	out.RelatedVulnerabilities = *(*[]softwarecomposition.VulnerabilityMetadata)(unsafe.Pointer(&in.RelatedVulnerabilities))
+	out.MatchDetails = *(*[]softwarecomposition.MatchDetails)(unsafe.Pointer(&in.MatchDetails))
+	if err := Convert_v1beta1_GrypePackage_To_softwarecomposition_GrypePackage(&in.Artifact, &out.Artifact, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_Match_To_softwarecomposition_Match is an autogenerated conversion function.
+func Convert_v1beta1_Match_To_softwarecomposition_Match(in *Match, out *softwarecomposition.Match, s conversion.Scope) error {
+	return autoConvert_v1beta1_Match_To_softwarecomposition_Match(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Match_To_v1beta1_Match(in *softwarecomposition.Match, out *Match, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability(&in.Vulnerability, &out.Vulnerability, s); err != nil {
+		return err
+	}
+	out.RelatedVulnerabilities = *(*[]VulnerabilityMetadata)(unsafe.Pointer(&in.RelatedVulnerabilities))
+	out.MatchDetails = *(*[]MatchDetails)(unsafe.Pointer(&in.MatchDetails))
+	if err := Convert_softwarecomposition_GrypePackage_To_v1beta1_GrypePackage(&in.Artifact, &out.Artifact, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_Match_To_v1beta1_Match is an autogenerated conversion function.
+func Convert_softwarecomposition_Match_To_v1beta1_Match(in *softwarecomposition.Match, out *Match, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Match_To_v1beta1_Match(in, out, s)
+}
+
+func autoConvert_v1beta1_MatchDetails_To_softwarecomposition_MatchDetails(in *MatchDetails, out *softwarecomposition.MatchDetails, s conversion.Scope) error {
+	out.Type = in.Type
+	out.Matcher = in.Matcher
+	out.SearchedBy = *(*json.RawMessage)(unsafe.Pointer(&in.SearchedBy))
+	out.Found = *(*json.RawMessage)(unsafe.Pointer(&in.Found))
+	return nil
+}
+
+// Convert_v1beta1_MatchDetails_To_softwarecomposition_MatchDetails is an autogenerated conversion function.
+func Convert_v1beta1_MatchDetails_To_softwarecomposition_MatchDetails(in *MatchDetails, out *softwarecomposition.MatchDetails, s conversion.Scope) error {
+	return autoConvert_v1beta1_MatchDetails_To_softwarecomposition_MatchDetails(in, out, s)
+}
+
+func autoConvert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(in *softwarecomposition.MatchDetails, out *MatchDetails, s conversion.Scope) error {
+	out.Type = in.Type
+	out.Matcher = in.Matcher
+	out.SearchedBy = *(*json.RawMessage)(unsafe.Pointer(&in.SearchedBy))
+	out.Found = *(*json.RawMessage)(unsafe.Pointer(&in.Found))
+	return nil
+}
+
+// Convert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails is an autogenerated conversion function.
+func Convert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(in *softwarecomposition.MatchDetails, out *MatchDetails, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(in, out, s)
 }
 
 func autoConvert_v1beta1_Originator_To_softwarecomposition_Originator(in *Originator, out *softwarecomposition.Originator, s conversion.Scope) error {
@@ -913,6 +1544,60 @@ func Convert_softwarecomposition_SBOMSPDXv2p3_To_v1beta1_SBOMSPDXv2p3(in *softwa
 	return autoConvert_softwarecomposition_SBOMSPDXv2p3_To_v1beta1_SBOMSPDXv2p3(in, out, s)
 }
 
+func autoConvert_v1beta1_SBOMSPDXv2p3Filtered_To_softwarecomposition_SBOMSPDXv2p3Filtered(in *SBOMSPDXv2p3Filtered, out *softwarecomposition.SBOMSPDXv2p3Filtered, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_SBOMSPDXv2p3Spec_To_softwarecomposition_SBOMSPDXv2p3Spec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_SBOMSPDXv2p3Status_To_softwarecomposition_SBOMSPDXv2p3Status(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SBOMSPDXv2p3Filtered_To_softwarecomposition_SBOMSPDXv2p3Filtered is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSPDXv2p3Filtered_To_softwarecomposition_SBOMSPDXv2p3Filtered(in *SBOMSPDXv2p3Filtered, out *softwarecomposition.SBOMSPDXv2p3Filtered, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSPDXv2p3Filtered_To_softwarecomposition_SBOMSPDXv2p3Filtered(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSPDXv2p3Filtered_To_v1beta1_SBOMSPDXv2p3Filtered(in *softwarecomposition.SBOMSPDXv2p3Filtered, out *SBOMSPDXv2p3Filtered, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_SBOMSPDXv2p3Spec_To_v1beta1_SBOMSPDXv2p3Spec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_SBOMSPDXv2p3Status_To_v1beta1_SBOMSPDXv2p3Status(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSPDXv2p3Filtered_To_v1beta1_SBOMSPDXv2p3Filtered is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSPDXv2p3Filtered_To_v1beta1_SBOMSPDXv2p3Filtered(in *softwarecomposition.SBOMSPDXv2p3Filtered, out *SBOMSPDXv2p3Filtered, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSPDXv2p3Filtered_To_v1beta1_SBOMSPDXv2p3Filtered(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSPDXv2p3FilteredList_To_softwarecomposition_SBOMSPDXv2p3FilteredList(in *SBOMSPDXv2p3FilteredList, out *softwarecomposition.SBOMSPDXv2p3FilteredList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.SBOMSPDXv2p3Filtered)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_SBOMSPDXv2p3FilteredList_To_softwarecomposition_SBOMSPDXv2p3FilteredList is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSPDXv2p3FilteredList_To_softwarecomposition_SBOMSPDXv2p3FilteredList(in *SBOMSPDXv2p3FilteredList, out *softwarecomposition.SBOMSPDXv2p3FilteredList, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSPDXv2p3FilteredList_To_softwarecomposition_SBOMSPDXv2p3FilteredList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSPDXv2p3FilteredList_To_v1beta1_SBOMSPDXv2p3FilteredList(in *softwarecomposition.SBOMSPDXv2p3FilteredList, out *SBOMSPDXv2p3FilteredList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]SBOMSPDXv2p3Filtered)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSPDXv2p3FilteredList_To_v1beta1_SBOMSPDXv2p3FilteredList is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSPDXv2p3FilteredList_To_v1beta1_SBOMSPDXv2p3FilteredList(in *softwarecomposition.SBOMSPDXv2p3FilteredList, out *SBOMSPDXv2p3FilteredList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSPDXv2p3FilteredList_To_v1beta1_SBOMSPDXv2p3FilteredList(in, out, s)
+}
+
 func autoConvert_v1beta1_SBOMSPDXv2p3List_To_softwarecomposition_SBOMSPDXv2p3List(in *SBOMSPDXv2p3List, out *softwarecomposition.SBOMSPDXv2p3List, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
 	out.Items = *(*[]softwarecomposition.SBOMSPDXv2p3)(unsafe.Pointer(&in.Items))
@@ -1105,6 +1790,28 @@ func Convert_softwarecomposition_SnippetRangePointer_To_v1beta1_SnippetRangePoin
 	return autoConvert_softwarecomposition_SnippetRangePointer_To_v1beta1_SnippetRangePointer(in, out, s)
 }
 
+func autoConvert_v1beta1_Source_To_softwarecomposition_Source(in *Source, out *softwarecomposition.Source, s conversion.Scope) error {
+	out.Type = in.Type
+	out.Target = *(*json.RawMessage)(unsafe.Pointer(&in.Target))
+	return nil
+}
+
+// Convert_v1beta1_Source_To_softwarecomposition_Source is an autogenerated conversion function.
+func Convert_v1beta1_Source_To_softwarecomposition_Source(in *Source, out *softwarecomposition.Source, s conversion.Scope) error {
+	return autoConvert_v1beta1_Source_To_softwarecomposition_Source(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Source_To_v1beta1_Source(in *softwarecomposition.Source, out *Source, s conversion.Scope) error {
+	out.Type = in.Type
+	out.Target = *(*json.RawMessage)(unsafe.Pointer(&in.Target))
+	return nil
+}
+
+// Convert_softwarecomposition_Source_To_v1beta1_Source is an autogenerated conversion function.
+func Convert_softwarecomposition_Source_To_v1beta1_Source(in *softwarecomposition.Source, out *Source, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Source_To_v1beta1_Source(in, out, s)
+}
+
 func autoConvert_v1beta1_Supplier_To_softwarecomposition_Supplier(in *Supplier, out *softwarecomposition.Supplier, s conversion.Scope) error {
 	out.Supplier = in.Supplier
 	out.SupplierType = in.SupplierType
@@ -1127,6 +1834,28 @@ func Convert_softwarecomposition_Supplier_To_v1beta1_Supplier(in *softwarecompos
 	return autoConvert_softwarecomposition_Supplier_To_v1beta1_Supplier(in, out, s)
 }
 
+func autoConvert_v1beta1_SyftCoordinates_To_softwarecomposition_SyftCoordinates(in *SyftCoordinates, out *softwarecomposition.SyftCoordinates, s conversion.Scope) error {
+	out.RealPath = in.RealPath
+	out.FileSystemID = in.FileSystemID
+	return nil
+}
+
+// Convert_v1beta1_SyftCoordinates_To_softwarecomposition_SyftCoordinates is an autogenerated conversion function.
+func Convert_v1beta1_SyftCoordinates_To_softwarecomposition_SyftCoordinates(in *SyftCoordinates, out *softwarecomposition.SyftCoordinates, s conversion.Scope) error {
+	return autoConvert_v1beta1_SyftCoordinates_To_softwarecomposition_SyftCoordinates(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(in *softwarecomposition.SyftCoordinates, out *SyftCoordinates, s conversion.Scope) error {
+	out.RealPath = in.RealPath
+	out.FileSystemID = in.FileSystemID
+	return nil
+}
+
+// Convert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates is an autogenerated conversion function.
+func Convert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(in *softwarecomposition.SyftCoordinates, out *SyftCoordinates, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(in, out, s)
+}
+
 func autoConvert_v1beta1_ToolMeta_To_softwarecomposition_ToolMeta(in *ToolMeta, out *softwarecomposition.ToolMeta, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Version = in.Version
@@ -1147,4 +1876,268 @@ func autoConvert_softwarecomposition_ToolMeta_To_v1beta1_ToolMeta(in *softwareco
 // Convert_softwarecomposition_ToolMeta_To_v1beta1_ToolMeta is an autogenerated conversion function.
 func Convert_softwarecomposition_ToolMeta_To_v1beta1_ToolMeta(in *softwarecomposition.ToolMeta, out *ToolMeta, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_ToolMeta_To_v1beta1_ToolMeta(in, out, s)
+}
+
+func autoConvert_v1beta1_UpstreamPackage_To_softwarecomposition_UpstreamPackage(in *UpstreamPackage, out *softwarecomposition.UpstreamPackage, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	return nil
+}
+
+// Convert_v1beta1_UpstreamPackage_To_softwarecomposition_UpstreamPackage is an autogenerated conversion function.
+func Convert_v1beta1_UpstreamPackage_To_softwarecomposition_UpstreamPackage(in *UpstreamPackage, out *softwarecomposition.UpstreamPackage, s conversion.Scope) error {
+	return autoConvert_v1beta1_UpstreamPackage_To_softwarecomposition_UpstreamPackage(in, out, s)
+}
+
+func autoConvert_softwarecomposition_UpstreamPackage_To_v1beta1_UpstreamPackage(in *softwarecomposition.UpstreamPackage, out *UpstreamPackage, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	return nil
+}
+
+// Convert_softwarecomposition_UpstreamPackage_To_v1beta1_UpstreamPackage is an autogenerated conversion function.
+func Convert_softwarecomposition_UpstreamPackage_To_v1beta1_UpstreamPackage(in *softwarecomposition.UpstreamPackage, out *UpstreamPackage, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_UpstreamPackage_To_v1beta1_UpstreamPackage(in, out, s)
+}
+
+func autoConvert_v1beta1_Vulnerability_To_softwarecomposition_Vulnerability(in *Vulnerability, out *softwarecomposition.Vulnerability, s conversion.Scope) error {
+	if err := Convert_v1beta1_VulnerabilityMetadata_To_softwarecomposition_VulnerabilityMetadata(&in.VulnerabilityMetadata, &out.VulnerabilityMetadata, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_Fix_To_softwarecomposition_Fix(&in.Fix, &out.Fix, s); err != nil {
+		return err
+	}
+	out.Advisories = *(*[]softwarecomposition.Advisory)(unsafe.Pointer(&in.Advisories))
+	return nil
+}
+
+// Convert_v1beta1_Vulnerability_To_softwarecomposition_Vulnerability is an autogenerated conversion function.
+func Convert_v1beta1_Vulnerability_To_softwarecomposition_Vulnerability(in *Vulnerability, out *softwarecomposition.Vulnerability, s conversion.Scope) error {
+	return autoConvert_v1beta1_Vulnerability_To_softwarecomposition_Vulnerability(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability(in *softwarecomposition.Vulnerability, out *Vulnerability, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_VulnerabilityMetadata_To_v1beta1_VulnerabilityMetadata(&in.VulnerabilityMetadata, &out.VulnerabilityMetadata, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_Fix_To_v1beta1_Fix(&in.Fix, &out.Fix, s); err != nil {
+		return err
+	}
+	out.Advisories = *(*[]Advisory)(unsafe.Pointer(&in.Advisories))
+	return nil
+}
+
+// Convert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability is an autogenerated conversion function.
+func Convert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability(in *softwarecomposition.Vulnerability, out *Vulnerability, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifest_To_softwarecomposition_VulnerabilityManifest(in *VulnerabilityManifest, out *softwarecomposition.VulnerabilityManifest, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_VulnerabilityManifestSpec_To_softwarecomposition_VulnerabilityManifestSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_VulnerabilityManifestStatus_To_softwarecomposition_VulnerabilityManifestStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifest_To_softwarecomposition_VulnerabilityManifest is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifest_To_softwarecomposition_VulnerabilityManifest(in *VulnerabilityManifest, out *softwarecomposition.VulnerabilityManifest, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifest_To_softwarecomposition_VulnerabilityManifest(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifest_To_v1beta1_VulnerabilityManifest(in *softwarecomposition.VulnerabilityManifest, out *VulnerabilityManifest, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_VulnerabilityManifestSpec_To_v1beta1_VulnerabilityManifestSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifest_To_v1beta1_VulnerabilityManifest is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifest_To_v1beta1_VulnerabilityManifest(in *softwarecomposition.VulnerabilityManifest, out *VulnerabilityManifest, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifest_To_v1beta1_VulnerabilityManifest(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestList_To_softwarecomposition_VulnerabilityManifestList(in *VulnerabilityManifestList, out *softwarecomposition.VulnerabilityManifestList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.VulnerabilityManifest)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestList_To_softwarecomposition_VulnerabilityManifestList is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestList_To_softwarecomposition_VulnerabilityManifestList(in *VulnerabilityManifestList, out *softwarecomposition.VulnerabilityManifestList, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestList_To_softwarecomposition_VulnerabilityManifestList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestList_To_v1beta1_VulnerabilityManifestList(in *softwarecomposition.VulnerabilityManifestList, out *VulnerabilityManifestList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]VulnerabilityManifest)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestList_To_v1beta1_VulnerabilityManifestList is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestList_To_v1beta1_VulnerabilityManifestList(in *softwarecomposition.VulnerabilityManifestList, out *VulnerabilityManifestList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestList_To_v1beta1_VulnerabilityManifestList(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestMeta_To_softwarecomposition_VulnerabilityManifestMeta(in *VulnerabilityManifestMeta, out *softwarecomposition.VulnerabilityManifestMeta, s conversion.Scope) error {
+	out.WithRelevancy = in.WithRelevancy
+	if err := Convert_v1beta1_VulnerabilityManifestToolMeta_To_softwarecomposition_VulnerabilityManifestToolMeta(&in.Tool, &out.Tool, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_VulnerabilityManifestReportMeta_To_softwarecomposition_VulnerabilityManifestReportMeta(&in.Report, &out.Report, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestMeta_To_softwarecomposition_VulnerabilityManifestMeta is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestMeta_To_softwarecomposition_VulnerabilityManifestMeta(in *VulnerabilityManifestMeta, out *softwarecomposition.VulnerabilityManifestMeta, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestMeta_To_softwarecomposition_VulnerabilityManifestMeta(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestMeta_To_v1beta1_VulnerabilityManifestMeta(in *softwarecomposition.VulnerabilityManifestMeta, out *VulnerabilityManifestMeta, s conversion.Scope) error {
+	out.WithRelevancy = in.WithRelevancy
+	if err := Convert_softwarecomposition_VulnerabilityManifestToolMeta_To_v1beta1_VulnerabilityManifestToolMeta(&in.Tool, &out.Tool, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityManifestReportMeta_To_v1beta1_VulnerabilityManifestReportMeta(&in.Report, &out.Report, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestMeta_To_v1beta1_VulnerabilityManifestMeta is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestMeta_To_v1beta1_VulnerabilityManifestMeta(in *softwarecomposition.VulnerabilityManifestMeta, out *VulnerabilityManifestMeta, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestMeta_To_v1beta1_VulnerabilityManifestMeta(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestReportMeta_To_softwarecomposition_VulnerabilityManifestReportMeta(in *VulnerabilityManifestReportMeta, out *softwarecomposition.VulnerabilityManifestReportMeta, s conversion.Scope) error {
+	out.CreatedAt = in.CreatedAt
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestReportMeta_To_softwarecomposition_VulnerabilityManifestReportMeta is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestReportMeta_To_softwarecomposition_VulnerabilityManifestReportMeta(in *VulnerabilityManifestReportMeta, out *softwarecomposition.VulnerabilityManifestReportMeta, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestReportMeta_To_softwarecomposition_VulnerabilityManifestReportMeta(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestReportMeta_To_v1beta1_VulnerabilityManifestReportMeta(in *softwarecomposition.VulnerabilityManifestReportMeta, out *VulnerabilityManifestReportMeta, s conversion.Scope) error {
+	out.CreatedAt = in.CreatedAt
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestReportMeta_To_v1beta1_VulnerabilityManifestReportMeta is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestReportMeta_To_v1beta1_VulnerabilityManifestReportMeta(in *softwarecomposition.VulnerabilityManifestReportMeta, out *VulnerabilityManifestReportMeta, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestReportMeta_To_v1beta1_VulnerabilityManifestReportMeta(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestSpec_To_softwarecomposition_VulnerabilityManifestSpec(in *VulnerabilityManifestSpec, out *softwarecomposition.VulnerabilityManifestSpec, s conversion.Scope) error {
+	if err := Convert_v1beta1_VulnerabilityManifestMeta_To_softwarecomposition_VulnerabilityManifestMeta(&in.Metadata, &out.Metadata, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_GrypeDocument_To_softwarecomposition_GrypeDocument(&in.Payload, &out.Payload, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestSpec_To_softwarecomposition_VulnerabilityManifestSpec is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestSpec_To_softwarecomposition_VulnerabilityManifestSpec(in *VulnerabilityManifestSpec, out *softwarecomposition.VulnerabilityManifestSpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestSpec_To_softwarecomposition_VulnerabilityManifestSpec(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestSpec_To_v1beta1_VulnerabilityManifestSpec(in *softwarecomposition.VulnerabilityManifestSpec, out *VulnerabilityManifestSpec, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_VulnerabilityManifestMeta_To_v1beta1_VulnerabilityManifestMeta(&in.Metadata, &out.Metadata, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_GrypeDocument_To_v1beta1_GrypeDocument(&in.Payload, &out.Payload, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestSpec_To_v1beta1_VulnerabilityManifestSpec is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestSpec_To_v1beta1_VulnerabilityManifestSpec(in *softwarecomposition.VulnerabilityManifestSpec, out *VulnerabilityManifestSpec, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestSpec_To_v1beta1_VulnerabilityManifestSpec(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestStatus_To_softwarecomposition_VulnerabilityManifestStatus(in *VulnerabilityManifestStatus, out *softwarecomposition.VulnerabilityManifestStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestStatus_To_softwarecomposition_VulnerabilityManifestStatus is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestStatus_To_softwarecomposition_VulnerabilityManifestStatus(in *VulnerabilityManifestStatus, out *softwarecomposition.VulnerabilityManifestStatus, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestStatus_To_softwarecomposition_VulnerabilityManifestStatus(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(in *softwarecomposition.VulnerabilityManifestStatus, out *VulnerabilityManifestStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(in *softwarecomposition.VulnerabilityManifestStatus, out *VulnerabilityManifestStatus, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestToolMeta_To_softwarecomposition_VulnerabilityManifestToolMeta(in *VulnerabilityManifestToolMeta, out *softwarecomposition.VulnerabilityManifestToolMeta, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.DatabaseVersion = in.DatabaseVersion
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestToolMeta_To_softwarecomposition_VulnerabilityManifestToolMeta is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestToolMeta_To_softwarecomposition_VulnerabilityManifestToolMeta(in *VulnerabilityManifestToolMeta, out *softwarecomposition.VulnerabilityManifestToolMeta, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestToolMeta_To_softwarecomposition_VulnerabilityManifestToolMeta(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestToolMeta_To_v1beta1_VulnerabilityManifestToolMeta(in *softwarecomposition.VulnerabilityManifestToolMeta, out *VulnerabilityManifestToolMeta, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.DatabaseVersion = in.DatabaseVersion
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestToolMeta_To_v1beta1_VulnerabilityManifestToolMeta is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestToolMeta_To_v1beta1_VulnerabilityManifestToolMeta(in *softwarecomposition.VulnerabilityManifestToolMeta, out *VulnerabilityManifestToolMeta, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestToolMeta_To_v1beta1_VulnerabilityManifestToolMeta(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityMetadata_To_softwarecomposition_VulnerabilityMetadata(in *VulnerabilityMetadata, out *softwarecomposition.VulnerabilityMetadata, s conversion.Scope) error {
+	out.ID = in.ID
+	out.DataSource = in.DataSource
+	out.Namespace = in.Namespace
+	out.Severity = in.Severity
+	out.URLs = *(*[]string)(unsafe.Pointer(&in.URLs))
+	out.Description = in.Description
+	out.Cvss = *(*[]softwarecomposition.Cvss)(unsafe.Pointer(&in.Cvss))
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityMetadata_To_softwarecomposition_VulnerabilityMetadata is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityMetadata_To_softwarecomposition_VulnerabilityMetadata(in *VulnerabilityMetadata, out *softwarecomposition.VulnerabilityMetadata, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityMetadata_To_softwarecomposition_VulnerabilityMetadata(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityMetadata_To_v1beta1_VulnerabilityMetadata(in *softwarecomposition.VulnerabilityMetadata, out *VulnerabilityMetadata, s conversion.Scope) error {
+	out.ID = in.ID
+	out.DataSource = in.DataSource
+	out.Namespace = in.Namespace
+	out.Severity = in.Severity
+	out.URLs = *(*[]string)(unsafe.Pointer(&in.URLs))
+	out.Description = in.Description
+	out.Cvss = *(*[]Cvss)(unsafe.Pointer(&in.Cvss))
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityMetadata_To_v1beta1_VulnerabilityMetadata is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityMetadata_To_v1beta1_VulnerabilityMetadata(in *softwarecomposition.VulnerabilityMetadata, out *VulnerabilityMetadata, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityMetadata_To_v1beta1_VulnerabilityMetadata(in, out, s)
 }

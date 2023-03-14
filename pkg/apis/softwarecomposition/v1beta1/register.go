@@ -51,6 +51,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&SBOMSPDXv2p3{},
 		&SBOMSPDXv2p3List{},
+		&SBOMSPDXv2p3Filtered{},
+		&SBOMSPDXv2p3FilteredList{},
+		&VulnerabilityManifest{},
+		&VulnerabilityManifestList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

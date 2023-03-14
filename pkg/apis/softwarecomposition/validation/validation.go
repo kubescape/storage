@@ -36,3 +36,25 @@ func ValidateFlunderSpec(s *softwarecomposition.SBOMSPDXv2p3Spec, fldPath *field
 
 	return allErrs
 }
+
+func ValidateSBOMSPDXv2p3Filtered(s *softwarecomposition.SBOMSPDXv2p3Filtered) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateFlunderSpec(&s.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
+
+func ValidateVulnerabilityManifestSpec(v *softwarecomposition.VulnerabilityManifestSpec, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	return allErrs
+}
+
+func ValidateVulnerabilityManifest(v *softwarecomposition.VulnerabilityManifest) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateVulnerabilityManifestSpec(&v.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
