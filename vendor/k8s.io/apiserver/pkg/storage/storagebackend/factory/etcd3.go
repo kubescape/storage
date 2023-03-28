@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"math"
 
 	grpcprom "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.etcd.io/etcd/client/pkg/v3/logutil"
@@ -293,8 +294,8 @@ var newETCD3Client = func(c storagebackend.TransportConfig) (*clientv3.Client, e
 		TLS:                  tlsConfig,
 		Logger:               etcd3ClientLogger,
 
-		MaxCallRecvMsgSize: 25 * 1024 * 1024,
-		MaxCallSendMsgSize: 25 * 1024 * 1024,
+		MaxCallRecvMsgSize: math.MaxInt32,
+		MaxCallSendMsgSize: math.MaxInt32,
 	}
 
 	return clientv3.New(cfg)
