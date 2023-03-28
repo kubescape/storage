@@ -33,7 +33,7 @@ import (
 	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
 )
 
-const maxRequestBodyBytes = 25 * 1024 * 1024
+const maxRequestBodyBytes = 1024 * 1024 * 1024
 
 var (
 	// Scheme defines methods for serializing and deserializing API objects.
