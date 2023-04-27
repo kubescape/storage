@@ -670,6 +670,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Document(ref common.ReferenceCa
 						},
 					},
 					"packages": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -682,6 +688,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Document(ref common.ReferenceCa
 						},
 					},
 					"files": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "fileName",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -706,6 +718,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Document(ref common.ReferenceCa
 						},
 					},
 					"relationships": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "spdxElementId",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
