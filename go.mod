@@ -5,6 +5,7 @@ module github.com/kubescape/storage
 go 1.19
 
 require (
+	github.com/go-test/deep v1.1.0
 	github.com/google/gofuzz v1.1.0
 	github.com/spf13/cobra v1.6.0
 	k8s.io/apimachinery v0.26.2
