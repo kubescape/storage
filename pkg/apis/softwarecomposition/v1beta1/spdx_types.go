@@ -557,11 +557,17 @@ type Document struct {
 	// Cardinality: optional, one
 	DocumentComment string `json:"comment"`
 
-	CreationInfo  *CreationInfo   `json:"creationInfo"`
-	Packages      []*Package      `json:"packages"`
-	Files         []*File         `json:"files"`
+	CreationInfo *CreationInfo `json:"creationInfo"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Packages []*Package `json:"packages"  patchStrategy:"merge" patchMergeKey:"name"`
+	// +patchMergeKey=fileName
+	// +patchStrategy=merge
+	Files         []*File         `json:"files" patchStrategy:"merge" patchMergeKey:"fileName"`
 	OtherLicenses []*OtherLicense `json:"hasExtractedLicensingInfos"`
-	Relationships []*Relationship `json:"relationships"`
+	// +patchMergeKey=spdxElementId
+	// +patchStrategy=merge
+	Relationships []*Relationship `json:"relationships"  patchStrategy:"merge" patchMergeKey:"spdxElementId"`
 	Annotations   []Annotation    `json:"annotations"`
 	Snippets      []Snippet       `json:"snippets"`
 
