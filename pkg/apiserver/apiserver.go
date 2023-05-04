@@ -17,6 +17,7 @@ limitations under the License.
 package apiserver
 
 import (
+	"github.com/kubescape/storage/pkg/registry/file"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,6 +32,7 @@ import (
 	sbomspdxv2p3storage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3"
 	sbomspdxv2p3filteredstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3filtered"
 	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
+	"github.com/spf13/afero"
 )
 
 const maxRequestBodyBytes = 1024 * 1024 * 1024
@@ -117,10 +119,11 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 
+	storageImpl := file.NewStorageImpl(afero.NewOsFs(), "/tmp")
 	v1beta1storage := map[string]rest.Storage{}
-	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["sbomspdxv2p3filtereds"] = sbomregistry.RESTInPeace(sbomspdxv2p3filteredstorage.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["sbomspdxv2p3filtereds"] = sbomregistry.RESTInPeace(sbomspdxv2p3filteredstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 
