@@ -29,7 +29,7 @@ import (
 func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*registry.REST, error) {
 	strategy := NewStrategy(scheme)
 
-	storageImpl := &registry.StorageImpl{}
+	storageImpl := registry.NewStorageImpl()
 
 	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: nil, Storage: storageImpl}
 

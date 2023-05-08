@@ -6,15 +6,27 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+
+	"k8s.io/klog/v2"
 )
 
-type WatchImpl struct{}
+const (
+	defaultChanSize = 100
+)
 
-func (w *WatchImpl) Stop() {
+type EventBus struct {
+	eventCh chan watch.Event
 }
 
-func (w *WatchImpl) ResultChan() <-chan watch.Event {
-	return make(<-chan watch.Event)
+func NewEventBus(wc chan watch.Event) *EventBus {
+	return &EventBus{wc}
+}
+
+func (w *EventBus) Stop() {
+}
+
+func (w *EventBus) ResultChan() <-chan watch.Event {
+	return w.eventCh
 }
 
 type event struct {
@@ -24,17 +36,26 @@ type event struct {
 // Interface offers a common interface for object marshaling/unmarshaling operations and
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
-	eventBus chan event
+	eventBus *EventBus
+}
+
+func NewStorageImpl() storage.Interface {
+	watchChan := make(chan watch.Event, defaultChanSize)
+
+	eventBus := NewEventBus(watchChan)
+	return &StorageImpl{eventBus: eventBus}
 }
 
 // Returns Versioner associated with this interface.
-func (s *StorageImpl) Versioner() storage.Versioner {return nil}
+func (s *StorageImpl) Versioner() storage.Versioner { return nil }
 
 // Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
 // in seconds (0 means forever). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.Object, ttl uint64) error {
-	s.eventBus <- event{key: "test"}
+	event := watch.Event{Type: watch.Added, Object: obj}
+	s.eventBus.eventCh <- event
+	klog.Warningf("Custom storage published event: %v", event)
 	return nil
 }
 
@@ -43,10 +64,8 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.O
 // If 'cachedExistingObject' is non-nil, it can be used as a suggestion about the
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
-func (s *StorageImpl) Delete(
-	ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions,
-	validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object) error {
-		return nil
+func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object) error {
+	return nil
 }
 
 // Watch begins watching the specified key. Events are decoded into API objects,
@@ -57,7 +76,7 @@ func (s *StorageImpl) Delete(
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
 func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	return &WatchImpl{}, nil
+	return s.eventBus, nil
 }
 
 // Get unmarshals object found at key into objPtr. On a not found error, will either
