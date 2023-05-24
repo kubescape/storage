@@ -6,9 +6,9 @@ go 1.19
 
 require (
 	github.com/google/gofuzz v1.1.0
+	github.com/olvrng/ujson v1.1.0
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.6.0
-	github.com/spyzhov/ajson v0.8.0
 	github.com/stretchr/testify v1.8.1
 	k8s.io/apimachinery v0.26.2
 	k8s.io/apiserver v0.26.2

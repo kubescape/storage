@@ -1,27 +1,31 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 
+	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
-	"github.com/spyzhov/ajson"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
-
 	"k8s.io/klog/v2"
 )
 
 const (
 	defaultChanSize = 100
+	jsonExt         = ".json"
+	metadataExt     = ".metadata"
 )
 
 type EventBus struct {
@@ -75,13 +79,32 @@ func NewStorageImpl(appFs afero.Fs, root string) storage.Interface {
 	}
 }
 
-func (s *StorageImpl) getPath(key string) string {
-	return filepath.Join(s.root, key) + ".json"
-}
-
 // Returns Versioner associated with this interface.
 func (s *StorageImpl) Versioner() storage.Versioner {
 	return s.versioner
+}
+
+func removeSpec(in []byte) ([]byte, error) {
+	var out []byte
+	err := ujson.Walk(in, func(_ int, key, value []byte) bool {
+		if len(key) != 0 {
+			if bytes.EqualFold(key, []byte(`"spec"`)) {
+				// remove the key and value from the output
+				return false
+			}
+		}
+		// write to output
+		if len(out) != 0 && ujson.ShouldAddComma(value, out[len(out)-1]) {
+			out = append(out, ',')
+		}
+		if len(key) > 0 {
+			out = append(out, key...)
+			out = append(out, ':')
+		}
+		out = append(out, value...)
+		return true
+	})
+	return out, err
 }
 
 // Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
@@ -89,27 +112,41 @@ func (s *StorageImpl) Versioner() storage.Versioner {
 // set to the read value from database.
 func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Object, _ uint64) error {
 	klog.Warningf("Custom storage create: %s", key)
-	p := s.getPath(key)
+	p := filepath.Join(s.root, key)
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	err := s.appFs.MkdirAll(filepath.Dir(p), 0755)
 	if err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(obj, "", "  ")
+	// prepare json content
+	jsonBytes, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		return err
 	}
-	err = afero.WriteFile(s.appFs, p, b, 0644)
+	// prepare metadata content
+	metadataBytes, err := removeSpec(jsonBytes)
 	if err != nil {
 		return err
 	}
+	// write json file
+	err = afero.WriteFile(s.appFs, p+jsonExt, jsonBytes, 0644)
+	if err != nil {
+		return err // maybe not exit here to try writing metadata file
+	}
+	// write metadata file
+	err = afero.WriteFile(s.appFs, p+metadataExt, metadataBytes, 0644)
+	if err != nil {
+		return err
+	}
+	// eventually fill out
 	if out != nil {
-		err = json.Unmarshal(b, out)
+		err = json.Unmarshal(jsonBytes, out)
 		if err != nil {
 			return err
 		}
 	}
+	// publish event
 	event := watch.Event{Type: watch.Added, Object: obj}
 	s.eventBus.eventCh <- event
 	klog.Warningf("Custom storage published event: %v", event)
@@ -123,21 +160,26 @@ func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Obj
 // However, the implementations have to retry in case suggestion is stale.
 func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
 	klog.Warningf("Custom storage delete: %s", key)
-	p := s.getPath(key)
+	p := filepath.Join(s.root, key)
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if exists, _ := afero.Exists(s.appFs, p); !exists {
-		return storage.NewKeyNotFoundError(key, 0)
-	}
-	b, err := afero.ReadFile(s.appFs, p)
+	// read json file
+	b, err := afero.ReadFile(s.appFs, p+jsonExt)
 	if err != nil {
+		if errors.Is(err, afero.ErrFileNotFound) {
+			return storage.NewKeyNotFoundError(key, 0)
+		}
 		return err
 	}
+	// delete json and metadata files
+	_ = s.appFs.Remove(p + jsonExt)
+	_ = s.appFs.Remove(p + metadataExt)
+	// try to fill out
 	err = json.Unmarshal(b, out)
 	if err != nil {
 		return err
 	}
-	return s.appFs.Remove(p)
+	return nil
 }
 
 // Watch begins watching the specified key. Events are decoded into API objects,
@@ -159,22 +201,23 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) Get(_ context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	klog.Warningf("Custom storage get: %s", key)
-	p := s.getPath(key)
+	p := filepath.Join(s.root, key)
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	if exists, _ := afero.Exists(s.appFs, p); exists {
-		b, err := afero.ReadFile(s.appFs, p)
-		if err != nil {
-			return err
+	b, err := afero.ReadFile(s.appFs, p+jsonExt)
+	if err != nil {
+		if errors.Is(err, afero.ErrFileNotFound) {
+			if opts.IgnoreNotFound {
+				return runtime.SetZeroValue(objPtr)
+			} else {
+				return storage.NewKeyNotFoundError(key, 0)
+			}
 		}
-		err = json.Unmarshal(b, objPtr)
-		if err != nil {
-			return err
-		}
-	} else if opts.IgnoreNotFound {
-		return runtime.SetZeroValue(objPtr)
-	} else {
-		return storage.NewKeyNotFoundError(key, 0)
+		return err
+	}
+	err = json.Unmarshal(b, objPtr)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -198,15 +241,19 @@ func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptio
 	p := filepath.Join(s.root, key)
 	var files []string
 	s.lock.RLock()
-	afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+	if exists, _ := afero.Exists(s.appFs, p+metadataExt); exists {
+		files = append(files, p+metadataExt)
+	} else {
+		_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if !info.IsDir() && strings.HasSuffix(path, metadataExt) {
+				files = append(files, path)
+			}
 			return nil
-		}
-		if !info.IsDir() {
-			files = append(files, path)
-		}
-		return nil
-	})
+		})
+	}
 	s.lock.RUnlock()
 	for _, path := range files {
 		// we need to read the whole file
@@ -214,16 +261,6 @@ func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptio
 		b, err := afero.ReadFile(s.appFs, path)
 		if err != nil {
 			// skip if file is not readable, maybe it was deleted
-			continue
-		}
-		// remove spec to save bandwidth
-		root, err := ajson.Unmarshal(b) // TODO use ujson
-		if err != nil {
-			continue
-		}
-		_ = root.DeleteKey("Spec") // ignore error
-		b, err = ajson.Marshal(root)
-		if err != nil {
 			continue
 		}
 		// unmarshal into object
@@ -256,7 +293,7 @@ func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) 
 	if err != nil {
 		return nil, err
 	}
-	if err := s.versioner.UpdateObject(state.obj, uint64(rv)); err != nil {
+	if err := s.versioner.UpdateObject(state.obj, rv); err != nil {
 		klog.Errorf("failed to update object version: %v", err)
 	}
 	return state, nil
@@ -392,12 +429,15 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	p := filepath.Join(s.root, key)
 	s.lock.RLock()
 	defer s.lock.RUnlock()
+	if exists, _ := afero.Exists(s.appFs, p+jsonExt); exists {
+		return 1, nil
+	}
 	n := 0
 	err := afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
+		if !info.IsDir() && strings.HasSuffix(path, jsonExt) {
 			n++
 		}
 		return nil

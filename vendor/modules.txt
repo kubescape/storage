@@ -150,6 +150,9 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
+# github.com/olvrng/ujson v1.1.0
+## explicit; go 1.11
+github.com/olvrng/ujson
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -188,10 +191,6 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/spyzhov/ajson v0.8.0
-## explicit; go 1.12
-github.com/spyzhov/ajson
-github.com/spyzhov/ajson/internal
 # github.com/stoewer/go-strcase v1.2.0
 ## explicit; go 1.11
 github.com/stoewer/go-strcase

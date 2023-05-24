@@ -19,62 +19,41 @@ import (
 const root = "/tmp"
 
 func TestStorageImpl_Count(t *testing.T) {
+	files := []string{
+		"/other/type/ns/titi.json",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
+	}
 	tests := []struct {
 		name    string
-		files   []string
 		key     string
 		want    int64
 		wantErr bool
 	}{
 		{
-			name: "none",
-			want: 0,
+			name: "one object",
+			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+			want: 1,
 		},
 		{
 			name: "one ns",
-			files: []string{
-				"/other/type/ns/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
-			},
 			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape",
 			want: 1,
 		},
 		{
 			name: "one type",
-			files: []string{
-				"/other/type/ns/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
-			},
 			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s",
 			want: 2,
 		},
 		{
 			name: "all types",
-			files: []string{
-				"/other/type/ns/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
-			},
 			key:  "/spdx.softwarecomposition.kubescape.io",
 			want: 4,
 		},
 		{
 			name: "from top",
-			files: []string{
-				"/other/type/ns/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
-			},
 			key:  "/",
 			want: 5,
 		},
@@ -83,7 +62,7 @@ func TestStorageImpl_Count(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			fs.Mkdir(root, 0755)
-			for _, f := range tt.files {
+			for _, f := range files {
 				afero.WriteFile(fs, root+f, []byte(""), 0644)
 			}
 			s := NewStorageImpl(fs, root)
@@ -333,6 +312,26 @@ func TestStorageImpl_Get(t *testing.T) {
 }
 
 func TestStorageImpl_GetList(t *testing.T) {
+	objs := map[string]runtime.Object{
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto": &v1beta1.SBOMSPDXv2p3{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "toto",
+				Namespace: "kubescape",
+			},
+		},
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/titi": &v1beta1.SBOMSPDXv2p3{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "titi",
+				Namespace: "kubescape",
+			},
+		},
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/tata": &v1beta1.SBOMSPDXv2p3{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "tata",
+				Namespace: "other",
+			},
+		},
+	}
 	type fields struct {
 		eventBus  *EventBus
 		lock      sync.RWMutex
@@ -348,37 +347,38 @@ func TestStorageImpl_GetList(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		objs    map[string]runtime.Object
 		wantErr bool
 		want    int
 	}{
 		{
-			name: "get list",
+			name: "get object",
+			args: args{
+				key:     "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				listObj: &v1beta1.SBOMSPDXv2p3List{},
+			},
+			want: 1,
+		},
+		{
+			name: "get ns",
 			args: args{
 				key:     "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape",
 				listObj: &v1beta1.SBOMSPDXv2p3List{},
 			},
-			objs: map[string]runtime.Object{
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto": &v1beta1.SBOMSPDXv2p3{
-					ObjectMeta: v1.ObjectMeta{
-						Name:      "toto",
-						Namespace: "kubescape",
-					},
-				},
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/titi": &v1beta1.SBOMSPDXv2p3{
-					ObjectMeta: v1.ObjectMeta{
-						Name:      "titi",
-						Namespace: "kubescape",
-					},
-				},
-			},
 			want: 2,
+		},
+		{
+			name: "get all ns",
+			args: args{
+				key:     "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s",
+				listObj: &v1beta1.SBOMSPDXv2p3List{},
+			},
+			want: 3,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), root)
-			for k, v := range tt.objs {
+			for k, v := range objs {
 				_ = s.Create(context.Background(), k, v, nil, 0)
 			}
 			if err := s.GetList(tt.args.in0, tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
