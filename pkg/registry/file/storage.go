@@ -196,40 +196,47 @@ func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptio
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
 	p := filepath.Join(s.root, key)
+	var files []string
 	s.lock.RLock()
-	defer s.lock.RUnlock()
-	return afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+	afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
 		if !info.IsDir() {
-			// read from file
-			b, err := afero.ReadFile(s.appFs, path)
-			if err != nil {
-				return nil
-			}
-			// remove spec to save bandwidth
-			root, err := ajson.Unmarshal(b)
-			if err != nil {
-				return nil
-			}
-			_ = root.DeleteKey("Spec") // ignore error
-			b, err = ajson.Marshal(root)
-			if err != nil {
-				return nil
-			}
-			// unmarshal into object
-			elem := v.Type().Elem()
-			obj := reflect.New(elem).Interface().(runtime.Object)
-			err = json.Unmarshal(b, obj)
-			if err != nil {
-				return nil
-			}
-			// append to list
-			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+			files = append(files, path)
 		}
 		return nil
 	})
+	s.lock.RUnlock()
+	for _, path := range files {
+		// we need to read the whole file
+		// TODO maybe save the spec in a separate file?
+		b, err := afero.ReadFile(s.appFs, path)
+		if err != nil {
+			// skip if file is not readable, maybe it was deleted
+			continue
+		}
+		// remove spec to save bandwidth
+		root, err := ajson.Unmarshal(b) // TODO use ujson
+		if err != nil {
+			continue
+		}
+		_ = root.DeleteKey("Spec") // ignore error
+		b, err = ajson.Marshal(root)
+		if err != nil {
+			continue
+		}
+		// unmarshal into object
+		elem := v.Type().Elem()
+		obj := reflect.New(elem).Interface().(runtime.Object)
+		err = json.Unmarshal(b, obj)
+		if err != nil {
+			continue
+		}
+		// append to list
+		v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+	}
+	return nil
 }
 
 func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) {
