@@ -107,8 +107,8 @@ func removeSpec(in []byte) ([]byte, error) {
 	return out, err
 }
 
-// Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
-// in seconds (0 means forever). If no error is returned and out is not nil, out will be
+// Create adds a new object at a key even when it already exists. 'ttl' is time-to-live
+// in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Object, _ uint64) error {
 	klog.Warningf("Custom storage create: %s", key)
@@ -415,11 +415,8 @@ func (s *StorageImpl) GuaranteedUpdate(
 			continue
 		}
 
-		// fill into destination
-		reflect.ValueOf(destination).Elem().Set(reflect.ValueOf(ret).Elem())
-
-		// done
-		return nil
+		// save to disk and fill into destination
+		return s.Create(ctx, key, ret, destination, 0)
 	}
 }
 

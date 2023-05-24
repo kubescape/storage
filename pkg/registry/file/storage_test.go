@@ -402,6 +402,12 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			ResourceVersion: "2",
 		},
 	}
+	totov3 := &v1beta1.SBOMSPDXv2p3{
+		ObjectMeta: v1.ObjectMeta{
+			Name:            "toto",
+			ResourceVersion: "3",
+		},
+	}
 	type fields struct {
 		eventBus  *EventBus
 		lock      sync.RWMutex
@@ -468,11 +474,11 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 						count++
 						return nil, nil, fmt.Errorf("tryUpdate error")
 					}
-					return totov2, nil, nil
+					return totov3, nil, nil
 				},
 				cachedExistingObject: toto,
 			},
-			want: totov2,
+			want: totov3,
 		},
 	}
 	for _, tt := range tests {
@@ -487,6 +493,10 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				return
 			} else {
 				assert.Equal(t, tt.want, tt.args.destination)
+				onDisk := &v1beta1.SBOMSPDXv2p3{}
+				err = s.Get(context.Background(), tt.args.key, storage.GetOptions{}, onDisk)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, onDisk)
 			}
 		})
 	}
