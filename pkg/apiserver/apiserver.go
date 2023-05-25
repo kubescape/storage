@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/options"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
@@ -102,6 +103,10 @@ func (cfg *Config) Complete() CompletedConfig {
 	}
 
 	c.GenericConfig.MaxRequestBodyBytes = maxRequestBodyBytes
+
+	c.GenericConfig.RESTOptionsGetter = &options.StorageFactoryRestOptionsFactory{
+		StorageFactory: &options.SimpleStorageFactory{},
+	}
 
 	return CompletedConfig{&c}
 }
