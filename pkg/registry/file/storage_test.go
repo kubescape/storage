@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/apiserver"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,8 +16,6 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/utils/pointer"
 )
-
-const root = "/tmp"
 
 func TestStorageImpl_Count(t *testing.T) {
 	files := []string{
@@ -61,11 +60,11 @@ func TestStorageImpl_Count(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
-			fs.Mkdir(root, 0755)
+			fs.Mkdir(apiserver.Root, 0755)
 			for _, f := range files {
-				afero.WriteFile(fs, root+f, []byte(""), 0644)
+				afero.WriteFile(fs, apiserver.Root+f, []byte(""), 0644)
 			}
-			s := NewStorageImpl(fs, root)
+			s := NewStorageImpl(fs, apiserver.Root)
 			got, err := s.Count(tt.key)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Count() error = %v, wantErr %v", err, tt.wantErr)
@@ -132,14 +131,14 @@ func TestStorageImpl_Create(t *testing.T) {
 			} else {
 				fs = afero.NewMemMapFs()
 			}
-			s := NewStorageImpl(fs, root)
+			s := NewStorageImpl(fs, apiserver.Root)
 			err := s.Create(tt.args.in0, tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
-			exists, _ := afero.Exists(fs, root+tt.args.key+".json") // FIXME: use getPath instead
-			assert.Truef(t, exists, "file %s should exist", root+tt.args.key)
+			exists, _ := afero.Exists(fs, apiserver.Root+tt.args.key+".json") // FIXME: use getPath instead
+			assert.Truef(t, exists, "file %s should exist", apiserver.Root+tt.args.key)
 			if tt.args.out != nil {
 				assert.Equal(t, tt.args.obj, tt.args.out)
 			}
@@ -214,9 +213,9 @@ func TestStorageImpl_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				afero.WriteFile(fs, root+tt.args.key+".json", []byte(tt.content), 0644)
+				afero.WriteFile(fs, apiserver.Root+tt.args.key+".json", []byte(tt.content), 0644)
 			}
-			s := NewStorageImpl(fs, root)
+			s := NewStorageImpl(fs, apiserver.Root)
 			if err := s.Delete(tt.args.in0, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -298,9 +297,9 @@ func TestStorageImpl_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				afero.WriteFile(fs, root+tt.args.key+".json", []byte(tt.content), 0644)
+				afero.WriteFile(fs, apiserver.Root+tt.args.key+".json", []byte(tt.content), 0644)
 			}
-			s := NewStorageImpl(fs, root)
+			s := NewStorageImpl(fs, apiserver.Root)
 			if err := s.Get(tt.args.in0, tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -377,7 +376,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), root)
+			s := NewStorageImpl(afero.NewMemMapFs(), apiserver.Root)
 			for k, v := range objs {
 				_ = s.Create(context.Background(), k, v, nil, 0)
 			}
@@ -483,7 +482,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), root)
+			s := NewStorageImpl(afero.NewMemMapFs(), apiserver.Root)
 			_ = s.Create(context.Background(), tt.args.key, tt.args.destination, nil, 0)
 			err := s.GuaranteedUpdate(tt.args.ctx, tt.args.key, tt.args.destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
 			if tt.wantErr {
@@ -514,7 +513,7 @@ func TestStorageImpl_Versioner(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), root)
+			s := NewStorageImpl(afero.NewMemMapFs(), apiserver.Root)
 			assert.Equal(t, tt.want, s.Versioner())
 		})
 	}
@@ -536,7 +535,7 @@ func TestStorageImpl_Watch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), root)
+			s := NewStorageImpl(afero.NewMemMapFs(), apiserver.Root)
 			got, err := s.Watch(tt.args.ctx, tt.args.key, tt.args.opts)
 			assert.NoError(t, err)
 			assert.NotNilf(t, got, "Watch() got = %v", got)
