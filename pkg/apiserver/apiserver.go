@@ -118,6 +118,12 @@ func (c completedConfig) New() (*WardleServer, error) {
 	}
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
+	// Since our types don’t implement the Protobuf marshaling interface,
+	// but the default APIServer serializer advertizes it by default, a lot
+	// of unexpected things might fail. One example is that deleting an
+	// arbitrary namespace will fail while this APIServer is running (see
+	// https://github.com/kubernetes/kubernetes/issues/86666).
+	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
 	storageImpl := file.NewStorageImpl(afero.NewOsFs(), "/tmp")
 	v1beta1storage := map[string]rest.Storage{}
