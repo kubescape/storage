@@ -150,9 +150,6 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/olvrng/ujson v1.1.0
-## explicit; go 1.11
-github.com/olvrng/ujson
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -180,11 +177,6 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/spf13/afero v1.9.5
-## explicit; go 1.16
-github.com/spf13/afero
-github.com/spf13/afero/internal/common
-github.com/spf13/afero/mem
 # github.com/spf13/cobra v1.6.0
 ## explicit; go 1.15
 github.com/spf13/cobra
@@ -338,7 +330,6 @@ golang.org/x/sys/windows/registry
 golang.org/x/term
 # golang.org/x/text v0.7.0
 ## explicit; go 1.17
-golang.org/x/text/runes
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
