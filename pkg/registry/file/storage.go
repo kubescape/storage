@@ -29,23 +29,31 @@ const (
 	DefaultStorageRoot = "/data"
 )
 
-type EventBus struct {
+type watcher struct {
+	stopped bool
 	eventCh chan watch.Event
 }
 
-func NewEventBus(wc chan watch.Event) *EventBus {
-	return &EventBus{wc}
+func NewWatcher(wc chan watch.Event) *watcher {
+	return &watcher{false, wc}
 }
 
-func (w *EventBus) Stop() {
+func (w *watcher) Stop() {
+	w.stopped = true
+	close(w.eventCh)
 }
 
-func (w *EventBus) ResultChan() <-chan watch.Event {
+func (w *watcher) ResultChan() <-chan watch.Event {
 	return w.eventCh
 }
 
-type event struct {
-	key string
+func (w *watcher) notify(e watch.Event) bool {
+	if w.stopped {
+		return false
+	}
+
+	w.eventCh <- e
+	return true
 }
 
 type objState struct {
@@ -59,24 +67,22 @@ type objState struct {
 // Interface offers a common interface for object marshaling/unmarshaling operations and
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
-	appFs     afero.Fs
-	eventBus  *EventBus
-	lock      sync.RWMutex
-	root      string
-	versioner storage.Versioner
+	appFs       afero.Fs
+	watchRouter watchRouter
+	lock        sync.RWMutex
+	root        string
+	versioner   storage.Versioner
 }
 
 var _ storage.Interface = &StorageImpl{}
 
 func NewStorageImpl(appFs afero.Fs, root string) storage.Interface {
-	watchChan := make(chan watch.Event, defaultChanSize)
-
-	eventBus := NewEventBus(watchChan)
+	watchRouter := watchRouter{}
 	return &StorageImpl{
-		appFs:     appFs,
-		eventBus:  eventBus,
-		root:      root,
-		versioner: storage.APIObjectVersioner{},
+		appFs:       appFs,
+		watchRouter: watchRouter,
+		root:        root,
+		versioner:   storage.APIObjectVersioner{},
 	}
 }
 
@@ -167,10 +173,9 @@ func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Obj
 	if err := s.writeFiles(key, obj, out); err != nil {
 		return err
 	}
-	// publish event
-	event := watch.Event{Type: watch.Added, Object: obj}
-	s.eventBus.eventCh <- event
-	klog.Warningf("Custom storage published event: %v", event)
+
+	// publish event to watchers
+	s.watchRouter.notify(key, watch.Added, obj)
 	return nil
 }
 
@@ -200,6 +205,9 @@ func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, 
 	if err != nil {
 		return err
 	}
+
+	// publish event to watchers
+	s.watchRouter.notify(key, watch.Deleted, out)
 	return nil
 }
 
@@ -212,7 +220,9 @@ func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, 
 // and send it in an "ADDED" event, before watch starts.
 func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
 	klog.Warningf("Custom storage watch: %s", key)
-	return s.eventBus, nil
+	newWatcher := NewWatcher(make(chan watch.Event))
+	s.watchRouter.register(key, newWatcher)
+	return newWatcher, nil
 }
 
 // Get unmarshals object found at key into objPtr. On a not found error, will either
