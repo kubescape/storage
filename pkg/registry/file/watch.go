@@ -13,7 +13,41 @@ var (
 	errInvalidKey = errors.New("Provided key is invalid")
 )
 
-type watchRouter map[string][]*watcher
+// watcher receives and forwards events to its listeners
+type watcher struct {
+	stopped bool
+	eventCh chan watch.Event
+}
+
+// newWatcher creates a new watcher with a given channel
+func newWatcher(wc chan watch.Event) *watcher {
+	return &watcher{false, wc}
+}
+
+func (w *watcher) Stop() {
+	w.stopped = true
+	close(w.eventCh)
+}
+
+func (w *watcher) ResultChan() <-chan watch.Event {
+	return w.eventCh
+}
+
+func (w *watcher) notify(e watch.Event) bool {
+	if w.stopped {
+		return false
+	}
+
+	w.eventCh <- e
+	return true
+}
+
+// watchDispatcher dispatches events to registered watches
+type watchDispatcher map[string][]*watcher
+
+func newWatchDispatcher() watchDispatcher {
+	return watchDispatcher{}
+}
 
 func exractKeysToNotify(key string) ([]string, error) {
 	resKeys := []string{}
@@ -44,7 +78,7 @@ func exractKeysToNotify(key string) ([]string, error) {
 	return resKeys, nil
 }
 
-func (wr watchRouter) register(key string, w *watcher) {
+func (wr watchDispatcher) register(key string, w *watcher) {
 	existingWatchers, ok := wr[key]
 	if ok {
 		wr[key] = append(existingWatchers, w)
@@ -53,7 +87,7 @@ func (wr watchRouter) register(key string, w *watcher) {
 	}
 }
 
-func (wr watchRouter) notify(key string, eventType watch.EventType, obj runtime.Object) {
+func (wr watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
 	// Don’t block callers by publishing in a separate goroutine
 	go func() {
 		klog.Warningf("Incoming key: %v", key)
