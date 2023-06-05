@@ -275,7 +275,12 @@ func TestStorageImpl_Get(t *testing.T) {
 			},
 			content: "{}",
 			create:  true,
-			want:    &v1beta1.SBOMSPDXv2p3{},
+			want: &v1beta1.SBOMSPDXv2p3{
+				TypeMeta: v1.TypeMeta{
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					Kind:       "SBOMSPDXv2p3",
+				},
+			},
 		},
 		{
 			name: "real object",
@@ -286,6 +291,10 @@ func TestStorageImpl_Get(t *testing.T) {
 			content: string(toto),
 			create:  true,
 			want: &v1beta1.SBOMSPDXv2p3{
+				TypeMeta: v1.TypeMeta{
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					Kind:       "SBOMSPDXv2p3",
+				},
 				ObjectMeta: v1.ObjectMeta{
 					Name: "toto",
 				},
@@ -390,20 +399,53 @@ func TestStorageImpl_GetList(t *testing.T) {
 func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	count := 0
 	toto := &v1beta1.SBOMSPDXv2p3{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+			Kind:       "SBOMSPDXv2p3",
+		},
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
 		},
+		Spec: v1beta1.SBOMSPDXv2p3Spec{
+			Metadata: v1beta1.SPDXMeta{
+				Tool: v1beta1.ToolMeta{
+					Name: "titi",
+				},
+			},
+		},
 	}
 	totov2 := &v1beta1.SBOMSPDXv2p3{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+			Kind:       "SBOMSPDXv2p3",
+		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "2",
 		},
+		Spec: v1beta1.SBOMSPDXv2p3Spec{
+			Metadata: v1beta1.SPDXMeta{
+				Tool: v1beta1.ToolMeta{
+					Name: "titi",
+				},
+			},
+		},
 	}
 	totov3 := &v1beta1.SBOMSPDXv2p3{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+			Kind:       "SBOMSPDXv2p3",
+		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "3",
+		},
+		Spec: v1beta1.SBOMSPDXv2p3Spec{
+			Metadata: v1beta1.SPDXMeta{
+				Tool: v1beta1.ToolMeta{
+					Name: "tutu",
+				},
+			},
 		},
 	}
 	type fields struct {
@@ -472,7 +514,10 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 						count++
 						return nil, nil, fmt.Errorf("tryUpdate error")
 					}
-					return totov3, nil, nil
+					obj := *input.(*v1beta1.SBOMSPDXv2p3)
+					obj.ResourceVersion = "3"
+					obj.Spec.Metadata.Tool.Name = "tutu"
+					return &obj, nil, nil
 				},
 				cachedExistingObject: toto,
 			},
