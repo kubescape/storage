@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	defaultChanSize = 100
-	jsonExt         = ".json"
-	metadataExt     = ".metadata"
+	defaultChanSize    = 100
+	jsonExt            = ".json"
+	metadataExt        = ".metadata"
+	DefaultStorageRoot = "/data"
 )
 
 type EventBus struct {
