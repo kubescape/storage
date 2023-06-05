@@ -147,7 +147,7 @@ func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Obj
 	}
 
 	// publish event to watchers
-	s.watchDispatcher.notify(key, watch.Added, obj)
+	s.watchDispatcher.Added(key, obj)
 	return nil
 }
 
@@ -179,7 +179,7 @@ func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, 
 	}
 
 	// publish event to watchers
-	s.watchDispatcher.notify(key, watch.Deleted, out)
+	s.watchDispatcher.Deleted(key, out)
 	return nil
 }
 
@@ -193,7 +193,7 @@ func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, 
 func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
 	klog.Warningf("Custom storage watch: %s", key)
 	newWatcher := newWatcher(make(chan watch.Event))
-	s.watchDispatcher.register(key, newWatcher)
+	s.watchDispatcher.Register(key, newWatcher)
 	return newWatcher, nil
 }
 

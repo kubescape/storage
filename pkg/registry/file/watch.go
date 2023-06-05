@@ -6,7 +6,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/klog/v2"
 )
 
 var (
@@ -78,39 +77,44 @@ func exractKeysToNotify(key string) ([]string, error) {
 	return resKeys, nil
 }
 
-func (wr watchDispatcher) register(key string, w *watcher) {
-	existingWatchers, ok := wr[key]
+// Register registers a watcher for a given key
+func (wd watchDispatcher) Register(key string, w *watcher) {
+	existingWatchers, ok := wd[key]
 	if ok {
-		wr[key] = append(existingWatchers, w)
+		wd[key] = append(existingWatchers, w)
 	} else {
-		wr[key] = []*watcher{w}
+		wd[key] = []*watcher{w}
 	}
 }
 
-func (wr watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
+// Added dispatches an ADDED event to appropriate watchers
+func (wd watchDispatcher) Added(key string, obj runtime.Object) {
+	wd.notify(key, watch.Added, obj)
+}
+
+// Deleted dispatches a DELETED event to appropriate watchers
+func (wd watchDispatcher) Deleted(key string, obj runtime.Object) {
+	wd.notify(key, watch.Deleted, obj)
+}
+
+func (wd watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
 	// Don’t block callers by publishing in a separate goroutine
 	go func() {
-		klog.Warningf("Incoming key: %v", key)
-		klog.Warningf("Current routes: %v", wr)
-
 		event := watch.Event{Type: eventType, Object: obj}
 		keysToNotify, err := exractKeysToNotify(key)
-		klog.Warningf("Got keys: %v", keysToNotify)
-
 		if err != nil {
 			return
 		}
 
 		for idx := range keysToNotify {
-			klog.Warningf("Notifying key: %v", keysToNotify[idx])
 			notifiedKey := keysToNotify[idx]
-			watchers, ok := wr[notifiedKey]
-			if ok {
-				for idx := range watchers {
-					watchers[idx].notify(event)
-				}
-			} else {
-				klog.Warningf("SKipping missing key")
+			watchers, ok := wd[notifiedKey]
+			if !ok {
+				continue
+			}
+
+			for idx := range watchers {
+				watchers[idx].notify(event)
 			}
 		}
 	}()
