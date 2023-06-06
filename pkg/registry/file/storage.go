@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	defaultChanSize = 100
-	jsonExt         = ".json"
-	metadataExt     = ".metadata"
+	defaultChanSize    = 100
+	jsonExt            = ".json"
+	metadataExt        = ".metadata"
+	DefaultStorageRoot = "/data"
 )
 
 type EventBus struct {
@@ -112,11 +113,17 @@ func removeSpec(in []byte) ([]byte, error) {
 // set to the read value from database.
 func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Object, _ uint64) error {
 	klog.Warningf("Custom storage create: %s", key)
+	// set resourceversion
+	if version, _ := s.versioner.ObjectResourceVersion(obj); version == 0 {
+		if err := s.versioner.UpdateObject(obj, 1); err != nil {
+			return fmt.Errorf("set resourceVersion failed: %v", err)
+		}
+	}
+	// prepare path
 	p := filepath.Join(s.root, key)
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	err := s.appFs.MkdirAll(filepath.Dir(p), 0755)
-	if err != nil {
+	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
 		return err
 	}
 	// prepare json content
