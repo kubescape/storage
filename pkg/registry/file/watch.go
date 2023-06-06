@@ -45,6 +45,12 @@ func (w *watcher) notify(e watch.Event) bool {
 type watchersList []*watcher
 
 // watchDispatcher dispatches events to registered watches
+//
+// TODO(vladklokun): Please keep in mind that this dispatcher does not offer any collection of
+// resources left over by the stopped watches! There are multiple ways to go about it:
+// 1. On-Stop cleanup, where a watcher would notifies the dispatcher about being stopped, and that it can be cleaned up
+// 2. Garbage collection. Periodic background cleanup. Poses challenges as this
+// might be a contended concurrent resource.
 type watchDispatcher struct {
 	watchesByKey *xsync.MapOf[string, watchersList]
 }
