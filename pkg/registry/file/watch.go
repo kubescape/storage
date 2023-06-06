@@ -6,6 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"github.com/puzpuzpuz/xsync/v2"
 )
 
 var (
@@ -41,11 +42,16 @@ func (w *watcher) notify(e watch.Event) bool {
 	return true
 }
 
+type watchersList []*watcher
+
 // watchDispatcher dispatches events to registered watches
-type watchDispatcher map[string][]*watcher
+type watchDispatcher struct {
+	watchesByKey *xsync.MapOf[string, watchersList]
+}
 
 func newWatchDispatcher() watchDispatcher {
-	return watchDispatcher{}
+	wbk := xsync.NewMapOf[watchersList]()
+	return watchDispatcher{watchesByKey: wbk}
 }
 
 func exractKeysToNotify(key string) ([]string, error) {
@@ -78,26 +84,27 @@ func exractKeysToNotify(key string) ([]string, error) {
 }
 
 // Register registers a watcher for a given key
-func (wd watchDispatcher) Register(key string, w *watcher) {
-	existingWatchers, ok := wd[key]
+func (wd *watchDispatcher) Register(key string, w *watcher) {
+	existingWatchers, ok := wd.watchesByKey.Load(key)
 	if ok {
-		wd[key] = append(existingWatchers, w)
+		existingWatchers = append(existingWatchers, w)
+		wd.watchesByKey.Store(key, existingWatchers)
 	} else {
-		wd[key] = []*watcher{w}
+		wd.watchesByKey.Store(key, watchersList{w})
 	}
 }
 
 // Added dispatches an ADDED event to appropriate watchers
-func (wd watchDispatcher) Added(key string, obj runtime.Object) {
+func (wd *watchDispatcher) Added(key string, obj runtime.Object) {
 	wd.notify(key, watch.Added, obj)
 }
 
 // Deleted dispatches a DELETED event to appropriate watchers
-func (wd watchDispatcher) Deleted(key string, obj runtime.Object) {
+func (wd *watchDispatcher) Deleted(key string, obj runtime.Object) {
 	wd.notify(key, watch.Deleted, obj)
 }
 
-func (wd watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
+func (wd *watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
 	// Don’t block callers by publishing in a separate goroutine
 	go func() {
 		event := watch.Event{Type: eventType, Object: obj}
@@ -108,7 +115,7 @@ func (wd watchDispatcher) notify(key string, eventType watch.EventType, obj runt
 
 		for idx := range keysToNotify {
 			notifiedKey := keysToNotify[idx]
-			watchers, ok := wd[notifiedKey]
+			watchers, ok := wd.watchesByKey.Load(notifiedKey)
 			if !ok {
 				continue
 			}
