@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	chanWaitTimeout = 500 * time.Millisecond
+	chanWaitTimeout = 100 * time.Millisecond
 )
 
 func TestExtractKeysToNotify(t *testing.T) {
