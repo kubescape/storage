@@ -108,14 +108,12 @@ func removeSpec(in []byte) ([]byte, error) {
 	return out, err
 }
 
-// Create adds a new object at a key even when it already exists. 'ttl' is time-to-live
-// in seconds (and is ignored). If no error is returned and out is not nil, out will be
-// set to the read value from database.
-func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Object, _ uint64) error {
-	klog.Warningf("Custom storage create: %s", key)
+func (s *StorageImpl) writeFiles(key string, obj runtime.Object, out runtime.Object) error {
+	// do not alter obj
+	dup := obj.DeepCopyObject()
 	// set resourceversion
-	if version, _ := s.versioner.ObjectResourceVersion(obj); version == 0 {
-		if err := s.versioner.UpdateObject(obj, 1); err != nil {
+	if version, _ := s.versioner.ObjectResourceVersion(dup); version == 0 {
+		if err := s.versioner.UpdateObject(dup, 1); err != nil {
 			return fmt.Errorf("set resourceVersion failed: %v", err)
 		}
 	}
@@ -127,7 +125,7 @@ func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Obj
 		return err
 	}
 	// prepare json content
-	jsonBytes, err := json.MarshalIndent(obj, "", "  ")
+	jsonBytes, err := json.MarshalIndent(dup, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -152,6 +150,22 @@ func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Obj
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// Create adds a new object at a key even when it already exists. 'ttl' is time-to-live
+// in seconds (and is ignored). If no error is returned and out is not nil, out will be
+// set to the read value from database.
+func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Object, _ uint64) error {
+	klog.Warningf("Custom storage create: %s", key)
+	// resourceversion should not be set on create
+	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
+		return errors.New("resourceVersion should not be set on objects to be created")
+	}
+	// write files
+	if err := s.writeFiles(key, obj, out); err != nil {
+		return err
 	}
 	// publish event
 	event := watch.Event{Type: watch.Added, Object: obj}
@@ -423,7 +437,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into destination
-		return s.Create(ctx, key, ret, destination, 0)
+		return s.writeFiles(key, ret, destination)
 	}
 }
 
