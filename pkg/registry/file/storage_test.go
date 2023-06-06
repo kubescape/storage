@@ -275,12 +275,7 @@ func TestStorageImpl_Get(t *testing.T) {
 			},
 			content: "{}",
 			create:  true,
-			want: &v1beta1.SBOMSPDXv2p3{
-				TypeMeta: v1.TypeMeta{
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
-					Kind:       "SBOMSPDXv2p3",
-				},
-			},
+			want:    &v1beta1.SBOMSPDXv2p3{},
 		},
 		{
 			name: "real object",
@@ -291,10 +286,6 @@ func TestStorageImpl_Get(t *testing.T) {
 			content: string(toto),
 			create:  true,
 			want: &v1beta1.SBOMSPDXv2p3{
-				TypeMeta: v1.TypeMeta{
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
-					Kind:       "SBOMSPDXv2p3",
-				},
 				ObjectMeta: v1.ObjectMeta{
 					Name: "toto",
 				},
