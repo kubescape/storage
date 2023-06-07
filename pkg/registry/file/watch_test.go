@@ -360,3 +360,91 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 		})
 	}
 }
+
+func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
+	toto := &v1beta1.SBOMSPDXv2p3{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "toto",
+		},
+		Spec: v1beta1.SBOMSPDXv2p3Spec{
+			Metadata: v1beta1.SPDXMeta{
+				Tool: v1beta1.ToolMeta{
+					Name: "titi",
+				},
+			},
+		},
+	}
+
+	type args struct {
+		ctx                  context.Context
+		key                  string
+		ignoreNotFound       bool
+		preconditions        *storage.Preconditions
+		tryUpdate            storage.UpdateFunc
+		cachedExistingObject runtime.Object
+	}
+
+	tt := []struct {
+		name              string
+		inputWatchesByKey map[string]int
+		expectedEvents    map[string][]watch.Event
+		args              args
+	}{
+		{
+			name: "Successful GuaranteedUpdate should produce a matching Modified event",
+			inputWatchesByKey: map[string]int{
+				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape": 1,
+			},
+			args: args{
+				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				ignoreNotFound: true,
+				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+					return toto, nil, nil
+				},
+			},
+			expectedEvents: map[string][]watch.Event{
+				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape": {
+					{
+						Type:   watch.Modified,
+						Object: toto,
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+			opts := storage.ListOptions{}
+
+			watchSlicesByKey := map[string][]watch.Interface{}
+			for key, watchCount := range tc.inputWatchesByKey {
+				for i := 0; i < watchCount; i++ {
+					watch, _ := s.Watch(tc.args.ctx, key, opts)
+					currentWatchSlice := watchSlicesByKey[key]
+					currentWatchSlice = append(currentWatchSlice, watch)
+					watchSlicesByKey[key] = currentWatchSlice
+				}
+			}
+
+			destination := &v1beta1.SBOMSPDXv2p3{}
+			s.GuaranteedUpdate(tc.args.ctx, tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
+
+			for key, expectedEvents := range tc.expectedEvents {
+				watches := watchSlicesByKey[key]
+
+				gotEvents := []watch.Event{}
+				for idx := range watches {
+					select {
+					case gotEvent := <-watches[idx].ResultChan():
+						gotEvents = append(gotEvents, gotEvent)
+					case <-time.After(chanWaitTimeout):
+						// Timed out, no event received
+						continue
+					}
+				}
+				assert.Equal(t, expectedEvents, gotEvents)
+			}
+		})
+	}
+}

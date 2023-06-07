@@ -100,16 +100,22 @@ func (wd *watchDispatcher) Register(key string, w *watcher) {
 	}
 }
 
-// Added dispatches an ADDED event to appropriate watchers
+// Added dispatches an "Added" event to appropriate watchers
 func (wd *watchDispatcher) Added(key string, obj runtime.Object) {
 	wd.notify(key, watch.Added, obj)
 }
 
-// Deleted dispatches a DELETED event to appropriate watchers
+// Deleted dispatches a "Deleted" event to appropriate watchers
 func (wd *watchDispatcher) Deleted(key string, obj runtime.Object) {
 	wd.notify(key, watch.Deleted, obj)
 }
 
+// Modified dispatches a "Modified" event to appropriate watchers
+func (wd *watchDispatcher) Modified(key string, obj runtime.Object) {
+	wd.notify(key, watch.Modified, obj)
+}
+
+// notify notifies the listeners of a given key about an event of a given eventType about a given obj
 func (wd *watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
 	// Don’t block callers by publishing in a separate goroutine
 	go func() {
