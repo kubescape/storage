@@ -419,7 +419,12 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into destination
-		return s.writeFiles(key, ret, destination)
+		err = s.writeFiles(key, ret, destination)
+		if err == nil {
+			// Only successful updates should produce modification events
+			s.watchDispatcher.Modified(key, ret)
+		}
+		return err
 	}
 }
 
