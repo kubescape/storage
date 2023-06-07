@@ -116,8 +116,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 			inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
 				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/some-sbom": {
 					ObjectMeta: v1.ObjectMeta{
-						Name:            "some-sbom",
-						ResourceVersion: "1",
+						Name: "some-sbom",
 					},
 				},
 			},
@@ -127,8 +126,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name:            "some-sbom",
-								ResourceVersion: "1",
+								Name: "some-sbom",
 							},
 						},
 					},
@@ -143,8 +141,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 			inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
 				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/some-sbom": {
 					ObjectMeta: v1.ObjectMeta{
-						Name:            "some-sbom",
-						ResourceVersion: "1",
+						Name: "some-sbom",
 					},
 				},
 			},
@@ -154,8 +151,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name:            "some-sbom",
-								ResourceVersion: "1",
+								Name: "some-sbom",
 							},
 						},
 					},
@@ -163,8 +159,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name:            "some-sbom",
-								ResourceVersion: "1",
+								Name: "some-sbom",
 							},
 						},
 					},
@@ -172,8 +167,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name:            "some-sbom",
-								ResourceVersion: "1",
+								Name: "some-sbom",
 							},
 						},
 					},
@@ -189,8 +183,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 			inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
 				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/not-kubescape/some-sbom": {
 					ObjectMeta: v1.ObjectMeta{
-						Name:            "some-sbom",
-						ResourceVersion: "1",
+						Name: "some-sbom",
 					},
 				},
 			},
@@ -200,8 +193,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name:            "some-sbom",
-								ResourceVersion: "1",
+								Name: "some-sbom",
 							},
 						},
 					},
@@ -217,8 +209,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 			inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
 				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/not-kubescape/some-sbom": {
 					ObjectMeta: v1.ObjectMeta{
-						Name:            "some-sbom",
-						ResourceVersion: "1",
+						Name: "some-sbom",
 					},
 				},
 			},
@@ -286,8 +277,7 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 			inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
 				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/not-kubescape/some-sbom": {
 					ObjectMeta: v1.ObjectMeta{
-						Name:            "some-sbom",
-						ResourceVersion: "1",
+						Name: "some-sbom",
 					},
 				},
 			},
@@ -300,8 +290,7 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name:            "some-sbom",
-								ResourceVersion: "1",
+								Name: "some-sbom",
 							},
 						},
 					},
@@ -309,8 +298,7 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name:            "some-sbom",
-								ResourceVersion: "1",
+								Name: "some-sbom",
 							},
 						},
 					},
