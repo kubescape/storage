@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -59,9 +58,9 @@ func TestStorageImpl_Count(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
-			fs.Mkdir(DefaultStorageRoot, 0755)
+			_ = fs.Mkdir(DefaultStorageRoot, 0755)
 			for _, f := range files {
-				afero.WriteFile(fs, DefaultStorageRoot+f, []byte(""), 0644)
+				_ = afero.WriteFile(fs, DefaultStorageRoot+f, []byte(""), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			got, err := s.Count(tt.key)
@@ -89,12 +88,14 @@ func TestStorageImpl_Create(t *testing.T) {
 		readonly bool
 		args     args
 		wantErr  bool
+		want     runtime.Object
 	}{
 		{
 			name:     "readonly fs",
 			readonly: true,
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				obj: &v1beta1.SBOMSPDXv2p3{},
 			},
 			wantErr: true,
 		},
@@ -120,6 +121,12 @@ func TestStorageImpl_Create(t *testing.T) {
 				},
 				out: &v1beta1.SBOMSPDXv2p3{},
 			},
+			want: &v1beta1.SBOMSPDXv2p3{
+				ObjectMeta: v1.ObjectMeta{
+					Name:            "toto",
+					ResourceVersion: "1",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -138,8 +145,8 @@ func TestStorageImpl_Create(t *testing.T) {
 			}
 			exists, _ := afero.Exists(fs, DefaultStorageRoot+tt.args.key+".json") // FIXME: use getPath instead
 			assert.Truef(t, exists, "file %s should exist", DefaultStorageRoot+tt.args.key)
-			if tt.args.out != nil {
-				assert.Equal(t, tt.args.obj, tt.args.out)
+			if tt.want != nil {
+				assert.Equal(t, tt.want, tt.args.out)
 			}
 		})
 	}
@@ -212,7 +219,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
+				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Delete(tt.args.in0, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
@@ -231,11 +238,6 @@ func TestStorageImpl_Get(t *testing.T) {
 			Name: "toto",
 		},
 	})
-	type fields struct {
-		eventBus  *EventBus
-		lock      sync.RWMutex
-		versioner storage.Versioner
-	}
 	type args struct {
 		in0    context.Context
 		key    string
@@ -244,7 +246,6 @@ func TestStorageImpl_Get(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		content string
 		create  bool
@@ -296,7 +297,7 @@ func TestStorageImpl_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
+				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Get(tt.args.in0, tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
@@ -330,11 +331,6 @@ func TestStorageImpl_GetList(t *testing.T) {
 			},
 		},
 	}
-	type fields struct {
-		eventBus  *EventBus
-		lock      sync.RWMutex
-		versioner storage.Versioner
-	}
 	type args struct {
 		in0     context.Context
 		key     string
@@ -343,7 +339,6 @@ func TestStorageImpl_GetList(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 		want    int
@@ -377,7 +372,8 @@ func TestStorageImpl_GetList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			for k, v := range objs {
-				_ = s.Create(context.Background(), k, v, nil, 0)
+				err := s.Create(context.Background(), k, v, nil, 0)
+				assert.NoError(t, err)
 			}
 			if err := s.GetList(tt.args.in0, tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
@@ -390,10 +386,6 @@ func TestStorageImpl_GetList(t *testing.T) {
 func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	count := 0
 	toto := &v1beta1.SBOMSPDXv2p3{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
-			Kind:       "SBOMSPDXv2p3",
-		},
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
 		},
@@ -405,14 +397,10 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			},
 		},
 	}
-	totov2 := &v1beta1.SBOMSPDXv2p3{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
-			Kind:       "SBOMSPDXv2p3",
-		},
+	totov1 := &v1beta1.SBOMSPDXv2p3{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
-			ResourceVersion: "2",
+			ResourceVersion: "1",
 		},
 		Spec: v1beta1.SBOMSPDXv2p3Spec{
 			Metadata: v1beta1.SPDXMeta{
@@ -423,10 +411,6 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		},
 	}
 	totov3 := &v1beta1.SBOMSPDXv2p3{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
-			Kind:       "SBOMSPDXv2p3",
-		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "3",
@@ -439,15 +423,9 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			},
 		},
 	}
-	type fields struct {
-		eventBus  *EventBus
-		lock      sync.RWMutex
-		versioner storage.Versioner
-	}
 	type args struct {
 		ctx                  context.Context
 		key                  string
-		destination          runtime.Object
 		ignoreNotFound       bool
 		preconditions        *storage.Preconditions
 		tryUpdate            storage.UpdateFunc
@@ -455,39 +433,37 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
+		create  bool
 		wantErr bool
 		want    *v1beta1.SBOMSPDXv2p3
 	}{
 		{
 			name: "test",
 			args: args{
-				key:         "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				destination: &v1beta1.SBOMSPDXv2p3{},
+				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				ignoreNotFound: true,
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return toto, nil, nil
 				},
 			},
-			want: toto,
+			want: totov1,
 		},
 		{
 			name: "test with existing object",
 			args: args{
-				key:         "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				destination: &v1beta1.SBOMSPDXv2p3{},
+				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return input, nil, nil
 				},
 				cachedExistingObject: toto,
 			},
-			want: toto,
+			want: totov1,
 		},
 		{
 			name: "test with failing precondition",
 			args: args{
-				key:         "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				destination: &v1beta1.SBOMSPDXv2p3{},
+				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				preconditions: &storage.Preconditions{
 					ResourceVersion: pointer.String("v123"),
 				},
@@ -498,8 +474,8 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		{
 			name: "test with failing tryUpdate",
 			args: args{
-				key:         "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				destination: totov2,
+				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				ignoreNotFound: true,
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					if count == 0 {
 						count++
@@ -512,21 +488,26 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				},
 				cachedExistingObject: toto,
 			},
-			want: totov3,
+			create: true,
+			want:   totov3,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
-			_ = s.Create(context.Background(), tt.args.key, tt.args.destination, nil, 0)
-			err := s.GuaranteedUpdate(tt.args.ctx, tt.args.key, tt.args.destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
+			if tt.create {
+				err := s.Create(context.Background(), tt.args.key, toto, nil, 0)
+				assert.NoError(t, err)
+			}
+			destination := &v1beta1.SBOMSPDXv2p3{}
+			err := s.GuaranteedUpdate(tt.args.ctx, tt.args.key, destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("GuaranteedUpdate() error = %v, wantErr %v", err, tt.wantErr)
 				}
 				return
 			} else {
-				assert.Equal(t, tt.want, tt.args.destination)
+				assert.Equal(t, tt.want, destination)
 				onDisk := &v1beta1.SBOMSPDXv2p3{}
 				err = s.Get(context.Background(), tt.args.key, storage.GetOptions{}, onDisk)
 				assert.NoError(t, err)
