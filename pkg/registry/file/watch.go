@@ -60,7 +60,7 @@ func newWatchDispatcher() watchDispatcher {
 	return watchDispatcher{watchesByKey: wbk}
 }
 
-func exractKeysToNotify(key string) ([]string, error) {
+func extractKeysToNotify(key string) ([]string, error) {
 	resKeys := []string{}
 	if key[0] != '/' {
 		return resKeys, errInvalidKey
@@ -114,7 +114,7 @@ func (wd *watchDispatcher) notify(key string, eventType watch.EventType, obj run
 	// Don’t block callers by publishing in a separate goroutine
 	go func() {
 		event := watch.Event{Type: eventType, Object: obj}
-		keysToNotify, err := exractKeysToNotify(key)
+		keysToNotify, err := extractKeysToNotify(key)
 		if err != nil {
 			return
 		}

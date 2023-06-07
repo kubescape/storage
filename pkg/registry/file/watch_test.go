@@ -59,7 +59,7 @@ func TestExtractKeysToNotify(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := exractKeysToNotify(tc.inputKey)
+			got, err := extractKeysToNotify(tc.inputKey)
 
 			assert.Equal(t, tc.expectedKeys, got)
 			assert.ErrorIs(t, err, tc.expectedError)
