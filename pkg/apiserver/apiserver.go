@@ -17,6 +17,8 @@ limitations under the License.
 package apiserver
 
 import (
+	"time"
+
 	"github.com/kubescape/storage/pkg/registry/file"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -130,7 +132,10 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// https://github.com/kubernetes/kubernetes/issues/86666).
 	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
-	storageImpl := file.NewStorageImpl(afero.NewOsFs(), file.DefaultStorageRoot)
+	base := afero.NewOsFs()
+	layer := afero.NewMemMapFs()
+	ufs := afero.NewCacheOnReadFs(base, layer, 10*time.Second)
+	storageImpl := file.NewStorageImpl(ufs, file.DefaultStorageRoot)
 	v1beta1storage := map[string]rest.Storage{}
 	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["sbomspdxv2p3filtereds"] = sbomregistry.RESTInPeace(sbomspdxv2p3filteredstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
