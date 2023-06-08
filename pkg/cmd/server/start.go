@@ -21,10 +21,13 @@ import (
 	"io"
 	"net"
 
+	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/apiserver"
+	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
+	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
+	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
 	"github.com/spf13/cobra"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
@@ -32,12 +35,6 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"github.com/kubescape/storage/pkg/apiserver"
-	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
-	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
-	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
 	netutils "k8s.io/utils/net"
 )
 
@@ -65,7 +62,8 @@ func NewWardleServerOptions(out, errOut io.Writer) *WardleServerOptions {
 		StdOut: out,
 		StdErr: errOut,
 	}
-	o.RecommendedOptions.Etcd.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1beta1.SchemeGroupVersion, schema.GroupKind{Group: v1beta1.GroupName})
+	o.RecommendedOptions.Etcd = nil
+	o.RecommendedOptions.SecureServing.BindPort = 8443
 	return o
 }
 
@@ -116,8 +114,6 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	if err := o.RecommendedOptions.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", o.AlternateDNS, []net.IP{netutils.ParseIPSloppy("127.0.0.1")}); err != nil {
 		return nil, fmt.Errorf("error creating self-signed certificates: %v", err)
 	}
-
-	o.RecommendedOptions.Etcd.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(features.APIListChunking)
 
 	o.RecommendedOptions.ExtraAdmissionInitializers = func(c *genericapiserver.RecommendedConfig) ([]admission.PluginInitializer, error) {
 		client, err := clientset.NewForConfig(c.LoopbackClientConfig)

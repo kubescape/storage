@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM fedora
+FROM alpine
+RUN addgroup -S ks && adduser -S ks -G ks
+USER ks
+WORKDIR /home/ks/
 ADD kube-sample-apiserver /
 ENTRYPOINT ["/kube-sample-apiserver"]
