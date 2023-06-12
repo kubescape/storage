@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -19,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -136,7 +137,7 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, out runtime.Obj
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Object, _ uint64) error {
-	klog.Warningf("Custom storage create: %s", key)
+	logger.L().Debug("Custom storage create", helpers.String("key", key))
 	// resourceversion should not be set on create
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
 		return errors.New("resourceVersion should not be set on objects to be created")
@@ -157,7 +158,7 @@ func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Obj
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
 func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
-	klog.Warningf("Custom storage delete: %s", key)
+	logger.L().Debug("Custom storage delete", helpers.String("key", key))
 	p := filepath.Join(s.root, key)
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -191,7 +192,7 @@ func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, 
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
 func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	klog.Warningf("Custom storage watch: %s", key)
+	logger.L().Debug("Custom storage watch", helpers.String("key", key))
 	newWatcher := newWatcher(make(chan watch.Event))
 	s.watchDispatcher.Register(key, newWatcher)
 	return newWatcher, nil
@@ -203,7 +204,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) Get(_ context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
-	klog.Warningf("Custom storage get: %s", key)
+	logger.L().Debug("Custom storage get", helpers.String("key", key))
 	p := filepath.Join(s.root, key)
 	s.lock.RLock()
 	defer s.lock.RUnlock()
@@ -232,7 +233,7 @@ func (s *StorageImpl) Get(_ context.Context, key string, opts storage.GetOptions
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
-	klog.Warningf("Custom storage getlist: %s", key)
+	logger.L().Debug("Custom storage getlist", helpers.String("key", key))
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
 		return err
@@ -297,7 +298,7 @@ func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) 
 		return nil, err
 	}
 	if err := s.versioner.UpdateObject(state.obj, rv); err != nil {
-		klog.Errorf("failed to update object version: %v", err)
+		logger.L().Error("Failed to update object version", helpers.Error(err), helpers.Interface("object", obj))
 	}
 	return state, nil
 }
@@ -339,7 +340,7 @@ func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) 
 func (s *StorageImpl) GuaranteedUpdate(
 	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	klog.Warningf("Custom storage guaranteedupdate: %s", key)
+	logger.L().Debug("Custom storage guaranteedupdate", helpers.String("key", key))
 
 	// key preparation is skipped
 	// otel span tracking is skipped
@@ -430,7 +431,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 // Count returns number of different entries under the key (generally being path prefix).
 func (s *StorageImpl) Count(key string) (int64, error) {
-	klog.Warningf("Custom storage count: %s", key)
+	logger.L().Debug("Custom storage count", helpers.String("key", key))
 	p := filepath.Join(s.root, key)
 	s.lock.RLock()
 	defer s.lock.RUnlock()
