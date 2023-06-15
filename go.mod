@@ -2,9 +2,10 @@
 
 module github.com/kubescape/storage
 
-go 1.19
+go 1.20
 
 require (
+	github.com/go-logr/logr v1.2.3
 	github.com/google/gofuzz v1.1.0
 	github.com/kubescape/go-logger v0.0.12
 	github.com/olvrng/ujson v1.1.0
@@ -37,7 +38,6 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.1 // indirect
