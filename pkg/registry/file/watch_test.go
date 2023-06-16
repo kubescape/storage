@@ -70,7 +70,6 @@ func TestExtractKeysToNotify(t *testing.T) {
 
 func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 	type args struct {
-		ctx  context.Context
 		key  string
 		opts storage.ListOptions
 	}
@@ -89,10 +88,10 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 
-			got1, _ := s.Watch(tt.args.ctx, tt.args.key, tt.args.opts)
+			got1, _ := s.Watch(context.TODO(), tt.args.key, tt.args.opts)
 			got1chan := got1.ResultChan()
 
-			got2, _ := s.Watch(tt.args.ctx, tt.args.key, tt.args.opts)
+			got2, _ := s.Watch(context.TODO(), tt.args.key, tt.args.opts)
 			got2chan := got2.ResultChan()
 
 			assert.NotEqual(t, got1, got2, "Should not return the same watcher object")
@@ -376,7 +375,6 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 	}
 
 	type args struct {
-		ctx                  context.Context
 		key                  string
 		ignoreNotFound       bool
 		preconditions        *storage.Preconditions
@@ -420,7 +418,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 			watchSlicesByKey := map[string][]watch.Interface{}
 			for key, watchCount := range tc.inputWatchesByKey {
 				for i := 0; i < watchCount; i++ {
-					watch, _ := s.Watch(tc.args.ctx, key, opts)
+					watch, _ := s.Watch(context.TODO(), key, opts)
 					currentWatchSlice := watchSlicesByKey[key]
 					currentWatchSlice = append(currentWatchSlice, watch)
 					watchSlicesByKey[key] = currentWatchSlice
@@ -428,7 +426,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 			}
 
 			destination := &v1beta1.SBOMSPDXv2p3{}
-			s.GuaranteedUpdate(tc.args.ctx, tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
+			s.GuaranteedUpdate(context.TODO(), tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
 
 			for key, expectedEvents := range tc.expectedEvents {
 				watches := watchSlicesByKey[key]

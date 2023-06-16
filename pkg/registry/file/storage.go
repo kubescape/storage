@@ -16,6 +16,8 @@ import (
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -87,7 +89,7 @@ func removeSpec(in []byte) ([]byte, error) {
 	return out, err
 }
 
-func (s *StorageImpl) writeFiles(key string, obj runtime.Object, out runtime.Object) error {
+func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, out runtime.Object) error {
 	// do not alter obj
 	dup := obj.DeepCopyObject()
 	// set resourceversion
@@ -98,7 +100,9 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, out runtime.Obj
 	}
 	// prepare path
 	p := filepath.Join(s.root, key)
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	s.lock.Lock()
+	spanLock.End()
 	defer s.lock.Unlock()
 	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
 		return err
@@ -136,14 +140,19 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, out runtime.Obj
 // Create adds a new object at a key even when it already exists. 'ttl' is time-to-live
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
-func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Object, _ uint64) error {
-	logger.L().Debug("Custom storage create", helpers.String("key", key))
+func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Create")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
 	// resourceversion should not be set on create
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
-		return errors.New("resourceVersion should not be set on objects to be created")
+		msg := "resourceVersion should not be set on objects to be created"
+		logger.L().Ctx(ctx).Error(msg)
+		return errors.New(msg)
 	}
 	// write files
-	if err := s.writeFiles(key, obj, out); err != nil {
+	if err := s.writeFiles(ctx, key, obj, out); err != nil {
+		logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 
@@ -157,10 +166,14 @@ func (s *StorageImpl) Create(_ context.Context, key string, obj, out runtime.Obj
 // If 'cachedExistingObject' is non-nil, it can be used as a suggestion about the
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
-func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
-	logger.L().Debug("Custom storage delete", helpers.String("key", key))
+func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
 	p := filepath.Join(s.root, key)
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	s.lock.Lock()
+	spanLock.End()
 	defer s.lock.Unlock()
 	// read json file
 	b, err := afero.ReadFile(s.appFs, p+jsonExt)
@@ -168,14 +181,22 @@ func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, 
 		if errors.Is(err, afero.ErrFileNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
 		}
+		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	// delete json and metadata files
-	_ = s.appFs.Remove(p + jsonExt)
-	_ = s.appFs.Remove(p + metadataExt)
+	err = s.appFs.Remove(p + jsonExt)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("remove json file failed", helpers.Error(err), helpers.String("key", key))
+	}
+	err = s.appFs.Remove(p + metadataExt)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("remove metadata file failed", helpers.Error(err), helpers.String("key", key))
+	}
 	// try to fill out
 	err = json.Unmarshal(b, out)
 	if err != nil {
+		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 
@@ -192,7 +213,9 @@ func (s *StorageImpl) Delete(_ context.Context, key string, out runtime.Object, 
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
 func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	logger.L().Debug("Custom storage watch", helpers.String("key", key))
+	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
 	newWatcher := newWatcher(make(chan watch.Event))
 	s.watchDispatcher.Register(key, newWatcher)
 	return newWatcher, nil
@@ -203,10 +226,14 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // Treats empty responses and nil response nodes exactly like a not found error.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
-func (s *StorageImpl) Get(_ context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
-	logger.L().Debug("Custom storage get", helpers.String("key", key))
+func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Get")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
 	p := filepath.Join(s.root, key)
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	s.lock.RLock()
+	spanLock.End()
 	defer s.lock.RUnlock()
 	b, err := afero.ReadFile(s.appFs, p+jsonExt)
 	if err != nil {
@@ -217,10 +244,12 @@ func (s *StorageImpl) Get(_ context.Context, key string, opts storage.GetOptions
 				return storage.NewKeyNotFoundError(key, 0)
 			}
 		}
+		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	err = json.Unmarshal(b, objPtr)
 	if err != nil {
+		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	return nil
@@ -232,19 +261,25 @@ func (s *StorageImpl) Get(_ context.Context, key string, opts storage.GetOptions
 // is true, 'key' is used as a prefix.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
-func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
-	logger.L().Debug("Custom storage getlist", helpers.String("key", key))
+func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
+		logger.L().Ctx(ctx).Error("get items ptr failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
 	p := filepath.Join(s.root, key)
 	var files []string
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	s.lock.RLock()
+	spanLock.End()
 	if exists, _ := afero.Exists(s.appFs, p+metadataExt); exists {
 		files = append(files, p+metadataExt)
 	} else {
@@ -261,7 +296,6 @@ func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptio
 	s.lock.RUnlock()
 	for _, path := range files {
 		// we need to read the whole file
-		// TODO maybe save the spec in a separate file?
 		b, err := afero.ReadFile(s.appFs, path)
 		if err != nil {
 			// skip if file is not readable, maybe it was deleted
@@ -272,6 +306,7 @@ func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptio
 		obj := reflect.New(elem).Interface().(runtime.Object)
 		err = json.Unmarshal(b, obj)
 		if err != nil {
+			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
 			continue
 		}
 		// append to list
@@ -280,7 +315,7 @@ func (s *StorageImpl) GetList(_ context.Context, key string, _ storage.ListOptio
 	return nil
 }
 
-func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) {
+func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object) (*objState, error) {
 	state := &objState{
 		obj:  obj,
 		meta: &storage.ResponseMeta{},
@@ -288,6 +323,7 @@ func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) 
 
 	rv, err := s.versioner.ObjectResourceVersion(obj)
 	if err != nil {
+		logger.L().Ctx(ctx).Error("get object resource version failed", helpers.Error(err), helpers.Interface("object", obj))
 		return nil, fmt.Errorf("couldn't get resource version: %v", err)
 	}
 	state.rev = int64(rv)
@@ -295,10 +331,11 @@ func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) 
 
 	state.data, err = json.Marshal(obj)
 	if err != nil {
+		logger.L().Ctx(ctx).Error("marshal object failed", helpers.Error(err), helpers.Interface("object", obj))
 		return nil, err
 	}
 	if err := s.versioner.UpdateObject(state.obj, rv); err != nil {
-		logger.L().Error("Failed to update object version", helpers.Error(err), helpers.Interface("object", obj))
+		logger.L().Ctx(ctx).Error("update object version failed", helpers.Error(err), helpers.Interface("object", obj))
 	}
 	return state, nil
 }
@@ -340,13 +377,16 @@ func (s *StorageImpl) getStateFromObject(obj runtime.Object) (*objState, error) 
 func (s *StorageImpl) GuaranteedUpdate(
 	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	logger.L().Debug("Custom storage guaranteedupdate", helpers.String("key", key))
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
 
 	// key preparation is skipped
 	// otel span tracking is skipped
 
 	v, err := conversion.EnforcePtr(destination)
 	if err != nil {
+		logger.L().Ctx(ctx).Error("unable to convert output object to pointer", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("unable to convert output object to pointer: %v", err)
 	}
 
@@ -354,20 +394,22 @@ func (s *StorageImpl) GuaranteedUpdate(
 		objPtr := reflect.New(v.Type()).Interface().(runtime.Object)
 		err := s.Get(ctx, key, storage.GetOptions{IgnoreNotFound: ignoreNotFound}, objPtr)
 		if err != nil {
+			logger.L().Ctx(ctx).Error("get failed", helpers.Error(err), helpers.String("key", key))
 			return nil, err
 		}
-		return s.getStateFromObject(objPtr)
+		return s.getStateFromObject(ctx, objPtr)
 	}
 
 	var origState *objState
 	var origStateIsCurrent bool
 	if cachedExistingObject != nil {
-		origState, err = s.getStateFromObject(cachedExistingObject)
+		origState, err = s.getStateFromObject(ctx, cachedExistingObject)
 	} else {
 		origState, err = getCurrentState()
 		origStateIsCurrent = true
 	}
 	if err != nil {
+		logger.L().Ctx(ctx).Error("get original state failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 
@@ -376,6 +418,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		if err := preconditions.Check(key, origState.obj); err != nil {
 			// If our data is already up-to-date, return the error
 			if origStateIsCurrent {
+				logger.L().Ctx(ctx).Error("preconditions check failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 
@@ -383,6 +426,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 			// Actually fetch
 			origState, err = getCurrentState()
 			if err != nil {
+				logger.L().Ctx(ctx).Error("get state failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 			origStateIsCurrent = true
@@ -395,6 +439,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		if err != nil {
 			// If our data is already up-to-date, return the error
 			if origStateIsCurrent {
+				logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 
@@ -406,12 +451,14 @@ func (s *StorageImpl) GuaranteedUpdate(
 			// Actually fetch
 			origState, err = getCurrentState()
 			if err != nil {
+				logger.L().Ctx(ctx).Error("get state failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 			origStateIsCurrent = true
 
 			// it turns out our cached data was not stale, return the error
 			if cachedRev == origState.rev {
+				logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				return cachedUpdateErr
 			}
 
@@ -420,10 +467,12 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into destination
-		err = s.writeFiles(key, ret, destination)
+		err = s.writeFiles(ctx, key, ret, destination)
 		if err == nil {
 			// Only successful updates should produce modification events
 			s.watchDispatcher.Modified(key, ret)
+		} else {
+			logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
 		}
 		return err
 	}
