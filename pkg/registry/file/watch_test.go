@@ -237,7 +237,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 			var ttl uint64 = 0
 			var out runtime.Object
 			for key, object := range tc.inputObjects {
-				s.Create(ctx, key, object, out, ttl)
+				_ = s.Create(ctx, key, object, out, ttl)
 			}
 
 			for key, expectedEvents := range tc.expectedEvents {
@@ -333,7 +333,7 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 			var ttl uint64 = 0
 			var out runtime.Object
 			for key, object := range tc.inputObjects {
-				s.Create(ctx, key, object, out, ttl)
+				_ = s.Create(ctx, key, object, out, ttl)
 			}
 
 			// Assert the expected events
@@ -426,7 +426,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 			}
 
 			destination := &v1beta1.SBOMSPDXv2p3{}
-			s.GuaranteedUpdate(context.TODO(), tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
+			_ = s.GuaranteedUpdate(context.TODO(), tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
 
 			for key, expectedEvents := range tc.expectedEvents {
 				watches := watchSlicesByKey[key]

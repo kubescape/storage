@@ -26,21 +26,19 @@ import (
 )
 
 const (
-	defaultChanSize    = 100
 	jsonExt            = ".json"
 	metadataExt        = ".metadata"
 	DefaultStorageRoot = "/data"
 )
 
 type objState struct {
-	obj   runtime.Object
-	meta  *storage.ResponseMeta
-	rev   int64
-	data  []byte
-	stale bool
+	obj  runtime.Object
+	meta *storage.ResponseMeta
+	rev  int64
+	data []byte
 }
 
-// Interface offers a common interface for object marshaling/unmarshaling operations and
+// StorageImpl offers a common interface for object marshaling/unmarshaling operations and
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
 	appFs           afero.Fs
@@ -61,7 +59,7 @@ func NewStorageImpl(appFs afero.Fs, root string) storage.Interface {
 	}
 }
 
-// Returns Versioner associated with this interface.
+// Versioner Returns Versioner associated with this interface.
 func (s *StorageImpl) Versioner() storage.Versioner {
 	return s.versioner
 }
@@ -212,7 +210,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 // (e.g. reconnecting without missing any updates).
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
-func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+func (s *StorageImpl) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
