@@ -52,5 +52,5 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	if err := store.CompleteWithOptions(options); err != nil {
 		return nil, err
 	}
-	return &registry.REST{store}, nil
+	return &registry.REST{Store: store}, nil
 }
