@@ -44,6 +44,10 @@ func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.Vulne
 	return &FakeVulnerabilityManifests{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) VulnerabilityManifestSummaries(namespace string) v1beta1.VulnerabilityManifestSummaryInterface {
+	return &FakeVulnerabilityManifestSummaries{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeSpdxV1beta1) RESTClient() rest.Interface {

@@ -32,6 +32,7 @@ type SpdxV1beta1Interface interface {
 	SBOMSPDXv2p3FilteredsGetter
 	SBOMSummariesGetter
 	VulnerabilityManifestsGetter
+	VulnerabilityManifestSummariesGetter
 }
 
 // SpdxV1beta1Client is used to interact with features provided by the spdx.softwarecomposition.kubescape.io group.
@@ -53,6 +54,10 @@ func (c *SpdxV1beta1Client) SBOMSummaries(namespace string) SBOMSummaryInterface
 
 func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) VulnerabilityManifestInterface {
 	return newVulnerabilityManifests(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) VulnerabilityManifestSummaries(namespace string) VulnerabilityManifestSummaryInterface {
+	return newVulnerabilityManifestSummaries(c, namespace)
 }
 
 // NewForConfig creates a new SpdxV1beta1Client for the given config.

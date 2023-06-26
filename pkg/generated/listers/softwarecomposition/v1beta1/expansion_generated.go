@@ -49,3 +49,11 @@ type VulnerabilityManifestListerExpansion interface{}
 // VulnerabilityManifestNamespaceListerExpansion allows custom methods to be added to
 // VulnerabilityManifestNamespaceLister.
 type VulnerabilityManifestNamespaceListerExpansion interface{}
+
+// VulnerabilityManifestSummaryListerExpansion allows custom methods to be added to
+// VulnerabilityManifestSummaryLister.
+type VulnerabilityManifestSummaryListerExpansion interface{}
+
+// VulnerabilityManifestSummaryNamespaceListerExpansion allows custom methods to be added to
+// VulnerabilityManifestSummaryNamespaceLister.
+type VulnerabilityManifestSummaryNamespaceListerExpansion interface{}

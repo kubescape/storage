@@ -447,6 +447,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*SeveritySummary)(nil), (*softwarecomposition.SeveritySummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary(a.(*SeveritySummary), b.(*softwarecomposition.SeveritySummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SeveritySummary)(nil), (*SeveritySummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SeveritySummary_To_v1beta1_SeveritySummary(a.(*softwarecomposition.SeveritySummary), b.(*SeveritySummary), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*Snippet)(nil), (*softwarecomposition.Snippet)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Snippet_To_softwarecomposition_Snippet(a.(*Snippet), b.(*softwarecomposition.Snippet), scope)
 	}); err != nil {
@@ -537,6 +547,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityCounters)(nil), (*softwarecomposition.VulnerabilityCounters)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(a.(*VulnerabilityCounters), b.(*softwarecomposition.VulnerabilityCounters), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityCounters)(nil), (*VulnerabilityCounters)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(a.(*softwarecomposition.VulnerabilityCounters), b.(*VulnerabilityCounters), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifest)(nil), (*softwarecomposition.VulnerabilityManifest)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_VulnerabilityManifest_To_softwarecomposition_VulnerabilityManifest(a.(*VulnerabilityManifest), b.(*softwarecomposition.VulnerabilityManifest), scope)
 	}); err != nil {
@@ -594,6 +614,36 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestStatus)(nil), (*VulnerabilityManifestStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(a.(*softwarecomposition.VulnerabilityManifestStatus), b.(*VulnerabilityManifestStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestSummary)(nil), (*softwarecomposition.VulnerabilityManifestSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestSummary_To_softwarecomposition_VulnerabilityManifestSummary(a.(*VulnerabilityManifestSummary), b.(*softwarecomposition.VulnerabilityManifestSummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestSummary)(nil), (*VulnerabilityManifestSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestSummary_To_v1beta1_VulnerabilityManifestSummary(a.(*softwarecomposition.VulnerabilityManifestSummary), b.(*VulnerabilityManifestSummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestSummaryList)(nil), (*softwarecomposition.VulnerabilityManifestSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestSummaryList_To_softwarecomposition_VulnerabilityManifestSummaryList(a.(*VulnerabilityManifestSummaryList), b.(*softwarecomposition.VulnerabilityManifestSummaryList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestSummaryList)(nil), (*VulnerabilityManifestSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestSummaryList_To_v1beta1_VulnerabilityManifestSummaryList(a.(*softwarecomposition.VulnerabilityManifestSummaryList), b.(*VulnerabilityManifestSummaryList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VulnerabilityManifestSummarySpec)(nil), (*softwarecomposition.VulnerabilityManifestSummarySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VulnerabilityManifestSummarySpec_To_softwarecomposition_VulnerabilityManifestSummarySpec(a.(*VulnerabilityManifestSummarySpec), b.(*softwarecomposition.VulnerabilityManifestSummarySpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.VulnerabilityManifestSummarySpec)(nil), (*VulnerabilityManifestSummarySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_VulnerabilityManifestSummarySpec_To_v1beta1_VulnerabilityManifestSummarySpec(a.(*softwarecomposition.VulnerabilityManifestSummarySpec), b.(*VulnerabilityManifestSummarySpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -1800,6 +1850,54 @@ func Convert_softwarecomposition_SPDXMeta_To_v1beta1_SPDXMeta(in *softwarecompos
 	return autoConvert_softwarecomposition_SPDXMeta_To_v1beta1_SPDXMeta(in, out, s)
 }
 
+func autoConvert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary(in *SeveritySummary, out *softwarecomposition.SeveritySummary, s conversion.Scope) error {
+	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.Critical, &out.Critical, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.High, &out.High, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.Medium, &out.Medium, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.Low, &out.Low, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.Unknown, &out.Unknown, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary is an autogenerated conversion function.
+func Convert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary(in *SeveritySummary, out *softwarecomposition.SeveritySummary, s conversion.Scope) error {
+	return autoConvert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SeveritySummary_To_v1beta1_SeveritySummary(in *softwarecomposition.SeveritySummary, out *SeveritySummary, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.Critical, &out.Critical, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.High, &out.High, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.Medium, &out.Medium, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.Low, &out.Low, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.Unknown, &out.Unknown, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_SeveritySummary_To_v1beta1_SeveritySummary is an autogenerated conversion function.
+func Convert_softwarecomposition_SeveritySummary_To_v1beta1_SeveritySummary(in *softwarecomposition.SeveritySummary, out *SeveritySummary, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SeveritySummary_To_v1beta1_SeveritySummary(in, out, s)
+}
+
 func autoConvert_v1beta1_Snippet_To_softwarecomposition_Snippet(in *Snippet, out *softwarecomposition.Snippet, s conversion.Scope) error {
 	out.SnippetSPDXIdentifier = softwarecomposition.ElementID(in.SnippetSPDXIdentifier)
 	out.SnippetFromFileSPDXIdentifier = softwarecomposition.ElementID(in.SnippetFromFileSPDXIdentifier)
@@ -2034,6 +2132,26 @@ func Convert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability(in *soft
 	return autoConvert_softwarecomposition_Vulnerability_To_v1beta1_Vulnerability(in, out, s)
 }
 
+func autoConvert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(in *VulnerabilityCounters, out *softwarecomposition.VulnerabilityCounters, s conversion.Scope) error {
+	out.All = in.All
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(in *VulnerabilityCounters, out *softwarecomposition.VulnerabilityCounters, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(in *softwarecomposition.VulnerabilityCounters, out *VulnerabilityCounters, s conversion.Scope) error {
+	out.All = in.All
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(in *softwarecomposition.VulnerabilityCounters, out *VulnerabilityCounters, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(in, out, s)
+}
+
 func autoConvert_v1beta1_VulnerabilityManifest_To_softwarecomposition_VulnerabilityManifest(in *VulnerabilityManifest, out *softwarecomposition.VulnerabilityManifest, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
 	if err := Convert_v1beta1_VulnerabilityManifestSpec_To_softwarecomposition_VulnerabilityManifestSpec(&in.Spec, &out.Spec, s); err != nil {
@@ -2186,6 +2304,84 @@ func autoConvert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_Vuln
 // Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus is an autogenerated conversion function.
 func Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(in *softwarecomposition.VulnerabilityManifestStatus, out *VulnerabilityManifestStatus, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestSummary_To_softwarecomposition_VulnerabilityManifestSummary(in *VulnerabilityManifestSummary, out *softwarecomposition.VulnerabilityManifestSummary, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_VulnerabilityManifestSummarySpec_To_softwarecomposition_VulnerabilityManifestSummarySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_VulnerabilityManifestStatus_To_softwarecomposition_VulnerabilityManifestStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestSummary_To_softwarecomposition_VulnerabilityManifestSummary is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestSummary_To_softwarecomposition_VulnerabilityManifestSummary(in *VulnerabilityManifestSummary, out *softwarecomposition.VulnerabilityManifestSummary, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestSummary_To_softwarecomposition_VulnerabilityManifestSummary(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestSummary_To_v1beta1_VulnerabilityManifestSummary(in *softwarecomposition.VulnerabilityManifestSummary, out *VulnerabilityManifestSummary, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_VulnerabilityManifestSummarySpec_To_v1beta1_VulnerabilityManifestSummarySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityManifestStatus_To_v1beta1_VulnerabilityManifestStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestSummary_To_v1beta1_VulnerabilityManifestSummary is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestSummary_To_v1beta1_VulnerabilityManifestSummary(in *softwarecomposition.VulnerabilityManifestSummary, out *VulnerabilityManifestSummary, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestSummary_To_v1beta1_VulnerabilityManifestSummary(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestSummaryList_To_softwarecomposition_VulnerabilityManifestSummaryList(in *VulnerabilityManifestSummaryList, out *softwarecomposition.VulnerabilityManifestSummaryList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.VulnerabilityManifestSummary)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestSummaryList_To_softwarecomposition_VulnerabilityManifestSummaryList is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestSummaryList_To_softwarecomposition_VulnerabilityManifestSummaryList(in *VulnerabilityManifestSummaryList, out *softwarecomposition.VulnerabilityManifestSummaryList, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestSummaryList_To_softwarecomposition_VulnerabilityManifestSummaryList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestSummaryList_To_v1beta1_VulnerabilityManifestSummaryList(in *softwarecomposition.VulnerabilityManifestSummaryList, out *VulnerabilityManifestSummaryList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]VulnerabilityManifestSummary)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestSummaryList_To_v1beta1_VulnerabilityManifestSummaryList is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestSummaryList_To_v1beta1_VulnerabilityManifestSummaryList(in *softwarecomposition.VulnerabilityManifestSummaryList, out *VulnerabilityManifestSummaryList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestSummaryList_To_v1beta1_VulnerabilityManifestSummaryList(in, out, s)
+}
+
+func autoConvert_v1beta1_VulnerabilityManifestSummarySpec_To_softwarecomposition_VulnerabilityManifestSummarySpec(in *VulnerabilityManifestSummarySpec, out *softwarecomposition.VulnerabilityManifestSummarySpec, s conversion.Scope) error {
+	if err := Convert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary(&in.Severities, &out.Severities, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_VulnerabilityManifestSummarySpec_To_softwarecomposition_VulnerabilityManifestSummarySpec is an autogenerated conversion function.
+func Convert_v1beta1_VulnerabilityManifestSummarySpec_To_softwarecomposition_VulnerabilityManifestSummarySpec(in *VulnerabilityManifestSummarySpec, out *softwarecomposition.VulnerabilityManifestSummarySpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_VulnerabilityManifestSummarySpec_To_softwarecomposition_VulnerabilityManifestSummarySpec(in, out, s)
+}
+
+func autoConvert_softwarecomposition_VulnerabilityManifestSummarySpec_To_v1beta1_VulnerabilityManifestSummarySpec(in *softwarecomposition.VulnerabilityManifestSummarySpec, out *VulnerabilityManifestSummarySpec, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_SeveritySummary_To_v1beta1_SeveritySummary(&in.Severities, &out.Severities, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_VulnerabilityManifestSummarySpec_To_v1beta1_VulnerabilityManifestSummarySpec is an autogenerated conversion function.
+func Convert_softwarecomposition_VulnerabilityManifestSummarySpec_To_v1beta1_VulnerabilityManifestSummarySpec(in *softwarecomposition.VulnerabilityManifestSummarySpec, out *VulnerabilityManifestSummarySpec, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_VulnerabilityManifestSummarySpec_To_v1beta1_VulnerabilityManifestSummarySpec(in, out, s)
 }
 
 func autoConvert_v1beta1_VulnerabilityManifestToolMeta_To_softwarecomposition_VulnerabilityManifestToolMeta(in *VulnerabilityManifestToolMeta, out *softwarecomposition.VulnerabilityManifestToolMeta, s conversion.Scope) error {

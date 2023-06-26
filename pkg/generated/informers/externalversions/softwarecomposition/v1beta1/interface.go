@@ -32,6 +32,8 @@ type Interface interface {
 	SBOMSummaries() SBOMSummaryInformer
 	// VulnerabilityManifests returns a VulnerabilityManifestInformer.
 	VulnerabilityManifests() VulnerabilityManifestInformer
+	// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
+	VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer
 }
 
 type version struct {
@@ -63,4 +65,9 @@ func (v *version) SBOMSummaries() SBOMSummaryInformer {
 // VulnerabilityManifests returns a VulnerabilityManifestInformer.
 func (v *version) VulnerabilityManifests() VulnerabilityManifestInformer {
 	return &vulnerabilityManifestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
+func (v *version) VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer {
+	return &vulnerabilityManifestSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
