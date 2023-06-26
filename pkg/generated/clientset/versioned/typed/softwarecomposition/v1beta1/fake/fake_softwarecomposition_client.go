@@ -36,8 +36,16 @@ func (c *FakeSpdxV1beta1) SBOMSPDXv2p3Filtereds(namespace string) v1beta1.SBOMSP
 	return &FakeSBOMSPDXv2p3Filtereds{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) SBOMSummaries(namespace string) v1beta1.SBOMSummaryInterface {
+	return &FakeSBOMSummaries{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {
 	return &FakeVulnerabilityManifests{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) VulnerabilityManifestSummaries(namespace string) v1beta1.VulnerabilityManifestSummaryInterface {
+	return &FakeVulnerabilityManifestSummaries{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
