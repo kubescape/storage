@@ -1128,6 +1128,7 @@ func (in *SeveritySummary) DeepCopyInto(out *SeveritySummary) {
 	out.High = in.High
 	out.Medium = in.Medium
 	out.Low = in.Low
+	out.Negligible = in.Negligible
 	out.Unknown = in.Unknown
 	return
 }

@@ -183,11 +183,12 @@ type VulnerabilityCounters struct {
 
 // SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
 type SeveritySummary struct {
-	Critical VulnerabilityCounters
-	High     VulnerabilityCounters
-	Medium   VulnerabilityCounters
-	Low      VulnerabilityCounters
-	Unknown  VulnerabilityCounters
+	Critical   VulnerabilityCounters
+	High       VulnerabilityCounters
+	Medium     VulnerabilityCounters
+	Low        VulnerabilityCounters
+	Negligible VulnerabilityCounters
+	Unknown    VulnerabilityCounters
 }
 
 type VulnerabilityManifestSummarySpec struct {

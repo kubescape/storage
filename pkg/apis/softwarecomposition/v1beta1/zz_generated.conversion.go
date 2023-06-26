@@ -1863,6 +1863,9 @@ func autoConvert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary(
 	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.Low, &out.Low, s); err != nil {
 		return err
 	}
+	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.Negligible, &out.Negligible, s); err != nil {
+		return err
+	}
 	if err := Convert_v1beta1_VulnerabilityCounters_To_softwarecomposition_VulnerabilityCounters(&in.Unknown, &out.Unknown, s); err != nil {
 		return err
 	}
@@ -1885,6 +1888,9 @@ func autoConvert_softwarecomposition_SeveritySummary_To_v1beta1_SeveritySummary(
 		return err
 	}
 	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.Low, &out.Low, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.Negligible, &out.Negligible, s); err != nil {
 		return err
 	}
 	if err := Convert_softwarecomposition_VulnerabilityCounters_To_v1beta1_VulnerabilityCounters(&in.Unknown, &out.Unknown, s); err != nil {
