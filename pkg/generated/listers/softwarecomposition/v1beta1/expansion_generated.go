@@ -34,6 +34,14 @@ type SBOMSPDXv2p3FilteredListerExpansion interface{}
 // SBOMSPDXv2p3FilteredNamespaceLister.
 type SBOMSPDXv2p3FilteredNamespaceListerExpansion interface{}
 
+// SBOMSummaryListerExpansion allows custom methods to be added to
+// SBOMSummaryLister.
+type SBOMSummaryListerExpansion interface{}
+
+// SBOMSummaryNamespaceListerExpansion allows custom methods to be added to
+// SBOMSummaryNamespaceLister.
+type SBOMSummaryNamespaceListerExpansion interface{}
+
 // VulnerabilityManifestListerExpansion allows custom methods to be added to
 // VulnerabilityManifestLister.
 type VulnerabilityManifestListerExpansion interface{}

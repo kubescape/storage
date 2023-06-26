@@ -22,4 +22,6 @@ type SBOMSPDXv2p3Expansion interface{}
 
 type SBOMSPDXv2p3FilteredExpansion interface{}
 
+type SBOMSummaryExpansion interface{}
+
 type VulnerabilityManifestExpansion interface{}

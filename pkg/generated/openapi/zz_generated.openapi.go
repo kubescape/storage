@@ -68,6 +68,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3List":                schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3List(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Spec":                schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status":              schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummary":                     schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummaryList":                 schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummaryList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummarySpec":                 schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummarySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta":                        schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                         schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":                    schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
@@ -2191,6 +2194,113 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref common.R
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "SBOMSPDXv2p3Status is the status of a Flunder.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSummary is a summary of an SBOM. It is not meant to be changed and only works as a lightweight facade for watching proper SBOMs.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummarySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3Status", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummarySpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummaryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSummaryList is a list of SBOM summaries",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummary"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummary", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummarySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSummarySpec is the spec for the SBOM summary\n\nSince the summary spec is supposed to hold no data, only used as a low footprint way to watch for heavy full-sized SBOMs, the spec is supposed to be empty on purpose.",
 				Type:        []string{"object"},
 			},
 		},
