@@ -58,3 +58,17 @@ func ValidateVulnerabilityManifest(v *softwarecomposition.VulnerabilityManifest)
 
 	return allErrs
 }
+
+func ValidateSBOMSummarySpec(v *softwarecomposition.SBOMSummarySpec, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	return allErrs
+}
+
+func ValidateSBOMSummary(v *softwarecomposition.SBOMSummary) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateSBOMSummarySpec(&v.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
