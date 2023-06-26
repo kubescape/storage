@@ -183,11 +183,12 @@ type VulnerabilityCounters struct {
 
 // SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
 type SeveritySummary struct {
-	Critical VulnerabilityCounters `json:"critical,omitempty"`
-	High     VulnerabilityCounters `json:"high,omitempty"`
-	Medium   VulnerabilityCounters `json:"medium,omitempty"`
-	Low      VulnerabilityCounters `json:"low,omitempty"`
-	Unknown  VulnerabilityCounters `json:"unknown,omitempty"`
+	Critical   VulnerabilityCounters `json:"critical,omitempty"`
+	High       VulnerabilityCounters `json:"high,omitempty"`
+	Medium     VulnerabilityCounters `json:"medium,omitempty"`
+	Low        VulnerabilityCounters `json:"low,omitempty"`
+	Negligible VulnerabilityCounters `json:"negligible,omitempty"`
+	Unknown    VulnerabilityCounters `json:"unknown,omitempty"`
 }
 
 type VulnerabilityManifestSummarySpec struct {
