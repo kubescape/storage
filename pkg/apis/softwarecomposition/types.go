@@ -173,3 +173,45 @@ type VulnerabilityManifestList struct {
 
 	Items []VulnerabilityManifest
 }
+
+// VulnerabilityCounters describes a counter of vulnerabilityes.
+//
+// Intended to store relevant and total vulnerabilities in the future.
+type VulnerabilityCounters struct {
+	All int
+}
+
+// SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
+type SeveritySummary struct {
+	Critical VulnerabilityCounters
+	High     VulnerabilityCounters
+	Medium   VulnerabilityCounters
+	Low      VulnerabilityCounters
+	Unknown  VulnerabilityCounters
+}
+
+type VulnerabilityManifestSummarySpec struct {
+	Severities SeveritySummary
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.
+type VulnerabilityManifestSummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilityManifestSummarySpec
+	Status VulnerabilityManifestStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummaryList is a list of VulnerabilityManifest summaries.
+type VulnerabilityManifestSummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilityManifestSummary
+}

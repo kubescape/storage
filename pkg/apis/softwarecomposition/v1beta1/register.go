@@ -57,6 +57,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VulnerabilityManifestList{},
 		&SBOMSummary{},
 		&SBOMSummaryList{},
+		&VulnerabilityManifestSummary{},
+		&VulnerabilityManifestSummaryList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

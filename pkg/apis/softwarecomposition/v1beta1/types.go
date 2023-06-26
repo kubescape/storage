@@ -173,3 +173,45 @@ type VulnerabilityManifestList struct {
 
 	Items []VulnerabilityManifest `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// VulnerabilityCounters describes a counter of vulnerabilityes.
+//
+// Intended to store relevant and total vulnerabilities in the future.
+type VulnerabilityCounters struct {
+	All int `json:"all"`
+}
+
+// SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
+type SeveritySummary struct {
+	Critical VulnerabilityCounters `json:"critical,omitempty"`
+	High     VulnerabilityCounters `json:"high,omitempty"`
+	Medium   VulnerabilityCounters `json:"medium,omitempty"`
+	Low      VulnerabilityCounters `json:"low,omitempty"`
+	Unknown  VulnerabilityCounters `json:"unknown,omitempty"`
+}
+
+type VulnerabilityManifestSummarySpec struct {
+	Severities SeveritySummary `json:"severities"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.
+type VulnerabilityManifestSummary struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   VulnerabilityManifestSummarySpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status VulnerabilityManifestStatus      `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummaryList is a list of VulnerabilityManifest summaries.
+type VulnerabilityManifestSummaryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []VulnerabilityManifestSummary `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
