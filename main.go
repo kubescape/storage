@@ -17,14 +17,34 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"net/url"
 	"os"
 
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/cmd/server"
+	"github.com/kubescape/storage/pkg/config"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
-	"github.com/kubescape/storage/pkg/cmd/server"
 )
 
 func main() {
+	ctx := context.Background()
+	c, err := config.LoadConfig("/etc/config")
+	if err != nil {
+		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
+	}
+	// to enable otel, set OTEL_COLLECTOR_SVC=otel-collector:4317
+	if otelHost, present := os.LookupEnv("OTEL_COLLECTOR_SVC"); present {
+		ctx = logger.InitOtel("storage",
+			os.Getenv("RELEASE"),
+			c.AccountID,
+			c.ClusterName,
+			url.URL{Host: otelHost})
+		defer logger.ShutdownOtel(ctx)
+	}
+
 	stopCh := genericapiserver.SetupSignalHandler()
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr)
 	cmd := server.NewCommandStartWardleServer(options, stopCh)

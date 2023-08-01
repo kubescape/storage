@@ -1,0 +1,8 @@
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
+kind: SBOMSummary
+metadata:
+  name: "some-sbom-summary"
+  namespace: kubescape
+  labels:
+    sample-label: "true"
+spec: {}

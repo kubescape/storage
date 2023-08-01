@@ -53,6 +53,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SBOMSPDXv2p3FilteredList{},
 		&VulnerabilityManifest{},
 		&VulnerabilityManifestList{},
+		&SBOMSummary{},
+		&SBOMSummaryList{},
+		&VulnerabilityManifestSummary{},
+		&VulnerabilityManifestSummaryList{},
 	)
 	return nil
 }

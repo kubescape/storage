@@ -69,6 +69,36 @@ type SBOMSPDXv2p3 struct {
 	Status SBOMSPDXv2p3Status
 }
 
+// SBOMSummarySpec is the spec for the SBOM summary
+//
+// Since the summary spec is supposed to hold no data, only used as a low
+// footprint way to watch for heavy full-sized SBOMs, the spec is supposed to be
+// empty on purpose.
+type SBOMSummarySpec struct{}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSummary is a summary of an SBOM. It is not meant to be changed and only
+// works as a lightweight facade for watching proper SBOMs.
+type SBOMSummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   SBOMSummarySpec
+	Status SBOMSPDXv2p3Status
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSummaryList is a list of SBOM summaries
+type SBOMSummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []SBOMSummary
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -142,4 +172,47 @@ type VulnerabilityManifestList struct {
 	metav1.ListMeta
 
 	Items []VulnerabilityManifest
+}
+
+// VulnerabilityCounters describes a counter of vulnerabilityes.
+//
+// Intended to store relevant and total vulnerabilities in the future.
+type VulnerabilityCounters struct {
+	All int
+}
+
+// SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
+type SeveritySummary struct {
+	Critical   VulnerabilityCounters
+	High       VulnerabilityCounters
+	Medium     VulnerabilityCounters
+	Low        VulnerabilityCounters
+	Negligible VulnerabilityCounters
+	Unknown    VulnerabilityCounters
+}
+
+type VulnerabilityManifestSummarySpec struct {
+	Severities SeveritySummary
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.
+type VulnerabilityManifestSummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilityManifestSummarySpec
+	Status VulnerabilityManifestStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummaryList is a list of VulnerabilityManifest summaries.
+type VulnerabilityManifestSummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilityManifestSummary
 }

@@ -77,7 +77,6 @@ func TestStorageImpl_Count(t *testing.T) {
 
 func TestStorageImpl_Create(t *testing.T) {
 	type args struct {
-		in0 context.Context
 		key string
 		obj runtime.Object
 		out runtime.Object
@@ -138,7 +137,7 @@ func TestStorageImpl_Create(t *testing.T) {
 				fs = afero.NewMemMapFs()
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
-			err := s.Create(tt.args.in0, tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
+			err := s.Create(context.TODO(), tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -159,7 +158,6 @@ func TestStorageImpl_Delete(t *testing.T) {
 		},
 	})
 	type args struct {
-		in0 context.Context
 		key string
 		out runtime.Object
 		in3 *storage.Preconditions
@@ -222,7 +220,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
-			if err := s.Delete(tt.args.in0, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
+			if err := s.Delete(context.TODO(), tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.want != nil {
@@ -239,7 +237,6 @@ func TestStorageImpl_Get(t *testing.T) {
 		},
 	})
 	type args struct {
-		in0    context.Context
 		key    string
 		opts   storage.GetOptions
 		objPtr runtime.Object
@@ -300,7 +297,7 @@ func TestStorageImpl_Get(t *testing.T) {
 				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
-			if err := s.Get(tt.args.in0, tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
+			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.want != nil {
@@ -332,7 +329,6 @@ func TestStorageImpl_GetList(t *testing.T) {
 		},
 	}
 	type args struct {
-		in0     context.Context
 		key     string
 		in2     storage.ListOptions
 		listObj runtime.Object
@@ -375,7 +371,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 				err := s.Create(context.Background(), k, v, nil, 0)
 				assert.NoError(t, err)
 			}
-			if err := s.GetList(tt.args.in0, tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
+			if err := s.GetList(context.TODO(), tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			assert.Equal(t, tt.want, len(tt.args.listObj.(*v1beta1.SBOMSPDXv2p3List).Items))
@@ -424,7 +420,6 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		},
 	}
 	type args struct {
-		ctx                  context.Context
 		key                  string
 		ignoreNotFound       bool
 		preconditions        *storage.Preconditions
@@ -500,7 +495,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			destination := &v1beta1.SBOMSPDXv2p3{}
-			err := s.GuaranteedUpdate(tt.args.ctx, tt.args.key, destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
+			err := s.GuaranteedUpdate(context.TODO(), tt.args.key, destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("GuaranteedUpdate() error = %v, wantErr %v", err, tt.wantErr)
