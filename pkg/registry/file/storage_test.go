@@ -379,6 +379,42 @@ func TestStorageImpl_GetList(t *testing.T) {
 	}
 }
 
+func BenchmarkStorageImpl_GetList(b *testing.B) {
+	ctx := context.TODO()
+	key := "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape"
+	listObj := &v1beta1.SBOMSPDXv2p3List{}
+	objs := map[string]runtime.Object{
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto": &v1beta1.SBOMSPDXv2p3{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "toto",
+				Namespace: "kubescape",
+			},
+		},
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/titi": &v1beta1.SBOMSPDXv2p3{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "titi",
+				Namespace: "kubescape",
+			},
+		},
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/tata": &v1beta1.SBOMSPDXv2p3{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "tata",
+				Namespace: "other",
+			},
+		},
+	}
+	opts := storage.ListOptions{}
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+	for k, v := range objs {
+		err := s.Create(context.Background(), k, v, nil, 0)
+		assert.NoError(b, err)
+	}
+	for i := 0; i < b.N; i++ {
+		_ = s.GetList(ctx, key, opts, listObj)
+	}
+	b.ReportAllocs()
+}
+
 func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	count := 0
 	toto := &v1beta1.SBOMSPDXv2p3{
