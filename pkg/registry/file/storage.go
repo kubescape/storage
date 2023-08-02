@@ -1,8 +1,8 @@
 package file
 
 import (
-	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"github.com/olvrng/ujson"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	jsonExt            = ".json"
+	gobExt             = ".gob"
 	metadataExt        = ".metadata"
 	DefaultStorageRoot = "/data"
 )
@@ -64,27 +64,8 @@ func (s *StorageImpl) Versioner() storage.Versioner {
 	return s.versioner
 }
 
-func removeSpec(in []byte) ([]byte, error) {
-	var out []byte
-	err := ujson.Walk(in, func(_ int, key, value []byte) bool {
-		if len(key) != 0 {
-			if bytes.EqualFold(key, []byte(`"spec"`)) {
-				// remove the key and value from the output
-				return false
-			}
-		}
-		// write to output
-		if len(out) != 0 && ujson.ShouldAddComma(value, out[len(out)-1]) {
-			out = append(out, ',')
-		}
-		if len(key) > 0 {
-			out = append(out, key...)
-			out = append(out, ':')
-		}
-		out = append(out, value...)
-		return true
-	})
-	return out, err
+func removeSpec(obj *runtime.Object) {
+	(*obj).(*v1beta1.SBOMSPDXv2p3).Spec = v1beta1.SBOMSPDXv2p3Spec{}
 }
 
 func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, out runtime.Object) error {
@@ -105,32 +86,37 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
 		return err
 	}
-	// prepare json content
-	jsonBytes, err := json.MarshalIndent(dup, "", "  ")
+	// create data file
+	dataFile, err := s.appFs.Create(p + gobExt)
 	if err != nil {
 		return err
 	}
-	// prepare metadata content
-	metadataBytes, err := removeSpec(jsonBytes)
-	if err != nil {
-		return err
-	}
-	// write json file
-	err = afero.WriteFile(s.appFs, p+jsonExt, jsonBytes, 0644)
+	defer func(dataFile afero.File) {
+		_ = dataFile.Close()
+	}(dataFile)
+	// write data file
+	err = gob.NewEncoder(dataFile).Encode(dup)
 	if err != nil {
 		return err // maybe not exit here to try writing metadata file
 	}
+	// prepare metadata content
+	//removeSpec(&dup)
+	// create metadata file
+	metadataFile, err := s.appFs.Create(p + metadataExt)
+	if err != nil {
+		return err
+	}
+	defer func(metadataFile afero.File) {
+		_ = metadataFile.Close()
+	}(metadataFile)
 	// write metadata file
-	err = afero.WriteFile(s.appFs, p+metadataExt, metadataBytes, 0644)
+	err = gob.NewEncoder(metadataFile).Encode(dup)
 	if err != nil {
 		return err
 	}
 	// eventually fill out
 	if out != nil {
-		err = json.Unmarshal(jsonBytes, out)
-		if err != nil {
-			return err
-		}
+		out = obj.DeepCopyObject()
 	}
 	return nil
 }
@@ -173,8 +159,8 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 	s.lock.Lock()
 	spanLock.End()
 	defer s.lock.Unlock()
-	// read json file
-	b, err := afero.ReadFile(s.appFs, p+jsonExt)
+	// open file
+	dataFile, err := s.appFs.Open(p + gobExt)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
@@ -182,8 +168,11 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
+	// try to fill out
+	errDecode := gob.NewDecoder(dataFile).Decode(out)
+	_ = dataFile.Close()
 	// delete json and metadata files
-	err = s.appFs.Remove(p + jsonExt)
+	err = s.appFs.Remove(p + gobExt)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
@@ -191,9 +180,8 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 	if err != nil {
 		logger.L().Ctx(ctx).Error("remove metadata file failed", helpers.Error(err), helpers.String("key", key))
 	}
-	// try to fill out
-	err = json.Unmarshal(b, out)
-	if err != nil {
+	// handle decode error
+	if errDecode != nil {
 		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
@@ -233,7 +221,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	s.lock.RLock()
 	spanLock.End()
 	defer s.lock.RUnlock()
-	b, err := afero.ReadFile(s.appFs, p+jsonExt)
+	dataFile, err := s.appFs.Open(p + gobExt)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			if opts.IgnoreNotFound {
@@ -245,7 +233,8 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
-	err = json.Unmarshal(b, objPtr)
+	err = gob.NewDecoder(dataFile).Decode(objPtr)
+	_ = dataFile.Close()
 	if err != nil {
 		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
@@ -294,7 +283,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 	s.lock.RUnlock()
 	for _, path := range files {
 		// we need to read the whole file
-		b, err := afero.ReadFile(s.appFs, path)
+		dataFile, err := s.appFs.Open(path)
 		if err != nil {
 			// skip if file is not readable, maybe it was deleted
 			continue
@@ -302,7 +291,8 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 		// unmarshal into object
 		elem := v.Type().Elem()
 		obj := reflect.New(elem).Interface().(runtime.Object)
-		err = json.Unmarshal(b, obj)
+		err = gob.NewDecoder(dataFile).Decode(obj)
+		_ = dataFile.Close()
 		if err != nil {
 			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
 			continue
@@ -482,7 +472,7 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	p := filepath.Join(s.root, key)
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	if exists, _ := afero.Exists(s.appFs, p+jsonExt); exists {
+	if exists, _ := afero.Exists(s.appFs, p+gobExt); exists {
 		return 1, nil
 	}
 	n := 0
@@ -490,7 +480,7 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && strings.HasSuffix(path, jsonExt) {
+		if !info.IsDir() && strings.HasSuffix(path, gobExt) {
 			n++
 		}
 		return nil

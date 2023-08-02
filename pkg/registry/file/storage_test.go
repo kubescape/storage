@@ -17,11 +17,11 @@ import (
 
 func TestStorageImpl_Count(t *testing.T) {
 	files := []string{
-		"/other/type/ns/titi.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
+		"/other/type/ns/titi.gob",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.gob",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.gob",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.gob",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.gob",
 	}
 	tests := []struct {
 		name    string
@@ -142,7 +142,7 @@ func TestStorageImpl_Create(t *testing.T) {
 				assert.Error(t, err)
 				return
 			}
-			exists, _ := afero.Exists(fs, DefaultStorageRoot+tt.args.key+".json") // FIXME: use getPath instead
+			exists, _ := afero.Exists(fs, DefaultStorageRoot+tt.args.key+gobExt) // FIXME: use getPath instead
 			assert.Truef(t, exists, "file %s should exist", DefaultStorageRoot+tt.args.key)
 			if tt.want != nil {
 				assert.Equal(t, tt.want, tt.args.out)
@@ -217,7 +217,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
+				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+gobExt, []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Delete(context.TODO(), tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
@@ -294,7 +294,7 @@ func TestStorageImpl_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
+				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+gobExt, []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
