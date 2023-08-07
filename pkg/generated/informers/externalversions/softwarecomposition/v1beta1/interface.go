@@ -34,6 +34,10 @@ type Interface interface {
 	VulnerabilityManifests() VulnerabilityManifestInformer
 	// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
 	VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer
+	// WorkloadConfigurationScans returns a WorkloadConfigurationScanInformer.
+	WorkloadConfigurationScans() WorkloadConfigurationScanInformer
+	// WorkloadConfigurationScanSummaries returns a WorkloadConfigurationScanSummaryInformer.
+	WorkloadConfigurationScanSummaries() WorkloadConfigurationScanSummaryInformer
 }
 
 type version struct {
@@ -70,4 +74,14 @@ func (v *version) VulnerabilityManifests() VulnerabilityManifestInformer {
 // VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
 func (v *version) VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer {
 	return &vulnerabilityManifestSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// WorkloadConfigurationScans returns a WorkloadConfigurationScanInformer.
+func (v *version) WorkloadConfigurationScans() WorkloadConfigurationScanInformer {
+	return &workloadConfigurationScanInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// WorkloadConfigurationScanSummaries returns a WorkloadConfigurationScanSummaryInformer.
+func (v *version) WorkloadConfigurationScanSummaries() WorkloadConfigurationScanSummaryInformer {
+	return &workloadConfigurationScanSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -35,6 +35,7 @@ import (
 	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
 	sbomsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsummary"
 	vmsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifestsummary"
+	wcsstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscans"
 	"github.com/spf13/afero"
 )
 
@@ -134,11 +135,16 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	storageImpl := file.NewStorageImpl(afero.NewOsFs(), file.DefaultStorageRoot)
 	v1beta1storage := map[string]rest.Storage{}
+
 	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["sbomspdxv2p3filtereds"] = sbomregistry.RESTInPeace(sbomspdxv2p3filteredstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["sbomsummaries"] = sbomregistry.RESTInPeace(sbomsumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+
+	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["vulnerabilitymanifestsummaries"] = sbomregistry.RESTInPeace(vmsumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+
+
+	v1beta1storage["workloadconfigurationscans"] = sbomregistry.RESTInPeace(wcsstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 
