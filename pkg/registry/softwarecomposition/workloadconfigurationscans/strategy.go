@@ -25,7 +25,7 @@ func NewStrategy(typer runtime.ObjectTyper) workloadConfigurationScanStrategy {
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	apiserver, ok := obj.(*softwarecomposition.WorkloadConfigurationScan)
 	if !ok {
-		return nil, nil, fmt.Errorf("given object is not a Flunder")
+		return nil, nil, fmt.Errorf("given object is not a WorkloadConfigurationScan")
 	}
 	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
 }
