@@ -17,6 +17,7 @@ limitations under the License.
 package validation
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
@@ -85,4 +86,8 @@ func ValidateVulnerabilityManifestSummary(v *softwarecomposition.VulnerabilityMa
 	allErrs = append(allErrs, ValidateVulnerabilityManifestSummarySpec(&v.Spec, field.NewPath("spec"))...)
 
 	return allErrs
+}
+
+func AlwaysValid(o runtime.Object) field.ErrorList {
+	return field.ErrorList{}
 }

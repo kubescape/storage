@@ -57,6 +57,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SBOMSummaryList{},
 		&VulnerabilityManifestSummary{},
 		&VulnerabilityManifestSummaryList{},
+		&WorkloadConfigurationScan{},
+		&WorkloadConfigurationScanList{},
+		&WorkloadConfigurationScanSummary{},
+		&WorkloadConfigurationScanSummaryList{},
 	)
 	return nil
 }
