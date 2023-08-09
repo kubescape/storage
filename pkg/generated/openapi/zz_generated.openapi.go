@@ -88,6 +88,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":                            schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":                            schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents":                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope":                    schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesObjScope(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability":                              schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters":                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityCounters(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest":                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref),
