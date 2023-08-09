@@ -81,6 +81,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":                  schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                         schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":                  schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents":        schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope":          schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesObjScope(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability":                    schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters":            schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityCounters(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest":            schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref),
@@ -2690,6 +2692,67 @@ func schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref common.Refe
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"basic": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
+						},
+					},
+					"filtered": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
+						},
+					},
+				},
+				Required: []string{"basic", "filtered"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesObjScope(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"namespace", "name", "kind"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2744,8 +2807,15 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityCounters(ref commo
 							Format:  "int32",
 						},
 					},
+					"relevant": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
 				},
-				Required: []string{"all"},
+				Required: []string{"all", "relevant"},
 			},
 		},
 	}
@@ -3048,12 +3118,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpe
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary"),
 						},
 					},
+					"vulnerabilities": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents"),
+						},
+					},
 				},
-				Required: []string{"severities"},
+				Required: []string{"severities", "vulnerabilities"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents"},
 	}
 }
 

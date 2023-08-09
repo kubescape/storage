@@ -178,7 +178,8 @@ type VulnerabilityManifestList struct {
 //
 // Intended to store relevant and total vulnerabilities in the future.
 type VulnerabilityCounters struct {
-	All int
+	All      int
+	Relevant int
 }
 
 // SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
@@ -191,8 +192,20 @@ type SeveritySummary struct {
 	Unknown    VulnerabilityCounters
 }
 
+type VulnerabilitiesObjScope struct {
+	Namespace string
+	Name      string
+	Kind      string
+}
+
+type VulnerabilitiesComponents struct {
+	ImageVulnerabilitiesObj    VulnerabilitiesObjScope
+	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope
+}
+
 type VulnerabilityManifestSummarySpec struct {
-	Severities SeveritySummary
+	Severities      SeveritySummary
+	Vulnerabilities VulnerabilitiesComponents
 }
 
 // +genclient
