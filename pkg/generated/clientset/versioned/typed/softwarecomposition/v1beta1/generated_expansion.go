@@ -27,3 +27,7 @@ type SBOMSummaryExpansion interface{}
 type VulnerabilityManifestExpansion interface{}
 
 type VulnerabilityManifestSummaryExpansion interface{}
+
+type WorkloadConfigurationScanExpansion interface{}
+
+type WorkloadConfigurationScanSummaryExpansion interface{}

@@ -48,6 +48,14 @@ func (c *FakeSpdxV1beta1) VulnerabilityManifestSummaries(namespace string) v1bet
 	return &FakeVulnerabilityManifestSummaries{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) WorkloadConfigurationScans(namespace string) v1beta1.WorkloadConfigurationScanInterface {
+	return &FakeWorkloadConfigurationScans{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) WorkloadConfigurationScanSummaries(namespace string) v1beta1.WorkloadConfigurationScanSummaryInterface {
+	return &FakeWorkloadConfigurationScanSummaries{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeSpdxV1beta1) RESTClient() rest.Interface {
