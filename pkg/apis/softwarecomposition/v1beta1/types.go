@@ -178,7 +178,8 @@ type VulnerabilityManifestList struct {
 //
 // Intended to store relevant and total vulnerabilities in the future.
 type VulnerabilityCounters struct {
-	All int `json:"all"`
+	All      int `json:"all"`
+	Relevant int `json:"relevant"`
 }
 
 // SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
@@ -191,8 +192,20 @@ type SeveritySummary struct {
 	Unknown    VulnerabilityCounters `json:"unknown,omitempty"`
 }
 
+type VulnerabilitiesObjScope struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+}
+
+type VulnerabilitiesComponents struct {
+	ImageVulnerabilitiesObj    VulnerabilitiesObjScope `json:"all"`
+	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope `json:"relevant"`
+}
+
 type VulnerabilityManifestSummarySpec struct {
-	Severities SeveritySummary `json:"severities"`
+	Severities      SeveritySummary           `json:"severities"`
+	Vulnerabilities VulnerabilitiesComponents `json:"vulnerabilitiesRef"`
 }
 
 // +genclient
