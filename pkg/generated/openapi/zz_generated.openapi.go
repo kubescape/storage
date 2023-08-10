@@ -3021,20 +3021,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref c
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"basic": {
+					"all": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
 						},
 					},
-					"filtered": {
+					"relevant": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
 						},
 					},
 				},
-				Required: []string{"basic", "filtered"},
+				Required: []string{"all", "relevant"},
 			},
 		},
 		Dependencies: []string{
@@ -3441,14 +3441,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpe
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary"),
 						},
 					},
-					"vulnerabilities": {
+					"vulnerabilitiesRef": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents"),
 						},
 					},
 				},
-				Required: []string{"severities", "vulnerabilities"},
+				Required: []string{"severities", "vulnerabilitiesRef"},
 			},
 		},
 		Dependencies: []string{

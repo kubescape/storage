@@ -199,13 +199,13 @@ type VulnerabilitiesObjScope struct {
 }
 
 type VulnerabilitiesComponents struct {
-	ImageVulnerabilitiesObj    VulnerabilitiesObjScope `json:"basic"`
-	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope `json:"filtered"`
+	ImageVulnerabilitiesObj    VulnerabilitiesObjScope `json:"all"`
+	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope `json:"relevant"`
 }
 
 type VulnerabilityManifestSummarySpec struct {
 	Severities      SeveritySummary           `json:"severities"`
-	Vulnerabilities VulnerabilitiesComponents `json:"vulnerabilities"`
+	Vulnerabilities VulnerabilitiesComponents `json:"vulnerabilitiesRef"`
 }
 
 // +genclient
