@@ -11,9 +11,6 @@ RUN --mount=target=. \
 
 FROM gcr.io/distroless/static-debian11:nonroot
 
-USER nonroot
-WORKDIR /home/nonroot/
-
 COPY --from=builder /out/storage /usr/bin/storage
 
 ARG image_version
