@@ -3120,7 +3120,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityCounters(ref commo
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VulnerabilityCounters describes a counter of vulnerabilityes.\n\nIntended to store relevant and total vulnerabilities in the future.",
+				Description: "VulnerabilityCounters describes a counter of vulnerabilities.\n\nIntended to store relevant and total vulnerabilities in the future.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"all": {
@@ -3337,7 +3337,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummary(re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.",
+				Description: "VulnerabilityManifestSummary is a summary of a VulnerabilityManifests.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
