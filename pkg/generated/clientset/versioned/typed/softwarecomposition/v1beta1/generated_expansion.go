@@ -28,6 +28,8 @@ type VulnerabilityManifestExpansion interface{}
 
 type VulnerabilityManifestSummaryExpansion interface{}
 
+type VulnerabilitySummaryExpansion interface{}
+
 type WorkloadConfigurationScanExpansion interface{}
 
 type WorkloadConfigurationScanSummaryExpansion interface{}
