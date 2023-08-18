@@ -174,7 +174,7 @@ type VulnerabilityManifestList struct {
 	Items []VulnerabilityManifest `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// VulnerabilityCounters describes a counter of vulnerabilities.
+// VulnerabilityCounters describes a counter of vulnerabilityes.
 //
 // Intended to store relevant and total vulnerabilities in the future.
 type VulnerabilityCounters struct {
@@ -211,7 +211,7 @@ type VulnerabilityManifestSummarySpec struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VulnerabilityManifestSummary is a summary of a VulnerabilityManifests.
+// VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.
 type VulnerabilityManifestSummary struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
@@ -228,4 +228,34 @@ type VulnerabilityManifestSummaryList struct {
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Items []VulnerabilityManifestSummary `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+type VulnerabilitySummarySpec struct {
+	Severities                 SeveritySummary           `json:"severities"`
+	WorkloadVulnerabilitiesObj []VulnerabilitiesObjScope `json:"vulnerabilitiesRef"`
+}
+
+type VulnerabilitySummaryStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummary is a aggregation of a VulnerabilityManifestSummary by scope(namespace/cluster).
+type VulnerabilitySummary struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   VulnerabilitySummarySpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status VulnerabilitySummaryStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummaryList is a list of VulnerabilitySummary.
+type VulnerabilitySummaryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []VulnerabilitySummary `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

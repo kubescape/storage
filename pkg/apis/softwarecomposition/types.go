@@ -229,3 +229,33 @@ type VulnerabilityManifestSummaryList struct {
 
 	Items []VulnerabilityManifestSummary
 }
+
+type VulnerabilitySummarySpec struct {
+	Severities                 SeveritySummary
+	WorkloadVulnerabilitiesObj []VulnerabilitiesObjScope
+}
+
+type VulnerabilitySummaryStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummary is a aggregation of a VulnerabilityManifestSummary by scope(namespace/cluster).
+type VulnerabilitySummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilitySummarySpec
+	Status VulnerabilitySummaryStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummaryList is a list of VulnerabilitySummaries.
+type VulnerabilitySummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilitySummary
+}

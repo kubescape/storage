@@ -17,9 +17,9 @@ limitations under the License.
 package validation
 
 import (
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
 // ValidateFlunder validates a Flunder.
@@ -84,6 +84,20 @@ func ValidateVulnerabilityManifestSummary(v *softwarecomposition.VulnerabilityMa
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateVulnerabilityManifestSummarySpec(&v.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
+
+func ValidateVulnerabilitySummarySpec(v *softwarecomposition.VulnerabilitySummarySpec, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	return allErrs
+}
+
+func ValidateVulnerabilitySummary(v *softwarecomposition.VulnerabilitySummary) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateVulnerabilitySummarySpec(&v.Spec, field.NewPath("spec"))...)
 
 	return allErrs
 }
