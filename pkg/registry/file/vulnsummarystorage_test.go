@@ -8,69 +8,10 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 )
-
-func TestVulnSummaryStorageImpl_Count(t *testing.T) {
-	files := []string{
-		"/other/type/ns/titi.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
-	}
-	tests := []struct {
-		name    string
-		key     string
-		want    int64
-		wantErr bool
-	}{
-		{
-			name: "one object",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-			want: 1,
-		},
-		{
-			name: "one ns",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape",
-			want: 1,
-		},
-		{
-			name: "one type",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s",
-			want: 2,
-		},
-		{
-			name: "all types",
-			key:  "/spdx.softwarecomposition.kubescape.io",
-			want: 4,
-		},
-		{
-			name: "from top",
-			key:  "/",
-			want: 5,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fs := afero.NewMemMapFs()
-			_ = fs.Mkdir(DefaultStorageRoot, 0755)
-			for _, f := range files {
-				_ = afero.WriteFile(fs, DefaultStorageRoot+f, []byte(""), 0644)
-			}
-			s := NewStorageImpl(fs, DefaultStorageRoot)
-			got, err := s.Count(tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Count() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("Count() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestVulnSummaryStorageImpl_Create(t *testing.T) {
 	type args struct {
@@ -98,10 +39,11 @@ func TestVulnSummaryStorageImpl_Create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
-			s := NewVulnSummaryStorageImpl(fs, DefaultStorageRoot)
+			s := NewVulnerabilitySummaryStorage(fs, DefaultStorageRoot)
 			err := s.Create(context.TODO(), tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
 				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
 				return
 			}
 		})
@@ -124,7 +66,7 @@ func TestVulnSummaryStorageImpl_Delete(t *testing.T) {
 		{
 			name: "not supported",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/toto",
 			},
 			wantErr: true,
 		},
@@ -132,120 +74,245 @@ func TestVulnSummaryStorageImpl_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
-			s := NewVulnSummaryStorageImpl(fs, DefaultStorageRoot)
+			s := NewVulnerabilitySummaryStorage(fs, DefaultStorageRoot)
 			err := s.Delete(context.TODO(), tt.args.key, tt.args.obj, tt.args.precondition, tt.args.validateDeletionFunc, tt.args.cachedObj)
 			if tt.wantErr {
 				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
 				return
 			}
 		})
 	}
 }
 
-func Test_getVulnManifestSummaryDirPath(t *testing.T) {
-
+func TestVulnSummaryStorageImpl_Watch(t *testing.T) {
+	type args struct {
+		key string
+	}
 	tests := []struct {
-		input    string
-		expected string
+		name    string
+		args    args
+		wantErr bool
 	}{
 		{
-			input:    "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/default/default",
-			expected: "/data/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries",
+			name: "not supported",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/toto",
+			},
+			wantErr: true,
 		},
 	}
-
-	s := VulnSummaryStorageImpl{
-		appFs: afero.NewMemMapFs(),
-		root:  "/data",
-	}
-
-	for _, td := range tests {
-		res := s.getVulnManifestSummaryDirPath(td.input)
-		assert.Equal(t, td.expected, res)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+			s := NewVulnerabilitySummaryStorage(fs, DefaultStorageRoot)
+			_, err := s.Watch(context.TODO(), tt.args.key, storage.ListOptions{})
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				return
+			}
+		})
 	}
 }
 
-func Test_updateFullVulnSumm(t *testing.T) {
+func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
+	type args struct {
+		key string
+		obj runtime.Object
+	}
 	tests := []struct {
-		fullVulnSumm         *softwarecomposition.VulnerabilitySummary
-		vulnManifestSumm     *softwarecomposition.VulnerabilityManifestSummary
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "not supported",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/toto",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+			s := NewVulnerabilitySummaryStorage(fs, DefaultStorageRoot)
+			err := s.GetList(context.TODO(), tt.args.key, storage.ListOptions{}, tt.args.obj)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				return
+			}
+		})
+	}
+}
+
+func TestVulnSummaryStorageImpl_GuaranteedUpdate(t *testing.T) {
+	type args struct {
+		key                  string
+		obj                  runtime.Object
+		preconditions        *storage.Preconditions
+		tryUpdate            storage.UpdateFunc
+		cachedExistingObject runtime.Object
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "not supported",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/toto",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+			s := NewVulnerabilitySummaryStorage(fs, DefaultStorageRoot)
+			err := s.GuaranteedUpdate(context.TODO(), tt.args.key, tt.args.obj, true, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				return
+			}
+		})
+	}
+}
+
+func TestVulnSummaryStorageImpl_Count(t *testing.T) {
+	type args struct {
+		key string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "not supported",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/toto",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+			s := NewVulnerabilitySummaryStorage(fs, DefaultStorageRoot)
+			_, err := s.Count(tt.args.key)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				return
+			}
+		})
+	}
+}
+
+func Test_initVulnSummary(t *testing.T) {
+	type args struct {
+		scope string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "namespace",
+			args: args{
+				scope: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/toto",
+			},
+		},
+		{
+			name: "cluster",
+			args: args{
+				scope: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/cluster",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := initVulnSummary(tt.args.scope)
+			if tt.name != "cluster" {
+				assert.Equal(t, res.Labels["kubescape.io/workload-namespace"], tt.args.scope)
+				assert.Equal(t, res.Namespace, tt.args.scope)
+			}
+			assert.Equal(t, res.Name, tt.args.scope)
+		})
+	}
+}
+
+func Test_summarizeVulnerabilities(t *testing.T) {
+	tests := []struct {
+		name                 string
+		scope                string
+		vulnManifestSumm     []softwarecomposition.VulnerabilityManifestSummary
 		expectedFullVulnSumm *softwarecomposition.VulnerabilitySummary
 	}{
 		{
-			fullVulnSumm: &softwarecomposition.VulnerabilitySummary{
-				Spec: softwarecomposition.VulnerabilitySummarySpec{
-					Severities: softwarecomposition.SeveritySummary{
-						Critical: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
+			name:  "test1",
+			scope: "aaa",
+			vulnManifestSumm: []softwarecomposition.VulnerabilityManifestSummary{
+				softwarecomposition.VulnerabilityManifestSummary{
+					Spec: softwarecomposition.VulnerabilityManifestSummarySpec{
+						Severities: softwarecomposition.SeveritySummary{
+							Critical: softwarecomposition.VulnerabilityCounters{
+								All:      20,
+								Relevant: 6,
+							},
+							High: softwarecomposition.VulnerabilityCounters{
+								All:      20,
+								Relevant: 6,
+							},
+							Medium: softwarecomposition.VulnerabilityCounters{
+								All:      20,
+								Relevant: 6,
+							},
+							Low: softwarecomposition.VulnerabilityCounters{
+								All:      20,
+								Relevant: 6,
+							},
+							Negligible: softwarecomposition.VulnerabilityCounters{
+								All:      20,
+								Relevant: 6,
+							},
+							Unknown: softwarecomposition.VulnerabilityCounters{
+								All:      20,
+								Relevant: 6,
+							},
 						},
-						High: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Medium: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Low: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Negligible: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Unknown: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-					},
-					WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{},
-				},
-			},
-			vulnManifestSumm: &softwarecomposition.VulnerabilityManifestSummary{
-				Spec: softwarecomposition.VulnerabilityManifestSummarySpec{
-					Severities: softwarecomposition.SeveritySummary{
-						Critical: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						High: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Medium: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Low: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Negligible: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-						Unknown: softwarecomposition.VulnerabilityCounters{
-							All:      10,
-							Relevant: 3,
-						},
-					},
-					Vulnerabilities: softwarecomposition.VulnerabilitiesComponents{
-						ImageVulnerabilitiesObj: softwarecomposition.VulnerabilitiesObjScope{
-							Name:      "aaa",
-							Namespace: "bbb",
-							Kind:      "any",
-						},
-						WorkloadVulnerabilitiesObj: softwarecomposition.VulnerabilitiesObjScope{
-							Name:      "ccc",
-							Namespace: "ddd",
-							Kind:      "many",
+						Vulnerabilities: softwarecomposition.VulnerabilitiesComponents{
+							ImageVulnerabilitiesObj: softwarecomposition.VulnerabilitiesObjScope{
+								Name:      "aaa",
+								Namespace: "bbb",
+								Kind:      "any",
+							},
+							WorkloadVulnerabilitiesObj: softwarecomposition.VulnerabilitiesObjScope{
+								Name:      "ccc",
+								Namespace: "ddd",
+								Kind:      "many",
+							},
 						},
 					},
 				},
 			},
 			expectedFullVulnSumm: &softwarecomposition.VulnerabilitySummary{
+				TypeMeta: v1.TypeMeta{
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					Kind:       "VulnerabilitySummary",
+				},
+				ObjectMeta: v1.ObjectMeta{
+					Name:        "aaa",
+					Namespace:   "aaa",
+					Labels:      map[string]string{"kubescape.io/workload-namespace": "aaa"},
+					Annotations: map[string]string{"kubescape.io/status": ""},
+				},
 				Spec: softwarecomposition.VulnerabilitySummarySpec{
 					Severities: softwarecomposition.SeveritySummary{
 						Critical: softwarecomposition.VulnerabilityCounters{
@@ -289,173 +356,70 @@ func Test_updateFullVulnSumm(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
-		t.Run("", func(t *testing.T) {
-			updateFullVulnSumm(tt.fullVulnSumm, tt.vulnManifestSumm)
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Critical.All, tt.expectedFullVulnSumm.Spec.Severities.Critical.All)
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Critical.Relevant, tt.expectedFullVulnSumm.Spec.Severities.Critical.Relevant)
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+			s := &VulnerabilitySummaryStorage{
+				realStore: StorageImpl{
+					appFs:           fs,
+					watchDispatcher: newWatchDispatcher(),
+					root:            "/data",
+					versioner:       storage.APIObjectVersioner{},
+				},
+				versioner: storage.APIObjectVersioner{},
+			}
+			res := s.summarizeVulnerabilities(context.TODO(), tt.vulnManifestSumm, tt.scope)
+			assert.Equal(t, tt.expectedFullVulnSumm.Spec, res.Spec)
+			assert.Equal(t, tt.expectedFullVulnSumm.APIVersion, res.APIVersion)
+			assert.Equal(t, tt.expectedFullVulnSumm.Kind, res.Kind)
+			assert.Equal(t, tt.expectedFullVulnSumm.Labels, res.Labels)
+			assert.Equal(t, tt.expectedFullVulnSumm.Annotations, res.Annotations)
+			assert.Equal(t, tt.expectedFullVulnSumm.Name, res.Name)
+			assert.Equal(t, tt.expectedFullVulnSumm.Namespace, res.Namespace)
+		})
+	}
+}
 
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.High.All, tt.expectedFullVulnSumm.Spec.Severities.High.All)
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.High.Relevant, tt.expectedFullVulnSumm.Spec.Severities.High.Relevant)
-
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Medium.All, tt.expectedFullVulnSumm.Spec.Severities.Medium.All)
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Medium.Relevant, tt.expectedFullVulnSumm.Spec.Severities.Medium.Relevant)
-
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Low.All, tt.expectedFullVulnSumm.Spec.Severities.Low.All)
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Low.Relevant, tt.expectedFullVulnSumm.Spec.Severities.Low.Relevant)
-
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Negligible.All, tt.expectedFullVulnSumm.Spec.Severities.Negligible.All)
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Negligible.Relevant, tt.expectedFullVulnSumm.Spec.Severities.Negligible.Relevant)
-
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Unknown.All, tt.expectedFullVulnSumm.Spec.Severities.Unknown.All)
-			assert.Equal(t, tt.fullVulnSumm.Spec.Severities.Unknown.Relevant, tt.expectedFullVulnSumm.Spec.Severities.Unknown.Relevant)
-
-			assert.Equal(t, len(tt.fullVulnSumm.Spec.WorkloadVulnerabilitiesObj), len(tt.expectedFullVulnSumm.Spec.WorkloadVulnerabilitiesObj))
-			for i := range tt.fullVulnSumm.Spec.WorkloadVulnerabilitiesObj {
-				assert.Equal(t, tt.fullVulnSumm.Spec.WorkloadVulnerabilitiesObj[i], tt.expectedFullVulnSumm.Spec.WorkloadVulnerabilitiesObj[i])
+func TestVulnSummaryStorageImpl_Get(t *testing.T) {
+	type args struct {
+		key string
+		obj *softwarecomposition.VulnerabilitySummary
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "namespace",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/kubescape/toto",
+				obj: &softwarecomposition.VulnerabilitySummary{},
+			},
+			wantErr: false,
+		},
+		{
+			name: "cluster",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/cluster",
+				obj: &softwarecomposition.VulnerabilitySummary{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+			s := NewVulnerabilitySummaryStorage(fs, DefaultStorageRoot)
+			o := tt.args.obj.DeepCopyObject()
+			err := s.Get(context.TODO(), tt.args.key, storage.GetOptions{}, o)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.name, ""))
+				return
+			} else {
+				assert.Error(t, err, nil)
 			}
 		})
 	}
-
-}
-
-func Test_updateSeverities(t *testing.T) {
-	tests := []struct {
-		vulnSeverities             softwarecomposition.SeveritySummary
-		aggregatedVulnSeverities   softwarecomposition.SeveritySummary
-		expectedAllCritical        int
-		expectedAllHigh            int
-		expectedAllMedium          int
-		expectedAllLow             int
-		expectedAllNegligible      int
-		expectedAllUnknown         int
-		expectedRelevantCritical   int
-		expectedRelevantHigh       int
-		expectedRelevantMedium     int
-		expectedRelevantLow        int
-		expectedRelevantNegligible int
-		expectedRelevantUnknown    int
-	}{
-		{
-			vulnSeverities: softwarecomposition.SeveritySummary{
-				Critical: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Medium: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Low: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				High: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Negligible: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Unknown: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-			},
-			aggregatedVulnSeverities: softwarecomposition.SeveritySummary{
-				Critical: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Medium: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Low: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				High: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Negligible: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-				Unknown: softwarecomposition.VulnerabilityCounters{
-					All:      10,
-					Relevant: 3,
-				},
-			},
-			expectedAllCritical:        20,
-			expectedAllHigh:            20,
-			expectedAllMedium:          20,
-			expectedAllLow:             20,
-			expectedAllNegligible:      20,
-			expectedAllUnknown:         20,
-			expectedRelevantCritical:   6,
-			expectedRelevantHigh:       6,
-			expectedRelevantMedium:     6,
-			expectedRelevantLow:        6,
-			expectedRelevantNegligible: 6,
-			expectedRelevantUnknown:    6,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run("", func(t *testing.T) {
-			updateSeverities(&tt.aggregatedVulnSeverities, &tt.vulnSeverities)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Critical.All, tt.expectedAllCritical)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Critical.Relevant, tt.expectedRelevantCritical)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.High.All, tt.expectedAllHigh)
-			assert.Equal(t, tt.aggregatedVulnSeverities.High.Relevant, tt.expectedRelevantHigh)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Medium.All, tt.expectedAllMedium)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Medium.Relevant, tt.expectedRelevantMedium)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Low.All, tt.expectedAllLow)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Low.Relevant, tt.expectedRelevantLow)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Negligible.All, tt.expectedAllNegligible)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Negligible.Relevant, tt.expectedRelevantNegligible)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Unknown.All, tt.expectedAllUnknown)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Unknown.Relevant, tt.expectedRelevantUnknown)
-
-		})
-	}
-}
-func Test_updateVulnCounters(t *testing.T) {
-	tests := []struct {
-		vulnCounters           softwarecomposition.VulnerabilityCounters
-		aggregatedVulnCounters softwarecomposition.VulnerabilityCounters
-		expectedAll            int
-		expectedRelevant       int
-	}{
-		{
-			vulnCounters: softwarecomposition.VulnerabilityCounters{
-				All:      10,
-				Relevant: 3,
-			},
-			aggregatedVulnCounters: softwarecomposition.VulnerabilityCounters{
-				All:      10,
-				Relevant: 3,
-			},
-			expectedAll:      20,
-			expectedRelevant: 6,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run("", func(t *testing.T) {
-			updateVulnCounters(&tt.aggregatedVulnCounters, &tt.vulnCounters)
-			assert.Equal(t, tt.aggregatedVulnCounters.All, tt.expectedAll)
-			assert.Equal(t, tt.aggregatedVulnCounters.Relevant, tt.expectedRelevant)
-		})
-	}
-
 }

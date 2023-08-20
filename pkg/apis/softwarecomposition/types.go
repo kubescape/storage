@@ -241,7 +241,7 @@ type VulnerabilitySummaryStatus struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VulnerabilitySummary is a aggregation of a VulnerabilityManifestSummary by scope(namespace/cluster).
+// VulnerabilitySummary is a summary of a vulnerabilities for a given scope.
 type VulnerabilitySummary struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
@@ -258,4 +258,28 @@ type VulnerabilitySummaryList struct {
 	metav1.ListMeta
 
 	Items []VulnerabilitySummary
+}
+
+func (aggregatedCounters *VulnerabilityCounters) Add(counters *VulnerabilityCounters) {
+	aggregatedCounters.All += counters.All
+	aggregatedCounters.Relevant += counters.Relevant
+}
+
+func (aggregatedSeverities *SeveritySummary) Add(severities *SeveritySummary) {
+	aggregatedSeverities.Critical.Add(&severities.Critical)
+	aggregatedSeverities.High.Add(&severities.High)
+	aggregatedSeverities.Medium.Add(&severities.Medium)
+	aggregatedSeverities.Low.Add(&severities.Low)
+	aggregatedSeverities.Negligible.Add(&severities.Negligible)
+	aggregatedSeverities.Unknown.Add(&severities.Unknown)
+}
+
+func (fullVulnSumm *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSummary) {
+	fullVulnSumm.Spec.Severities.Add(&vulnManifestSumm.Spec.Severities)
+	if vulnManifestSumm.Spec.Vulnerabilities.ImageVulnerabilitiesObj != (VulnerabilitiesObjScope{}) {
+		fullVulnSumm.Spec.WorkloadVulnerabilitiesObj = append(fullVulnSumm.Spec.WorkloadVulnerabilitiesObj, vulnManifestSumm.Spec.Vulnerabilities.ImageVulnerabilitiesObj)
+	}
+	if vulnManifestSumm.Spec.Vulnerabilities.WorkloadVulnerabilitiesObj != (VulnerabilitiesObjScope{}) {
+		fullVulnSumm.Spec.WorkloadVulnerabilitiesObj = append(fullVulnSumm.Spec.WorkloadVulnerabilitiesObj, vulnManifestSumm.Spec.Vulnerabilities.WorkloadVulnerabilitiesObj)
+	}
 }

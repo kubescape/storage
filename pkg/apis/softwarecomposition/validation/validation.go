@@ -88,20 +88,6 @@ func ValidateVulnerabilityManifestSummary(v *softwarecomposition.VulnerabilityMa
 	return allErrs
 }
 
-func ValidateVulnerabilitySummarySpec(v *softwarecomposition.VulnerabilitySummarySpec, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	return allErrs
-}
-
-func ValidateVulnerabilitySummary(v *softwarecomposition.VulnerabilitySummary) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	allErrs = append(allErrs, ValidateVulnerabilitySummarySpec(&v.Spec, field.NewPath("spec"))...)
-
-	return allErrs
-}
-
 func AlwaysValid(o runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }

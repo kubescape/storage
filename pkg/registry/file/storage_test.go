@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -526,6 +527,54 @@ func TestStorageImpl_Versioner(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			assert.Equal(t, tt.want, s.Versioner())
+		})
+	}
+}
+
+func Test_getVulnManifestSummaryDirPath(t *testing.T) {
+	s := &StorageImpl{
+		appFs:           afero.NewMemMapFs(),
+		watchDispatcher: newWatchDispatcher(),
+		root:            DefaultStorageRoot,
+		versioner:       storage.APIObjectVersioner{},
+	}
+	assert.Equal(t, "/data/spdx.softwarecomposition.kubescape.io/any/many", s.getVulnManifestSummaryDirPath("any", "many"))
+}
+
+func Test_GetByCluster(t *testing.T) {
+	type args struct {
+		key string
+		obj *softwarecomposition.VulnerabilitySummary
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "cluster",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitysummaries/cluster",
+				obj: &softwarecomposition.VulnerabilitySummary{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+			s := &StorageImpl{
+				appFs:           fs,
+				watchDispatcher: newWatchDispatcher(),
+				root:            "/data",
+				versioner:       storage.APIObjectVersioner{},
+			}
+			_, err := s.GetByCluster(context.TODO(), tt.args.key)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.name, ""))
+				return
+			}
 		})
 	}
 }

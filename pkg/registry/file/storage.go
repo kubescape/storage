@@ -14,6 +14,7 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
@@ -496,4 +497,85 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 		return nil
 	})
 	return int64(n), err
+}
+
+func (s *StorageImpl) getOneVulnManifestSummary(ctx context.Context, path string) (*softwarecomposition.VulnerabilityManifestSummary, error) {
+	var vulnManifestSummary softwarecomposition.VulnerabilityManifestSummary
+
+	b, err := afero.ReadFile(s.appFs, path)
+	if err != nil {
+		if errors.Is(err, afero.ErrFileNotFound) {
+			return nil, storage.NewKeyNotFoundError(path, 0)
+		}
+		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", path))
+		return nil, err
+	}
+	err = json.Unmarshal(b, &vulnManifestSummary)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", path))
+		return nil, err
+	}
+	if _, exist := vulnManifestSummary.GetLabels()["kubescape.io/workload-namespace"]; !exist {
+		return nil, storage.NewKeyNotFoundError(path, 0)
+	}
+	return &vulnManifestSummary, nil
+}
+
+func (s *StorageImpl) getVulnManifestSummaryDirPath(kind, namespace string) string {
+	return filepath.Join(s.root, "spdx.softwarecomposition.kubescape.io", kind, namespace)
+}
+
+func (s *StorageImpl) aggregateVulnSummary(ctx context.Context, kind, namespace string) ([]softwarecomposition.VulnerabilityManifestSummary, []error) {
+	var vsms []softwarecomposition.VulnerabilityManifestSummary
+	var errs []error
+
+	afero.Walk(s.appFs, s.getVulnManifestSummaryDirPath(kind, namespace), func(path string, info os.FileInfo, err error) error {
+		if !strings.HasSuffix(path, jsonExt) {
+			return nil
+		}
+		vulnManifestSummary, e := s.getOneVulnManifestSummary(ctx, path)
+		if err != nil {
+			errs = append(errs, e)
+			return nil
+		}
+		vsms = append(vsms, *vulnManifestSummary)
+		return nil
+	})
+
+	return vsms, errs
+}
+
+func (s *StorageImpl) GetByNamespace(ctx context.Context, kind, namespace string) ([]runtime.Object, error) {
+	ctx, span := otel.Tracer("").Start(ctx, "GetByNamespace")
+	span.SetAttributes(attribute.String("kind", kind), attribute.String("namespace", namespace))
+	defer span.End()
+
+	var objects []runtime.Object
+
+	vsms, errs := s.aggregateVulnSummary(ctx, kind, namespace)
+	for i := range errs {
+		logger.L().Ctx(ctx).Warning("error per vuln Manifest file", helpers.Error(errs[i]), helpers.String("kind", kind), helpers.String("namespace", namespace))
+	}
+
+	if len(vsms) == 0 {
+		return objects, storage.NewKeyNotFoundError(kind+"/"+namespace, 0)
+	}
+
+	for i := range vsms {
+		obj := vsms[i].DeepCopyObject()
+		objects = append(objects, obj)
+	}
+
+	return objects, nil
+}
+
+// currently we will not support it
+func (s *StorageImpl) GetByCluster(ctx context.Context, kind string) ([]runtime.Object, error) {
+	_, span := otel.Tracer("").Start(ctx, "GetByCluster")
+	span.SetAttributes(attribute.String("kind", kind))
+	defer span.End()
+
+	var objects []runtime.Object
+
+	return objects, storage.NewMethodNotImplementedError("cluster", "")
 }

@@ -137,7 +137,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	aferoOsFs := afero.NewOsFs()
 	storageImpl := file.NewStorageImpl(aferoOsFs, file.DefaultStorageRoot)
-	vulnSummaryStorageImpl := file.NewVulnSummaryStorageImpl(aferoOsFs, file.DefaultStorageRoot)
+	vulnerabilitySummaryStorage := file.NewVulnerabilitySummaryStorage(aferoOsFs, file.DefaultStorageRoot)
 	v1beta1storage := map[string]rest.Storage{}
 
 	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
@@ -147,7 +147,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["vulnerabilitymanifestsummaries"] = sbomregistry.RESTInPeace(vmsumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
-	v1beta1storage["vulnerabilitysummaries"] = sbomregistry.RESTInPeace(vsumstorage.NewREST(Scheme, vulnSummaryStorageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["vulnerabilitysummaries"] = sbomregistry.RESTInPeace(vsumstorage.NewREST(Scheme, vulnerabilitySummaryStorage, c.GenericConfig.RESTOptionsGetter))
 
 	v1beta1storage["workloadconfigurationscans"] = sbomregistry.RESTInPeace(wcsstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["workloadconfigurationscansummaries"] = sbomregistry.RESTInPeace(wcssumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))

@@ -174,7 +174,7 @@ type VulnerabilityManifestList struct {
 	Items []VulnerabilityManifest `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// VulnerabilityCounters describes a counter of vulnerabilityes.
+// VulnerabilityCounters describes a counter of vulnerabilities.
 //
 // Intended to store relevant and total vulnerabilities in the future.
 type VulnerabilityCounters struct {
@@ -241,7 +241,7 @@ type VulnerabilitySummaryStatus struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VulnerabilitySummary is a aggregation of a VulnerabilityManifestSummary by scope(namespace/cluster).
+// VulnerabilitySummary is a summary of a vulnerabilities for a given scope.
 type VulnerabilitySummary struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
