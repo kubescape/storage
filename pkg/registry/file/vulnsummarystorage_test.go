@@ -43,7 +43,7 @@ func TestVulnSummaryStorageImpl_Create(t *testing.T) {
 			err := s.Create(context.TODO(), tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, ""))
 				return
 			}
 		})
@@ -78,7 +78,7 @@ func TestVulnSummaryStorageImpl_Delete(t *testing.T) {
 			err := s.Delete(context.TODO(), tt.args.key, tt.args.obj, tt.args.precondition, tt.args.validateDeletionFunc, tt.args.cachedObj)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, ""))
 				return
 			}
 		})
@@ -109,7 +109,7 @@ func TestVulnSummaryStorageImpl_Watch(t *testing.T) {
 			_, err := s.Watch(context.TODO(), tt.args.key, storage.ListOptions{})
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, ""))
 				return
 			}
 		})
@@ -141,7 +141,7 @@ func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
 			err := s.GetList(context.TODO(), tt.args.key, storage.ListOptions{}, tt.args.obj)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, ""))
 				return
 			}
 		})
@@ -176,7 +176,7 @@ func TestVulnSummaryStorageImpl_GuaranteedUpdate(t *testing.T) {
 			err := s.GuaranteedUpdate(context.TODO(), tt.args.key, tt.args.obj, true, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, ""))
 				return
 			}
 		})
@@ -207,7 +207,7 @@ func TestVulnSummaryStorageImpl_Count(t *testing.T) {
 			_, err := s.Count(tt.args.key)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.args.key, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, ""))
 				return
 			}
 		})
@@ -415,7 +415,7 @@ func TestVulnSummaryStorageImpl_Get(t *testing.T) {
 			err := s.Get(context.TODO(), tt.args.key, storage.GetOptions{}, o)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.name, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.name, ""))
 				return
 			} else {
 				assert.Error(t, err, nil)

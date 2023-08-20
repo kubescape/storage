@@ -572,7 +572,7 @@ func Test_GetByCluster(t *testing.T) {
 			_, err := s.GetByCluster(context.TODO(), tt.args.key)
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, err, storage.NewMethodNotImplementedError(tt.name, ""))
+				assert.Equal(t, err, storage.NewInvalidObjError(tt.name, ""))
 				return
 			}
 		})

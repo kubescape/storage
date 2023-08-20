@@ -43,15 +43,15 @@ func (s *VulnerabilitySummaryStorage) Versioner() storage.Versioner {
 }
 
 func (s *VulnerabilitySummaryStorage) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
-	return storage.NewMethodNotImplementedError(key, "")
+	return storage.NewInvalidObjError(key, "")
 }
 
 func (s *VulnerabilitySummaryStorage) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
-	return storage.NewMethodNotImplementedError(key, "")
+	return storage.NewInvalidObjError(key, "")
 }
 
 func (s *VulnerabilitySummaryStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
-	return nil, storage.NewMethodNotImplementedError(key, "")
+	return nil, storage.NewInvalidObjError(key, "")
 }
 
 func initVulnSummary(scope string) softwarecomposition.VulnerabilitySummary {
@@ -129,15 +129,15 @@ func (s *VulnerabilitySummaryStorage) Get(ctx context.Context, key string, opts 
 }
 
 func (s *VulnerabilitySummaryStorage) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
-	return storage.NewMethodNotImplementedError(key, "")
+	return storage.NewInvalidObjError(key, "")
 }
 
 func (s *VulnerabilitySummaryStorage) GuaranteedUpdate(
 	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	return storage.NewMethodNotImplementedError(key, "")
+	return storage.NewInvalidObjError(key, "")
 }
 
 func (s *VulnerabilitySummaryStorage) Count(key string) (int64, error) {
-	return 0, storage.NewMethodNotImplementedError(key, "")
+	return 0, storage.NewInvalidObjError(key, "")
 }

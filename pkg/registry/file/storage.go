@@ -577,5 +577,5 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, kind string) ([]runtime.
 
 	var objects []runtime.Object
 
-	return objects, storage.NewMethodNotImplementedError("cluster", "")
+	return objects, storage.NewInvalidObjError("cluster", "")
 }
