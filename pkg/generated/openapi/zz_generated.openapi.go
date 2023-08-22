@@ -111,9 +111,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary": schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSpec":              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummary":           schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier": schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryIdentifier(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryList":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummarySpec":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummarySpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadIdentifier":                         schema_pkg_apis_softwarecomposition_v1beta1_WorkloadIdentifier(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadScanRelatedObject":                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadScanRelatedObject(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                                schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                                            schema_pkg_apis_meta_v1_APIGroupList(ref),
@@ -2779,7 +2779,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScopedConfigurationScanSummaryS
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadIdentifier"),
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier"),
 									},
 								},
 							},
@@ -2790,7 +2790,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScopedConfigurationScanSummaryS
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadIdentifier"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier"},
 	}
 }
 
@@ -3917,6 +3917,41 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryIdentifier(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkloadConfigurationScanSummaryIdentifier includes information needed to identify a WorkloadConfigurationScanSummary object",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Namespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"Kind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"Name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"Namespace", "Kind", "Name"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3998,41 +4033,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlSummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary"},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadIdentifier(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WorkloadIdentifier includes information needed to identify a workload.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"namespace": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-				},
-				Required: []string{"namespace", "kind", "name"},
-			},
-		},
 	}
 }
 

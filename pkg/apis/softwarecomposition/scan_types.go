@@ -140,12 +140,12 @@ type ScopedConfigurationScanSummary struct {
 }
 
 type ScopedConfigurationScanSummarySpec struct {
-	Severities          WorkloadConfigurationScanSeveritiesSummary
-	WorkloadIdentifiers []WorkloadIdentifier
+	Severities                                  WorkloadConfigurationScanSeveritiesSummary
+	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier
 }
 
-// WorkloadIdentifier includes information needed to identify a workload.
-type WorkloadIdentifier struct {
+// WorkloadConfigurationScanSummaryIdentifier includes information needed to identify a WorkloadConfigurationScanSummary object
+type WorkloadConfigurationScanSummaryIdentifier struct {
 	Namespace string
 	Kind      string
 	Name      string

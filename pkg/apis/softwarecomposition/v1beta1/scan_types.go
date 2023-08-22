@@ -126,8 +126,8 @@ type ScopedConfigurationScanSummary struct {
 }
 
 type ScopedConfigurationScanSummarySpec struct {
-	Severities          WorkloadConfigurationScanSeveritiesSummary `json:"severities"`
-	WorkloadIdentifiers []WorkloadIdentifier                       `json:"workloadsRef"`
+	Severities                                  WorkloadConfigurationScanSeveritiesSummary   `json:"severities"`
+	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier `json:"workloadsRef"`
 }
 
 type WorkloadConfigurationScanSeveritiesSummary struct {
@@ -144,9 +144,9 @@ type ScannedControlSummary struct {
 	Status    ScannedControlStatus `json:"status"`
 }
 
-// WorkloadIdentifier includes information needed to identify a workload.
-type WorkloadIdentifier struct {
-	Namespace string `json:"namespace"`
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
+// WorkloadConfigurationScanSummaryIdentifier includes information needed to identify a WorkloadConfigurationScanSummary object
+type WorkloadConfigurationScanSummaryIdentifier struct {
+	Namespace string
+	Kind      string
+	Name      string
 }
