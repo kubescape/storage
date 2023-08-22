@@ -104,6 +104,31 @@ type WorkloadConfigurationScanSummarySpec struct {
 	Controls   map[string]ScannedControlSummary
 }
 
+type ScopedConfigurationScanSummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []ScopedConfigurationScanSummary
+}
+
+type ScopedConfigurationScanSummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec ScopedConfigurationScanSummarySpec
+}
+
+type ScopedConfigurationScanSummarySpec struct {
+	Severities                                  WorkloadConfigurationScanSeveritiesSummary
+	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier
+}
+
+type WorkloadConfigurationScanSummaryIdentifier struct {
+	Namespace string
+	Kind      string
+	Name      string
+}
+
 type WorkloadConfigurationScanSeveritiesSummary struct {
 	Critical int
 	High     int
