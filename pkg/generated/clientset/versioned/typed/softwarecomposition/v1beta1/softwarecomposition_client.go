@@ -31,6 +31,7 @@ type SpdxV1beta1Interface interface {
 	SBOMSPDXv2p3sGetter
 	SBOMSPDXv2p3FilteredsGetter
 	SBOMSummariesGetter
+	ScopedConfigurationScanSummariesGetter
 	VulnerabilityManifestsGetter
 	VulnerabilityManifestSummariesGetter
 	WorkloadConfigurationScansGetter
@@ -52,6 +53,10 @@ func (c *SpdxV1beta1Client) SBOMSPDXv2p3Filtereds(namespace string) SBOMSPDXv2p3
 
 func (c *SpdxV1beta1Client) SBOMSummaries(namespace string) SBOMSummaryInterface {
 	return newSBOMSummaries(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) ScopedConfigurationScanSummaries(namespace string) ScopedConfigurationScanSummaryInterface {
+	return newScopedConfigurationScanSummaries(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) VulnerabilityManifestInterface {

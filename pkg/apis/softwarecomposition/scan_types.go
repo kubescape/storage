@@ -104,31 +104,6 @@ type WorkloadConfigurationScanSummarySpec struct {
 	Controls   map[string]ScannedControlSummary
 }
 
-type ScopedConfigurationScanSummaryList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []ScopedConfigurationScanSummary
-}
-
-type ScopedConfigurationScanSummary struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	Spec ScopedConfigurationScanSummarySpec
-}
-
-type ScopedConfigurationScanSummarySpec struct {
-	Severities                                  WorkloadConfigurationScanSeveritiesSummary
-	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier
-}
-
-type WorkloadConfigurationScanSummaryIdentifier struct {
-	Namespace string
-	Kind      string
-	Name      string
-}
-
 type WorkloadConfigurationScanSeveritiesSummary struct {
 	Critical int
 	High     int
@@ -141,4 +116,37 @@ type ScannedControlSummary struct {
 	ControlID string
 	Severity  ControlSeverity
 	Status    ScannedControlStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ScopedConfigurationScanSummaryList is a list of ScopedConfigurationScanSummary summaries.
+type ScopedConfigurationScanSummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []ScopedConfigurationScanSummary
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ScopedConfigurationScanSummary is a summary for a group of WorkloadConfigurationScanSummary objects for a given scope (ex. namespace).
+type ScopedConfigurationScanSummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec ScopedConfigurationScanSummarySpec
+}
+
+type ScopedConfigurationScanSummarySpec struct {
+	Severities          WorkloadConfigurationScanSeveritiesSummary
+	WorkloadIdentifiers []WorkloadIdentifier
+}
+
+// WorkloadIdentifier includes information needed to identify a workload.
+type WorkloadIdentifier struct {
+	Namespace string
+	Kind      string
+	Name      string
 }

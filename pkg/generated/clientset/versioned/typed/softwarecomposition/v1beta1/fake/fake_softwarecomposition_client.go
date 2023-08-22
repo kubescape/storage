@@ -40,6 +40,10 @@ func (c *FakeSpdxV1beta1) SBOMSummaries(namespace string) v1beta1.SBOMSummaryInt
 	return &FakeSBOMSummaries{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) ScopedConfigurationScanSummaries(namespace string) v1beta1.ScopedConfigurationScanSummaryInterface {
+	return &FakeScopedConfigurationScanSummaries{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {
 	return &FakeVulnerabilityManifests{c, namespace}
 }

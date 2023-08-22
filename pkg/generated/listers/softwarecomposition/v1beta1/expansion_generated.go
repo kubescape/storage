@@ -42,6 +42,14 @@ type SBOMSummaryListerExpansion interface{}
 // SBOMSummaryNamespaceLister.
 type SBOMSummaryNamespaceListerExpansion interface{}
 
+// ScopedConfigurationScanSummaryListerExpansion allows custom methods to be added to
+// ScopedConfigurationScanSummaryLister.
+type ScopedConfigurationScanSummaryListerExpansion interface{}
+
+// ScopedConfigurationScanSummaryNamespaceListerExpansion allows custom methods to be added to
+// ScopedConfigurationScanSummaryNamespaceLister.
+type ScopedConfigurationScanSummaryNamespaceListerExpansion interface{}
+
 // VulnerabilityManifestListerExpansion allows custom methods to be added to
 // VulnerabilityManifestLister.
 type VulnerabilityManifestListerExpansion interface{}
