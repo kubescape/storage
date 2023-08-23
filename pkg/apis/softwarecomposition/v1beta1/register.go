@@ -63,8 +63,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&WorkloadConfigurationScanList{},
 		&WorkloadConfigurationScanSummary{},
 		&WorkloadConfigurationScanSummaryList{},
-		&ScopedConfigurationScanSummary{},
-		&ScopedConfigurationScanSummaryList{},
+		&ConfigurationScanSummary{},
+		&ConfigurationScanSummaryList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

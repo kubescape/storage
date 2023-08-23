@@ -24,14 +24,14 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
+	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
 	// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
 	SBOMSPDXv2p3s() SBOMSPDXv2p3Informer
 	// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
 	SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer
 	// SBOMSummaries returns a SBOMSummaryInformer.
 	SBOMSummaries() SBOMSummaryInformer
-	// ScopedConfigurationScanSummaries returns a ScopedConfigurationScanSummaryInformer.
-	ScopedConfigurationScanSummaries() ScopedConfigurationScanSummaryInformer
 	// VulnerabilityManifests returns a VulnerabilityManifestInformer.
 	VulnerabilityManifests() VulnerabilityManifestInformer
 	// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
@@ -53,6 +53,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
+func (v *version) ConfigurationScanSummaries() ConfigurationScanSummaryInformer {
+	return &configurationScanSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
 func (v *version) SBOMSPDXv2p3s() SBOMSPDXv2p3Informer {
 	return &sBOMSPDXv2p3Informer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -66,11 +71,6 @@ func (v *version) SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer {
 // SBOMSummaries returns a SBOMSummaryInformer.
 func (v *version) SBOMSummaries() SBOMSummaryInformer {
 	return &sBOMSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// ScopedConfigurationScanSummaries returns a ScopedConfigurationScanSummaryInformer.
-func (v *version) ScopedConfigurationScanSummaries() ScopedConfigurationScanSummaryInformer {
-	return &scopedConfigurationScanSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VulnerabilityManifests returns a VulnerabilityManifestInformer.

@@ -120,26 +120,26 @@ type ScannedControlSummary struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ScopedConfigurationScanSummaryList is a list of ScopedConfigurationScanSummary summaries.
-type ScopedConfigurationScanSummaryList struct {
+// ConfigurationScanSummaryList is a list of ConfigurationScanSummary summaries.
+type ConfigurationScanSummaryList struct {
 	metav1.TypeMeta
 	metav1.ListMeta
 
-	Items []ScopedConfigurationScanSummary
+	Items []ConfigurationScanSummary
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ScopedConfigurationScanSummary is a summary for a group of WorkloadConfigurationScanSummary objects for a given scope (ex. namespace).
-type ScopedConfigurationScanSummary struct {
+// ConfigurationScanSummary is a summary for a group of WorkloadConfigurationScanSummary objects for a given scope (ex. namespace).
+type ConfigurationScanSummary struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec ScopedConfigurationScanSummarySpec
+	Spec ConfigurationScanSummarySpec
 }
 
-type ScopedConfigurationScanSummarySpec struct {
+type ConfigurationScanSummarySpec struct {
 	Severities                                  WorkloadConfigurationScanSeveritiesSummary
 	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier
 }

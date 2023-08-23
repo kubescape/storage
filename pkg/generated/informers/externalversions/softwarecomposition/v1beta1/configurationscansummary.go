@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ScopedConfigurationScanSummaryInformer provides access to a shared informer and lister for
-// ScopedConfigurationScanSummaries.
-type ScopedConfigurationScanSummaryInformer interface {
+// ConfigurationScanSummaryInformer provides access to a shared informer and lister for
+// ConfigurationScanSummaries.
+type ConfigurationScanSummaryInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.ScopedConfigurationScanSummaryLister
+	Lister() v1beta1.ConfigurationScanSummaryLister
 }
 
-type scopedConfigurationScanSummaryInformer struct {
+type configurationScanSummaryInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewScopedConfigurationScanSummaryInformer constructs a new informer for ScopedConfigurationScanSummary type.
+// NewConfigurationScanSummaryInformer constructs a new informer for ConfigurationScanSummary type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewScopedConfigurationScanSummaryInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredScopedConfigurationScanSummaryInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewConfigurationScanSummaryInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredConfigurationScanSummaryInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredScopedConfigurationScanSummaryInformer constructs a new informer for ScopedConfigurationScanSummary type.
+// NewFilteredConfigurationScanSummaryInformer constructs a new informer for ConfigurationScanSummary type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredScopedConfigurationScanSummaryInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredConfigurationScanSummaryInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ScopedConfigurationScanSummaries(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ScopedConfigurationScanSummaries(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&softwarecompositionv1beta1.ScopedConfigurationScanSummary{},
+		&softwarecompositionv1beta1.ConfigurationScanSummary{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *scopedConfigurationScanSummaryInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredScopedConfigurationScanSummaryInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *configurationScanSummaryInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredConfigurationScanSummaryInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *scopedConfigurationScanSummaryInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&softwarecompositionv1beta1.ScopedConfigurationScanSummary{}, f.defaultInformer)
+func (f *configurationScanSummaryInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&softwarecompositionv1beta1.ConfigurationScanSummary{}, f.defaultInformer)
 }
 
-func (f *scopedConfigurationScanSummaryInformer) Lister() v1beta1.ScopedConfigurationScanSummaryLister {
-	return v1beta1.NewScopedConfigurationScanSummaryLister(f.Informer().GetIndexer())
+func (f *configurationScanSummaryInformer) Lister() v1beta1.ConfigurationScanSummaryLister {
+	return v1beta1.NewConfigurationScanSummaryLister(f.Informer().GetIndexer())
 }

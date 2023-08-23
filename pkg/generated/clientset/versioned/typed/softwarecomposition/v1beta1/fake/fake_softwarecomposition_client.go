@@ -28,6 +28,10 @@ type FakeSpdxV1beta1 struct {
 	*testing.Fake
 }
 
+func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.ConfigurationScanSummaryInterface {
+	return &FakeConfigurationScanSummaries{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) SBOMSPDXv2p3s(namespace string) v1beta1.SBOMSPDXv2p3Interface {
 	return &FakeSBOMSPDXv2p3s{c, namespace}
 }
@@ -38,10 +42,6 @@ func (c *FakeSpdxV1beta1) SBOMSPDXv2p3Filtereds(namespace string) v1beta1.SBOMSP
 
 func (c *FakeSpdxV1beta1) SBOMSummaries(namespace string) v1beta1.SBOMSummaryInterface {
 	return &FakeSBOMSummaries{c, namespace}
-}
-
-func (c *FakeSpdxV1beta1) ScopedConfigurationScanSummaries(namespace string) v1beta1.ScopedConfigurationScanSummaryInterface {
-	return &FakeScopedConfigurationScanSummaries{c, namespace}
 }
 
 func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {

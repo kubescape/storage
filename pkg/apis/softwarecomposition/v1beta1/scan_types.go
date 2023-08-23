@@ -106,26 +106,26 @@ type WorkloadConfigurationScanSummarySpec struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ScopedConfigurationScanSummaryList is a list of ScopedConfigurationScanSummary summaries.
-type ScopedConfigurationScanSummaryList struct {
+// ConfigurationScanSummaryList is a list of ConfigurationScanSummary summaries.
+type ConfigurationScanSummaryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []ScopedConfigurationScanSummary `json:"items"`
+	Items []ConfigurationScanSummary `json:"items"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ScopedConfigurationScanSummary is a summary for a group of WorkloadConfigurationScanSummary objects for a given scope (ex. namespace).
-type ScopedConfigurationScanSummary struct {
+// ConfigurationScanSummary is a summary for a group of WorkloadConfigurationScanSummary objects for a given scope (ex. namespace).
+type ConfigurationScanSummary struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec ScopedConfigurationScanSummarySpec `json:"spec"`
+	Spec ConfigurationScanSummarySpec `json:"spec"`
 }
 
-type ScopedConfigurationScanSummarySpec struct {
+type ConfigurationScanSummarySpec struct {
 	Severities                                  WorkloadConfigurationScanSeveritiesSummary   `json:"severities"`
 	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier `json:"summaryRef"`
 }
@@ -146,7 +146,7 @@ type ScannedControlSummary struct {
 
 // WorkloadConfigurationScanSummaryIdentifier includes information needed to identify a WorkloadConfigurationScanSummary object
 type WorkloadConfigurationScanSummaryIdentifier struct {
-	Namespace string
-	Kind      string
-	Name      string
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
 }

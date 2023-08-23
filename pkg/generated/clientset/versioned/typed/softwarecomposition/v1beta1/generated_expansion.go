@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1beta1
 
+type ConfigurationScanSummaryExpansion interface{}
+
 type SBOMSPDXv2p3Expansion interface{}
 
 type SBOMSPDXv2p3FilteredExpansion interface{}
 
 type SBOMSummaryExpansion interface{}
-
-type ScopedConfigurationScanSummaryExpansion interface{}
 
 type VulnerabilityManifestExpansion interface{}
 

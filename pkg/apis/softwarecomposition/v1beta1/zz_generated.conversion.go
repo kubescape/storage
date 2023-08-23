@@ -87,6 +87,36 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*ConfigurationScanSummary)(nil), (*softwarecomposition.ConfigurationScanSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ConfigurationScanSummary_To_softwarecomposition_ConfigurationScanSummary(a.(*ConfigurationScanSummary), b.(*softwarecomposition.ConfigurationScanSummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ConfigurationScanSummary)(nil), (*ConfigurationScanSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ConfigurationScanSummary_To_v1beta1_ConfigurationScanSummary(a.(*softwarecomposition.ConfigurationScanSummary), b.(*ConfigurationScanSummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ConfigurationScanSummaryList)(nil), (*softwarecomposition.ConfigurationScanSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ConfigurationScanSummaryList_To_softwarecomposition_ConfigurationScanSummaryList(a.(*ConfigurationScanSummaryList), b.(*softwarecomposition.ConfigurationScanSummaryList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ConfigurationScanSummaryList)(nil), (*ConfigurationScanSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ConfigurationScanSummaryList_To_v1beta1_ConfigurationScanSummaryList(a.(*softwarecomposition.ConfigurationScanSummaryList), b.(*ConfigurationScanSummaryList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ConfigurationScanSummarySpec)(nil), (*softwarecomposition.ConfigurationScanSummarySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ConfigurationScanSummarySpec_To_softwarecomposition_ConfigurationScanSummarySpec(a.(*ConfigurationScanSummarySpec), b.(*softwarecomposition.ConfigurationScanSummarySpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ConfigurationScanSummarySpec)(nil), (*ConfigurationScanSummarySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ConfigurationScanSummarySpec_To_v1beta1_ConfigurationScanSummarySpec(a.(*softwarecomposition.ConfigurationScanSummarySpec), b.(*ConfigurationScanSummarySpec), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*ControlSeverity)(nil), (*softwarecomposition.ControlSeverity)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_ControlSeverity_To_softwarecomposition_ControlSeverity(a.(*ControlSeverity), b.(*softwarecomposition.ControlSeverity), scope)
 	}); err != nil {
@@ -514,36 +544,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ScannedControlSummary)(nil), (*ScannedControlSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary(a.(*softwarecomposition.ScannedControlSummary), b.(*ScannedControlSummary), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*ScopedConfigurationScanSummary)(nil), (*softwarecomposition.ScopedConfigurationScanSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_ScopedConfigurationScanSummary_To_softwarecomposition_ScopedConfigurationScanSummary(a.(*ScopedConfigurationScanSummary), b.(*softwarecomposition.ScopedConfigurationScanSummary), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ScopedConfigurationScanSummary)(nil), (*ScopedConfigurationScanSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_ScopedConfigurationScanSummary_To_v1beta1_ScopedConfigurationScanSummary(a.(*softwarecomposition.ScopedConfigurationScanSummary), b.(*ScopedConfigurationScanSummary), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*ScopedConfigurationScanSummaryList)(nil), (*softwarecomposition.ScopedConfigurationScanSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_ScopedConfigurationScanSummaryList_To_softwarecomposition_ScopedConfigurationScanSummaryList(a.(*ScopedConfigurationScanSummaryList), b.(*softwarecomposition.ScopedConfigurationScanSummaryList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ScopedConfigurationScanSummaryList)(nil), (*ScopedConfigurationScanSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_ScopedConfigurationScanSummaryList_To_v1beta1_ScopedConfigurationScanSummaryList(a.(*softwarecomposition.ScopedConfigurationScanSummaryList), b.(*ScopedConfigurationScanSummaryList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*ScopedConfigurationScanSummarySpec)(nil), (*softwarecomposition.ScopedConfigurationScanSummarySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_ScopedConfigurationScanSummarySpec_To_softwarecomposition_ScopedConfigurationScanSummarySpec(a.(*ScopedConfigurationScanSummarySpec), b.(*softwarecomposition.ScopedConfigurationScanSummarySpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ScopedConfigurationScanSummarySpec)(nil), (*ScopedConfigurationScanSummarySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_ScopedConfigurationScanSummarySpec_To_v1beta1_ScopedConfigurationScanSummarySpec(a.(*softwarecomposition.ScopedConfigurationScanSummarySpec), b.(*ScopedConfigurationScanSummarySpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -1004,6 +1004,80 @@ func autoConvert_softwarecomposition_Checksum_To_v1beta1_Checksum(in *softwareco
 // Convert_softwarecomposition_Checksum_To_v1beta1_Checksum is an autogenerated conversion function.
 func Convert_softwarecomposition_Checksum_To_v1beta1_Checksum(in *softwarecomposition.Checksum, out *Checksum, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_Checksum_To_v1beta1_Checksum(in, out, s)
+}
+
+func autoConvert_v1beta1_ConfigurationScanSummary_To_softwarecomposition_ConfigurationScanSummary(in *ConfigurationScanSummary, out *softwarecomposition.ConfigurationScanSummary, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_ConfigurationScanSummarySpec_To_softwarecomposition_ConfigurationScanSummarySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_ConfigurationScanSummary_To_softwarecomposition_ConfigurationScanSummary is an autogenerated conversion function.
+func Convert_v1beta1_ConfigurationScanSummary_To_softwarecomposition_ConfigurationScanSummary(in *ConfigurationScanSummary, out *softwarecomposition.ConfigurationScanSummary, s conversion.Scope) error {
+	return autoConvert_v1beta1_ConfigurationScanSummary_To_softwarecomposition_ConfigurationScanSummary(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ConfigurationScanSummary_To_v1beta1_ConfigurationScanSummary(in *softwarecomposition.ConfigurationScanSummary, out *ConfigurationScanSummary, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_ConfigurationScanSummarySpec_To_v1beta1_ConfigurationScanSummarySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_ConfigurationScanSummary_To_v1beta1_ConfigurationScanSummary is an autogenerated conversion function.
+func Convert_softwarecomposition_ConfigurationScanSummary_To_v1beta1_ConfigurationScanSummary(in *softwarecomposition.ConfigurationScanSummary, out *ConfigurationScanSummary, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ConfigurationScanSummary_To_v1beta1_ConfigurationScanSummary(in, out, s)
+}
+
+func autoConvert_v1beta1_ConfigurationScanSummaryList_To_softwarecomposition_ConfigurationScanSummaryList(in *ConfigurationScanSummaryList, out *softwarecomposition.ConfigurationScanSummaryList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.ConfigurationScanSummary)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_ConfigurationScanSummaryList_To_softwarecomposition_ConfigurationScanSummaryList is an autogenerated conversion function.
+func Convert_v1beta1_ConfigurationScanSummaryList_To_softwarecomposition_ConfigurationScanSummaryList(in *ConfigurationScanSummaryList, out *softwarecomposition.ConfigurationScanSummaryList, s conversion.Scope) error {
+	return autoConvert_v1beta1_ConfigurationScanSummaryList_To_softwarecomposition_ConfigurationScanSummaryList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ConfigurationScanSummaryList_To_v1beta1_ConfigurationScanSummaryList(in *softwarecomposition.ConfigurationScanSummaryList, out *ConfigurationScanSummaryList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]ConfigurationScanSummary)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_ConfigurationScanSummaryList_To_v1beta1_ConfigurationScanSummaryList is an autogenerated conversion function.
+func Convert_softwarecomposition_ConfigurationScanSummaryList_To_v1beta1_ConfigurationScanSummaryList(in *softwarecomposition.ConfigurationScanSummaryList, out *ConfigurationScanSummaryList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ConfigurationScanSummaryList_To_v1beta1_ConfigurationScanSummaryList(in, out, s)
+}
+
+func autoConvert_v1beta1_ConfigurationScanSummarySpec_To_softwarecomposition_ConfigurationScanSummarySpec(in *ConfigurationScanSummarySpec, out *softwarecomposition.ConfigurationScanSummarySpec, s conversion.Scope) error {
+	if err := Convert_v1beta1_WorkloadConfigurationScanSeveritiesSummary_To_softwarecomposition_WorkloadConfigurationScanSeveritiesSummary(&in.Severities, &out.Severities, s); err != nil {
+		return err
+	}
+	out.WorkloadConfigurationScanSummaryIdentifiers = *(*[]softwarecomposition.WorkloadConfigurationScanSummaryIdentifier)(unsafe.Pointer(&in.WorkloadConfigurationScanSummaryIdentifiers))
+	return nil
+}
+
+// Convert_v1beta1_ConfigurationScanSummarySpec_To_softwarecomposition_ConfigurationScanSummarySpec is an autogenerated conversion function.
+func Convert_v1beta1_ConfigurationScanSummarySpec_To_softwarecomposition_ConfigurationScanSummarySpec(in *ConfigurationScanSummarySpec, out *softwarecomposition.ConfigurationScanSummarySpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_ConfigurationScanSummarySpec_To_softwarecomposition_ConfigurationScanSummarySpec(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ConfigurationScanSummarySpec_To_v1beta1_ConfigurationScanSummarySpec(in *softwarecomposition.ConfigurationScanSummarySpec, out *ConfigurationScanSummarySpec, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_WorkloadConfigurationScanSeveritiesSummary_To_v1beta1_WorkloadConfigurationScanSeveritiesSummary(&in.Severities, &out.Severities, s); err != nil {
+		return err
+	}
+	out.WorkloadConfigurationScanSummaryIdentifiers = *(*[]WorkloadConfigurationScanSummaryIdentifier)(unsafe.Pointer(&in.WorkloadConfigurationScanSummaryIdentifiers))
+	return nil
+}
+
+// Convert_softwarecomposition_ConfigurationScanSummarySpec_To_v1beta1_ConfigurationScanSummarySpec is an autogenerated conversion function.
+func Convert_softwarecomposition_ConfigurationScanSummarySpec_To_v1beta1_ConfigurationScanSummarySpec(in *softwarecomposition.ConfigurationScanSummarySpec, out *ConfigurationScanSummarySpec, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ConfigurationScanSummarySpec_To_v1beta1_ConfigurationScanSummarySpec(in, out, s)
 }
 
 func autoConvert_v1beta1_ControlSeverity_To_softwarecomposition_ControlSeverity(in *ControlSeverity, out *softwarecomposition.ControlSeverity, s conversion.Scope) error {
@@ -2254,80 +2328,6 @@ func autoConvert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedCon
 // Convert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary is an autogenerated conversion function.
 func Convert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary(in *softwarecomposition.ScannedControlSummary, out *ScannedControlSummary, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary(in, out, s)
-}
-
-func autoConvert_v1beta1_ScopedConfigurationScanSummary_To_softwarecomposition_ScopedConfigurationScanSummary(in *ScopedConfigurationScanSummary, out *softwarecomposition.ScopedConfigurationScanSummary, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_v1beta1_ScopedConfigurationScanSummarySpec_To_softwarecomposition_ScopedConfigurationScanSummarySpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_ScopedConfigurationScanSummary_To_softwarecomposition_ScopedConfigurationScanSummary is an autogenerated conversion function.
-func Convert_v1beta1_ScopedConfigurationScanSummary_To_softwarecomposition_ScopedConfigurationScanSummary(in *ScopedConfigurationScanSummary, out *softwarecomposition.ScopedConfigurationScanSummary, s conversion.Scope) error {
-	return autoConvert_v1beta1_ScopedConfigurationScanSummary_To_softwarecomposition_ScopedConfigurationScanSummary(in, out, s)
-}
-
-func autoConvert_softwarecomposition_ScopedConfigurationScanSummary_To_v1beta1_ScopedConfigurationScanSummary(in *softwarecomposition.ScopedConfigurationScanSummary, out *ScopedConfigurationScanSummary, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_softwarecomposition_ScopedConfigurationScanSummarySpec_To_v1beta1_ScopedConfigurationScanSummarySpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_softwarecomposition_ScopedConfigurationScanSummary_To_v1beta1_ScopedConfigurationScanSummary is an autogenerated conversion function.
-func Convert_softwarecomposition_ScopedConfigurationScanSummary_To_v1beta1_ScopedConfigurationScanSummary(in *softwarecomposition.ScopedConfigurationScanSummary, out *ScopedConfigurationScanSummary, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_ScopedConfigurationScanSummary_To_v1beta1_ScopedConfigurationScanSummary(in, out, s)
-}
-
-func autoConvert_v1beta1_ScopedConfigurationScanSummaryList_To_softwarecomposition_ScopedConfigurationScanSummaryList(in *ScopedConfigurationScanSummaryList, out *softwarecomposition.ScopedConfigurationScanSummaryList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]softwarecomposition.ScopedConfigurationScanSummary)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_v1beta1_ScopedConfigurationScanSummaryList_To_softwarecomposition_ScopedConfigurationScanSummaryList is an autogenerated conversion function.
-func Convert_v1beta1_ScopedConfigurationScanSummaryList_To_softwarecomposition_ScopedConfigurationScanSummaryList(in *ScopedConfigurationScanSummaryList, out *softwarecomposition.ScopedConfigurationScanSummaryList, s conversion.Scope) error {
-	return autoConvert_v1beta1_ScopedConfigurationScanSummaryList_To_softwarecomposition_ScopedConfigurationScanSummaryList(in, out, s)
-}
-
-func autoConvert_softwarecomposition_ScopedConfigurationScanSummaryList_To_v1beta1_ScopedConfigurationScanSummaryList(in *softwarecomposition.ScopedConfigurationScanSummaryList, out *ScopedConfigurationScanSummaryList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]ScopedConfigurationScanSummary)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_softwarecomposition_ScopedConfigurationScanSummaryList_To_v1beta1_ScopedConfigurationScanSummaryList is an autogenerated conversion function.
-func Convert_softwarecomposition_ScopedConfigurationScanSummaryList_To_v1beta1_ScopedConfigurationScanSummaryList(in *softwarecomposition.ScopedConfigurationScanSummaryList, out *ScopedConfigurationScanSummaryList, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_ScopedConfigurationScanSummaryList_To_v1beta1_ScopedConfigurationScanSummaryList(in, out, s)
-}
-
-func autoConvert_v1beta1_ScopedConfigurationScanSummarySpec_To_softwarecomposition_ScopedConfigurationScanSummarySpec(in *ScopedConfigurationScanSummarySpec, out *softwarecomposition.ScopedConfigurationScanSummarySpec, s conversion.Scope) error {
-	if err := Convert_v1beta1_WorkloadConfigurationScanSeveritiesSummary_To_softwarecomposition_WorkloadConfigurationScanSeveritiesSummary(&in.Severities, &out.Severities, s); err != nil {
-		return err
-	}
-	out.WorkloadConfigurationScanSummaryIdentifiers = *(*[]softwarecomposition.WorkloadConfigurationScanSummaryIdentifier)(unsafe.Pointer(&in.WorkloadConfigurationScanSummaryIdentifiers))
-	return nil
-}
-
-// Convert_v1beta1_ScopedConfigurationScanSummarySpec_To_softwarecomposition_ScopedConfigurationScanSummarySpec is an autogenerated conversion function.
-func Convert_v1beta1_ScopedConfigurationScanSummarySpec_To_softwarecomposition_ScopedConfigurationScanSummarySpec(in *ScopedConfigurationScanSummarySpec, out *softwarecomposition.ScopedConfigurationScanSummarySpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_ScopedConfigurationScanSummarySpec_To_softwarecomposition_ScopedConfigurationScanSummarySpec(in, out, s)
-}
-
-func autoConvert_softwarecomposition_ScopedConfigurationScanSummarySpec_To_v1beta1_ScopedConfigurationScanSummarySpec(in *softwarecomposition.ScopedConfigurationScanSummarySpec, out *ScopedConfigurationScanSummarySpec, s conversion.Scope) error {
-	if err := Convert_softwarecomposition_WorkloadConfigurationScanSeveritiesSummary_To_v1beta1_WorkloadConfigurationScanSeveritiesSummary(&in.Severities, &out.Severities, s); err != nil {
-		return err
-	}
-	out.WorkloadConfigurationScanSummaryIdentifiers = *(*[]WorkloadConfigurationScanSummaryIdentifier)(unsafe.Pointer(&in.WorkloadConfigurationScanSummaryIdentifiers))
-	return nil
-}
-
-// Convert_softwarecomposition_ScopedConfigurationScanSummarySpec_To_v1beta1_ScopedConfigurationScanSummarySpec is an autogenerated conversion function.
-func Convert_softwarecomposition_ScopedConfigurationScanSummarySpec_To_v1beta1_ScopedConfigurationScanSummarySpec(in *softwarecomposition.ScopedConfigurationScanSummarySpec, out *ScopedConfigurationScanSummarySpec, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_ScopedConfigurationScanSummarySpec_To_v1beta1_ScopedConfigurationScanSummarySpec(in, out, s)
 }
 
 func autoConvert_v1beta1_SeveritySummary_To_softwarecomposition_SeveritySummary(in *SeveritySummary, out *softwarecomposition.SeveritySummary, s conversion.Scope) error {

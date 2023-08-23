@@ -1,0 +1,18 @@
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
+kind: ConfigurationScanSummary
+metadata:
+  name: example-name
+spec:
+  severities:
+    critical: 0
+    high: 0
+    medium: 0
+    low: 0
+    unknown: 0
+  summaryRef:
+    - namespace: example-namespace1
+      kind: example-kind1
+      name: example-name1
+    - namespace: example-namespace2
+      kind: example-kind2
+      name: example-name2

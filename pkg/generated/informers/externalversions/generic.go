@@ -53,14 +53,14 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
+	case v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ConfigurationScanSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3s"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSPDXv2p3s().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3filtereds"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSPDXv2p3Filtereds().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomsummaries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSummaries().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("scopedconfigurationscansummaries"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ScopedConfigurationScanSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("vulnerabilitymanifests"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().VulnerabilityManifests().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("vulnerabilitymanifestsummaries"):
