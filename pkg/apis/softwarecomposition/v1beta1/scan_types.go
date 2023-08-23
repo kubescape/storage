@@ -127,7 +127,7 @@ type ScopedConfigurationScanSummary struct {
 
 type ScopedConfigurationScanSummarySpec struct {
 	Severities                                  WorkloadConfigurationScanSeveritiesSummary   `json:"severities"`
-	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier `json:"workloadsRef"`
+	WorkloadConfigurationScanSummaryIdentifiers []WorkloadConfigurationScanSummaryIdentifier `json:"summaryRef"`
 }
 
 type WorkloadConfigurationScanSeveritiesSummary struct {

@@ -2772,7 +2772,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScopedConfigurationScanSummaryS
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary"),
 						},
 					},
-					"workloadsRef": {
+					"summaryRef": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -2786,7 +2786,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScopedConfigurationScanSummaryS
 						},
 					},
 				},
-				Required: []string{"severities", "workloadsRef"},
+				Required: []string{"severities", "summaryRef"},
 			},
 		},
 		Dependencies: []string{
