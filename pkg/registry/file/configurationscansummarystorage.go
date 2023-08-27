@@ -3,7 +3,6 @@ package file
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -67,10 +66,6 @@ func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, o
 
 	if err := s.realStore.GetByNamespace(ctx, v1beta1.GroupName, "workloadconfigurationscansummaries", getNamespaceFromKey(key), workloadScanSummaryListObjPtr); err != nil {
 		return err
-	}
-
-	if workloadScanSummaryListObjPtr == nil {
-		return fmt.Errorf("workloadconfigurationscansummaries is nil")
 	}
 
 	configurationScanSummaryObj := generateConfigurationScanSummary(*workloadScanSummaryListObjPtr)

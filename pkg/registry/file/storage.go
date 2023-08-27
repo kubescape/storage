@@ -524,6 +524,10 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 
 	// read all json files under the namespace and append to list
 	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+		if !strings.HasSuffix(path, jsonExt) {
+			return nil
+		}
+
 		if err := s.appendJSONObjectFromFile(path, v); err != nil {
 			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
 		}
@@ -567,12 +571,12 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 
 		// under the root path, each directory is a namespace
 		if info.IsDir() {
-			_ = afero.Walk(s.appFs, path, func(p string, info os.FileInfo, err error) error {
-				if !strings.HasSuffix(path, jsonExt) {
+			_ = afero.Walk(s.appFs, path, func(subPath string, info os.FileInfo, err error) error {
+				if !strings.HasSuffix(subPath, jsonExt) {
 					return nil
 				}
 
-				if err := s.appendJSONObjectFromFile(p, v); err != nil {
+				if err := s.appendJSONObjectFromFile(subPath, v); err != nil {
 					logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
 				}
 
