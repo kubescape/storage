@@ -512,7 +512,7 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
 		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
-		return fmt.Errorf("need ptr to slice: %v", err)
+		return err
 	}
 
 	p := filepath.Join(s.root, apiVersion, kind, namespace)
@@ -552,7 +552,7 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
 		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
-		return fmt.Errorf("need ptr to slice: %v", err)
+		return err
 	}
 
 	p := filepath.Join(s.root, apiVersion, kind)
