@@ -136,6 +136,9 @@ func (c completedConfig) New() (*WardleServer, error) {
 	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
 	storageImpl := file.NewStorageImpl(afero.NewOsFs(), file.DefaultStorageRoot)
+
+	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(afero.NewOsFs(), file.DefaultStorageRoot)
+
 	v1beta1storage := map[string]rest.Storage{}
 
 	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
@@ -148,7 +151,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["workloadconfigurationscans"] = sbomregistry.RESTInPeace(wcsstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["workloadconfigurationscansummaries"] = sbomregistry.RESTInPeace(wcssumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
-	v1beta1storage["configurationscansummaries"] = sbomregistry.RESTInPeace(configurationscansummary.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["configurationscansummaries"] = sbomregistry.RESTInPeace(configurationscansummary.NewREST(Scheme, configScanStorageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 
