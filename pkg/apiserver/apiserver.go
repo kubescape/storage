@@ -138,9 +138,12 @@ func (c completedConfig) New() (*WardleServer, error) {
 	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
 	mutex := &sync.RWMutex{}
-	storageImpl := file.NewStorageImpl(afero.NewOsFs(), file.DefaultStorageRoot, mutex)
 
-	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(afero.NewOsFs(), file.DefaultStorageRoot, mutex)
+	osFs := afero.NewOsFs()
+
+	storageImpl := file.NewStorageImpl(osFs, file.DefaultStorageRoot, mutex)
+
+	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(osFs, file.DefaultStorageRoot, mutex)
 
 	v1beta1storage := map[string]rest.Storage{}
 
