@@ -1,6 +1,8 @@
 package file
 
-import "strings"
+import (
+	"strings"
+)
 
 func getNamespaceFromKey(key string) string {
 	keySplit := strings.Split(key, "/")

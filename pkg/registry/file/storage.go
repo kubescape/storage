@@ -44,17 +44,18 @@ type objState struct {
 type StorageImpl struct {
 	appFs           afero.Fs
 	watchDispatcher watchDispatcher
-	lock            sync.RWMutex
+	lock            *sync.RWMutex
 	root            string
 	versioner       storage.Versioner
 }
 
 var _ storage.Interface = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string) storage.Interface {
+func NewStorageImpl(appFs afero.Fs, root string, lock *sync.RWMutex) storage.Interface {
 	return &StorageImpl{
 		appFs:           appFs,
 		watchDispatcher: newWatchDispatcher(),
+		lock:            lock,
 		root:            root,
 		versioner:       storage.APIObjectVersioner{},
 	}
@@ -538,7 +539,7 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 	return nil
 }
 
-// GetByCluster returns all objects in a given cluster, for a given api version and kind.
+// GetByCluster returns all objects in a given cluster, given their api version and kind.
 func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByCluster")
 	defer span.End()

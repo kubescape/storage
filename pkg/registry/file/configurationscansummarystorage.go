@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"sync"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -31,13 +32,14 @@ type ConfigurationScanSummaryStorage struct {
 
 var _ storage.Interface = &ConfigurationScanSummaryStorage{}
 
-func NewConfigurationScanSummaryStorage(appFs afero.Fs, root string) storage.Interface {
+func NewConfigurationScanSummaryStorage(appFs afero.Fs, root string, lock *sync.RWMutex) storage.Interface {
 	return &ConfigurationScanSummaryStorage{
 		realStore: StorageImpl{
 			appFs:           appFs,
 			watchDispatcher: newWatchDispatcher(),
 			root:            root,
 			versioner:       storage.APIObjectVersioner{},
+			lock:            lock,
 		},
 		versioner: storage.APIObjectVersioner{},
 	}
@@ -137,7 +139,7 @@ func (s *ConfigurationScanSummaryStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
-// buildConfigurationScanSummaryForCluster generates a single configuration scan summary for the cluster, where each item is a configuration scan summary for a namespace
+// buildConfigurationScanSummaryForCluster generates a configuration scan summary list for the cluster, where each item is a configuration scan summary for a namespace
 func buildConfigurationScanSummaryForCluster(wlConfigurationScanSummaryList softwarecomposition.WorkloadConfigurationScanSummaryList) softwarecomposition.ConfigurationScanSummaryList {
 
 	// build an map of namespace to workload configuration scan summaries
@@ -159,7 +161,7 @@ func buildConfigurationScanSummaryForCluster(wlConfigurationScanSummaryList soft
 
 	// 1 - build a workload configuration scan summary list for each namespace
 	// 2 - generate a single configuration scan summary for the namespace
-	// 3 - add the configuration scan summary to the cluster summary object
+	// 3 - add the configuration scan summary to the cluster summary list object
 	for namespace, wlSummaries := range mapNamespaceToSummaries {
 		// for each namespace, create a single workload configuration scan summary object
 		nsListObj := softwarecomposition.WorkloadConfigurationScanSummaryList{

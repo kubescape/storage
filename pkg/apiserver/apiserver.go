@@ -17,6 +17,8 @@ limitations under the License.
 package apiserver
 
 import (
+	"sync"
+
 	"github.com/kubescape/storage/pkg/registry/file"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -135,9 +137,10 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// https://github.com/kubernetes/kubernetes/issues/86666).
 	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
-	storageImpl := file.NewStorageImpl(afero.NewOsFs(), file.DefaultStorageRoot)
+	mutex := &sync.RWMutex{}
+	storageImpl := file.NewStorageImpl(afero.NewOsFs(), file.DefaultStorageRoot, mutex)
 
-	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(afero.NewOsFs(), file.DefaultStorageRoot)
+	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(afero.NewOsFs(), file.DefaultStorageRoot, mutex)
 
 	v1beta1storage := map[string]rest.Storage{}
 

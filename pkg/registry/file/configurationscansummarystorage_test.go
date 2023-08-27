@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
 
 	count, err := configScanSummaryStorage.Count("random")
 
@@ -27,7 +28,7 @@ func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
 
 	err := configScanSummaryStorage.Create(nil, "", nil, nil, 0)
 
@@ -37,7 +38,7 @@ func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
 
 	err := configScanSummaryStorage.Delete(nil, "", nil, nil, nil, nil)
 
@@ -47,7 +48,7 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
 
 	_, err := configScanSummaryStorage.Watch(nil, "", storage.ListOptions{})
 
@@ -57,7 +58,7 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
 
 	err := configScanSummaryStorage.GuaranteedUpdate(nil, "", nil, false, nil, nil, nil)
 
@@ -106,11 +107,11 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 	dir, err := os.MkdirTemp("", "test")
 	assert.NoError(t, err)
 
-	realStorage := NewStorageImpl(afero.NewOsFs(), dir)
+	realStorage := NewStorageImpl(afero.NewOsFs(), dir, &sync.RWMutex{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir)
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir, &sync.RWMutex{})
 
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
@@ -175,11 +176,11 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 	dir, err := os.MkdirTemp("", "test")
 	assert.NoError(t, err)
 
-	realStorage := NewStorageImpl(afero.NewOsFs(), dir)
+	realStorage := NewStorageImpl(afero.NewOsFs(), dir, &sync.RWMutex{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir)
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir, &sync.RWMutex{})
 
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
