@@ -1,12 +1,201 @@
 package file
 
 import (
+	"context"
+	"os"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/storage"
 )
+
+func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+
+	count, err := configScanSummaryStorage.Count("random")
+
+	assert.Equal(t, int64(0), count)
+
+	expectedError := storage.NewInvalidObjError("random", operationNotSupportedMsg)
+
+	assert.EqualError(t, err, expectedError.Error())
+}
+
+func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+
+	err := configScanSummaryStorage.Create(nil, "", nil, nil, 0)
+
+	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
+
+	assert.EqualError(t, err, expectedError.Error())
+}
+
+func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+
+	err := configScanSummaryStorage.Delete(nil, "", nil, nil, nil, nil)
+
+	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
+
+	assert.EqualError(t, err, expectedError.Error())
+}
+
+func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+
+	_, err := configScanSummaryStorage.Watch(nil, "", storage.ListOptions{})
+
+	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
+
+	assert.EqualError(t, err, expectedError.Error())
+}
+
+func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "")
+
+	err := configScanSummaryStorage.GuaranteedUpdate(nil, "", nil, false, nil, nil, nil)
+
+	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
+
+	assert.EqualError(t, err, expectedError.Error())
+}
+
+func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
+	type args struct {
+		key    string
+		opts   storage.GetOptions
+		objPtr runtime.Object
+	}
+	tests := []struct {
+		name          string
+		args          args
+		create        bool
+		expectedError error
+		want          runtime.Object
+	}{
+		{
+			name: "not found",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/configurationscansummaries/kubescape/toto",
+			},
+			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/configurationscansummaries/kubescape/toto", 0),
+		},
+		{
+			name: "real object",
+			args: args{
+				key:    "/spdx.softwarecomposition.kubescape.io/configurationscansummaries/kubescape/toto",
+				objPtr: &v1beta1.ConfigurationScanSummary{},
+			},
+			expectedError: nil,
+			create:        true,
+			want: &v1beta1.ConfigurationScanSummary{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "ConfigurationScanSummary",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+			},
+		},
+	}
+
+	dir, err := os.MkdirTemp("", "test")
+	assert.NoError(t, err)
+
+	realStorage := NewStorageImpl(afero.NewOsFs(), dir)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir)
+
+			if tt.create {
+				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
+				_ = realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
+			}
+
+			err := configScanSummaryStorage.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr)
+
+			if tt.expectedError != nil {
+				assert.EqualError(t, err, tt.expectedError.Error())
+			}
+
+			assert.Equal(t, tt.want, tt.args.objPtr)
+		})
+	}
+}
+
+func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
+	type args struct {
+		key    string
+		opts   storage.ListOptions
+		objPtr runtime.Object
+	}
+	tests := []struct {
+		name          string
+		args          args
+		create        bool
+		expectedError error
+		want          runtime.Object
+	}{
+		{
+			name: "no object",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/configurationscansummaries",
+			},
+		},
+		{
+			name: "real object",
+			args: args{
+				key:    "/spdx.softwarecomposition.kubescape.io/configurationscansummaries",
+				objPtr: &v1beta1.ConfigurationScanSummaryList{},
+			},
+			expectedError: nil,
+			create:        true,
+			want: &v1beta1.ConfigurationScanSummaryList{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "ConfigurationScanSummary",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				Items: []v1beta1.ConfigurationScanSummary{
+					{
+						TypeMeta: v1.TypeMeta{
+							Kind:       "ConfigurationScanSummary",
+							APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dir, err := os.MkdirTemp("", "test")
+	assert.NoError(t, err)
+
+	realStorage := NewStorageImpl(afero.NewOsFs(), dir)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir)
+
+			if tt.create {
+				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
+				_ = realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
+			}
+
+			err := configScanSummaryStorage.GetList(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr)
+
+			if tt.expectedError != nil {
+				assert.EqualError(t, err, tt.expectedError.Error())
+			}
+
+			assert.Equal(t, tt.want, tt.args.objPtr)
+		})
+	}
+}
 
 func TestGenerateConfigurationScanSummary(t *testing.T) {
 	tests := []struct {
@@ -17,7 +206,15 @@ func TestGenerateConfigurationScanSummary(t *testing.T) {
 		{
 			name:                           "no resources",
 			wlConfigurationScanSummaryList: softwarecomposition.WorkloadConfigurationScanSummaryList{},
-			want:                           softwarecomposition.ConfigurationScanSummary{},
+			want: softwarecomposition.ConfigurationScanSummary{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "ConfigurationScanSummary",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				ObjectMeta: v1.ObjectMeta{
+					Name: "default",
+				},
+			},
 		},
 		{
 			name: "one resource",
@@ -68,7 +265,6 @@ func TestGenerateConfigurationScanSummary(t *testing.T) {
 				},
 			},
 		},
-
 		{
 			name: "multiple resources",
 			wlConfigurationScanSummaryList: softwarecomposition.WorkloadConfigurationScanSummaryList{
@@ -168,39 +364,17 @@ func TestGenerateConfigurationScanSummary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := generateConfigurationScanSummary(tt.wlConfigurationScanSummaryList)
+			got := buildConfigurationScanSummary(tt.wlConfigurationScanSummaryList, "default")
 
-			if got.APIVersion != tt.want.APIVersion {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.APIVersion, tt.want.APIVersion)
-			}
+			assert.Equal(t, got.APIVersion, tt.want.APIVersion)
+			assert.Equal(t, got.Kind, tt.want.Kind)
+			assert.Equal(t, got.Name, tt.want.Name)
 
-			if got.Kind != tt.want.Kind {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.Kind, tt.want.Kind)
-			}
-
-			if got.Name != tt.want.Name {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.Name, tt.want.Name)
-			}
-
-			if got.Spec.Severities.Critical != tt.want.Spec.Severities.Critical {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.Spec.Severities.Critical, tt.want.Spec.Severities.Critical)
-			}
-
-			if got.Spec.Severities.High != tt.want.Spec.Severities.High {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.Spec.Severities.High, tt.want.Spec.Severities.High)
-			}
-
-			if got.Spec.Severities.Medium != tt.want.Spec.Severities.Medium {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.Spec.Severities.Medium, tt.want.Spec.Severities.Medium)
-			}
-
-			if got.Spec.Severities.Low != tt.want.Spec.Severities.Low {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.Spec.Severities.Low, tt.want.Spec.Severities.Low)
-			}
-
-			if got.Spec.Severities.Unknown != tt.want.Spec.Severities.Unknown {
-				t.Errorf("generateConfigurationScanSummary() = %v, want %v", got.Spec.Severities.Unknown, tt.want.Spec.Severities.Unknown)
-			}
+			assert.Equal(t, got.Spec.Severities.Critical, tt.want.Spec.Severities.Critical)
+			assert.Equal(t, got.Spec.Severities.High, tt.want.Spec.Severities.High)
+			assert.Equal(t, got.Spec.Severities.Medium, tt.want.Spec.Severities.Medium)
+			assert.Equal(t, got.Spec.Severities.Low, tt.want.Spec.Severities.Low)
+			assert.Equal(t, got.Spec.Severities.Unknown, tt.want.Spec.Severities.Unknown)
 
 			if len(got.Spec.WorkloadConfigurationScanSummaryIdentifiers) != len(tt.want.Spec.WorkloadConfigurationScanSummaryIdentifiers) {
 				t.Errorf("generateConfigurationScanSummary() = %v, want %v", len(got.Spec.WorkloadConfigurationScanSummaryIdentifiers), len(tt.want.Spec.WorkloadConfigurationScanSummaryIdentifiers))
@@ -515,7 +689,7 @@ func TestGenerateConfigurationScanSummaryForCluster(t *testing.T) {
 	}
 
 	for _, tt := range test {
-		got := generateConfigurationScanSummaryForCluster(tt.wlConfigurationScanSummaryList)
+		got := buildConfigurationScanSummaryForCluster(tt.wlConfigurationScanSummaryList)
 
 		for _, item := range got.Items {
 			for _, expectedItem := range tt.expected.Items {

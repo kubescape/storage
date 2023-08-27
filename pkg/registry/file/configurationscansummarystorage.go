@@ -78,6 +78,10 @@ func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, o
 		return storage.NewInternalError("workload scan summary list is nil")
 	}
 
+	if len(workloadScanSummaryListObjPtr.Items) == 0 {
+		return storage.NewKeyNotFoundError(key, 0)
+	}
+
 	configurationScanSummaryObj := buildConfigurationScanSummary(*workloadScanSummaryListObjPtr, namespace)
 
 	data, err := json.Marshal(configurationScanSummaryObj)
@@ -126,7 +130,7 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 func (s *ConfigurationScanSummaryStorage) GuaranteedUpdate(
 	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	return storage.NewInvalidObjError(key, "")
+	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
 func (s *ConfigurationScanSummaryStorage) Count(key string) (int64, error) {
