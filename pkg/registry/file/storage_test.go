@@ -530,5 +530,3 @@ func TestStorageImpl_Versioner(t *testing.T) {
 		})
 	}
 }
-
-func TestAppendJSONObjectFromFile()
