@@ -21,17 +21,17 @@ import (
 	"net/url"
 	"os"
 
+	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/cmd/server"
-	"github.com/kubescape/storage/pkg/config"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
 )
 
 func main() {
 	ctx := context.Background()
-	c, err := config.LoadConfig("/etc/config")
+	clusterData, err := utilsmetadata.LoadConfig("/etc/config/clusterData.json")
 	if err != nil {
 		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
 	}
@@ -39,8 +39,8 @@ func main() {
 	if otelHost, present := os.LookupEnv("OTEL_COLLECTOR_SVC"); present {
 		ctx = logger.InitOtel("storage",
 			os.Getenv("RELEASE"),
-			c.AccountID,
-			c.ClusterName,
+			clusterData.AccountID,
+			clusterData.ClusterName,
 			url.URL{Host: otelHost})
 		defer logger.ShutdownOtel(ctx)
 	}
