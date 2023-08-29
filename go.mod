@@ -5,6 +5,7 @@ module github.com/kubescape/storage
 go 1.20
 
 require (
+	github.com/armosec/utils-k8s-go v0.0.17
 	github.com/go-logr/logr v1.2.3
 	github.com/google/gofuzz v1.1.0
 	github.com/kubescape/go-logger v0.0.12
@@ -12,8 +13,8 @@ require (
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.6.0
-	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.3
+	go.opentelemetry.io/otel v1.11.2
 	k8s.io/apimachinery v0.26.2
 	k8s.io/apiserver v0.26.2
 	k8s.io/client-go v0.26.2
@@ -27,6 +28,7 @@ require (
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
+	github.com/armosec/armoapi-go v0.0.191 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
@@ -38,6 +40,7 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
+	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -76,7 +79,9 @@ require (
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/viper v1.16.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
+	github.com/stripe/stripe-go/v74 v74.8.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelutil v0.1.18 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelzap v0.1.18 // indirect
@@ -87,7 +92,6 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.35.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.35.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.37.0 // indirect
-	go.opentelemetry.io/otel v1.11.2 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.11.2 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.34.0 // indirect
