@@ -59,6 +59,7 @@ func TestStorageImpl_Count(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			_ = fs.Mkdir(DefaultStorageRoot, 0755)
+
 			for _, f := range files {
 				_ = afero.WriteFile(fs, DefaultStorageRoot+f, []byte(""), 0644)
 			}

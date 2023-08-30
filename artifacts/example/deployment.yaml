@@ -15,16 +15,22 @@ spec:
       labels:
         apiserver: "true"
     spec:
+      securityContext:
+        fsGroup: 65532
+        runAsUser: 65532
       serviceAccountName: apiserver
       containers:
       - name: wardle-server
         image: quay.io/kubescape/storage-apiserver:debug
-        imagePullPolicy: Never
         volumeMounts:
+          - mountPath: /data
+            name: data
           - name: "cloud-config"
             mountPath: /etc/config
             readOnly: true
       volumes:
+        - name: data
+          emptyDir: {}
         - name: "cloud-config"
           configMap:
             name: "cloud-config"

@@ -1,0 +1,18 @@
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
+kind: WorkloadConfigurationScanSummary
+metadata:
+  name: workload-config-scan-2
+  namespace: default
+  labels:
+    app: workload-scanner
+spec:
+  severities:
+    critical: 5
+    high: 5
+    medium: 5
+    low: 5
+    unknown: 5
+  controls: {}
+
+  
+

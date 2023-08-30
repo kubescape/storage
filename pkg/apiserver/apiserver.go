@@ -30,10 +30,11 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	sbomspdxv2p3storage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3"
 	sbomspdxv2p3filteredstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3filtered"
-	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
 	sbomsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsummary"
+	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
 	vmsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifestsummary"
 	wcsstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscans"
 	wcssumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscansummary"
@@ -134,7 +135,12 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// https://github.com/kubernetes/kubernetes/issues/86666).
 	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
-	storageImpl := file.NewStorageImpl(afero.NewOsFs(), file.DefaultStorageRoot)
+	osFs := afero.NewOsFs()
+
+	storageImpl := file.NewStorageImpl(osFs, file.DefaultStorageRoot)
+
+	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(&storageImpl)
+
 	v1beta1storage := map[string]rest.Storage{}
 
 	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
@@ -144,9 +150,10 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["vulnerabilitymanifestsummaries"] = sbomregistry.RESTInPeace(vmsumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
-
 	v1beta1storage["workloadconfigurationscans"] = sbomregistry.RESTInPeace(wcsstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["workloadconfigurationscansummaries"] = sbomregistry.RESTInPeace(wcssumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+
+	v1beta1storage["configurationscansummaries"] = sbomregistry.RESTInPeace(configurationscansummary.NewREST(Scheme, configScanStorageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 

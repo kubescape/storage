@@ -61,6 +61,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&WorkloadConfigurationScanList{},
 		&WorkloadConfigurationScanSummary{},
 		&WorkloadConfigurationScanSummaryList{},
+		&ConfigurationScanSummary{},
+		&ConfigurationScanSummaryList{},
 	)
 	return nil
 }

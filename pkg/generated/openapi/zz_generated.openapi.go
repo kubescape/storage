@@ -36,6 +36,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator":                                  schema_pkg_apis_softwarecomposition_v1beta1_Annotator(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":                          schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                                   schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary":                   schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummaryList":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity":                            schema_pkg_apis_softwarecomposition_v1beta1_ControlSeverity(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo":                               schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator":                                    schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref),
@@ -108,6 +111,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary": schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSpec":              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummary":           schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier": schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryIdentifier(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryList":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummarySpec":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummarySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadScanRelatedObject":                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadScanRelatedObject(ref),
@@ -331,6 +335,131 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref common.ReferenceCa
 				Required: []string{"algorithm", "checksumValue"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ConfigurationScanSummary is a summary for a group of WorkloadConfigurationScanSummary objects for a given scope (ex. namespace).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ConfigurationScanSummaryList is a list of ConfigurationScanSummary summaries.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"severities": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary"),
+						},
+					},
+					"summaryRef": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"severities", "summaryRef"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier"},
 	}
 }
 
@@ -3785,6 +3914,41 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummarySpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryIdentifier(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkloadConfigurationScanSummaryIdentifier includes information needed to identify a WorkloadConfigurationScanSummary object",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"namespace", "kind", "name"},
+			},
+		},
 	}
 }
 

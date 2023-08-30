@@ -26,9 +26,10 @@ import (
 )
 
 const (
-	jsonExt            = ".json"
-	metadataExt        = ".metadata"
-	DefaultStorageRoot = "/data"
+	jsonExt                  = ".json"
+	metadataExt              = ".metadata"
+	DefaultStorageRoot       = "/data"
+	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
 
 type objState struct {
@@ -43,17 +44,27 @@ type objState struct {
 type StorageImpl struct {
 	appFs           afero.Fs
 	watchDispatcher watchDispatcher
-	lock            sync.RWMutex
+	lock            *sync.RWMutex
 	root            string
 	versioner       storage.Versioner
 }
 
+// StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
+type StorageQuerier interface {
+	storage.Interface
+	GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error
+	GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
+}
+
 var _ storage.Interface = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string) storage.Interface {
+var _ StorageQuerier = &StorageImpl{}
+
+func NewStorageImpl(appFs afero.Fs, root string) StorageQuerier {
 	return &StorageImpl{
 		appFs:           appFs,
 		watchDispatcher: newWatchDispatcher(),
+		lock:            &sync.RWMutex{},
 		root:            root,
 		versioner:       storage.APIObjectVersioner{},
 	}
@@ -299,10 +310,8 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 			// skip if file is not readable, maybe it was deleted
 			continue
 		}
-		// unmarshal into object
-		elem := v.Type().Elem()
-		obj := reflect.New(elem).Interface().(runtime.Object)
-		err = json.Unmarshal(b, obj)
+
+		obj, err := getUnmarshaledRuntimeObject(v, b)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
 			continue
@@ -496,4 +505,134 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 		return nil
 	})
 	return int64(n), err
+}
+
+// GetByNamespace returns all objects in a given namespace, given their api version and kind.
+func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByNamespace")
+	span.SetAttributes(attribute.String("apiVersion", apiVersion), attribute.String("kind", kind), attribute.String("namespace", namespace))
+	defer span.End()
+
+	listPtr, err := meta.GetItemsPtr(listObj)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("get items ptr failed", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
+		return err
+	}
+
+	v, err := conversion.EnforcePtr(listPtr)
+	if err != nil || v.Kind() != reflect.Slice {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
+		return err
+	}
+
+	p := filepath.Join(s.root, apiVersion, kind, namespace)
+
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	spanLock.End()
+
+	// read all json files under the namespace and append to list
+	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+		if !strings.HasSuffix(path, jsonExt) {
+			return nil
+		}
+
+		if err := s.appendJSONObjectFromFile(path, v); err != nil {
+			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
+		}
+
+		return nil
+	})
+
+	return nil
+}
+
+// GetByCluster returns all objects in a given cluster, given their api version and kind.
+func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByCluster")
+	defer span.End()
+
+	listPtr, err := meta.GetItemsPtr(listObj)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		return err
+	}
+
+	v, err := conversion.EnforcePtr(listPtr)
+	if err != nil || v.Kind() != reflect.Slice {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		return err
+	}
+
+	p := filepath.Join(s.root, apiVersion, kind)
+
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	spanLock.End()
+
+	// for each namespace, read all json files and append it to list obj
+	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+		// the first path is the root path
+		if path == p {
+			return nil
+		}
+
+		// under the root path, each directory is a namespace
+		if info.IsDir() {
+			_ = afero.Walk(s.appFs, path, func(subPath string, info os.FileInfo, err error) error {
+				if !strings.HasSuffix(subPath, jsonExt) {
+					return nil
+				}
+
+				if err := s.appendJSONObjectFromFile(subPath, v); err != nil {
+					logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
+				}
+
+				return nil
+			})
+		}
+		return nil
+	})
+
+	return nil
+}
+
+// appendJSONObjectFromFile unmarshalls a json file into a runtime.Object and appends it to the underlying list object.
+func (s *StorageImpl) appendJSONObjectFromFile(path string, v reflect.Value) error {
+	b, err := afero.ReadFile(s.appFs, path)
+	if err != nil {
+		// skip if file is not readable, maybe it was deleted
+		return nil
+	}
+
+	obj, err := getUnmarshaledRuntimeObject(v, b)
+	if err != nil {
+		return nil
+	}
+
+	v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+
+	return nil
+}
+
+func getUnmarshaledRuntimeObject(v reflect.Value, b []byte) (runtime.Object, error) {
+	elem := v.Type().Elem()
+	obj := reflect.New(elem).Interface().(runtime.Object)
+
+	if err := json.Unmarshal(b, obj); err != nil {
+		return nil, err
+	}
+
+	return obj, nil
+}
+
+func getNamespaceFromKey(key string) string {
+	keySplit := strings.Split(key, "/")
+	if len(keySplit) != 4 {
+		return ""
+	}
+
+	return keySplit[3]
 }

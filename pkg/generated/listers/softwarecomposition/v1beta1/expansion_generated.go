@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1beta1
 
+// ConfigurationScanSummaryListerExpansion allows custom methods to be added to
+// ConfigurationScanSummaryLister.
+type ConfigurationScanSummaryListerExpansion interface{}
+
+// ConfigurationScanSummaryNamespaceListerExpansion allows custom methods to be added to
+// ConfigurationScanSummaryNamespaceLister.
+type ConfigurationScanSummaryNamespaceListerExpansion interface{}
+
 // SBOMSPDXv2p3ListerExpansion allows custom methods to be added to
 // SBOMSPDXv2p3Lister.
 type SBOMSPDXv2p3ListerExpansion interface{}

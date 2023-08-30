@@ -14,7 +14,7 @@ require (
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.6.0
 	github.com/stretchr/testify v1.8.3
-	go.opentelemetry.io/otel v1.11.2
+	go.opentelemetry.io/otel v1.13.0
 	k8s.io/apimachinery v0.26.2
 	k8s.io/apiserver v0.26.2
 	k8s.io/client-go v0.26.2
@@ -101,7 +101,7 @@ require (
 	go.opentelemetry.io/otel/metric v0.34.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.11.2 // indirect
 	go.opentelemetry.io/otel/sdk/metric v0.34.0 // indirect
-	go.opentelemetry.io/otel/trace v1.11.2 // indirect
+	go.opentelemetry.io/otel/trace v1.13.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
