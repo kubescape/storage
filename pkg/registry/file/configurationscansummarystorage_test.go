@@ -14,7 +14,7 @@ import (
 )
 
 func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	count, err := configScanSummaryStorage.Count("random")
@@ -27,7 +27,7 @@ func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	err := configScanSummaryStorage.Create(nil, "", nil, nil, 0)
@@ -38,7 +38,7 @@ func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	err := configScanSummaryStorage.Delete(nil, "", nil, nil, nil, nil)
@@ -49,7 +49,7 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	_, err := configScanSummaryStorage.Watch(nil, "", storage.ListOptions{})
@@ -60,7 +60,7 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	err := configScanSummaryStorage.GuaranteedUpdate(nil, "", nil, false, nil, nil, nil)
