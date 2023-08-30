@@ -49,13 +49,22 @@ type StorageImpl struct {
 	versioner       storage.Versioner
 }
 
+// StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
+type StorageQuerier interface {
+	storage.Interface
+	GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error
+	GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
+}
+
 var _ storage.Interface = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string, lock *sync.RWMutex) storage.Interface {
+var _ StorageQuerier = &StorageImpl{}
+
+func NewStorageImpl(appFs afero.Fs, root string) StorageQuerier {
 	return &StorageImpl{
 		appFs:           appFs,
 		watchDispatcher: newWatchDispatcher(),
-		lock:            lock,
+		lock:            &sync.RWMutex{},
 		root:            root,
 		versioner:       storage.APIObjectVersioner{},
 	}
@@ -617,4 +626,13 @@ func getUnmarshaledRuntimeObject(v reflect.Value, b []byte) (runtime.Object, err
 	}
 
 	return obj, nil
+}
+
+func getNamespaceFromKey(key string) string {
+	keySplit := strings.Split(key, "/")
+	if len(keySplit) != 4 {
+		return ""
+	}
+
+	return keySplit[3]
 }

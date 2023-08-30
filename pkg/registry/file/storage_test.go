@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -60,10 +59,11 @@ func TestStorageImpl_Count(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			_ = fs.Mkdir(DefaultStorageRoot, 0755)
+
 			for _, f := range files {
 				_ = afero.WriteFile(fs, DefaultStorageRoot+f, []byte(""), 0644)
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(fs, DefaultStorageRoot)
 			got, err := s.Count(tt.key)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Count() error = %v, wantErr %v", err, tt.wantErr)
@@ -137,7 +137,7 @@ func TestStorageImpl_Create(t *testing.T) {
 			} else {
 				fs = afero.NewMemMapFs()
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(fs, DefaultStorageRoot)
 			err := s.Create(context.TODO(), tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -220,7 +220,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 			if tt.create {
 				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Delete(context.TODO(), tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -297,7 +297,7 @@ func TestStorageImpl_Get(t *testing.T) {
 			if tt.create {
 				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -367,7 +367,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			for k, v := range objs {
 				err := s.Create(context.Background(), k, v, nil, 0)
 				assert.NoError(t, err)
@@ -490,7 +490,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			if tt.create {
 				err := s.Create(context.Background(), tt.args.key, toto, nil, 0)
 				assert.NoError(t, err)
@@ -525,7 +525,7 @@ func TestStorageImpl_Versioner(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			assert.Equal(t, tt.want, s.Versioner())
 		})
 	}

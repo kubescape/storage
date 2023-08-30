@@ -3,13 +3,11 @@ package file
 import (
 	"context"
 	"encoding/json"
-	"sync"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,21 +24,15 @@ const (
 
 // ConfigurationScanSummaryStorage offers a storage solution for ConfigurationScanSummary objects, implementing custom business logic for these objects and using the underlying default storage implementation.
 type ConfigurationScanSummaryStorage struct {
-	realStore StorageImpl
+	realStore StorageQuerier
 	versioner storage.Versioner
 }
 
 var _ storage.Interface = &ConfigurationScanSummaryStorage{}
 
-func NewConfigurationScanSummaryStorage(appFs afero.Fs, root string, lock *sync.RWMutex) storage.Interface {
+func NewConfigurationScanSummaryStorage(realStore *StorageQuerier) storage.Interface {
 	return &ConfigurationScanSummaryStorage{
-		realStore: StorageImpl{
-			appFs:           appFs,
-			watchDispatcher: newWatchDispatcher(),
-			root:            root,
-			versioner:       storage.APIObjectVersioner{},
-			lock:            lock,
-		},
+		realStore: *realStore,
 		versioner: storage.APIObjectVersioner{},
 	}
 }
@@ -50,19 +42,22 @@ func (s *ConfigurationScanSummaryStorage) Versioner() storage.Versioner {
 	return s.versioner
 }
 
+// Create is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
 func (s *ConfigurationScanSummaryStorage) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
+// Delete is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
 func (s *ConfigurationScanSummaryStorage) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
+// Watch is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
 func (s *ConfigurationScanSummaryStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
 	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
-// Get returns a single ConfigurationScanSummary object for a namespace
+// Get generates and returns a single ConfigurationScanSummary object for a namespace
 func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "ConfigurationScanSummaryStorage.Get")
 	span.SetAttributes(attribute.String("key", key))
@@ -100,6 +95,7 @@ func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, o
 	return nil
 }
 
+// GetList generates and returns a list of ConfigurationScanSummary objects for the cluster
 func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "ConfigurationScanSummaryStorage.GetList")
 	span.SetAttributes(attribute.String("key", key))
@@ -129,12 +125,14 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	return nil
 }
 
+// GuaranteedUpdate is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
 func (s *ConfigurationScanSummaryStorage) GuaranteedUpdate(
 	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
+// Count is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
 func (s *ConfigurationScanSummaryStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }

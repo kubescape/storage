@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -87,7 +86,7 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 
 			got1, _ := s.Watch(context.TODO(), tt.args.key, tt.args.opts)
 			got1chan := got1.ResultChan()
@@ -221,7 +220,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			ctx := context.Background()
 			opts := storage.ListOptions{}
 
@@ -309,7 +308,7 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			ctx := context.Background()
 			opts := storage.ListOptions{}
 
@@ -413,7 +412,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, &sync.RWMutex{})
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			opts := storage.ListOptions{}
 
 			watchSlicesByKey := map[string][]watch.Interface{}

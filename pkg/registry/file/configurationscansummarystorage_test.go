@@ -2,8 +2,6 @@ package file
 
 import (
 	"context"
-	"os"
-	"sync"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -16,7 +14,8 @@ import (
 )
 
 func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
+	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	count, err := configScanSummaryStorage.Count("random")
 
@@ -28,7 +27,8 @@ func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
+	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	err := configScanSummaryStorage.Create(nil, "", nil, nil, 0)
 
@@ -38,7 +38,8 @@ func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
+	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	err := configScanSummaryStorage.Delete(nil, "", nil, nil, nil, nil)
 
@@ -48,7 +49,8 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
+	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	_, err := configScanSummaryStorage.Watch(nil, "", storage.ListOptions{})
 
@@ -58,7 +60,8 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(nil, "", &sync.RWMutex{})
+	storageImpl := NewStorageImpl(afero.NewOsFs(), "")
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
 	err := configScanSummaryStorage.GuaranteedUpdate(nil, "", nil, false, nil, nil, nil)
 
@@ -81,16 +84,16 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 		want          runtime.Object
 	}{
 		{
-			name: "not found",
+			name: "no existing objects return empty list",
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/configurationscansummaries/kubescape/toto",
 			},
 			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/configurationscansummaries/kubescape/toto", 0),
 		},
 		{
-			name: "real object",
+			name: "existing object is returned",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/configurationscansummaries/kubescape/toto",
+				key:    "/spdx.softwarecomposition.kubescape.io/configurationscansummaries/kubescape",
 				objPtr: &v1beta1.ConfigurationScanSummary{},
 			},
 			expectedError: nil,
@@ -104,14 +107,11 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 		},
 	}
 
-	dir, err := os.MkdirTemp("", "test")
-	assert.NoError(t, err)
-
-	realStorage := NewStorageImpl(afero.NewOsFs(), dir, &sync.RWMutex{})
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir, &sync.RWMutex{})
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(&realStorage)
 
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
@@ -143,13 +143,13 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 		want          runtime.Object
 	}{
 		{
-			name: "no object",
+			name: "no existing objects return empty list",
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/configurationscansummaries",
 			},
 		},
 		{
-			name: "real object",
+			name: "existing object is returned",
 			args: args{
 				key:    "/spdx.softwarecomposition.kubescape.io/configurationscansummaries",
 				objPtr: &v1beta1.ConfigurationScanSummaryList{},
@@ -173,14 +173,11 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 		},
 	}
 
-	dir, err := os.MkdirTemp("", "test")
-	assert.NoError(t, err)
-
-	realStorage := NewStorageImpl(afero.NewOsFs(), dir, &sync.RWMutex{})
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configScanSummaryStorage := NewConfigurationScanSummaryStorage(afero.NewOsFs(), dir, &sync.RWMutex{})
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(&realStorage)
 
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
@@ -706,4 +703,33 @@ func TestGenerateConfigurationScanSummaryForCluster(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGetNamespaceFromKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		expected string
+	}{
+		{
+			name:     "namespace1",
+			key:      "/spdx.softwarecomposition.kubescape.io/ConfigurationScanSummary/namespace1",
+			expected: "namespace1",
+		},
+		{
+			name:     "no namespace",
+			key:      "/spdx.softwarecomposition.kubescape.io/ConfigurationScanSummary/",
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := getNamespaceFromKey(test.key)
+			if actual != test.expected {
+				t.Errorf("Expected %s, got %s", test.expected, actual)
+			}
+		})
+	}
+
 }
