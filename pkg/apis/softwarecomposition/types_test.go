@@ -51,7 +51,7 @@ func Test_VulnerabilitySummaryMerge(t *testing.T) {
 					Namespace: "bbb",
 				},
 				TypeMeta: v1.TypeMeta{
-					Kind: "VulnerabilityManifestSummary",
+					Kind: "vulnerabilitymanifestsummary",
 				},
 				Spec: VulnerabilityManifestSummarySpec{
 					Severities: SeveritySummary{
@@ -126,7 +126,7 @@ func Test_VulnerabilitySummaryMerge(t *testing.T) {
 						VulnerabilitiesObjScope{
 							Name:      "aaa",
 							Namespace: "bbb",
-							Kind:      "VulnerabilityManifestSummary",
+							Kind:      "vulnerabilitymanifestsummary",
 						},
 					},
 				},
@@ -145,20 +145,9 @@ func Test_VulnerabilitySummaryMerge(t *testing.T) {
 
 func Test_VulnerabilityCountersAdd(t *testing.T) {
 	tests := []struct {
-		vulnSeverities             SeveritySummary
-		aggregatedVulnSeverities   SeveritySummary
-		expectedAllCritical        int
-		expectedAllHigh            int
-		expectedAllMedium          int
-		expectedAllLow             int
-		expectedAllNegligible      int
-		expectedAllUnknown         int
-		expectedRelevantCritical   int
-		expectedRelevantHigh       int
-		expectedRelevantMedium     int
-		expectedRelevantLow        int
-		expectedRelevantNegligible int
-		expectedRelevantUnknown    int
+		vulnSeverities                   SeveritySummary
+		aggregatedVulnSeverities         SeveritySummary
+		expectedAggregatedVulnSeverities SeveritySummary
 	}{
 		{
 			vulnSeverities: SeveritySummary{
@@ -213,52 +202,48 @@ func Test_VulnerabilityCountersAdd(t *testing.T) {
 					Relevant: 3,
 				},
 			},
-			expectedAllCritical:        20,
-			expectedAllHigh:            20,
-			expectedAllMedium:          20,
-			expectedAllLow:             20,
-			expectedAllNegligible:      20,
-			expectedAllUnknown:         20,
-			expectedRelevantCritical:   6,
-			expectedRelevantHigh:       6,
-			expectedRelevantMedium:     6,
-			expectedRelevantLow:        6,
-			expectedRelevantNegligible: 6,
-			expectedRelevantUnknown:    6,
+			expectedAggregatedVulnSeverities: SeveritySummary{
+				Critical: VulnerabilityCounters{
+					All:      20,
+					Relevant: 6,
+				},
+				Medium: VulnerabilityCounters{
+					All:      20,
+					Relevant: 6,
+				},
+				Low: VulnerabilityCounters{
+					All:      20,
+					Relevant: 6,
+				},
+				High: VulnerabilityCounters{
+					All:      20,
+					Relevant: 6,
+				},
+				Negligible: VulnerabilityCounters{
+					All:      20,
+					Relevant: 6,
+				},
+				Unknown: VulnerabilityCounters{
+					All:      20,
+					Relevant: 6,
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			tt.aggregatedVulnSeverities.Add(&tt.vulnSeverities)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Critical.All, tt.expectedAllCritical)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Critical.Relevant, tt.expectedRelevantCritical)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.High.All, tt.expectedAllHigh)
-			assert.Equal(t, tt.aggregatedVulnSeverities.High.Relevant, tt.expectedRelevantHigh)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Medium.All, tt.expectedAllMedium)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Medium.Relevant, tt.expectedRelevantMedium)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Low.All, tt.expectedAllLow)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Low.Relevant, tt.expectedRelevantLow)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Negligible.All, tt.expectedAllNegligible)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Negligible.Relevant, tt.expectedRelevantNegligible)
-
-			assert.Equal(t, tt.aggregatedVulnSeverities.Unknown.All, tt.expectedAllUnknown)
-			assert.Equal(t, tt.aggregatedVulnSeverities.Unknown.Relevant, tt.expectedRelevantUnknown)
-
+			assert.Equal(t, tt.aggregatedVulnSeverities, tt.expectedAggregatedVulnSeverities)
 		})
 	}
 }
 
 func Test_SeveritySummaryAdd(t *testing.T) {
 	tests := []struct {
-		vulnCounters           VulnerabilityCounters
-		aggregatedVulnCounters VulnerabilityCounters
-		expectedAll            int
-		expectedRelevant       int
+		vulnCounters                   VulnerabilityCounters
+		aggregatedVulnCounters         VulnerabilityCounters
+		expectedAggregatedVulnCounters VulnerabilityCounters
 	}{
 		{
 			vulnCounters: VulnerabilityCounters{
@@ -269,16 +254,17 @@ func Test_SeveritySummaryAdd(t *testing.T) {
 				All:      10,
 				Relevant: 3,
 			},
-			expectedAll:      20,
-			expectedRelevant: 6,
+			expectedAggregatedVulnCounters: VulnerabilityCounters{
+				All:      20,
+				Relevant: 6,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			tt.aggregatedVulnCounters.Add(&tt.vulnCounters)
-			assert.Equal(t, tt.aggregatedVulnCounters.All, tt.expectedAll)
-			assert.Equal(t, tt.aggregatedVulnCounters.Relevant, tt.expectedRelevant)
+			assert.Equal(t, tt.aggregatedVulnCounters, tt.expectedAggregatedVulnCounters)
 		})
 	}
 

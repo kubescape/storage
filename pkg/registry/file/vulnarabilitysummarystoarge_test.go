@@ -45,7 +45,7 @@ func TestVulnSummaryStorageImpl_Create(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, operationNotSupportedMsg))
-				return
+
 			}
 		})
 	}
@@ -81,7 +81,7 @@ func TestVulnSummaryStorageImpl_Delete(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, operationNotSupportedMsg))
-				return
+
 			}
 		})
 	}
@@ -113,7 +113,7 @@ func TestVulnSummaryStorageImpl_Watch(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, operationNotSupportedMsg))
-				return
+
 			}
 		})
 	}
@@ -146,6 +146,13 @@ func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
 							TypeMeta: v1.TypeMeta{
 								Kind:       "VulnerabilitySummary",
 								APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+							},
+							Spec: softwarecomposition.VulnerabilitySummarySpec{
+								WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{
+									softwarecomposition.VulnerabilitiesObjScope{
+										Kind: "vulnerabilitymanifestsummary",
+									},
+								},
 							},
 						},
 					},
@@ -180,6 +187,13 @@ func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
 										Relevant: 0,
 									},
 								},
+								WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{
+									softwarecomposition.VulnerabilitiesObjScope{
+										Name:      "any",
+										Namespace: "any",
+										Kind:      "vulnerabilitymanifestsummary",
+									},
+								},
 							},
 						},
 						softwarecomposition.VulnerabilitySummary{
@@ -195,6 +209,13 @@ func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
 									Critical: softwarecomposition.VulnerabilityCounters{
 										All:      1,
 										Relevant: 0,
+									},
+								},
+								WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{
+									softwarecomposition.VulnerabilitiesObjScope{
+										Kind:      "vulnerabilitymanifestsummary",
+										Name:      "any",
+										Namespace: "many",
 									},
 								},
 							},
@@ -252,6 +273,7 @@ func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
 			} else {
 				assert.Equal(t, err, nil)
 				for i := range o.Items {
+					// copy the timestamp since it is created when generated, so it can be known at the test begin
 					o.Items[i].CreationTimestamp = tt.args.createdObj[i].CreationTimestamp
 				}
 				assert.Equal(t, tt.args.expectedObj, o)
@@ -290,7 +312,7 @@ func TestVulnSummaryStorageImpl_GuaranteedUpdate(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, operationNotSupportedMsg))
-				return
+
 			}
 		})
 	}
@@ -322,7 +344,7 @@ func TestVulnSummaryStorageImpl_Count(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Equal(t, err, storage.NewInvalidObjError(tt.args.key, operationNotSupportedMsg))
-				return
+
 			}
 		})
 	}
@@ -353,6 +375,13 @@ func TestVulnSummaryStorageImpl_Get(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{
 						Name: "any",
 					},
+					Spec: softwarecomposition.VulnerabilitySummarySpec{
+						WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{
+							softwarecomposition.VulnerabilitiesObjScope{
+								Kind: "vulnerabilitymanifestsummary",
+							},
+						},
+					},
 				},
 				keyCreatedObj: []string{"/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries/any/any"},
 				createdObj:    []*softwarecomposition.VulnerabilityManifestSummary{&softwarecomposition.VulnerabilityManifestSummary{}},
@@ -370,6 +399,16 @@ func TestVulnSummaryStorageImpl_Get(t *testing.T) {
 					},
 					ObjectMeta: v1.ObjectMeta{
 						Name: "any",
+					},
+					Spec: softwarecomposition.VulnerabilitySummarySpec{
+						WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{
+							softwarecomposition.VulnerabilitiesObjScope{
+								Kind: "vulnerabilitymanifestsummary",
+							},
+							softwarecomposition.VulnerabilitiesObjScope{
+								Kind: "vulnerabilitymanifestsummary",
+							},
+						},
 					},
 				},
 				keyCreatedObj: []string{"/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries/any/any", "/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries/any/many"},
@@ -394,9 +433,10 @@ func TestVulnSummaryStorageImpl_Get(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Equal(t, err, storage.NewKeyNotFoundError(tt.name, 0))
-				return
+
 			} else {
 				assert.Equal(t, err, nil)
+				// copy the timestamp since it is created when generated, so it can be known at the test begin
 				tt.args.expectedObj.CreationTimestamp = o.CreationTimestamp
 				assert.Equal(t, tt.args.expectedObj, o)
 			}

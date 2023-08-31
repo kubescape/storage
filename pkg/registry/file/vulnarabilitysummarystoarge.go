@@ -41,14 +41,17 @@ func (s *VulnerabilitySummaryStorage) Versioner() storage.Versioner {
 	return s.versioner
 }
 
+// Create is not supported for VulnerabilitySummary objects. Objects are generated on the fly and not stored.
 func (s *VulnerabilitySummaryStorage) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
+// Delete is not supported for VulnerabilitySummary objects. Objects are generated on the fly and not stored.
 func (s *VulnerabilitySummaryStorage) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
+// Watch is not supported for VulnerabilitySummary objects. Objects are generated on the fly and not stored.
 func (s *VulnerabilitySummaryStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
 	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
@@ -72,10 +75,10 @@ func buildVulnerabilityScanSummary(vulnerabilityManifestSummaryList softwarecomp
 	return vulnerabilityScanSummaryObj
 }
 
-// buildConfigurationScanSummaryForCluster generates a configuration scan summary list for the cluster, where each item is a configuration scan summary for a namespace
+// buildConfigurationScanSummaryForCluster generates a vulnerability summary list for the cluster, where each item is a vulnerability summary for a namespace
 func buildVulnerabilitySummaryForCluster(vulnerabilityManifestSummaryList softwarecomposition.VulnerabilityManifestSummaryList) softwarecomposition.VulnerabilitySummaryList {
 
-	// build an map of namespace to workload configuration scan summaries
+	// build an map of namespace to workload vulnerability summaries
 	mapNamespaceToSummaries := make(map[string][]softwarecomposition.VulnerabilityManifestSummary)
 
 	for _, vlSummary := range vulnerabilityManifestSummaryList.Items {
@@ -92,11 +95,11 @@ func buildVulnerabilitySummaryForCluster(vulnerabilityManifestSummaryList softwa
 		},
 	}
 
-	// 1 - build a workload configuration scan summary list for each namespace
-	// 2 - generate a single configuration scan summary for the namespace
-	// 3 - add the configuration scan summary to the cluster summary list object
+	// 1 - build a workload vulnerability summary list for each namespace
+	// 2 - generate a single vulnerability summary for the namespace
+	// 3 - add the vulnerability summary to the cluster summary list object
 	for namespace, vlSummaries := range mapNamespaceToSummaries {
-		// for each namespace, create a single workload configuration scan summary object
+		// for each namespace, create a single workload vulnerability summary object
 		nsListObj := softwarecomposition.VulnerabilityManifestSummaryList{
 			TypeMeta: v1.TypeMeta{
 				Kind:       vulnerabilitySummaryKind,
@@ -160,7 +163,7 @@ func (s *VulnerabilitySummaryStorage) GetList(ctx context.Context, key string, _
 		return err
 	}
 
-	// generate a single configurationScanSummary for the cluster, with an configuration scan summary for each namespace
+	// generate a single vulnerabilitySummary for the cluster, with an vulnerability summary for each namespace
 	nsSummaries := buildVulnerabilitySummaryForCluster(*vulnerabilityManifestSummaryListObjPtr)
 
 	data, err := json.Marshal(nsSummaries)
@@ -177,12 +180,14 @@ func (s *VulnerabilitySummaryStorage) GetList(ctx context.Context, key string, _
 	return nil
 }
 
+// GuaranteedUpdate is not supported for VulnerabilitySummary objects. Objects are generated on the fly and not stored.
 func (s *VulnerabilitySummaryStorage) GuaranteedUpdate(
 	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
+// Count is not supported for VulnerabilitySummary objects. Objects are generated on the fly and not stored.
 func (s *VulnerabilitySummaryStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }

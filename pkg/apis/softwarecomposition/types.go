@@ -260,26 +260,26 @@ type VulnerabilitySummaryList struct {
 	Items []VulnerabilitySummary
 }
 
-func (aggregatedCounters *VulnerabilityCounters) Add(counters *VulnerabilityCounters) {
-	aggregatedCounters.All += counters.All
-	aggregatedCounters.Relevant += counters.Relevant
+func (c *VulnerabilityCounters) Add(counters *VulnerabilityCounters) {
+	c.All += counters.All
+	c.Relevant += counters.Relevant
 }
 
-func (aggregatedSeverities *SeveritySummary) Add(severities *SeveritySummary) {
-	aggregatedSeverities.Critical.Add(&severities.Critical)
-	aggregatedSeverities.High.Add(&severities.High)
-	aggregatedSeverities.Medium.Add(&severities.Medium)
-	aggregatedSeverities.Low.Add(&severities.Low)
-	aggregatedSeverities.Negligible.Add(&severities.Negligible)
-	aggregatedSeverities.Unknown.Add(&severities.Unknown)
+func (s *SeveritySummary) Add(severities *SeveritySummary) {
+	s.Critical.Add(&severities.Critical)
+	s.High.Add(&severities.High)
+	s.Medium.Add(&severities.Medium)
+	s.Low.Add(&severities.Low)
+	s.Negligible.Add(&severities.Negligible)
+	s.Unknown.Add(&severities.Unknown)
 }
 
-func (fullVulnSumm *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSummary) {
-	fullVulnSumm.Spec.Severities.Add(&vulnManifestSumm.Spec.Severities)
+func (v *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSummary) {
+	v.Spec.Severities.Add(&vulnManifestSumm.Spec.Severities)
 	workloadVulnerabilitiesObj := VulnerabilitiesObjScope{
 		Name:      vulnManifestSumm.Name,
 		Namespace: vulnManifestSumm.Namespace,
 		Kind:      "vulnerabilitymanifestsummary",
 	}
-	fullVulnSumm.Spec.WorkloadVulnerabilitiesObj = append(fullVulnSumm.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
+	v.Spec.WorkloadVulnerabilitiesObj = append(v.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
 }
