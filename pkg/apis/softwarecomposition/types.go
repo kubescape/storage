@@ -279,7 +279,7 @@ func (fullVulnSumm *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityM
 	workloadVulnerabilitiesObj := VulnerabilitiesObjScope{
 		Name:      vulnManifestSumm.Name,
 		Namespace: vulnManifestSumm.Namespace,
-		Kind:      "VulnerabilityManifestSummary",
+		Kind:      "vulnerabilitymanifestsummary",
 	}
 	fullVulnSumm.Spec.WorkloadVulnerabilitiesObj = append(fullVulnSumm.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
 }
