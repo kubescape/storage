@@ -34,6 +34,7 @@ type SpdxV1beta1Interface interface {
 	SBOMSummariesGetter
 	VulnerabilityManifestsGetter
 	VulnerabilityManifestSummariesGetter
+	VulnerabilitySummariesGetter
 	WorkloadConfigurationScansGetter
 	WorkloadConfigurationScanSummariesGetter
 }
@@ -65,6 +66,10 @@ func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) Vulnerabili
 
 func (c *SpdxV1beta1Client) VulnerabilityManifestSummaries(namespace string) VulnerabilityManifestSummaryInterface {
 	return newVulnerabilityManifestSummaries(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) VulnerabilitySummaries(namespace string) VulnerabilitySummaryInterface {
+	return newVulnerabilitySummaries(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) WorkloadConfigurationScans(namespace string) WorkloadConfigurationScanInterface {

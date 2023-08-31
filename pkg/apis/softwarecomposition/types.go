@@ -229,3 +229,57 @@ type VulnerabilityManifestSummaryList struct {
 
 	Items []VulnerabilityManifestSummary
 }
+
+type VulnerabilitySummarySpec struct {
+	Severities                 SeveritySummary
+	WorkloadVulnerabilitiesObj []VulnerabilitiesObjScope
+}
+
+type VulnerabilitySummaryStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummary is a summary of a vulnerabilities for a given scope.
+type VulnerabilitySummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilitySummarySpec
+	Status VulnerabilitySummaryStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummaryList is a list of VulnerabilitySummaries.
+type VulnerabilitySummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilitySummary
+}
+
+func (aggregatedCounters *VulnerabilityCounters) Add(counters *VulnerabilityCounters) {
+	aggregatedCounters.All += counters.All
+	aggregatedCounters.Relevant += counters.Relevant
+}
+
+func (aggregatedSeverities *SeveritySummary) Add(severities *SeveritySummary) {
+	aggregatedSeverities.Critical.Add(&severities.Critical)
+	aggregatedSeverities.High.Add(&severities.High)
+	aggregatedSeverities.Medium.Add(&severities.Medium)
+	aggregatedSeverities.Low.Add(&severities.Low)
+	aggregatedSeverities.Negligible.Add(&severities.Negligible)
+	aggregatedSeverities.Unknown.Add(&severities.Unknown)
+}
+
+func (fullVulnSumm *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSummary) {
+	fullVulnSumm.Spec.Severities.Add(&vulnManifestSumm.Spec.Severities)
+	workloadVulnerabilitiesObj := VulnerabilitiesObjScope{
+		Name:      vulnManifestSumm.Name,
+		Namespace: vulnManifestSumm.Namespace,
+		Kind:      "VulnerabilityManifestSummary",
+	}
+	fullVulnSumm.Spec.WorkloadVulnerabilitiesObj = append(fullVulnSumm.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
+}
