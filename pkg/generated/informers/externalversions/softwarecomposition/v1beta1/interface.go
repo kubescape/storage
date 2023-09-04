@@ -36,6 +36,8 @@ type Interface interface {
 	VulnerabilityManifests() VulnerabilityManifestInformer
 	// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
 	VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer
+	// VulnerabilitySummaries returns a VulnerabilitySummaryInformer.
+	VulnerabilitySummaries() VulnerabilitySummaryInformer
 	// WorkloadConfigurationScans returns a WorkloadConfigurationScanInformer.
 	WorkloadConfigurationScans() WorkloadConfigurationScanInformer
 	// WorkloadConfigurationScanSummaries returns a WorkloadConfigurationScanSummaryInformer.
@@ -81,6 +83,11 @@ func (v *version) VulnerabilityManifests() VulnerabilityManifestInformer {
 // VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
 func (v *version) VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer {
 	return &vulnerabilityManifestSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VulnerabilitySummaries returns a VulnerabilitySummaryInformer.
+func (v *version) VulnerabilitySummaries() VulnerabilitySummaryInformer {
+	return &vulnerabilitySummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // WorkloadConfigurationScans returns a WorkloadConfigurationScanInformer.
