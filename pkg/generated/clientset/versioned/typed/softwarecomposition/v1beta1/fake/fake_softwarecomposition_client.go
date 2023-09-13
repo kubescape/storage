@@ -28,6 +28,18 @@ type FakeSpdxV1beta1 struct {
 	*testing.Fake
 }
 
+func (c *FakeSpdxV1beta1) ApplicationActivities(namespace string) v1beta1.ApplicationActivityInterface {
+	return &FakeApplicationActivities{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) ApplicationProfiles(namespace string) v1beta1.ApplicationProfileInterface {
+	return &FakeApplicationProfiles{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) ApplicationProfileSummaries(namespace string) v1beta1.ApplicationProfileSummaryInterface {
+	return &FakeApplicationProfileSummaries{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.ConfigurationScanSummaryInterface {
 	return &FakeConfigurationScanSummaries{c, namespace}
 }

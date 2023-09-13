@@ -28,6 +28,9 @@ import (
 
 type SpdxV1beta1Interface interface {
 	RESTClient() rest.Interface
+	ApplicationActivitiesGetter
+	ApplicationProfilesGetter
+	ApplicationProfileSummariesGetter
 	ConfigurationScanSummariesGetter
 	SBOMSPDXv2p3sGetter
 	SBOMSPDXv2p3FilteredsGetter
@@ -42,6 +45,18 @@ type SpdxV1beta1Interface interface {
 // SpdxV1beta1Client is used to interact with features provided by the spdx.softwarecomposition.kubescape.io group.
 type SpdxV1beta1Client struct {
 	restClient rest.Interface
+}
+
+func (c *SpdxV1beta1Client) ApplicationActivities(namespace string) ApplicationActivityInterface {
+	return newApplicationActivities(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) ApplicationProfiles(namespace string) ApplicationProfileInterface {
+	return newApplicationProfiles(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) ApplicationProfileSummaries(namespace string) ApplicationProfileSummaryInterface {
+	return newApplicationProfileSummaries(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) ConfigurationScanSummaries(namespace string) ConfigurationScanSummaryInterface {
