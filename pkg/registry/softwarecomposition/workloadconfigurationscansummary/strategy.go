@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -11,7 +12,6 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
@@ -65,7 +65,9 @@ func (vulnerabilityManifestSummaryStrategy) Validate(ctx context.Context, obj ru
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (vulnerabilityManifestSummaryStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string { return nil }
+func (vulnerabilityManifestSummaryStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+	return nil
+}
 
 func (vulnerabilityManifestSummaryStrategy) AllowCreateOnUpdate() bool {
 	return false

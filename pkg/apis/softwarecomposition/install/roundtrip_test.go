@@ -20,12 +20,12 @@ import (
 	"regexp"
 	"testing"
 
+	wardlefuzzer "github.com/kubescape/storage/pkg/apis/softwarecomposition/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	wardlefuzzer "github.com/kubescape/storage/pkg/apis/softwarecomposition/fuzzer"
 	"math/rand"
 )
 

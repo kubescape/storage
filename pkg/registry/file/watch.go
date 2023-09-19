@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/puzpuzpuz/xsync/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"github.com/puzpuzpuz/xsync/v2"
 )
 
 var (
