@@ -259,3 +259,87 @@ type VulnerabilitySummaryList struct {
 
 	Items []VulnerabilitySummary `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfile struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   ApplicationProfileSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status ApplicationProfileStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+type ApplicationProfileSpec struct {
+	Capabilities []string    `json:"capabilities,omitempty"`
+	Execs        []ExecCalls `json:"execs,omitempty"`
+	Opens        []OpenCalls `json:"opens,omitempty"`
+}
+
+type ExecCalls struct {
+	Path string   `json:"path,omitempty"`
+	Args []string `json:"args,omitempty"`
+	Envs []string `json:"envs,omitempty"`
+}
+
+type OpenCalls struct {
+	Path  string   `json:"path" yaml:"path"`
+	Flags []string `json:"flags" yaml:"flags"`
+}
+
+type ApplicationProfileStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []ApplicationProfile `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfileSummary struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfileSummaryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []ApplicationProfileSummary `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationActivity struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   ApplicationActivitySpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status ApplicationActivityStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+type ApplicationActivitySpec struct {
+	Syscalls []string `json:"syscalls,omitempty"`
+}
+
+type ApplicationActivityStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationActivityList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []ApplicationActivity `json:"items" protobuf:"bytes,2,rep,name=items"`
+}

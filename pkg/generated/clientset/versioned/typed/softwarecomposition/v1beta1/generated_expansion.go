@@ -18,6 +18,12 @@ limitations under the License.
 
 package v1beta1
 
+type ApplicationActivityExpansion interface{}
+
+type ApplicationProfileExpansion interface{}
+
+type ApplicationProfileSummaryExpansion interface{}
+
 type ConfigurationScanSummaryExpansion interface{}
 
 type SBOMSPDXv2p3Expansion interface{}

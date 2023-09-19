@@ -65,6 +65,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ConfigurationScanSummaryList{},
 		&VulnerabilitySummary{},
 		&VulnerabilitySummaryList{},
+		&ApplicationProfile{},
+		&ApplicationProfileList{},
+		&ApplicationProfileSummary{},
+		&ApplicationProfileSummaryList{},
+		&ApplicationActivity{},
+		&ApplicationActivityList{},
 	)
 	return nil
 }

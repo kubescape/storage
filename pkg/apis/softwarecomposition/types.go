@@ -283,3 +283,87 @@ func (v *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSumm
 	}
 	v.Spec.WorkloadVulnerabilitiesObj = append(v.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
 }
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfile struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   ApplicationProfileSpec
+	Status ApplicationProfileStatus
+}
+
+type ApplicationProfileSpec struct {
+	Capabilities []string
+	Execs        []ExecCalls
+	Opens        []OpenCalls
+}
+
+type ExecCalls struct {
+	Path string
+	Args []string
+	Envs []string
+}
+
+type OpenCalls struct {
+	Path  string
+	Flags []string
+}
+
+type ApplicationProfileStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfileList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []ApplicationProfile
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfileSummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationProfileSummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []ApplicationProfileSummary
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationActivity struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   ApplicationActivitySpec
+	Status ApplicationActivityStatus
+}
+
+type ApplicationActivitySpec struct {
+	Syscalls []string
+}
+
+type ApplicationActivityStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ApplicationActivityList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []ApplicationActivity
+}

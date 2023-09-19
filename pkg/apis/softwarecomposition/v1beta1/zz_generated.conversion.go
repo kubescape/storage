@@ -67,6 +67,106 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationActivity)(nil), (*softwarecomposition.ApplicationActivity)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationActivity_To_softwarecomposition_ApplicationActivity(a.(*ApplicationActivity), b.(*softwarecomposition.ApplicationActivity), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationActivity)(nil), (*ApplicationActivity)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationActivity_To_v1beta1_ApplicationActivity(a.(*softwarecomposition.ApplicationActivity), b.(*ApplicationActivity), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationActivityList)(nil), (*softwarecomposition.ApplicationActivityList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationActivityList_To_softwarecomposition_ApplicationActivityList(a.(*ApplicationActivityList), b.(*softwarecomposition.ApplicationActivityList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationActivityList)(nil), (*ApplicationActivityList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationActivityList_To_v1beta1_ApplicationActivityList(a.(*softwarecomposition.ApplicationActivityList), b.(*ApplicationActivityList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationActivitySpec)(nil), (*softwarecomposition.ApplicationActivitySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationActivitySpec_To_softwarecomposition_ApplicationActivitySpec(a.(*ApplicationActivitySpec), b.(*softwarecomposition.ApplicationActivitySpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationActivitySpec)(nil), (*ApplicationActivitySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationActivitySpec_To_v1beta1_ApplicationActivitySpec(a.(*softwarecomposition.ApplicationActivitySpec), b.(*ApplicationActivitySpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationActivityStatus)(nil), (*softwarecomposition.ApplicationActivityStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationActivityStatus_To_softwarecomposition_ApplicationActivityStatus(a.(*ApplicationActivityStatus), b.(*softwarecomposition.ApplicationActivityStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationActivityStatus)(nil), (*ApplicationActivityStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationActivityStatus_To_v1beta1_ApplicationActivityStatus(a.(*softwarecomposition.ApplicationActivityStatus), b.(*ApplicationActivityStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationProfile)(nil), (*softwarecomposition.ApplicationProfile)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile(a.(*ApplicationProfile), b.(*softwarecomposition.ApplicationProfile), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationProfile)(nil), (*ApplicationProfile)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(a.(*softwarecomposition.ApplicationProfile), b.(*ApplicationProfile), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationProfileList)(nil), (*softwarecomposition.ApplicationProfileList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList(a.(*ApplicationProfileList), b.(*softwarecomposition.ApplicationProfileList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationProfileList)(nil), (*ApplicationProfileList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList(a.(*softwarecomposition.ApplicationProfileList), b.(*ApplicationProfileList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationProfileSpec)(nil), (*softwarecomposition.ApplicationProfileSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(a.(*ApplicationProfileSpec), b.(*softwarecomposition.ApplicationProfileSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationProfileSpec)(nil), (*ApplicationProfileSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(a.(*softwarecomposition.ApplicationProfileSpec), b.(*ApplicationProfileSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationProfileStatus)(nil), (*softwarecomposition.ApplicationProfileStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationProfileStatus_To_softwarecomposition_ApplicationProfileStatus(a.(*ApplicationProfileStatus), b.(*softwarecomposition.ApplicationProfileStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationProfileStatus)(nil), (*ApplicationProfileStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationProfileStatus_To_v1beta1_ApplicationProfileStatus(a.(*softwarecomposition.ApplicationProfileStatus), b.(*ApplicationProfileStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationProfileSummary)(nil), (*softwarecomposition.ApplicationProfileSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationProfileSummary_To_softwarecomposition_ApplicationProfileSummary(a.(*ApplicationProfileSummary), b.(*softwarecomposition.ApplicationProfileSummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationProfileSummary)(nil), (*ApplicationProfileSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationProfileSummary_To_v1beta1_ApplicationProfileSummary(a.(*softwarecomposition.ApplicationProfileSummary), b.(*ApplicationProfileSummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ApplicationProfileSummaryList)(nil), (*softwarecomposition.ApplicationProfileSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ApplicationProfileSummaryList_To_softwarecomposition_ApplicationProfileSummaryList(a.(*ApplicationProfileSummaryList), b.(*softwarecomposition.ApplicationProfileSummaryList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ApplicationProfileSummaryList)(nil), (*ApplicationProfileSummaryList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ApplicationProfileSummaryList_To_v1beta1_ApplicationProfileSummaryList(a.(*softwarecomposition.ApplicationProfileSummaryList), b.(*ApplicationProfileSummaryList), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*ArtifactOfProject)(nil), (*softwarecomposition.ArtifactOfProject)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_ArtifactOfProject_To_softwarecomposition_ArtifactOfProject(a.(*ArtifactOfProject), b.(*softwarecomposition.ArtifactOfProject), scope)
 	}); err != nil {
@@ -207,6 +307,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*ExecCalls)(nil), (*softwarecomposition.ExecCalls)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(a.(*ExecCalls), b.(*softwarecomposition.ExecCalls), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ExecCalls)(nil), (*ExecCalls)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls(a.(*softwarecomposition.ExecCalls), b.(*ExecCalls), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*ExternalDocumentRef)(nil), (*softwarecomposition.ExternalDocumentRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_ExternalDocumentRef_To_softwarecomposition_ExternalDocumentRef(a.(*ExternalDocumentRef), b.(*softwarecomposition.ExternalDocumentRef), scope)
 	}); err != nil {
@@ -304,6 +414,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.MatchDetails)(nil), (*MatchDetails)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(a.(*softwarecomposition.MatchDetails), b.(*MatchDetails), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*OpenCalls)(nil), (*softwarecomposition.OpenCalls)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_OpenCalls_To_softwarecomposition_OpenCalls(a.(*OpenCalls), b.(*softwarecomposition.OpenCalls), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.OpenCalls)(nil), (*OpenCalls)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_OpenCalls_To_v1beta1_OpenCalls(a.(*softwarecomposition.OpenCalls), b.(*OpenCalls), scope)
 	}); err != nil {
 		return err
 	}
@@ -1000,6 +1120,236 @@ func Convert_softwarecomposition_Annotator_To_v1beta1_Annotator(in *softwarecomp
 	return autoConvert_softwarecomposition_Annotator_To_v1beta1_Annotator(in, out, s)
 }
 
+func autoConvert_v1beta1_ApplicationActivity_To_softwarecomposition_ApplicationActivity(in *ApplicationActivity, out *softwarecomposition.ApplicationActivity, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_ApplicationActivitySpec_To_softwarecomposition_ApplicationActivitySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_ApplicationActivityStatus_To_softwarecomposition_ApplicationActivityStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_ApplicationActivity_To_softwarecomposition_ApplicationActivity is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationActivity_To_softwarecomposition_ApplicationActivity(in *ApplicationActivity, out *softwarecomposition.ApplicationActivity, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationActivity_To_softwarecomposition_ApplicationActivity(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationActivity_To_v1beta1_ApplicationActivity(in *softwarecomposition.ApplicationActivity, out *ApplicationActivity, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_ApplicationActivitySpec_To_v1beta1_ApplicationActivitySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_ApplicationActivityStatus_To_v1beta1_ApplicationActivityStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationActivity_To_v1beta1_ApplicationActivity is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationActivity_To_v1beta1_ApplicationActivity(in *softwarecomposition.ApplicationActivity, out *ApplicationActivity, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationActivity_To_v1beta1_ApplicationActivity(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationActivityList_To_softwarecomposition_ApplicationActivityList(in *ApplicationActivityList, out *softwarecomposition.ApplicationActivityList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.ApplicationActivity)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_ApplicationActivityList_To_softwarecomposition_ApplicationActivityList is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationActivityList_To_softwarecomposition_ApplicationActivityList(in *ApplicationActivityList, out *softwarecomposition.ApplicationActivityList, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationActivityList_To_softwarecomposition_ApplicationActivityList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationActivityList_To_v1beta1_ApplicationActivityList(in *softwarecomposition.ApplicationActivityList, out *ApplicationActivityList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]ApplicationActivity)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationActivityList_To_v1beta1_ApplicationActivityList is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationActivityList_To_v1beta1_ApplicationActivityList(in *softwarecomposition.ApplicationActivityList, out *ApplicationActivityList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationActivityList_To_v1beta1_ApplicationActivityList(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationActivitySpec_To_softwarecomposition_ApplicationActivitySpec(in *ApplicationActivitySpec, out *softwarecomposition.ApplicationActivitySpec, s conversion.Scope) error {
+	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
+	return nil
+}
+
+// Convert_v1beta1_ApplicationActivitySpec_To_softwarecomposition_ApplicationActivitySpec is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationActivitySpec_To_softwarecomposition_ApplicationActivitySpec(in *ApplicationActivitySpec, out *softwarecomposition.ApplicationActivitySpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationActivitySpec_To_softwarecomposition_ApplicationActivitySpec(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationActivitySpec_To_v1beta1_ApplicationActivitySpec(in *softwarecomposition.ApplicationActivitySpec, out *ApplicationActivitySpec, s conversion.Scope) error {
+	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationActivitySpec_To_v1beta1_ApplicationActivitySpec is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationActivitySpec_To_v1beta1_ApplicationActivitySpec(in *softwarecomposition.ApplicationActivitySpec, out *ApplicationActivitySpec, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationActivitySpec_To_v1beta1_ApplicationActivitySpec(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationActivityStatus_To_softwarecomposition_ApplicationActivityStatus(in *ApplicationActivityStatus, out *softwarecomposition.ApplicationActivityStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_v1beta1_ApplicationActivityStatus_To_softwarecomposition_ApplicationActivityStatus is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationActivityStatus_To_softwarecomposition_ApplicationActivityStatus(in *ApplicationActivityStatus, out *softwarecomposition.ApplicationActivityStatus, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationActivityStatus_To_softwarecomposition_ApplicationActivityStatus(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationActivityStatus_To_v1beta1_ApplicationActivityStatus(in *softwarecomposition.ApplicationActivityStatus, out *ApplicationActivityStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationActivityStatus_To_v1beta1_ApplicationActivityStatus is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationActivityStatus_To_v1beta1_ApplicationActivityStatus(in *softwarecomposition.ApplicationActivityStatus, out *ApplicationActivityStatus, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationActivityStatus_To_v1beta1_ApplicationActivityStatus(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile(in *ApplicationProfile, out *softwarecomposition.ApplicationProfile, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_ApplicationProfileStatus_To_softwarecomposition_ApplicationProfileStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile(in *ApplicationProfile, out *softwarecomposition.ApplicationProfile, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(in *softwarecomposition.ApplicationProfile, out *ApplicationProfile, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_ApplicationProfileStatus_To_v1beta1_ApplicationProfileStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(in *softwarecomposition.ApplicationProfile, out *ApplicationProfile, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList(in *ApplicationProfileList, out *softwarecomposition.ApplicationProfileList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.ApplicationProfile)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList(in *ApplicationProfileList, out *softwarecomposition.ApplicationProfileList, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList(in *softwarecomposition.ApplicationProfileList, out *ApplicationProfileList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]ApplicationProfile)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList(in *softwarecomposition.ApplicationProfileList, out *ApplicationProfileList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(in *ApplicationProfileSpec, out *softwarecomposition.ApplicationProfileSpec, s conversion.Scope) error {
+	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
+	out.Execs = *(*[]softwarecomposition.ExecCalls)(unsafe.Pointer(&in.Execs))
+	out.Opens = *(*[]softwarecomposition.OpenCalls)(unsafe.Pointer(&in.Opens))
+	return nil
+}
+
+// Convert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(in *ApplicationProfileSpec, out *softwarecomposition.ApplicationProfileSpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(in *softwarecomposition.ApplicationProfileSpec, out *ApplicationProfileSpec, s conversion.Scope) error {
+	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
+	out.Execs = *(*[]ExecCalls)(unsafe.Pointer(&in.Execs))
+	out.Opens = *(*[]OpenCalls)(unsafe.Pointer(&in.Opens))
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(in *softwarecomposition.ApplicationProfileSpec, out *ApplicationProfileSpec, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationProfileStatus_To_softwarecomposition_ApplicationProfileStatus(in *ApplicationProfileStatus, out *softwarecomposition.ApplicationProfileStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_v1beta1_ApplicationProfileStatus_To_softwarecomposition_ApplicationProfileStatus is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationProfileStatus_To_softwarecomposition_ApplicationProfileStatus(in *ApplicationProfileStatus, out *softwarecomposition.ApplicationProfileStatus, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationProfileStatus_To_softwarecomposition_ApplicationProfileStatus(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationProfileStatus_To_v1beta1_ApplicationProfileStatus(in *softwarecomposition.ApplicationProfileStatus, out *ApplicationProfileStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationProfileStatus_To_v1beta1_ApplicationProfileStatus is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationProfileStatus_To_v1beta1_ApplicationProfileStatus(in *softwarecomposition.ApplicationProfileStatus, out *ApplicationProfileStatus, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationProfileStatus_To_v1beta1_ApplicationProfileStatus(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationProfileSummary_To_softwarecomposition_ApplicationProfileSummary(in *ApplicationProfileSummary, out *softwarecomposition.ApplicationProfileSummary, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	return nil
+}
+
+// Convert_v1beta1_ApplicationProfileSummary_To_softwarecomposition_ApplicationProfileSummary is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationProfileSummary_To_softwarecomposition_ApplicationProfileSummary(in *ApplicationProfileSummary, out *softwarecomposition.ApplicationProfileSummary, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationProfileSummary_To_softwarecomposition_ApplicationProfileSummary(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationProfileSummary_To_v1beta1_ApplicationProfileSummary(in *softwarecomposition.ApplicationProfileSummary, out *ApplicationProfileSummary, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationProfileSummary_To_v1beta1_ApplicationProfileSummary is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationProfileSummary_To_v1beta1_ApplicationProfileSummary(in *softwarecomposition.ApplicationProfileSummary, out *ApplicationProfileSummary, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationProfileSummary_To_v1beta1_ApplicationProfileSummary(in, out, s)
+}
+
+func autoConvert_v1beta1_ApplicationProfileSummaryList_To_softwarecomposition_ApplicationProfileSummaryList(in *ApplicationProfileSummaryList, out *softwarecomposition.ApplicationProfileSummaryList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.ApplicationProfileSummary)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_ApplicationProfileSummaryList_To_softwarecomposition_ApplicationProfileSummaryList is an autogenerated conversion function.
+func Convert_v1beta1_ApplicationProfileSummaryList_To_softwarecomposition_ApplicationProfileSummaryList(in *ApplicationProfileSummaryList, out *softwarecomposition.ApplicationProfileSummaryList, s conversion.Scope) error {
+	return autoConvert_v1beta1_ApplicationProfileSummaryList_To_softwarecomposition_ApplicationProfileSummaryList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ApplicationProfileSummaryList_To_v1beta1_ApplicationProfileSummaryList(in *softwarecomposition.ApplicationProfileSummaryList, out *ApplicationProfileSummaryList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]ApplicationProfileSummary)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_ApplicationProfileSummaryList_To_v1beta1_ApplicationProfileSummaryList is an autogenerated conversion function.
+func Convert_softwarecomposition_ApplicationProfileSummaryList_To_v1beta1_ApplicationProfileSummaryList(in *softwarecomposition.ApplicationProfileSummaryList, out *ApplicationProfileSummaryList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ApplicationProfileSummaryList_To_v1beta1_ApplicationProfileSummaryList(in, out, s)
+}
+
 func autoConvert_v1beta1_ArtifactOfProject_To_softwarecomposition_ArtifactOfProject(in *ArtifactOfProject, out *softwarecomposition.ArtifactOfProject, s conversion.Scope) error {
 	out.Name = in.Name
 	out.HomePage = in.HomePage
@@ -1368,6 +1718,30 @@ func Convert_softwarecomposition_Document_To_v1beta1_Document(in *softwarecompos
 	return autoConvert_softwarecomposition_Document_To_v1beta1_Document(in, out, s)
 }
 
+func autoConvert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(in *ExecCalls, out *softwarecomposition.ExecCalls, s conversion.Scope) error {
+	out.Path = in.Path
+	out.Args = *(*[]string)(unsafe.Pointer(&in.Args))
+	out.Envs = *(*[]string)(unsafe.Pointer(&in.Envs))
+	return nil
+}
+
+// Convert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls is an autogenerated conversion function.
+func Convert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(in *ExecCalls, out *softwarecomposition.ExecCalls, s conversion.Scope) error {
+	return autoConvert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(in, out, s)
+}
+
+func autoConvert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls(in *softwarecomposition.ExecCalls, out *ExecCalls, s conversion.Scope) error {
+	out.Path = in.Path
+	out.Args = *(*[]string)(unsafe.Pointer(&in.Args))
+	out.Envs = *(*[]string)(unsafe.Pointer(&in.Envs))
+	return nil
+}
+
+// Convert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls is an autogenerated conversion function.
+func Convert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls(in *softwarecomposition.ExecCalls, out *ExecCalls, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls(in, out, s)
+}
+
 func autoConvert_v1beta1_ExternalDocumentRef_To_softwarecomposition_ExternalDocumentRef(in *ExternalDocumentRef, out *softwarecomposition.ExternalDocumentRef, s conversion.Scope) error {
 	out.DocumentRefID = in.DocumentRefID
 	out.URI = in.URI
@@ -1678,6 +2052,28 @@ func autoConvert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(in *so
 // Convert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails is an autogenerated conversion function.
 func Convert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(in *softwarecomposition.MatchDetails, out *MatchDetails, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_MatchDetails_To_v1beta1_MatchDetails(in, out, s)
+}
+
+func autoConvert_v1beta1_OpenCalls_To_softwarecomposition_OpenCalls(in *OpenCalls, out *softwarecomposition.OpenCalls, s conversion.Scope) error {
+	out.Path = in.Path
+	out.Flags = *(*[]string)(unsafe.Pointer(&in.Flags))
+	return nil
+}
+
+// Convert_v1beta1_OpenCalls_To_softwarecomposition_OpenCalls is an autogenerated conversion function.
+func Convert_v1beta1_OpenCalls_To_softwarecomposition_OpenCalls(in *OpenCalls, out *softwarecomposition.OpenCalls, s conversion.Scope) error {
+	return autoConvert_v1beta1_OpenCalls_To_softwarecomposition_OpenCalls(in, out, s)
+}
+
+func autoConvert_softwarecomposition_OpenCalls_To_v1beta1_OpenCalls(in *softwarecomposition.OpenCalls, out *OpenCalls, s conversion.Scope) error {
+	out.Path = in.Path
+	out.Flags = *(*[]string)(unsafe.Pointer(&in.Flags))
+	return nil
+}
+
+// Convert_softwarecomposition_OpenCalls_To_v1beta1_OpenCalls is an autogenerated conversion function.
+func Convert_softwarecomposition_OpenCalls_To_v1beta1_OpenCalls(in *softwarecomposition.OpenCalls, out *OpenCalls, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_OpenCalls_To_v1beta1_OpenCalls(in, out, s)
 }
 
 func autoConvert_v1beta1_Originator_To_softwarecomposition_Originator(in *Originator, out *softwarecomposition.Originator, s conversion.Scope) error {
