@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )

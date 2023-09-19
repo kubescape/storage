@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apiserver/pkg/admission"
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/fake"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 // TestWantsInternalWardleInformerFactory ensures that the informer factory is injected

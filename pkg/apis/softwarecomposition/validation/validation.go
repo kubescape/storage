@@ -17,9 +17,9 @@ limitations under the License.
 package validation
 
 import (
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
 // ValidateFlunder validates a Flunder.
