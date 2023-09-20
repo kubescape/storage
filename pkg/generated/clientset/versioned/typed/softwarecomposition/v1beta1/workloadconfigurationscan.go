@@ -20,7 +20,9 @@ package v1beta1
 
 import (
 	"context"
+	"reflect"
 	"time"
+	"unsafe"
 
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	scheme "github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -66,11 +68,15 @@ func newWorkloadConfigurationScans(c *SpdxV1beta1Client, namespace string) *work
 // Get takes name of the workloadConfigurationScan, and returns the corresponding workloadConfigurationScan object, and an error if there is any.
 func (c *workloadConfigurationScans) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.WorkloadConfigurationScan, err error) {
 	result = &v1beta1.WorkloadConfigurationScan{}
-	err = c.client.Get().
+	r := c.client.Get().
 		Namespace(c.ns).
 		Resource("workloadconfigurationscans").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, scheme.ParameterCodec)
+	// set unexported field rateLimiter to nil
+	rateLimiter := reflect.ValueOf(r).Elem().FieldByName("rateLimiter")
+	reflect.NewAt(rateLimiter.Type(), unsafe.Pointer(rateLimiter.UnsafeAddr())).Elem().Set(reflect.Zero(rateLimiter.Type()))
+	err = r.
 		Do(ctx).
 		Into(result)
 	return
@@ -111,11 +117,15 @@ func (c *workloadConfigurationScans) Watch(ctx context.Context, opts v1.ListOpti
 // Create takes the representation of a workloadConfigurationScan and creates it.  Returns the server's representation of the workloadConfigurationScan, and an error, if there is any.
 func (c *workloadConfigurationScans) Create(ctx context.Context, workloadConfigurationScan *v1beta1.WorkloadConfigurationScan, opts v1.CreateOptions) (result *v1beta1.WorkloadConfigurationScan, err error) {
 	result = &v1beta1.WorkloadConfigurationScan{}
-	err = c.client.Post().
+	r := c.client.Post().
 		Namespace(c.ns).
 		Resource("workloadconfigurationscans").
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(workloadConfigurationScan).
+		Body(workloadConfigurationScan)
+	// set unexported field rateLimiter to nil
+	rateLimiter := reflect.ValueOf(r).Elem().FieldByName("rateLimiter")
+	reflect.NewAt(rateLimiter.Type(), unsafe.Pointer(rateLimiter.UnsafeAddr())).Elem().Set(reflect.Zero(rateLimiter.Type()))
+	err = r.
 		Do(ctx).
 		Into(result)
 	return

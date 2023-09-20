@@ -99,8 +99,12 @@ func removeSpec(in []byte) ([]byte, error) {
 }
 
 func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, out runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.writeFiles")
+	defer span.End()
 	// do not alter obj
+	_, span2 := otel.Tracer("").Start(ctx, "obj.DeepCopyObject")
 	dup := obj.DeepCopyObject()
+	span2.End()
 	// set resourceversion
 	if version, _ := s.versioner.ObjectResourceVersion(dup); version == 0 {
 		if err := s.versioner.UpdateObject(dup, 1); err != nil {
@@ -117,32 +121,34 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 		return err
 	}
 	// prepare json content
-	jsonBytes, err := json.MarshalIndent(dup, "", "  ")
+	_, span2 = otel.Tracer("").Start(ctx, "json.Marshal")
+	jsonBytes, err := json.Marshal(dup)
+	span2.End()
 	if err != nil {
 		return err
 	}
 	// prepare metadata content
+	_, span2 = otel.Tracer("").Start(ctx, "removeSpec")
 	metadataBytes, err := removeSpec(jsonBytes)
+	span2.End()
 	if err != nil {
 		return err
 	}
 	// write json file
+	_, span2 = otel.Tracer("").Start(ctx, "write file")
 	err = afero.WriteFile(s.appFs, p+jsonExt, jsonBytes, 0644)
+	span2.End()
 	if err != nil {
 		return err // maybe not exit here to try writing metadata file
 	}
 	// write metadata file
+	_, span2 = otel.Tracer("").Start(ctx, "write metadata file")
 	err = afero.WriteFile(s.appFs, p+metadataExt, metadataBytes, 0644)
+	span2.End()
 	if err != nil {
 		return err
 	}
-	// eventually fill out
-	if out != nil {
-		err = json.Unmarshal(jsonBytes, out)
-		if err != nil {
-			return err
-		}
-	}
+	// don't fill out
 	return nil
 }
 
@@ -154,11 +160,13 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.O
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	// resourceversion should not be set on create
+	_, span2 := otel.Tracer("").Start(ctx, "versioner.ObjectResourceVersion")
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
 		msg := "resourceVersion should not be set on objects to be created"
 		logger.L().Ctx(ctx).Error(msg)
 		return errors.New(msg)
 	}
+	span2.End()
 	// write files
 	if err := s.writeFiles(ctx, key, obj, out); err != nil {
 		logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
@@ -166,7 +174,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.O
 	}
 
 	// publish event to watchers
-	s.watchDispatcher.Added(key, obj)
+	s.watchDispatcher.Added(ctx, key, obj)
 	return nil
 }
 

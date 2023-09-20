@@ -1,10 +1,12 @@
 package file
 
 import (
+	"context"
 	"errors"
 	"strings"
 
 	"github.com/puzpuzpuz/xsync/v2"
+	"go.opentelemetry.io/otel"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 )
@@ -101,7 +103,9 @@ func (wd *watchDispatcher) Register(key string, w *watcher) {
 }
 
 // Added dispatches an "Added" event to appropriate watchers
-func (wd *watchDispatcher) Added(key string, obj runtime.Object) {
+func (wd *watchDispatcher) Added(ctx context.Context, key string, obj runtime.Object) {
+	ctx, span := otel.Tracer("").Start(ctx, "watchDispatcher.Added")
+	defer span.End()
 	wd.notify(key, watch.Added, obj)
 }
 
