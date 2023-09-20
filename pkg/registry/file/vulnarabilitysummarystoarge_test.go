@@ -277,15 +277,9 @@ func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
 					// copy the timestamp since it is created when generated, so it can be known at the test begin
 					o.Items[i].CreationTimestamp = tt.args.createdObj[i].CreationTimestamp
 				}
-				for i := range o.Items {
-					foundMatch := false
-					for j := range tt.args.expectedObj.Items {
-						if reflect.DeepEqual(o.Items[i], tt.args.expectedObj.Items[j]) {
-							foundMatch = true
-						}
-					}
-					assert.Equal(t, foundMatch, true)
-				}
+				assert.Equal(t, tt.args.expectedObj.TypeMeta, o.TypeMeta)
+				assert.Equal(t, tt.args.expectedObj.ListMeta, o.ListMeta)
+				assert.ElementsMatch(t, tt.args.expectedObj.Items, o.Items)
 			}
 		})
 	}
