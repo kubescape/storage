@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
