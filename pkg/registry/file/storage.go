@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	jsonExt                  = ".json"
-	metadataExt              = ".metadata"
+	jsonExt                  = ".j"
+	metadataExt              = ".m"
 	DefaultStorageRoot       = "/data"
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
@@ -98,6 +98,26 @@ func removeSpec(in []byte) ([]byte, error) {
 	return out, err
 }
 
+// makePayloadPath returns a path for the payload file
+func makePayloadPath(path string) string {
+	return path + jsonExt
+}
+
+// makeMetadataPath returns a path for the metadata file
+func makeMetadataPath(path string) string {
+	return path + metadataExt
+}
+
+// isMetadataFile returns true if a given file at `path` is an object metadata file, else false
+func isMetadataFile(path string) bool {
+	return strings.HasSuffix(path, metadataExt)
+}
+
+// isPayloadFile returns true if a given file at `path` is an object payload file, else false
+func isPayloadFile(path string) bool {
+	return !isMetadataFile(path)
+}
+
 func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, out runtime.Object) error {
 	// do not alter obj
 	dup := obj.DeepCopyObject()
@@ -126,13 +146,15 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 	if err != nil {
 		return err
 	}
-	// write json file
-	err = afero.WriteFile(s.appFs, p+jsonExt, jsonBytes, 0644)
+	// write payload file
+	payloadPath := makePayloadPath(p)
+	err = afero.WriteFile(s.appFs, payloadPath, jsonBytes, 0644)
 	if err != nil {
 		return err // maybe not exit here to try writing metadata file
 	}
 	// write metadata file
-	err = afero.WriteFile(s.appFs, p+metadataExt, metadataBytes, 0644)
+	metadataPath := makeMetadataPath(p)
+	err = afero.WriteFile(s.appFs, metadataPath, metadataBytes, 0644)
 	if err != nil {
 		return err
 	}
@@ -284,13 +306,16 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
+
 	p := filepath.Join(s.root, key)
 	var files []string
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	s.lock.RLock()
 	spanLock.End()
-	if exists, _ := afero.Exists(s.appFs, p+metadataExt); exists {
-		files = append(files, p+metadataExt)
+
+	metadataPath := makeMetadataPath(p)
+	if exists, _ := afero.Exists(s.appFs, metadataPath); exists {
+		files = append(files, metadataPath)
 	} else {
 		_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -489,17 +514,24 @@ func (s *StorageImpl) GuaranteedUpdate(
 func (s *StorageImpl) Count(key string) (int64, error) {
 	logger.L().Debug("Custom storage count", helpers.String("key", key))
 	p := filepath.Join(s.root, key)
+	payloadPath := makePayloadPath(p)
+
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	if exists, _ := afero.Exists(s.appFs, p+jsonExt); exists {
+
+	pathExists, _ := afero.Exists(s.appFs, payloadPath)
+	pathIsDir, _ := afero.IsDir(s.appFs, payloadPath)
+	if pathExists && !pathIsDir {
 		return 1, nil
 	}
+
 	n := 0
 	err := afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && strings.HasSuffix(path, jsonExt) {
+		// Only payload files should count towards found objects
+		if !info.IsDir() && isPayloadFile(path) {
 			n++
 		}
 		return nil
