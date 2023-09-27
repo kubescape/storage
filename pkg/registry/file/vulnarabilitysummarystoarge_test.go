@@ -161,7 +161,7 @@ func TestVulnSummaryStorageImpl_GetList(t *testing.T) {
 				createdObj:    []*softwarecomposition.VulnerabilityManifestSummary{{}},
 			},
 			createObj: true,
-			wantErr: false,
+			wantErr:   false,
 		},
 		{
 			name: "get - from two created object",
@@ -384,14 +384,14 @@ func TestVulnSummaryStorageImpl_Get(t *testing.T) {
 					},
 					Spec: softwarecomposition.VulnerabilitySummarySpec{
 						WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{
-							softwarecomposition.VulnerabilitiesObjScope{
+							{
 								Kind: "vulnerabilitymanifestsummary",
 							},
 						},
 					},
 				},
 				keyCreatedObj: []string{"/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries/any/any"},
-				createdObj:    []*softwarecomposition.VulnerabilityManifestSummary{&softwarecomposition.VulnerabilityManifestSummary{}},
+				createdObj:    []*softwarecomposition.VulnerabilityManifestSummary{{}},
 			},
 			createObj: true, wantErr: false,
 		},
@@ -409,17 +409,17 @@ func TestVulnSummaryStorageImpl_Get(t *testing.T) {
 					},
 					Spec: softwarecomposition.VulnerabilitySummarySpec{
 						WorkloadVulnerabilitiesObj: []softwarecomposition.VulnerabilitiesObjScope{
-							softwarecomposition.VulnerabilitiesObjScope{
+							{
 								Kind: "vulnerabilitymanifestsummary",
 							},
-							softwarecomposition.VulnerabilitiesObjScope{
+							{
 								Kind: "vulnerabilitymanifestsummary",
 							},
 						},
 					},
 				},
 				keyCreatedObj: []string{"/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries/any/any", "/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries/any/many"},
-				createdObj:    []*softwarecomposition.VulnerabilityManifestSummary{&softwarecomposition.VulnerabilityManifestSummary{}, &softwarecomposition.VulnerabilityManifestSummary{}},
+				createdObj:    []*softwarecomposition.VulnerabilityManifestSummary{{}, {}},
 			},
 			createObj: true, wantErr: false,
 		},
