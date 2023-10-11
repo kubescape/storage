@@ -73,6 +73,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ApplicationProfileSummaryList{},
 		&ApplicationActivity{},
 		&ApplicationActivityList{},
+		&OpenVulnerabilityExchangeContainer{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

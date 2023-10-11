@@ -17,6 +17,7 @@ limitations under the License.
 package softwarecomposition
 
 import (
+	"github.com/openvex/go-vex/pkg/vex"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -366,4 +367,22 @@ type ApplicationActivityList struct {
 	metav1.ListMeta
 
 	Items []ApplicationActivity
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OpenVulnerabilityExchangeContainer struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Vex vex.VEX
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OpenVulnerabilityExchangeContainerList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []OpenVulnerabilityExchangeContainer
 }

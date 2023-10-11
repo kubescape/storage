@@ -71,6 +71,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ApplicationProfileSummaryList{},
 		&ApplicationActivity{},
 		&ApplicationActivityList{},
+		&OpenVulnerabilityExchangeContainer{},
 	)
 	return nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/openvex/go-vex/pkg/vex"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -342,4 +343,22 @@ type ApplicationActivityList struct {
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Items []ApplicationActivity `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type OpenVulnerabilityExchangeContainer struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Vex vex.VEX `json:"vex" protobuf:"bytes,2,opt,name=vex"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OpenVulnerabilityExchangeContainerList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []OpenVulnerabilityExchangeContainer
 }
