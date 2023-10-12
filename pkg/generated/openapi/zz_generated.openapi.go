@@ -70,6 +70,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls":                                  schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer":         schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainer(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainerList":     schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainerList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator":                                 schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                               schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                                    schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
@@ -2042,6 +2044,87 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref common.ReferenceC
 				Required: []string{"path", "flags"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"vex": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/openvex/go-vex/pkg/vex.VEX"),
+						},
+					},
+				},
+				Required: []string{"vex"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/openvex/go-vex/pkg/vex.VEX", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"TypeMeta": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"),
+						},
+					},
+					"ListMeta": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"Items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"TypeMeta", "ListMeta", "Items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
 	}
 }
 
