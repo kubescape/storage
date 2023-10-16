@@ -1,4 +1,5 @@
 name: pull_request_created
+permissions: read-all
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
