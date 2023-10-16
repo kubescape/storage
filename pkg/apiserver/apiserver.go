@@ -21,6 +21,7 @@ import (
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationactivity"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofilesummary"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/openvulnerabilityexchange"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -164,6 +165,8 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["applicationprofiles"] = sbomregistry.RESTInPeace(applicationprofile.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["applicationprofilesummaries"] = sbomregistry.RESTInPeace(applicationprofilesummary.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["applicationactivities"] = sbomregistry.RESTInPeace(applicationactivity.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+
+	v1beta1storage["openvulnerabilityexchangecontainers"] = sbomregistry.RESTInPeace(openvulnerabilityexchange.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 

@@ -32,6 +32,7 @@ type SpdxV1beta1Interface interface {
 	ApplicationProfilesGetter
 	ApplicationProfileSummariesGetter
 	ConfigurationScanSummariesGetter
+	OpenVulnerabilityExchangeContainersGetter
 	SBOMSPDXv2p3sGetter
 	SBOMSPDXv2p3FilteredsGetter
 	SBOMSummariesGetter
@@ -61,6 +62,10 @@ func (c *SpdxV1beta1Client) ApplicationProfileSummaries(namespace string) Applic
 
 func (c *SpdxV1beta1Client) ConfigurationScanSummaries(namespace string) ConfigurationScanSummaryInterface {
 	return newConfigurationScanSummaries(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) OpenVulnerabilityExchangeContainers(namespace string) OpenVulnerabilityExchangeContainerInterface {
+	return newOpenVulnerabilityExchangeContainers(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) SBOMSPDXv2p3s(namespace string) SBOMSPDXv2p3Interface {

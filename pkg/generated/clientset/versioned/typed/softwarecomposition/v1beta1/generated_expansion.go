@@ -26,6 +26,8 @@ type ApplicationProfileSummaryExpansion interface{}
 
 type ConfigurationScanSummaryExpansion interface{}
 
+type OpenVulnerabilityExchangeContainerExpansion interface{}
+
 type SBOMSPDXv2p3Expansion interface{}
 
 type SBOMSPDXv2p3FilteredExpansion interface{}
