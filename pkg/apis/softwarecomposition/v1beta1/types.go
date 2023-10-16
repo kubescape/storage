@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/openvex/go-vex/pkg/vex"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -345,20 +344,168 @@ type ApplicationActivityList struct {
 	Items []ApplicationActivity `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// VEX
+///////////////////////////////////////////////////////////////////////////////
+
+type (
+	Algorithm         string
+	Hash              string
+	IdentifierLocator string
+	IdentifierType    string
+	Status            string
+)
+
+type Justification string
+
+type Component struct {
+	// ID is an IRI identifying the component. It is optional as the component
+	// can also be identified using hashes or software identifiers.
+	ID string `json:"@id,omitempty"`
+
+	// Hashes is a map of hashes to identify the component using cryptographic
+	// hashes.
+	Hashes map[Algorithm]Hash `json:"hashes,omitempty"`
+
+	// Identifiers is a list of software identifiers that describe the component.
+	Identifiers map[IdentifierType]string `json:"identifiers,omitempty"`
+
+	// Supplier is an optional machine-readable identifier for the supplier of
+	// the component. Valid examples include email address or IRIs.
+	Supplier string `json:"supplier,omitempty"`
+}
+
+type Product struct {
+	Component
+	Subcomponents []Subcomponent `json:"subcomponents,omitempty"`
+}
+
+type Subcomponent struct {
+	Component
+}
+
+type VexVulnerability struct {
+	//  ID is an IRI to reference the vulnerability in the statement.
+	ID string `json:"@id,omitempty"`
+
+	// Name is the main vulnerability identifier.
+	Name string `json:"name,omitempty"`
+
+	// Description is a short free form text description of the vulnerability.
+	Description string `json:"description,omitempty"`
+
+	// Aliases is a list of other vulnerability identifier strings that
+	// locate the vulnerability in other tracking systems.
+	Aliases []string `json:"aliases,omitempty"`
+}
+
+type Statement struct {
+	// ID is an optional identifier for the statement. It takes an IRI and must
+	// be unique for each statement in the document.
+	ID string `json:"@id,omitempty"`
+
+	// [vul_id] SHOULD use existing and well known identifiers, for example:
+	// CVE, the Global Security Database (GSD), or a supplier’s vulnerability
+	// tracking system. It is expected that vulnerability identification systems
+	// are external to and maintained separately from VEX.
+	//
+	// [vul_id] MAY be URIs or URLs.
+	// [vul_id] MAY be arbitrary and MAY be created by the VEX statement [author].
+	Vulnerability VexVulnerability `json:"vulnerability,omitempty"`
+
+	// Timestamp is the time at which the information expressed in the Statement
+	// was known to be true.
+	Timestamp string `json:"timestamp,omitempty"`
+
+	// LastUpdated records the time when the statement last had a modification
+	LastUpdated string `json:"last_updated,omitempty"`
+
+	// Product
+	// Product details MUST specify what Status applies to.
+	// Product details MUST include [product_id] and MAY include [subcomponent_id].
+	Products []Product `json:"products,omitempty"`
+
+	// A VEX statement MUST provide Status of the vulnerabilities with respect to the
+	// products and components listed in the statement. Status MUST be one of the
+	// Status const values, some of which have further options and requirements.
+	Status Status `json:"status"`
+
+	// [status_notes] MAY convey information about how [status] was determined
+	// and MAY reference other VEX information.
+	StatusNotes string `json:"status_notes,omitempty"`
+
+	// For ”not_affected” status, a VEX statement MUST include a status Justification
+	// that further explains the status.
+	Justification Justification `json:"justification,omitempty"`
+
+	// For ”not_affected” status, a VEX statement MAY include an ImpactStatement
+	// that contains a description why the vulnerability cannot be exploited.
+	ImpactStatement string `json:"impact_statement,omitempty"`
+
+	// For "affected" status, a VEX statement MUST include an ActionStatement that
+	// SHOULD describe actions to remediate or mitigate [vul_id].
+	ActionStatement          string `json:"action_statement,omitempty"`
+	ActionStatementTimestamp string `json:"action_statement_timestamp,omitempty"`
+}
+
+type VEX struct {
+	Metadata
+	Statements []Statement `json:"statements"`
+}
+
+type Metadata struct {
+	// Context is the URL pointing to the jsonld context definition
+	Context string `json:"@context"`
+
+	// ID is the identifying string for the VEX document. This should be unique per
+	// document.
+	ID string `json:"@id"`
+
+	// Author is the identifier for the author of the VEX statement, ideally a common
+	// name, may be a URI. [author] is an individual or organization. [author]
+	// identity SHOULD be cryptographically associated with the signature of the VEX
+	// statement or document or transport.
+	Author string `json:"author"`
+
+	// AuthorRole describes the role of the document Author.
+	AuthorRole string `json:"role,omitempty"`
+
+	// Timestamp defines the time at which the document was issued.
+	Timestamp string `json:"timestamp"`
+
+	// LastUpdated marks the time when the document had its last update. When the
+	// document changes both version and this field should be updated.
+	LastUpdated string `json:"last_updated,omitempty"`
+
+	// Version is the document version. It must be incremented when any content
+	// within the VEX document changes, including any VEX statements included within
+	// the VEX document.
+	Version int `json:"version"`
+
+	// Tooling expresses how the VEX document and contained VEX statements were
+	// generated. It's optional. It may specify tools or automated processes used in
+	// the document or statement generation.
+	Tooling string `json:"tooling,omitempty"`
+
+	// Supplier is an optional field.
+	Supplier string `json:"supplier,omitempty"`
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type OpenVulnerabilityExchangeContainer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Vex vex.VEX `json:"vex" protobuf:"bytes,2,opt,name=vex"`
+	Spec VEX `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type OpenVulnerabilityExchangeContainerList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []OpenVulnerabilityExchangeContainer
+	Items []OpenVulnerabilityExchangeContainer `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
