@@ -50,6 +50,14 @@ type ConfigurationScanSummaryListerExpansion interface{}
 // ConfigurationScanSummaryNamespaceLister.
 type ConfigurationScanSummaryNamespaceListerExpansion interface{}
 
+// OpenVulnerabilityExchangeContainerListerExpansion allows custom methods to be added to
+// OpenVulnerabilityExchangeContainerLister.
+type OpenVulnerabilityExchangeContainerListerExpansion interface{}
+
+// OpenVulnerabilityExchangeContainerNamespaceListerExpansion allows custom methods to be added to
+// OpenVulnerabilityExchangeContainerNamespaceLister.
+type OpenVulnerabilityExchangeContainerNamespaceListerExpansion interface{}
+
 // SBOMSPDXv2p3ListerExpansion allows custom methods to be added to
 // SBOMSPDXv2p3Lister.
 type SBOMSPDXv2p3ListerExpansion interface{}

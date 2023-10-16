@@ -32,6 +32,8 @@ type Interface interface {
 	ApplicationProfileSummaries() ApplicationProfileSummaryInformer
 	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
+	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
+	OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer
 	// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
 	SBOMSPDXv2p3s() SBOMSPDXv2p3Informer
 	// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
@@ -79,6 +81,11 @@ func (v *version) ApplicationProfileSummaries() ApplicationProfileSummaryInforme
 // ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 func (v *version) ConfigurationScanSummaries() ConfigurationScanSummaryInformer {
 	return &configurationScanSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
+func (v *version) OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer {
+	return &openVulnerabilityExchangeContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.

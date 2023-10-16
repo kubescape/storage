@@ -46,6 +46,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileSummaryList":              schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":                          schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                                   schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component":                                  schema_pkg_apis_softwarecomposition_v1beta1_Component(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary":                   schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummaryList":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
@@ -69,12 +70,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch":                               schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata":                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls":                                  schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer":         schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainer(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainerList":     schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainerList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator":                                 schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                               schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                                    schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference":                   schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":                    schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product":                                    schema_pkg_apis_softwarecomposition_v1beta1_Product(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship":                               schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta":                                 schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Review":                                     schema_pkg_apis_softwarecomposition_v1beta1_Review(ref),
@@ -99,10 +104,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":                               schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer":                        schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                                     schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement":                                  schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent":                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                                   schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":                            schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":                            schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX":                                        schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VexVulnerability":                           schema_pkg_apis_softwarecomposition_v1beta1_VexVulnerability(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents":                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope":                    schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesObjScope(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability":                              schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
@@ -719,6 +728,64 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"algorithm", "checksumValue"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Component(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"@id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is an IRI identifying the component. It is optional as the component can also be identified using hashes or software identifiers.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hashes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hashes is a map of hashes to identify the component using cryptographic hashes.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"identifiers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Identifiers is a list of software identifiers that describe the component.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"supplier": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Supplier is an optional machine-readable identifier for the supplier of the component. Valid examples include email address or IRIs.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -2011,6 +2078,87 @@ func schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref common.Referen
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"@context": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Context is the URL pointing to the jsonld context definition",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"@id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the identifying string for the VEX document. This should be unique per document.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"author": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Author is the identifier for the author of the VEX statement, ideally a common name, may be a URI. [author] is an individual or organization. [author] identity SHOULD be cryptographically associated with the signature of the VEX statement or document or transport.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorRole describes the role of the document Author.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"timestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timestamp defines the time at which the document was issued.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"last_updated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastUpdated marks the time when the document had its last update. When the document changes both version and this field should be updated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version is the document version. It must be incremented when any content within the VEX document changes, including any VEX statements included within the VEX document.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"tooling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tooling expresses how the VEX document and contained VEX statements were generated. It's optional. It may specify tools or automated processes used in the document or statement generation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"supplier": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Supplier is an optional field.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"@context", "@id", "author", "timestamp", "version"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2042,6 +2190,94 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref common.ReferenceC
 				Required: []string{"path", "flags"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -2498,6 +2734,40 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref com
 				Required: []string{"packageVerificationCodeValue", "packageVerificationCodeExcludedFiles"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Product(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Component": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component"),
+						},
+					},
+					"subcomponents": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"Component"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent"},
 	}
 }
 
@@ -3501,6 +3771,126 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Source(ref common.ReferenceCall
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"@id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is an optional identifier for the statement. It takes an IRI and must be unique for each statement in the document.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vulnerability": {
+						SchemaProps: spec.SchemaProps{
+							Description: "[vul_id] SHOULD use existing and well known identifiers, for example: CVE, the Global Security Database (GSD), or a supplier’s vulnerability tracking system. It is expected that vulnerability identification systems are external to and maintained separately from VEX.\n\n[vul_id] MAY be URIs or URLs. [vul_id] MAY be arbitrary and MAY be created by the VEX statement [author].",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VexVulnerability"),
+						},
+					},
+					"timestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timestamp is the time at which the information expressed in the Statement was known to be true.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"last_updated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastUpdated records the time when the statement last had a modification",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"products": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Product Product details MUST specify what Status applies to. Product details MUST include [product_id] and MAY include [subcomponent_id].",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product"),
+									},
+								},
+							},
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A VEX statement MUST provide Status of the vulnerabilities with respect to the products and components listed in the statement. Status MUST be one of the Status const values, some of which have further options and requirements.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status_notes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "[status_notes] MAY convey information about how [status] was determined and MAY reference other VEX information.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"justification": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For ”not_affected” status, a VEX statement MUST include a status Justification that further explains the status.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"impact_statement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For ”not_affected” status, a VEX statement MAY include an ImpactStatement that contains a description why the vulnerability cannot be exploited.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"action_statement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For \"affected\" status, a VEX statement MUST include an ActionStatement that SHOULD describe actions to remediate or mitigate [vul_id].",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"action_statement_timestamp": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"status"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VexVulnerability"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Component": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component"),
+						},
+					},
+				},
+				Required: []string{"Component"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3605,6 +3995,88 @@ func schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref common.Refe
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata"),
+						},
+					},
+					"statements": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"Metadata", "statements"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VexVulnerability(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"@id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is an IRI to reference the vulnerability in the statement.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the main vulnerability identifier.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is a short free form text description of the vulnerability.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"aliases": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Aliases is a list of other vulnerability identifier strings that locate the vulnerability in other tracking systems.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
