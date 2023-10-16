@@ -1,4 +1,7 @@
-# sample-apiserver
+# Kubescape Storage
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkubescape%2Fstorage.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkubescape%2Fstorage?ref=badge_shield&issueType=license)
+
 
 Demonstration of how to use the k8s.io/apiserver library to build a functional API server.
 
@@ -203,4 +206,6 @@ only this superuser group is authorized.
    http --verify=no --cert client.crt --cert-key client.key \
       https://localhost:8443/apis/wardle.example.com/v1alpha1/namespaces/default/flunders
    ```
+## Changelog
 
+Kubescape Storage changes are tracked on the [release](https://github.com/kubescape/storage/releases) page
