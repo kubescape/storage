@@ -13,7 +13,7 @@ require (
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.6.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/otel v1.13.0
 	k8s.io/apimachinery v0.26.2
 	k8s.io/apiserver v0.26.2
@@ -51,7 +51,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/cel-go v0.12.6 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.0 // indirect
@@ -76,6 +76,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -135,6 +136,7 @@ require (
 )
 
 replace (
+	github.com/openvex/go-vex => github.com/slashben/go-vex v0.0.0-20231012123606-f58e5ee0e14e
 	k8s.io/api => k8s.io/api v0.0.0-20230207050353-0478a3e95231
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20230207050124-7687996c715e
 	k8s.io/apiserver => k8s.io/apiserver v0.0.0-20230207052343-3cee67d89e1b

@@ -34,6 +34,8 @@ type Interface interface {
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
 	// NetworkNeighborses returns a NetworkNeighborsInformer.
 	NetworkNeighborses() NetworkNeighborsInformer
+	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
+	OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer
 	// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
 	SBOMSPDXv2p3s() SBOMSPDXv2p3Informer
 	// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
@@ -86,6 +88,11 @@ func (v *version) ConfigurationScanSummaries() ConfigurationScanSummaryInformer 
 // NetworkNeighborses returns a NetworkNeighborsInformer.
 func (v *version) NetworkNeighborses() NetworkNeighborsInformer {
 	return &networkNeighborsInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
+func (v *version) OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer {
+	return &openVulnerabilityExchangeContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.

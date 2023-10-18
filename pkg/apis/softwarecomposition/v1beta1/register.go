@@ -75,6 +75,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ApplicationActivityList{},
 		&NetworkNeighbors{},
 		&NetworkNeighborsList{},
+		&OpenVulnerabilityExchangeContainer{},
+		&OpenVulnerabilityExchangeContainerList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
