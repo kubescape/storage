@@ -38,20 +38,28 @@ type NetworkNeighbors struct {
 }
 
 type NetworkNeighborsSpec struct {
-	MatchLabels *metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
-	Ingress     []NetworkEntry
-	Egress      []NetworkEntry
+	*metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
+	Ingress               []IngressEntry
+	Egress                []EgressEntry
 }
 
-// NetworkEntry represents a single network communication.
-type NetworkEntry struct {
-	Identifier        string // A unique identifier for this entry, used for patching.
+// IngressEntry represents a single incoming communication.
+type IngressEntry struct {
+	Identifier        string
 	Type              CommunicationType
 	DNS               string
-	IPAddress         string
 	Ports             []NetworkPort
 	PodSelector       *metav1.LabelSelector
 	NamespaceSelector *metav1.LabelSelector
+}
+
+// EgressEntry represents a single outgoing communication.
+type EgressEntry struct {
+	Identifier string
+	Type       CommunicationType
+	DNS        string
+	Ports      []NetworkPort
+	IPAddress  string
 }
 
 type NetworkPort struct {

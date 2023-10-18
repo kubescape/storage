@@ -1,0 +1,38 @@
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
+kind: NetworkNeighbors
+metadata:
+  name: deployment-nginx
+  labels:
+      "kubescape.io/workload-api-group": "spdx.softwarecomposition.kubescape.io"
+      "kubescape.io/workload-api-version" : "v1beta1"
+      "kubescape.io/workload-name": "nginx"
+      "kubescape.io/workload-kind": "Deployment"
+      "kubescape.io/workload-namespace": "kubescape"
+  
+spec:
+  matchLabels:
+      app: nginx
+  
+  ingress:
+  - type: internal
+    identifier: bla
+    namespaceSelector:
+        matchLabels:
+          name: kubescape
+    podSelector:
+        matchLabels:
+          app: kubescape-ui
+    ports:
+    -   name: TCP-6379
+        protocol: TCP
+        port: 6379
+
+  egress:
+  - type: external
+    identifier: bla
+    ipAddress: 123.5.2.3
+    dns: stripe.com 
+    ports:
+    - name: TCP-5978
+      protocol: TCP
+      port: 5978

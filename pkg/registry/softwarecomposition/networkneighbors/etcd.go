@@ -19,7 +19,7 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.NetworkNeighbors{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.NetworkNeighborsList{} },
-		PredicateFunc:             MatchApplicationProfileSummary,
+		PredicateFunc:             MatachNetworkNeighbor,
 		DefaultQualifiedResource:  softwarecomposition.Resource("networkneighborses"),
 		SingularQualifiedResource: softwarecomposition.Resource("networkneighbors"),
 
@@ -36,5 +36,6 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	if err := store.CompleteWithOptions(options); err != nil {
 		return nil, err
 	}
+
 	return &registry.REST{Store: store}, nil
 }

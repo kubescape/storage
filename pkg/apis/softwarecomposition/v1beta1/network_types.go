@@ -38,20 +38,36 @@ type NetworkNeighbors struct {
 }
 
 type NetworkNeighborsSpec struct {
-	MatchLabels *metav1.LabelSelector `json:"matchLabels"` // The labels which are inside spec.selector in the parent workload.
-	Ingress     []NetworkEntry        `json:"ingress"`
-	Egress      []NetworkEntry        `json:"egress"`
+	*metav1.LabelSelector
+	// +patchMergeKey=identifier
+	// +patchStrategy=merge
+	Ingress []IngressEntry `json:"ingress" patchStrategy:"merge" patchMergeKey:"identifier"`
+	// +patchMergeKey=identifier
+	// +patchStrategy=merge
+	Egress []EgressEntry `json:"egress" patchStrategy:"merge" patchMergeKey:"identifier"`
 }
 
-// NetworkEntry represents a single network communication.
-type NetworkEntry struct {
-	Identifier        string                `json:"identifier"` // A unique identifier for this entry, used for patching.
-	Type              CommunicationType     `json:"type"`
-	DNS               string                `json:"dns"`
-	IPAddress         string                `json:"ipAddress"`
-	Ports             []NetworkPort         `json:"ports"`
+// IngressEntry represents a single incoming communication.
+type IngressEntry struct {
+	Identifier string            `json:"identifier"` // A unique identifier for this entry
+	Type       CommunicationType `json:"type"`
+	DNS        string            `json:"dns"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Ports             []NetworkPort         `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
 	PodSelector       *metav1.LabelSelector `json:"podSelector"`
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector"`
+}
+
+// EgressEntry represents a single outgoing communication.
+type EgressEntry struct {
+	Identifier string            `json:"identifier"` // A unique identifier for this entry
+	Type       CommunicationType `json:"type"`
+	DNS        string            `json:"dns"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Ports     []NetworkPort `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
+	IPAddress string        `json:"ipAddress"`
 }
 
 type NetworkPort struct {

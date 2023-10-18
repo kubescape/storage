@@ -71,8 +71,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ApplicationProfileSummaryList{},
 		&ApplicationActivity{},
 		&ApplicationActivityList{},
-		&NetworkNeighborsList{},
 		&NetworkNeighbors{},
+		&NetworkNeighborsList{},
 	)
 	return nil
 }
