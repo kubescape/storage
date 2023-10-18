@@ -39,27 +39,19 @@ type NetworkNeighbors struct {
 
 type NetworkNeighborsSpec struct {
 	*metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
-	Ingress               []IngressEntry
-	Egress                []EgressEntry
+	Ingress               []NetworkEntry
+	Egress                []NetworkEntry
 }
 
-// IngressEntry represents a single incoming communication.
-type IngressEntry struct {
+// IngressEntry represents a single network communication.
+type NetworkEntry struct {
 	Identifier        string
 	Type              CommunicationType
 	DNS               string
 	Ports             []NetworkPort
 	PodSelector       *metav1.LabelSelector
 	NamespaceSelector *metav1.LabelSelector
-}
-
-// EgressEntry represents a single outgoing communication.
-type EgressEntry struct {
-	Identifier string
-	Type       CommunicationType
-	DNS        string
-	Ports      []NetworkPort
-	IPAddress  string
+	IPAddress         string
 }
 
 type NetworkPort struct {
