@@ -2,11 +2,13 @@ apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
 kind: NetworkNeighbors
 metadata:
   name: deployment-nginx
+  annotations:
+    status: incomplete
   labels:
       "kubescape.io/workload-api-group": "spdx.softwarecomposition.kubescape.io"
-      "kubescape.io/workload-api-version" : "v1beta1"
+      "kubescape.io/workload-api-version": "v1beta1"
       "kubescape.io/workload-name": "nginx"
-      "kubescape.io/workload-kind": "Deployment"
+      "kubescape.io/workload-kind": "deployment"
       "kubescape.io/workload-namespace": "kubescape"
   
 spec:
