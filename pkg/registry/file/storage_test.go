@@ -15,13 +15,21 @@ import (
 	"k8s.io/utils/pointer"
 )
 
+func getStoredPayloadFilepath(root, key string) string {
+	return root + key + ".j"
+}
+
+func getStoredMetadataFilepath(root, key string) string {
+	return root + key + ".m"
+}
+
 func TestStorageImpl_Count(t *testing.T) {
 	files := []string{
-		"/other/type/ns/titi.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto.json",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto.json",
+		"/other/type/ns/titi",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto",
 	}
 	tests := []struct {
 		name    string
@@ -61,7 +69,8 @@ func TestStorageImpl_Count(t *testing.T) {
 			_ = fs.Mkdir(DefaultStorageRoot, 0755)
 
 			for _, f := range files {
-				_ = afero.WriteFile(fs, DefaultStorageRoot+f, []byte(""), 0644)
+				fpath := DefaultStorageRoot + f
+				_ = afero.WriteFile(fs, fpath, []byte(""), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			got, err := s.Count(tt.key)
@@ -143,11 +152,16 @@ func TestStorageImpl_Create(t *testing.T) {
 				assert.Error(t, err)
 				return
 			}
-			exists, _ := afero.Exists(fs, DefaultStorageRoot+tt.args.key+".json") // FIXME: use getPath instead
-			assert.Truef(t, exists, "file %s should exist", DefaultStorageRoot+tt.args.key)
+			expectedPath := getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key)
+			exists, _ := afero.Exists(fs, expectedPath)
+			assert.Truef(t, exists, "file %s should exist", expectedPath)
 			if tt.want != nil {
 				assert.Equal(t, tt.want, tt.args.out)
 			}
+
+			metadataExpectedPath := getStoredMetadataFilepath(DefaultStorageRoot, tt.args.key)
+			mExists, _ := afero.Exists(fs, metadataExpectedPath)
+			assert.Truef(t, mExists, "file %s should exist", metadataExpectedPath)
 		})
 	}
 }
@@ -218,7 +232,8 @@ func TestStorageImpl_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
+				fpath := getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key)
+				_ = afero.WriteFile(fs, fpath, []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Delete(context.TODO(), tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
@@ -295,7 +310,8 @@ func TestStorageImpl_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				_ = afero.WriteFile(fs, DefaultStorageRoot+tt.args.key+".json", []byte(tt.content), 0644)
+				path := getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key)
+				_ = afero.WriteFile(fs, path, []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
