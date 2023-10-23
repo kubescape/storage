@@ -38,9 +38,9 @@ type NetworkNeighbors struct {
 }
 
 type NetworkNeighborsSpec struct {
-	*metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
-	Ingress               []NetworkEntry
-	Egress                []NetworkEntry
+	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
+	Ingress              []NetworkEntry
+	Egress               []NetworkEntry
 }
 
 // IngressEntry represents a single network communication.
@@ -55,7 +55,11 @@ type NetworkEntry struct {
 }
 
 type NetworkPort struct {
+	// Name is an artificial identifier of the network port. We use it for merging keys with Strategic Merge Patch.
+	// Format is `{protocol}-{port}`.
+	//
+	// Example: tcp-6881
 	Name     string // protocol-port
 	Protocol Protocol
-	Port     uint16
+	Port     *int32
 }

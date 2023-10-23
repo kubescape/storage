@@ -38,7 +38,7 @@ type NetworkNeighbors struct {
 }
 
 type NetworkNeighborsSpec struct {
-	*metav1.LabelSelector
+	metav1.LabelSelector `json:",inline"`
 	// +patchMergeKey=identifier
 	// +patchStrategy=merge
 	Ingress []NetworkEntry `json:"ingress" patchStrategy:"merge" patchMergeKey:"identifier"`
@@ -63,5 +63,5 @@ type NetworkEntry struct {
 type NetworkPort struct {
 	Name     string   `json:"name"` // protocol-port
 	Protocol Protocol `json:"protocol"`
-	Port     uint16   `json:"port"`
+	Port     *int32   `json:"port"`
 }

@@ -19,8 +19,8 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.NetworkNeighbors{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.NetworkNeighborsList{} },
-		PredicateFunc:             MatachNetworkNeighbor,
-		DefaultQualifiedResource:  softwarecomposition.Resource("networkneighborses"),
+		PredicateFunc:             MatchNetworkNeighbor,
+		DefaultQualifiedResource:  softwarecomposition.Resource("networkneighbors"),
 		SingularQualifiedResource: softwarecomposition.Resource("networkneighbors"),
 
 		Storage: dryRunnableStorage,
@@ -30,7 +30,7 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 		DeleteStrategy: strategy,
 
 		// TODO: define table converter that exposes more than name/creation timestamp
-		TableConvertor: rest.NewDefaultTableConvertor(softwarecomposition.Resource("networkneighborses")),
+		TableConvertor: rest.NewDefaultTableConvertor(softwarecomposition.Resource("networkneighbors")),
 	}
 	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
 	if err := store.CompleteWithOptions(options); err != nil {

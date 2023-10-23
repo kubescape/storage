@@ -2338,7 +2338,7 @@ func Convert_softwarecomposition_NetworkNeighborsList_To_v1beta1_NetworkNeighbor
 }
 
 func autoConvert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighborsSpec(in *NetworkNeighborsSpec, out *softwarecomposition.NetworkNeighborsSpec, s conversion.Scope) error {
-	out.LabelSelector = (*v1.LabelSelector)(unsafe.Pointer(in.LabelSelector))
+	out.LabelSelector = in.LabelSelector
 	out.Ingress = *(*[]softwarecomposition.NetworkEntry)(unsafe.Pointer(&in.Ingress))
 	out.Egress = *(*[]softwarecomposition.NetworkEntry)(unsafe.Pointer(&in.Egress))
 	return nil
@@ -2350,7 +2350,7 @@ func Convert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighbor
 }
 
 func autoConvert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighborsSpec(in *softwarecomposition.NetworkNeighborsSpec, out *NetworkNeighborsSpec, s conversion.Scope) error {
-	out.LabelSelector = (*v1.LabelSelector)(unsafe.Pointer(in.LabelSelector))
+	out.LabelSelector = in.LabelSelector
 	out.Ingress = *(*[]NetworkEntry)(unsafe.Pointer(&in.Ingress))
 	out.Egress = *(*[]NetworkEntry)(unsafe.Pointer(&in.Egress))
 	return nil
@@ -2364,7 +2364,7 @@ func Convert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighbor
 func autoConvert_v1beta1_NetworkPort_To_softwarecomposition_NetworkPort(in *NetworkPort, out *softwarecomposition.NetworkPort, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Protocol = softwarecomposition.Protocol(in.Protocol)
-	out.Port = in.Port
+	out.Port = (*int32)(unsafe.Pointer(in.Port))
 	return nil
 }
 
@@ -2376,7 +2376,7 @@ func Convert_v1beta1_NetworkPort_To_softwarecomposition_NetworkPort(in *NetworkP
 func autoConvert_softwarecomposition_NetworkPort_To_v1beta1_NetworkPort(in *softwarecomposition.NetworkPort, out *NetworkPort, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Protocol = Protocol(in.Protocol)
-	out.Port = in.Port
+	out.Port = (*int32)(unsafe.Pointer(in.Port))
 	return nil
 }
 

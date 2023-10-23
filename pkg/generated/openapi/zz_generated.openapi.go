@@ -2335,9 +2335,34 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref common
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"LabelSelector": {
+					"matchLabels": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+							Description: "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"matchExpressions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"),
+									},
+								},
+							},
 						},
 					},
 					"ingress": {
@@ -2379,11 +2404,11 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref common
 						},
 					},
 				},
-				Required: []string{"LabelSelector", "ingress", "egress"},
+				Required: []string{"ingress", "egress"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkEntry", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkEntry", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"},
 	}
 }
 
@@ -2410,9 +2435,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPort(ref common.Referenc
 					},
 					"port": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 				},
