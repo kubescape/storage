@@ -17,6 +17,8 @@ limitations under the License.
 package validation
 
 import (
+	"fmt"
+
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -84,6 +86,66 @@ func ValidateVulnerabilityManifestSummary(v *softwarecomposition.VulnerabilityMa
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateVulnerabilityManifestSummarySpec(&v.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
+
+func ValidateNetworkNeighbors(v *softwarecomposition.NetworkNeighbors) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateNetworkNeighborsSpec(&v.Spec, field.NewPath("spec"))...)
+
+	return allErrs
+}
+
+func ValidateNetworkNeighborsSpec(nns *softwarecomposition.NetworkNeighborsSpec, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for i, ingress := range nns.Ingress {
+		allErrs = append(allErrs, ValidateNetworkNeighbor(&ingress, fldPath.Child("ingress").Index(i))...)
+	}
+
+	for i, egress := range nns.Egress {
+		allErrs = append(allErrs, ValidateNetworkNeighbor(&egress, fldPath.Child("egress").Index(i))...)
+	}
+
+	return allErrs
+
+}
+
+func ValidateNetworkNeighbor(nns *softwarecomposition.NetworkNeighbor, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	for i, networkPort := range nns.Ports {
+		allErrs = append(allErrs, ValidateNetworkNeighborsPort(&networkPort, fldPath.Child("ports").Index(i))...)
+	}
+	return allErrs
+}
+
+func ValidateNetworkNeighborsPort(p *softwarecomposition.NetworkPort, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, validatePortNumber(*p.Port, fldPath.Child("port"))...)
+
+	allErrs = append(allErrs, validatePortName(p, fldPath.Child("name"))...)
+
+	return allErrs
+}
+
+func validatePortNumber(port int32, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if port < 0 || port > 65535 {
+		allErrs = append(allErrs, field.Invalid(fldPath, port, "port must be in range 0-65535"))
+	}
+	return allErrs
+}
+
+func validatePortName(p *softwarecomposition.NetworkPort, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	expectedPortName := fmt.Sprintf("%s-%d", p.Protocol, *p.Port)
+	if p.Name != expectedPortName {
+		allErrs = append(allErrs, field.Invalid(fldPath, p.Name, "port name must be in the format {protocol}-{port}"))
+	}
 
 	return allErrs
 }

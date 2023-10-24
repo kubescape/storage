@@ -50,6 +50,14 @@ type ConfigurationScanSummaryListerExpansion interface{}
 // ConfigurationScanSummaryNamespaceLister.
 type ConfigurationScanSummaryNamespaceListerExpansion interface{}
 
+// NetworkNeighborsListerExpansion allows custom methods to be added to
+// NetworkNeighborsLister.
+type NetworkNeighborsListerExpansion interface{}
+
+// NetworkNeighborsNamespaceListerExpansion allows custom methods to be added to
+// NetworkNeighborsNamespaceLister.
+type NetworkNeighborsNamespaceListerExpansion interface{}
+
 // OpenVulnerabilityExchangeContainerListerExpansion allows custom methods to be added to
 // OpenVulnerabilityExchangeContainerLister.
 type OpenVulnerabilityExchangeContainerListerExpansion interface{}

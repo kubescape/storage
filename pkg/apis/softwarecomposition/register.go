@@ -71,6 +71,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ApplicationProfileSummaryList{},
 		&ApplicationActivity{},
 		&ApplicationActivityList{},
+		&NetworkNeighbors{},
+		&NetworkNeighborsList{},
 		&OpenVulnerabilityExchangeContainer{},
 		&OpenVulnerabilityExchangeContainerList{},
 	)

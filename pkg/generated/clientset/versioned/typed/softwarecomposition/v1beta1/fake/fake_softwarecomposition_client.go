@@ -44,6 +44,10 @@ func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.C
 	return &FakeConfigurationScanSummaries{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) NetworkNeighborses(namespace string) v1beta1.NetworkNeighborsInterface {
+	return &FakeNetworkNeighborses{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) OpenVulnerabilityExchangeContainers(namespace string) v1beta1.OpenVulnerabilityExchangeContainerInterface {
 	return &FakeOpenVulnerabilityExchangeContainers{c, namespace}
 }
