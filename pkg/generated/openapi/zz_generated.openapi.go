@@ -2435,9 +2435,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPort(ref common.Referenc
 					},
 					"port": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 				},

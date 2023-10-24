@@ -2364,7 +2364,7 @@ func Convert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighbor
 func autoConvert_v1beta1_NetworkPort_To_softwarecomposition_NetworkPort(in *NetworkPort, out *softwarecomposition.NetworkPort, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Protocol = softwarecomposition.Protocol(in.Protocol)
-	out.Port = in.Port
+	out.Port = (*int32)(unsafe.Pointer(in.Port))
 	return nil
 }
 
@@ -2376,7 +2376,7 @@ func Convert_v1beta1_NetworkPort_To_softwarecomposition_NetworkPort(in *NetworkP
 func autoConvert_softwarecomposition_NetworkPort_To_v1beta1_NetworkPort(in *softwarecomposition.NetworkPort, out *NetworkPort, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Protocol = Protocol(in.Protocol)
-	out.Port = in.Port
+	out.Port = (*int32)(unsafe.Pointer(in.Port))
 	return nil
 }
 
