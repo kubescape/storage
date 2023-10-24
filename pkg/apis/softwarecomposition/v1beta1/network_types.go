@@ -41,14 +41,14 @@ type NetworkNeighborsSpec struct {
 	metav1.LabelSelector `json:",inline"`
 	// +patchMergeKey=identifier
 	// +patchStrategy=merge
-	Ingress []NetworkEntry `json:"ingress" patchStrategy:"merge" patchMergeKey:"identifier"`
+	Ingress []NetworkNeighbor `json:"ingress" patchStrategy:"merge" patchMergeKey:"identifier"`
 	// +patchMergeKey=identifier
 	// +patchStrategy=merge
-	Egress []NetworkEntry `json:"egress" patchStrategy:"merge" patchMergeKey:"identifier"`
+	Egress []NetworkNeighbor `json:"egress" patchStrategy:"merge" patchMergeKey:"identifier"`
 }
 
-// IngressEntry represents a single incoming communication.
-type NetworkEntry struct {
+// NetworkNeighbor represents a single network communication made by this resource.
+type NetworkNeighbor struct {
 	Identifier string            `json:"identifier"` // A unique identifier for this entry
 	Type       CommunicationType `json:"type"`
 	DNS        string            `json:"dns"`
@@ -63,5 +63,5 @@ type NetworkEntry struct {
 type NetworkPort struct {
 	Name     string   `json:"name"` // protocol-port
 	Protocol Protocol `json:"protocol"`
-	Port     *int32   `json:"port"`
+	Port     int32    `json:"port"`
 }

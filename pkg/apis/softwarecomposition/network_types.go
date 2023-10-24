@@ -39,12 +39,12 @@ type NetworkNeighbors struct {
 
 type NetworkNeighborsSpec struct {
 	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
-	Ingress              []NetworkEntry
-	Egress               []NetworkEntry
+	Ingress              []NetworkNeighbor
+	Egress               []NetworkNeighbor
 }
 
-// IngressEntry represents a single network communication.
-type NetworkEntry struct {
+// NetworkNeighbor represents a single network communication made by this resource.
+type NetworkNeighbor struct {
 	Identifier        string
 	Type              CommunicationType
 	DNS               string
@@ -61,5 +61,5 @@ type NetworkPort struct {
 	// Example: tcp-6881
 	Name     string // protocol-port
 	Protocol Protocol
-	Port     *int32
+	Port     int32
 }

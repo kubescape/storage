@@ -71,7 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata":                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkEntry":                               schema_pkg_apis_softwarecomposition_v1beta1_NetworkEntry(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor":                            schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbors":                           schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbors(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborsList":                       schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborsSpec":                       schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref),
@@ -2164,11 +2164,11 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "IngressEntry represents a single incoming communication.",
+				Description: "NetworkNeighbor represents a single network communication made by this resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"identifier": {
@@ -2378,7 +2378,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkEntry"),
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
 									},
 								},
 							},
@@ -2397,7 +2397,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkEntry"),
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
 									},
 								},
 							},
@@ -2408,7 +2408,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkEntry", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"},
 	}
 }
 
@@ -2435,8 +2435,9 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPort(ref common.Referenc
 					},
 					"port": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
 						},
 					},
 				},
