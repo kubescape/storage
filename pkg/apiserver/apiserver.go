@@ -167,7 +167,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["applicationprofilesummaries"] = sbomregistry.RESTInPeace(applicationprofilesummary.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["applicationactivities"] = sbomregistry.RESTInPeace(applicationactivity.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
-	v1beta1storage["networkneighbors"] = sbomregistry.RESTInPeace(networkneighbors.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["networkneighborses"] = sbomregistry.RESTInPeace(networkneighbors.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["openvulnerabilityexchangecontainers"] = sbomregistry.RESTInPeace(openvulnerabilityexchange.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
