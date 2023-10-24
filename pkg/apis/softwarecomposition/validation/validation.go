@@ -124,7 +124,7 @@ func ValidateNetworkNeighbor(nns *softwarecomposition.NetworkNeighbor, fldPath *
 func ValidateNetworkNeighborsPort(p *softwarecomposition.NetworkPort, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	allErrs = append(allErrs, validatePortNumber(p.Port, fldPath.Child("port"))...)
+	allErrs = append(allErrs, validatePortNumber(*p.Port, fldPath.Child("port"))...)
 
 	allErrs = append(allErrs, validatePortName(p, fldPath.Child("name"))...)
 
@@ -142,7 +142,7 @@ func validatePortNumber(port int32, fldPath *field.Path) field.ErrorList {
 func validatePortName(p *softwarecomposition.NetworkPort, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	expectedPortName := fmt.Sprintf("%s-%d", p.Protocol, p.Port)
+	expectedPortName := fmt.Sprintf("%s-%d", p.Protocol, *p.Port)
 	if p.Name != expectedPortName {
 		allErrs = append(allErrs, field.Invalid(fldPath, p.Name, "port name must be in the format {protocol}-{port}"))
 	}

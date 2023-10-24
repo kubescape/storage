@@ -9,8 +9,11 @@ import (
 )
 
 func TestValidateNetworkNeighbors(t *testing.T) {
+	port80 := int32(80)
+	port1000000 := int32(1000000)
 	tests := []struct {
 		name             string
+		port             int32
 		networkNeighbors softwarecomposition.NetworkNeighbors
 		expectedErrors   field.ErrorList
 	}{
@@ -23,7 +26,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     80,
+									Port:     &port80,
 									Name:     "UDP-80",
 									Protocol: "UDP",
 								},
@@ -32,6 +35,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 					},
 				},
 			},
+			expectedErrors: field.ErrorList{},
 		},
 		{
 			name: "invalid port name",
@@ -42,7 +46,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     80,
+									Port:     &port80,
 									Name:     "UDP",
 									Protocol: "UDP",
 								},
@@ -64,7 +68,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     1000000,
+									Port:     &port1000000,
 									Name:     "UDP-1000000",
 									Protocol: "UDP",
 								},
@@ -86,7 +90,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     1000000,
+									Port:     &port1000000,
 									Name:     "UDP-80",
 									Protocol: "UDP",
 								},
@@ -105,20 +109,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			actualErrors := ValidateNetworkNeighbors(&test.networkNeighbors)
-			if len(actualErrors) != len(test.expectedErrors) {
-				t.Errorf("Expected %d errors, got %d", len(test.expectedErrors), len(actualErrors))
-			}
-
-			errorsFound := 0
-			for _, actualError := range actualErrors {
-
-				for _, expectedError := range test.expectedErrors {
-					if actualError.Error() == expectedError.Error() {
-						errorsFound += 1
-					}
-				}
-			}
-			assert.Equal(t, len(test.expectedErrors), errorsFound)
+			assert.Equal(t, test.expectedErrors, actualErrors)
 		})
 	}
 }

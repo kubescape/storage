@@ -61,5 +61,5 @@ type NetworkPort struct {
 	// Example: tcp-6881
 	Name     string // protocol-port
 	Protocol Protocol
-	Port     int32
+	Port     *int32
 }

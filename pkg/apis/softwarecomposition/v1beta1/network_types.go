@@ -63,5 +63,5 @@ type NetworkNeighbor struct {
 type NetworkPort struct {
 	Name     string   `json:"name"` // protocol-port
 	Protocol Protocol `json:"protocol"`
-	Port     int32    `json:"port"`
+	Port     *int32   `json:"port"`
 }
