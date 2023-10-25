@@ -85,6 +85,68 @@ func TestStorageImpl_Count(t *testing.T) {
 	}
 }
 
+func TestStorageImpl_Exists(t *testing.T) {
+	type args struct {
+		key string
+		obj runtime.Object
+		out runtime.Object
+		in4 uint64
+	}
+	tests := []struct {
+		name             string
+		readonly         bool
+		prerequisiteObjs []args
+		inputObjs        []args
+		wantErr          bool
+		want             runtime.Object
+	}{
+		{
+			name: "creating an existing object should return an error",
+			prerequisiteObjs: []args{
+				{
+					key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+					obj: &v1beta1.SBOMSPDXv2p3{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "toto",
+						},
+					},
+				},
+			},
+			inputObjs: []args{
+				{
+					key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+					obj: &v1beta1.SBOMSPDXv2p3{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "toto",
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+			s := NewStorageImpl(fs, DefaultStorageRoot)
+
+			for _, o := range tt.prerequisiteObjs {
+				err := s.Create(context.TODO(), o.key, o.obj, o.out, o.in4)
+				if err != nil {
+					t.Fatalf("error when creating prerequisite objects: %v", err)
+				}
+			}
+
+			for _, o := range tt.inputObjs {
+				err := s.Create(context.TODO(), o.key, o.obj, o.out, o.in4)
+				if tt.wantErr {
+					assert.Error(t, err)
+				}
+			}
+		})
+	}
+}
+
 func TestStorageImpl_Create(t *testing.T) {
 	type args struct {
 		key string
