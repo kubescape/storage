@@ -1,6 +1,7 @@
 package softwarecomposition
 
 import (
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -62,4 +63,29 @@ type NetworkPort struct {
 	Name     string // protocol-port
 	Protocol Protocol
 	Port     *int32
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// GeneratedNetworkPolicyList is a list of GeneratedNetworkPolicies.
+type GeneratedNetworkPolicyList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []GeneratedNetworkPolicy
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// GeneratedNetworkPolicy represents a generated NetworkPolicy.
+type GeneratedNetworkPolicy struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec GeneratedNetworkPolicySpec
+}
+
+type GeneratedNetworkPolicySpec struct {
+	networkingv1.NetworkPolicySpec
 }

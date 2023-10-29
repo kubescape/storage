@@ -44,6 +44,10 @@ func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.C
 	return &FakeConfigurationScanSummaries{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) GeneratedNetworkPolicies(namespace string) v1beta1.GeneratedNetworkPolicyInterface {
+	return &FakeGeneratedNetworkPolicies{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) NetworkNeighborses(namespace string) v1beta1.NetworkNeighborsInterface {
 	return &FakeNetworkNeighborses{c, namespace}
 }

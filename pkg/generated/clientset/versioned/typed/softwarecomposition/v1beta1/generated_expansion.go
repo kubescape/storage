@@ -26,6 +26,8 @@ type ApplicationProfileSummaryExpansion interface{}
 
 type ConfigurationScanSummaryExpansion interface{}
 
+type GeneratedNetworkPolicyExpansion interface{}
+
 type NetworkNeighborsExpansion interface{}
 
 type OpenVulnerabilityExchangeContainerExpansion interface{}

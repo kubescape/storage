@@ -50,6 +50,14 @@ type ConfigurationScanSummaryListerExpansion interface{}
 // ConfigurationScanSummaryNamespaceLister.
 type ConfigurationScanSummaryNamespaceListerExpansion interface{}
 
+// GeneratedNetworkPolicyListerExpansion allows custom methods to be added to
+// GeneratedNetworkPolicyLister.
+type GeneratedNetworkPolicyListerExpansion interface{}
+
+// GeneratedNetworkPolicyNamespaceListerExpansion allows custom methods to be added to
+// GeneratedNetworkPolicyNamespaceLister.
+type GeneratedNetworkPolicyNamespaceListerExpansion interface{}
+
 // NetworkNeighborsListerExpansion allows custom methods to be added to
 // NetworkNeighborsLister.
 type NetworkNeighborsListerExpansion interface{}

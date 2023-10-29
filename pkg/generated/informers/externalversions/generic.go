@@ -61,6 +61,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationProfileSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ConfigurationScanSummaries().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("generatednetworkpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().GeneratedNetworkPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("networkneighborses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().NetworkNeighborses().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("openvulnerabilityexchangecontainers"):
