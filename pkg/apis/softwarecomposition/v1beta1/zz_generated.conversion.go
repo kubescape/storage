@@ -3247,11 +3247,10 @@ func Convert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighbor
 }
 
 func autoConvert_v1beta1_NetworkPolicy_To_softwarecomposition_NetworkPolicy(in *NetworkPolicy, out *softwarecomposition.NetworkPolicy, s conversion.Scope) error {
+	out.Kind = in.Kind
+	out.APIVersion = in.APIVersion
 	out.ObjectMeta = in.ObjectMeta
 	if err := Convert_v1beta1_NetworkPolicySpec_To_softwarecomposition_NetworkPolicySpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_NetworkPolicyStatus_To_softwarecomposition_NetworkPolicyStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 	return nil
@@ -3263,11 +3262,10 @@ func Convert_v1beta1_NetworkPolicy_To_softwarecomposition_NetworkPolicy(in *Netw
 }
 
 func autoConvert_softwarecomposition_NetworkPolicy_To_v1beta1_NetworkPolicy(in *softwarecomposition.NetworkPolicy, out *NetworkPolicy, s conversion.Scope) error {
+	out.Kind = in.Kind
+	out.APIVersion = in.APIVersion
 	out.ObjectMeta = in.ObjectMeta
 	if err := Convert_softwarecomposition_NetworkPolicySpec_To_v1beta1_NetworkPolicySpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_softwarecomposition_NetworkPolicyStatus_To_v1beta1_NetworkPolicyStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 	return nil
@@ -3370,7 +3368,7 @@ func Convert_softwarecomposition_NetworkPolicyPeer_To_v1beta1_NetworkPolicyPeer(
 
 func autoConvert_v1beta1_NetworkPolicyPort_To_softwarecomposition_NetworkPolicyPort(in *NetworkPolicyPort, out *softwarecomposition.NetworkPolicyPort, s conversion.Scope) error {
 	out.Protocol = (*v1.Protocol)(unsafe.Pointer(in.Protocol))
-	out.Port = (*softwarecomposition.IntOrString)(unsafe.Pointer(in.Port))
+	out.Port = (*int32)(unsafe.Pointer(in.Port))
 	out.EndPort = (*int32)(unsafe.Pointer(in.EndPort))
 	return nil
 }
@@ -3382,7 +3380,7 @@ func Convert_v1beta1_NetworkPolicyPort_To_softwarecomposition_NetworkPolicyPort(
 
 func autoConvert_softwarecomposition_NetworkPolicyPort_To_v1beta1_NetworkPolicyPort(in *softwarecomposition.NetworkPolicyPort, out *NetworkPolicyPort, s conversion.Scope) error {
 	out.Protocol = (*v1.Protocol)(unsafe.Pointer(in.Protocol))
-	out.Port = (*IntOrString)(unsafe.Pointer(in.Port))
+	out.Port = (*int32)(unsafe.Pointer(in.Port))
 	out.EndPort = (*int32)(unsafe.Pointer(in.EndPort))
 	return nil
 }

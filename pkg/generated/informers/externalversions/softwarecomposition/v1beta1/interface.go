@@ -34,14 +34,8 @@ type Interface interface {
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
 	// GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
 	GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer
-	// Ingresses returns a IngressInformer.
-	Ingresses() IngressInformer
-	// IngressClasses returns a IngressClassInformer.
-	IngressClasses() IngressClassInformer
 	// NetworkNeighborses returns a NetworkNeighborsInformer.
 	NetworkNeighborses() NetworkNeighborsInformer
-	// NetworkPolicies returns a NetworkPolicyInformer.
-	NetworkPolicies() NetworkPolicyInformer
 	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
 	OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer
 	// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
@@ -98,24 +92,9 @@ func (v *version) GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer {
 	return &generatedNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// Ingresses returns a IngressInformer.
-func (v *version) Ingresses() IngressInformer {
-	return &ingressInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// IngressClasses returns a IngressClassInformer.
-func (v *version) IngressClasses() IngressClassInformer {
-	return &ingressClassInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // NetworkNeighborses returns a NetworkNeighborsInformer.
 func (v *version) NetworkNeighborses() NetworkNeighborsInformer {
 	return &networkNeighborsInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// NetworkPolicies returns a NetworkPolicyInformer.
-func (v *version) NetworkPolicies() NetworkPolicyInformer {
-	return &networkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.

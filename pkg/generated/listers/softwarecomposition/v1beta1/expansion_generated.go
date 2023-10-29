@@ -58,18 +58,6 @@ type GeneratedNetworkPolicyListerExpansion interface{}
 // GeneratedNetworkPolicyNamespaceLister.
 type GeneratedNetworkPolicyNamespaceListerExpansion interface{}
 
-// IngressListerExpansion allows custom methods to be added to
-// IngressLister.
-type IngressListerExpansion interface{}
-
-// IngressNamespaceListerExpansion allows custom methods to be added to
-// IngressNamespaceLister.
-type IngressNamespaceListerExpansion interface{}
-
-// IngressClassListerExpansion allows custom methods to be added to
-// IngressClassLister.
-type IngressClassListerExpansion interface{}
-
 // NetworkNeighborsListerExpansion allows custom methods to be added to
 // NetworkNeighborsLister.
 type NetworkNeighborsListerExpansion interface{}
@@ -77,14 +65,6 @@ type NetworkNeighborsListerExpansion interface{}
 // NetworkNeighborsNamespaceListerExpansion allows custom methods to be added to
 // NetworkNeighborsNamespaceLister.
 type NetworkNeighborsNamespaceListerExpansion interface{}
-
-// NetworkPolicyListerExpansion allows custom methods to be added to
-// NetworkPolicyLister.
-type NetworkPolicyListerExpansion interface{}
-
-// NetworkPolicyNamespaceListerExpansion allows custom methods to be added to
-// NetworkPolicyNamespaceLister.
-type NetworkPolicyNamespaceListerExpansion interface{}
 
 // OpenVulnerabilityExchangeContainerListerExpansion allows custom methods to be added to
 // OpenVulnerabilityExchangeContainerLister.

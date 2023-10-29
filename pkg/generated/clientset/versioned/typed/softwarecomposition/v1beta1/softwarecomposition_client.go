@@ -33,10 +33,7 @@ type SpdxV1beta1Interface interface {
 	ApplicationProfileSummariesGetter
 	ConfigurationScanSummariesGetter
 	GeneratedNetworkPoliciesGetter
-	IngressesGetter
-	IngressClassesGetter
 	NetworkNeighborsesGetter
-	NetworkPoliciesGetter
 	OpenVulnerabilityExchangeContainersGetter
 	SBOMSPDXv2p3sGetter
 	SBOMSPDXv2p3FilteredsGetter
@@ -73,20 +70,8 @@ func (c *SpdxV1beta1Client) GeneratedNetworkPolicies(namespace string) Generated
 	return newGeneratedNetworkPolicies(c, namespace)
 }
 
-func (c *SpdxV1beta1Client) Ingresses(namespace string) IngressInterface {
-	return newIngresses(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) IngressClasses() IngressClassInterface {
-	return newIngressClasses(c)
-}
-
 func (c *SpdxV1beta1Client) NetworkNeighborses(namespace string) NetworkNeighborsInterface {
 	return newNetworkNeighborses(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) NetworkPolicies(namespace string) NetworkPolicyInterface {
-	return newNetworkPolicies(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) OpenVulnerabilityExchangeContainers(namespace string) OpenVulnerabilityExchangeContainerInterface {

@@ -63,14 +63,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ConfigurationScanSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("generatednetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().GeneratedNetworkPolicies().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("ingresses"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().Ingresses().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("ingressclasses"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().IngressClasses().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("networkneighborses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().NetworkNeighborses().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("networkpolicies"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().NetworkPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("openvulnerabilityexchangecontainers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().OpenVulnerabilityExchangeContainers().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3s"):
