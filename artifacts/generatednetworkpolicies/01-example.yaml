@@ -1,0 +1,51 @@
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
+kind: GeneratedNetworkPolicy
+metadata:
+  name: deployment-nginx
+  namespace: default
+  labels:
+      "kubescape.io/workload-api-group": "spdx.softwarecomposition.kubescape.io"
+      "kubescape.io/workload-api-version": "v1beta1"
+      "kubescape.io/workload-name": "nginx"
+      "kubescape.io/workload-kind": "deployment"
+      "kubescape.io/workload-namespace": "kubescape"
+policyRef:
+- dns: stripe.com
+  ipBlock: 123.5.2.0/24
+  name: stripe-payments
+  originalIP: 123.5.2.3/32
+spec:
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    creationTimestamp: null
+    name: deployment-nginx
+    namespace: default
+    annotations:
+        "kubescape-generated": "true"
+  spec:
+    egress:
+    - to:
+      - ipBlock:
+          cidr: 10.0.0.0/24
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 172.17.0.0/16
+          except:
+          - 172.17.1.0/24
+      - namespaceSelector:
+          matchLabels:
+            project: myproject
+      - podSelector:
+          matchLabels:
+            role: frontend
+      ports:
+      - port: 6379
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        role: db
+    policyTypes:
+    - Ingress
+    - Egress
