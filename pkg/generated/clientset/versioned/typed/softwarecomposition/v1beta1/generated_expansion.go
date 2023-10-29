@@ -28,7 +28,13 @@ type ConfigurationScanSummaryExpansion interface{}
 
 type GeneratedNetworkPolicyExpansion interface{}
 
+type IngressExpansion interface{}
+
+type IngressClassExpansion interface{}
+
 type NetworkNeighborsExpansion interface{}
+
+type NetworkPolicyExpansion interface{}
 
 type OpenVulnerabilityExchangeContainerExpansion interface{}
 

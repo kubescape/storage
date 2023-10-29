@@ -1,7 +1,6 @@
 package v1beta1
 
 import (
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -71,8 +70,8 @@ type NetworkPort struct {
 
 // GeneratedNetworkPolicyList is a list of GeneratedNetworkPolicies.
 type GeneratedNetworkPolicyList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Items []GeneratedNetworkPolicy
 }
@@ -85,9 +84,17 @@ type GeneratedNetworkPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec GeneratedNetworkPolicySpec `json:"spec"`
+	Spec        GeneratedNetworkPolicySpec `json:"spec"`
+	PoliciesRef []PolicyRef                `json:"policyRef"`
 }
 
 type GeneratedNetworkPolicySpec struct {
-	networkingv1.NetworkPolicySpec `json:",inline"`
+	NetworkPolicy `json:",inline"`
+}
+
+type PolicyRef struct {
+	IPBlock    string `json:"ipBlock"`
+	OriginalIP string `json:"originalIP"`
+	DNS        string `json:"dns"`
+	Name       string `json:"name"`
 }

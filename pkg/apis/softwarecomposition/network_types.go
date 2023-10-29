@@ -1,7 +1,6 @@
 package softwarecomposition
 
 import (
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -83,9 +82,17 @@ type GeneratedNetworkPolicy struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec GeneratedNetworkPolicySpec
+	Spec        GeneratedNetworkPolicySpec
+	PoliciesRef []PolicyRef
 }
 
 type GeneratedNetworkPolicySpec struct {
-	networkingv1.NetworkPolicySpec
+	NetworkPolicy
+}
+
+type PolicyRef struct {
+	IPBlock    string
+	OriginalIP string
+	DNS        string
+	Name       string
 }

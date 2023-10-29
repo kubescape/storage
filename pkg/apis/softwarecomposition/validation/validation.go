@@ -90,16 +90,8 @@ func ValidateVulnerabilityManifestSummary(v *softwarecomposition.VulnerabilityMa
 	return allErrs
 }
 
-func ValidateGeneratedNetworkPolicySpec(v *softwarecomposition.GeneratedNetworkPolicySpec, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	return allErrs
-}
-
 func ValidateGeneratedNetworkPolicy(v *softwarecomposition.GeneratedNetworkPolicy) field.ErrorList {
 	allErrs := field.ErrorList{}
-
-	allErrs = append(allErrs, ValidateGeneratedNetworkPolicySpec(&v.Spec, field.NewPath("spec"))...)
 
 	return allErrs
 }
