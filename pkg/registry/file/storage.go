@@ -168,12 +168,6 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 	return nil
 }
 
-// Exists checks if an object with a given key exists
-func (s *StorageImpl) Exists(key string) (bool) {
-	count, _ := s.Count(key)
-	return count >= 1
-}
-
 // Create adds a new object at a key even when it already exists. 'ttl' is time-to-live
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
@@ -187,13 +181,6 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.O
 		logger.L().Ctx(ctx).Error(msg)
 		return errors.New(msg)
 	}
-
-	// Attempts to create an existing object should return an error
-	if s.Exists(key) {
-		return storage.NewKeyExistsError(key, 0)
-	}
-
-
 	// write files
 	if err := s.writeFiles(ctx, key, obj, out); err != nil {
 		logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
