@@ -84,12 +84,8 @@ type GeneratedNetworkPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec        GeneratedNetworkPolicySpec `json:"spec"`
-	PoliciesRef []PolicyRef                `json:"policyRef"`
-}
-
-type GeneratedNetworkPolicySpec struct {
-	NetworkPolicy `json:",inline"`
+	Spec        NetworkPolicy `json:"spec"`
+	PoliciesRef []PolicyRef   `json:"policyRef"`
 }
 
 type PolicyRef struct {
@@ -97,4 +93,10 @@ type PolicyRef struct {
 	OriginalIP string `json:"originalIP"`
 	DNS        string `json:"dns"`
 	Name       string `json:"name"`
+}
+
+type KnownServers struct {
+	IPBlock string `json:"ipBlock"`
+	DNS     string `json:"dns"`
+	Name    string `json:"name"`
 }

@@ -82,12 +82,8 @@ type GeneratedNetworkPolicy struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec        GeneratedNetworkPolicySpec
+	Spec        NetworkPolicy
 	PoliciesRef []PolicyRef
-}
-
-type GeneratedNetworkPolicySpec struct {
-	NetworkPolicy
 }
 
 type PolicyRef struct {
@@ -95,4 +91,10 @@ type PolicyRef struct {
 	OriginalIP string
 	DNS        string
 	Name       string
+}
+
+type KnownServers struct {
+	IPBlock string
+	DNS     string
+	Name    string
 }

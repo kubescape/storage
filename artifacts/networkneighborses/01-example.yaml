@@ -5,8 +5,8 @@ metadata:
   annotations:
     status: incomplete
   labels:
-      "kubescape.io/workload-api-group": "spdx.softwarecomposition.kubescape.io"
-      "kubescape.io/workload-api-version": "v1beta1"
+      "kubescape.io/workload-api-group": "apps"
+      "kubescape.io/workload-api-version": "v1"
       "kubescape.io/workload-name": "nginx"
       "kubescape.io/workload-kind": "deployment"
       "kubescape.io/workload-namespace": "kubescape"

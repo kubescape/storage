@@ -65,7 +65,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix":                                        schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicy":                     schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicyList":                 schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicySpec":                 schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument":                              schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage":                               schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressPath":                            schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressPath(ref),
@@ -91,6 +90,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressStatus":                              schema_pkg_apis_softwarecomposition_v1beta1_IngressStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressTLS":                                 schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IntOrString":                                schema_pkg_apis_softwarecomposition_v1beta1_IntOrString(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServers":                               schema_pkg_apis_softwarecomposition_v1beta1_KnownServers(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata":                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
@@ -1778,7 +1778,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref comm
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicySpec"),
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy"),
 						},
 					},
 					"policyRef": {
@@ -1799,7 +1799,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicySpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PolicyRef", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PolicyRef", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -1849,44 +1849,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref 
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicy", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicySpec"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicySpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -2878,6 +2840,40 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IntOrString(ref common.Referenc
 					},
 				},
 				Required: []string{"Type", "IntVal", "StrVal"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_KnownServers(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ipBlock": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"dns": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"ipBlock", "dns", "name"},
 			},
 		},
 	}
