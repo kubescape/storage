@@ -39,7 +39,7 @@ func main() {
 	if otelHost, present := os.LookupEnv("OTEL_COLLECTOR_SVC"); present {
 		ctx = logger.InitOtel("storage",
 			os.Getenv("RELEASE"),
-			clusterData.AccountID,
+			os.Getenv("ACCOUNT_ID"),
 			clusterData.ClusterName,
 			url.URL{Host: otelHost})
 		defer logger.ShutdownOtel(ctx)
