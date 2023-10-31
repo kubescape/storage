@@ -1,6 +1,5 @@
 kind: GeneratedNetworkPolicy
 metadata:
-  creationTimestamp: null
   labels:
     kubescape.io/workload-api-group: apps
     kubescape.io/workload-api-version: v1
@@ -20,7 +19,6 @@ spec:
   metadata:
     annotations:
       generated-by: kubescape
-    creationTimestamp: null
     name: deployment-nginx
     namespace: default
   spec:

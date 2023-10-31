@@ -20,7 +20,7 @@ func NewStrategy(typer runtime.ObjectTyper) generatedNetworkPolicyStrategy {
 	return generatedNetworkPolicyStrategy{typer, names.SimpleNameGenerator}
 }
 
-// GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Flunder
+// GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a GeneratedNetworkPolicy
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	apiserver, ok := obj.(*softwarecomposition.GeneratedNetworkPolicy)
 	if !ok {

@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 
+	"github.com/go-logr/logr"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -37,6 +38,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/klog/v2"
 	netutils "k8s.io/utils/net"
 )
 
@@ -100,7 +102,7 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 
 	// mute klog
 	// https://github.com/kubernetes/klog/issues/87
-	// klog.SetLogger(logr.Discard())
+	klog.SetLogger(logr.Discard())
 
 	logger.L().Info("starting storage server")
 

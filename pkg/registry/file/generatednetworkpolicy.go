@@ -75,10 +75,6 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 		return err
 	}
 
-	if networkNeighborsObjPtr == nil {
-		return fmt.Errorf("network neighbor not found")
-	}
-
 	// TODO(DanielGrunberegerCA): get known servers
 	generatedNetworkPolicy, err := generateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServers{})
 	if err != nil {
@@ -114,10 +110,6 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 
 	if err := s.realStore.GetByNamespace(ctx, softwarecomposition.GroupName, networkNeighborsResource, namespace, networkNeighborsObjListPtr); err != nil {
 		return err
-	}
-
-	if networkNeighborsObjListPtr == nil {
-		return storage.NewInternalError("network neighbors list is nil")
 	}
 
 	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
