@@ -74,7 +74,6 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 	if err := s.realStore.Get(ctx, key, opts, networkNeighborsObjPtr); err != nil {
 		return err
 	}
-
 	// TODO(DanielGrunberegerCA): get known servers
 	generatedNetworkPolicy, err := generateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServers{}, metav1.Now())
 	if err != nil {
@@ -158,7 +157,6 @@ func generateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 			Annotations: map[string]string{
 				"generated-by": "kubescape",
 			},
-			CreationTimestamp: timeProvider,
 		},
 	}
 

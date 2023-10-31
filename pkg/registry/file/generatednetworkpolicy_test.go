@@ -80,9 +80,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
 					ObjectMeta: v1.ObjectMeta{
-						CreationTimestamp: timeProvider,
-						Name:              "deployment-nginx",
-						Namespace:         "kubescape",
+						Name:      "deployment-nginx",
+						Namespace: "kubescape",
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
@@ -201,7 +200,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -313,7 +311,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -417,7 +414,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -516,7 +512,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -603,7 +598,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -697,7 +691,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -794,7 +787,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -912,7 +904,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -1046,7 +1037,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -1172,7 +1162,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
@@ -1298,7 +1287,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						CreationTimestamp: timeProvider,
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PodSelector: v1.LabelSelector{
