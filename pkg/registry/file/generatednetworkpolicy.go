@@ -76,7 +76,7 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 	}
 
 	// TODO(DanielGrunberegerCA): get known servers
-	generatedNetworkPolicy, err := generateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServers{})
+	generatedNetworkPolicy, err := generateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServers{}, metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -113,7 +113,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	}
 
 	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
-		generatedNetworkPolicy, err := generateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServers{})
+		generatedNetworkPolicy, err := generateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServers{}, metav1.Now())
 		if err != nil {
 			return fmt.Errorf("error generating network policy: %w", err)
 		}
@@ -148,7 +148,7 @@ func (s *GeneratedNetworkPolicyStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
-func generateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors, knownServers []softwarecomposition.KnownServers) (softwarecomposition.GeneratedNetworkPolicy, error) {
+func generateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors, knownServers []softwarecomposition.KnownServers, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
@@ -158,6 +158,7 @@ func generateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 			Annotations: map[string]string{
 				"generated-by": "kubescape",
 			},
+			CreationTimestamp: timeProvider,
 		},
 	}
 
@@ -183,10 +184,12 @@ func generateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 			APIVersion: storageV1Beta1ApiVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      networkNeighbors.Name,
-			Namespace: networkNeighbors.Namespace,
-			Labels:    networkNeighbors.Labels,
+			Name:              networkNeighbors.Name,
+			Namespace:         networkNeighbors.Namespace,
+			Labels:            networkNeighbors.Labels,
+			CreationTimestamp: timeProvider,
 		},
+		PoliciesRef: []softwarecomposition.PolicyRef{},
 	}
 
 	for _, neighbor := range networkNeighbors.Spec.Ingress {
