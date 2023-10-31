@@ -91,9 +91,7 @@ func ValidateVulnerabilityManifestSummary(v *softwarecomposition.VulnerabilityMa
 }
 
 func ValidateGeneratedNetworkPolicy(v *softwarecomposition.GeneratedNetworkPolicy) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	return allErrs
+	return AlwaysValid(v)
 }
 
 func ValidateNetworkNeighbors(v *softwarecomposition.NetworkNeighbors) field.ErrorList {

@@ -12,6 +12,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -161,7 +162,7 @@ func generateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 	}
 
 	if networkNeighbors.Spec.MatchLabels != nil {
-		networkPolicy.Spec.PodSelector.MatchLabels = networkNeighbors.Spec.MatchLabels
+		networkPolicy.Spec.PodSelector.MatchLabels = maps.Clone(networkNeighbors.Spec.MatchLabels)
 	}
 
 	if networkNeighbors.Spec.MatchExpressions != nil {
@@ -270,7 +271,7 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 		}
 
 		if !isKnownServer {
-			ipBlock := &softwarecomposition.IPBlock{CIDR: neighbor.IPAddress + "/32"}
+			ipBlock := getSingleIP(neighbor.IPAddress)
 			egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
 				IPBlock: ipBlock,
 			})
@@ -353,7 +354,7 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 		}
 
 		if !isKnownServer {
-			ipBlock := &softwarecomposition.IPBlock{CIDR: neighbor.IPAddress + "/32"}
+			ipBlock := getSingleIP(neighbor.IPAddress)
 			ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
 				IPBlock: ipBlock,
 			})
@@ -380,4 +381,9 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 	}
 
 	return ingressRule, policyRefs
+}
+
+func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
+	ipBlock := &softwarecomposition.IPBlock{CIDR: ipAddress + "/32"}
+	return ipBlock
 }

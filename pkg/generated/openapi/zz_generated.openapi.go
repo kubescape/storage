@@ -89,7 +89,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressSpec":                                schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressStatus":                              schema_pkg_apis_softwarecomposition_v1beta1_IngressStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressTLS":                                 schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IntOrString":                                schema_pkg_apis_softwarecomposition_v1beta1_IntOrString(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServers":                               schema_pkg_apis_softwarecomposition_v1beta1_KnownServers(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
@@ -2806,40 +2805,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref common.Reference
 						},
 					},
 				},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_IntOrString(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Type": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-					"IntVal": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
-						},
-					},
-					"StrVal": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-				},
-				Required: []string{"Type", "IntVal", "StrVal"},
 			},
 		},
 	}
