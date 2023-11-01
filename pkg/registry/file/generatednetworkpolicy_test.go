@@ -1410,10 +1410,9 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 		},
 	}
 
-	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/")
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/")
 			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&realStorage)
 
 			if tt.create {
