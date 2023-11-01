@@ -668,3 +668,11 @@ func getNamespaceFromKey(key string) string {
 
 	return keySplit[3]
 }
+
+// replaceKeyForKind encapsulates the logic of replacing the kind in the key with the given kind.
+func replaceKeyForKind(key string, kind string) string {
+	keySplit := strings.Split(key, "/")
+	keySplit[2] = strings.ToLower(kind)
+
+	return strings.Join(keySplit, "/")
+}

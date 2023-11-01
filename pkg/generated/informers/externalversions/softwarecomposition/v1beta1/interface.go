@@ -32,6 +32,10 @@ type Interface interface {
 	ApplicationProfileSummaries() ApplicationProfileSummaryInformer
 	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
+	// GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
+	GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer
+	// NetworkNeighborses returns a NetworkNeighborsInformer.
+	NetworkNeighborses() NetworkNeighborsInformer
 	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
 	OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer
 	// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
@@ -81,6 +85,16 @@ func (v *version) ApplicationProfileSummaries() ApplicationProfileSummaryInforme
 // ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 func (v *version) ConfigurationScanSummaries() ConfigurationScanSummaryInformer {
 	return &configurationScanSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
+func (v *version) GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer {
+	return &generatedNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NetworkNeighborses returns a NetworkNeighborsInformer.
+func (v *version) NetworkNeighborses() NetworkNeighborsInformer {
+	return &networkNeighborsInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.

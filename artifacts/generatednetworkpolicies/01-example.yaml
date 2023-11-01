@@ -1,0 +1,48 @@
+kind: GeneratedNetworkPolicy
+metadata:
+  labels:
+    kubescape.io/workload-api-group: apps
+    kubescape.io/workload-api-version: v1
+    kubescape.io/workload-kind: deployment
+    kubescape.io/workload-name: nginx
+    kubescape.io/workload-namespace: kubescape
+  name: deployment-nginx
+  namespace: default
+policyRef:
+- dns: stripe.com
+  ipBlock: 123.5.2.3/32
+  name: stripe.com
+  originalIP: 123.5.2.3
+spec:
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      generated-by: kubescape
+    name: deployment-nginx
+    namespace: default
+  spec:
+    egress:
+    - ports:
+      - port: 5978
+        protocol: TCP
+      to:
+      - ipBlock:
+          cidr: 123.5.2.3/32
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: kubescape
+        podSelector:
+          matchLabels:
+            app: kubescape-ui
+      ports:
+      - port: 6379
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app: nginx
+    policyTypes:
+    - Ingress
+    - Egress
