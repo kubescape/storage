@@ -272,6 +272,12 @@ type ApplicationProfile struct {
 }
 
 type ApplicationProfileSpec struct {
+	Containers     []ApplicationProfileContainer `json:"containers,omitempty"`
+	InitContainers []ApplicationProfileContainer `json:"initContainers,omitempty"`
+}
+
+type ApplicationProfileContainer struct {
+	Name         string      `json:"name,omitempty"`
 	Capabilities []string    `json:"capabilities,omitempty"`
 	Execs        []ExecCalls `json:"execs,omitempty"`
 	Opens        []OpenCalls `json:"opens,omitempty"`
