@@ -39,6 +39,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationActivitySpec":                    schema_pkg_apis_softwarecomposition_v1beta1_ApplicationActivitySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationActivityStatus":                  schema_pkg_apis_softwarecomposition_v1beta1_ApplicationActivityStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfile":                         schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer":                schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileList":                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileSpec":                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus":                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
@@ -510,6 +511,66 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref common.R
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"execs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls"),
+									},
+								},
+							},
+						},
+					},
+					"opens": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -564,41 +625,27 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"capabilities": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"execs": {
+					"containers": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls"),
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer"),
 									},
 								},
 							},
 						},
 					},
-					"opens": {
+					"initContainers": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls"),
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer"),
 									},
 								},
 							},
@@ -608,7 +655,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer"},
 	}
 }
 

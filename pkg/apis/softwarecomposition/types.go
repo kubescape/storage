@@ -296,6 +296,12 @@ type ApplicationProfile struct {
 }
 
 type ApplicationProfileSpec struct {
+	Containers     []ApplicationProfileContainer
+	InitContainers []ApplicationProfileContainer
+}
+
+type ApplicationProfileContainer struct {
+	Name         string
 	Capabilities []string
 	Execs        []ExecCalls
 	Opens        []OpenCalls
