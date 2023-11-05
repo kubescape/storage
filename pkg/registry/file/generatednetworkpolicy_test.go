@@ -22,7 +22,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 	tests := []struct {
 		name                  string
 		networkNeighbors      softwarecomposition.NetworkNeighbors
-		knownServers          []softwarecomposition.KnownServers
+		KnownServer           []softwarecomposition.KnownServer
 		expectedNetworkPolicy softwarecomposition.GeneratedNetworkPolicy
 	}{
 		{
@@ -766,11 +766,14 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					IPBlock: "172.17.0.0/16",
-					Name:    "test",
-					DNS:     "",
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							IPBlock: "172.17.0.0/16",
+							Name:    "test",
+							Server:  ""},
+					},
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -878,16 +881,23 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					IPBlock: "172.17.0.0/16",
-					Name:    "name1",
-					DNS:     "",
-				},
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							IPBlock: "172.17.0.0/16",
+							Name:    "name1",
+							Server:  "",
+						},
+					}},
 				{
-					IPBlock: "174.17.0.0/16",
-					Name:    "name2",
-					DNS:     "",
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							IPBlock: "174.17.0.0/16",
+							Name:    "name2",
+							Server:  "",
+						},
+					},
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -1141,12 +1151,15 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					Name:    "test",
-					DNS:     "test.com",
-					IPBlock: "172.17.0.0/16",
-				},
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							Name:    "test",
+							Server:  "test.com",
+							IPBlock: "172.17.0.0/16",
+						},
+					}},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				ObjectMeta: v1.ObjectMeta{
@@ -1266,12 +1279,15 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					Name:    "test",
-					DNS:     "test.com",
-					IPBlock: "172.17.0.0/16",
-				},
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							Name:    "test",
+							Server:  "test.com",
+							IPBlock: "172.17.0.0/16",
+						},
+					}},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				ObjectMeta: v1.ObjectMeta{
@@ -1352,11 +1368,145 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "multiple known servers   - policy is enriched for egress",
+			networkNeighbors: softwarecomposition.NetworkNeighbors{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "deployment-nginx",
+					Namespace: "kubescape",
+				},
+				Spec: softwarecomposition.NetworkNeighborsSpec{
+					LabelSelector: v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "nginx",
+						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
+						{
+							IPAddress: "172.17.0.2",
+							DNS:       "test.com",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+						{
+							IPAddress: "198.17.0.2",
+							DNS:       "stripe.com",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+					},
+				},
+			},
+			KnownServer: []softwarecomposition.KnownServer{
+				{
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							Name:    "test",
+							Server:  "test.com",
+							IPBlock: "172.17.0.0/16",
+						},
+						{
+							Name:    "stripe",
+							Server:  "stripe.com",
+							IPBlock: "198.17.0.0/16",
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				ObjectMeta: v1.ObjectMeta{
+					Name:              "deployment-nginx",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				TypeMeta: v1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "deployment-nginx",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: v1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "nginx",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "172.17.0.0/16",
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "198.17.0.0/16",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{
+					{
+						IPBlock:    "172.17.0.0/16",
+						OriginalIP: "172.17.0.2",
+						DNS:        "test.com",
+						Name:       "test",
+					},
+					{
+						IPBlock:    "198.17.0.0/16",
+						OriginalIP: "198.17.0.2",
+						DNS:        "stripe.com",
+						Name:       "stripe",
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
 
-		got, err := generateNetworkPolicy(test.networkNeighbors, test.knownServers, timeProvider)
+		got, err := generateNetworkPolicy(test.networkNeighbors, test.KnownServer, timeProvider)
 
 		assert.NoError(t, err)
 

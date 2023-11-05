@@ -93,8 +93,31 @@ type PolicyRef struct {
 	Name       string
 }
 
-type KnownServers struct {
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// KnownServerList is a list of KnownServer.
+type KnownServerList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []KnownServer
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// KnownServer represents a known server, containing information about its IP addresses and DNS
+type KnownServer struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec KnownServerSpec
+}
+
+type KnownServerSpec []KnownServerEntry
+
+type KnownServerEntry struct {
 	IPBlock string
-	DNS     string
+	Server  string
 	Name    string
 }

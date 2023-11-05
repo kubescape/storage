@@ -58,6 +58,14 @@ type GeneratedNetworkPolicyListerExpansion interface{}
 // GeneratedNetworkPolicyNamespaceLister.
 type GeneratedNetworkPolicyNamespaceListerExpansion interface{}
 
+// KnownServerListerExpansion allows custom methods to be added to
+// KnownServerLister.
+type KnownServerListerExpansion interface{}
+
+// KnownServerNamespaceListerExpansion allows custom methods to be added to
+// KnownServerNamespaceLister.
+type KnownServerNamespaceListerExpansion interface{}
+
 // NetworkNeighborsListerExpansion allows custom methods to be added to
 // NetworkNeighborsLister.
 type NetworkNeighborsListerExpansion interface{}

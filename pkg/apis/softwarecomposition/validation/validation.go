@@ -125,6 +125,26 @@ func ValidateNetworkNeighbor(nns *softwarecomposition.NetworkNeighbor, fldPath *
 	return allErrs
 }
 
+func ValidateKnownServer(v *softwarecomposition.KnownServer) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for i, entry := range v.Spec {
+		allErrs = append(allErrs, validateKnownServerEntry(&entry, field.NewPath("spec").Child("entries").Index(i))...)
+	}
+
+	return allErrs
+}
+
+func validateKnownServerEntry(v *softwarecomposition.KnownServerEntry, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if v.IPBlock == "" {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("ipBlock"), v.IPBlock, "ipBlock must be set"))
+	}
+
+	return allErrs
+}
+
 func ValidateNetworkNeighborsPort(p *softwarecomposition.NetworkPort, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
