@@ -140,7 +140,6 @@ func Test_VulnerabilitySummaryMerge(t *testing.T) {
 			assert.Equal(t, tt.expectedFullVulnSumm, tt.fullVulnSumm)
 		})
 	}
-
 }
 
 func Test_VulnerabilityCountersAdd(t *testing.T) {
