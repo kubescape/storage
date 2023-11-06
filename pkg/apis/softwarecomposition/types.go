@@ -305,6 +305,7 @@ type ApplicationProfileContainer struct {
 	Capabilities []string
 	Execs        []ExecCalls
 	Opens        []OpenCalls
+	Syscalls     []string
 }
 
 type ExecCalls struct {

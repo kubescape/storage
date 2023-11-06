@@ -1721,6 +1721,7 @@ func autoConvert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_Appl
 	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
 	out.Execs = *(*[]softwarecomposition.ExecCalls)(unsafe.Pointer(&in.Execs))
 	out.Opens = *(*[]softwarecomposition.OpenCalls)(unsafe.Pointer(&in.Opens))
+	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
 	return nil
 }
 
@@ -1734,6 +1735,7 @@ func autoConvert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_Appl
 	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
 	out.Execs = *(*[]ExecCalls)(unsafe.Pointer(&in.Execs))
 	out.Opens = *(*[]OpenCalls)(unsafe.Pointer(&in.Opens))
+	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
 	return nil
 }
 
