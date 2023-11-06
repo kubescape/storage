@@ -106,7 +106,7 @@ type KnownServerList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// KnownServer represents a known server, containing information about its IP addresses and DNS
+// KnownServer represents a known server, containing information about its IP addresses and servers. The purpose is to enrich the GeneratedNetworkPolicy CRD
 type KnownServer struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
