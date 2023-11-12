@@ -539,6 +539,13 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	return int64(n), err
 }
 
+// RequestWatchProgress fulfills the interface.Storage
+//
+// It’s function is only relevant to etcd.
+func (s *StorageImpl) RequestWatchProgress(context.Context) error {
+	return nil
+}
+
 // GetByNamespace returns all objects in a given namespace, given their api version and kind.
 func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByNamespace")

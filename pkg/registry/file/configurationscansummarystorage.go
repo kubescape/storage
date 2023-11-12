@@ -137,6 +137,13 @@ func (s *ConfigurationScanSummaryStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
+// RequestWatchProgress fulfills the interface.Storage
+//
+// It’s function is only relevant to etcd.
+func (s *ConfigurationScanSummaryStorage) RequestWatchProgress(context.Context) error {
+	return nil
+}
+
 // buildConfigurationScanSummaryForCluster generates a configuration scan summary list for the cluster, where each item is a configuration scan summary for a namespace
 func buildConfigurationScanSummaryForCluster(wlConfigurationScanSummaryList softwarecomposition.WorkloadConfigurationScanSummaryList) softwarecomposition.ConfigurationScanSummaryList {
 
