@@ -79,6 +79,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&OpenVulnerabilityExchangeContainerList{},
 		&GeneratedNetworkPolicyList{},
 		&GeneratedNetworkPolicy{},
+		&SBOMSyft{},
+		&SBOMSyftList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

@@ -516,3 +516,29 @@ type OpenVulnerabilityExchangeContainerList struct {
 
 	Items []OpenVulnerabilityExchangeContainer `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// SBOMSyftStatus is the status of a Syft SBOM.
+type SBOMSyftStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyft is a custom resource that describes an SBOM in the Syft format.
+type SBOMSyft struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   SyftDocument
+	Status SBOMSyftStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyftList is a list of SBOMSyft objects.
+type SBOMSyftList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []SBOMSyft
+}
