@@ -98,6 +98,14 @@ type SBOMSummaryListerExpansion interface{}
 // SBOMSummaryNamespaceLister.
 type SBOMSummaryNamespaceListerExpansion interface{}
 
+// SBOMSyftListerExpansion allows custom methods to be added to
+// SBOMSyftLister.
+type SBOMSyftListerExpansion interface{}
+
+// SBOMSyftNamespaceListerExpansion allows custom methods to be added to
+// SBOMSyftNamespaceLister.
+type SBOMSyftNamespaceListerExpansion interface{}
+
 // VulnerabilityManifestListerExpansion allows custom methods to be added to
 // VulnerabilityManifestLister.
 type VulnerabilityManifestListerExpansion interface{}
