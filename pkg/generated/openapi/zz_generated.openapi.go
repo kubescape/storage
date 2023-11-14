@@ -146,6 +146,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered":                           schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFilteredList":                       schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftList":                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec":                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus":                             schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControl":                             schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref),
@@ -5460,36 +5461,43 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyft(ref common.ReferenceCa
 				Description: "SBOMSyft is a custom resource that describes an SBOM in the Syft format.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"TypeMeta": {
+					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"),
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
-					"ObjectMeta": {
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
 						},
 					},
-					"Spec": {
+					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"),
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec"),
 						},
 					},
-					"Status": {
+					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus"),
 						},
 					},
 				},
-				Required: []string{"TypeMeta", "ObjectMeta", "Spec", "Status"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -5523,7 +5531,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref common.Ref
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"),
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec"),
 						},
 					},
 					"status": {
@@ -5536,7 +5544,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -5596,19 +5604,27 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref common.Referen
 				Description: "SBOMSyftList is a list of SBOMSyft objects.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"TypeMeta": {
+					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"),
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
-					"ListMeta": {
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
 						},
 					},
-					"Items": {
+					"items": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -5622,11 +5638,39 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"TypeMeta", "ListMeta", "Items"},
+				Required: []string{"items"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSyftSpec is the specification of a Syft SBOM",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta"),
+						},
+					},
+					"syft": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"),
+						},
+					},
+				},
+				Required: []string{"metadata"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"},
 	}
 }
 
