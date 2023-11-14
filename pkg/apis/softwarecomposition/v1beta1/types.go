@@ -521,26 +521,32 @@ type OpenVulnerabilityExchangeContainerList struct {
 type SBOMSyftStatus struct {
 }
 
+// SBOMSyftSpec is the specification of a Syft SBOM
+type SBOMSyftSpec struct {
+	Metadata SPDXMeta     `json:"metadata"`
+	Syft     SyftDocument `json:"syft,omitempty"`
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SBOMSyft is a custom resource that describes an SBOM in the Syft format.
 type SBOMSyft struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
+	metav1.TypeMeta `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   SyftDocument
-	Status SBOMSyftStatus
+	Spec   SBOMSyftSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SBOMSyftList is a list of SBOMSyft objects.
 type SBOMSyftList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []SBOMSyft
+	Items []SBOMSyft `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -553,7 +559,7 @@ type SBOMSyftFiltered struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   SyftDocument   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 

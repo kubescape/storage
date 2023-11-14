@@ -545,6 +545,12 @@ type OpenVulnerabilityExchangeContainerList struct {
 type SBOMSyftStatus struct {
 }
 
+// SBOMSyftSpec is the specification of a Syft SBOM
+type SBOMSyftSpec struct {
+	Metadata SPDXMeta
+	Syft     SyftDocument
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -553,7 +559,7 @@ type SBOMSyft struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   SyftDocument
+	Spec   SBOMSyftSpec
 	Status SBOMSyftStatus
 }
 
@@ -577,7 +583,7 @@ type SBOMSyftFiltered struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   SyftDocument
+	Spec   SBOMSyftSpec
 	Status SBOMSyftStatus
 }
 
