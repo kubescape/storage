@@ -566,3 +566,27 @@ type SBOMSyftList struct {
 
 	Items []SBOMSyft
 }
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft 2.3 format.
+//
+// Being filtered means that the SBOM contains only the relevant vulnerable materials.
+type SBOMSyftFiltered struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   SyftDocument
+	Status SBOMSyftStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyftFilteredList is a list of SBOMSyftFiltered objects.
+type SBOMSyftFilteredList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []SBOMSyftFiltered
+}

@@ -79,6 +79,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&GeneratedNetworkPolicy{},
 		&SBOMSyft{},
 		&SBOMSyftList{},
+		&SBOMSyftFiltered{},
+		&SBOMSyftFilteredList{},
 	)
 	return nil
 }
