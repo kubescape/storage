@@ -539,7 +539,7 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	return int64(n), err
 }
 
-// RequestWatchProgress fulfills the interface.Storage
+// RequestWatchProgress fulfills the storage.Interface
 //
 // It’s function is only relevant to etcd.
 func (s *StorageImpl) RequestWatchProgress(context.Context) error {

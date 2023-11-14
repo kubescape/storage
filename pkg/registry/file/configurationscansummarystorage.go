@@ -137,7 +137,7 @@ func (s *ConfigurationScanSummaryStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
-// RequestWatchProgress fulfills the interface.Storage
+// RequestWatchProgress fulfills the storage.Interface
 //
 // It’s function is only relevant to etcd.
 func (s *ConfigurationScanSummaryStorage) RequestWatchProgress(context.Context) error {
