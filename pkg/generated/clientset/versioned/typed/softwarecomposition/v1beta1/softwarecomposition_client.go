@@ -39,6 +39,7 @@ type SpdxV1beta1Interface interface {
 	SBOMSPDXv2p3FilteredsGetter
 	SBOMSummariesGetter
 	SBOMSyftsGetter
+	SBOMSyftFilteredsGetter
 	VulnerabilityManifestsGetter
 	VulnerabilityManifestSummariesGetter
 	VulnerabilitySummariesGetter
@@ -93,6 +94,10 @@ func (c *SpdxV1beta1Client) SBOMSummaries(namespace string) SBOMSummaryInterface
 
 func (c *SpdxV1beta1Client) SBOMSyfts(namespace string) SBOMSyftInterface {
 	return newSBOMSyfts(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) SBOMSyftFiltereds(namespace string) SBOMSyftFilteredInterface {
+	return newSBOMSyftFiltereds(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) VulnerabilityManifestInterface {

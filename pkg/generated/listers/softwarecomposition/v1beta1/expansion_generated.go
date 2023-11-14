@@ -106,6 +106,14 @@ type SBOMSyftListerExpansion interface{}
 // SBOMSyftNamespaceLister.
 type SBOMSyftNamespaceListerExpansion interface{}
 
+// SBOMSyftFilteredListerExpansion allows custom methods to be added to
+// SBOMSyftFilteredLister.
+type SBOMSyftFilteredListerExpansion interface{}
+
+// SBOMSyftFilteredNamespaceListerExpansion allows custom methods to be added to
+// SBOMSyftFilteredNamespaceLister.
+type SBOMSyftFilteredNamespaceListerExpansion interface{}
+
 // VulnerabilityManifestListerExpansion allows custom methods to be added to
 // VulnerabilityManifestLister.
 type VulnerabilityManifestListerExpansion interface{}
