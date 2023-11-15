@@ -1,5 +1,5 @@
 apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
-kind: SBOMSPDXv2p3
+kind: SBOMSyft
 metadata:
   name: sbom-01
   namespace: wardle
