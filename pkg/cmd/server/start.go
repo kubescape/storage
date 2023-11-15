@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 
-	"github.com/go-logr/logr"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -31,14 +30,11 @@ import (
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
 	"github.com/spf13/cobra"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
-	"k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/klog/v2"
 	netutils "k8s.io/utils/net"
 )
 
@@ -80,14 +76,20 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 		Long:  "Launch a wardle API server",
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
+				logger.L().Error("config not completed")
 				return err
 			}
+			logger.L().Debug("config completed")
 			if err := o.Validate(args); err != nil {
+				logger.L().Error("config not validated")
 				return err
 			}
+			logger.L().Debug("config validated")
 			if err := o.RunWardleServer(stopCh); err != nil {
+				logger.L().Error("unable to run server validated")
 				return err
 			}
+			logger.L().Info("server ran")
 			return nil
 		},
 	}
@@ -96,13 +98,9 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 	o.RecommendedOptions.AddFlags(flags)
 	utilfeature.DefaultMutableFeatureGate.AddFlag(flags)
 
-	// remove "failed to list *v1beta3.FlowSchema" error
-	// https://github.com/cert-manager/webhook-example/issues/48
-	utilruntime.Must(utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=false", features.APIPriorityAndFairness)))
-
 	// mute klog
 	// https://github.com/kubernetes/klog/issues/87
-	klog.SetLogger(logr.Discard())
+	// klog.SetLogger(logr.Discard())
 
 	logger.L().Info("starting storage server")
 

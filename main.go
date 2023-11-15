@@ -48,6 +48,7 @@ func main() {
 	stopCh := genericapiserver.SetupSignalHandler()
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr)
 	cmd := server.NewCommandStartWardleServer(options, stopCh)
+	logger.L().Info("APIServer started")
 	code := cli.Run(cmd)
 	os.Exit(code)
 }
