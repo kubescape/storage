@@ -4,21 +4,36 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/anchore/syft/syft/file"
-	"github.com/anchore/syft/syft/license"
 	"reflect"
+	"strconv"
 	"strings"
 
-	"github.com/anchore/syft/syft/pkg"
-	"strconv"
-
+	"github.com/anchore/syft/syft/license"
 	"github.com/anchore/syft/syft/source"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/packagemetadata"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/sourcemetadata"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/packagemetadata"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/sourcemetadata"
 )
+
+type Digest struct {
+	Algorithm string `json:"algorithm"`
+	Value     string `json:"value"`
+}
+
+type SearchResult struct {
+	Classification string `json:"classification"`
+	LineNumber     int64  `json:"lineNumber"`
+	LineOffset     int64  `json:"lineOffset"`
+	SeekPosition   int64  `json:"seekPosition"`
+	Length         int64  `json:"length"`
+	Value          string `json:"value,omitempty"`
+}
+
+func (s SearchResult) String() string {
+	return fmt.Sprintf("SearchResult(classification=%q seek=%q length=%q)", s.Classification, s.SeekPosition, s.Length)
+}
 
 type LocationMetadata struct {
 	Annotations map[string]string `json:"annotations,omitempty"` // Arbitrary key-value pairs that can be used to annotate a location
@@ -41,7 +56,7 @@ type LocationData struct {
 	Coordinates `cyclonedx:""` // Empty string here means there is no intermediate property name, e.g. syft:locations:0:path without "coordinates"
 	// note: it is IMPORTANT to ignore anything but the coordinates for a Location when considering the ID (hash value)
 	// since the coordinates are the minimally correct ID for a location (symlinks should not come into play)
-	VirtualPath string    `hash:"ignore" json:"accessPath"` // The path to the file which may or may not have hardlinks / symlinks
+	VirtualPath string `hash:"ignore" json:"accessPath"` // The path to the file which may or may not have hardlinks / symlinks
 }
 
 // SyftSource object represents the thing that was cataloged
@@ -159,8 +174,8 @@ func extractPreSchemaV9Metadata(t string, target []byte) (interface{}, error) {
 }
 
 type Secrets struct {
-	Location Coordinates         `json:"location"`
-	Secrets  []file.SearchResult `json:"secrets"`
+	Location Coordinates    `json:"location"`
+	Secrets  []SearchResult `json:"secrets"`
 }
 
 var errUnknownMetadataType = errors.New("unknown metadata type")
@@ -180,26 +195,28 @@ type SyftPackage struct {
 
 // PackageBasicData contains non-ambiguous values (type-wise) from pkg.SyftPackage.
 type PackageBasicData struct {
-	ID        string       `json:"id"`
-	Name      string       `json:"name"`
-	Version   string       `json:"version"`
-	Type      pkg.Type     `json:"type"`
-	FoundBy   string       `json:"foundBy"`
-	Locations []Location   `json:"locations"`
-	Licenses  Licenses     `json:"licenses"`
-	Language  pkg.Language `json:"language"`
-	CPEs      []string     `json:"cpes"`
-	PURL      string       `json:"purl"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Version   string     `json:"version"`
+	Type      string     `json:"type"`
+	FoundBy   string     `json:"foundBy"`
+	Locations []Location `json:"locations"`
+	Licenses  Licenses   `json:"licenses"`
+	Language  string     `json:"language"`
+	CPEs      []string   `json:"cpes"`
+	PURL      string     `json:"purl"`
 }
+
+type LicenseType string
 
 type Licenses []License
 
 type License struct {
-	Value          string       `json:"value"`
-	SPDXExpression string       `json:"spdxExpression"`
-	Type           license.Type `json:"type"`
-	URLs           []string     `json:"urls"`
-	Locations      []Location   `json:"locations"`
+	Value          string      `json:"value"`
+	SPDXExpression string      `json:"spdxExpression"`
+	Type           LicenseType `json:"type"`
+	URLs           []string    `json:"urls"`
+	Locations      []Location  `json:"locations"`
 }
 
 func newModelLicensesFromValues(licenses []string) (ml []License) {
@@ -215,7 +232,7 @@ func newModelLicensesFromValues(licenses []string) (ml []License) {
 		ml = append(ml, License{
 			Value:          v,
 			SPDXExpression: expression,
-			Type:           license.Declared,
+			Type:           LicenseType(license.Declared),
 		})
 	}
 	return ml
@@ -393,7 +410,7 @@ type SyftFile struct {
 	Location Coordinates        `json:"location"`
 	Metadata *FileMetadataEntry `json:"metadata,omitempty"`
 	Contents string             `json:"contents,omitempty"`
-	Digests  []file.Digest      `json:"digests,omitempty"`
+	Digests  []Digest           `json:"digests,omitempty"`
 	Licenses []FileLicense      `json:"licenses,omitempty"`
 }
 
@@ -410,7 +427,7 @@ type FileMetadataEntry struct {
 type FileLicense struct {
 	Value          string               `json:"value"`
 	SPDXExpression string               `json:"spdxExpression"`
-	Type           license.Type         `json:"type"`
+	Type           LicenseType          `json:"type"`
 	Evidence       *FileLicenseEvidence `json:"evidence,omitempty"`
 }
 
