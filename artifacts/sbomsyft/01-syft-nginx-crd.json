@@ -10,7 +10,9 @@
   },
   "spec": {
     "metadata": {
-      "tool": "kubescape"
+      "tool": {
+        "name": "kubescape"
+      }
     },
     "syft": {
       "artifacts": [

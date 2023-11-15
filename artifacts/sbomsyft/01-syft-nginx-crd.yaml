@@ -7,7 +7,8 @@ metadata:
     sample-label: "true"
 spec:
   metadata:
-    tool: "kubescape"
+    tool:
+      name: "kubescape"
   syft:
     artifacts:
       - id: e2ba4951f152fd94
