@@ -65,7 +65,7 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -117,7 +117,7 @@ require (
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
-	golang.org/x/time v0.1.0 // indirect
+	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
@@ -138,6 +138,7 @@ require (
 
 replace (
 	github.com/openvex/go-vex => github.com/slashben/go-vex v0.0.0-20231012123606-f58e5ee0e14e
+	google.golang.org/grpc => google.golang.org/grpc v1.56.3
 	k8s.io/api => k8s.io/api v0.0.0-20230207050353-0478a3e95231
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20230207050124-7687996c715e
 	k8s.io/apiserver => k8s.io/apiserver v0.0.0-20230207052343-3cee67d89e1b
