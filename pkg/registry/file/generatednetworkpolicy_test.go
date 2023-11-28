@@ -1101,13 +1101,11 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						IPBlock:    "172.17.0.2/32",
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
-						Name:       "test.com",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1156,7 +1154,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Spec: softwarecomposition.KnownServerSpec{
 						{
 							Name:    "test",
-							Server:  "test.com",
+							Server:  "test-server",
 							IPBlock: "172.17.0.0/16",
 						},
 					}},
@@ -1230,12 +1228,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
+						Server:     "test-server",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1284,7 +1282,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Spec: softwarecomposition.KnownServerSpec{
 						{
 							Name:    "test",
-							Server:  "test.com",
+							Server:  "test-server",
 							IPBlock: "172.17.0.0/16",
 						},
 					}},
@@ -1358,12 +1356,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
+						Server:     "test-server",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1412,12 +1410,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Spec: softwarecomposition.KnownServerSpec{
 						{
 							Name:    "test",
-							Server:  "test.com",
+							Server:  "test-server",
 							IPBlock: "172.17.0.0/16",
 						},
 						{
 							Name:    "stripe",
-							Server:  "stripe.com",
+							Server:  "stripe-payments",
 							IPBlock: "198.17.0.0/16",
 						},
 					},
@@ -1492,12 +1490,14 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
+						Server:     "test-server",
 					},
 					{
 						IPBlock:    "198.17.0.0/16",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
 						Name:       "stripe",
+						Server:     "stripe-payments",
 					},
 				},
 			},

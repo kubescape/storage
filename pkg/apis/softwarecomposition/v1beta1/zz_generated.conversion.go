@@ -3777,6 +3777,7 @@ func autoConvert_v1beta1_PolicyRef_To_softwarecomposition_PolicyRef(in *PolicyRe
 	out.OriginalIP = in.OriginalIP
 	out.DNS = in.DNS
 	out.Name = in.Name
+	out.Server = in.Server
 	return nil
 }
 
@@ -3790,6 +3791,7 @@ func autoConvert_softwarecomposition_PolicyRef_To_v1beta1_PolicyRef(in *software
 	out.OriginalIP = in.OriginalIP
 	out.DNS = in.DNS
 	out.Name = in.Name
+	out.Server = in.Server
 	return nil
 }
 

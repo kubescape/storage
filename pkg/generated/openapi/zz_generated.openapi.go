@@ -2863,7 +2863,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KnownServer represents a list of known servers.",
+				Description: "KnownServer represents a known server, containing information about its IP addresses and servers. The purpose is to enrich the GeneratedNetworkPolicy CRD",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -4390,8 +4390,15 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PolicyRef(ref common.ReferenceC
 							Format:  "",
 						},
 					},
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"ipBlock", "originalIP", "dns", "name"},
+				Required: []string{"ipBlock", "originalIP", "dns", "name", "server"},
 			},
 		},
 	}

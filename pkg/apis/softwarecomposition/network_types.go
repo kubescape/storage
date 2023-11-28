@@ -91,6 +91,7 @@ type PolicyRef struct {
 	OriginalIP string
 	DNS        string
 	Name       string
+	Server     string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

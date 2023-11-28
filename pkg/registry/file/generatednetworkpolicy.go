@@ -260,10 +260,11 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServe
 						Name:       entry.Name,
 						OriginalIP: neighbor.IPAddress,
 						IPBlock:    entry.IPBlock,
+						Server:     entry.Server,
 					}
 
-					if entry.Server != "" {
-						policyRef.DNS = entry.Server
+					if neighbor.DNS != "" {
+						policyRef.DNS = neighbor.DNS
 					}
 
 					policyRefs = append(policyRefs, policyRef)
@@ -280,7 +281,6 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServe
 
 			if neighbor.DNS != "" {
 				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
-					Name:       neighbor.DNS,
 					DNS:        neighbor.DNS,
 					IPBlock:    ipBlock.CIDR,
 					OriginalIP: neighbor.IPAddress,
@@ -345,9 +345,11 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServ
 						Name:       entry.Name,
 						OriginalIP: neighbor.IPAddress,
 						IPBlock:    entry.IPBlock,
+						Server:     entry.Server,
 					}
-					if entry.Server != "" {
-						policyRef.DNS = entry.Server
+
+					if neighbor.DNS != "" {
+						policyRef.DNS = neighbor.DNS
 					}
 
 					policyRefs = append(policyRefs, policyRef)
@@ -364,7 +366,6 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServ
 
 			if neighbor.DNS != "" {
 				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
-					Name:       neighbor.DNS,
 					DNS:        neighbor.DNS,
 					IPBlock:    ipBlock.CIDR,
 					OriginalIP: neighbor.IPAddress,

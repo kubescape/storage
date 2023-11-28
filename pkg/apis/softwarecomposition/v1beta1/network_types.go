@@ -93,6 +93,7 @@ type PolicyRef struct {
 	OriginalIP string `json:"originalIP"`
 	DNS        string `json:"dns"`
 	Name       string `json:"name"`
+	Server     string `json:"server"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
