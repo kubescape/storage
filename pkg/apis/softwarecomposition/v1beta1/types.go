@@ -532,10 +532,10 @@ type SBOMSyftSpec struct {
 
 // SBOMSyft is a custom resource that describes an SBOM in the Syft format.
 type SBOMSyft struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   SBOMSyftSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
