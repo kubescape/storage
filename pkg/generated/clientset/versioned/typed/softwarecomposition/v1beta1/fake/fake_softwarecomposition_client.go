@@ -68,6 +68,14 @@ func (c *FakeSpdxV1beta1) SBOMSummaries(namespace string) v1beta1.SBOMSummaryInt
 	return &FakeSBOMSummaries{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) SBOMSyfts(namespace string) v1beta1.SBOMSyftInterface {
+	return &FakeSBOMSyfts{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) SBOMSyftFiltereds(namespace string) v1beta1.SBOMSyftFilteredInterface {
+	return &FakeSBOMSyftFiltereds{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {
 	return &FakeVulnerabilityManifests{c, namespace}
 }

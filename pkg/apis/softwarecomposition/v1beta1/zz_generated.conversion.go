@@ -249,6 +249,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*Coordinates)(nil), (*softwarecomposition.Coordinates)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Coordinates_To_softwarecomposition_Coordinates(a.(*Coordinates), b.(*softwarecomposition.Coordinates), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Coordinates)(nil), (*Coordinates)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Coordinates_To_v1beta1_Coordinates(a.(*softwarecomposition.Coordinates), b.(*Coordinates), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*CreationInfo)(nil), (*softwarecomposition.CreationInfo)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_CreationInfo_To_softwarecomposition_CreationInfo(a.(*CreationInfo), b.(*softwarecomposition.CreationInfo), scope)
 	}); err != nil {
@@ -296,6 +306,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Descriptor)(nil), (*Descriptor)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(a.(*softwarecomposition.Descriptor), b.(*Descriptor), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Digest)(nil), (*softwarecomposition.Digest)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Digest_To_softwarecomposition_Digest(a.(*Digest), b.(*softwarecomposition.Digest), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Digest)(nil), (*Digest)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Digest_To_v1beta1_Digest(a.(*softwarecomposition.Digest), b.(*Digest), scope)
 	}); err != nil {
 		return err
 	}
@@ -356,6 +376,36 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.File)(nil), (*File)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_File_To_v1beta1_File(a.(*softwarecomposition.File), b.(*File), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*FileLicense)(nil), (*softwarecomposition.FileLicense)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_FileLicense_To_softwarecomposition_FileLicense(a.(*FileLicense), b.(*softwarecomposition.FileLicense), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.FileLicense)(nil), (*FileLicense)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_FileLicense_To_v1beta1_FileLicense(a.(*softwarecomposition.FileLicense), b.(*FileLicense), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*FileLicenseEvidence)(nil), (*softwarecomposition.FileLicenseEvidence)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_FileLicenseEvidence_To_softwarecomposition_FileLicenseEvidence(a.(*FileLicenseEvidence), b.(*softwarecomposition.FileLicenseEvidence), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.FileLicenseEvidence)(nil), (*FileLicenseEvidence)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_FileLicenseEvidence_To_v1beta1_FileLicenseEvidence(a.(*softwarecomposition.FileLicenseEvidence), b.(*FileLicenseEvidence), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*FileMetadataEntry)(nil), (*softwarecomposition.FileMetadataEntry)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_FileMetadataEntry_To_softwarecomposition_FileMetadataEntry(a.(*FileMetadataEntry), b.(*softwarecomposition.FileMetadataEntry), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.FileMetadataEntry)(nil), (*FileMetadataEntry)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_FileMetadataEntry_To_v1beta1_FileMetadataEntry(a.(*softwarecomposition.FileMetadataEntry), b.(*FileMetadataEntry), scope)
 	}); err != nil {
 		return err
 	}
@@ -639,6 +689,56 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*License)(nil), (*softwarecomposition.License)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_License_To_softwarecomposition_License(a.(*License), b.(*softwarecomposition.License), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.License)(nil), (*License)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_License_To_v1beta1_License(a.(*softwarecomposition.License), b.(*License), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*LinuxRelease)(nil), (*softwarecomposition.LinuxRelease)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_LinuxRelease_To_softwarecomposition_LinuxRelease(a.(*LinuxRelease), b.(*softwarecomposition.LinuxRelease), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.LinuxRelease)(nil), (*LinuxRelease)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_LinuxRelease_To_v1beta1_LinuxRelease(a.(*softwarecomposition.LinuxRelease), b.(*LinuxRelease), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Location)(nil), (*softwarecomposition.Location)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Location_To_softwarecomposition_Location(a.(*Location), b.(*softwarecomposition.Location), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Location)(nil), (*Location)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Location_To_v1beta1_Location(a.(*softwarecomposition.Location), b.(*Location), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*LocationData)(nil), (*softwarecomposition.LocationData)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_LocationData_To_softwarecomposition_LocationData(a.(*LocationData), b.(*softwarecomposition.LocationData), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.LocationData)(nil), (*LocationData)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_LocationData_To_v1beta1_LocationData(a.(*softwarecomposition.LocationData), b.(*LocationData), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*LocationMetadata)(nil), (*softwarecomposition.LocationMetadata)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_LocationMetadata_To_softwarecomposition_LocationMetadata(a.(*LocationMetadata), b.(*softwarecomposition.LocationMetadata), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.LocationMetadata)(nil), (*LocationMetadata)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_LocationMetadata_To_v1beta1_LocationMetadata(a.(*softwarecomposition.LocationMetadata), b.(*LocationMetadata), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*Match)(nil), (*softwarecomposition.Match)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Match_To_softwarecomposition_Match(a.(*Match), b.(*softwarecomposition.Match), scope)
 	}); err != nil {
@@ -859,6 +959,26 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*PackageBasicData)(nil), (*softwarecomposition.PackageBasicData)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_PackageBasicData_To_softwarecomposition_PackageBasicData(a.(*PackageBasicData), b.(*softwarecomposition.PackageBasicData), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.PackageBasicData)(nil), (*PackageBasicData)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData(a.(*softwarecomposition.PackageBasicData), b.(*PackageBasicData), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*PackageCustomData)(nil), (*softwarecomposition.PackageCustomData)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData(a.(*PackageCustomData), b.(*softwarecomposition.PackageCustomData), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.PackageCustomData)(nil), (*PackageCustomData)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_PackageCustomData_To_v1beta1_PackageCustomData(a.(*softwarecomposition.PackageCustomData), b.(*PackageCustomData), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*PackageExternalReference)(nil), (*softwarecomposition.PackageExternalReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_PackageExternalReference_To_softwarecomposition_PackageExternalReference(a.(*PackageExternalReference), b.(*softwarecomposition.PackageExternalReference), scope)
 	}); err != nil {
@@ -1039,6 +1159,66 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSyft)(nil), (*softwarecomposition.SBOMSyft)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSyft_To_softwarecomposition_SBOMSyft(a.(*SBOMSyft), b.(*softwarecomposition.SBOMSyft), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSyft)(nil), (*SBOMSyft)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSyft_To_v1beta1_SBOMSyft(a.(*softwarecomposition.SBOMSyft), b.(*SBOMSyft), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSyftFiltered)(nil), (*softwarecomposition.SBOMSyftFiltered)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSyftFiltered_To_softwarecomposition_SBOMSyftFiltered(a.(*SBOMSyftFiltered), b.(*softwarecomposition.SBOMSyftFiltered), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSyftFiltered)(nil), (*SBOMSyftFiltered)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSyftFiltered_To_v1beta1_SBOMSyftFiltered(a.(*softwarecomposition.SBOMSyftFiltered), b.(*SBOMSyftFiltered), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSyftFilteredList)(nil), (*softwarecomposition.SBOMSyftFilteredList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSyftFilteredList_To_softwarecomposition_SBOMSyftFilteredList(a.(*SBOMSyftFilteredList), b.(*softwarecomposition.SBOMSyftFilteredList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSyftFilteredList)(nil), (*SBOMSyftFilteredList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSyftFilteredList_To_v1beta1_SBOMSyftFilteredList(a.(*softwarecomposition.SBOMSyftFilteredList), b.(*SBOMSyftFilteredList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSyftList)(nil), (*softwarecomposition.SBOMSyftList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSyftList_To_softwarecomposition_SBOMSyftList(a.(*SBOMSyftList), b.(*softwarecomposition.SBOMSyftList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSyftList)(nil), (*SBOMSyftList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSyftList_To_v1beta1_SBOMSyftList(a.(*softwarecomposition.SBOMSyftList), b.(*SBOMSyftList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSyftSpec)(nil), (*softwarecomposition.SBOMSyftSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSyftSpec_To_softwarecomposition_SBOMSyftSpec(a.(*SBOMSyftSpec), b.(*softwarecomposition.SBOMSyftSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSyftSpec)(nil), (*SBOMSyftSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec(a.(*softwarecomposition.SBOMSyftSpec), b.(*SBOMSyftSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SBOMSyftStatus)(nil), (*softwarecomposition.SBOMSyftStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(a.(*SBOMSyftStatus), b.(*softwarecomposition.SBOMSyftStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SBOMSyftStatus)(nil), (*SBOMSyftStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus(a.(*softwarecomposition.SBOMSyftStatus), b.(*SBOMSyftStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*SPDXMeta)(nil), (*softwarecomposition.SPDXMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_SPDXMeta_To_softwarecomposition_SPDXMeta(a.(*SPDXMeta), b.(*softwarecomposition.SPDXMeta), scope)
 	}); err != nil {
@@ -1086,6 +1266,36 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.ScannedControlSummary)(nil), (*ScannedControlSummary)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary(a.(*softwarecomposition.ScannedControlSummary), b.(*ScannedControlSummary), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Schema)(nil), (*softwarecomposition.Schema)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Schema_To_softwarecomposition_Schema(a.(*Schema), b.(*softwarecomposition.Schema), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Schema)(nil), (*Schema)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Schema_To_v1beta1_Schema(a.(*softwarecomposition.Schema), b.(*Schema), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SearchResult)(nil), (*softwarecomposition.SearchResult)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SearchResult_To_softwarecomposition_SearchResult(a.(*SearchResult), b.(*softwarecomposition.SearchResult), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SearchResult)(nil), (*SearchResult)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SearchResult_To_v1beta1_SearchResult(a.(*softwarecomposition.SearchResult), b.(*SearchResult), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Secrets)(nil), (*softwarecomposition.Secrets)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Secrets_To_softwarecomposition_Secrets(a.(*Secrets), b.(*softwarecomposition.Secrets), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.Secrets)(nil), (*Secrets)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_Secrets_To_v1beta1_Secrets(a.(*softwarecomposition.Secrets), b.(*Secrets), scope)
 	}); err != nil {
 		return err
 	}
@@ -1186,6 +1396,66 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftCoordinates)(nil), (*SyftCoordinates)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(a.(*softwarecomposition.SyftCoordinates), b.(*SyftCoordinates), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SyftDescriptor)(nil), (*softwarecomposition.SyftDescriptor)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SyftDescriptor_To_softwarecomposition_SyftDescriptor(a.(*SyftDescriptor), b.(*softwarecomposition.SyftDescriptor), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftDescriptor)(nil), (*SyftDescriptor)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SyftDescriptor_To_v1beta1_SyftDescriptor(a.(*softwarecomposition.SyftDescriptor), b.(*SyftDescriptor), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SyftDocument)(nil), (*softwarecomposition.SyftDocument)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SyftDocument_To_softwarecomposition_SyftDocument(a.(*SyftDocument), b.(*softwarecomposition.SyftDocument), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftDocument)(nil), (*SyftDocument)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SyftDocument_To_v1beta1_SyftDocument(a.(*softwarecomposition.SyftDocument), b.(*SyftDocument), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SyftFile)(nil), (*softwarecomposition.SyftFile)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SyftFile_To_softwarecomposition_SyftFile(a.(*SyftFile), b.(*softwarecomposition.SyftFile), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftFile)(nil), (*SyftFile)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SyftFile_To_v1beta1_SyftFile(a.(*softwarecomposition.SyftFile), b.(*SyftFile), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SyftPackage)(nil), (*softwarecomposition.SyftPackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SyftPackage_To_softwarecomposition_SyftPackage(a.(*SyftPackage), b.(*softwarecomposition.SyftPackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftPackage)(nil), (*SyftPackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SyftPackage_To_v1beta1_SyftPackage(a.(*softwarecomposition.SyftPackage), b.(*SyftPackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SyftRelationship)(nil), (*softwarecomposition.SyftRelationship)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SyftRelationship_To_softwarecomposition_SyftRelationship(a.(*SyftRelationship), b.(*softwarecomposition.SyftRelationship), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftRelationship)(nil), (*SyftRelationship)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SyftRelationship_To_v1beta1_SyftRelationship(a.(*softwarecomposition.SyftRelationship), b.(*SyftRelationship), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SyftSource)(nil), (*softwarecomposition.SyftSource)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SyftSource_To_softwarecomposition_SyftSource(a.(*SyftSource), b.(*softwarecomposition.SyftSource), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SyftSource)(nil), (*SyftSource)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_SyftSource_To_v1beta1_SyftSource(a.(*softwarecomposition.SyftSource), b.(*SyftSource), scope)
 	}); err != nil {
 		return err
 	}
@@ -2016,6 +2286,28 @@ func Convert_softwarecomposition_ControlSeverity_To_v1beta1_ControlSeverity(in *
 	return autoConvert_softwarecomposition_ControlSeverity_To_v1beta1_ControlSeverity(in, out, s)
 }
 
+func autoConvert_v1beta1_Coordinates_To_softwarecomposition_Coordinates(in *Coordinates, out *softwarecomposition.Coordinates, s conversion.Scope) error {
+	out.RealPath = in.RealPath
+	out.FileSystemID = in.FileSystemID
+	return nil
+}
+
+// Convert_v1beta1_Coordinates_To_softwarecomposition_Coordinates is an autogenerated conversion function.
+func Convert_v1beta1_Coordinates_To_softwarecomposition_Coordinates(in *Coordinates, out *softwarecomposition.Coordinates, s conversion.Scope) error {
+	return autoConvert_v1beta1_Coordinates_To_softwarecomposition_Coordinates(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Coordinates_To_v1beta1_Coordinates(in *softwarecomposition.Coordinates, out *Coordinates, s conversion.Scope) error {
+	out.RealPath = in.RealPath
+	out.FileSystemID = in.FileSystemID
+	return nil
+}
+
+// Convert_softwarecomposition_Coordinates_To_v1beta1_Coordinates is an autogenerated conversion function.
+func Convert_softwarecomposition_Coordinates_To_v1beta1_Coordinates(in *softwarecomposition.Coordinates, out *Coordinates, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Coordinates_To_v1beta1_Coordinates(in, out, s)
+}
+
 func autoConvert_v1beta1_CreationInfo_To_softwarecomposition_CreationInfo(in *CreationInfo, out *softwarecomposition.CreationInfo, s conversion.Scope) error {
 	out.LicenseListVersion = in.LicenseListVersion
 	out.Creators = *(*[]softwarecomposition.Creator)(unsafe.Pointer(&in.Creators))
@@ -2142,6 +2434,28 @@ func autoConvert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(in *softwa
 // Convert_softwarecomposition_Descriptor_To_v1beta1_Descriptor is an autogenerated conversion function.
 func Convert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(in *softwarecomposition.Descriptor, out *Descriptor, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_Descriptor_To_v1beta1_Descriptor(in, out, s)
+}
+
+func autoConvert_v1beta1_Digest_To_softwarecomposition_Digest(in *Digest, out *softwarecomposition.Digest, s conversion.Scope) error {
+	out.Algorithm = in.Algorithm
+	out.Value = in.Value
+	return nil
+}
+
+// Convert_v1beta1_Digest_To_softwarecomposition_Digest is an autogenerated conversion function.
+func Convert_v1beta1_Digest_To_softwarecomposition_Digest(in *Digest, out *softwarecomposition.Digest, s conversion.Scope) error {
+	return autoConvert_v1beta1_Digest_To_softwarecomposition_Digest(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Digest_To_v1beta1_Digest(in *softwarecomposition.Digest, out *Digest, s conversion.Scope) error {
+	out.Algorithm = in.Algorithm
+	out.Value = in.Value
+	return nil
+}
+
+// Convert_softwarecomposition_Digest_To_v1beta1_Digest is an autogenerated conversion function.
+func Convert_softwarecomposition_Digest_To_v1beta1_Digest(in *softwarecomposition.Digest, out *Digest, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Digest_To_v1beta1_Digest(in, out, s)
 }
 
 func autoConvert_v1beta1_Distribution_To_softwarecomposition_Distribution(in *Distribution, out *softwarecomposition.Distribution, s conversion.Scope) error {
@@ -2342,6 +2656,88 @@ func autoConvert_softwarecomposition_File_To_v1beta1_File(in *softwarecompositio
 // Convert_softwarecomposition_File_To_v1beta1_File is an autogenerated conversion function.
 func Convert_softwarecomposition_File_To_v1beta1_File(in *softwarecomposition.File, out *File, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_File_To_v1beta1_File(in, out, s)
+}
+
+func autoConvert_v1beta1_FileLicense_To_softwarecomposition_FileLicense(in *FileLicense, out *softwarecomposition.FileLicense, s conversion.Scope) error {
+	out.Value = in.Value
+	out.SPDXExpression = in.SPDXExpression
+	out.Type = softwarecomposition.LicenseType(in.Type)
+	out.Evidence = (*softwarecomposition.FileLicenseEvidence)(unsafe.Pointer(in.Evidence))
+	return nil
+}
+
+// Convert_v1beta1_FileLicense_To_softwarecomposition_FileLicense is an autogenerated conversion function.
+func Convert_v1beta1_FileLicense_To_softwarecomposition_FileLicense(in *FileLicense, out *softwarecomposition.FileLicense, s conversion.Scope) error {
+	return autoConvert_v1beta1_FileLicense_To_softwarecomposition_FileLicense(in, out, s)
+}
+
+func autoConvert_softwarecomposition_FileLicense_To_v1beta1_FileLicense(in *softwarecomposition.FileLicense, out *FileLicense, s conversion.Scope) error {
+	out.Value = in.Value
+	out.SPDXExpression = in.SPDXExpression
+	out.Type = LicenseType(in.Type)
+	out.Evidence = (*FileLicenseEvidence)(unsafe.Pointer(in.Evidence))
+	return nil
+}
+
+// Convert_softwarecomposition_FileLicense_To_v1beta1_FileLicense is an autogenerated conversion function.
+func Convert_softwarecomposition_FileLicense_To_v1beta1_FileLicense(in *softwarecomposition.FileLicense, out *FileLicense, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_FileLicense_To_v1beta1_FileLicense(in, out, s)
+}
+
+func autoConvert_v1beta1_FileLicenseEvidence_To_softwarecomposition_FileLicenseEvidence(in *FileLicenseEvidence, out *softwarecomposition.FileLicenseEvidence, s conversion.Scope) error {
+	out.Confidence = in.Confidence
+	out.Offset = in.Offset
+	out.Extent = in.Extent
+	return nil
+}
+
+// Convert_v1beta1_FileLicenseEvidence_To_softwarecomposition_FileLicenseEvidence is an autogenerated conversion function.
+func Convert_v1beta1_FileLicenseEvidence_To_softwarecomposition_FileLicenseEvidence(in *FileLicenseEvidence, out *softwarecomposition.FileLicenseEvidence, s conversion.Scope) error {
+	return autoConvert_v1beta1_FileLicenseEvidence_To_softwarecomposition_FileLicenseEvidence(in, out, s)
+}
+
+func autoConvert_softwarecomposition_FileLicenseEvidence_To_v1beta1_FileLicenseEvidence(in *softwarecomposition.FileLicenseEvidence, out *FileLicenseEvidence, s conversion.Scope) error {
+	out.Confidence = in.Confidence
+	out.Offset = in.Offset
+	out.Extent = in.Extent
+	return nil
+}
+
+// Convert_softwarecomposition_FileLicenseEvidence_To_v1beta1_FileLicenseEvidence is an autogenerated conversion function.
+func Convert_softwarecomposition_FileLicenseEvidence_To_v1beta1_FileLicenseEvidence(in *softwarecomposition.FileLicenseEvidence, out *FileLicenseEvidence, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_FileLicenseEvidence_To_v1beta1_FileLicenseEvidence(in, out, s)
+}
+
+func autoConvert_v1beta1_FileMetadataEntry_To_softwarecomposition_FileMetadataEntry(in *FileMetadataEntry, out *softwarecomposition.FileMetadataEntry, s conversion.Scope) error {
+	out.Mode = in.Mode
+	out.Type = in.Type
+	out.LinkDestination = in.LinkDestination
+	out.UserID = in.UserID
+	out.GroupID = in.GroupID
+	out.MIMEType = in.MIMEType
+	out.Size = in.Size
+	return nil
+}
+
+// Convert_v1beta1_FileMetadataEntry_To_softwarecomposition_FileMetadataEntry is an autogenerated conversion function.
+func Convert_v1beta1_FileMetadataEntry_To_softwarecomposition_FileMetadataEntry(in *FileMetadataEntry, out *softwarecomposition.FileMetadataEntry, s conversion.Scope) error {
+	return autoConvert_v1beta1_FileMetadataEntry_To_softwarecomposition_FileMetadataEntry(in, out, s)
+}
+
+func autoConvert_softwarecomposition_FileMetadataEntry_To_v1beta1_FileMetadataEntry(in *softwarecomposition.FileMetadataEntry, out *FileMetadataEntry, s conversion.Scope) error {
+	out.Mode = in.Mode
+	out.Type = in.Type
+	out.LinkDestination = in.LinkDestination
+	out.UserID = in.UserID
+	out.GroupID = in.GroupID
+	out.MIMEType = in.MIMEType
+	out.Size = in.Size
+	return nil
+}
+
+// Convert_softwarecomposition_FileMetadataEntry_To_v1beta1_FileMetadataEntry is an autogenerated conversion function.
+func Convert_softwarecomposition_FileMetadataEntry_To_v1beta1_FileMetadataEntry(in *softwarecomposition.FileMetadataEntry, out *FileMetadataEntry, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_FileMetadataEntry_To_v1beta1_FileMetadataEntry(in, out, s)
 }
 
 func autoConvert_v1beta1_Fix_To_softwarecomposition_Fix(in *Fix, out *softwarecomposition.Fix, s conversion.Scope) error {
@@ -3048,6 +3444,164 @@ func Convert_softwarecomposition_KnownServers_To_v1beta1_KnownServers(in *softwa
 	return autoConvert_softwarecomposition_KnownServers_To_v1beta1_KnownServers(in, out, s)
 }
 
+func autoConvert_v1beta1_License_To_softwarecomposition_License(in *License, out *softwarecomposition.License, s conversion.Scope) error {
+	out.Value = in.Value
+	out.SPDXExpression = in.SPDXExpression
+	out.Type = softwarecomposition.LicenseType(in.Type)
+	out.URLs = *(*[]string)(unsafe.Pointer(&in.URLs))
+	out.Locations = *(*[]softwarecomposition.Location)(unsafe.Pointer(&in.Locations))
+	return nil
+}
+
+// Convert_v1beta1_License_To_softwarecomposition_License is an autogenerated conversion function.
+func Convert_v1beta1_License_To_softwarecomposition_License(in *License, out *softwarecomposition.License, s conversion.Scope) error {
+	return autoConvert_v1beta1_License_To_softwarecomposition_License(in, out, s)
+}
+
+func autoConvert_softwarecomposition_License_To_v1beta1_License(in *softwarecomposition.License, out *License, s conversion.Scope) error {
+	out.Value = in.Value
+	out.SPDXExpression = in.SPDXExpression
+	out.Type = LicenseType(in.Type)
+	out.URLs = *(*[]string)(unsafe.Pointer(&in.URLs))
+	out.Locations = *(*[]Location)(unsafe.Pointer(&in.Locations))
+	return nil
+}
+
+// Convert_softwarecomposition_License_To_v1beta1_License is an autogenerated conversion function.
+func Convert_softwarecomposition_License_To_v1beta1_License(in *softwarecomposition.License, out *License, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_License_To_v1beta1_License(in, out, s)
+}
+
+func autoConvert_v1beta1_LinuxRelease_To_softwarecomposition_LinuxRelease(in *LinuxRelease, out *softwarecomposition.LinuxRelease, s conversion.Scope) error {
+	out.PrettyName = in.PrettyName
+	out.Name = in.Name
+	out.ID = in.ID
+	out.IDLike = *(*softwarecomposition.IDLikes)(unsafe.Pointer(&in.IDLike))
+	out.Version = in.Version
+	out.VersionID = in.VersionID
+	out.VersionCodename = in.VersionCodename
+	out.BuildID = in.BuildID
+	out.ImageID = in.ImageID
+	out.ImageVersion = in.ImageVersion
+	out.Variant = in.Variant
+	out.VariantID = in.VariantID
+	out.HomeURL = in.HomeURL
+	out.SupportURL = in.SupportURL
+	out.BugReportURL = in.BugReportURL
+	out.PrivacyPolicyURL = in.PrivacyPolicyURL
+	out.CPEName = in.CPEName
+	out.SupportEnd = in.SupportEnd
+	return nil
+}
+
+// Convert_v1beta1_LinuxRelease_To_softwarecomposition_LinuxRelease is an autogenerated conversion function.
+func Convert_v1beta1_LinuxRelease_To_softwarecomposition_LinuxRelease(in *LinuxRelease, out *softwarecomposition.LinuxRelease, s conversion.Scope) error {
+	return autoConvert_v1beta1_LinuxRelease_To_softwarecomposition_LinuxRelease(in, out, s)
+}
+
+func autoConvert_softwarecomposition_LinuxRelease_To_v1beta1_LinuxRelease(in *softwarecomposition.LinuxRelease, out *LinuxRelease, s conversion.Scope) error {
+	out.PrettyName = in.PrettyName
+	out.Name = in.Name
+	out.ID = in.ID
+	out.IDLike = *(*IDLikes)(unsafe.Pointer(&in.IDLike))
+	out.Version = in.Version
+	out.VersionID = in.VersionID
+	out.VersionCodename = in.VersionCodename
+	out.BuildID = in.BuildID
+	out.ImageID = in.ImageID
+	out.ImageVersion = in.ImageVersion
+	out.Variant = in.Variant
+	out.VariantID = in.VariantID
+	out.HomeURL = in.HomeURL
+	out.SupportURL = in.SupportURL
+	out.BugReportURL = in.BugReportURL
+	out.PrivacyPolicyURL = in.PrivacyPolicyURL
+	out.CPEName = in.CPEName
+	out.SupportEnd = in.SupportEnd
+	return nil
+}
+
+// Convert_softwarecomposition_LinuxRelease_To_v1beta1_LinuxRelease is an autogenerated conversion function.
+func Convert_softwarecomposition_LinuxRelease_To_v1beta1_LinuxRelease(in *softwarecomposition.LinuxRelease, out *LinuxRelease, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_LinuxRelease_To_v1beta1_LinuxRelease(in, out, s)
+}
+
+func autoConvert_v1beta1_Location_To_softwarecomposition_Location(in *Location, out *softwarecomposition.Location, s conversion.Scope) error {
+	if err := Convert_v1beta1_LocationData_To_softwarecomposition_LocationData(&in.LocationData, &out.LocationData, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_LocationMetadata_To_softwarecomposition_LocationMetadata(&in.LocationMetadata, &out.LocationMetadata, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_Location_To_softwarecomposition_Location is an autogenerated conversion function.
+func Convert_v1beta1_Location_To_softwarecomposition_Location(in *Location, out *softwarecomposition.Location, s conversion.Scope) error {
+	return autoConvert_v1beta1_Location_To_softwarecomposition_Location(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Location_To_v1beta1_Location(in *softwarecomposition.Location, out *Location, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_LocationData_To_v1beta1_LocationData(&in.LocationData, &out.LocationData, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_LocationMetadata_To_v1beta1_LocationMetadata(&in.LocationMetadata, &out.LocationMetadata, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_Location_To_v1beta1_Location is an autogenerated conversion function.
+func Convert_softwarecomposition_Location_To_v1beta1_Location(in *softwarecomposition.Location, out *Location, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Location_To_v1beta1_Location(in, out, s)
+}
+
+func autoConvert_v1beta1_LocationData_To_softwarecomposition_LocationData(in *LocationData, out *softwarecomposition.LocationData, s conversion.Scope) error {
+	if err := Convert_v1beta1_Coordinates_To_softwarecomposition_Coordinates(&in.Coordinates, &out.Coordinates, s); err != nil {
+		return err
+	}
+	out.VirtualPath = in.VirtualPath
+	return nil
+}
+
+// Convert_v1beta1_LocationData_To_softwarecomposition_LocationData is an autogenerated conversion function.
+func Convert_v1beta1_LocationData_To_softwarecomposition_LocationData(in *LocationData, out *softwarecomposition.LocationData, s conversion.Scope) error {
+	return autoConvert_v1beta1_LocationData_To_softwarecomposition_LocationData(in, out, s)
+}
+
+func autoConvert_softwarecomposition_LocationData_To_v1beta1_LocationData(in *softwarecomposition.LocationData, out *LocationData, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_Coordinates_To_v1beta1_Coordinates(&in.Coordinates, &out.Coordinates, s); err != nil {
+		return err
+	}
+	out.VirtualPath = in.VirtualPath
+	return nil
+}
+
+// Convert_softwarecomposition_LocationData_To_v1beta1_LocationData is an autogenerated conversion function.
+func Convert_softwarecomposition_LocationData_To_v1beta1_LocationData(in *softwarecomposition.LocationData, out *LocationData, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_LocationData_To_v1beta1_LocationData(in, out, s)
+}
+
+func autoConvert_v1beta1_LocationMetadata_To_softwarecomposition_LocationMetadata(in *LocationMetadata, out *softwarecomposition.LocationMetadata, s conversion.Scope) error {
+	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
+	return nil
+}
+
+// Convert_v1beta1_LocationMetadata_To_softwarecomposition_LocationMetadata is an autogenerated conversion function.
+func Convert_v1beta1_LocationMetadata_To_softwarecomposition_LocationMetadata(in *LocationMetadata, out *softwarecomposition.LocationMetadata, s conversion.Scope) error {
+	return autoConvert_v1beta1_LocationMetadata_To_softwarecomposition_LocationMetadata(in, out, s)
+}
+
+func autoConvert_softwarecomposition_LocationMetadata_To_v1beta1_LocationMetadata(in *softwarecomposition.LocationMetadata, out *LocationMetadata, s conversion.Scope) error {
+	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
+	return nil
+}
+
+// Convert_softwarecomposition_LocationMetadata_To_v1beta1_LocationMetadata is an autogenerated conversion function.
+func Convert_softwarecomposition_LocationMetadata_To_v1beta1_LocationMetadata(in *softwarecomposition.LocationMetadata, out *LocationMetadata, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_LocationMetadata_To_v1beta1_LocationMetadata(in, out, s)
+}
+
 func autoConvert_v1beta1_Match_To_softwarecomposition_Match(in *Match, out *softwarecomposition.Match, s conversion.Scope) error {
 	if err := Convert_v1beta1_Vulnerability_To_softwarecomposition_Vulnerability(&in.Vulnerability, &out.Vulnerability, s); err != nil {
 		return err
@@ -3662,6 +4216,66 @@ func Convert_softwarecomposition_Package_To_v1beta1_Package(in *softwarecomposit
 	return autoConvert_softwarecomposition_Package_To_v1beta1_Package(in, out, s)
 }
 
+func autoConvert_v1beta1_PackageBasicData_To_softwarecomposition_PackageBasicData(in *PackageBasicData, out *softwarecomposition.PackageBasicData, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.FoundBy = in.FoundBy
+	out.Locations = *(*[]softwarecomposition.Location)(unsafe.Pointer(&in.Locations))
+	out.Licenses = *(*softwarecomposition.Licenses)(unsafe.Pointer(&in.Licenses))
+	out.Language = in.Language
+	out.CPEs = *(*[]string)(unsafe.Pointer(&in.CPEs))
+	out.PURL = in.PURL
+	return nil
+}
+
+// Convert_v1beta1_PackageBasicData_To_softwarecomposition_PackageBasicData is an autogenerated conversion function.
+func Convert_v1beta1_PackageBasicData_To_softwarecomposition_PackageBasicData(in *PackageBasicData, out *softwarecomposition.PackageBasicData, s conversion.Scope) error {
+	return autoConvert_v1beta1_PackageBasicData_To_softwarecomposition_PackageBasicData(in, out, s)
+}
+
+func autoConvert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData(in *softwarecomposition.PackageBasicData, out *PackageBasicData, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.FoundBy = in.FoundBy
+	out.Locations = *(*[]Location)(unsafe.Pointer(&in.Locations))
+	out.Licenses = *(*Licenses)(unsafe.Pointer(&in.Licenses))
+	out.Language = in.Language
+	out.CPEs = *(*[]string)(unsafe.Pointer(&in.CPEs))
+	out.PURL = in.PURL
+	return nil
+}
+
+// Convert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData is an autogenerated conversion function.
+func Convert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData(in *softwarecomposition.PackageBasicData, out *PackageBasicData, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData(in, out, s)
+}
+
+func autoConvert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData(in *PackageCustomData, out *softwarecomposition.PackageCustomData, s conversion.Scope) error {
+	out.MetadataType = in.MetadataType
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData is an autogenerated conversion function.
+func Convert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData(in *PackageCustomData, out *softwarecomposition.PackageCustomData, s conversion.Scope) error {
+	return autoConvert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData(in, out, s)
+}
+
+func autoConvert_softwarecomposition_PackageCustomData_To_v1beta1_PackageCustomData(in *softwarecomposition.PackageCustomData, out *PackageCustomData, s conversion.Scope) error {
+	out.MetadataType = in.MetadataType
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_softwarecomposition_PackageCustomData_To_v1beta1_PackageCustomData is an autogenerated conversion function.
+func Convert_softwarecomposition_PackageCustomData_To_v1beta1_PackageCustomData(in *softwarecomposition.PackageCustomData, out *PackageCustomData, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_PackageCustomData_To_v1beta1_PackageCustomData(in, out, s)
+}
+
 func autoConvert_v1beta1_PackageExternalReference_To_softwarecomposition_PackageExternalReference(in *PackageExternalReference, out *softwarecomposition.PackageExternalReference, s conversion.Scope) error {
 	out.Category = in.Category
 	out.RefType = in.RefType
@@ -4118,6 +4732,162 @@ func Convert_softwarecomposition_SBOMSummarySpec_To_v1beta1_SBOMSummarySpec(in *
 	return autoConvert_softwarecomposition_SBOMSummarySpec_To_v1beta1_SBOMSummarySpec(in, out, s)
 }
 
+func autoConvert_v1beta1_SBOMSyft_To_softwarecomposition_SBOMSyft(in *SBOMSyft, out *softwarecomposition.SBOMSyft, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_SBOMSyftSpec_To_softwarecomposition_SBOMSyftSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SBOMSyft_To_softwarecomposition_SBOMSyft is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSyft_To_softwarecomposition_SBOMSyft(in *SBOMSyft, out *softwarecomposition.SBOMSyft, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSyft_To_softwarecomposition_SBOMSyft(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSyft_To_v1beta1_SBOMSyft(in *softwarecomposition.SBOMSyft, out *SBOMSyft, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSyft_To_v1beta1_SBOMSyft is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSyft_To_v1beta1_SBOMSyft(in *softwarecomposition.SBOMSyft, out *SBOMSyft, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSyft_To_v1beta1_SBOMSyft(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSyftFiltered_To_softwarecomposition_SBOMSyftFiltered(in *SBOMSyftFiltered, out *softwarecomposition.SBOMSyftFiltered, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_SBOMSyftSpec_To_softwarecomposition_SBOMSyftSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SBOMSyftFiltered_To_softwarecomposition_SBOMSyftFiltered is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSyftFiltered_To_softwarecomposition_SBOMSyftFiltered(in *SBOMSyftFiltered, out *softwarecomposition.SBOMSyftFiltered, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSyftFiltered_To_softwarecomposition_SBOMSyftFiltered(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSyftFiltered_To_v1beta1_SBOMSyftFiltered(in *softwarecomposition.SBOMSyftFiltered, out *SBOMSyftFiltered, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSyftFiltered_To_v1beta1_SBOMSyftFiltered is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSyftFiltered_To_v1beta1_SBOMSyftFiltered(in *softwarecomposition.SBOMSyftFiltered, out *SBOMSyftFiltered, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSyftFiltered_To_v1beta1_SBOMSyftFiltered(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSyftFilteredList_To_softwarecomposition_SBOMSyftFilteredList(in *SBOMSyftFilteredList, out *softwarecomposition.SBOMSyftFilteredList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.SBOMSyftFiltered)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_SBOMSyftFilteredList_To_softwarecomposition_SBOMSyftFilteredList is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSyftFilteredList_To_softwarecomposition_SBOMSyftFilteredList(in *SBOMSyftFilteredList, out *softwarecomposition.SBOMSyftFilteredList, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSyftFilteredList_To_softwarecomposition_SBOMSyftFilteredList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSyftFilteredList_To_v1beta1_SBOMSyftFilteredList(in *softwarecomposition.SBOMSyftFilteredList, out *SBOMSyftFilteredList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]SBOMSyftFiltered)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSyftFilteredList_To_v1beta1_SBOMSyftFilteredList is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSyftFilteredList_To_v1beta1_SBOMSyftFilteredList(in *softwarecomposition.SBOMSyftFilteredList, out *SBOMSyftFilteredList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSyftFilteredList_To_v1beta1_SBOMSyftFilteredList(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSyftList_To_softwarecomposition_SBOMSyftList(in *SBOMSyftList, out *softwarecomposition.SBOMSyftList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]softwarecomposition.SBOMSyft)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1beta1_SBOMSyftList_To_softwarecomposition_SBOMSyftList is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSyftList_To_softwarecomposition_SBOMSyftList(in *SBOMSyftList, out *softwarecomposition.SBOMSyftList, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSyftList_To_softwarecomposition_SBOMSyftList(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSyftList_To_v1beta1_SBOMSyftList(in *softwarecomposition.SBOMSyftList, out *SBOMSyftList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]SBOMSyft)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSyftList_To_v1beta1_SBOMSyftList is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSyftList_To_v1beta1_SBOMSyftList(in *softwarecomposition.SBOMSyftList, out *SBOMSyftList, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSyftList_To_v1beta1_SBOMSyftList(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSyftSpec_To_softwarecomposition_SBOMSyftSpec(in *SBOMSyftSpec, out *softwarecomposition.SBOMSyftSpec, s conversion.Scope) error {
+	if err := Convert_v1beta1_SPDXMeta_To_softwarecomposition_SPDXMeta(&in.Metadata, &out.Metadata, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_SyftDocument_To_softwarecomposition_SyftDocument(&in.Syft, &out.Syft, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SBOMSyftSpec_To_softwarecomposition_SBOMSyftSpec is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSyftSpec_To_softwarecomposition_SBOMSyftSpec(in *SBOMSyftSpec, out *softwarecomposition.SBOMSyftSpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSyftSpec_To_softwarecomposition_SBOMSyftSpec(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec(in *softwarecomposition.SBOMSyftSpec, out *SBOMSyftSpec, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_SPDXMeta_To_v1beta1_SPDXMeta(&in.Metadata, &out.Metadata, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_SyftDocument_To_v1beta1_SyftDocument(&in.Syft, &out.Syft, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec(in *softwarecomposition.SBOMSyftSpec, out *SBOMSyftSpec, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec(in, out, s)
+}
+
+func autoConvert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(in *SBOMSyftStatus, out *softwarecomposition.SBOMSyftStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus is an autogenerated conversion function.
+func Convert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(in *SBOMSyftStatus, out *softwarecomposition.SBOMSyftStatus, s conversion.Scope) error {
+	return autoConvert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus(in *softwarecomposition.SBOMSyftStatus, out *SBOMSyftStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus is an autogenerated conversion function.
+func Convert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus(in *softwarecomposition.SBOMSyftStatus, out *SBOMSyftStatus, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus(in, out, s)
+}
+
 func autoConvert_v1beta1_SPDXMeta_To_softwarecomposition_SPDXMeta(in *SPDXMeta, out *softwarecomposition.SPDXMeta, s conversion.Scope) error {
 	if err := Convert_v1beta1_ToolMeta_To_softwarecomposition_ToolMeta(&in.Tool, &out.Tool, s); err != nil {
 		return err
@@ -4272,6 +5042,84 @@ func autoConvert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedCon
 // Convert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary is an autogenerated conversion function.
 func Convert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary(in *softwarecomposition.ScannedControlSummary, out *ScannedControlSummary, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_ScannedControlSummary_To_v1beta1_ScannedControlSummary(in, out, s)
+}
+
+func autoConvert_v1beta1_Schema_To_softwarecomposition_Schema(in *Schema, out *softwarecomposition.Schema, s conversion.Scope) error {
+	out.Version = in.Version
+	out.URL = in.URL
+	return nil
+}
+
+// Convert_v1beta1_Schema_To_softwarecomposition_Schema is an autogenerated conversion function.
+func Convert_v1beta1_Schema_To_softwarecomposition_Schema(in *Schema, out *softwarecomposition.Schema, s conversion.Scope) error {
+	return autoConvert_v1beta1_Schema_To_softwarecomposition_Schema(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Schema_To_v1beta1_Schema(in *softwarecomposition.Schema, out *Schema, s conversion.Scope) error {
+	out.Version = in.Version
+	out.URL = in.URL
+	return nil
+}
+
+// Convert_softwarecomposition_Schema_To_v1beta1_Schema is an autogenerated conversion function.
+func Convert_softwarecomposition_Schema_To_v1beta1_Schema(in *softwarecomposition.Schema, out *Schema, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Schema_To_v1beta1_Schema(in, out, s)
+}
+
+func autoConvert_v1beta1_SearchResult_To_softwarecomposition_SearchResult(in *SearchResult, out *softwarecomposition.SearchResult, s conversion.Scope) error {
+	out.Classification = in.Classification
+	out.LineNumber = in.LineNumber
+	out.LineOffset = in.LineOffset
+	out.SeekPosition = in.SeekPosition
+	out.Length = in.Length
+	out.Value = in.Value
+	return nil
+}
+
+// Convert_v1beta1_SearchResult_To_softwarecomposition_SearchResult is an autogenerated conversion function.
+func Convert_v1beta1_SearchResult_To_softwarecomposition_SearchResult(in *SearchResult, out *softwarecomposition.SearchResult, s conversion.Scope) error {
+	return autoConvert_v1beta1_SearchResult_To_softwarecomposition_SearchResult(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SearchResult_To_v1beta1_SearchResult(in *softwarecomposition.SearchResult, out *SearchResult, s conversion.Scope) error {
+	out.Classification = in.Classification
+	out.LineNumber = in.LineNumber
+	out.LineOffset = in.LineOffset
+	out.SeekPosition = in.SeekPosition
+	out.Length = in.Length
+	out.Value = in.Value
+	return nil
+}
+
+// Convert_softwarecomposition_SearchResult_To_v1beta1_SearchResult is an autogenerated conversion function.
+func Convert_softwarecomposition_SearchResult_To_v1beta1_SearchResult(in *softwarecomposition.SearchResult, out *SearchResult, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SearchResult_To_v1beta1_SearchResult(in, out, s)
+}
+
+func autoConvert_v1beta1_Secrets_To_softwarecomposition_Secrets(in *Secrets, out *softwarecomposition.Secrets, s conversion.Scope) error {
+	if err := Convert_v1beta1_Coordinates_To_softwarecomposition_Coordinates(&in.Location, &out.Location, s); err != nil {
+		return err
+	}
+	out.Secrets = *(*[]softwarecomposition.SearchResult)(unsafe.Pointer(&in.Secrets))
+	return nil
+}
+
+// Convert_v1beta1_Secrets_To_softwarecomposition_Secrets is an autogenerated conversion function.
+func Convert_v1beta1_Secrets_To_softwarecomposition_Secrets(in *Secrets, out *softwarecomposition.Secrets, s conversion.Scope) error {
+	return autoConvert_v1beta1_Secrets_To_softwarecomposition_Secrets(in, out, s)
+}
+
+func autoConvert_softwarecomposition_Secrets_To_v1beta1_Secrets(in *softwarecomposition.Secrets, out *Secrets, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_Coordinates_To_v1beta1_Coordinates(&in.Location, &out.Location, s); err != nil {
+		return err
+	}
+	out.Secrets = *(*[]SearchResult)(unsafe.Pointer(&in.Secrets))
+	return nil
+}
+
+// Convert_softwarecomposition_Secrets_To_v1beta1_Secrets is an autogenerated conversion function.
+func Convert_softwarecomposition_Secrets_To_v1beta1_Secrets(in *softwarecomposition.Secrets, out *Secrets, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_Secrets_To_v1beta1_Secrets(in, out, s)
 }
 
 func autoConvert_v1beta1_ServiceBackendPort_To_softwarecomposition_ServiceBackendPort(in *ServiceBackendPort, out *softwarecomposition.ServiceBackendPort, s conversion.Scope) error {
@@ -4574,6 +5422,198 @@ func autoConvert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(
 // Convert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates is an autogenerated conversion function.
 func Convert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(in *softwarecomposition.SyftCoordinates, out *SyftCoordinates, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_SyftCoordinates_To_v1beta1_SyftCoordinates(in, out, s)
+}
+
+func autoConvert_v1beta1_SyftDescriptor_To_softwarecomposition_SyftDescriptor(in *SyftDescriptor, out *softwarecomposition.SyftDescriptor, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Configuration = *(*json.RawMessage)(unsafe.Pointer(&in.Configuration))
+	return nil
+}
+
+// Convert_v1beta1_SyftDescriptor_To_softwarecomposition_SyftDescriptor is an autogenerated conversion function.
+func Convert_v1beta1_SyftDescriptor_To_softwarecomposition_SyftDescriptor(in *SyftDescriptor, out *softwarecomposition.SyftDescriptor, s conversion.Scope) error {
+	return autoConvert_v1beta1_SyftDescriptor_To_softwarecomposition_SyftDescriptor(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SyftDescriptor_To_v1beta1_SyftDescriptor(in *softwarecomposition.SyftDescriptor, out *SyftDescriptor, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Configuration = *(*json.RawMessage)(unsafe.Pointer(&in.Configuration))
+	return nil
+}
+
+// Convert_softwarecomposition_SyftDescriptor_To_v1beta1_SyftDescriptor is an autogenerated conversion function.
+func Convert_softwarecomposition_SyftDescriptor_To_v1beta1_SyftDescriptor(in *softwarecomposition.SyftDescriptor, out *SyftDescriptor, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SyftDescriptor_To_v1beta1_SyftDescriptor(in, out, s)
+}
+
+func autoConvert_v1beta1_SyftDocument_To_softwarecomposition_SyftDocument(in *SyftDocument, out *softwarecomposition.SyftDocument, s conversion.Scope) error {
+	out.Artifacts = *(*[]softwarecomposition.SyftPackage)(unsafe.Pointer(&in.Artifacts))
+	out.ArtifactRelationships = *(*[]softwarecomposition.SyftRelationship)(unsafe.Pointer(&in.ArtifactRelationships))
+	out.Files = *(*[]softwarecomposition.SyftFile)(unsafe.Pointer(&in.Files))
+	out.Secrets = *(*[]softwarecomposition.Secrets)(unsafe.Pointer(&in.Secrets))
+	if err := Convert_v1beta1_SyftSource_To_softwarecomposition_SyftSource(&in.SyftSource, &out.SyftSource, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_LinuxRelease_To_softwarecomposition_LinuxRelease(&in.Distro, &out.Distro, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_SyftDescriptor_To_softwarecomposition_SyftDescriptor(&in.SyftDescriptor, &out.SyftDescriptor, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_Schema_To_softwarecomposition_Schema(&in.Schema, &out.Schema, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SyftDocument_To_softwarecomposition_SyftDocument is an autogenerated conversion function.
+func Convert_v1beta1_SyftDocument_To_softwarecomposition_SyftDocument(in *SyftDocument, out *softwarecomposition.SyftDocument, s conversion.Scope) error {
+	return autoConvert_v1beta1_SyftDocument_To_softwarecomposition_SyftDocument(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SyftDocument_To_v1beta1_SyftDocument(in *softwarecomposition.SyftDocument, out *SyftDocument, s conversion.Scope) error {
+	out.Artifacts = *(*[]SyftPackage)(unsafe.Pointer(&in.Artifacts))
+	out.ArtifactRelationships = *(*[]SyftRelationship)(unsafe.Pointer(&in.ArtifactRelationships))
+	out.Files = *(*[]SyftFile)(unsafe.Pointer(&in.Files))
+	out.Secrets = *(*[]Secrets)(unsafe.Pointer(&in.Secrets))
+	if err := Convert_softwarecomposition_SyftSource_To_v1beta1_SyftSource(&in.SyftSource, &out.SyftSource, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_LinuxRelease_To_v1beta1_LinuxRelease(&in.Distro, &out.Distro, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_SyftDescriptor_To_v1beta1_SyftDescriptor(&in.SyftDescriptor, &out.SyftDescriptor, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_Schema_To_v1beta1_Schema(&in.Schema, &out.Schema, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_SyftDocument_To_v1beta1_SyftDocument is an autogenerated conversion function.
+func Convert_softwarecomposition_SyftDocument_To_v1beta1_SyftDocument(in *softwarecomposition.SyftDocument, out *SyftDocument, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SyftDocument_To_v1beta1_SyftDocument(in, out, s)
+}
+
+func autoConvert_v1beta1_SyftFile_To_softwarecomposition_SyftFile(in *SyftFile, out *softwarecomposition.SyftFile, s conversion.Scope) error {
+	out.ID = in.ID
+	if err := Convert_v1beta1_Coordinates_To_softwarecomposition_Coordinates(&in.Location, &out.Location, s); err != nil {
+		return err
+	}
+	out.Metadata = (*softwarecomposition.FileMetadataEntry)(unsafe.Pointer(in.Metadata))
+	out.Contents = in.Contents
+	out.Digests = *(*[]softwarecomposition.Digest)(unsafe.Pointer(&in.Digests))
+	out.Licenses = *(*[]softwarecomposition.FileLicense)(unsafe.Pointer(&in.Licenses))
+	return nil
+}
+
+// Convert_v1beta1_SyftFile_To_softwarecomposition_SyftFile is an autogenerated conversion function.
+func Convert_v1beta1_SyftFile_To_softwarecomposition_SyftFile(in *SyftFile, out *softwarecomposition.SyftFile, s conversion.Scope) error {
+	return autoConvert_v1beta1_SyftFile_To_softwarecomposition_SyftFile(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SyftFile_To_v1beta1_SyftFile(in *softwarecomposition.SyftFile, out *SyftFile, s conversion.Scope) error {
+	out.ID = in.ID
+	if err := Convert_softwarecomposition_Coordinates_To_v1beta1_Coordinates(&in.Location, &out.Location, s); err != nil {
+		return err
+	}
+	out.Metadata = (*FileMetadataEntry)(unsafe.Pointer(in.Metadata))
+	out.Contents = in.Contents
+	out.Digests = *(*[]Digest)(unsafe.Pointer(&in.Digests))
+	out.Licenses = *(*[]FileLicense)(unsafe.Pointer(&in.Licenses))
+	return nil
+}
+
+// Convert_softwarecomposition_SyftFile_To_v1beta1_SyftFile is an autogenerated conversion function.
+func Convert_softwarecomposition_SyftFile_To_v1beta1_SyftFile(in *softwarecomposition.SyftFile, out *SyftFile, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SyftFile_To_v1beta1_SyftFile(in, out, s)
+}
+
+func autoConvert_v1beta1_SyftPackage_To_softwarecomposition_SyftPackage(in *SyftPackage, out *softwarecomposition.SyftPackage, s conversion.Scope) error {
+	if err := Convert_v1beta1_PackageBasicData_To_softwarecomposition_PackageBasicData(&in.PackageBasicData, &out.PackageBasicData, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData(&in.PackageCustomData, &out.PackageCustomData, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1beta1_SyftPackage_To_softwarecomposition_SyftPackage is an autogenerated conversion function.
+func Convert_v1beta1_SyftPackage_To_softwarecomposition_SyftPackage(in *SyftPackage, out *softwarecomposition.SyftPackage, s conversion.Scope) error {
+	return autoConvert_v1beta1_SyftPackage_To_softwarecomposition_SyftPackage(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SyftPackage_To_v1beta1_SyftPackage(in *softwarecomposition.SyftPackage, out *SyftPackage, s conversion.Scope) error {
+	if err := Convert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData(&in.PackageBasicData, &out.PackageBasicData, s); err != nil {
+		return err
+	}
+	if err := Convert_softwarecomposition_PackageCustomData_To_v1beta1_PackageCustomData(&in.PackageCustomData, &out.PackageCustomData, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_softwarecomposition_SyftPackage_To_v1beta1_SyftPackage is an autogenerated conversion function.
+func Convert_softwarecomposition_SyftPackage_To_v1beta1_SyftPackage(in *softwarecomposition.SyftPackage, out *SyftPackage, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SyftPackage_To_v1beta1_SyftPackage(in, out, s)
+}
+
+func autoConvert_v1beta1_SyftRelationship_To_softwarecomposition_SyftRelationship(in *SyftRelationship, out *softwarecomposition.SyftRelationship, s conversion.Scope) error {
+	out.Parent = in.Parent
+	out.Child = in.Child
+	out.Type = in.Type
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_v1beta1_SyftRelationship_To_softwarecomposition_SyftRelationship is an autogenerated conversion function.
+func Convert_v1beta1_SyftRelationship_To_softwarecomposition_SyftRelationship(in *SyftRelationship, out *softwarecomposition.SyftRelationship, s conversion.Scope) error {
+	return autoConvert_v1beta1_SyftRelationship_To_softwarecomposition_SyftRelationship(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SyftRelationship_To_v1beta1_SyftRelationship(in *softwarecomposition.SyftRelationship, out *SyftRelationship, s conversion.Scope) error {
+	out.Parent = in.Parent
+	out.Child = in.Child
+	out.Type = in.Type
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_softwarecomposition_SyftRelationship_To_v1beta1_SyftRelationship is an autogenerated conversion function.
+func Convert_softwarecomposition_SyftRelationship_To_v1beta1_SyftRelationship(in *softwarecomposition.SyftRelationship, out *SyftRelationship, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SyftRelationship_To_v1beta1_SyftRelationship(in, out, s)
+}
+
+func autoConvert_v1beta1_SyftSource_To_softwarecomposition_SyftSource(in *SyftSource, out *softwarecomposition.SyftSource, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_v1beta1_SyftSource_To_softwarecomposition_SyftSource is an autogenerated conversion function.
+func Convert_v1beta1_SyftSource_To_softwarecomposition_SyftSource(in *SyftSource, out *softwarecomposition.SyftSource, s conversion.Scope) error {
+	return autoConvert_v1beta1_SyftSource_To_softwarecomposition_SyftSource(in, out, s)
+}
+
+func autoConvert_softwarecomposition_SyftSource_To_v1beta1_SyftSource(in *softwarecomposition.SyftSource, out *SyftSource, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.Metadata = *(*json.RawMessage)(unsafe.Pointer(&in.Metadata))
+	return nil
+}
+
+// Convert_softwarecomposition_SyftSource_To_v1beta1_SyftSource is an autogenerated conversion function.
+func Convert_softwarecomposition_SyftSource_To_v1beta1_SyftSource(in *softwarecomposition.SyftSource, out *SyftSource, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_SyftSource_To_v1beta1_SyftSource(in, out, s)
 }
 
 func autoConvert_v1beta1_ToolMeta_To_softwarecomposition_ToolMeta(in *ToolMeta, out *softwarecomposition.ToolMeta, s conversion.Scope) error {

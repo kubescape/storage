@@ -516,3 +516,59 @@ type OpenVulnerabilityExchangeContainerList struct {
 
 	Items []OpenVulnerabilityExchangeContainer `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// SBOMSyftStatus is the status of a Syft SBOM.
+type SBOMSyftStatus struct {
+}
+
+// SBOMSyftSpec is the specification of a Syft SBOM
+type SBOMSyftSpec struct {
+	Metadata SPDXMeta     `json:"metadata"`
+	Syft     SyftDocument `json:"syft,omitempty"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyft is a custom resource that describes an SBOM in the Syft format.
+type SBOMSyft struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyftList is a list of SBOMSyft objects.
+type SBOMSyftList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []SBOMSyft `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft format.
+//
+// Being filtered means that the SBOM contains only the relevant vulnerable materials.
+type SBOMSyftFiltered struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// SBOMSyftFilteredList is a list of SBOMSyftFiltered objects.
+type SBOMSyftFilteredList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []SBOMSyftFiltered `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
