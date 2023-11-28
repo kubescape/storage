@@ -227,6 +227,11 @@ func (in *ApplicationProfileContainer) DeepCopyInto(out *ApplicationProfileConta
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Syscalls != nil {
+		in, out := &in.Syscalls, &out.Syscalls
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

@@ -1,16 +1,13 @@
-package file
+package networkpolicy
 
 import (
-	"context"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/utils/pointer"
 )
 
@@ -20,7 +17,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 	tests := []struct {
 		name                  string
 		networkNeighbors      softwarecomposition.NetworkNeighbors
-		KnownServer           []softwarecomposition.KnownServer
+		knownServers          []softwarecomposition.KnownServers
 		expectedNetworkPolicy softwarecomposition.GeneratedNetworkPolicy
 	}{
 		{
@@ -764,14 +761,11 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			KnownServer: []softwarecomposition.KnownServer{
+			knownServers: []softwarecomposition.KnownServers{
 				{
-					Spec: softwarecomposition.KnownServerSpec{
-						{
-							IPBlock: "172.17.0.0/16",
-							Name:    "test",
-							Server:  ""},
-					},
+					IPBlock: "172.17.0.0/16",
+					Name:    "test",
+					DNS:     "",
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -879,23 +873,16 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			KnownServer: []softwarecomposition.KnownServer{
+			knownServers: []softwarecomposition.KnownServers{
 				{
-					Spec: softwarecomposition.KnownServerSpec{
-						{
-							IPBlock: "172.17.0.0/16",
-							Name:    "name1",
-							Server:  "",
-						},
-					}},
+					IPBlock: "172.17.0.0/16",
+					Name:    "name1",
+					DNS:     "",
+				},
 				{
-					Spec: softwarecomposition.KnownServerSpec{
-						{
-							IPBlock: "174.17.0.0/16",
-							Name:    "name2",
-							Server:  "",
-						},
-					},
+					IPBlock: "174.17.0.0/16",
+					Name:    "name2",
+					DNS:     "",
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -1099,11 +1086,13 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						IPBlock:    "172.17.0.2/32",
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
+						Name:       "test.com",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
+						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1147,15 +1136,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			KnownServer: []softwarecomposition.KnownServer{
+			knownServers: []softwarecomposition.KnownServers{
 				{
-					Spec: softwarecomposition.KnownServerSpec{
-						{
-							Name:    "test",
-							Server:  "test-server",
-							IPBlock: "172.17.0.0/16",
-						},
-					}},
+					Name:    "test",
+					DNS:     "test.com",
+					IPBlock: "172.17.0.0/16",
+				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				ObjectMeta: v1.ObjectMeta{
@@ -1226,12 +1212,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
-						Server:     "test-server",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
+						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1275,15 +1261,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			KnownServer: []softwarecomposition.KnownServer{
+			knownServers: []softwarecomposition.KnownServers{
 				{
-					Spec: softwarecomposition.KnownServerSpec{
-						{
-							Name:    "test",
-							Server:  "test-server",
-							IPBlock: "172.17.0.0/16",
-						},
-					}},
+					Name:    "test",
+					DNS:     "test.com",
+					IPBlock: "172.17.0.0/16",
+				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				ObjectMeta: v1.ObjectMeta{
@@ -1354,22 +1337,29 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
-						Server:     "test-server",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
+						Name:       "stripe.com",
 					},
 				},
 			},
 		},
 		{
-			name: "multiple known servers   - policy is enriched for egress",
+			name: "network neighbors with labels - policy has labels",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Labels: map[string]string{
+						"kubescape.io/workload-api-group":   "apps",
+						"kubescape.io/workload-api-version": "v1",
+						"kubescape.io/workload-kind":        "deployment",
+						"kubescape.io/workload-name":        "nginx",
+						"kubescape.io/workload-namespace":   "kubescape",
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1403,20 +1393,11 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			KnownServer: []softwarecomposition.KnownServer{
+			knownServers: []softwarecomposition.KnownServers{
 				{
-					Spec: softwarecomposition.KnownServerSpec{
-						{
-							Name:    "test",
-							Server:  "test-server",
-							IPBlock: "172.17.0.0/16",
-						},
-						{
-							Name:    "stripe",
-							Server:  "stripe-payments",
-							IPBlock: "198.17.0.0/16",
-						},
-					},
+					Name:    "test",
+					DNS:     "test.com",
+					IPBlock: "172.17.0.0/16",
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -1424,6 +1405,13 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
+					Labels: map[string]string{
+						"kubescape.io/workload-api-group":   "apps",
+						"kubescape.io/workload-api-version": "v1",
+						"kubescape.io/workload-kind":        "deployment",
+						"kubescape.io/workload-name":        "nginx",
+						"kubescape.io/workload-namespace":   "kubescape",
+					},
 				},
 				TypeMeta: v1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
@@ -1437,6 +1425,13 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Namespace: "kubescape",
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
+						},
+						Labels: map[string]string{
+							"kubescape.io/workload-api-group":   "apps",
+							"kubescape.io/workload-api-version": "v1",
+							"kubescape.io/workload-kind":        "deployment",
+							"kubescape.io/workload-name":        "nginx",
+							"kubescape.io/workload-namespace":   "kubescape",
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
@@ -1474,7 +1469,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								To: []softwarecomposition.NetworkPolicyPeer{
 									{
 										IPBlock: &softwarecomposition.IPBlock{
-											CIDR: "198.17.0.0/16",
+											CIDR: "198.17.0.2/32",
 										},
 									},
 								},
@@ -1488,14 +1483,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
-						Server:     "test-server",
 					},
 					{
-						IPBlock:    "198.17.0.0/16",
+						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe",
-						Server:     "stripe-payments",
+						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1504,135 +1497,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 
 	for _, test := range tests {
 
-		got, err := generateNetworkPolicy(test.networkNeighbors, test.KnownServer, timeProvider)
+		got, err := GenerateNetworkPolicy(test.networkNeighbors, test.knownServers, timeProvider)
 
 		assert.NoError(t, err)
 
 		assert.Equal(t, test.expectedNetworkPolicy, got, test.name)
 	}
-}
-
-func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
-	type args struct {
-		key    string
-		opts   storage.GetOptions
-		objPtr runtime.Object
-	}
-	tests := []struct {
-		name          string
-		args          args
-		create        bool
-		expectedError error
-		want          runtime.Object
-	}{
-		{
-			name: "no existing objects return empty list",
-			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
-			},
-			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/networkneighborses/kubescape/toto", 0),
-		},
-		{
-			name: "existing object is returned",
-			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
-				objPtr: &v1beta1.GeneratedNetworkPolicy{},
-			},
-			expectedError: nil,
-			create:        true,
-			want: &v1beta1.GeneratedNetworkPolicy{
-				TypeMeta: v1.TypeMeta{
-					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
-				},
-				Spec: v1beta1.NetworkPolicy{
-					Kind:       "NetworkPolicy",
-					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
-						Annotations: map[string]string{
-							"generated-by": "kubescape",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/")
-			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&realStorage)
-
-			if tt.create {
-				wlObj := &softwarecomposition.NetworkNeighbors{}
-				err := realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/networkneighborses/kubescape/toto", wlObj, nil, 0)
-				assert.NoError(t, err)
-			}
-
-			err := generatedNetworkPolicyStorage.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr)
-
-			if tt.expectedError != nil {
-				assert.EqualError(t, err, tt.expectedError.Error())
-			}
-
-			assert.Equal(t, tt.want, tt.args.objPtr)
-		})
-	}
-}
-
-func TestGeneratedNetworkPolicyStorage_Count(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
-
-	count, err := generatedNetworkPolicyStorage.Count("random")
-
-	assert.Equal(t, int64(0), count)
-
-	expectedError := storage.NewInvalidObjError("random", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
-}
-
-func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
-
-	err := generatedNetworkPolicyStorage.Create(nil, "", nil, nil, 0)
-
-	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
-}
-
-func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
-
-	err := generatedNetworkPolicyStorage.Delete(nil, "", nil, nil, nil, nil)
-
-	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
-}
-
-func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
-
-	_, err := generatedNetworkPolicyStorage.Watch(nil, "", storage.ListOptions{})
-
-	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
-}
-
-func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
-
-	err := generatedNetworkPolicyStorage.GuaranteedUpdate(nil, "", nil, false, nil, nil, nil)
-
-	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
 }

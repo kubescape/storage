@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"strings"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -76,7 +77,7 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 		return err
 	}
 	// TODO(DanielGrunberegerCA): get known servers
-	generatedNetworkPolicy, err := generateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServer{}, metav1.Now())
+	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServers{}, metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -113,7 +114,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	}
 
 	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
-		generatedNetworkPolicy, err := generateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServer{}, metav1.Now())
+		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServers{}, metav1.Now())
 		if err != nil {
 			return fmt.Errorf("error generating network policy: %w", err)
 		}

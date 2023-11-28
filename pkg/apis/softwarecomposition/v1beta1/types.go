@@ -281,6 +281,7 @@ type ApplicationProfileContainer struct {
 	Capabilities []string    `json:"capabilities,omitempty"`
 	Execs        []ExecCalls `json:"execs,omitempty"`
 	Opens        []OpenCalls `json:"opens,omitempty"`
+	Syscalls     []string    `json:"syscalls,omitempty"`
 }
 
 type ExecCalls struct {
