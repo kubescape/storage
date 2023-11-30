@@ -20,11 +20,15 @@ import (
 	"context"
 	"net/url"
 	"os"
+	"time"
 
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/cleanup"
 	"github.com/kubescape/storage/pkg/cmd/server"
+	"github.com/kubescape/storage/pkg/registry/file"
+	"github.com/spf13/afero"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
 )
@@ -48,6 +52,20 @@ func main() {
 	stopCh := genericapiserver.SetupSignalHandler()
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr)
 	cmd := server.NewCommandStartWardleServer(options, stopCh)
+
+	// cleanup task
+	client, disco, err := cleanup.NewKubernetesClient()
+	kubernetesAPI := cleanup.NewKubernetesAPI(client, disco)
+	if err != nil {
+		panic(err.Error())
+	}
+	cleanupHandler := cleanup.NewResourcesCleanupHandler(
+		afero.NewOsFs(),
+		file.DefaultStorageRoot,
+		time.Hour*24,
+		kubernetesAPI)
+	go cleanupHandler.StartCleanupTask()
+
 	logger.L().Info("APIServer started")
 	code := cli.Run(cmd)
 	os.Exit(code)

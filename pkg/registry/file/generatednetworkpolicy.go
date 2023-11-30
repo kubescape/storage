@@ -106,7 +106,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 
 	generatedNetworkPolicyList := &softwarecomposition.GeneratedNetworkPolicyList{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: storageV1Beta1ApiVersion,
+			APIVersion: StorageV1Beta1ApiVersion,
 		},
 	}
 

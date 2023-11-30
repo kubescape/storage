@@ -12,15 +12,15 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func getStoredPayloadFilepath(root, key string) string {
-	return root + key + ".j"
+	return root + key + JsonExt
 }
 
 func getStoredMetadataFilepath(root, key string) string {
-	return root + key + ".m"
+	return root + key + MetadataExt
 }
 
 func TestStorageImpl_Count(t *testing.T) {
@@ -477,7 +477,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				preconditions: &storage.Preconditions{
-					ResourceVersion: pointer.String("v123"),
+					ResourceVersion: ptr.To("v123"),
 				},
 				cachedExistingObject: toto,
 			},

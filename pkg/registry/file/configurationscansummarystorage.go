@@ -160,7 +160,7 @@ func buildConfigurationScanSummaryForCluster(wlConfigurationScanSummaryList soft
 	configurationScanSummaryList := softwarecomposition.ConfigurationScanSummaryList{
 		TypeMeta: v1.TypeMeta{
 			Kind:       configurationScanSummaryKind,
-			APIVersion: storageV1Beta1ApiVersion,
+			APIVersion: StorageV1Beta1ApiVersion,
 		},
 	}
 
@@ -172,7 +172,7 @@ func buildConfigurationScanSummaryForCluster(wlConfigurationScanSummaryList soft
 		nsListObj := softwarecomposition.WorkloadConfigurationScanSummaryList{
 			TypeMeta: v1.TypeMeta{
 				Kind:       configurationScanSummaryKind,
-				APIVersion: storageV1Beta1ApiVersion,
+				APIVersion: StorageV1Beta1ApiVersion,
 			},
 			Items: wlSummaries,
 		}
@@ -188,7 +188,7 @@ func buildConfigurationScanSummary(wlConfigurationScanSummaryList softwarecompos
 	configurationScanSummaryObj := softwarecomposition.ConfigurationScanSummary{
 		TypeMeta: v1.TypeMeta{
 			Kind:       configurationScanSummaryKind,
-			APIVersion: storageV1Beta1ApiVersion,
+			APIVersion: StorageV1Beta1ApiVersion,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name: namespace,
