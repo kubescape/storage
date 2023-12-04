@@ -17,16 +17,19 @@ limitations under the License.
 package install
 
 import (
+	"math/rand"
 	"regexp"
 	"testing"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	wardlefuzzer "github.com/kubescape/storage/pkg/apis/softwarecomposition/fuzzer"
+
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	"math/rand"
 )
 
 func TestRoundTripTypes(t *testing.T) {
@@ -42,6 +45,16 @@ func TestRoundTripTypes(t *testing.T) {
 		rand.NewSource(rand.Int63()),
 		codecFactory,
 	)
+	f.NumElements(1, 2)
+	f.NilChance(0)
+
+	nonRoundTrippableTypes := map[schema.GroupVersionKind]bool{
+		// Syft types use custom JSON unmarshaling, so they are not round-trippable by definition
+		softwarecomposition.SchemeGroupVersion.WithKind("SBOMSyft"):             true,
+		softwarecomposition.SchemeGroupVersion.WithKind("SBOMSyftList"):         true,
+		softwarecomposition.SchemeGroupVersion.WithKind("SBOMSyftFiltered"):     true,
+		softwarecomposition.SchemeGroupVersion.WithKind("SBOMSyftFilteredList"): true,
+	}
 
 	skippedFields := []string{
 		"SnippetAttributionTexts",
@@ -61,5 +74,5 @@ func TestRoundTripTypes(t *testing.T) {
 		f.SkipFieldsWithPattern(skipPattern)
 	}
 
-	roundtrip.RoundTripTypesWithoutProtobuf(t, scheme, codecFactory, f, nil)
+	roundtrip.RoundTripTypesWithoutProtobuf(t, scheme, codecFactory, f, nonRoundTrippableTypes)
 }

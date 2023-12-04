@@ -46,6 +46,10 @@ type Interface interface {
 	SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer
 	// SBOMSummaries returns a SBOMSummaryInformer.
 	SBOMSummaries() SBOMSummaryInformer
+	// SBOMSyfts returns a SBOMSyftInformer.
+	SBOMSyfts() SBOMSyftInformer
+	// SBOMSyftFiltereds returns a SBOMSyftFilteredInformer.
+	SBOMSyftFiltereds() SBOMSyftFilteredInformer
 	// VulnerabilityManifests returns a VulnerabilityManifestInformer.
 	VulnerabilityManifests() VulnerabilityManifestInformer
 	// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
@@ -122,6 +126,16 @@ func (v *version) SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer {
 // SBOMSummaries returns a SBOMSummaryInformer.
 func (v *version) SBOMSummaries() SBOMSummaryInformer {
 	return &sBOMSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// SBOMSyfts returns a SBOMSyftInformer.
+func (v *version) SBOMSyfts() SBOMSyftInformer {
+	return &sBOMSyftInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// SBOMSyftFiltereds returns a SBOMSyftFilteredInformer.
+func (v *version) SBOMSyftFiltereds() SBOMSyftFilteredInformer {
+	return &sBOMSyftFilteredInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VulnerabilityManifests returns a VulnerabilityManifestInformer.

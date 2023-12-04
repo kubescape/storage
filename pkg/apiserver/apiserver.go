@@ -25,6 +25,8 @@ import (
 	knownserver "github.com/kubescape/storage/pkg/registry/softwarecomposition/knownservers"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighbors"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/openvulnerabilityexchange"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyftfiltereds"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyfts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -176,6 +178,8 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["generatednetworkpolicies"] = sbomregistry.RESTInPeace(generatednetworkpolicy.NewREST(Scheme, generatedNetworkPolicyStorage, c.GenericConfig.RESTOptionsGetter))
 
 	v1beta1storage["knownservers"] = sbomregistry.RESTInPeace(knownserver.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["sbomsyfts"] = sbomregistry.RESTInPeace(sbomsyfts.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["sbomsyftfiltereds"] = sbomregistry.RESTInPeace(sbomsyftfiltereds.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 

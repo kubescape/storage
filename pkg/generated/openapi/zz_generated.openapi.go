@@ -52,17 +52,22 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummaryList":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity":                            schema_pkg_apis_softwarecomposition_v1beta1_ControlSeverity(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates":                                schema_pkg_apis_softwarecomposition_v1beta1_Coordinates(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo":                               schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator":                                    schema_pkg_apis_softwarecomposition_v1beta1_Creator(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss":                                       schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics":                                schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor":                                 schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest":                                     schema_pkg_apis_softwarecomposition_v1beta1_Digest(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution":                               schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID":                               schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document":                                   schema_pkg_apis_softwarecomposition_v1beta1_Document(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls":                                  schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef":                        schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File":                                       schema_pkg_apis_softwarecomposition_v1beta1_File(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense":                                schema_pkg_apis_softwarecomposition_v1beta1_FileLicense(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicenseEvidence":                        schema_pkg_apis_softwarecomposition_v1beta1_FileLicenseEvidence(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry":                          schema_pkg_apis_softwarecomposition_v1beta1_FileMetadataEntry(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix":                                        schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicy":                     schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicyList":                 schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref),
@@ -93,6 +98,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer":                                schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerEntry":                           schema_pkg_apis_softwarecomposition_v1beta1_KnownServerEntry(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerList":                            schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License":                                    schema_pkg_apis_softwarecomposition_v1beta1_License(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease":                               schema_pkg_apis_softwarecomposition_v1beta1_LinuxRelease(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location":                                   schema_pkg_apis_softwarecomposition_v1beta1_Location(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationData":                               schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationMetadata":                           schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata":                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
@@ -115,6 +125,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Originator":                                 schema_pkg_apis_softwarecomposition_v1beta1_Originator(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                               schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                                    schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData":                           schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData":                          schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference":                   schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":                    schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PolicyRef":                                  schema_pkg_apis_softwarecomposition_v1beta1_PolicyRef(ref),
@@ -133,11 +145,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummary":                                schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummaryList":                            schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSummarySpec":                            schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummarySpec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft":                                   schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyft(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered":                           schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFilteredList":                       schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftList":                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec":                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus":                             schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControl":                             schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlRule":                         schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus":                       schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlSummary":                      schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema":                                     schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SearchResult":                               schema_pkg_apis_softwarecomposition_v1beta1_SearchResult(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Secrets":                                    schema_pkg_apis_softwarecomposition_v1beta1_Secrets(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ServiceBackendPort":                         schema_pkg_apis_softwarecomposition_v1beta1_ServiceBackendPort(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary":                            schema_pkg_apis_softwarecomposition_v1beta1_SeveritySummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                                    schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
@@ -148,6 +169,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent":                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                                   schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":                            schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor":                             schema_pkg_apis_softwarecomposition_v1beta1_SyftDescriptor(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument":                               schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile":                                   schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage":                                schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship":                           schema_pkg_apis_softwarecomposition_v1beta1_SyftRelationship(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource":                                 schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":                            schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX":                                        schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref),
@@ -180,6 +207,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryList":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummarySpec":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummarySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadScanRelatedObject":                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadScanRelatedObject(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.packageMetadataUnpacker":                    schema_pkg_apis_softwarecomposition_v1beta1_packageMetadataUnpacker(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.sourceUnpacker":                             schema_pkg_apis_softwarecomposition_v1beta1_sourceUnpacker(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                                schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                                            schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                                             schema_pkg_apis_meta_v1_APIResource(ref),
@@ -272,7 +301,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Annotation(ref common.Reference
 					"annotator": {
 						SchemaProps: spec.SchemaProps{
 							Description: "12.1: Annotator Cardinality: conditional (mandatory, one) if there is an Annotation",
-							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotator"),
 						},
 					},
@@ -1043,6 +1071,34 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ControlSeverity(ref common.Refe
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_Coordinates(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Coordinates contains the minimal information needed to describe how to find a file within any possible source object (e.g. image and directory sources)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"layerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The path where all path ancestors have no hardlinks / symlinks",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"path"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1065,8 +1121,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator"),
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Creator"),
 									},
 								},
 							},
@@ -1233,6 +1288,33 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref common.Reference
 					},
 				},
 				Required: []string{"name", "version"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Digest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"algorithm": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"algorithm", "value"},
 			},
 		},
 	}
@@ -1773,6 +1855,142 @@ func schema_pkg_apis_softwarecomposition_v1beta1_File(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Annotation", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_FileLicense(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"spdxExpression": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"evidence": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicenseEvidence"),
+						},
+					},
+				},
+				Required: []string{"value", "spdxExpression", "type"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicenseEvidence"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_FileLicenseEvidence(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"confidence": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"extent": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"confidence", "offset", "extent"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_FileMetadataEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"linkDestination": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"groupID": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"mimeType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"size": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"mode", "type", "userID", "groupID", "mimeType", "size"},
+			},
+		},
 	}
 }
 
@@ -3002,6 +3220,281 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref common.Refe
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_License(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"spdxExpression": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"urls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"locations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"value", "spdxExpression", "type", "urls", "locations"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_LinuxRelease(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"prettyName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"idLike": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"versionID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"versionCodename": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"buildID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"imageID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"imageVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"variant": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"variantID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"homeURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"supportURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"bugReportURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"privacyPolicyURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cpeName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"supportEnd": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Location(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Location represents a path relative to a particular filesystem resolved to a specific file.Reference. This struct is used as a key in content fetching to uniquely identify a file relative to a request (the VirtualPath).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"LocationData": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationData"),
+						},
+					},
+					"LocationMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationMetadata"),
+						},
+					},
+				},
+				Required: []string{"LocationData", "LocationMetadata"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationData", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationMetadata"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Coordinates": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"),
+						},
+					},
+					"accessPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "note: it is IMPORTANT to ignore anything but the coordinates for a Location when considering the ID (hash value) since the coordinates are the minimally correct ID for a location (symlinks should not come into play)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Coordinates", "accessPath"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -4288,6 +4781,136 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Package(ref common.ReferenceCal
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageBasicData contains non-ambiguous values (type-wise) from pkg.SyftPackage.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"foundBy": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"locations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"),
+									},
+								},
+							},
+						},
+					},
+					"licenses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License"),
+									},
+								},
+							},
+						},
+					},
+					"language": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"cpes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"purl": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "name", "version", "type", "foundBy", "locations", "licenses", "language", "cpes", "purl"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageCustomData contains ambiguous values (type-wise) from pkg.SyftPackage.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadataType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4462,14 +5085,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref common.Referen
 					"spdxElementId": {
 						SchemaProps: spec.SchemaProps{
 							Description: "11.1: Relationship Cardinality: optional, one or more; one per Relationship\n             one mandatory for SPDX Document with multiple packages\nRefA and RefB are first and second item Relationship is type from 11.1.1",
-							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID"),
 						},
 					},
 					"relatedSpdxElement": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID"),
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID"),
 						},
 					},
 					"relationshipType": {
@@ -4505,8 +5126,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"createdAt": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 				},
@@ -4970,6 +5590,237 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSummarySpec(ref common.Refe
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyft(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSyft is a custom resource that describes an SBOM in the Syft format.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft format.\n\nBeing filtered means that the SBOM contains only the relevant vulnerable materials.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSyftFilteredList is a list of SBOMSyftFiltered objects.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSyftList is a list of SBOMSyft objects.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSyftSpec is the specification of a Syft SBOM",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta"),
+						},
+					},
+					"syft": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"),
+						},
+					},
+				},
+				Required: []string{"metadata"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SBOMSyftStatus is the status of a Syft SBOM.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5208,6 +6059,121 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref commo
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"version", "url"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SearchResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"classification": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"lineNumber": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"lineOffset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"seekPosition": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"length": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"classification", "lineNumber", "lineOffset", "seekPosition", "length"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Secrets(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"location": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"),
+						},
+					},
+					"secrets": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SearchResult"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"location", "secrets"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SearchResult"},
 	}
 }
 
@@ -5652,6 +6618,317 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref common.Refe
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_SyftDescriptor(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SyftDescriptor describes what created the document as well as surrounding metadata",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"configuration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"name", "version"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Document represents the syft cataloging findings as a JSON document",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"artifacts": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage"),
+									},
+								},
+							},
+						},
+					},
+					"artifactRelationships": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Artifacts is the list of packages discovered and placed into the catalog",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship"),
+									},
+								},
+							},
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile"),
+									},
+								},
+							},
+						},
+					},
+					"secrets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "note: must have omitempty",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Secrets"),
+									},
+								},
+							},
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "note: must have omitempty",
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource"),
+						},
+					},
+					"distro": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SyftSource represents the original object that was cataloged",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease"),
+						},
+					},
+					"descriptor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Distro represents the Linux distribution that was detected from the source",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor"),
+						},
+					},
+					"schema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SyftDescriptor is a block containing self-describing information about syft",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema"),
+						},
+					},
+				},
+				Required: []string{"artifacts", "artifactRelationships", "source", "distro", "descriptor", "schema"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Secrets", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"location": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"),
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry"),
+						},
+					},
+					"contents": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"digests": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest"),
+									},
+								},
+							},
+						},
+					},
+					"licenses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"id", "location"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SyftPackage represents a pkg.SyftPackage object specialized for JSON marshaling and unmarshalling.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"PackageBasicData": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData"),
+						},
+					},
+					"PackageCustomData": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData"),
+						},
+					},
+				},
+				Required: []string{"PackageBasicData", "PackageCustomData"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SyftRelationship(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"parent": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"child": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"parent", "child", "type"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SyftSource object represents the thing that was cataloged",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"id", "name", "version", "type", "metadata"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -6057,8 +7334,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestReportMeta
 				Properties: map[string]spec.Schema{
 					"createdAt": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 				},
@@ -6868,6 +8144,86 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadScanRelatedObject(ref c
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_packageMetadataUnpacker(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "packageMetadataUnpacker is all values needed from SyftPackage to disambiguate ambiguous fields during json unmarshaling.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadataType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"metadataType", "metadata"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_sourceUnpacker(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "sourceUnpacker is used to unmarshal SyftSource objects",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"name", "version", "type", "metadata", "target"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_meta_v1_APIGroup(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7300,7 +8656,6 @@ func schema_pkg_apis_meta_v1_Condition(ref common.ReferenceCallback) common.Open
 					"lastTransitionTime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
@@ -7784,12 +9139,6 @@ func schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref common.ReferenceCallba
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"key": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "key",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "key is the label key that the selector applies to.",
 							Default:     "",
@@ -7862,8 +9211,7 @@ func schema_pkg_apis_meta_v1_List(ref common.ReferenceCallback) common.OpenAPIDe
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
+										Ref: ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
 									},
 								},
 							},
@@ -8003,6 +9351,13 @@ func schema_pkg_apis_meta_v1_ListOptions(ref common.ReferenceCallback) common.Op
 							Format:      "",
 						},
 					},
+					"sendInitialEvents": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`sendInitialEvents=true` may be set together with `watch=true`. In that case, the watch stream will begin with synthetic events to produce the current state of objects in the collection. Once all such events have been sent, a synthetic \"Bookmark\" event  will be sent. The bookmark will report the ResourceVersion (RV) corresponding to the set of objects, and be marked with `\"k8s.io/initial-events-end\": \"true\"` annotation. Afterwards, the watch stream will proceed as usual, sending watch events corresponding to changes (subsequent to the RV) to objects watched.\n\nWhen `sendInitialEvents` option is set, we require `resourceVersionMatch` option to also be set. The semantic of the watch request is as following: - `resourceVersionMatch` = NotOlderThan\n  is interpreted as \"data at least as new as the provided `resourceVersion`\"\n  and the bookmark event is send when the state is synced\n  to a `resourceVersion` at least as fresh as the one provided by the ListOptions.\n  If `resourceVersion` is unset, this is interpreted as \"consistent read\" and the\n  bookmark event is send when the state is synced at least to the moment\n  when request started being processed.\n- `resourceVersionMatch` set to any other value or unset\n  Invalid error is returned.\n\nDefaults to true if `resourceVersion=\"\"` or `resourceVersion=\"0\"` (for backward compatibility reasons) and to false otherwise.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -8092,7 +9447,7 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+							Description: "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8106,7 +9461,7 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 					},
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the \"default\" namespace, but \"default\" is the canonical representation. Not all objects are required to be scoped to a namespace - the value of this field for those objects will be empty.\n\nMust be a DNS_LABEL. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/namespaces",
+							Description: "Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the \"default\" namespace, but \"default\" is the canonical representation. Not all objects are required to be scoped to a namespace - the value of this field for those objects will be empty.\n\nMust be a DNS_LABEL. Cannot be updated. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8120,7 +9475,7 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 					},
 					"uid": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UID is the unique in time and space value for this object. It is typically generated by the server on successful creation of a resource and is not allowed to change on PUT operations.\n\nPopulated by the system. Read-only. More info: http://kubernetes.io/docs/user-guide/identifiers#uids",
+							Description: "UID is the unique in time and space value for this object. It is typically generated by the server on successful creation of a resource and is not allowed to change on PUT operations.\n\nPopulated by the system. Read-only. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8142,7 +9497,6 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 					"creationTimestamp": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.\n\nPopulated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
@@ -8161,7 +9515,7 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 					},
 					"labels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: http://kubernetes.io/docs/user-guide/labels",
+							Description: "Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -8177,7 +9531,7 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: http://kubernetes.io/docs/user-guide/annotations",
+							Description: "Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -8278,7 +9632,7 @@ func schema_pkg_apis_meta_v1_OwnerReference(ref common.ReferenceCallback) common
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name of the referent. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+							Description: "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -8286,7 +9640,7 @@ func schema_pkg_apis_meta_v1_OwnerReference(ref common.ReferenceCallback) common
 					},
 					"uid": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UID of the referent. More info: http://kubernetes.io/docs/user-guide/identifiers#uids",
+							Description: "UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -8699,7 +10053,7 @@ func schema_pkg_apis_meta_v1_StatusDetails(ref common.ReferenceCallback) common.
 					},
 					"uid": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UID of the resource. (when there is a single resource which can be described). More info: http://kubernetes.io/docs/user-guide/identifiers#uids",
+							Description: "UID of the resource. (when there is a single resource which can be described). More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8924,7 +10278,6 @@ func schema_pkg_apis_meta_v1_TableRow(ref common.ReferenceCallback) common.OpenA
 					"object": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This field contains the requested additional information about each object based on the includeObject policy when requesting the Table. If \"None\", this field is empty, if \"Object\" this will be the default serialization of the object for the current API version, and if \"Metadata\" (the default) will contain the object metadata. Check the returned kind and apiVersion of the object before parsing. The media type of the object will always match the enclosing list - if this as a JSON table, these will be JSON encoded objects.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
 						},
 					},
@@ -9123,7 +10476,6 @@ func schema_pkg_apis_meta_v1_WatchEvent(ref common.ReferenceCallback) common.Ope
 					"object": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Object is:\n * If Type is Added or Modified: the new state of the object.\n * If Type is Deleted: the state of the object immediately before deletion.\n * If Type is Error: *Status is recommended; other types may make sense\n   depending on context.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
 						},
 					},
@@ -9191,13 +10543,6 @@ func schema_k8sio_apimachinery_pkg_runtime_Unknown(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
-					"Raw": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Raw will hold the complete serialized object which couldn't be matched with a registered type. Most likely, nothing should be done with this except for passing it through the system.",
-							Type:        []string{"string"},
-							Format:      "byte",
-						},
-					},
 					"ContentEncoding": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContentEncoding is encoding used to encode 'Raw' data. Unspecified means no encoding.",
@@ -9215,7 +10560,7 @@ func schema_k8sio_apimachinery_pkg_runtime_Unknown(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"Raw", "ContentEncoding", "ContentType"},
+				Required: []string{"ContentEncoding", "ContentType"},
 			},
 		},
 	}

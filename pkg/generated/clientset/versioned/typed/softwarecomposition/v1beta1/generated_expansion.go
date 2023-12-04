@@ -40,6 +40,10 @@ type SBOMSPDXv2p3FilteredExpansion interface{}
 
 type SBOMSummaryExpansion interface{}
 
+type SBOMSyftExpansion interface{}
+
+type SBOMSyftFilteredExpansion interface{}
+
 type VulnerabilityManifestExpansion interface{}
 
 type VulnerabilityManifestSummaryExpansion interface{}

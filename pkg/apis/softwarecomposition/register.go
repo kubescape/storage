@@ -79,6 +79,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&GeneratedNetworkPolicy{},
 		&KnownServerList{},
 		&KnownServer{},
+		&SBOMSyft{},
+		&SBOMSyftList{},
+		&SBOMSyftFiltered{},
+		&SBOMSyftFilteredList{},
 	)
 	return nil
 }

@@ -145,7 +145,9 @@ func (s *GeneratedNetworkPolicyStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
-func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
-	ipBlock := &softwarecomposition.IPBlock{CIDR: ipAddress + "/32"}
-	return ipBlock
+// RequestWatchProgress fulfills the storage.Interface
+//
+// It’s function is only relevant to etcd.
+func (s *GeneratedNetworkPolicyStorage) RequestWatchProgress(context.Context) error {
+	return nil
 }

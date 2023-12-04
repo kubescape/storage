@@ -1,1 +1,4 @@
 vendor/*
+# Ignore the binaries built in the example directory
+artifacts/simple-image/storage-apiserver
+artifacts/simple-image/kube-sample-apiserver
