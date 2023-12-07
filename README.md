@@ -155,7 +155,17 @@ TAG=v1.2.3 IMAGE=quay.io/kubescape/storage make docker-push
 
 Edit `artifacts/example/deployment.yaml`, updating the pod template's image
 reference to match what you pushed and setting the `imagePullPolicy`
-to something suitable.  Then call:
+to something suitable.
+
+If you’re running a Minikube cluster locally, build and tag an container image, use it in the `artifacts/example/deployment.yaml`, set `imagePullPolicy: Never` and this will let you use a local container image without having to push it to a container registry.
+
+Then, make sure the appropriate namespace for the APIServer components exists:
+
+```
+kubectl apply -f artifacts/example/ns.yaml
+```
+
+Finally, create all the other Aggregated APIServer components:
 
 ```
 kubectl apply -f artifacts/example
@@ -163,7 +173,7 @@ kubectl apply -f artifacts/example
 
 ## Running it stand-alone
 
-During development it is helpful to run sample-apiserver stand-alone, i.e. without
+During development it is helpful to run the Storage APIServer stand-alone, i.e. without
 a Kubernetes API server for authn/authz and without aggregation. This is possible, but needs
 a couple of flags, keys and certs as described below. You will still need some kubeconfig,
 e.g. `~/.kube/config`, but the Kubernetes cluster is not used for authn/z. A minikube or
@@ -239,4 +249,4 @@ only this superuser group is authorized.
    ```
 ## Changelog
 
-Kubescape Storage changes are tracked on the [release](https://github.com/kubescape/storage/releases) page
+Kubescape Storage changes are tracked on the [release](https://github.com/kubescape/storage/releases) page.
