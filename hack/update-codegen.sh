@@ -25,6 +25,8 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
+
+# intentionally omits applyconfigurations because it generates broken code for our types
 "${CODEGEN_PKG}/generate-groups.sh" "client,deepcopy,informer,lister,defaulter,conversion,openapi" \
   github.com/kubescape/storage/pkg/generated \
   github.com/kubescape/storage/pkg/apis \
