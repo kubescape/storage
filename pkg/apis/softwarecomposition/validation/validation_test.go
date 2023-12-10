@@ -112,3 +112,47 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateKnownServer(t *testing.T) {
+	tests := []struct {
+		name           string
+		knownServer    softwarecomposition.KnownServer
+		expectedErrors field.ErrorList
+	}{
+		{
+			name: "valid",
+			knownServer: softwarecomposition.KnownServer{
+				Spec: []softwarecomposition.KnownServerEntry{
+					{
+						IPBlock: "1.2.3.4/32",
+						Name:    "test",
+						Server:  "test.com",
+					},
+				},
+			},
+			expectedErrors: field.ErrorList{},
+		},
+		{
+			name: "no ipBlock",
+			knownServer: softwarecomposition.KnownServer{
+				Spec: []softwarecomposition.KnownServerEntry{
+					{
+						Name:   "test",
+						Server: "test.com",
+					},
+				},
+			},
+			expectedErrors: field.ErrorList{
+				field.Invalid(field.NewPath("spec").Child("entries").Index(0).Child("ipBlock"), "", "ipBlock must be set"),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actualErrors := ValidateKnownServer(&test.knownServer)
+			assert.Equal(t, test.expectedErrors, actualErrors)
+		})
+	}
+
+}

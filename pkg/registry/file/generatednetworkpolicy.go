@@ -73,7 +73,7 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 		return err
 	}
 	// TODO(DanielGrunberegerCA): get known servers
-	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServers{}, metav1.Now())
+	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServer{}, metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -110,7 +110,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	}
 
 	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
-		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServers{}, metav1.Now())
+		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServer{}, metav1.Now())
 		if err != nil {
 			return fmt.Errorf("error generating network policy: %w", err)
 		}

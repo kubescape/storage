@@ -77,6 +77,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&OpenVulnerabilityExchangeContainerList{},
 		&GeneratedNetworkPolicyList{},
 		&GeneratedNetworkPolicy{},
+		&KnownServerList{},
+		&KnownServer{},
 		&SBOMSyft{},
 		&SBOMSyftList{},
 		&SBOMSyftFiltered{},

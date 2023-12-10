@@ -33,6 +33,7 @@ type SpdxV1beta1Interface interface {
 	ApplicationProfileSummariesGetter
 	ConfigurationScanSummariesGetter
 	GeneratedNetworkPoliciesGetter
+	KnownServersGetter
 	NetworkNeighborsesGetter
 	OpenVulnerabilityExchangeContainersGetter
 	SBOMSPDXv2p3sGetter
@@ -70,6 +71,10 @@ func (c *SpdxV1beta1Client) ConfigurationScanSummaries(namespace string) Configu
 
 func (c *SpdxV1beta1Client) GeneratedNetworkPolicies(namespace string) GeneratedNetworkPolicyInterface {
 	return newGeneratedNetworkPolicies(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) KnownServers(namespace string) KnownServerInterface {
+	return newKnownServers(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) NetworkNeighborses(namespace string) NetworkNeighborsInterface {

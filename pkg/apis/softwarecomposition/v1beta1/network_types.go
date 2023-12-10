@@ -73,7 +73,7 @@ type GeneratedNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []GeneratedNetworkPolicy
+	Items []GeneratedNetworkPolicy `json:"items"`
 }
 
 // +genclient
@@ -93,10 +93,34 @@ type PolicyRef struct {
 	OriginalIP string `json:"originalIP"`
 	DNS        string `json:"dns"`
 	Name       string `json:"name"`
+	Server     string `json:"server"`
 }
 
-type KnownServers struct {
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// KnownServerList is a list of KnownServer.
+type KnownServerList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []KnownServer `json:"items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// KnownServer represents a known server, containing information about its IP addresses and servers. The purpose is to enrich the GeneratedNetworkPolicy CRD
+type KnownServer struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec KnownServerSpec `json:"spec"`
+}
+
+type KnownServerSpec []KnownServerEntry
+
+type KnownServerEntry struct {
 	IPBlock string `json:"ipBlock"`
-	DNS     string `json:"dns"`
+	Server  string `json:"server"`
 	Name    string `json:"name"`
 }

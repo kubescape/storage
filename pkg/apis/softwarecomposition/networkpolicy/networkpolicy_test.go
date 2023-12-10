@@ -17,7 +17,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 	tests := []struct {
 		name                  string
 		networkNeighbors      softwarecomposition.NetworkNeighbors
-		knownServers          []softwarecomposition.KnownServers
+		KnownServer           []softwarecomposition.KnownServer
 		expectedNetworkPolicy softwarecomposition.GeneratedNetworkPolicy
 	}{
 		{
@@ -761,11 +761,14 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					IPBlock: "172.17.0.0/16",
-					Name:    "test",
-					DNS:     "",
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							IPBlock: "172.17.0.0/16",
+							Name:    "test",
+							Server:  ""},
+					},
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -873,16 +876,23 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					IPBlock: "172.17.0.0/16",
-					Name:    "name1",
-					DNS:     "",
-				},
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							IPBlock: "172.17.0.0/16",
+							Name:    "name1",
+							Server:  "",
+						},
+					}},
 				{
-					IPBlock: "174.17.0.0/16",
-					Name:    "name2",
-					DNS:     "",
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							IPBlock: "174.17.0.0/16",
+							Name:    "name2",
+							Server:  "",
+						},
+					},
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -1086,13 +1096,11 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						IPBlock:    "172.17.0.2/32",
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
-						Name:       "test.com",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1136,12 +1144,15 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					Name:    "test",
-					DNS:     "test.com",
-					IPBlock: "172.17.0.0/16",
-				},
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							Name:    "test",
+							Server:  "test-server",
+							IPBlock: "172.17.0.0/16",
+						},
+					}},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				ObjectMeta: v1.ObjectMeta{
@@ -1212,12 +1223,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
+						Server:     "test-server",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe.com",
 					},
 				},
 			},
@@ -1261,12 +1272,15 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					Name:    "test",
-					DNS:     "test.com",
-					IPBlock: "172.17.0.0/16",
-				},
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							Name:    "test",
+							Server:  "test-server",
+							IPBlock: "172.17.0.0/16",
+						},
+					}},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				ObjectMeta: v1.ObjectMeta{
@@ -1337,29 +1351,22 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
+						Server:     "test-server",
 					},
 					{
 						IPBlock:    "198.17.0.2/32",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe.com",
 					},
 				},
 			},
 		},
 		{
-			name: "network neighbors with labels - policy has labels",
+			name: "multiple known servers   - policy is enriched for egress",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
-					Labels: map[string]string{
-						"kubescape.io/workload-api-group":   "apps",
-						"kubescape.io/workload-api-version": "v1",
-						"kubescape.io/workload-kind":        "deployment",
-						"kubescape.io/workload-name":        "nginx",
-						"kubescape.io/workload-namespace":   "kubescape",
-					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1393,11 +1400,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					},
 				},
 			},
-			knownServers: []softwarecomposition.KnownServers{
+			KnownServer: []softwarecomposition.KnownServer{
 				{
-					Name:    "test",
-					DNS:     "test.com",
-					IPBlock: "172.17.0.0/16",
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							Name:    "test",
+							Server:  "test-server",
+							IPBlock: "172.17.0.0/16",
+						},
+						{
+							Name:    "stripe",
+							Server:  "stripe-payments",
+							IPBlock: "198.17.0.0/16",
+						},
+					},
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
@@ -1405,13 +1421,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
-					Labels: map[string]string{
-						"kubescape.io/workload-api-group":   "apps",
-						"kubescape.io/workload-api-version": "v1",
-						"kubescape.io/workload-kind":        "deployment",
-						"kubescape.io/workload-name":        "nginx",
-						"kubescape.io/workload-namespace":   "kubescape",
-					},
 				},
 				TypeMeta: v1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
@@ -1425,13 +1434,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						Namespace: "kubescape",
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
-						},
-						Labels: map[string]string{
-							"kubescape.io/workload-api-group":   "apps",
-							"kubescape.io/workload-api-version": "v1",
-							"kubescape.io/workload-kind":        "deployment",
-							"kubescape.io/workload-name":        "nginx",
-							"kubescape.io/workload-namespace":   "kubescape",
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
@@ -1469,7 +1471,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								To: []softwarecomposition.NetworkPolicyPeer{
 									{
 										IPBlock: &softwarecomposition.IPBlock{
-											CIDR: "198.17.0.2/32",
+											CIDR: "198.17.0.0/16",
 										},
 									},
 								},
@@ -1483,12 +1485,14 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						OriginalIP: "172.17.0.2",
 						DNS:        "test.com",
 						Name:       "test",
+						Server:     "test-server",
 					},
 					{
-						IPBlock:    "198.17.0.2/32",
+						IPBlock:    "198.17.0.0/16",
 						OriginalIP: "198.17.0.2",
 						DNS:        "stripe.com",
-						Name:       "stripe.com",
+						Name:       "stripe",
+						Server:     "stripe-payments",
 					},
 				},
 			},
@@ -1497,7 +1501,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 
 	for _, test := range tests {
 
-		got, err := GenerateNetworkPolicy(test.networkNeighbors, test.knownServers, timeProvider)
+		got, err := GenerateNetworkPolicy(test.networkNeighbors, test.KnownServer, timeProvider)
 
 		assert.NoError(t, err)
 

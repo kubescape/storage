@@ -95,7 +95,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressSpec":                                schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressStatus":                              schema_pkg_apis_softwarecomposition_v1beta1_IngressStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressTLS":                                 schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServers":                               schema_pkg_apis_softwarecomposition_v1beta1_KnownServers(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer":                                schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerEntry":                           schema_pkg_apis_softwarecomposition_v1beta1_KnownServerEntry(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerList":                            schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License":                                    schema_pkg_apis_softwarecomposition_v1beta1_License(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease":                               schema_pkg_apis_softwarecomposition_v1beta1_LinuxRelease(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location":                                   schema_pkg_apis_softwarecomposition_v1beta1_Location(ref),
@@ -2108,7 +2110,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref 
 							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
 						},
 					},
-					"Items": {
+					"items": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -2122,7 +2124,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref 
 						},
 					},
 				},
-				Required: []string{"Items"},
+				Required: []string{"items"},
 			},
 		},
 		Dependencies: []string{
@@ -3089,7 +3091,56 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref common.Reference
 	}
 }
 
-func schema_pkg_apis_softwarecomposition_v1beta1_KnownServers(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KnownServer represents a known server, containing information about its IP addresses and servers. The purpose is to enrich the GeneratedNetworkPolicy CRD",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerEntry"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerEntry", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_KnownServerEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3102,7 +3153,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServers(ref common.Referen
 							Format:  "",
 						},
 					},
-					"dns": {
+					"server": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -3117,9 +3168,58 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServers(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"ipBlock", "dns", "name"},
+				Required: []string{"ipBlock", "server", "name"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KnownServerList is a list of KnownServer.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -4927,8 +5027,15 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PolicyRef(ref common.ReferenceC
 							Format:  "",
 						},
 					},
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"ipBlock", "originalIP", "dns", "name"},
+				Required: []string{"ipBlock", "originalIP", "dns", "name", "server"},
 			},
 		},
 	}

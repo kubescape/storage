@@ -28,6 +28,8 @@ type ConfigurationScanSummaryExpansion interface{}
 
 type GeneratedNetworkPolicyExpansion interface{}
 
+type KnownServerExpansion interface{}
+
 type NetworkNeighborsExpansion interface{}
 
 type OpenVulnerabilityExchangeContainerExpansion interface{}
