@@ -72,8 +72,13 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 	if err := s.realStore.Get(ctx, key, opts, networkNeighborsObjPtr); err != nil {
 		return err
 	}
-	// TODO(DanielGrunberegerCA): get known servers
-	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServer{}, metav1.Now())
+
+	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
+	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, "knownservers", knownServersListObjPtr); err != nil {
+		return err
+	}
+
+	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, knownServersListObjPtr.Items, metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -109,8 +114,13 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		return err
 	}
 
+	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
+	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, "knownservers", knownServersListObjPtr); err != nil {
+		return err
+	}
+
 	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
-		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServer{}, metav1.Now())
+		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, knownServersListObjPtr.Items, metav1.Now())
 		if err != nil {
 			return fmt.Errorf("error generating network policy: %w", err)
 		}
