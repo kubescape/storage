@@ -83,6 +83,16 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SBOMSyftList{},
 		&SBOMSyftFiltered{},
 		&SBOMSyftFilteredList{},
+		&Framework{},
+		&FrameworkList{},
+		&Control{},
+		&ControlList{},
+		&Rule{},
+		&RuleList{},
+		&Exception{},
+		&ExceptionList{},
+		&ControlConfiguration{},
+		&ControlConfigurationList{},
 	)
 	return nil
 }

@@ -18,6 +18,7 @@ package softwarecomposition
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -595,4 +596,105 @@ type SBOMSyftFilteredList struct {
 	metav1.ListMeta
 
 	Items []SBOMSyftFiltered
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Framework struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+	ControlsRef []FrameworkControlRef
+	Payload     unstructured.Unstructured
+}
+
+type FrameworkControlRef struct {
+	Name       string
+	ControlID  string
+	Kind       string
+	ApiVersion string
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type FrameworkList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+	Items []Framework
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Control struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+	RulesRef []ControlRuleRef
+	Payload  unstructured.Unstructured
+}
+
+type ControlRuleRef struct {
+	Name       string
+	Kind       string
+	ApiVersion string
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ControlList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+	Items []Control
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Rule struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+	Rego    string
+	Payload unstructured.Unstructured
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type RuleList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+	Items []Rule
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Exception struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+	Payload unstructured.Unstructured
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ExceptionList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+	Items []Exception
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ControlConfiguration struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+	Payload unstructured.Unstructured
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ControlConfigurationList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+	Items []ControlConfiguration
 }

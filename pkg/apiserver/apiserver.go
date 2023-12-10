@@ -49,6 +49,12 @@ import (
 	wcsstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscans"
 	wcssumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscansummary"
 	"github.com/spf13/afero"
+
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/framework"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/control"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/rule"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/exception"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/controlconfiguration"
 )
 
 const maxRequestBodyBytes = 1024 * 1024 * 1024
@@ -180,6 +186,12 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["knownservers"] = sbomregistry.RESTInPeace(knownserver.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["sbomsyfts"] = sbomregistry.RESTInPeace(sbomsyfts.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["sbomsyftfiltereds"] = sbomregistry.RESTInPeace(sbomsyftfiltereds.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+
+	v1beta1storage["frameworks"] = sbomregistry.RESTInPeace(framework.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["controls"] = sbomregistry.RESTInPeace(control.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["rules"] = sbomregistry.RESTInPeace(rule.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["exceptions"] = sbomregistry.RESTInPeace(exception.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["controlconfigurations"] = sbomregistry.RESTInPeace(controlconfiguration.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
 

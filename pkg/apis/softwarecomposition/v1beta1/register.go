@@ -85,6 +85,16 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SBOMSyftList{},
 		&SBOMSyftFiltered{},
 		&SBOMSyftFilteredList{},
+		&Framework{},
+		&FrameworkList{},
+		&Control{},
+		&ControlList{},
+		&Rule{},
+		&RuleList{},
+		&Exception{},
+		&ExceptionList{},
+		&ControlConfiguration{},
+		&ControlConfigurationList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
