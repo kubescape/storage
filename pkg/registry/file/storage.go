@@ -612,7 +612,6 @@ func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, 
 	defer s.lock.RUnlock()
 	spanLock.End()
 
-	// for each namespace, read all json files and append it to list obj
 	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 		// the first path is the root path
 		if path == p {
