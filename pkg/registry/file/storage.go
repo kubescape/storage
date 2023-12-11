@@ -54,6 +54,7 @@ type StorageQuerier interface {
 	storage.Interface
 	GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error
 	GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
+	GetClusterScopedResource(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
 }
 
 var _ storage.Interface = &StorageImpl{}
@@ -581,6 +582,54 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
 		}
 
+		return nil
+	})
+
+	return nil
+}
+
+// GetClusterScopedResource returns all objects in a given cluster, given their api version and kind.
+func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetClusterScopedResource")
+	defer span.End()
+
+	listPtr, err := meta.GetItemsPtr(listObj)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		return err
+	}
+
+	v, err := conversion.EnforcePtr(listPtr)
+	if err != nil || v.Kind() != reflect.Slice {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		return err
+	}
+
+	p := filepath.Join(s.root, apiVersion, kind)
+
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	spanLock.End()
+
+	// for each namespace, read all json files and append it to list obj
+	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+		// the first path is the root path
+		if path == p {
+			return nil
+		}
+
+		_ = afero.Walk(s.appFs, path, func(subPath string, info os.FileInfo, err error) error {
+			if !strings.HasSuffix(subPath, jsonExt) {
+				return nil
+			}
+
+			if err := s.appendJSONObjectFromFile(subPath, v); err != nil {
+				logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
+			}
+
+			return nil
+		})
 		return nil
 	})
 
