@@ -61,6 +61,14 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationProfileSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ConfigurationScanSummaries().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("controls"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().Controls().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("controlconfigurations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ControlConfigurations().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("exceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().Exceptions().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("frameworks"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().Frameworks().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("generatednetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().GeneratedNetworkPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("knownservers"):
@@ -69,6 +77,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().NetworkNeighborses().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("openvulnerabilityexchangecontainers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().OpenVulnerabilityExchangeContainers().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("rules"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().Rules().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3s"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSPDXv2p3s().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3filtereds"):

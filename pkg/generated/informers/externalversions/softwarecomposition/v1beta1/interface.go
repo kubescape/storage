@@ -32,6 +32,14 @@ type Interface interface {
 	ApplicationProfileSummaries() ApplicationProfileSummaryInformer
 	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
+	// Controls returns a ControlInformer.
+	Controls() ControlInformer
+	// ControlConfigurations returns a ControlConfigurationInformer.
+	ControlConfigurations() ControlConfigurationInformer
+	// Exceptions returns a ExceptionInformer.
+	Exceptions() ExceptionInformer
+	// Frameworks returns a FrameworkInformer.
+	Frameworks() FrameworkInformer
 	// GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
 	GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer
 	// KnownServers returns a KnownServerInformer.
@@ -40,6 +48,8 @@ type Interface interface {
 	NetworkNeighborses() NetworkNeighborsInformer
 	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
 	OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer
+	// Rules returns a RuleInformer.
+	Rules() RuleInformer
 	// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
 	SBOMSPDXv2p3s() SBOMSPDXv2p3Informer
 	// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
@@ -93,6 +103,26 @@ func (v *version) ConfigurationScanSummaries() ConfigurationScanSummaryInformer 
 	return &configurationScanSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
+// Controls returns a ControlInformer.
+func (v *version) Controls() ControlInformer {
+	return &controlInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ControlConfigurations returns a ControlConfigurationInformer.
+func (v *version) ControlConfigurations() ControlConfigurationInformer {
+	return &controlConfigurationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// Exceptions returns a ExceptionInformer.
+func (v *version) Exceptions() ExceptionInformer {
+	return &exceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// Frameworks returns a FrameworkInformer.
+func (v *version) Frameworks() FrameworkInformer {
+	return &frameworkInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
 func (v *version) GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer {
 	return &generatedNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -111,6 +141,11 @@ func (v *version) NetworkNeighborses() NetworkNeighborsInformer {
 // OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
 func (v *version) OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer {
 	return &openVulnerabilityExchangeContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// Rules returns a RuleInformer.
+func (v *version) Rules() RuleInformer {
+	return &ruleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.

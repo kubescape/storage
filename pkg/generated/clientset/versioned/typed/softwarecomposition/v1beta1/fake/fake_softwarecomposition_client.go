@@ -44,6 +44,22 @@ func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.C
 	return &FakeConfigurationScanSummaries{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) Controls(namespace string) v1beta1.ControlInterface {
+	return &FakeControls{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) ControlConfigurations(namespace string) v1beta1.ControlConfigurationInterface {
+	return &FakeControlConfigurations{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) Exceptions(namespace string) v1beta1.ExceptionInterface {
+	return &FakeExceptions{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) Frameworks(namespace string) v1beta1.FrameworkInterface {
+	return &FakeFrameworks{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) GeneratedNetworkPolicies(namespace string) v1beta1.GeneratedNetworkPolicyInterface {
 	return &FakeGeneratedNetworkPolicies{c, namespace}
 }
@@ -58,6 +74,10 @@ func (c *FakeSpdxV1beta1) NetworkNeighborses(namespace string) v1beta1.NetworkNe
 
 func (c *FakeSpdxV1beta1) OpenVulnerabilityExchangeContainers(namespace string) v1beta1.OpenVulnerabilityExchangeContainerInterface {
 	return &FakeOpenVulnerabilityExchangeContainers{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) Rules(namespace string) v1beta1.RuleInterface {
+	return &FakeRules{c, namespace}
 }
 
 func (c *FakeSpdxV1beta1) SBOMSPDXv2p3s(namespace string) v1beta1.SBOMSPDXv2p3Interface {

@@ -2,7 +2,7 @@
 
 module github.com/kubescape/storage
 
-go 1.21.3
+go 1.21.5
 
 require (
 	github.com/anchore/syft v0.97.1
@@ -17,7 +17,7 @@ require (
 	go.opentelemetry.io/otel v1.19.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	k8s.io/api v0.26.2
-	k8s.io/apimachinery v0.28.2
+	k8s.io/apimachinery v0.26.2
 	k8s.io/apiserver v0.26.2
 	k8s.io/client-go v0.26.2
 	k8s.io/code-generator v0.26.2

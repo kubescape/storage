@@ -50,6 +50,38 @@ type ConfigurationScanSummaryListerExpansion interface{}
 // ConfigurationScanSummaryNamespaceLister.
 type ConfigurationScanSummaryNamespaceListerExpansion interface{}
 
+// ControlListerExpansion allows custom methods to be added to
+// ControlLister.
+type ControlListerExpansion interface{}
+
+// ControlNamespaceListerExpansion allows custom methods to be added to
+// ControlNamespaceLister.
+type ControlNamespaceListerExpansion interface{}
+
+// ControlConfigurationListerExpansion allows custom methods to be added to
+// ControlConfigurationLister.
+type ControlConfigurationListerExpansion interface{}
+
+// ControlConfigurationNamespaceListerExpansion allows custom methods to be added to
+// ControlConfigurationNamespaceLister.
+type ControlConfigurationNamespaceListerExpansion interface{}
+
+// ExceptionListerExpansion allows custom methods to be added to
+// ExceptionLister.
+type ExceptionListerExpansion interface{}
+
+// ExceptionNamespaceListerExpansion allows custom methods to be added to
+// ExceptionNamespaceLister.
+type ExceptionNamespaceListerExpansion interface{}
+
+// FrameworkListerExpansion allows custom methods to be added to
+// FrameworkLister.
+type FrameworkListerExpansion interface{}
+
+// FrameworkNamespaceListerExpansion allows custom methods to be added to
+// FrameworkNamespaceLister.
+type FrameworkNamespaceListerExpansion interface{}
+
 // GeneratedNetworkPolicyListerExpansion allows custom methods to be added to
 // GeneratedNetworkPolicyLister.
 type GeneratedNetworkPolicyListerExpansion interface{}
@@ -81,6 +113,14 @@ type OpenVulnerabilityExchangeContainerListerExpansion interface{}
 // OpenVulnerabilityExchangeContainerNamespaceListerExpansion allows custom methods to be added to
 // OpenVulnerabilityExchangeContainerNamespaceLister.
 type OpenVulnerabilityExchangeContainerNamespaceListerExpansion interface{}
+
+// RuleListerExpansion allows custom methods to be added to
+// RuleLister.
+type RuleListerExpansion interface{}
+
+// RuleNamespaceListerExpansion allows custom methods to be added to
+// RuleNamespaceLister.
+type RuleNamespaceListerExpansion interface{}
 
 // SBOMSPDXv2p3ListerExpansion allows custom methods to be added to
 // SBOMSPDXv2p3Lister.

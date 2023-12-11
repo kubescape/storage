@@ -51,6 +51,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary":                   schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummaryList":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Control":                                    schema_pkg_apis_softwarecomposition_v1beta1_Control(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlConfiguration":                       schema_pkg_apis_softwarecomposition_v1beta1_ControlConfiguration(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlConfigurationList":                   schema_pkg_apis_softwarecomposition_v1beta1_ControlConfigurationList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlList":                                schema_pkg_apis_softwarecomposition_v1beta1_ControlList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlRuleRef":                             schema_pkg_apis_softwarecomposition_v1beta1_ControlRuleRef(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity":                            schema_pkg_apis_softwarecomposition_v1beta1_ControlSeverity(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates":                                schema_pkg_apis_softwarecomposition_v1beta1_Coordinates(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CreationInfo":                               schema_pkg_apis_softwarecomposition_v1beta1_CreationInfo(ref),
@@ -62,6 +67,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution":                               schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID":                               schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document":                                   schema_pkg_apis_softwarecomposition_v1beta1_Document(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Exception":                                  schema_pkg_apis_softwarecomposition_v1beta1_Exception(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExceptionList":                              schema_pkg_apis_softwarecomposition_v1beta1_ExceptionList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls":                                  schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef":                        schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File":                                       schema_pkg_apis_softwarecomposition_v1beta1_File(ref),
@@ -69,6 +76,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicenseEvidence":                        schema_pkg_apis_softwarecomposition_v1beta1_FileLicenseEvidence(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry":                          schema_pkg_apis_softwarecomposition_v1beta1_FileMetadataEntry(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix":                                        schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Framework":                                  schema_pkg_apis_softwarecomposition_v1beta1_Framework(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FrameworkControlRef":                        schema_pkg_apis_softwarecomposition_v1beta1_FrameworkControlRef(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FrameworkList":                              schema_pkg_apis_softwarecomposition_v1beta1_FrameworkList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicy":                     schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicyList":                 schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument":                              schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref),
@@ -134,6 +144,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Relationship":                               schema_pkg_apis_softwarecomposition_v1beta1_Relationship(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta":                                 schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Review":                                     schema_pkg_apis_softwarecomposition_v1beta1_Review(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Rule":                                       schema_pkg_apis_softwarecomposition_v1beta1_Rule(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RuleList":                                   schema_pkg_apis_softwarecomposition_v1beta1_RuleList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePath":                                   schema_pkg_apis_softwarecomposition_v1beta1_RulePath(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RuleStatus":                                 schema_pkg_apis_softwarecomposition_v1beta1_RuleStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSPDXv2p3":                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3(ref),
@@ -1044,6 +1056,223 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(re
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_Control(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"rulesRef": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlRuleRef"),
+									},
+								},
+							},
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlRuleRef", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ControlConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ControlConfigurationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlConfiguration"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlConfiguration", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ControlList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Control"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Control", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ControlRuleRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ControlSeverity(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1586,6 +1815,93 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Document(ref common.ReferenceCa
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_Exception(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ExceptionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Exception"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Exception", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2025,6 +2341,142 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref common.ReferenceCallbac
 				Required: []string{"versions", "state"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Framework(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"controlsRef": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FrameworkControlRef"),
+									},
+								},
+							},
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FrameworkControlRef", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_FrameworkControlRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"controlID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_FrameworkList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Framework"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Framework", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -5181,6 +5633,99 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Review(ref common.ReferenceCall
 				Required: []string{"Reviewer", "ReviewerType", "ReviewDate", "ReviewComment"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Rule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"rego": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_RuleList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Rule"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Rule", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
