@@ -157,8 +157,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus":                       schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlSummary":                      schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema":                                     schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SearchResult":                               schema_pkg_apis_softwarecomposition_v1beta1_SearchResult(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Secrets":                                    schema_pkg_apis_softwarecomposition_v1beta1_Secrets(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ServiceBackendPort":                         schema_pkg_apis_softwarecomposition_v1beta1_ServiceBackendPort(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary":                            schema_pkg_apis_softwarecomposition_v1beta1_SeveritySummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                                    schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
@@ -6089,94 +6087,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_softwarecomposition_v1beta1_SearchResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"classification": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"lineNumber": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-					"lineOffset": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-					"seekPosition": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-					"length": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-					"value": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"classification", "lineNumber", "lineOffset", "seekPosition", "length"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_Secrets(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"location": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"),
-						},
-					},
-					"secrets": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SearchResult"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"location", "secrets"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SearchResult"},
-	}
-}
-
 func schema_pkg_apis_softwarecomposition_v1beta1_ServiceBackendPort(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -6698,20 +6608,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 							},
 						},
 					},
-					"secrets": {
-						SchemaProps: spec.SchemaProps{
-							Description: "note: must have omitempty",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Secrets"),
-									},
-								},
-							},
-						},
-					},
 					"source": {
 						SchemaProps: spec.SchemaProps{
 							Description: "note: must have omitempty",
@@ -6744,7 +6640,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Secrets", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource"},
 	}
 }
 

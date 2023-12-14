@@ -22,19 +22,6 @@ type Digest struct {
 	Value     string `json:"value"`
 }
 
-type SearchResult struct {
-	Classification string `json:"classification"`
-	LineNumber     int64  `json:"lineNumber"`
-	LineOffset     int64  `json:"lineOffset"`
-	SeekPosition   int64  `json:"seekPosition"`
-	Length         int64  `json:"length"`
-	Value          string `json:"value,omitempty"`
-}
-
-func (s SearchResult) String() string {
-	return fmt.Sprintf("SearchResult(classification=%q seek=%q length=%q)", s.Classification, s.SeekPosition, s.Length)
-}
-
 type LocationMetadata struct {
 	Annotations map[string]string `json:"annotations,omitempty"` // Arbitrary key-value pairs that can be used to annotate a location
 }
@@ -171,11 +158,6 @@ func extractPreSchemaV9Metadata(t string, target []byte) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unsupported package metadata type: %+v", t)
 	}
-}
-
-type Secrets struct {
-	Location Coordinates    `json:"location"`
-	Secrets  []SearchResult `json:"secrets"`
 }
 
 var errUnknownMetadataType = errors.New("unknown metadata type")
@@ -453,10 +435,9 @@ type Schema struct {
 type SyftDocument struct {
 	Artifacts             []SyftPackage      `json:"artifacts"` // Artifacts is the list of packages discovered and placed into the catalog
 	ArtifactRelationships []SyftRelationship `json:"artifactRelationships"`
-	Files                 []SyftFile         `json:"files,omitempty"`   // note: must have omitempty
-	Secrets               []Secrets          `json:"secrets,omitempty"` // note: must have omitempty
-	SyftSource            SyftSource         `json:"source"`            // SyftSource represents the original object that was cataloged
-	Distro                LinuxRelease       `json:"distro"`            // Distro represents the Linux distribution that was detected from the source
-	SyftDescriptor        SyftDescriptor     `json:"descriptor"`        // SyftDescriptor is a block containing self-describing information about syft
-	Schema                Schema             `json:"schema"`            // Schema is a block reserved for defining the version for the shape of this JSON document and where to find the schema document to validate the shape
+	Files                 []SyftFile         `json:"files,omitempty"` // note: must have omitempty
+	SyftSource            SyftSource         `json:"source"`          // SyftSource represents the original object that was cataloged
+	Distro                LinuxRelease       `json:"distro"`          // Distro represents the Linux distribution that was detected from the source
+	SyftDescriptor        SyftDescriptor     `json:"descriptor"`      // SyftDescriptor is a block containing self-describing information about syft
+	Schema                Schema             `json:"schema"`          // Schema is a block reserved for defining the version for the shape of this JSON document and where to find the schema document to validate the shape
 }
