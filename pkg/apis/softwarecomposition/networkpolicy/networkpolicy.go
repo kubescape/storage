@@ -2,6 +2,7 @@ package networkpolicy
 
 import (
 	"net"
+	"sort"
 	"strings"
 
 	"golang.org/x/exp/maps"
@@ -81,9 +82,149 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 
 	}
 
+	networkPolicy.Spec.Egress = mergeEgressRulesByPorts(networkPolicy.Spec.Egress)
+
+	networkPolicy.Spec.Ingress = mergeIngressRulesByPorts(networkPolicy.Spec.Ingress)
+
 	generatedNetworkPolicy.Spec = networkPolicy
 
 	return generatedNetworkPolicy, nil
+}
+
+func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRule) []softwarecomposition.NetworkPolicyIngressRule {
+	type PortProtocolKey struct {
+		Port     int32
+		Protocol v1.Protocol
+	}
+
+	merged := make(map[PortProtocolKey][]softwarecomposition.NetworkPolicyPeer)
+	var keys []PortProtocolKey
+	var nonMergedRules []softwarecomposition.NetworkPolicyIngressRule
+
+	for _, rule := range rules {
+		hasSelector := false
+		for _, peer := range rule.From {
+			if peer.PodSelector != nil || peer.NamespaceSelector != nil {
+				hasSelector = true
+				break
+			}
+		}
+
+		if hasSelector {
+			nonMergedRules = append(nonMergedRules, rule)
+			continue
+		}
+
+		for _, port := range rule.Ports {
+			key := PortProtocolKey{Port: *port.Port, Protocol: *port.Protocol}
+			if _, exists := merged[key]; !exists {
+				keys = append(keys, key)
+			}
+			for _, peer := range rule.From {
+				if peer.IPBlock != nil {
+					merged[key] = append(merged[key], peer)
+				}
+			}
+		}
+	}
+
+	// Sort the keys
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Port != keys[j].Port {
+			return keys[i].Port < keys[j].Port
+		}
+		return keys[i].Protocol < keys[j].Protocol
+	})
+
+	// Construct merged rules using sorted keys
+	var mergedRules []softwarecomposition.NetworkPolicyIngressRule
+	for i := range keys {
+		peers := merged[keys[i]]
+		sort.Slice(peers, func(i, j int) bool {
+			if peers[i].IPBlock != nil && peers[j].IPBlock != nil {
+				return peers[i].IPBlock.CIDR < peers[j].IPBlock.CIDR
+			}
+			return false // Keep the order as is if IPBlock is nil
+		})
+
+		mergedRules = append(mergedRules, softwarecomposition.NetworkPolicyIngressRule{
+			Ports: []softwarecomposition.NetworkPolicyPort{{Protocol: &keys[i].Protocol, Port: &keys[i].Port}},
+			From:  peers,
+		})
+	}
+
+	// Combine merged and non-merged rules
+	mergedRules = append(mergedRules, nonMergedRules...)
+
+	return mergedRules
+}
+
+func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule) []softwarecomposition.NetworkPolicyEgressRule {
+	type PortProtocolKey struct {
+		Port     int32
+		Protocol v1.Protocol
+	}
+
+	merged := make(map[PortProtocolKey][]softwarecomposition.NetworkPolicyPeer)
+	var keys []PortProtocolKey
+	var nonMergedRules []softwarecomposition.NetworkPolicyEgressRule
+
+	for _, rule := range rules {
+		hasSelector := false
+		for _, peer := range rule.To {
+			if peer.PodSelector != nil || peer.NamespaceSelector != nil {
+				hasSelector = true
+				break
+			}
+		}
+
+		if hasSelector {
+			nonMergedRules = append(nonMergedRules, rule)
+			continue
+		}
+
+		for _, port := range rule.Ports {
+			key := PortProtocolKey{Port: *port.Port, Protocol: *port.Protocol}
+			if _, exists := merged[key]; !exists {
+				keys = append(keys, key)
+			}
+			for _, peer := range rule.To {
+				if peer.IPBlock != nil {
+					merged[key] = append(merged[key], peer)
+				}
+			}
+		}
+	}
+
+	// Sort the keys
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Port != keys[j].Port {
+			return keys[i].Port < keys[j].Port
+		}
+		return keys[i].Protocol < keys[j].Protocol
+	})
+
+	// Construct merged rules using sorted keys
+	var mergedRules []softwarecomposition.NetworkPolicyEgressRule
+	for i := range keys {
+		peers := merged[keys[i]]
+		sort.Slice(peers, func(i, j int) bool {
+			if peers[i].IPBlock != nil && peers[j].IPBlock != nil {
+				return peers[i].IPBlock.CIDR < peers[j].IPBlock.CIDR
+			}
+			return false // Keep the order as is if IPBlock is nil
+		})
+
+		mergedRules = append(mergedRules, softwarecomposition.NetworkPolicyEgressRule{
+			Ports: []softwarecomposition.NetworkPolicyPort{{Protocol: &keys[i].Protocol, Port: &keys[i].Port}},
+			To:    peers,
+		})
+	}
+
+	// Combine merged and non-merged rules
+	mergedRules = append(mergedRules, nonMergedRules...)
+
+	return mergedRules
 }
 
 func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServer []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
