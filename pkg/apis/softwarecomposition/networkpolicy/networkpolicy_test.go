@@ -928,21 +928,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
-										Protocol: &protocolTCP,
-									},
-								},
-								From: []softwarecomposition.NetworkPolicyPeer{
-									{
-										IPBlock: &softwarecomposition.IPBlock{
-											CIDR: "172.17.0.0/16",
-										},
-									},
-								},
-							},
-							{
-								Ports: []softwarecomposition.NetworkPolicyPort{
-									{
 										Port:     pointer.Int32(50),
 										Protocol: &protocolTCP,
 									},
@@ -966,6 +951,11 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 									{
 										IPBlock: &softwarecomposition.IPBlock{
 											CIDR: "156.43.0.2/32",
+										},
+									},
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "172.17.0.0/16",
 										},
 									},
 								},
@@ -1019,7 +1009,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "stripe.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     pointer.Int32(90),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1076,7 +1066,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     pointer.Int32(90),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1135,7 +1125,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "stripe.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     pointer.Int32(90),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1202,7 +1192,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     pointer.Int32(90),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1325,16 +1315,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 											CIDR: "172.17.0.0/16",
 										},
 									},
-								},
-							},
-							{
-								Ports: []softwarecomposition.NetworkPolicyPort{
-									{
-										Port:     pointer.Int32(80),
-										Protocol: &protocolTCP,
-									},
-								},
-								To: []softwarecomposition.NetworkPolicyPeer{
 									{
 										IPBlock: &softwarecomposition.IPBlock{
 											CIDR: "198.17.0.2/32",
@@ -1459,16 +1439,6 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 											CIDR: "172.17.0.0/16",
 										},
 									},
-								},
-							},
-							{
-								Ports: []softwarecomposition.NetworkPolicyPort{
-									{
-										Port:     pointer.Int32(80),
-										Protocol: &protocolTCP,
-									},
-								},
-								To: []softwarecomposition.NetworkPolicyPeer{
 									{
 										IPBlock: &softwarecomposition.IPBlock{
 											CIDR: "198.17.0.0/16",
@@ -1493,6 +1463,347 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						DNS:        "stripe.com",
 						Name:       "stripe",
 						Server:     "stripe-payments",
+					},
+				},
+			},
+		},
+		{
+			name: "same ports with different addresses - addresses are merged",
+			networkNeighbors: softwarecomposition.NetworkNeighbors{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "deployment-nginx",
+					Namespace: "kubescape",
+				},
+				Spec: softwarecomposition.NetworkNeighborsSpec{
+					LabelSelector: v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "nginx",
+						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
+						{
+							IPAddress: "172.17.0.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+						{
+							IPAddress: "196.17.0.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				ObjectMeta: v1.ObjectMeta{
+					Name:              "deployment-nginx",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				TypeMeta: v1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "deployment-nginx",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: v1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "nginx",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "172.17.0.2/32",
+										},
+									},
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "196.17.0.2/32",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "same ports for pod traffic",
+			networkNeighbors: softwarecomposition.NetworkNeighbors{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "deployment-nginx",
+					Namespace: "kubescape",
+				},
+				Spec: softwarecomposition.NetworkNeighborsSpec{
+					LabelSelector: v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "nginx",
+						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
+						{
+							PodSelector: &v1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "nginx",
+								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+						{
+							PodSelector: &v1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "redis",
+								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				ObjectMeta: v1.ObjectMeta{
+					Name:              "deployment-nginx",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				TypeMeta: v1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "deployment-nginx",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: v1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "nginx",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										PodSelector: &v1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "nginx",
+											},
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										PodSelector: &v1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "redis",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "same ports for multiple IPs - addresses are merged correctly",
+			networkNeighbors: softwarecomposition.NetworkNeighbors{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "deployment-nginx",
+					Namespace: "kubescape",
+				},
+				Spec: softwarecomposition.NetworkNeighborsSpec{
+					LabelSelector: v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "nginx",
+						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
+						{
+							IPAddress: "172.17.0.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+						{
+							IPAddress: "172.17.0.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(443),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+						{
+							IPAddress: "196.17.0.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+						{
+							IPAddress: "196.17.0.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(443),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				ObjectMeta: v1.ObjectMeta{
+					Name:              "deployment-nginx",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				TypeMeta: v1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "deployment-nginx",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: v1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "nginx",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "172.17.0.2/32",
+										},
+									},
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "196.17.0.2/32",
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(443),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "172.17.0.2/32",
+										},
+									},
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "196.17.0.2/32",
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
