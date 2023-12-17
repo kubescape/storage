@@ -1,0 +1,511 @@
+{
+  "namespace-/apiservice-v1.": [],
+  "namespace-/apiservice-v1.admissionregistration.k8s.io": [],
+  "namespace-/apiservice-v1.apiextensions.k8s.io": [],
+  "namespace-/apiservice-v1.apps": [],
+  "namespace-/apiservice-v1.authentication.k8s.io": [],
+  "namespace-/apiservice-v1.authorization.k8s.io": [],
+  "namespace-/apiservice-v1.autoscaling": [],
+  "namespace-/apiservice-v1.batch": [],
+  "namespace-/apiservice-v1.certificates.k8s.io": [],
+  "namespace-/apiservice-v1.coordination.k8s.io": [],
+  "namespace-/apiservice-v1.discovery.k8s.io": [],
+  "namespace-/apiservice-v1.events.k8s.io": [],
+  "namespace-/apiservice-v1.networking.k8s.io": [],
+  "namespace-/apiservice-v1.node.k8s.io": [],
+  "namespace-/apiservice-v1.policy": [],
+  "namespace-/apiservice-v1.rbac.authorization.k8s.io": [],
+  "namespace-/apiservice-v1.scheduling.k8s.io": [],
+  "namespace-/apiservice-v1.storage.k8s.io": [],
+  "namespace-/apiservice-v1beta1.spdx.softwarecomposition.kubescape.io": [],
+  "namespace-/apiservice-v1beta2.flowcontrol.apiserver.k8s.io": [],
+  "namespace-/apiservice-v1beta3.flowcontrol.apiserver.k8s.io": [],
+  "namespace-/apiservice-v2.autoscaling": [],
+  "namespace-/clusterrolebinding-cluster-admin": [],
+  "namespace-/clusterrolebinding-kindnet": [],
+  "namespace-/clusterrolebinding-kollector": [],
+  "namespace-/clusterrolebinding-kubeadm:get-nodes": [],
+  "namespace-/clusterrolebinding-kubeadm:kubelet-bootstrap": [],
+  "namespace-/clusterrolebinding-kubeadm:node-autoapprove-bootstrap": [],
+  "namespace-/clusterrolebinding-kubeadm:node-autoapprove-certificate-rotation": [],
+  "namespace-/clusterrolebinding-kubeadm:node-proxier": [],
+  "namespace-/clusterrolebinding-kubescape": [],
+  "namespace-/clusterrolebinding-kubevuln": [],
+  "namespace-/clusterrolebinding-local-path-provisioner-bind": [],
+  "namespace-/clusterrolebinding-node-agent": [],
+  "namespace-/clusterrolebinding-operator": [],
+  "namespace-/clusterrolebinding-storage": [],
+  "namespace-/clusterrolebinding-storage:system:auth-delegator": [],
+  "namespace-/clusterrolebinding-synchronizer": [],
+  "namespace-/clusterrolebinding-system:basic-user": [],
+  "namespace-/clusterrolebinding-system:controller:attachdetach-controller": [],
+  "namespace-/clusterrolebinding-system:controller:certificate-controller": [],
+  "namespace-/clusterrolebinding-system:controller:clusterrole-aggregation-controller": [],
+  "namespace-/clusterrolebinding-system:controller:cronjob-controller": [],
+  "namespace-/clusterrolebinding-system:controller:daemon-set-controller": [],
+  "namespace-/clusterrolebinding-system:controller:deployment-controller": [],
+  "namespace-/clusterrolebinding-system:controller:disruption-controller": [],
+  "namespace-/clusterrolebinding-system:controller:endpoint-controller": [],
+  "namespace-/clusterrolebinding-system:controller:endpointslice-controller": [],
+  "namespace-/clusterrolebinding-system:controller:endpointslicemirroring-controller": [],
+  "namespace-/clusterrolebinding-system:controller:ephemeral-volume-controller": [],
+  "namespace-/clusterrolebinding-system:controller:expand-controller": [],
+  "namespace-/clusterrolebinding-system:controller:generic-garbage-collector": [],
+  "namespace-/clusterrolebinding-system:controller:horizontal-pod-autoscaler": [],
+  "namespace-/clusterrolebinding-system:controller:job-controller": [],
+  "namespace-/clusterrolebinding-system:controller:namespace-controller": [],
+  "namespace-/clusterrolebinding-system:controller:node-controller": [],
+  "namespace-/clusterrolebinding-system:controller:persistent-volume-binder": [],
+  "namespace-/clusterrolebinding-system:controller:pod-garbage-collector": [],
+  "namespace-/clusterrolebinding-system:controller:pv-protection-controller": [],
+  "namespace-/clusterrolebinding-system:controller:pvc-protection-controller": [],
+  "namespace-/clusterrolebinding-system:controller:replicaset-controller": [],
+  "namespace-/clusterrolebinding-system:controller:replication-controller": [],
+  "namespace-/clusterrolebinding-system:controller:resourcequota-controller": [],
+  "namespace-/clusterrolebinding-system:controller:root-ca-cert-publisher": [],
+  "namespace-/clusterrolebinding-system:controller:route-controller": [],
+  "namespace-/clusterrolebinding-system:controller:service-account-controller": [],
+  "namespace-/clusterrolebinding-system:controller:service-controller": [],
+  "namespace-/clusterrolebinding-system:controller:statefulset-controller": [],
+  "namespace-/clusterrolebinding-system:controller:ttl-after-finished-controller": [],
+  "namespace-/clusterrolebinding-system:controller:ttl-controller": [],
+  "namespace-/clusterrolebinding-system:coredns": [],
+  "namespace-/clusterrolebinding-system:discovery": [],
+  "namespace-/clusterrolebinding-system:kube-controller-manager": [],
+  "namespace-/clusterrolebinding-system:kube-dns": [],
+  "namespace-/clusterrolebinding-system:kube-scheduler": [],
+  "namespace-/clusterrolebinding-system:monitoring": [],
+  "namespace-/clusterrolebinding-system:node": [],
+  "namespace-/clusterrolebinding-system:node-proxier": [],
+  "namespace-/clusterrolebinding-system:public-info-viewer": [],
+  "namespace-/clusterrolebinding-system:service-account-issuer-discovery": [],
+  "namespace-/clusterrolebinding-system:volume-scheduler": [],
+  "namespace-/namespace-default": [],
+  "namespace-/namespace-kube-node-lease": [],
+  "namespace-/namespace-kube-public": [],
+  "namespace-/namespace-kube-system": [],
+  "namespace-/namespace-kubescape": [],
+  "namespace-/namespace-local-path-storage": [],
+  "namespace-/node-kind-control-plane": [],
+  "namespace-/persistentvolume-pvc-7843aae9-7eaf-407a-8e7e-ea8760e76e6e": [],
+  "namespace-default/configmap-kube-root-ca.crt": [],
+  "namespace-default/deployment-nginx": [
+    "nginx"
+  ],
+  "namespace-default/endpoints-kubernetes": [],
+  "namespace-default/endpointslice-kubernetes": [],
+  "namespace-default/pod-nginx-748c667d99-8mk4k": [],
+  "namespace-default/replicaset-nginx-748c667d99": [
+    "nginx"
+  ],
+  "namespace-default/service-kubernetes": [],
+  "namespace-default/serviceaccount-default": [],
+  "namespace-gmp-system/daemonset-collector": [
+    "prometheus",
+    "config-reloader"
+  ],
+  "namespace-gmp-system/deployment-gmp-operator": [
+    "operator"
+  ],
+  "namespace-gmp-system/deployment-rule-evaluator": [
+    "config-reloader",
+    "evaluator"
+  ],
+  "namespace-gmp-system/statefulset-alertmanager": [
+    "alertmanager"
+  ],
+  "namespace-kube-node-lease/configmap-kube-root-ca.crt": [],
+  "namespace-kube-node-lease/lease-kind-control-plane": [],
+  "namespace-kube-node-lease/serviceaccount-default": [],
+  "namespace-kube-public/configmap-cluster-info": [],
+  "namespace-kube-public/configmap-kube-root-ca.crt": [],
+  "namespace-kube-public/role-kubeadm:bootstrap-signer-clusterinfo": [],
+  "namespace-kube-public/role-system:controller:bootstrap-signer": [],
+  "namespace-kube-public/rolebinding-kubeadm:bootstrap-signer-clusterinfo": [],
+  "namespace-kube-public/rolebinding-system:controller:bootstrap-signer": [],
+  "namespace-kube-public/serviceaccount-default": [],
+  "namespace-kube-system/configmap-coredns": [],
+  "namespace-kube-system/configmap-extension-apiserver-authentication": [],
+  "namespace-kube-system/configmap-kube-apiserver-legacy-service-account-token-tracking": [],
+  "namespace-kube-system/configmap-kube-proxy": [],
+  "namespace-kube-system/configmap-kube-root-ca.crt": [],
+  "namespace-kube-system/configmap-kubeadm-config": [],
+  "namespace-kube-system/configmap-kubelet-config": [],
+  "namespace-kube-system/daemonset-fluentbit-gke": [
+    "fluentbit-gke",
+    "fluentbit"
+  ],
+  "namespace-kube-system/daemonset-fluentbit-gke-256pd": [
+    "fluentbit",
+    "fluentbit-gke"
+  ],
+  "namespace-kube-system/daemonset-fluentbit-gke-max": [
+    "fluentbit-gke",
+    "fluentbit"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent": [
+    "gke-metrics-agent",
+    "core-metrics-exporter"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent-scaling-10": [
+    "core-metrics-exporter",
+    "gke-metrics-agent"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent-scaling-100": [
+    "core-metrics-exporter",
+    "gke-metrics-agent"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent-scaling-20": [
+    "gke-metrics-agent",
+    "core-metrics-exporter"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent-scaling-200": [
+    "gke-metrics-agent",
+    "core-metrics-exporter"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent-scaling-50": [
+    "core-metrics-exporter",
+    "gke-metrics-agent"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent-scaling-500": [
+    "gke-metrics-agent",
+    "core-metrics-exporter"
+  ],
+  "namespace-kube-system/daemonset-gke-metrics-agent-windows": [
+    "gke-metrics-agent",
+    "core-metrics-exporter"
+  ],
+  "namespace-kube-system/daemonset-kindnet": [
+    "kindnet-cni"
+  ],
+  "namespace-kube-system/daemonset-kube-proxy": [
+    "kube-proxy"
+  ],
+  "namespace-kube-system/daemonset-metadata-proxy-v0.1": [
+    "metadata-proxy",
+    "prometheus-to-sd-exporter"
+  ],
+  "namespace-kube-system/daemonset-nccl-fastsocket-installer": [
+    "pause"
+  ],
+  "namespace-kube-system/daemonset-nvidia-gpu-device-plugin-large-cos": [
+    "nvidia-gpu-device-plugin"
+  ],
+  "namespace-kube-system/daemonset-nvidia-gpu-device-plugin-large-ubuntu": [
+    "nvidia-gpu-device-plugin"
+  ],
+  "namespace-kube-system/daemonset-nvidia-gpu-device-plugin-medium-cos": [
+    "nvidia-gpu-device-plugin"
+  ],
+  "namespace-kube-system/daemonset-nvidia-gpu-device-plugin-medium-ubuntu": [
+    "nvidia-gpu-device-plugin"
+  ],
+  "namespace-kube-system/daemonset-nvidia-gpu-device-plugin-small-cos": [
+    "nvidia-gpu-device-plugin"
+  ],
+  "namespace-kube-system/daemonset-nvidia-gpu-device-plugin-small-ubuntu": [
+    "nvidia-gpu-device-plugin"
+  ],
+  "namespace-kube-system/daemonset-pdcsi-node": [
+    "csi-driver-registrar",
+    "gce-pd-driver"
+  ],
+  "namespace-kube-system/daemonset-pdcsi-node-windows": [
+    "csi-driver-registrar",
+    "gce-pd-driver"
+  ],
+  "namespace-kube-system/daemonset-runsc-metric-server": [
+    "runsc-metric-server"
+  ],
+  "namespace-kube-system/daemonset-tpu-device-plugin": [
+    "tpu-device-plugin"
+  ],
+  "namespace-kube-system/deployment-coredns": [
+    "coredns"
+  ],
+  "namespace-kube-system/deployment-event-exporter-gke": [
+    "prometheus-to-sd-exporter",
+    "event-exporter"
+  ],
+  "namespace-kube-system/deployment-konnectivity-agent": [
+    "konnectivity-agent"
+  ],
+  "namespace-kube-system/deployment-konnectivity-agent-autoscaler": [
+    "autoscaler"
+  ],
+  "namespace-kube-system/deployment-kube-dns": [
+    "dnsmasq",
+    "sidecar",
+    "prometheus-to-sd",
+    "kubedns"
+  ],
+  "namespace-kube-system/deployment-kube-dns-autoscaler": [
+    "autoscaler"
+  ],
+  "namespace-kube-system/deployment-l7-default-backend": [
+    "default-http-backend"
+  ],
+  "namespace-kube-system/deployment-metrics-server-v0.5.2": [
+    "metrics-server",
+    "metrics-server-nanny"
+  ],
+  "namespace-kube-system/endpoints-kube-dns": [],
+  "namespace-kube-system/endpointslice-kube-dns-92k4x": [],
+  "namespace-kube-system/endpointslice-kube-dns-jgjc6": [],
+  "namespace-kube-system/lease-apiserver-c7uylvfxlbqccnk6myfkwetzze": [],
+  "namespace-kube-system/lease-kube-controller-manager": [],
+  "namespace-kube-system/lease-kube-scheduler": [],
+  "namespace-kube-system/pod-coredns-5d78c9869d-bjsbm": [],
+  "namespace-kube-system/pod-coredns-5d78c9869d-bt8qx": [],
+  "namespace-kube-system/pod-coredns-787d4945fb-r2g4q": [],
+  "namespace-kube-system/pod-coredns-787d4945fb-zhlxm": [],
+  "namespace-kube-system/pod-etcd-kind-control-plane": [],
+  "namespace-kube-system/pod-kindnet-8xtzd": [],
+  "namespace-kube-system/pod-kindnet-tj8sq": [],
+  "namespace-kube-system/pod-kube-apiserver-kind-control-plane": [],
+  "namespace-kube-system/pod-kube-controller-manager-kind-control-plane": [],
+  "namespace-kube-system/pod-kube-proxy-gqtwj": [],
+  "namespace-kube-system/pod-kube-proxy-vz9xl": [],
+  "namespace-kube-system/pod-kube-scheduler-kind-control-plane": [],
+  "namespace-kube-system/replicaset-coredns-5d78c9869d": [
+    "coredns"
+  ],
+  "namespace-kube-system/replicaset-coredns-787d4945fb": [
+    "coredns"
+  ],
+  "namespace-kube-system/role-extension-apiserver-authentication-reader": [],
+  "namespace-kube-system/role-kube-proxy": [],
+  "namespace-kube-system/role-kubeadm:kubelet-config": [],
+  "namespace-kube-system/role-kubeadm:nodes-kubeadm-config": [],
+  "namespace-kube-system/role-system::leader-locking-kube-controller-manager": [],
+  "namespace-kube-system/role-system::leader-locking-kube-scheduler": [],
+  "namespace-kube-system/role-system:controller:bootstrap-signer": [],
+  "namespace-kube-system/role-system:controller:cloud-provider": [],
+  "namespace-kube-system/role-system:controller:token-cleaner": [],
+  "namespace-kube-system/rolebinding-kube-proxy": [],
+  "namespace-kube-system/rolebinding-kubeadm:kubelet-config": [],
+  "namespace-kube-system/rolebinding-kubeadm:nodes-kubeadm-config": [],
+  "namespace-kube-system/rolebinding-storage-auth-reader": [],
+  "namespace-kube-system/rolebinding-system::extension-apiserver-authentication-reader": [],
+  "namespace-kube-system/rolebinding-system::leader-locking-kube-controller-manager": [],
+  "namespace-kube-system/rolebinding-system::leader-locking-kube-scheduler": [],
+  "namespace-kube-system/rolebinding-system:controller:bootstrap-signer": [],
+  "namespace-kube-system/rolebinding-system:controller:cloud-provider": [],
+  "namespace-kube-system/rolebinding-system:controller:token-cleaner": [],
+  "namespace-kube-system/secret-bootstrap-token-abcdef": [],
+  "namespace-kube-system/service-kube-dns": [],
+  "namespace-kube-system/serviceaccount-attachdetach-controller": [],
+  "namespace-kube-system/serviceaccount-bootstrap-signer": [],
+  "namespace-kube-system/serviceaccount-certificate-controller": [],
+  "namespace-kube-system/serviceaccount-clusterrole-aggregation-controller": [],
+  "namespace-kube-system/serviceaccount-coredns": [],
+  "namespace-kube-system/serviceaccount-cronjob-controller": [],
+  "namespace-kube-system/serviceaccount-daemon-set-controller": [],
+  "namespace-kube-system/serviceaccount-default": [],
+  "namespace-kube-system/serviceaccount-deployment-controller": [],
+  "namespace-kube-system/serviceaccount-disruption-controller": [],
+  "namespace-kube-system/serviceaccount-endpoint-controller": [],
+  "namespace-kube-system/serviceaccount-endpointslice-controller": [],
+  "namespace-kube-system/serviceaccount-endpointslicemirroring-controller": [],
+  "namespace-kube-system/serviceaccount-ephemeral-volume-controller": [],
+  "namespace-kube-system/serviceaccount-expand-controller": [],
+  "namespace-kube-system/serviceaccount-generic-garbage-collector": [],
+  "namespace-kube-system/serviceaccount-horizontal-pod-autoscaler": [],
+  "namespace-kube-system/serviceaccount-job-controller": [],
+  "namespace-kube-system/serviceaccount-kindnet": [],
+  "namespace-kube-system/serviceaccount-kube-proxy": [],
+  "namespace-kube-system/serviceaccount-namespace-controller": [],
+  "namespace-kube-system/serviceaccount-node-controller": [],
+  "namespace-kube-system/serviceaccount-persistent-volume-binder": [],
+  "namespace-kube-system/serviceaccount-pod-garbage-collector": [],
+  "namespace-kube-system/serviceaccount-pv-protection-controller": [],
+  "namespace-kube-system/serviceaccount-pvc-protection-controller": [],
+  "namespace-kube-system/serviceaccount-replicaset-controller": [],
+  "namespace-kube-system/serviceaccount-replication-controller": [],
+  "namespace-kube-system/serviceaccount-resourcequota-controller": [],
+  "namespace-kube-system/serviceaccount-root-ca-cert-publisher": [],
+  "namespace-kube-system/serviceaccount-service-account-controller": [],
+  "namespace-kube-system/serviceaccount-service-controller": [],
+  "namespace-kube-system/serviceaccount-statefulset-controller": [],
+  "namespace-kube-system/serviceaccount-token-cleaner": [],
+  "namespace-kube-system/serviceaccount-ttl-after-finished-controller": [],
+  "namespace-kube-system/serviceaccount-ttl-controller": [],
+  "namespace-kubescape/configmap-cs-matching-rules": [],
+  "namespace-kubescape/configmap-host-scanner-definition": [],
+  "namespace-kubescape/configmap-ks-capabilities": [],
+  "namespace-kubescape/configmap-ks-cloud-config": [],
+  "namespace-kubescape/configmap-kube-root-ca.crt": [],
+  "namespace-kubescape/configmap-kubescape-cronjob-template": [],
+  "namespace-kubescape/configmap-kubescape-scheduler": [],
+  "namespace-kubescape/configmap-kubevuln-cronjob-template": [],
+  "namespace-kubescape/configmap-kubevuln-scheduler": [],
+  "namespace-kubescape/configmap-node-agent": [],
+  "namespace-kubescape/configmap-operator": [],
+  "namespace-kubescape/configmap-otel-collector-config": [],
+  "namespace-kubescape/configmap-registry-scan-cronjob-template": [],
+  "namespace-kubescape/configmap-synchronizer": [],
+  "namespace-kubescape/cronjob-kubescape-scheduler": [],
+  "namespace-kubescape/cronjob-kubevuln-scheduler": [],
+  "namespace-kubescape/daemonset-node-agent": [
+    "node-agent"
+  ],
+  "namespace-kubescape/deployment-gateway": [
+    "gateway"
+  ],
+  "namespace-kubescape/deployment-kubescape": [
+    "kubescape"
+  ],
+  "namespace-kubescape/deployment-kubevuln": [
+    "kubevuln"
+  ],
+  "namespace-kubescape/deployment-operator": [
+    "operator"
+  ],
+  "namespace-kubescape/deployment-otel-collector": [
+    "otel-collector"
+  ],
+  "namespace-kubescape/deployment-storage": [
+    "apiserver"
+  ],
+  "namespace-kubescape/deployment-synchronizer": [
+    "synchronizer"
+  ],
+  "namespace-kubescape/endpoints-gateway": [],
+  "namespace-kubescape/endpoints-kubescape": [],
+  "namespace-kubescape/endpoints-kubevuln": [],
+  "namespace-kubescape/endpoints-operator": [],
+  "namespace-kubescape/endpoints-otel-collector": [],
+  "namespace-kubescape/endpoints-storage": [],
+  "namespace-kubescape/endpointslice-gateway-49n52": [],
+  "namespace-kubescape/endpointslice-gateway-v7sdn": [],
+  "namespace-kubescape/endpointslice-kubescape-77x49": [],
+  "namespace-kubescape/endpointslice-kubescape-l7ccb": [],
+  "namespace-kubescape/endpointslice-kubevuln-k4p8f": [],
+  "namespace-kubescape/endpointslice-kubevuln-qm7x8": [],
+  "namespace-kubescape/endpointslice-operator-rl9d7": [],
+  "namespace-kubescape/endpointslice-operator-tgxrh": [],
+  "namespace-kubescape/endpointslice-otel-collector-h8zp5": [],
+  "namespace-kubescape/endpointslice-otel-collector-qgz29": [],
+  "namespace-kubescape/endpointslice-storage-bnqlv": [],
+  "namespace-kubescape/endpointslice-storage-cxtlm": [],
+  "namespace-kubescape/job-kubescape-scheduler-28364487": [
+    "kubescape-scheduler"
+  ],
+  "namespace-kubescape/job-kubescape-scheduler-28365927": [
+    "kubescape-scheduler"
+  ],
+  "namespace-kubescape/job-kubevuln-scheduler-28365272": [
+    "kubevuln-scheduler"
+  ],
+  "namespace-kubescape/job-kubevuln-scheduler-28372865": [
+    "kubevuln-scheduler"
+  ],
+  "namespace-kubescape/persistentvolumeclaim-storage": [],
+  "namespace-kubescape/pod-gateway-776ff9b5c8-2c6z8": [],
+  "namespace-kubescape/pod-gateway-7d75fdf958-t7vv6": [],
+  "namespace-kubescape/pod-kollector-0": [],
+  "namespace-kubescape/pod-kubescape-5dbdd4b789-vk8wk": [],
+  "namespace-kubescape/pod-kubescape-7c5cc7c59f-ltznw": [],
+  "namespace-kubescape/pod-kubescape-7c696586b4-d2m78": [],
+  "namespace-kubescape/pod-kubescape-scheduler-28364487-9n8vj": [],
+  "namespace-kubescape/pod-kubescape-scheduler-28365927-qcsgl": [],
+  "namespace-kubescape/pod-kubevuln-54fcf9d75f-cqkj8": [],
+  "namespace-kubescape/pod-kubevuln-8f7b77794-tshxk": [],
+  "namespace-kubescape/pod-kubevuln-scheduler-28365272-l4kr9": [],
+  "namespace-kubescape/pod-kubevuln-scheduler-28372865-vxsj9": [],
+  "namespace-kubescape/pod-node-agent-p4cwk": [],
+  "namespace-kubescape/pod-node-agent-ttql2": [],
+  "namespace-kubescape/pod-operator-5d4b59474b-7b68w": [],
+  "namespace-kubescape/pod-operator-7746968cf4-sxtbk": [],
+  "namespace-kubescape/pod-otel-collector-54648b7dbb-gvdk8": [],
+  "namespace-kubescape/pod-otel-collector-bd6694f96-9m6cb": [],
+  "namespace-kubescape/pod-storage-78547755d5-6gjq4": [],
+  "namespace-kubescape/pod-storage-85f89459c-w6tm7": [],
+  "namespace-kubescape/pod-synchronizer-67576f6b5c-jg2wb": [],
+  "namespace-kubescape/replicaset-gateway-776ff9b5c8": [
+    "gateway"
+  ],
+  "namespace-kubescape/replicaset-gateway-7d75fdf958": [
+    "gateway"
+  ],
+  "namespace-kubescape/replicaset-kubescape-5dbdd4b789": [
+    "kubescape"
+  ],
+  "namespace-kubescape/replicaset-kubescape-7c5cc7c59f": [
+    "kubescape"
+  ],
+  "namespace-kubescape/replicaset-kubescape-7c696586b4": [
+    "kubescape"
+  ],
+  "namespace-kubescape/replicaset-kubescape-d4459d6cd": [
+    "kubescape"
+  ],
+  "namespace-kubescape/replicaset-kubevuln-54fcf9d75f": [
+    "kubevuln"
+  ],
+  "namespace-kubescape/replicaset-kubevuln-8f7b77794": [
+    "kubevuln"
+  ],
+  "namespace-kubescape/replicaset-operator-5d4b59474b": [
+    "operator"
+  ],
+  "namespace-kubescape/replicaset-operator-7746968cf4": [
+    "operator"
+  ],
+  "namespace-kubescape/replicaset-otel-collector-54648b7dbb": [
+    "otel-collector"
+  ],
+  "namespace-kubescape/replicaset-otel-collector-bd6694f96": [
+    "otel-collector"
+  ],
+  "namespace-kubescape/replicaset-storage-78547755d5": [
+    "apiserver"
+  ],
+  "namespace-kubescape/replicaset-storage-85f89459c": [
+    "apiserver"
+  ],
+  "namespace-kubescape/replicaset-synchronizer-67576f6b5c": [
+    "synchronizer"
+  ],
+  "namespace-kubescape/role-kubescape": [],
+  "namespace-kubescape/role-operator": [],
+  "namespace-kubescape/rolebinding-kubescape": [],
+  "namespace-kubescape/rolebinding-operator": [],
+  "namespace-kubescape/secret-cloud-secret": [],
+  "namespace-kubescape/secret-sh.helm.release.v1.kubescape.v1": [],
+  "namespace-kubescape/service-gateway": [],
+  "namespace-kubescape/service-kubescape": [],
+  "namespace-kubescape/service-kubevuln": [],
+  "namespace-kubescape/service-operator": [],
+  "namespace-kubescape/service-otel-collector": [],
+  "namespace-kubescape/service-storage": [],
+  "namespace-kubescape/serviceaccount-default": [],
+  "namespace-kubescape/serviceaccount-kollector": [],
+  "namespace-kubescape/serviceaccount-kubescape": [],
+  "namespace-kubescape/serviceaccount-kubevuln": [],
+  "namespace-kubescape/serviceaccount-node-agent": [],
+  "namespace-kubescape/serviceaccount-operator": [],
+  "namespace-kubescape/serviceaccount-storage": [],
+  "namespace-kubescape/serviceaccount-synchronizer": [],
+  "namespace-kubescape/statefulset-kollector": [
+    "kollector"
+  ],
+  "namespace-local-path-storage/configmap-kube-root-ca.crt": [],
+  "namespace-local-path-storage/configmap-local-path-config": [],
+  "namespace-local-path-storage/deployment-local-path-provisioner": [
+    "local-path-provisioner"
+  ],
+  "namespace-local-path-storage/pod-local-path-provisioner-6bc4bddd6b-lc282": [],
+  "namespace-local-path-storage/pod-local-path-provisioner-75f5b54ffd-jnw2k": [],
+  "namespace-local-path-storage/replicaset-local-path-provisioner-6bc4bddd6b": [
+    "local-path-provisioner"
+  ],
+  "namespace-local-path-storage/replicaset-local-path-provisioner-75f5b54ffd": [
+    "local-path-provisioner"
+  ],
+  "namespace-local-path-storage/serviceaccount-default": [],
+  "namespace-local-path-storage/serviceaccount-local-path-provisioner-service-account": [],
+  "namespace-systest-ns-foso/deployment-golang": [
+    "golang"
+  ]
+}
