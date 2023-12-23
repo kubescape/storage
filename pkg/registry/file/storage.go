@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	jsonExt                  = ".j"
-	metadataExt              = ".m"
+	JsonExt                  = ".j"
+	MetadataExt              = ".m"
 	DefaultStorageRoot       = "/data"
-	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
+	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
 
 type objState struct {
@@ -54,6 +54,7 @@ type StorageQuerier interface {
 	storage.Interface
 	GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error
 	GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
+	GetClusterScopedResource(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
 }
 
 var _ storage.Interface = &StorageImpl{}
@@ -100,22 +101,22 @@ func removeSpec(in []byte) ([]byte, error) {
 
 // makePayloadPath returns a path for the payload file
 func makePayloadPath(path string) string {
-	return path + jsonExt
+	return path + JsonExt
 }
 
 // makeMetadataPath returns a path for the metadata file
 func makeMetadataPath(path string) string {
-	return path + metadataExt
+	return path + MetadataExt
 }
 
 // isMetadataFile returns true if a given file at `path` is an object metadata file, else false
-func isMetadataFile(path string) bool {
-	return strings.HasSuffix(path, metadataExt)
+func IsMetadataFile(path string) bool {
+	return strings.HasSuffix(path, MetadataExt)
 }
 
 // isPayloadFile returns true if a given file at `path` is an object payload file, else false
 func isPayloadFile(path string) bool {
-	return !isMetadataFile(path)
+	return !IsMetadataFile(path)
 }
 
 func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, out runtime.Object) error {
@@ -207,7 +208,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 	spanLock.End()
 	defer s.lock.Unlock()
 	// read json file
-	b, err := afero.ReadFile(s.appFs, p+jsonExt)
+	b, err := afero.ReadFile(s.appFs, p+JsonExt)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
@@ -216,11 +217,11 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 		return err
 	}
 	// delete json and metadata files
-	err = s.appFs.Remove(p + jsonExt)
+	err = s.appFs.Remove(p + JsonExt)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
-	err = s.appFs.Remove(p + metadataExt)
+	err = s.appFs.Remove(p + MetadataExt)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("remove metadata file failed", helpers.Error(err), helpers.String("key", key))
 	}
@@ -266,7 +267,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	s.lock.RLock()
 	spanLock.End()
 	defer s.lock.RUnlock()
-	b, err := afero.ReadFile(s.appFs, p+jsonExt)
+	b, err := afero.ReadFile(s.appFs, p+JsonExt)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			if opts.IgnoreNotFound {
@@ -321,7 +322,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 			if err != nil {
 				return nil
 			}
-			if !info.IsDir() && strings.HasSuffix(path, metadataExt) {
+			if !info.IsDir() && strings.HasSuffix(path, MetadataExt) {
 				files = append(files, path)
 			}
 			return nil
@@ -541,7 +542,7 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 
 // RequestWatchProgress fulfills the storage.Interface
 //
-// It’s function is only relevant to etcd.
+// Its function is only relevant to etcd.
 func (s *StorageImpl) RequestWatchProgress(context.Context) error {
 	return nil
 }
@@ -573,7 +574,7 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 
 	// read all json files under the namespace and append to list
 	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
-		if !strings.HasSuffix(path, jsonExt) {
+		if !strings.HasSuffix(path, JsonExt) {
 			return nil
 		}
 
@@ -581,6 +582,53 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
 		}
 
+		return nil
+	})
+
+	return nil
+}
+
+// GetClusterScopedResource returns all objects in a given cluster, given their api version and kind.
+func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetClusterScopedResource")
+	defer span.End()
+
+	listPtr, err := meta.GetItemsPtr(listObj)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		return err
+	}
+
+	v, err := conversion.EnforcePtr(listPtr)
+	if err != nil || v.Kind() != reflect.Slice {
+		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		return err
+	}
+
+	p := filepath.Join(s.root, apiVersion, kind)
+
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	spanLock.End()
+
+	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+		// the first path is the root path
+		if path == p {
+			return nil
+		}
+
+		_ = afero.Walk(s.appFs, path, func(subPath string, info os.FileInfo, err error) error {
+			if !strings.HasSuffix(subPath, JsonExt) {
+				return nil
+			}
+
+			if err := s.appendJSONObjectFromFile(subPath, v); err != nil {
+				logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
+			}
+
+			return nil
+		})
 		return nil
 	})
 
@@ -621,7 +669,7 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 		// under the root path, each directory is a namespace
 		if info.IsDir() {
 			_ = afero.Walk(s.appFs, path, func(subPath string, info os.FileInfo, err error) error {
-				if !strings.HasSuffix(subPath, jsonExt) {
+				if !strings.HasSuffix(subPath, JsonExt) {
 					return nil
 				}
 

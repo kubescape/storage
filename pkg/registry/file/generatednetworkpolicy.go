@@ -19,6 +19,7 @@ import (
 
 const (
 	networkNeighborsResource = "networkneighborses"
+	knownServersResource     = "knownservers"
 )
 
 // GeneratedNetworkPolicyStorage offers a storage solution for GeneratedNetworkPolicy objects, implementing custom business logic for these objects and using the underlying default storage implementation.
@@ -72,8 +73,14 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 	if err := s.realStore.Get(ctx, key, opts, networkNeighborsObjPtr); err != nil {
 		return err
 	}
-	// TODO(DanielGrunberegerCA): get known servers
-	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, []softwarecomposition.KnownServer{}, metav1.Now())
+
+	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
+
+	if err := s.realStore.GetClusterScopedResource(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
+		return err
+	}
+
+	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, knownServersListObjPtr.Items, metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -99,7 +106,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 
 	generatedNetworkPolicyList := &softwarecomposition.GeneratedNetworkPolicyList{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: storageV1Beta1ApiVersion,
+			APIVersion: StorageV1Beta1ApiVersion,
 		},
 	}
 
@@ -109,8 +116,13 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		return err
 	}
 
+	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
+	if err := s.realStore.GetClusterScopedResource(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
+		return err
+	}
+
 	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
-		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, []softwarecomposition.KnownServer{}, metav1.Now())
+		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, knownServersListObjPtr.Items, metav1.Now())
 		if err != nil {
 			return fmt.Errorf("error generating network policy: %w", err)
 		}
