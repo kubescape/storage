@@ -3,6 +3,7 @@ package cleanup
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/client-go/discovery"
 
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
@@ -65,6 +66,7 @@ type ResourceMaps struct {
 	RunningWlidsToContainerNames *maps.SafeMap[string, sets.Set[string]]
 	RunningInstanceIds           sets.Set[string]
 	RunningContainerImageIds     sets.Set[string]
+	RunningTemplateHash          sets.Set[string]
 }
 
 // builds a map of running resources in the cluster needed for cleanup
@@ -72,10 +74,11 @@ func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
 	resourceMaps := ResourceMaps{
 		RunningInstanceIds:           sets.NewSet[string](),
 		RunningContainerImageIds:     sets.NewSet[string](),
+		RunningTemplateHash:          sets.NewSet[string](),
 		RunningWlidsToContainerNames: new(maps.SafeMap[string, sets.Set[string]]),
 	}
 
-	if err := h.fetchInstanceIdsAndImageIdsFromRunningPods(&resourceMaps); err != nil {
+	if err := h.fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(&resourceMaps); err != nil {
 		return resourceMaps, fmt.Errorf("failed to fetch instance ids and image ids from running pods: %w", err)
 	}
 
@@ -122,7 +125,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 	return nil
 }
 
-func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsFromRunningPods(resourceMaps *ResourceMaps) error {
+func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(resourceMaps *ResourceMaps) error {
 	pods, err := h.Client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
@@ -131,6 +134,10 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsFromRunningPods(resourceMaps 
 	logger.L().Info("Listing images of running containers in all pods")
 	for _, p := range pods.Items {
 		pod := workloadinterface.NewWorkloadObj(p.Object)
+
+		if replicaHash, ok := pod.GetLabel("pod-template-hash"); ok {
+			resourceMaps.RunningTemplateHash.Add(replicaHash)
+		}
 
 		instanceIds, err := instanceidhandler.GenerateInstanceID(pod)
 		if err != nil {

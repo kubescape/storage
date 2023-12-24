@@ -3,11 +3,12 @@ package cleanup
 import (
 	"bytes"
 	"fmt"
-	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -22,10 +23,11 @@ import (
 type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
 
 var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
-	"applicationactivities":       deleteByWlid,
-	"applicationprofiles":         deleteByWlid,
-	"applicationprofilesummaries": deleteByWlid,
+	// vulnerabilitysummaries is virtual
 	// configurationscansummaries is virtual
+	"applicationactivities":               deleteByTemplateHashOrWlid,
+	"applicationprofiles":                 deleteByTemplateHashOrWlid,
+	"applicationprofilesummaries":         deleteByTemplateHashOrWlid,
 	"networkneighborses":                  deleteByWlid,
 	"openvulnerabilityexchangecontainers": deleteByImageId,
 	"sbomspdxv2p3filtereds":               deleteByInstanceId,
@@ -33,9 +35,8 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	"sbomsummaries":                       deleteByImageId,
 	"vulnerabilitymanifests":              deleteByImageIdOrInstanceId,
 	"vulnerabilitymanifestsummaries":      deleteByWlidAndContainer,
-	// vulnerabilitysummaries is virtual
-	"workloadconfigurationscans":         deleteByWlid,
-	"workloadconfigurationscansummaries": deleteByWlid,
+	"workloadconfigurationscans":          deleteByWlid,
+	"workloadconfigurationscansummaries":  deleteByWlid,
 }
 
 type ResourcesCleanupHandler struct {
@@ -208,4 +209,15 @@ func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resource
 	}
 	containerNames, wlidExists := resourceMaps.RunningWlidsToContainerNames.Load(wlidWithoutClusterName(wlid))
 	return !wlidExists || !containerNames.Contains(wlContainerName)
+}
+
+func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	wlReplica, wlReplicaFound := metadata.Annotations[instanceidhandler.TemplateHashKey] // replica
+	if wlReplicaFound && wlReplica != "" {
+		return !resourceMaps.RunningTemplateHash.Contains(wlReplica)
+	}
+
+	// fallback to wlid
+	return deleteByWlid("", "", metadata, resourceMaps)
+
 }
