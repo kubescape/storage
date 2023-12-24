@@ -11,7 +11,7 @@ require (
 	github.com/google/gofuzz v1.2.0
 	github.com/goradd/maps v0.1.5
 	github.com/kubescape/go-logger v0.0.22
-	github.com/kubescape/k8s-interface v0.0.150
+	github.com/kubescape/k8s-interface v0.0.153
 	github.com/olvrng/ujson v1.1.0
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.11.0
