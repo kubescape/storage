@@ -133,7 +133,7 @@ With `storage` as your current working directory, issue the
 following command:
 
 ```
-make binary
+make build
 ```
 
 ### Build the Container Image
