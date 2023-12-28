@@ -66,7 +66,7 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 	}
 
 	for _, neighborIngress := range networkNeighbors.Spec.Ingress {
-		wg.add(1)
+		wg.Add(1)
 		go func(neighborIngress softwarecomposition.NetworkNeighbor){
 			defer wg.Done()
 			
@@ -79,7 +79,7 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 	}
 
 	for _, neighborEgress := range networkNeighbors.Spec.Egress {
-		wg.add(1)
+		wg.Add(1)
 		go func(neighborEgress softwarecomposition.NetworkNeighbor){
 			defer wg.Done()
 			
