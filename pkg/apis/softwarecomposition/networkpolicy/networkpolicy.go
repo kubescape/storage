@@ -4,6 +4,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"sync"
 
 	"golang.org/x/exp/maps"
 
@@ -13,6 +14,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var wg sync.WaitGroup
 
 const (
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
@@ -62,25 +65,32 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 		PoliciesRef: []softwarecomposition.PolicyRef{},
 	}
 
-	for _, neighbor := range networkNeighbors.Spec.Ingress {
+	for _, neighborIngress := range networkNeighbors.Spec.Ingress {
+		wg.add(1)
+		go func(neighborIngress softwarecomposition.NetworkNeighbor){
+			defer wg.Done()
+			
+			ingressRules, policyRefs := generateIngressRule(neighborIngress, knownServers)
 
-		ingressRules, policyRefs := generateIngressRule(neighbor, knownServers)
+			generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
 
-		generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
-
-		networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, ingressRules)
-
+			networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, ingressRules)
+		}(neighborIngress)
 	}
 
-	for _, neighbor := range networkNeighbors.Spec.Egress {
+	for _, neighborEgress := range networkNeighbors.Spec.Egress {
+		wg.add(1)
+		go func(neighborEgress softwarecomposition.NetworkNeighbor){
+			defer wg.Done()
+			
+			egressRules, policyRefs := generateEgressRule(neighborEgress, knownServers)
 
-		egressRules, policyRefs := generateEgressRule(neighbor, knownServers)
+			generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
 
-		generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
-
-		networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, egressRules)
-
+			networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, egressRules)
+		}(neighborEgress)
 	}
+	wg.wait()
 
 	networkPolicy.Spec.Egress = mergeEgressRulesByPorts(networkPolicy.Spec.Egress)
 
