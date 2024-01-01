@@ -1808,6 +1808,118 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "multiple IPs in known servers  - policy is enriched",
+			networkNeighbors: softwarecomposition.NetworkNeighbors{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "deployment-nginx",
+					Namespace: "kubescape",
+				},
+				Spec: softwarecomposition.NetworkNeighborsSpec{
+					LabelSelector: v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "nginx",
+						},
+					},
+					Ingress: []softwarecomposition.NetworkNeighbor{
+						{
+							IPAddress: "172.17.0.1",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+						{
+							IPAddress: "172.17.0.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     pointer.Int32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+							},
+						},
+					},
+				},
+			},
+			KnownServer: []softwarecomposition.KnownServer{
+				{
+					Spec: softwarecomposition.KnownServerSpec{
+						{
+							IPBlock: "172.17.0.0/16",
+							Name:    "name-172.17.0.0",
+							Server:  "name.server",
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				ObjectMeta: v1.ObjectMeta{
+					Name:              "deployment-nginx",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				TypeMeta: v1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "deployment-nginx",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: v1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "nginx",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     pointer.Int32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								From: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "172.17.0.0/16",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{
+					{
+						IPBlock:    "172.17.0.0/16",
+						OriginalIP: "172.17.0.1",
+						Name:       "name-172.17.0.0",
+						Server:     "name.server",
+					},
+					{
+						IPBlock:    "172.17.0.0/16",
+						OriginalIP: "172.17.0.2",
+						Name:       "name-172.17.0.0",
+						Server:     "name.server",
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
