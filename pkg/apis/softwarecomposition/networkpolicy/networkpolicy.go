@@ -1,15 +1,18 @@
 package networkpolicy
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/gob"
+	"encoding/hex"
 	"net"
 	"sort"
 	"strings"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -62,24 +65,47 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 		PoliciesRef: []softwarecomposition.PolicyRef{},
 	}
 
+	ingressHash := make(map[string]bool)
 	for _, neighbor := range networkNeighbors.Spec.Ingress {
 
-		ingressRules, policyRefs := generateIngressRule(neighbor, knownServers)
+		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
-		generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
+		if ruleHash, err := hash(rule); err == nil {
+			if ok := ingressHash[ruleHash]; !ok {
+				networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, rule)
+				ingressHash[ruleHash] = true
+			}
+		}
 
-		networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, ingressRules)
+		if refsHash, err := hash(policyRefs); err == nil {
+			if ok := ingressHash[refsHash]; !ok {
+				generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
+				ingressHash[refsHash] = true
+			}
+		}
 
 	}
 
+	egressHash := make(map[string]bool)
 	for _, neighbor := range networkNeighbors.Spec.Egress {
 
-		egressRules, policyRefs := generateEgressRule(neighbor, knownServers)
+		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
-		generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
+		if ruleHash, err := hash(rule); err == nil {
+			if ok := egressHash[ruleHash]; !ok {
+				networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, rule)
+				egressHash[ruleHash] = true
+			}
+		}
 
-		networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, egressRules)
-
+		for i := range policyRefs {
+			if refsHash, err := hash(policyRefs[i]); err == nil {
+				if ok := egressHash[refsHash]; !ok {
+					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
+					egressHash[refsHash] = true
+				}
+			}
+		}
 	}
 
 	networkPolicy.Spec.Egress = mergeEgressRulesByPorts(networkPolicy.Spec.Egress)
@@ -313,6 +339,15 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServe
 	return egressRule, policyRefs
 }
 
+func hash(s any) (string, error) {
+
+	var b bytes.Buffer
+	if err := gob.NewEncoder(&b).Encode(s); err != nil {
+		return "", err
+	}
+	vv := sha256.Sum256(b.Bytes())
+	return hex.EncodeToString(vv[:]), nil
+}
 func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServer []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
 	ingressRule := softwarecomposition.NetworkPolicyIngressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
