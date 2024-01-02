@@ -32,6 +32,8 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	"openvulnerabilityexchangecontainers": deleteByImageId,
 	"sbomspdxv2p3filtereds":               deleteByInstanceId,
 	"sbomspdxv2p3s":                       deleteByImageId,
+	"sbomsyftfiltereds":                   deleteByInstanceId,
+	"sbomsyfts":                           deleteByImageId,
 	"sbomsummaries":                       deleteByImageId,
 	"vulnerabilitymanifests":              deleteByImageIdOrInstanceId,
 	"vulnerabilitymanifestsummaries":      deleteByWlidAndContainer,
