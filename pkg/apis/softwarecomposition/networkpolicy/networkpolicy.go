@@ -8,6 +8,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -16,6 +17,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var wg sync.WaitGroup
 
 const (
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
@@ -66,47 +69,59 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 	}
 
 	ingressHash := make(map[string]bool)
-	for _, neighbor := range networkNeighbors.Spec.Ingress {
+	for _, neighborIngress := range networkNeighbors.Spec.Ingress {
 
-		rule, policyRefs := generateIngressRule(neighbor, knownServers)
+		wg.Add(1)
+		go func(neighborIngress softwarecomposition.NetworkNeighbor) {
+			wg.Done()
 
-		if ruleHash, err := hash(rule); err == nil {
-			if ok := ingressHash[ruleHash]; !ok {
-				networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, rule)
-				ingressHash[ruleHash] = true
+			rule, policyRefs := generateIngressRule(neighborIngress, knownServers)
+
+			if ruleHash, err := hash(rule); err == nil {
+				if ok := ingressHash[ruleHash]; !ok {
+					networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, rule)
+					ingressHash[ruleHash] = true
+				}
 			}
-		}
 
-		if refsHash, err := hash(policyRefs); err == nil {
-			if ok := ingressHash[refsHash]; !ok {
-				generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
-				ingressHash[refsHash] = true
+			if refsHash, err := hash(policyRefs); err == nil {
+				if ok := ingressHash[refsHash]; !ok {
+					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
+					ingressHash[refsHash] = true
+				}
 			}
-		}
-
+		}(neighborIngress)
 	}
 
 	egressHash := make(map[string]bool)
-	for _, neighbor := range networkNeighbors.Spec.Egress {
+	for _, neighborEgress := range networkNeighbors.Spec.Egress {
 
-		rule, policyRefs := generateEgressRule(neighbor, knownServers)
+		wg.Add(1)
+		go func(neighborEgress softwarecomposition.NetworkNeighbor) {
+			wg.Done()
 
-		if ruleHash, err := hash(rule); err == nil {
-			if ok := egressHash[ruleHash]; !ok {
-				networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, rule)
-				egressHash[ruleHash] = true
-			}
-		}
+			rule, policyRefs := generateEgressRule(neighborEgress, knownServers)
 
-		for i := range policyRefs {
-			if refsHash, err := hash(policyRefs[i]); err == nil {
-				if ok := egressHash[refsHash]; !ok {
-					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
-					egressHash[refsHash] = true
+			if ruleHash, err := hash(rule); err == nil {
+				if ok := egressHash[ruleHash]; !ok {
+					networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, rule)
+					egressHash[ruleHash] = true
 				}
 			}
-		}
+
+			for i := range policyRefs {
+				if refsHash, err := hash(policyRefs[i]); err == nil {
+					if ok := egressHash[refsHash]; !ok {
+						generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
+						egressHash[refsHash] = true
+					}
+				}
+			}
+		}(neighborEgress)
 	}
+
+	// waiting for all routines to be finished
+	wg.Wait()
 
 	networkPolicy.Spec.Egress = mergeEgressRulesByPorts(networkPolicy.Spec.Egress)
 
