@@ -23,8 +23,8 @@ import (
 type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
 
 var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
-	// vulnerabilitysummaries is virtual
 	// configurationscansummaries is virtual
+	// vulnerabilitysummaries is virtual
 	"applicationactivities":               deleteByTemplateHashOrWlid,
 	"applicationprofiles":                 deleteByTemplateHashOrWlid,
 	"applicationprofilesummaries":         deleteByTemplateHashOrWlid,
@@ -65,7 +65,7 @@ func (h *ResourcesCleanupHandler) GetFilesToDelete() []string {
 
 func (h *ResourcesCleanupHandler) StartCleanupTask() {
 	for {
-		logger.L().Info("started cleanup task")
+		logger.L().Info("started cleanup task", helpers.String("interval", h.interval.String()))
 		h.filesToDelete = []string{}
 		var err error
 		h.resources, err = h.fetcher.FetchResources()
@@ -99,7 +99,7 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 
 				toDelete := handler(resourceKind, path, metadata, h.resources)
 				if toDelete {
-					logger.L().Info("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
+					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 					h.filesToDelete = append(h.filesToDelete, path)
 
 					jsonFilePath := path[:len(path)-len(file.MetadataExt)] + file.JsonExt
@@ -135,6 +135,7 @@ func loadMetadataFromPath(appFs afero.Fs, rootPath string) (*metav1.ObjectMeta, 
 	}
 	data := metav1.ObjectMeta{
 		Annotations: map[string]string{},
+		Labels:      map[string]string{},
 	}
 	// ujson parsing
 	var parent string
@@ -155,6 +156,10 @@ func loadMetadataFromPath(appFs afero.Fs, rootPath string) (*metav1.ObjectMeta, 
 			// read annotations
 			if parent == "annotations" {
 				data.Annotations[unquote(key)] = unquote(value)
+			}
+			// read labels
+			if parent == "labels" {
+				data.Labels[unquote(key)] = unquote(value)
 			}
 		}
 		return true
@@ -214,12 +219,10 @@ func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resource
 }
 
 func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
-	wlReplica, wlReplicaFound := metadata.Annotations[instanceidhandler.TemplateHashKey] // replica
+	wlReplica, wlReplicaFound := metadata.Labels[instanceidhandler.TemplateHashKey] // replica
 	if wlReplicaFound && wlReplica != "" {
 		return !resourceMaps.RunningTemplateHash.Contains(wlReplica)
 	}
-
 	// fallback to wlid
 	return deleteByWlid("", "", metadata, resourceMaps)
-
 }

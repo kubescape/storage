@@ -3,14 +3,14 @@ package cleanup
 import (
 	"context"
 	"fmt"
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
 
 	"k8s.io/client-go/discovery"
 
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
-	"github.com/kubescape/go-logger"
-	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1"
 	"github.com/kubescape/k8s-interface/k8sinterface"
 	"github.com/kubescape/k8s-interface/workloadinterface"
@@ -23,6 +23,7 @@ var (
 	Workloads = sets.NewSet[string]([]string{
 		"apiservice",
 		"configmap",
+		"clusterrole",
 		"clusterrolebinding",
 		"cronjob",
 		"daemonset",
@@ -107,7 +108,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 
 			resourceMaps.RunningWlidsToContainerNames.Set(wlid, sets.NewSet[string]())
 
-			c, ok := workloadinterface.InspectMap(workload.Object, "spec", "template", "spec", "containers")
+			c, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "containers")...)
 			if !ok {
 				continue
 			}
@@ -115,6 +116,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 			for _, container := range containers {
 				name, ok := workloadinterface.InspectMap(container, "name")
 				if !ok {
+					logger.L().Debug("container has no name", helpers.String("resource", resource))
 					continue
 				}
 				nameStr := name.(string)
@@ -131,7 +133,6 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(re
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
-	logger.L().Info("Listing images of running containers in all pods")
 	for _, p := range pods.Items {
 		pod := workloadinterface.NewWorkloadObj(p.Object)
 
@@ -158,7 +159,6 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(re
 				continue
 			}
 			imageIdStr := containerImageId.(string)
-			logger.L().Info("running container image", helpers.String("pod", p.GetName()), helpers.String("imageID", imageIdStr))
 			resourceMaps.RunningContainerImageIds.Add(imageIdStr)
 		}
 	}
