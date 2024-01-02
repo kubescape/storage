@@ -73,7 +73,7 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 
 		wg.Add(1)
 		go func(neighborIngress softwarecomposition.NetworkNeighbor) {
-			wg.Done()
+			defer wg.Done()
 
 			rule, policyRefs := generateIngressRule(neighborIngress, knownServers)
 
@@ -98,7 +98,7 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 
 		wg.Add(1)
 		go func(neighborEgress softwarecomposition.NetworkNeighbor) {
-			wg.Done()
+			defer wg.Done()
 
 			rule, policyRefs := generateEgressRule(neighborEgress, knownServers)
 
