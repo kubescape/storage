@@ -4,8 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,22 +36,29 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			name: "existing object is returned",
 			args: args{
 				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
-				objPtr: &v1beta1.GeneratedNetworkPolicy{},
+				objPtr: &softwarecomposition.GeneratedNetworkPolicy{},
 			},
 			expectedError: nil,
 			create:        true,
-			want: &v1beta1.GeneratedNetworkPolicy{
+			want: &softwarecomposition.GeneratedNetworkPolicy{
 				TypeMeta: v1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
 					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
-				Spec: v1beta1.NetworkPolicy{
+				ObjectMeta: v1.ObjectMeta{
+					Name:              "toto",
+					Namespace:         "kubescape",
+					CreationTimestamp: v1.Time{},
+				},
+				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
 					ObjectMeta: v1.ObjectMeta{
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
+						Name:      "toto",
+						Namespace: "kubescape",
 					},
 				},
 			},
@@ -65,7 +71,16 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&realStorage)
 
 			if tt.create {
-				wlObj := &softwarecomposition.NetworkNeighbors{}
+				wlObj := &softwarecomposition.NetworkNeighbors{
+					TypeMeta: v1.TypeMeta{
+						Kind:       "NetworkNeighbors",
+						APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					},
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "toto",
+						Namespace: "kubescape",
+					},
+				}
 				err := realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/networkneighborses/kubescape/toto", wlObj, nil, 0)
 				assert.NoError(t, err)
 			}
@@ -74,6 +89,9 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 
 			if tt.expectedError != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
+			}
+			if tt.args.objPtr != nil {
+				tt.args.objPtr.(*softwarecomposition.GeneratedNetworkPolicy).CreationTimestamp = v1.Time{}
 			}
 
 			assert.Equal(t, tt.want, tt.args.objPtr)

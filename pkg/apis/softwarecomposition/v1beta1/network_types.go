@@ -85,7 +85,7 @@ type GeneratedNetworkPolicy struct {
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Spec        NetworkPolicy `json:"spec"`
-	PoliciesRef []PolicyRef   `json:"policyRef"`
+	PoliciesRef []PolicyRef   `json:"policyRef,omitempty"`
 }
 
 type PolicyRef struct {
