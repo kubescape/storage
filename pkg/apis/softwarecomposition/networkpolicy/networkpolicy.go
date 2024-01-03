@@ -19,7 +19,7 @@ import (
 )
 
 var wg sync.WaitGroup
-
+var mutex sync.Mutex 
 const (
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
@@ -78,17 +78,21 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 			rule, policyRefs := generateIngressRule(neighborIngress, knownServers)
 
 			if ruleHash, err := hash(rule); err == nil {
+				mutex.Lock()
 				if ok := ingressHash[ruleHash]; !ok {
 					networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, rule)
 					ingressHash[ruleHash] = true
 				}
+				mutex.Unlock()
 			}
 
 			if refsHash, err := hash(policyRefs); err == nil {
+				mutex.Lock()
 				if ok := ingressHash[refsHash]; !ok {
 					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
 					ingressHash[refsHash] = true
 				}
+				mutex.Unlock()
 			}
 		}(neighborIngress)
 	}
@@ -106,18 +110,22 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 			rule, policyRefs := generateEgressRule(neighborEgress, knownServers)
 
 			if ruleHash, err := hash(rule); err == nil {
+				mutex.Lock()
 				if ok := egressHash[ruleHash]; !ok {
 					networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, rule)
 					egressHash[ruleHash] = true
 				}
+				mutex.Unlock()
 			}
 
 			for i := range policyRefs {
 				if refsHash, err := hash(policyRefs[i]); err == nil {
+					mutex.Lock()
 					if ok := egressHash[refsHash]; !ok {
 						generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
 						egressHash[refsHash] = true
 					}
+					mutex.Unlock()
 				}
 			}
 		}(neighborEgress)
