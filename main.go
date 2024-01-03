@@ -59,10 +59,16 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+	interval := os.Getenv("CLEANUP_INTERVAL")
+	intervalDuration, err := time.ParseDuration(interval)
+	if err != nil {
+		intervalDuration = time.Hour * 24
+		logger.L().Info("failed to parse cleanup interval, falling back to default", helpers.Error(err), helpers.String("interval", intervalDuration.String()))
+	}
 	cleanupHandler := cleanup.NewResourcesCleanupHandler(
 		afero.NewOsFs(),
 		file.DefaultStorageRoot,
-		time.Hour*24,
+		intervalDuration,
 		kubernetesAPI)
 	go cleanupHandler.StartCleanupTask()
 
