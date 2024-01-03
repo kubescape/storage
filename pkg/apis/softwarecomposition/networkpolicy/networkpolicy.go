@@ -93,6 +93,9 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 		}(neighborIngress)
 	}
 
+	// waiting for all routines to be finished
+	wg.Wait()
+
 	egressHash := make(map[string]bool)
 	for _, neighborEgress := range networkNeighbors.Spec.Egress {
 
