@@ -247,6 +247,36 @@ only this superuser group is authorized.
    http --verify=no --cert client.crt --cert-key client.key \
       https://localhost:8443/apis/wardle.example.com/v1alpha1/namespaces/default/flunders
    ```
+
 ## Changelog
 
 Kubescape Storage changes are tracked on the [release](https://github.com/kubescape/storage/releases) page.
+
+## Profiling
+
+To profile the Storage APIServer, you can use the `--profiling` flag (enabled by default).
+This will expose the profiling endpoints on the `/debug/pprof` path.
+
+To access the profiling endpoints, you have to port-forward the Storage APIServer pod and generate a token:
+
+```shell
+kubectl port-forward -n kubescape svc/storage 8443:443
+```
+
+```shell
+kubectl create serviceaccount k8sadmin -n kube-system
+kubectl create clusterrolebinding k8sadmin --clusterrole=cluster-admin --serviceaccount=kube-system:k8sadmin
+TOKEN=$(kubectl create token -n kube-system k8sadmin)
+curl -k https://localhost:8443/debug/pprof/heap -H "Authorization: Bearer $TOKEN" > heap.out
+```
+
+You can also use the following script to generate a heap dump every second:
+
+```shell
+#!/usr/bin/env bash
+while true; do
+  timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+  curl -k https://localhost:8443/debug/pprof/heap -H "Authorization: Bearer $TOKEN" > "$timestamp"_heap.out
+  sleep 1
+done
+```
