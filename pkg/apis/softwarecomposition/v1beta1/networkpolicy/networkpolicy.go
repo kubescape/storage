@@ -41,19 +41,19 @@ func convertGeneratedNetworkPolicy(old *sc.GeneratedNetworkPolicy) (v1beta1.Gene
 }
 
 func convertNetworkNeighbors(old *v1beta1.NetworkNeighbors) (sc.NetworkNeighbors, error) {
-	new := sc.NetworkNeighbors{}
-	err := v1beta1.Convert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(old, &new, nil)
-	return new, err
+	neighbors := sc.NetworkNeighbors{}
+	err := v1beta1.Convert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(old, &neighbors, nil)
+	return neighbors, err
 }
 func convertKnownServersList(old []v1beta1.KnownServer) ([]sc.KnownServer, error) {
-	new := []sc.KnownServer{}
+	var servers []sc.KnownServer
 	for i := range old {
 		k := sc.KnownServer{}
 		err := v1beta1.Convert_v1beta1_KnownServer_To_softwarecomposition_KnownServer(&old[i], &k, nil)
 		if err != nil {
 			return nil, err
 		}
-		new = append(new, k)
+		servers = append(servers, k)
 	}
-	return new, nil
+	return servers, nil
 }
