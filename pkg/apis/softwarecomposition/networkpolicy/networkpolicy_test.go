@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
 
@@ -23,19 +22,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "same port on different entries - one entry per workload",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
 					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"one": "1",
 								},
@@ -49,7 +48,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"two": "2",
 								},
@@ -67,19 +66,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				PoliciesRef: []softwarecomposition.PolicyRef{},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -87,7 +86,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -105,7 +104,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								From: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"one": "1",
 											},
@@ -122,7 +121,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								From: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"two": "2",
 											},
@@ -138,19 +137,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "same port on different entries - one entry per workload egress",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
 					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"one": "1",
 								},
@@ -164,7 +163,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"two": "2",
 								},
@@ -182,19 +181,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				PoliciesRef: []softwarecomposition.PolicyRef{},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -202,7 +201,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -220,7 +219,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								To: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"one": "1",
 											},
@@ -237,7 +236,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								To: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"two": "2",
 											},
@@ -253,19 +252,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "multiple ports on same entry - ports aggregated under one entry",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
 					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"one": "1",
 								},
@@ -293,19 +292,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				PoliciesRef: []softwarecomposition.PolicyRef{},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -313,7 +312,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -339,7 +338,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								From: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"one": "1",
 											},
@@ -355,20 +354,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "multiple ports on same entry - ports aggregated under one entry egress",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
 					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"one": "1",
 								},
@@ -396,19 +395,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				PoliciesRef: []softwarecomposition.PolicyRef{},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -416,7 +415,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -442,7 +441,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								To: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"one": "1",
 											},
@@ -458,25 +457,25 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "entry with namespace and multiple pod selectors - all labels are added together",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
 					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"one": "1",
 									"two": "2",
 								},
 							},
-							NamespaceSelector: &v1.LabelSelector{
+							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"ns": "ns",
 								},
@@ -494,19 +493,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				PoliciesRef: []softwarecomposition.PolicyRef{},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -514,7 +513,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -532,13 +531,13 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								From: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"one": "1",
 												"two": "2",
 											},
 										},
-										NamespaceSelector: &v1.LabelSelector{
+										NamespaceSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"ns": "ns",
 											},
@@ -554,12 +553,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "entry with raw IP and empty known servers - IPBlock is IP/32",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -580,19 +579,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				PoliciesRef: []softwarecomposition.PolicyRef{},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -600,7 +599,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -632,23 +631,23 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "matchExpressions as labels - labels are saved correctly",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
 					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							PodSelector: &v1.LabelSelector{
-								MatchExpressions: []v1.LabelSelectorRequirement{
+							PodSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
 									{
 										Key:      "one",
-										Operator: v1.LabelSelectorOpIn,
+										Operator: metav1.LabelSelectorOpIn,
 										Values: []string{
 											"1",
 										},
@@ -673,19 +672,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
 				PoliciesRef: []softwarecomposition.PolicyRef{},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -693,7 +692,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -715,11 +714,11 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								From: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
-											MatchExpressions: []v1.LabelSelectorRequirement{
+										PodSelector: &metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
 												{
 													Key:      "one",
-													Operator: v1.LabelSelectorOpIn,
+													Operator: metav1.LabelSelectorOpIn,
 													Values: []string{
 														"1",
 													},
@@ -737,12 +736,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "IP in known server  - policy is enriched",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -772,19 +771,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -792,7 +791,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -832,12 +831,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "multiple IPs in known servers  - policy is enriched",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -896,19 +895,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -916,7 +915,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -982,12 +981,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "dns in network neighbor  - policy is enriched",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -1019,19 +1018,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1039,7 +1038,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -1098,12 +1097,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "dns and known servers   - policy is enriched",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -1145,19 +1144,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					}},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1165,7 +1164,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -1226,12 +1225,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "dns and known servers   - policy is enriched for egress",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -1273,19 +1272,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					}},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1293,7 +1292,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -1344,12 +1343,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "multiple known servers   - policy is enriched for egress",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -1397,19 +1396,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1417,7 +1416,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -1470,12 +1469,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "same ports with different addresses - addresses are merged",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -1505,20 +1504,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				PoliciesRef: []softwarecomposition.PolicyRef{},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1526,7 +1525,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -1563,19 +1562,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "same ports for pod traffic",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
 					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"app": "nginx",
 								},
@@ -1589,7 +1588,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						{
-							PodSelector: &v1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"app": "redis",
 								},
@@ -1606,20 +1605,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				PoliciesRef: []softwarecomposition.PolicyRef{},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1627,7 +1626,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -1645,7 +1644,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								To: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"app": "nginx",
 											},
@@ -1662,7 +1661,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								},
 								To: []softwarecomposition.NetworkPolicyPeer{
 									{
-										PodSelector: &v1.LabelSelector{
+										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"app": "redis",
 											},
@@ -1678,12 +1677,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "same ports for multiple IPs - addresses are merged correctly",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -1733,20 +1732,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				PoliciesRef: []softwarecomposition.PolicyRef{},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1754,7 +1753,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},
@@ -1811,12 +1810,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		{
 			name: "multiple IPs in known servers  - policy is enriched",
 			networkNeighbors: softwarecomposition.NetworkNeighbors{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
-					LabelSelector: v1.LabelSelector{
+					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
@@ -1857,19 +1856,19 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
 				},
-				TypeMeta: v1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
 					APIVersion: "networking.k8s.io/v1",
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-nginx",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
@@ -1877,7 +1876,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
-						PodSelector: v1.LabelSelector{
+						PodSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "nginx",
 							},

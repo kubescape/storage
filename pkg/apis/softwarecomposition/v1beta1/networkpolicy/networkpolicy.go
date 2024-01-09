@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	storageV1Beta1ApiVersion = "spdx.v1beta1.kubescape.io/v1beta1"
+	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
 
 func GenerateNetworkPolicy(networkNeighbors v1beta1.NetworkNeighbors, knownServers []v1beta1.KnownServer, timeProvider metav1.Time) (v1beta1.GeneratedNetworkPolicy, error) {
@@ -36,6 +36,7 @@ func convertGeneratedNetworkPolicy(old *sc.GeneratedNetworkPolicy) (v1beta1.Gene
 		return v1beta1.GeneratedNetworkPolicy{}, err
 	}
 	npv1beta1.TypeMeta.APIVersion = storageV1Beta1ApiVersion
+	npv1beta1.TypeMeta.Kind = "GeneratedNetworkPolicy"
 	return npv1beta1, nil
 }
 
