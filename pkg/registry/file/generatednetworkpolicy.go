@@ -7,8 +7,9 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	networkpolicy "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1/networkpolicy"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1/networkpolicy"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,6 +56,14 @@ func (s *GeneratedNetworkPolicyStorage) Delete(ctx context.Context, key string, 
 // Watch is not supported for GeneratedNetworkPolicy objects. Objects are generated on the fly and not stored.
 func (s *GeneratedNetworkPolicyStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
 	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+}
+
+func (s *GeneratedNetworkPolicyStorage) GetV1beta1(ctx context.Context, key string, opts storage.GetOptions, objPtr *v1beta1.GeneratedNetworkPolicy) error {
+	softwarecompositionObjPtr := &softwarecomposition.GeneratedNetworkPolicy{}
+	if err := s.Get(ctx, key, opts, softwarecompositionObjPtr); err != nil {
+		return err
+	}
+	return v1beta1.Convert_softwarecomposition_GeneratedNetworkPolicy_To_v1beta1_GeneratedNetworkPolicy(softwarecompositionObjPtr, objPtr, nil)
 }
 
 // Get generates and returns a single GeneratedNetworkPolicy object
