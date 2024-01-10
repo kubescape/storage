@@ -119,7 +119,7 @@ func isPayloadFile(path string) bool {
 	return !IsMetadataFile(path)
 }
 
-func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, out runtime.Object) error {
+func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, metaOut runtime.Object) error {
 	// do not alter obj
 	dup := obj.DeepCopyObject()
 	// set resourceversion
@@ -159,9 +159,9 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 	if err != nil {
 		return err
 	}
-	// eventually fill out
-	if out != nil {
-		err = json.Unmarshal(jsonBytes, out)
+	// eventually fill metaOut
+	if metaOut != nil {
+		err = json.Unmarshal(metadataBytes, metaOut)
 		if err != nil {
 			return err
 		}
@@ -172,7 +172,7 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 // Create adds a new object at a key even when it already exists. 'ttl' is time-to-live
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
-func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
+func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Create")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -183,13 +183,13 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.O
 		return errors.New(msg)
 	}
 	// write files
-	if err := s.writeFiles(ctx, key, obj, out); err != nil {
+	if err := s.writeFiles(ctx, key, obj, metaOut); err != nil {
 		logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 
 	// publish event to watchers
-	s.watchDispatcher.Added(key, obj)
+	s.watchDispatcher.Added(key, metaOut)
 	return nil
 }
 
@@ -198,7 +198,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, out runtime.O
 // If 'cachedExistingObject' is non-nil, it can be used as a suggestion about the
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
-func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
+func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -208,7 +208,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 	spanLock.End()
 	defer s.lock.Unlock()
 	// read json file
-	b, err := afero.ReadFile(s.appFs, p+JsonExt)
+	b, err := afero.ReadFile(s.appFs, p+MetadataExt)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
@@ -225,15 +225,15 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, out runtime.Object
 	if err != nil {
 		logger.L().Ctx(ctx).Error("remove metadata file failed", helpers.Error(err), helpers.String("key", key))
 	}
-	// try to fill out
-	err = json.Unmarshal(b, out)
+	// try to fill metaOut
+	err = json.Unmarshal(b, metaOut)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 
 	// publish event to watchers
-	s.watchDispatcher.Deleted(key, out)
+	s.watchDispatcher.Deleted(key, metaOut)
 	return nil
 }
 
@@ -408,7 +408,7 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 //
 // )
 func (s *StorageImpl) GuaranteedUpdate(
-	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
+	ctx context.Context, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
 	span.SetAttributes(attribute.String("key", key))
@@ -417,7 +417,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 	// key preparation is skipped
 	// otel span tracking is skipped
 
-	v, err := conversion.EnforcePtr(destination)
+	v, err := conversion.EnforcePtr(metaOut)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("unable to convert output object to pointer", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("unable to convert output object to pointer: %v", err)
@@ -499,11 +499,11 @@ func (s *StorageImpl) GuaranteedUpdate(
 			continue
 		}
 
-		// save to disk and fill into destination
-		err = s.writeFiles(ctx, key, ret, destination)
+		// save to disk and fill into metaOut
+		err = s.writeFiles(ctx, key, ret, metaOut)
 		if err == nil {
 			// Only successful updates should produce modification events
-			s.watchDispatcher.Modified(key, ret)
+			s.watchDispatcher.Modified(key, metaOut)
 		} else {
 			logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
 		}

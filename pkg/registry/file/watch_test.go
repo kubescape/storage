@@ -125,7 +125,8 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name: "some-sbom",
+								Name:            "some-sbom",
+								ResourceVersion: "1",
 							},
 						},
 					},
@@ -150,7 +151,8 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name: "some-sbom",
+								Name:            "some-sbom",
+								ResourceVersion: "1",
 							},
 						},
 					},
@@ -158,7 +160,8 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name: "some-sbom",
+								Name:            "some-sbom",
+								ResourceVersion: "1",
 							},
 						},
 					},
@@ -166,7 +169,8 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name: "some-sbom",
+								Name:            "some-sbom",
+								ResourceVersion: "1",
 							},
 						},
 					},
@@ -192,7 +196,8 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name: "some-sbom",
+								Name:            "some-sbom",
+								ResourceVersion: "1",
 							},
 						},
 					},
@@ -235,7 +240,7 @@ func TestFilesystemStoragePublishesToMatchingWatch(t *testing.T) {
 			}
 
 			var ttl uint64 = 0
-			var out runtime.Object
+			out := &v1beta1.SBOMSPDXv2p3{}
 			for key, object := range tc.inputObjects {
 				_ = s.Create(ctx, key, object, out, ttl)
 			}
@@ -289,7 +294,8 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name: "some-sbom",
+								Name:            "some-sbom",
+								ResourceVersion: "1",
 							},
 						},
 					},
@@ -297,7 +303,8 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 						Type: watch.Added,
 						Object: &v1beta1.SBOMSPDXv2p3{
 							ObjectMeta: v1.ObjectMeta{
-								Name: "some-sbom",
+								Name:            "some-sbom",
+								ResourceVersion: "1",
 							},
 						},
 					},
@@ -331,7 +338,7 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 
 			// Act out the creation operation
 			var ttl uint64 = 0
-			var out runtime.Object
+			out := &v1beta1.SBOMSPDXv2p3{}
 			for key, object := range tc.inputObjects {
 				_ = s.Create(ctx, key, object, out, ttl)
 			}
@@ -363,14 +370,8 @@ func TestFilesystemStorageWatchStop(t *testing.T) {
 func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 	toto := &v1beta1.SBOMSPDXv2p3{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "toto",
-		},
-		Spec: v1beta1.SBOMSPDXv2p3Spec{
-			Metadata: v1beta1.SPDXMeta{
-				Tool: v1beta1.ToolMeta{
-					Name: "titi",
-				},
-			},
+			Name:            "toto",
+			ResourceVersion: "1",
 		},
 	}
 
