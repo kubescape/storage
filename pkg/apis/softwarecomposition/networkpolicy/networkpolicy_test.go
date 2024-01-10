@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func TestGenerateNetworkPolicy(t *testing.T) {
@@ -41,7 +41,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -55,7 +55,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -98,7 +98,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -115,7 +115,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -156,7 +156,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -170,7 +170,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -213,7 +213,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -230,7 +230,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -271,17 +271,17 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
 								{
-									Port:     pointer.Int32(50),
+									Port:     ptr.To(int32(50)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-50",
 								},
 								{
-									Port:     pointer.Int32(40),
+									Port:     ptr.To(int32(40)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-40",
 								},
@@ -324,15 +324,15 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 									{
-										Port:     pointer.Int32(50),
+										Port:     ptr.To(int32(50)),
 										Protocol: &protocolTCP,
 									},
 									{
-										Port:     pointer.Int32(40),
+										Port:     ptr.To(int32(40)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -374,17 +374,17 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
 								{
-									Port:     pointer.Int32(50),
+									Port:     ptr.To(int32(50)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-50",
 								},
 								{
-									Port:     pointer.Int32(40),
+									Port:     ptr.To(int32(40)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-40",
 								},
@@ -427,15 +427,15 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 									{
-										Port:     pointer.Int32(50),
+										Port:     ptr.To(int32(50)),
 										Protocol: &protocolTCP,
 									},
 									{
-										Port:     pointer.Int32(40),
+										Port:     ptr.To(int32(40)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -482,7 +482,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -525,7 +525,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -568,7 +568,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "154.53.46.32",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -611,7 +611,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -656,12 +656,12 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
 								{
-									Port:     pointer.Int32(50),
+									Port:     ptr.To(int32(50)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-50",
 								},
@@ -704,11 +704,11 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 									{
-										Port:     pointer.Int32(50),
+										Port:     ptr.To(int32(50)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -751,7 +751,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "172.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -803,7 +803,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -846,7 +846,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "172.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -856,7 +856,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "174.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(50),
+									Port:     ptr.To(int32(50)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-50",
 								},
@@ -866,7 +866,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "156.43.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -927,7 +927,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(50),
+										Port:     ptr.To(int32(50)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -942,7 +942,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -997,7 +997,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "test.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1008,7 +1008,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "stripe.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(90),
+									Port:     ptr.To(int32(90)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1050,7 +1050,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1065,7 +1065,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(90),
+										Port:     ptr.To(int32(90)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1113,7 +1113,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "test.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1124,7 +1124,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "stripe.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(90),
+									Port:     ptr.To(int32(90)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1176,7 +1176,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1191,7 +1191,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(90),
+										Port:     ptr.To(int32(90)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1241,7 +1241,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "test.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1252,7 +1252,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "stripe.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1304,7 +1304,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1359,7 +1359,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "test.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1370,7 +1370,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							DNS:       "stripe.com",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1428,7 +1428,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1484,7 +1484,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "172.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1494,7 +1494,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "196.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1537,7 +1537,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1581,7 +1581,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1595,7 +1595,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1638,7 +1638,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1655,7 +1655,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1692,7 +1692,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "172.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1702,7 +1702,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "172.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(443),
+									Port:     ptr.To(int32(443)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1712,7 +1712,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "196.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1722,7 +1722,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "196.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(443),
+									Port:     ptr.To(int32(443)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1765,7 +1765,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1785,7 +1785,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(443),
+										Port:     ptr.To(int32(443)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1825,7 +1825,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "172.17.0.1",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1835,7 +1835,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							IPAddress: "172.17.0.2",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Protocol: softwarecomposition.ProtocolTCP,
 									Name:     "TCP-80",
 								},
@@ -1888,7 +1888,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     pointer.Int32(80),
+										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
 								},
