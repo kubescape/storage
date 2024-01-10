@@ -30,7 +30,7 @@ func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
-	err := configScanSummaryStorage.Create(nil, "", nil, nil, 0)
+	err := configScanSummaryStorage.Create(context.TODO(), "", nil, nil, 0)
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
@@ -41,7 +41,7 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
-	err := configScanSummaryStorage.Delete(nil, "", nil, nil, nil, nil)
+	err := configScanSummaryStorage.Delete(context.TODO(), "", nil, nil, nil, nil)
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
@@ -52,7 +52,7 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
-	_, err := configScanSummaryStorage.Watch(nil, "", storage.ListOptions{})
+	_, err := configScanSummaryStorage.Watch(context.TODO(), "", storage.ListOptions{})
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
@@ -63,7 +63,7 @@ func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
 
-	err := configScanSummaryStorage.GuaranteedUpdate(nil, "", nil, false, nil, nil, nil)
+	err := configScanSummaryStorage.GuaranteedUpdate(context.TODO(), "", nil, false, nil, nil, nil)
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 

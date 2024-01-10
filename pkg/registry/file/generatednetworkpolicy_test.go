@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +43,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			want: &softwarecomposition.GeneratedNetworkPolicy{
 				TypeMeta: v1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
 				},
 				ObjectMeta: v1.ObjectMeta{
 					Name:              "toto",
@@ -61,6 +61,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Namespace: "kubescape",
 					},
 				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
 			},
 		},
 	}
@@ -74,7 +75,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 				wlObj := &softwarecomposition.NetworkNeighbors{
 					TypeMeta: v1.TypeMeta{
 						Kind:       "NetworkNeighbors",
-						APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+						APIVersion: "spdx.softwarecomposition.kubescape.io",
 					},
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "toto",
@@ -116,7 +117,7 @@ func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
 
-	err := generatedNetworkPolicyStorage.Create(nil, "", nil, nil, 0)
+	err := generatedNetworkPolicyStorage.Create(context.TODO(), "", nil, nil, 0)
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
@@ -127,7 +128,7 @@ func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
 
-	err := generatedNetworkPolicyStorage.Delete(nil, "", nil, nil, nil, nil)
+	err := generatedNetworkPolicyStorage.Delete(context.TODO(), "", nil, nil, nil, nil)
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
@@ -138,7 +139,7 @@ func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
 
-	_, err := generatedNetworkPolicyStorage.Watch(nil, "", storage.ListOptions{})
+	_, err := generatedNetworkPolicyStorage.Watch(context.TODO(), "", storage.ListOptions{})
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
@@ -149,7 +150,7 @@ func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(&storageImpl)
 
-	err := generatedNetworkPolicyStorage.GuaranteedUpdate(nil, "", nil, false, nil, nil, nil)
+	err := generatedNetworkPolicyStorage.GuaranteedUpdate(context.TODO(), "", nil, false, nil, nil, nil)
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 

@@ -81,6 +81,9 @@ func (s *SyftSource) UnmarshalJSON(b []byte) error {
 	if len(unpacker.Target) > 0 {
 		s.Type = cleanPreSchemaV9MetadataType(s.Type)
 		metadata, err := extractPreSchemaV9Metadata(s.Type, unpacker.Target)
+		if err != nil {
+			return err
+		}
 		encoded, err := json.Marshal(metadata)
 		if err != nil {
 			return err

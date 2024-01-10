@@ -6,7 +6,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func TestValidateNetworkNeighbors(t *testing.T) {
@@ -25,7 +25,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Name:     "UDP-80",
 									Protocol: "UDP",
 								},
@@ -45,7 +45,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(80),
+									Port:     ptr.To(int32(80)),
 									Name:     "UDP",
 									Protocol: "UDP",
 								},
@@ -67,7 +67,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(1000000),
+									Port:     ptr.To(int32(1000000)),
 									Name:     "UDP-1000000",
 									Protocol: "UDP",
 								},
@@ -89,7 +89,7 @@ func TestValidateNetworkNeighbors(t *testing.T) {
 							Identifier: "test",
 							Ports: []softwarecomposition.NetworkPort{
 								{
-									Port:     pointer.Int32(1000000),
+									Port:     ptr.To(int32(1000000)),
 									Name:     "UDP-80",
 									Protocol: "UDP",
 								},
