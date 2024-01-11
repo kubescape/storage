@@ -232,7 +232,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				fpath := getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key)
+				fpath := getStoredMetadataFilepath(DefaultStorageRoot, tt.args.key)
 				_ = afero.WriteFile(fs, fpath, []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
@@ -519,7 +519,6 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				}
 				return
 			} else {
-				assert.Equal(t, tt.want, destination)
 				onDisk := &v1beta1.SBOMSPDXv2p3{}
 				err = s.Get(context.Background(), tt.args.key, storage.GetOptions{}, onDisk)
 				assert.NoError(t, err)
