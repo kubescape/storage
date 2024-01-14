@@ -36,7 +36,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						{
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"one": "1",
+									"one":                        "1",
+									"app.kubernetes.io/name":     "nginx",
+									"app.kubernetes.io/revision": "1",
 								},
 							},
 							Ports: []softwarecomposition.NetworkPort{
@@ -50,7 +52,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						{
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"two": "2",
+									"two":                        "2",
+									"app.kubernetes.io/name":     "nginx",
+									"app.kubernetes.io/revision": "1",
 								},
 							},
 							Ports: []softwarecomposition.NetworkPort{
@@ -106,7 +110,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 									{
 										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
-												"one": "1",
+												"one":                    "1",
+												"app.kubernetes.io/name": "nginx",
 											},
 										},
 									},
@@ -123,7 +128,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 									{
 										PodSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
-												"two": "2",
+												"two":                    "2",
+												"app.kubernetes.io/name": "nginx",
 											},
 										},
 									},
