@@ -258,6 +258,7 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServe
 	policyRefs := []softwarecomposition.PolicyRef{}
 
 	if neighbor.PodSelector != nil {
+		removeLabels(neighbor.PodSelector.MatchLabels)
 		egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
 			PodSelector: neighbor.PodSelector,
 		})
@@ -348,11 +349,13 @@ func hash(s any) (string, error) {
 	vv := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(vv[:]), nil
 }
+
 func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServer []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
 	ingressRule := softwarecomposition.NetworkPolicyIngressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
 
 	if neighbor.PodSelector != nil {
+		removeLabels(neighbor.PodSelector.MatchLabels)
 		ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
 			PodSelector: neighbor.PodSelector,
 		})
@@ -436,4 +439,12 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServ
 func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
 	ipBlock := &softwarecomposition.IPBlock{CIDR: ipAddress + "/32"}
 	return ipBlock
+}
+
+func removeLabels(labels map[string]string) {
+	for key := range labels {
+		if isIgnoredLabel(key) {
+			delete(labels, key)
+		}
+	}
 }
