@@ -1,25 +1,10 @@
 package networkpolicy
 
-import "sync"
-
-type syncMap struct {
-	mut sync.RWMutex
-	m   map[string]bool
-}
-
-var ignoreLabels syncMap
+var ignoreLabels map[string]bool
 
 func init() {
-	ignoreLabels.mut.RLock()
-	if len(ignoreLabels.m) > 0 {
-		ignoreLabels.mut.RUnlock()
-		return
-	}
-	ignoreLabels.mut.RUnlock()
 
-	ignoreLabels.mut.Lock()
-	defer ignoreLabels.mut.Unlock()
-	ignoreLabels.m = map[string]bool{
+	ignoreLabels = map[string]bool{
 		"app.kubernetes.io/name":                      false,
 		"app.kubernetes.io/part-of":                   false,
 		"app.kubernetes.io/component":                 false,
@@ -40,7 +25,5 @@ func init() {
 
 // IsIgnoredLabel returns true if the label is ignored
 func isIgnoredLabel(label string) bool {
-	ignoreLabels.mut.RLock()
-	defer ignoreLabels.mut.RUnlock()
-	return ignoreLabels.m[label]
+	return ignoreLabels[label]
 }
