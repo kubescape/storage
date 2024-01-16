@@ -120,11 +120,9 @@ func isPayloadFile(path string) bool {
 }
 
 func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, metaOut runtime.Object) error {
-	// do not alter obj
-	dup := obj.DeepCopyObject()
 	// set resourceversion
-	if version, _ := s.versioner.ObjectResourceVersion(dup); version == 0 {
-		if err := s.versioner.UpdateObject(dup, 1); err != nil {
+	if version, _ := s.versioner.ObjectResourceVersion(obj); version == 0 {
+		if err := s.versioner.UpdateObject(obj, 1); err != nil {
 			return fmt.Errorf("set resourceVersion failed: %v", err)
 		}
 	}
@@ -138,7 +136,7 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 		return err
 	}
 	// prepare json content
-	jsonBytes, err := json.MarshalIndent(dup, "", "  ")
+	jsonBytes, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -500,7 +498,8 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into metaOut
-		err = s.writeFiles(ctx, key, ret, metaOut)
+		dup := ret.DeepCopyObject()
+		err = s.writeFiles(ctx, key, dup, metaOut)
 		if err == nil {
 			// Only successful updates should produce modification events
 			s.watchDispatcher.Modified(key, metaOut)

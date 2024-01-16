@@ -385,7 +385,8 @@ func TestStorageImpl_GetList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			for k, v := range objs {
-				err := s.Create(context.Background(), k, v, nil, 0)
+				dup := v.DeepCopyObject()
+				err := s.Create(context.Background(), k, dup, nil, 0)
 				assert.NoError(t, err)
 			}
 			if err := s.GetList(context.TODO(), tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
@@ -508,7 +509,8 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			if tt.create {
-				err := s.Create(context.Background(), tt.args.key, toto, nil, 0)
+				dup := toto.DeepCopyObject()
+				err := s.Create(context.Background(), tt.args.key, dup, nil, 0)
 				assert.NoError(t, err)
 			}
 			destination := &v1beta1.SBOMSPDXv2p3{}
