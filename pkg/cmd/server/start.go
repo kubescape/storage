@@ -18,8 +18,11 @@ package server
 
 import (
 	"fmt"
+	"github.com/kubescape/go-logger/helpers"
 	"io"
 	"net"
+	"net/http"
+	"net/http/pprof"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
@@ -97,6 +100,13 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 	flags := cmd.Flags()
 	o.RecommendedOptions.AddFlags(flags)
 	utilfeature.DefaultMutableFeatureGate.AddFlag(flags)
+
+	// replace built-in profiling with pprof on port 6060
+	err := flags.Set("profiling", "false")
+	if err != nil {
+		logger.L().Warning("failed to set profiling flag to false", helpers.Error(err))
+	}
+	servePprof()
 
 	// mute klog
 	// https://github.com/kubernetes/klog/issues/87
@@ -177,4 +187,26 @@ func (o WardleServerOptions) RunWardleServer(stopCh <-chan struct{}) error {
 	})
 
 	return server.GenericAPIServer.PrepareRun().Run(stopCh)
+}
+
+func servePprof() {
+	if logger.L().GetLevel() == helpers.DebugLevel.String() {
+		logger.L().Info("starting pprof server", helpers.String("port", "6060"))
+		pprofMux := http.NewServeMux()
+		pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
+		pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		pprofMux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+		pprofMux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+		pprofMux.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
+		pprofMux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+		pprofMux.Handle("/debug/pprof/block", pprof.Handler("block"))
+		pprofMux.Handle("/debug/pprof/mutex", pprof.Handler("mutex"))
+		go func() {
+			if err := http.ListenAndServe(":6060", pprofMux); err != nil {
+				logger.L().Error("failed to start pprof server", helpers.Error(err))
+			}
+		}()
+	}
 }
