@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/anchore/syft/syft/source"
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
 )
 
 var jsonNameFromType = map[reflect.Type][]string{
@@ -35,8 +37,10 @@ func JSONName(metadata any) string {
 
 func ReflectTypeFromJSONName(name string) reflect.Type {
 	name = strings.ToLower(name)
+	logger.L().Debug("dwertent ReflectTypeFromJSONName", helpers.String("name", name))
 	for t, vs := range jsonNameFromType {
 		for _, v := range vs {
+			logger.L().Debug("dwertent", helpers.String("strings.ToLower(v)", strings.ToLower(v)))
 			if strings.ToLower(v) == name {
 				return t
 			}

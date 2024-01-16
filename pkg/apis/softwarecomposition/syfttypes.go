@@ -68,6 +68,7 @@ type sourceUnpacker struct {
 // UnmarshalJSON populates a source object from JSON bytes.
 func (s *SyftSource) UnmarshalJSON(b []byte) error {
 	var unpacker sourceUnpacker
+	logger.L().Debug("dwertent ---------------------------------------------------------")
 	err := json.Unmarshal(b, &unpacker)
 	if err != nil {
 		return err
@@ -78,43 +79,49 @@ func (s *SyftSource) UnmarshalJSON(b []byte) error {
 	s.Type = unpacker.Type
 	s.ID = unpacker.ID
 
+	logger.L().Debug("input", helpers.String("type", s.Type), helpers.String("name", s.Name), helpers.String("id", s.ID), helpers.String("version", s.Version), helpers.String("type", s.Type), helpers.String("target", string(unpacker.Target)))
+	logger.L().Debug("dwertent ---------------------------------------------------------")
+
 	if len(unpacker.Target) > 0 {
 		s.Type = cleanPreSchemaV9MetadataType(s.Type)
 		metadata, err := extractPreSchemaV9Metadata(s.Type, unpacker.Target)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to extract pre-schema-v9 source metadata: %w", err)
 		}
 		encoded, err := json.Marshal(metadata)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to marshal pre-schema-v9 source metadata: %w", err)
 		}
 		s.Metadata = encoded
-		if err != nil {
-			return fmt.Errorf("unable to extract pre-schema-v9 source metadata: %w", err)
-		}
 		return nil
 	}
 
-	return unpackSrcMetadata(s, unpacker)
+	if err := unpackSrcMetadata(s, unpacker); err != nil {
+		logger.L().Debug("dwertent $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+		return err
+	}
+	logger.L().Debug("dwertent DONE ---------------------------------------------------------")
+
+	return nil
 }
 
 func unpackSrcMetadata(s *SyftSource, unpacker sourceUnpacker) error {
 	rt := sourcemetadata.ReflectTypeFromJSONName(s.Type)
 	if rt == nil {
-		return fmt.Errorf("unable to find source metadata type=%q", s.Type)
+		return fmt.Errorf("something went wrong, unable to find source metadata type=%q", s.Type)
 	}
 
 	val := reflect.New(rt).Interface()
 	if len(unpacker.Metadata) > 0 {
 		if err := json.Unmarshal(unpacker.Metadata, val); err != nil {
-			return err
+			return fmt.Errorf("unable to unmarshal 'source' metadata: %w", err)
 		}
 	}
 
 	metadata := reflect.ValueOf(val).Elem().Interface()
 	encoded, err := json.Marshal(metadata)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to marshal 'source' metadata: %w", err)
 	}
 	s.Metadata = encoded
 
