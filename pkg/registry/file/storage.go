@@ -140,30 +140,27 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 	// prepare json content
 	jsonBytes, err := json.MarshalIndent(dup, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("json.MarshalIndent failed: %v", err)
 	}
 	// prepare metadata content
 	metadataBytes, err := removeSpec(jsonBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("removeSpec failed: %v", err)
 	}
 	// write payload file
 	payloadPath := makePayloadPath(p)
-	err = afero.WriteFile(s.appFs, payloadPath, jsonBytes, 0644)
-	if err != nil {
-		return err // maybe not exit here to try writing metadata file
+	if err := afero.WriteFile(s.appFs, payloadPath, jsonBytes, 0644); err != nil {
+		return fmt.Errorf("payload writeFile failed: %v", err)
 	}
 	// write metadata file
 	metadataPath := makeMetadataPath(p)
-	err = afero.WriteFile(s.appFs, metadataPath, metadataBytes, 0644)
-	if err != nil {
-		return err
+	if err := afero.WriteFile(s.appFs, metadataPath, metadataBytes, 0644); err != nil {
+		return fmt.Errorf("metadata writeFile failed: %v", err)
 	}
 	// eventually fill metaOut
 	if metaOut != nil {
-		err = json.Unmarshal(metadataBytes, metaOut)
-		if err != nil {
-			return err
+		if err := json.Unmarshal(metadataBytes, metaOut); err != nil {
+			return fmt.Errorf("metadata Unmarshal failed: %v", err)
 		}
 	}
 	return nil

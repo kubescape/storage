@@ -68,6 +68,8 @@ type sourceUnpacker struct {
 // UnmarshalJSON populates a source object from JSON bytes.
 func (s *SyftSource) UnmarshalJSON(b []byte) error {
 	var unpacker sourceUnpacker
+	logger.L().Debug("dwertent ===========================================================================")
+	logger.L().Debug("dwertent Unmarshalling SyftSource", helpers.String("json", string(b)))
 	err := json.Unmarshal(b, &unpacker)
 	if err != nil {
 		return err
@@ -77,6 +79,8 @@ func (s *SyftSource) UnmarshalJSON(b []byte) error {
 	s.Version = unpacker.Version
 	s.Type = unpacker.Type
 	s.ID = unpacker.ID
+	logger.L().Debug("dwertent Unmarshalled SyftSource", helpers.String("source", fmt.Sprintf("%+v", unpacker)))
+	logger.L().Debug("dwertent ===========================================================================")
 
 	if len(unpacker.Target) > 0 {
 		s.Type = cleanPreSchemaV9MetadataType(s.Type)
