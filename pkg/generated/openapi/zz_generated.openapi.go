@@ -2073,7 +2073,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref comm
 						},
 					},
 				},
-				Required: []string{"spec", "policyRef"},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
@@ -6980,7 +6980,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref c
 						},
 					},
 				},
-				Required: []string{"all", "relevant"},
+				Required: []string{"all"},
 			},
 		},
 		Dependencies: []string{
@@ -7078,13 +7078,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityCounters(ref commo
 					},
 					"relevant": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 				},
-				Required: []string{"all", "relevant"},
+				Required: []string{"all"},
 			},
 		},
 	}
