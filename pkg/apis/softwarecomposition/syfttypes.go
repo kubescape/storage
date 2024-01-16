@@ -108,7 +108,7 @@ func (s *SyftSource) UnmarshalJSON(b []byte) error {
 func unpackSrcMetadata(s *SyftSource, unpacker sourceUnpacker) error {
 	rt := sourcemetadata.ReflectTypeFromJSONName(s.Type)
 	if rt == nil {
-		return fmt.Errorf("something went wrong, unable to find source metadata type=%q", s.Type)
+		return nil
 	}
 
 	val := reflect.New(rt).Interface()
