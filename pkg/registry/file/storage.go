@@ -206,7 +206,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	spanLock.End()
 	defer s.lock.Unlock()
 	// read json file
-	b, err := afero.ReadFile(s.appFs, p+MetadataExt)
+	file, err := s.appFs.Open(p + MetadataExt)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
@@ -224,7 +224,8 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 		logger.L().Ctx(ctx).Error("remove metadata file failed", helpers.Error(err), helpers.String("key", key))
 	}
 	// try to fill metaOut
-	err = json.Unmarshal(b, metaOut)
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(metaOut)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
@@ -265,7 +266,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	s.lock.RLock()
 	spanLock.End()
 	defer s.lock.RUnlock()
-	b, err := afero.ReadFile(s.appFs, p+JsonExt)
+	file, err := s.appFs.Open(p + JsonExt)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			if opts.IgnoreNotFound {
@@ -277,7 +278,8 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
-	err = json.Unmarshal(b, objPtr)
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(objPtr)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
@@ -329,13 +331,13 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 	s.lock.RUnlock()
 	for _, path := range files {
 		// we need to read the whole file
-		b, err := afero.ReadFile(s.appFs, path)
+		file, err := s.appFs.Open(path)
 		if err != nil {
 			// skip if file is not readable, maybe it was deleted
 			continue
 		}
 
-		obj, err := getUnmarshaledRuntimeObject(v, b)
+		obj, err := getUnmarshaledRuntimeObject(v, file)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("unmarshal file failed", helpers.Error(err), helpers.String("path", path))
 			continue
@@ -687,13 +689,13 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 
 // appendJSONObjectFromFile unmarshalls a json file into a runtime.Object and appends it to the underlying list object.
 func (s *StorageImpl) appendJSONObjectFromFile(path string, v reflect.Value) error {
-	b, err := afero.ReadFile(s.appFs, path)
+	file, err := s.appFs.Open(path)
 	if err != nil {
 		// skip if file is not readable, maybe it was deleted
 		return nil
 	}
 
-	obj, err := getUnmarshaledRuntimeObject(v, b)
+	obj, err := getUnmarshaledRuntimeObject(v, file)
 	if err != nil {
 		return nil
 	}
@@ -703,11 +705,12 @@ func (s *StorageImpl) appendJSONObjectFromFile(path string, v reflect.Value) err
 	return nil
 }
 
-func getUnmarshaledRuntimeObject(v reflect.Value, b []byte) (runtime.Object, error) {
+func getUnmarshaledRuntimeObject(v reflect.Value, file afero.File) (runtime.Object, error) {
 	elem := v.Type().Elem()
 	obj := reflect.New(elem).Interface().(runtime.Object)
 
-	if err := json.Unmarshal(b, obj); err != nil {
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(obj); err != nil {
 		return nil, err
 	}
 
