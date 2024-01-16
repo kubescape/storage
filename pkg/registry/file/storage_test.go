@@ -547,3 +547,41 @@ func TestStorageImpl_Versioner(t *testing.T) {
 		})
 	}
 }
+
+func TestStorageImpl_writeFiles(t *testing.T) {
+	type args struct {
+		key     string
+		obj     runtime.Object
+		metaOut runtime.Object
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				obj: &v1beta1.SBOMSPDXv2p3{
+					ObjectMeta: v1.ObjectMeta{
+						Name: "toto",
+					},
+					Spec: v1beta1.SBOMSPDXv2p3Spec{
+						Metadata: v1beta1.SPDXMeta{
+							Tool: v1beta1.ToolMeta{Name: "titi"},
+						},
+					},
+				},
+				metaOut: &v1beta1.SBOMSPDXv2p3{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot).(*StorageImpl)
+			err := s.writeFiles(context.TODO(), tt.args.key, tt.args.obj, tt.args.metaOut)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.args.metaOut.(*v1beta1.SBOMSPDXv2p3).Spec, v1beta1.SBOMSPDXv2p3Spec{})
+		})
+	}
+}
