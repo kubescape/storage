@@ -99,6 +99,11 @@ func (s *SyftSource) UnmarshalJSON(b []byte) error {
 }
 
 func unpackSrcMetadata(s *SyftSource, unpacker sourceUnpacker) error {
+	if s.Type == "" {
+		// there are some cases where the type is not set. e.g. the object returned from the watcher
+		return nil
+	}
+
 	rt := sourcemetadata.ReflectTypeFromJSONName(s.Type)
 	if rt == nil {
 		return fmt.Errorf("unable to find source metadata type=%q", s.Type)
