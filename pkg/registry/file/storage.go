@@ -74,12 +74,15 @@ func (s *StorageImpl) Versioner() storage.Versioner {
 	return s.versioner
 }
 
-func removeSpec(obj runtime.Object) {
+func extractMetadata(obj runtime.Object) runtime.Object {
 	val := reflect.ValueOf(obj).Elem()
-	spec := val.FieldByName("Spec")
-	if spec.IsValid() {
-		spec.Set(reflect.Zero(spec.Type()))
+	metadata := val.FieldByName("ObjectMeta")
+	if metadata.IsValid() {
+		ret := reflect.New(val.Type()).Interface().(runtime.Object)
+		reflect.ValueOf(ret).Elem().FieldByName("ObjectMeta").Set(metadata)
+		return ret
 	}
+	return nil
 }
 
 // makePayloadPath returns a path for the payload file
@@ -128,18 +131,16 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 	if err != nil {
 		return fmt.Errorf("open metadata file: %w", err)
 	}
-	// prepare payload encoder
-	payloadEncoder := json.NewEncoder(payloadFile)
-	// prepare metadata encoder
-	metadataEncoder := json.NewEncoder(metadataFile)
 	// write payload
+	payloadEncoder := json.NewEncoder(payloadFile)
 	if err := payloadEncoder.Encode(obj); err != nil {
 		return fmt.Errorf("encode payload: %w", err)
 	}
-	// remove spec from payload
-	removeSpec(obj)
+	// extract metadata
+	metadata := extractMetadata(obj)
 	// write metadata
-	if err := metadataEncoder.Encode(obj); err != nil {
+	metadataEncoder := json.NewEncoder(metadataFile)
+	if err := metadataEncoder.Encode(metadata); err != nil {
 		return fmt.Errorf("encode metadata: %w", err)
 	}
 	// eventually fill metaOut
@@ -149,8 +150,8 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 			// Dereference the pointer
 			val = val.Elem()
 		}
-		// copy obj into metaOut
-		val.Set(reflect.ValueOf(obj).Elem())
+		// metadata obj into metaOut
+		val.Set(reflect.ValueOf(metadata).Elem())
 	}
 	return nil
 }
@@ -488,8 +489,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into metaOut
-		dup := ret.DeepCopyObject()
-		err = s.writeFiles(ctx, key, dup, metaOut)
+		err = s.writeFiles(ctx, key, ret, metaOut)
 		if err == nil {
 			// Only successful updates should produce modification events
 			s.watchDispatcher.Modified(key, metaOut)

@@ -385,8 +385,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			for k, v := range objs {
-				dup := v.DeepCopyObject()
-				err := s.Create(context.Background(), k, dup, nil, 0)
+				err := s.Create(context.Background(), k, v.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
 			}
 			if err := s.GetList(context.TODO(), tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
@@ -457,7 +456,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				ignoreNotFound: true,
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-					return toto, nil, nil
+					return toto.DeepCopyObject(), nil, nil
 				},
 			},
 			want: totov1,
@@ -469,7 +468,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return input, nil, nil
 				},
-				cachedExistingObject: toto,
+				cachedExistingObject: toto.DeepCopyObject(),
 			},
 			want: totov1,
 		},
@@ -480,7 +479,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				preconditions: &storage.Preconditions{
 					ResourceVersion: ptr.To("v123"),
 				},
-				cachedExistingObject: toto,
+				cachedExistingObject: toto.DeepCopyObject(),
 			},
 			wantErr: true,
 		},
@@ -499,7 +498,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 					obj.Spec.Metadata.Tool.Name = "tutu"
 					return &obj, nil, nil
 				},
-				cachedExistingObject: toto,
+				cachedExistingObject: toto.DeepCopyObject(),
 			},
 			create: true,
 			want:   totov3,
@@ -509,8 +508,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			if tt.create {
-				dup := toto.DeepCopyObject()
-				err := s.Create(context.Background(), tt.args.key, dup, nil, 0)
+				err := s.Create(context.Background(), tt.args.key, toto.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
 			}
 			destination := &v1beta1.SBOMSPDXv2p3{}
