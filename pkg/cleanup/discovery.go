@@ -3,6 +3,7 @@ package cleanup
 import (
 	"context"
 	"fmt"
+
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 
@@ -122,6 +123,22 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 				nameStr := name.(string)
 				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
 			}
+
+			initC, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "initContainers")...)
+			if !ok {
+				continue
+			}
+			initContainers := initC.([]interface{})
+			for _, container := range initContainers {
+				name, ok := workloadinterface.InspectMap(container, "name")
+				if !ok {
+					logger.L().Debug("container has no name", helpers.String("resource", resource))
+					continue
+				}
+				nameStr := name.(string)
+				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
+			}
+
 		}
 	}
 	return nil
@@ -154,6 +171,20 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(re
 		}
 		containerStatuses := s.([]interface{})
 		for _, cs := range containerStatuses {
+			containerImageId, ok := workloadinterface.InspectMap(cs, "imageID")
+			if !ok {
+				continue
+			}
+			imageIdStr := containerImageId.(string)
+			resourceMaps.RunningContainerImageIds.Add(imageIdStr)
+		}
+
+		initC, ok := workloadinterface.InspectMap(p.Object, "status", "initContainerStatuses")
+		if !ok {
+			continue
+		}
+		initContainers := initC.([]interface{})
+		for _, cs := range initContainers {
 			containerImageId, ok := workloadinterface.InspectMap(cs, "imageID")
 			if !ok {
 				continue

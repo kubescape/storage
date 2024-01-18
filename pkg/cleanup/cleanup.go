@@ -9,10 +9,10 @@ import (
 	"time"
 
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"github.com/kubescape/k8s-interface/instanceidhandler/v1"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/olvrng/ujson"
@@ -179,17 +179,17 @@ func unquote(value []byte) string {
 }
 
 func deleteByInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
-	instanceId, ok := metadata.Annotations[instanceidhandler.InstanceIDMetadataKey]
+	instanceId, ok := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return !ok || !resourceMaps.RunningInstanceIds.Contains(instanceId)
 }
 
 func deleteByImageId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
-	imageId, ok := metadata.Annotations[instanceidhandler.ImageIDMetadataKey]
+	imageId, ok := metadata.Annotations[helpersv1.ImageIDMetadataKey]
 	return !ok || !resourceMaps.RunningContainerImageIds.Contains(imageId)
 }
 
 func deleteByWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
-	wlid, ok := metadata.Annotations[instanceidhandler.WlidMetadataKey]
+	wlid, ok := metadata.Annotations[helpersv1.WlidMetadataKey]
 	kind := strings.ToLower(wlidPkg.GetKindFromWlid(wlid))
 	if !Workloads.Contains(kind) {
 		if kind != "" {
@@ -201,16 +201,16 @@ func deleteByWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps Resourc
 }
 
 func deleteByImageIdOrInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
-	imageId, imageIdFound := metadata.Annotations[instanceidhandler.ImageIDMetadataKey]
-	instanceId, instanceIdFound := metadata.Annotations[instanceidhandler.InstanceIDMetadataKey]
+	imageId, imageIdFound := metadata.Annotations[helpersv1.ImageIDMetadataKey]
+	instanceId, instanceIdFound := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return (!instanceIdFound && !imageIdFound) ||
 		(imageIdFound && !resourceMaps.RunningContainerImageIds.Contains(imageId)) ||
 		(instanceIdFound && !resourceMaps.RunningInstanceIds.Contains(instanceId))
 }
 
 func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
-	wlContainerName, wlContainerNameFound := metadata.Annotations[instanceidhandler.ContainerNameMetadataKey]
-	wlid, wlidFound := metadata.Annotations[instanceidhandler.WlidMetadataKey]
+	wlContainerName, wlContainerNameFound := metadata.Annotations[helpersv1.ContainerNameMetadataKey]
+	wlid, wlidFound := metadata.Annotations[helpersv1.WlidMetadataKey]
 	if !wlidFound || !wlContainerNameFound {
 		return true
 	}
@@ -219,7 +219,7 @@ func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resource
 }
 
 func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
-	wlReplica, wlReplicaFound := metadata.Labels[instanceidhandler.TemplateHashKey] // replica
+	wlReplica, wlReplicaFound := metadata.Labels[helpersv1.TemplateHashKey] // replica
 	if wlReplicaFound && wlReplica != "" {
 		return !resourceMaps.RunningTemplateHash.Contains(wlReplica)
 	}
