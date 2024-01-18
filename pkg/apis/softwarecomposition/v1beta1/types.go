@@ -272,16 +272,24 @@ type ApplicationProfile struct {
 }
 
 type ApplicationProfileSpec struct {
-	Containers     []ApplicationProfileContainer `json:"containers,omitempty"`
-	InitContainers []ApplicationProfileContainer `json:"initContainers,omitempty"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Containers []ApplicationProfileContainer `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	InitContainers []ApplicationProfileContainer `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
 type ApplicationProfileContainer struct {
-	Name         string      `json:"name,omitempty"`
-	Capabilities []string    `json:"capabilities,omitempty"`
-	Execs        []ExecCalls `json:"execs,omitempty"`
-	Opens        []OpenCalls `json:"opens,omitempty"`
-	Syscalls     []string    `json:"syscalls,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Execs []ExecCalls `json:"execs,omitempty" patchStrategy:"merge" patchMergeKey:"path"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Opens    []OpenCalls `json:"opens,omitempty" patchStrategy:"merge" patchMergeKey:"path"`
+	Syscalls []string    `json:"syscalls,omitempty"`
 }
 
 type ExecCalls struct {

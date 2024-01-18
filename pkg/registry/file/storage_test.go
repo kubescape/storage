@@ -385,7 +385,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			for k, v := range objs {
-				err := s.Create(context.Background(), k, v, nil, 0)
+				err := s.Create(context.Background(), k, v.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
 			}
 			if err := s.GetList(context.TODO(), tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
@@ -456,7 +456,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				ignoreNotFound: true,
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-					return toto, nil, nil
+					return toto.DeepCopyObject(), nil, nil
 				},
 			},
 			want: totov1,
@@ -468,7 +468,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return input, nil, nil
 				},
-				cachedExistingObject: toto,
+				cachedExistingObject: toto.DeepCopyObject(),
 			},
 			want: totov1,
 		},
@@ -479,7 +479,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				preconditions: &storage.Preconditions{
 					ResourceVersion: ptr.To("v123"),
 				},
-				cachedExistingObject: toto,
+				cachedExistingObject: toto.DeepCopyObject(),
 			},
 			wantErr: true,
 		},
@@ -498,7 +498,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 					obj.Spec.Metadata.Tool.Name = "tutu"
 					return &obj, nil, nil
 				},
-				cachedExistingObject: toto,
+				cachedExistingObject: toto.DeepCopyObject(),
 			},
 			create: true,
 			want:   totov3,
@@ -508,7 +508,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
 			if tt.create {
-				err := s.Create(context.Background(), tt.args.key, toto, nil, 0)
+				err := s.Create(context.Background(), tt.args.key, toto.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
 			}
 			destination := &v1beta1.SBOMSPDXv2p3{}
@@ -544,4 +544,25 @@ func TestStorageImpl_Versioner(t *testing.T) {
 			assert.Equal(t, tt.want, s.Versioner())
 		})
 	}
+}
+
+func BenchmarkWriteFiles(b *testing.B) {
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot).(*StorageImpl)
+	ctx := context.TODO()
+	key := "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto"
+	obj := &v1beta1.SBOMSPDXv2p3{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "toto",
+		},
+		Spec: v1beta1.SBOMSPDXv2p3Spec{
+			Metadata: v1beta1.SPDXMeta{
+				Tool: v1beta1.ToolMeta{Name: "titi"},
+			},
+		},
+	}
+	metaOut := &v1beta1.SBOMSPDXv2p3{}
+	for i := 0; i < b.N; i++ {
+		_ = s.writeFiles(ctx, key, obj, metaOut)
+	}
+	b.ReportAllocs()
 }
