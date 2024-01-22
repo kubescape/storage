@@ -142,6 +142,9 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 		}
 
 		for _, port := range rule.Ports {
+			if port.Port == nil || port.Protocol == nil {
+				continue
+			}
 			key := PortProtocolKey{Port: *port.Port, Protocol: *port.Protocol}
 			if _, exists := merged[key]; !exists {
 				keys = append(keys, key)
