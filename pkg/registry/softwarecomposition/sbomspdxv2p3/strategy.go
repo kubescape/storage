@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -77,8 +76,7 @@ func (flunderStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Ob
 }
 
 func (flunderStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	flunder := obj.(*softwarecomposition.SBOMSPDXv2p3)
-	return validation.ValidateFlunder(flunder)
+	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.

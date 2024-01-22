@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,7 +60,7 @@ func (sbomSyftStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.O
 }
 
 func (sbomSyftStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	return validation.AlwaysValid(obj)
+	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.

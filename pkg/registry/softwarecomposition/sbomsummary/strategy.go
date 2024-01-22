@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,8 +60,7 @@ func (sbomSummaryStrategy) PrepareForUpdate(ctx context.Context, obj, old runtim
 }
 
 func (sbomSummaryStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	sbomSummary := obj.(*softwarecomposition.SBOMSummary)
-	return validation.ValidateSBOMSummary(sbomSummary)
+	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.

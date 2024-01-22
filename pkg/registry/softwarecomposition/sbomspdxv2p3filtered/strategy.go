@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,8 +60,7 @@ func (sbomSDPXv2p3FilteredStrategy) PrepareForUpdate(ctx context.Context, obj, o
 }
 
 func (sbomSDPXv2p3FilteredStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	sbomSPDXv2p3Filtered := obj.(*softwarecomposition.SBOMSPDXv2p3Filtered)
-	return validation.ValidateSBOMSPDXv2p3Filtered(sbomSPDXv2p3Filtered)
+	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
