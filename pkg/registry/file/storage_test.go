@@ -125,7 +125,8 @@ func TestStorageImpl_Create(t *testing.T) {
 				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				obj: &v1beta1.SBOMSPDXv2p3{
 					ObjectMeta: v1.ObjectMeta{
-						Name: "toto",
+						Name:          "toto",
+						ManagedFields: []v1.ManagedFieldsEntry{{Manager: "node-agent"}},
 					},
 				},
 				out: &v1beta1.SBOMSPDXv2p3{},
