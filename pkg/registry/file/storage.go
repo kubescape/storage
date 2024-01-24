@@ -112,6 +112,11 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 			return fmt.Errorf("set resourceVersion: %w", err)
 		}
 	}
+	// remove managed fields
+	managedFields := reflect.ValueOf(obj).Elem().FieldByName("ObjectMeta").FieldByName("ManagedFields")
+	if managedFields.IsValid() {
+		managedFields.Set(reflect.Zero(managedFields.Type()))
+	}
 	// prepare path
 	p := filepath.Join(s.root, key)
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
@@ -122,12 +127,12 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 		return fmt.Errorf("mkdir: %w", err)
 	}
 	// prepare payload file
-	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), os.O_CREATE|os.O_WRONLY, 0644)
+	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open payload file: %w", err)
 	}
 	// prepare metadata file
-	metadataFile, err := s.appFs.OpenFile(makeMetadataPath(p), os.O_CREATE|os.O_WRONLY, 0644)
+	metadataFile, err := s.appFs.OpenFile(makeMetadataPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open metadata file: %w", err)
 	}

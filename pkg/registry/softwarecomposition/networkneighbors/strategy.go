@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,9 +59,7 @@ func (networkNeighborsStrategy) PrepareForUpdate(ctx context.Context, obj, old r
 }
 
 func (networkNeighborsStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	networkNeighbors := obj.(*softwarecomposition.NetworkNeighbors)
-
-	return validation.ValidateNetworkNeighbors(networkNeighbors)
+	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
@@ -82,9 +79,7 @@ func (networkNeighborsStrategy) Canonicalize(obj runtime.Object) {
 }
 
 func (networkNeighborsStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	networkNeighbors := obj.(*softwarecomposition.NetworkNeighbors)
-
-	return validation.ValidateNetworkNeighbors(networkNeighbors)
+	return field.ErrorList{}
 }
 
 // WarningsOnUpdate returns warnings for the given update.
