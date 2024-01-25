@@ -122,6 +122,9 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	}
 
 	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
+		if !networkpolicy.IsAvailable(networkNeighbors) {
+			continue
+		}
 		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, knownServersListObjPtr.Items, metav1.Now())
 		if err != nil {
 			return fmt.Errorf("error generating network policy: %w", err)

@@ -43,7 +43,7 @@ type NetworkPolicySpec struct {
 	// this field is empty then this NetworkPolicy does not allow any traffic (and serves
 	// solely to ensure that the pods it selects are isolated by default)
 
-	Ingress []NetworkPolicyIngressRule `json:"ingress,omitempty" protobuf:"bytes,2,rep,name=ingress"`
+	Ingress []NetworkPolicyIngressRule `json:"ingress" protobuf:"bytes,2,rep,name=ingress"`
 
 	// egress is a list of egress rules to be applied to the selected pods. Outgoing traffic
 	// is allowed if there are no NetworkPolicies selecting the pod (and cluster policy
@@ -53,7 +53,7 @@ type NetworkPolicySpec struct {
 	// solely to ensure that the pods it selects are isolated by default).
 	// This field is beta-level in 1.8
 
-	Egress []NetworkPolicyEgressRule `json:"egress,omitempty" protobuf:"bytes,3,rep,name=egress"`
+	Egress []NetworkPolicyEgressRule `json:"egress" protobuf:"bytes,3,rep,name=egress"`
 
 	// policyTypes is a list of rule types that the NetworkPolicy relates to.
 	// Valid options are ["Ingress"], ["Egress"], or ["Ingress", "Egress"].
@@ -66,7 +66,7 @@ type NetworkPolicySpec struct {
 	// an egress section and would otherwise default to just [ "Ingress" ]).
 	// This field is beta-level in 1.8
 
-	PolicyTypes []PolicyType `json:"policyTypes,omitempty" protobuf:"bytes,4,rep,name=policyTypes,casttype=PolicyType"`
+	PolicyTypes []PolicyType `json:"policyTypes" protobuf:"bytes,4,rep,name=policyTypes,casttype=PolicyType"`
 }
 
 // NetworkPolicyIngressRule describes a particular set of traffic that is allowed to the pods
