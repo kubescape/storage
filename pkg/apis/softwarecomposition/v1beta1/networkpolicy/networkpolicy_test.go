@@ -3,16 +3,17 @@ package networkpolicy
 import (
 	"testing"
 
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+
 	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
 func TestGenerateNetworkPolicy(t *testing.T) {
-	timeProvider := metav1.Now()
+	timeProvider := v1.Now()
 	protocolTCP := corev1.ProtocolTCP
 	tests := []struct {
 		name                  string
@@ -26,6 +27,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -94,7 +98,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -141,6 +147,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -208,8 +217,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
 							softwarecomposition.PolicyTypeEgress,
 						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
 						Egress: []softwarecomposition.NetworkPolicyEgressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -256,6 +267,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -320,7 +334,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -359,6 +375,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:              "deployment-nginx",
 					Namespace:         "kubescape",
 					CreationTimestamp: timeProvider,
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -422,8 +441,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
 							softwarecomposition.PolicyTypeEgress,
 						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
 						Egress: []softwarecomposition.NetworkPolicyEgressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -461,6 +482,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -521,7 +545,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -557,6 +583,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -607,7 +636,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -635,6 +666,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -700,7 +734,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -740,6 +776,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -799,7 +838,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -835,6 +876,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -923,7 +967,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -985,6 +1031,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1046,7 +1095,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -1101,6 +1152,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1172,7 +1226,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -1229,6 +1285,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1299,8 +1358,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
 							softwarecomposition.PolicyTypeEgress,
 						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
 						Egress: []softwarecomposition.NetworkPolicyEgressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -1347,6 +1408,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1423,8 +1487,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
 							softwarecomposition.PolicyTypeEgress,
 						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
 						Egress: []softwarecomposition.NetworkPolicyEgressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -1473,6 +1539,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Ready,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1532,8 +1601,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
 							softwarecomposition.PolicyTypeEgress,
 						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
 						Egress: []softwarecomposition.NetworkPolicyEgressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -1566,6 +1637,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Completed,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1633,8 +1707,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
 							softwarecomposition.PolicyTypeEgress,
 						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
 						Egress: []softwarecomposition.NetworkPolicyEgressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -1681,6 +1757,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Completed,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1760,8 +1839,10 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
 							softwarecomposition.PolicyTypeEgress,
 						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
 						Egress: []softwarecomposition.NetworkPolicyEgressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
@@ -1814,6 +1895,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Completed,
+					},
 				},
 				Spec: softwarecomposition.NetworkNeighborsSpec{
 					LabelSelector: v1.LabelSelector{
@@ -1884,7 +1968,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						},
 						PolicyTypes: []softwarecomposition.PolicyType{
 							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
 						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
 						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{

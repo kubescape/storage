@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -60,6 +62,14 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Name:      "toto",
 						Namespace: "kubescape",
 					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress:  []softwarecomposition.NetworkPolicyEgressRule{},
+					},
 				},
 				PoliciesRef: []softwarecomposition.PolicyRef{},
 			},
@@ -80,6 +90,9 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "toto",
 						Namespace: "kubescape",
+						Annotations: map[string]string{
+							helpersv1.StatusMetadataKey: helpersv1.Ready,
+						},
 					},
 				}
 				err := realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/networkneighborses/kubescape/toto", wlObj, nil, 0)
