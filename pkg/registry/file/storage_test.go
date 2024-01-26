@@ -549,7 +549,6 @@ func TestStorageImpl_Versioner(t *testing.T) {
 
 func BenchmarkWriteFiles(b *testing.B) {
 	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot).(*StorageImpl)
-	ctx := context.TODO()
 	key := "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto"
 	obj := &v1beta1.SBOMSPDXv2p3{
 		ObjectMeta: v1.ObjectMeta{
@@ -563,7 +562,7 @@ func BenchmarkWriteFiles(b *testing.B) {
 	}
 	metaOut := &v1beta1.SBOMSPDXv2p3{}
 	for i := 0; i < b.N; i++ {
-		_ = s.writeFiles(ctx, key, obj, metaOut)
+		_ = s.writeFiles(key, obj, metaOut)
 	}
 	b.ReportAllocs()
 }
