@@ -8,16 +8,18 @@ require (
 	github.com/anchore/syft v0.98.0
 	github.com/armosec/utils-k8s-go v0.0.23
 	github.com/deckarep/golang-set/v2 v2.5.0
+	github.com/go-logr/zapr v1.2.4
 	github.com/google/gofuzz v1.2.0
 	github.com/goradd/maps v0.1.5
 	github.com/kubescape/go-logger v0.0.22
-	github.com/kubescape/k8s-interface v0.0.158-0.20240117162237-b087cd69bcf1
+	github.com/kubescape/k8s-interface v0.0.158
 	github.com/olvrng/ujson v1.1.0
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/otel v1.20.0
+	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	k8s.io/api v0.27.4
 	k8s.io/apimachinery v0.27.4
@@ -25,6 +27,7 @@ require (
 	k8s.io/client-go v0.27.4
 	k8s.io/code-generator v0.26.2
 	k8s.io/component-base v0.27.2
+	k8s.io/klog/v2 v2.110.1
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 )
@@ -194,7 +197,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.20.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
@@ -218,7 +220,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
-	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kms v0.26.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 // indirect
 	sigs.k8s.io/controller-runtime v0.15.0 // indirect

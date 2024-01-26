@@ -18,22 +18,33 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/url"
 	"os"
 	"time"
 
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
+	"github.com/go-logr/zapr"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/cleanup"
 	"github.com/kubescape/storage/pkg/cmd/server"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
+	"go.uber.org/zap"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
+	"k8s.io/klog/v2"
 )
 
 func main() {
+	flag.Parse()
+
+	if logger, err := zap.NewProduction(); err == nil {
+		logger = logger.WithOptions(zap.IncreaseLevel(zap.FatalLevel))
+		klog.SetLogger(zapr.NewLogger(logger))
+	}
+
 	ctx := context.Background()
 	clusterData, err := utilsmetadata.LoadConfig("/etc/config/clusterData.json")
 	if err != nil {

@@ -4227,7 +4227,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref common.Re
 						},
 					},
 				},
-				Required: []string{"podSelector"},
+				Required: []string{"podSelector", "ingress", "egress", "policyTypes"},
 			},
 		},
 		Dependencies: []string{

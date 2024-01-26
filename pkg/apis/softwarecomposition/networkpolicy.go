@@ -32,11 +32,11 @@ const (
 // NetworkPolicySpec provides the specification of a NetworkPolicy
 type NetworkPolicySpec struct {
 	PodSelector metav1.LabelSelector       `json:"podSelector" protobuf:"bytes,1,opt,name=podSelector"`
-	Ingress     []NetworkPolicyIngressRule `json:"ingress,omitempty" protobuf:"bytes,2,rep,name=ingress"`
+	Ingress     []NetworkPolicyIngressRule `json:"ingress" protobuf:"bytes,2,rep,name=ingress"`
 
-	Egress []NetworkPolicyEgressRule `json:"egress,omitempty" protobuf:"bytes,3,rep,name=egress"`
+	Egress []NetworkPolicyEgressRule `json:"egress" protobuf:"bytes,3,rep,name=egress"`
 
-	PolicyTypes []PolicyType `json:"policyTypes,omitempty" protobuf:"bytes,4,rep,name=policyTypes,casttype=PolicyType"`
+	PolicyTypes []PolicyType `json:"policyTypes" protobuf:"bytes,4,rep,name=policyTypes,casttype=PolicyType"`
 }
 
 // NetworkPolicyIngressRule describes a particular set of traffic that is allowed to the pods

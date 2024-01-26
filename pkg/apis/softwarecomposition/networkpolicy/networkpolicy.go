@@ -5,9 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"sort"
 	"strings"
+
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -22,6 +25,10 @@ const (
 )
 
 func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+	if !IsAvailable(networkNeighbors) {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("networkNeighbors %s/%s status annotation is not ready", networkNeighbors.Namespace, networkNeighbors.Name)
+	}
+
 	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
@@ -33,6 +40,12 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 			},
 			Labels: networkNeighbors.Labels,
 		},
+		Spec: softwarecomposition.NetworkPolicySpec{
+			PolicyTypes: []softwarecomposition.PolicyType{
+				softwarecomposition.PolicyTypeIngress,
+				softwarecomposition.PolicyTypeEgress,
+			},
+		},
 	}
 
 	if networkNeighbors.Spec.MatchLabels != nil {
@@ -41,14 +54,6 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 
 	if networkNeighbors.Spec.MatchExpressions != nil {
 		networkPolicy.Spec.PodSelector.MatchExpressions = networkNeighbors.Spec.MatchExpressions
-	}
-
-	if len(networkNeighbors.Spec.Ingress) > 0 {
-		networkPolicy.Spec.PolicyTypes = append(networkPolicy.Spec.PolicyTypes, "Ingress")
-	}
-
-	if len(networkNeighbors.Spec.Egress) > 0 {
-		networkPolicy.Spec.PolicyTypes = append(networkPolicy.Spec.PolicyTypes, "Egress")
 	}
 
 	generatedNetworkPolicy := softwarecomposition.GeneratedNetworkPolicy{
@@ -166,7 +171,7 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 	})
 
 	// Construct merged rules using sorted keys
-	var mergedRules []softwarecomposition.NetworkPolicyIngressRule
+	mergedRules := []softwarecomposition.NetworkPolicyIngressRule{}
 	for i := range keys {
 		peers := merged[keys[i]]
 		sort.Slice(peers, func(i, j int) bool {
@@ -234,7 +239,7 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 	})
 
 	// Construct merged rules using sorted keys
-	var mergedRules []softwarecomposition.NetworkPolicyEgressRule
+	mergedRules := []softwarecomposition.NetworkPolicyEgressRule{}
 	for i := range keys {
 		peers := merged[keys[i]]
 		sort.Slice(peers, func(i, j int) bool {
@@ -449,5 +454,14 @@ func removeLabels(labels map[string]string) {
 		if isIgnoredLabel(key) {
 			delete(labels, key)
 		}
+	}
+}
+
+func IsAvailable(networkNeighbors softwarecomposition.NetworkNeighbors) bool {
+	switch networkNeighbors.GetAnnotations()[helpersv1.StatusMetadataKey] {
+	case helpersv1.Ready, helpersv1.Completed:
+		return true
+	default:
+		return false
 	}
 }
