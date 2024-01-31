@@ -268,3 +268,80 @@ func Test_SeveritySummaryAdd(t *testing.T) {
 	}
 
 }
+
+func TestExecCalls_String(t *testing.T) {
+	tests := []struct {
+		name string
+		e    ExecCalls
+		want string
+	}{
+		{
+			name: "Empty",
+			e:    ExecCalls{},
+			want: "",
+		},
+		{
+			name: "Path only",
+			e: ExecCalls{
+				Path: "ls",
+			},
+			want: "ls",
+		},
+		{
+			name: "Path and args",
+			e: ExecCalls{
+				Path: "ls",
+				Args: []string{"-l", "-a"},
+			},
+			want: "ls␟-l␟-a",
+		},
+		{
+			name: "Path and args and env",
+			e: ExecCalls{
+				Path: "ls",
+				Args: []string{"-l", "-a"},
+				Envs: []string{"HOME=/home/user", "USER=user"},
+			},
+			want: "ls␟-l␟-a␟HOME=/home/user␟USER=user",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, tt.e.String(), "String()")
+		})
+	}
+}
+
+func TestOpenCalls_String(t *testing.T) {
+	tests := []struct {
+		name string
+		o    OpenCalls
+		want string
+	}{
+		{
+			name: "Empty",
+			o:    OpenCalls{},
+			want: "",
+		},
+		{
+			name: "Path only",
+			o: OpenCalls{
+				Path: "/etc/passwd",
+			},
+			want: "/etc/passwd",
+		},
+		{
+			name: "Path and flags",
+			o: OpenCalls{
+				Path:  "/etc/passwd",
+				Flags: []string{"O_RDONLY"},
+			},
+			want: "/etc/passwd␟O_RDONLY",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, tt.o.String(), "String()")
+		})
+	}
+}

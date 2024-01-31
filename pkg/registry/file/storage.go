@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -41,10 +42,11 @@ type objState struct {
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
 	appFs           afero.Fs
-	watchDispatcher watchDispatcher
-	locks           *Mutex[string]
+	locks           *utils.Mutex[string]
+	processor       Processor
 	root            string
 	versioner       storage.Versioner
+	watchDispatcher watchDispatcher
 }
 
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
@@ -62,10 +64,22 @@ var _ StorageQuerier = &StorageImpl{}
 func NewStorageImpl(appFs afero.Fs, root string) StorageQuerier {
 	return &StorageImpl{
 		appFs:           appFs,
-		watchDispatcher: newWatchDispatcher(),
-		locks:           NewMapMutex[string](),
+		locks:           utils.NewMapMutex[string](),
+		processor:       DefaultProcessor{},
 		root:            root,
 		versioner:       storage.APIObjectVersioner{},
+		watchDispatcher: newWatchDispatcher(),
+	}
+}
+
+func NewStorageImplWithCollector(appFs afero.Fs, root string, processor Processor) StorageQuerier {
+	return &StorageImpl{
+		appFs:           appFs,
+		locks:           utils.NewMapMutex[string](),
+		processor:       processor,
+		root:            root,
+		versioner:       storage.APIObjectVersioner{},
+		watchDispatcher: newWatchDispatcher(),
 	}
 }
 
@@ -106,6 +120,10 @@ func isPayloadFile(path string) bool {
 }
 
 func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime.Object) error {
+	// call processor on object to be saved
+	if err := s.processor.PreSave(obj); err != nil {
+		return fmt.Errorf("processor.PreSave: %w", err)
+	}
 	// set resourceversion
 	if version, _ := s.versioner.ObjectResourceVersion(obj); version == 0 {
 		if err := s.versioner.UpdateObject(obj, 1); err != nil {
@@ -470,7 +488,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		if err != nil {
 			// If our data is already up-to-date, return the error
 			if origStateIsCurrent {
-				if !apierrors.IsNotFound(err) {
+				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
 					logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
 				return err
@@ -491,7 +509,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 			// it turns out our cached data was not stale, return the error
 			if cachedRev == origState.rev {
-				if !apierrors.IsNotFound(err) {
+				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
 					logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
 				return cachedUpdateErr

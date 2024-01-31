@@ -149,6 +149,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	storageImpl := file.NewStorageImpl(osFs, file.DefaultStorageRoot)
 
+	applicationProfileStorageImpl := file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.ApplicationProfileProcessor{})
 	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(&storageImpl)
 	vulnerabilitySummaryStorage := file.NewVulnerabilitySummaryStorage(&storageImpl)
 	generatedNetworkPolicyStorage := file.NewGeneratedNetworkPolicyStorage(&storageImpl)
@@ -168,7 +169,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["configurationscansummaries"] = sbomregistry.RESTInPeace(configurationscansummary.NewREST(Scheme, configScanStorageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["vulnerabilitysummaries"] = sbomregistry.RESTInPeace(vsumstorage.NewREST(Scheme, vulnerabilitySummaryStorage, c.GenericConfig.RESTOptionsGetter))
 
-	v1beta1storage["applicationprofiles"] = sbomregistry.RESTInPeace(applicationprofile.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["applicationprofiles"] = sbomregistry.RESTInPeace(applicationprofile.NewREST(Scheme, applicationProfileStorageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["applicationprofilesummaries"] = sbomregistry.RESTInPeace(applicationprofilesummary.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["applicationactivities"] = sbomregistry.RESTInPeace(applicationactivity.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
