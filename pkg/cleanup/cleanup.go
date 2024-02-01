@@ -98,6 +98,10 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 					logger.L().Error("cleanup task error", helpers.Error(err))
 					return nil
 				}
+				if metadata == nil {
+					// no metadata found
+					return nil
+				}
 
 				toDelete := handler(resourceKind, path, metadata, h.resources)
 				if toDelete {
@@ -135,10 +139,17 @@ func loadMetadataFromPath(appFs afero.Fs, rootPath string) (*metav1.ObjectMeta, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", rootPath, err)
 	}
+
 	data := metav1.ObjectMeta{
 		Annotations: map[string]string{},
 		Labels:      map[string]string{},
 	}
+
+	if len(input) == 0 {
+		// empty file
+		return nil, nil
+	}
+
 	// ujson parsing
 	var parent string
 	err = ujson.Walk(input, func(level int, key, value []byte) bool {
