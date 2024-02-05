@@ -18,6 +18,7 @@ package softwarecomposition
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -314,9 +315,35 @@ type ExecCalls struct {
 	Envs []string
 }
 
+const sep = "␟"
+
+func (e ExecCalls) String() string {
+	s := strings.Builder{}
+	s.WriteString(e.Path)
+	for _, arg := range e.Args {
+		s.WriteString(sep)
+		s.WriteString(arg)
+	}
+	for _, env := range e.Envs {
+		s.WriteString(sep)
+		s.WriteString(env)
+	}
+	return s.String()
+}
+
 type OpenCalls struct {
 	Path  string
 	Flags []string
+}
+
+func (e OpenCalls) String() string {
+	s := strings.Builder{}
+	s.WriteString(e.Path)
+	for _, arg := range e.Flags {
+		s.WriteString(sep)
+		s.WriteString(arg)
+	}
+	return s.String()
 }
 
 type ApplicationProfileStatus struct {

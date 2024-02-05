@@ -5,25 +5,26 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
-	"sync"
-
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 )
 
 const (
+	clusterKey               = "cluster"
 	JsonExt                  = ".j"
 	MetadataExt              = ".m"
 	DefaultStorageRoot       = "/data"
@@ -41,10 +42,11 @@ type objState struct {
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
 	appFs           afero.Fs
-	watchDispatcher watchDispatcher
-	lock            *sync.RWMutex
+	locks           *utils.Mutex[string]
+	processor       Processor
 	root            string
 	versioner       storage.Versioner
+	watchDispatcher watchDispatcher
 }
 
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
@@ -62,10 +64,22 @@ var _ StorageQuerier = &StorageImpl{}
 func NewStorageImpl(appFs afero.Fs, root string) StorageQuerier {
 	return &StorageImpl{
 		appFs:           appFs,
-		watchDispatcher: newWatchDispatcher(),
-		lock:            &sync.RWMutex{},
+		locks:           utils.NewMapMutex[string](),
+		processor:       DefaultProcessor{},
 		root:            root,
 		versioner:       storage.APIObjectVersioner{},
+		watchDispatcher: newWatchDispatcher(),
+	}
+}
+
+func NewStorageImplWithCollector(appFs afero.Fs, root string, processor Processor) StorageQuerier {
+	return &StorageImpl{
+		appFs:           appFs,
+		locks:           utils.NewMapMutex[string](),
+		processor:       processor,
+		root:            root,
+		versioner:       storage.APIObjectVersioner{},
+		watchDispatcher: newWatchDispatcher(),
 	}
 }
 
@@ -105,7 +119,11 @@ func isPayloadFile(path string) bool {
 	return !IsMetadataFile(path)
 }
 
-func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Object, metaOut runtime.Object) error {
+func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime.Object) error {
+	// call processor on object to be saved
+	if err := s.processor.PreSave(obj); err != nil {
+		return fmt.Errorf("processor.PreSave: %w", err)
+	}
 	// set resourceversion
 	if version, _ := s.versioner.ObjectResourceVersion(obj); version == 0 {
 		if err := s.versioner.UpdateObject(obj, 1); err != nil {
@@ -119,10 +137,6 @@ func (s *StorageImpl) writeFiles(ctx context.Context, key string, obj runtime.Ob
 	}
 	// prepare path
 	p := filepath.Join(s.root, key)
-	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.lock.Lock()
-	spanLock.End()
-	defer s.lock.Unlock()
 	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
 		return fmt.Errorf("mkdir: %w", err)
 	}
@@ -168,6 +182,10 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Create")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.locks.TryLock(key)
+	spanLock.End()
+	defer s.locks.Unlock(key)
 	// resourceversion should not be set on create
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
 		msg := "resourceVersion should not be set on objects to be created"
@@ -175,7 +193,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 		return errors.New(msg)
 	}
 	// write files
-	if err := s.writeFiles(ctx, key, obj, metaOut); err != nil {
+	if err := s.writeFiles(key, obj, metaOut); err != nil {
 		logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
@@ -194,11 +212,11 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	p := filepath.Join(s.root, key)
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.lock.Lock()
+	s.locks.TryLock(key)
 	spanLock.End()
-	defer s.lock.Unlock()
+	defer s.locks.Unlock(key)
+	p := filepath.Join(s.root, key)
 	// read metadata file
 	file, err := s.appFs.Open(makeMetadataPath(p))
 	if err != nil {
@@ -255,11 +273,11 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Get")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	p := filepath.Join(s.root, key)
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.lock.RLock()
+	s.locks.TryLock(key)
 	spanLock.End()
-	defer s.lock.RUnlock()
+	defer s.locks.Unlock(key)
+	p := filepath.Join(s.root, key)
 	file, err := s.appFs.Open(makePayloadPath(p))
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
@@ -291,6 +309,10 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.locks.TryLock(key)
+	spanLock.End()
+	defer s.locks.Unlock(key)
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("get items ptr failed", helpers.Error(err), helpers.String("key", key))
@@ -304,9 +326,6 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 
 	p := filepath.Join(s.root, key)
 	var files []string
-	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.lock.RLock()
-	spanLock.End()
 
 	metadataPath := makeMetadataPath(p)
 	if exists, _ := afero.Exists(s.appFs, metadataPath); exists {
@@ -322,7 +341,6 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 			return nil
 		})
 	}
-	s.lock.RUnlock()
 	for _, path := range files {
 		// we need to read the whole file
 		file, err := s.appFs.Open(path)
@@ -407,6 +425,10 @@ func (s *StorageImpl) GuaranteedUpdate(
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.locks.TryLock(key)
+	spanLock.End()
+	defer s.locks.Unlock(key)
 
 	// key preparation is skipped
 	// otel span tracking is skipped
@@ -466,7 +488,9 @@ func (s *StorageImpl) GuaranteedUpdate(
 		if err != nil {
 			// If our data is already up-to-date, return the error
 			if origStateIsCurrent {
-				logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
+					logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				}
 				return err
 			}
 
@@ -485,7 +509,9 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 			// it turns out our cached data was not stale, return the error
 			if cachedRev == origState.rev {
-				logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
+					logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				}
 				return cachedUpdateErr
 			}
 
@@ -494,7 +520,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into metaOut
-		err = s.writeFiles(ctx, key, ret, metaOut)
+		err = s.writeFiles(key, ret, metaOut)
 		if err == nil {
 			// Only successful updates should produce modification events
 			s.watchDispatcher.Modified(key, metaOut)
@@ -511,8 +537,8 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	p := filepath.Join(s.root, key)
 	metadataPath := makeMetadataPath(p)
 
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.locks.TryLock(key)
+	defer s.locks.Unlock(key)
 
 	pathExists, _ := afero.Exists(s.appFs, metadataPath)
 	pathIsDir, _ := afero.IsDir(s.appFs, metadataPath)
@@ -546,6 +572,10 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByNamespace")
 	span.SetAttributes(attribute.String("apiVersion", apiVersion), attribute.String("kind", kind), attribute.String("namespace", namespace))
 	defer span.End()
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.locks.TryLock(namespace)
+	spanLock.End()
+	defer s.locks.Unlock(namespace)
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
@@ -560,11 +590,6 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 	}
 
 	p := filepath.Join(s.root, apiVersion, kind, namespace)
-
-	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	spanLock.End()
 
 	// read all json files under the namespace and append to list
 	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
@@ -586,6 +611,10 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetClusterScopedResource")
 	defer span.End()
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.locks.TryLock(clusterKey)
+	spanLock.End()
+	defer s.locks.Unlock(clusterKey)
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
@@ -600,11 +629,6 @@ func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, 
 	}
 
 	p := filepath.Join(s.root, apiVersion, kind)
-
-	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	spanLock.End()
 
 	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 		// the first path is the root path
@@ -633,6 +657,10 @@ func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, 
 func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByCluster")
 	defer span.End()
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	s.locks.TryLock(clusterKey)
+	spanLock.End()
+	defer s.locks.Unlock(clusterKey)
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
@@ -647,11 +675,6 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 	}
 
 	p := filepath.Join(s.root, apiVersion, kind)
-
-	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	spanLock.End()
 
 	// for each namespace, read all json files and append it to list obj
 	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
