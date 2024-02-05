@@ -27,7 +27,7 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	// vulnerabilitysummaries is virtual
 	"applicationactivities":               deleteByTemplateHashOrWlid,
 	"applicationprofiles":                 deleteByTemplateHashOrWlid,
-	"applicationprofilesummaries":         deleteByTemplateHashOrWlid,
+	"applicationprofilesummaries":         deleteDeprecated,
 	"networkneighborses":                  deleteByWlid,
 	"openvulnerabilityexchangecontainers": deleteByImageId,
 	"sbomspdxv2p3filtereds":               deleteDeprecated,
@@ -36,11 +36,11 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	"sbomspdxv2p3":                        deleteDeprecated,
 	"sbomsyftfiltered":                    deleteByInstanceId,
 	"sbomsyft":                            deleteByImageId,
-	"sbomsummaries":                       deleteByImageId,
+	"sbomsummaries":                       deleteDeprecated,
 	"vulnerabilitymanifests":              deleteByImageIdOrInstanceId,
-	"vulnerabilitymanifestsummaries":      deleteByWlidAndContainer,
+	"vulnerabilitymanifestsummaries":      deleteDeprecated,
 	"workloadconfigurationscans":          deleteByWlid,
-	"workloadconfigurationscansummaries":  deleteByWlid,
+	"workloadconfigurationscansummaries":  deleteDeprecated,
 }
 
 type ResourcesCleanupHandler struct {
@@ -192,9 +192,10 @@ func unquote(value []byte) string {
 }
 
 // delete deprecated resources
-func deleteDeprecated(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteDeprecated(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool {
 	return true
 }
+
 func deleteByInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	instanceId, ok := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return !ok || !resourceMaps.RunningInstanceIds.Contains(instanceId)

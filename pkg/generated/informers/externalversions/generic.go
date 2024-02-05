@@ -57,8 +57,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationActivities().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("applicationprofiles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationProfiles().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("applicationprofilesummaries"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationProfileSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ConfigurationScanSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("generatednetworkpolicies"):
@@ -73,18 +71,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSPDXv2p3s().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3filtereds"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSPDXv2p3Filtereds().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("sbomsummaries"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomsyfts"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSyfts().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomsyftfiltereds"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSyftFiltereds().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("vulnerabilitymanifests"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().VulnerabilityManifests().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("vulnerabilitymanifestsummaries"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().VulnerabilityManifestSummaries().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("vulnerabilitysummaries"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().VulnerabilitySummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("workloadconfigurationscans"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().WorkloadConfigurationScans().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("workloadconfigurationscansummaries"):

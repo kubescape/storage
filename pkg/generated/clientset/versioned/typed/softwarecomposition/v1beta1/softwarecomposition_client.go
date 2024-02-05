@@ -30,7 +30,6 @@ type SpdxV1beta1Interface interface {
 	RESTClient() rest.Interface
 	ApplicationActivitiesGetter
 	ApplicationProfilesGetter
-	ApplicationProfileSummariesGetter
 	ConfigurationScanSummariesGetter
 	GeneratedNetworkPoliciesGetter
 	KnownServersGetter
@@ -38,12 +37,9 @@ type SpdxV1beta1Interface interface {
 	OpenVulnerabilityExchangeContainersGetter
 	SBOMSPDXv2p3sGetter
 	SBOMSPDXv2p3FilteredsGetter
-	SBOMSummariesGetter
 	SBOMSyftsGetter
 	SBOMSyftFilteredsGetter
 	VulnerabilityManifestsGetter
-	VulnerabilityManifestSummariesGetter
-	VulnerabilitySummariesGetter
 	WorkloadConfigurationScansGetter
 	WorkloadConfigurationScanSummariesGetter
 }
@@ -59,10 +55,6 @@ func (c *SpdxV1beta1Client) ApplicationActivities(namespace string) ApplicationA
 
 func (c *SpdxV1beta1Client) ApplicationProfiles(namespace string) ApplicationProfileInterface {
 	return newApplicationProfiles(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) ApplicationProfileSummaries(namespace string) ApplicationProfileSummaryInterface {
-	return newApplicationProfileSummaries(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) ConfigurationScanSummaries(namespace string) ConfigurationScanSummaryInterface {
@@ -93,10 +85,6 @@ func (c *SpdxV1beta1Client) SBOMSPDXv2p3Filtereds(namespace string) SBOMSPDXv2p3
 	return newSBOMSPDXv2p3Filtereds(c, namespace)
 }
 
-func (c *SpdxV1beta1Client) SBOMSummaries(namespace string) SBOMSummaryInterface {
-	return newSBOMSummaries(c, namespace)
-}
-
 func (c *SpdxV1beta1Client) SBOMSyfts(namespace string) SBOMSyftInterface {
 	return newSBOMSyfts(c, namespace)
 }
@@ -107,14 +95,6 @@ func (c *SpdxV1beta1Client) SBOMSyftFiltereds(namespace string) SBOMSyftFiltered
 
 func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) VulnerabilityManifestInterface {
 	return newVulnerabilityManifests(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) VulnerabilityManifestSummaries(namespace string) VulnerabilityManifestSummaryInterface {
-	return newVulnerabilityManifestSummaries(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) VulnerabilitySummaries(namespace string) VulnerabilitySummaryInterface {
-	return newVulnerabilitySummaries(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) WorkloadConfigurationScans(namespace string) WorkloadConfigurationScanInterface {

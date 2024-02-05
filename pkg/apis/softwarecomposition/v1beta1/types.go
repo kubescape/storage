@@ -69,36 +69,6 @@ type SBOMSPDXv2p3 struct {
 	Status SBOMSPDXv2p3Status `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
-// SBOMSummarySpec is the spec for the SBOM summary
-//
-// Since the summary spec is supposed to hold no data, only used as a low
-// footprint way to watch for heavy full-sized SBOMs, the spec is supposed to be
-// empty on purpose.
-type SBOMSummarySpec struct{}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSummary is a summary of an SBOM. It is not meant to be changed and only
-// works as a lightweight facade for watching proper SBOMs.
-type SBOMSummary struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec   SBOMSummarySpec    `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status SBOMSPDXv2p3Status `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSummaryList is a list of SBOM summaries
-type SBOMSummaryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []SBOMSummary `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -203,63 +173,6 @@ type VulnerabilitiesComponents struct {
 	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope `json:"relevant,omitempty"`
 }
 
-type VulnerabilityManifestSummarySpec struct {
-	Severities      SeveritySummary           `json:"severities"`
-	Vulnerabilities VulnerabilitiesComponents `json:"vulnerabilitiesRef"`
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// VulnerabilityManifestSummary is a summary of a VulnerabilityManifests.
-type VulnerabilityManifestSummary struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec   VulnerabilityManifestSummarySpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status VulnerabilityManifestStatus      `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// VulnerabilityManifestSummaryList is a list of VulnerabilityManifest summaries.
-type VulnerabilityManifestSummaryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []VulnerabilityManifestSummary `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
-type VulnerabilitySummarySpec struct {
-	Severities                 SeveritySummary           `json:"severities"`
-	WorkloadVulnerabilitiesObj []VulnerabilitiesObjScope `json:"vulnerabilitiesRef"`
-}
-
-type VulnerabilitySummaryStatus struct {
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// VulnerabilitySummary is a summary of a vulnerabilities for a given scope.
-type VulnerabilitySummary struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec   VulnerabilitySummarySpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status VulnerabilitySummaryStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// VulnerabilitySummaryList is a list of VulnerabilitySummary.
-type VulnerabilitySummaryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []VulnerabilitySummary `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -313,23 +226,6 @@ type ApplicationProfileList struct {
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Items []ApplicationProfile `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfileSummary struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfileSummaryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []ApplicationProfileSummary `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
