@@ -42,7 +42,7 @@ type objState struct {
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
 	appFs           afero.Fs
-	locks           *utils.Mutex[string]
+	locks           utils.MapMutex[string]
 	processor       Processor
 	root            string
 	versioner       storage.Versioner
@@ -183,9 +183,9 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(key)
-	spanLock.End()
+	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
+	spanLock.End()
 	// resourceversion should not be set on create
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
 		msg := "resourceVersion should not be set on objects to be created"
@@ -213,9 +213,9 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(key)
-	spanLock.End()
+	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
+	spanLock.End()
 	p := filepath.Join(s.root, key)
 	// read metadata file
 	file, err := s.appFs.Open(makeMetadataPath(p))
@@ -223,24 +223,24 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 		if errors.Is(err, afero.ErrFileNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
 		}
-		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Delete - read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	// try to fill metaOut
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(metaOut)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Delete - json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	// delete payload and metadata files
 	err = s.appFs.Remove(makePayloadPath(p))
 	if err != nil {
-		logger.L().Ctx(ctx).Error("remove json file failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
 	err = s.appFs.Remove(makeMetadataPath(p))
 	if err != nil {
-		logger.L().Ctx(ctx).Error("remove metadata file failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Delete - remove metadata file failed", helpers.Error(err), helpers.String("key", key))
 	}
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
@@ -273,9 +273,14 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(key)
+	s.locks.RLock(key)
+	defer s.locks.RUnlock(key)
 	spanLock.End()
-	defer s.locks.Unlock(key)
+	return s.get(ctx, key, opts, objPtr)
+}
+
+// get is a helper function for Get to allow calls without locks from other methods that already have them
+func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
 	file, err := s.appFs.Open(makePayloadPath(p))
 	if err != nil {
@@ -286,13 +291,13 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 				return storage.NewKeyNotFoundError(key, 0)
 			}
 		}
-		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Get - read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(objPtr)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Get - json unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	return nil
@@ -309,9 +314,9 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(key)
+	s.locks.RLock(key)
+	defer s.locks.RUnlock(key)
 	spanLock.End()
-	defer s.locks.Unlock(key)
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("get items ptr failed", helpers.Error(err), helpers.String("key", key))
@@ -425,9 +430,9 @@ func (s *StorageImpl) GuaranteedUpdate(
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(key)
-	spanLock.End()
+	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
+	spanLock.End()
 
 	// key preparation is skipped
 	// otel span tracking is skipped
@@ -440,7 +445,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 	getCurrentState := func() (*objState, error) {
 		objPtr := reflect.New(v.Type()).Interface().(runtime.Object)
-		err := s.Get(ctx, key, storage.GetOptions{IgnoreNotFound: ignoreNotFound}, objPtr)
+		err := s.get(ctx, key, storage.GetOptions{IgnoreNotFound: ignoreNotFound}, objPtr)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("get failed", helpers.Error(err), helpers.String("key", key))
 			return nil, err
@@ -536,8 +541,8 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	p := filepath.Join(s.root, key)
 	metadataPath := makeMetadataPath(p)
 
-	s.locks.TryLock(key)
-	defer s.locks.Unlock(key)
+	s.locks.RLock(key)
+	defer s.locks.RUnlock(key)
 
 	pathExists, _ := afero.Exists(s.appFs, metadataPath)
 	pathIsDir, _ := afero.IsDir(s.appFs, metadataPath)
@@ -572,9 +577,9 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 	span.SetAttributes(attribute.String("apiVersion", apiVersion), attribute.String("kind", kind), attribute.String("namespace", namespace))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(namespace)
+	s.locks.RLock(namespace)
+	defer s.locks.RUnlock(namespace)
 	spanLock.End()
-	defer s.locks.Unlock(namespace)
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
@@ -611,9 +616,9 @@ func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, 
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetClusterScopedResource")
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(clusterKey)
+	s.locks.RLock(clusterKey)
+	defer s.locks.RUnlock(clusterKey)
 	spanLock.End()
-	defer s.locks.Unlock(clusterKey)
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
@@ -657,9 +662,9 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByCluster")
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	s.locks.TryLock(clusterKey)
+	s.locks.RLock(clusterKey)
+	defer s.locks.RUnlock(clusterKey)
 	spanLock.End()
-	defer s.locks.Unlock(clusterKey)
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
