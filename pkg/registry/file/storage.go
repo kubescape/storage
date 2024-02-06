@@ -226,6 +226,13 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 		logger.L().Ctx(ctx).Error("read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
+	// try to fill metaOut
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(metaOut)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
+		return err
+	}
 	// delete payload and metadata files
 	err = s.appFs.Remove(makePayloadPath(p))
 	if err != nil {
@@ -235,14 +242,6 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	if err != nil {
 		logger.L().Ctx(ctx).Error("remove metadata file failed", helpers.Error(err), helpers.String("key", key))
 	}
-	// try to fill metaOut
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(metaOut)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("json unmarshal failed", helpers.Error(err), helpers.String("key", key))
-		return err
-	}
-
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
 	return nil
