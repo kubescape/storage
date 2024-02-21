@@ -3,6 +3,7 @@ package file
 import (
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/puzpuzpuz/xsync/v2"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,14 +18,20 @@ var (
 type watcher struct {
 	stopped bool
 	eventCh chan watch.Event
+	m       sync.RWMutex
 }
 
 // newWatcher creates a new watcher with a given channel
 func newWatcher(wc chan watch.Event) *watcher {
-	return &watcher{false, wc}
+	return &watcher{
+		stopped: false,
+		eventCh: wc,
+	}
 }
 
 func (w *watcher) Stop() {
+	w.m.Lock()
+	defer w.m.Unlock()
 	w.stopped = true
 	close(w.eventCh)
 }
@@ -34,6 +41,8 @@ func (w *watcher) ResultChan() <-chan watch.Event {
 }
 
 func (w *watcher) notify(e watch.Event) bool {
+	w.m.RLock()
+	defer w.m.RUnlock()
 	if w.stopped {
 		return false
 	}
