@@ -1,10 +1,17 @@
 package networkpolicy
 
 import (
+	_ "embed"
+	"encoding/json"
+	"fmt"
+	"time"
+
 	"testing"
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"go.uber.org/zap"
 
+	"github.com/armosec/known-servers-generator/pkg/cache"
 	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -12,6 +19,28 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+//go:embed testdata/BigNetworkNeighbors.json
+var bignetworkneightbors []byte
+
+func TestGenerateNetworkPolicyBigNetwork(t *testing.T) {
+	timeProvider := v1.Now()
+
+	knownServersCache, err := cache.NewKnownServersCache(zap.NewNop(), 5*time.Minute, "")
+
+	assert.NoError(t, err, "failed to create known servers cache")
+
+	knownServers := knownServersCache.GetKnownServers()
+
+	nn := softwarecomposition.NetworkNeighbors{}
+
+	err = json.Unmarshal(bignetworkneightbors, &nn)
+	assert.NoError(t, err, "failed to unmarshal network neighbors")
+
+	generatedNP, err := GenerateNetworkPolicy(nn, knownServers, timeProvider)
+	assert.NoError(t, err, "failed to generate network policy")
+	fmt.Println(generatedNP)
+
+}
 func TestGenerateNetworkPolicy(t *testing.T) {
 	timeProvider := v1.Now()
 	protocolTCP := corev1.ProtocolTCP
