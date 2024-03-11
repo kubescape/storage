@@ -28,6 +28,7 @@ const (
 	MetadataExt              = ".m"
 	DefaultStorageRoot       = "/data"
 	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
+	operationNotSupportedMsg = "operation not supported"
 )
 
 type objState struct {

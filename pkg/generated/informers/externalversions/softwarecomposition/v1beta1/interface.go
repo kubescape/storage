@@ -28,8 +28,6 @@ type Interface interface {
 	ApplicationActivities() ApplicationActivityInformer
 	// ApplicationProfiles returns a ApplicationProfileInformer.
 	ApplicationProfiles() ApplicationProfileInformer
-	// ApplicationProfileSummaries returns a ApplicationProfileSummaryInformer.
-	ApplicationProfileSummaries() ApplicationProfileSummaryInformer
 	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
 	// GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
@@ -44,18 +42,12 @@ type Interface interface {
 	SBOMSPDXv2p3s() SBOMSPDXv2p3Informer
 	// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
 	SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer
-	// SBOMSummaries returns a SBOMSummaryInformer.
-	SBOMSummaries() SBOMSummaryInformer
 	// SBOMSyfts returns a SBOMSyftInformer.
 	SBOMSyfts() SBOMSyftInformer
 	// SBOMSyftFiltereds returns a SBOMSyftFilteredInformer.
 	SBOMSyftFiltereds() SBOMSyftFilteredInformer
 	// VulnerabilityManifests returns a VulnerabilityManifestInformer.
 	VulnerabilityManifests() VulnerabilityManifestInformer
-	// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
-	VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer
-	// VulnerabilitySummaries returns a VulnerabilitySummaryInformer.
-	VulnerabilitySummaries() VulnerabilitySummaryInformer
 	// WorkloadConfigurationScans returns a WorkloadConfigurationScanInformer.
 	WorkloadConfigurationScans() WorkloadConfigurationScanInformer
 	// WorkloadConfigurationScanSummaries returns a WorkloadConfigurationScanSummaryInformer.
@@ -81,11 +73,6 @@ func (v *version) ApplicationActivities() ApplicationActivityInformer {
 // ApplicationProfiles returns a ApplicationProfileInformer.
 func (v *version) ApplicationProfiles() ApplicationProfileInformer {
 	return &applicationProfileInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// ApplicationProfileSummaries returns a ApplicationProfileSummaryInformer.
-func (v *version) ApplicationProfileSummaries() ApplicationProfileSummaryInformer {
-	return &applicationProfileSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
@@ -123,11 +110,6 @@ func (v *version) SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer {
 	return &sBOMSPDXv2p3FilteredInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// SBOMSummaries returns a SBOMSummaryInformer.
-func (v *version) SBOMSummaries() SBOMSummaryInformer {
-	return &sBOMSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
 // SBOMSyfts returns a SBOMSyftInformer.
 func (v *version) SBOMSyfts() SBOMSyftInformer {
 	return &sBOMSyftInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -141,16 +123,6 @@ func (v *version) SBOMSyftFiltereds() SBOMSyftFilteredInformer {
 // VulnerabilityManifests returns a VulnerabilityManifestInformer.
 func (v *version) VulnerabilityManifests() VulnerabilityManifestInformer {
 	return &vulnerabilityManifestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
-func (v *version) VulnerabilityManifestSummaries() VulnerabilityManifestSummaryInformer {
-	return &vulnerabilityManifestSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// VulnerabilitySummaries returns a VulnerabilitySummaryInformer.
-func (v *version) VulnerabilitySummaries() VulnerabilitySummaryInformer {
-	return &vulnerabilitySummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // WorkloadConfigurationScans returns a WorkloadConfigurationScanInformer.

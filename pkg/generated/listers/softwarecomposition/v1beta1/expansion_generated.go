@@ -34,14 +34,6 @@ type ApplicationProfileListerExpansion interface{}
 // ApplicationProfileNamespaceLister.
 type ApplicationProfileNamespaceListerExpansion interface{}
 
-// ApplicationProfileSummaryListerExpansion allows custom methods to be added to
-// ApplicationProfileSummaryLister.
-type ApplicationProfileSummaryListerExpansion interface{}
-
-// ApplicationProfileSummaryNamespaceListerExpansion allows custom methods to be added to
-// ApplicationProfileSummaryNamespaceLister.
-type ApplicationProfileSummaryNamespaceListerExpansion interface{}
-
 // ConfigurationScanSummaryListerExpansion allows custom methods to be added to
 // ConfigurationScanSummaryLister.
 type ConfigurationScanSummaryListerExpansion interface{}
@@ -98,14 +90,6 @@ type SBOMSPDXv2p3FilteredListerExpansion interface{}
 // SBOMSPDXv2p3FilteredNamespaceLister.
 type SBOMSPDXv2p3FilteredNamespaceListerExpansion interface{}
 
-// SBOMSummaryListerExpansion allows custom methods to be added to
-// SBOMSummaryLister.
-type SBOMSummaryListerExpansion interface{}
-
-// SBOMSummaryNamespaceListerExpansion allows custom methods to be added to
-// SBOMSummaryNamespaceLister.
-type SBOMSummaryNamespaceListerExpansion interface{}
-
 // SBOMSyftListerExpansion allows custom methods to be added to
 // SBOMSyftLister.
 type SBOMSyftListerExpansion interface{}
@@ -129,22 +113,6 @@ type VulnerabilityManifestListerExpansion interface{}
 // VulnerabilityManifestNamespaceListerExpansion allows custom methods to be added to
 // VulnerabilityManifestNamespaceLister.
 type VulnerabilityManifestNamespaceListerExpansion interface{}
-
-// VulnerabilityManifestSummaryListerExpansion allows custom methods to be added to
-// VulnerabilityManifestSummaryLister.
-type VulnerabilityManifestSummaryListerExpansion interface{}
-
-// VulnerabilityManifestSummaryNamespaceListerExpansion allows custom methods to be added to
-// VulnerabilityManifestSummaryNamespaceLister.
-type VulnerabilityManifestSummaryNamespaceListerExpansion interface{}
-
-// VulnerabilitySummaryListerExpansion allows custom methods to be added to
-// VulnerabilitySummaryLister.
-type VulnerabilitySummaryListerExpansion interface{}
-
-// VulnerabilitySummaryNamespaceListerExpansion allows custom methods to be added to
-// VulnerabilitySummaryNamespaceLister.
-type VulnerabilitySummaryNamespaceListerExpansion interface{}
 
 // WorkloadConfigurationScanListerExpansion allows custom methods to be added to
 // WorkloadConfigurationScanLister.
