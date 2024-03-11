@@ -3,8 +3,10 @@ package file
 import (
 	"fmt"
 	sets "github.com/deckarep/golang-set/v2"
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
+	"strconv"
 )
 
 type Processor interface {
@@ -30,9 +32,25 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
 	}
-	for i, container := range profile.Spec.Containers {
-		profile.Spec.Containers[i] = deflate(container)
+
+	// size is the sum of all execs/opens in all containers
+	var size int
+
+	// Define a function to process a slice of containers
+	processContainers := func(containers []softwarecomposition.ApplicationProfileContainer) []softwarecomposition.ApplicationProfileContainer {
+		for i, container := range containers {
+			containers[i] = deflate(container)
+			size += len(containers[i].Execs)
+			size += len(containers[i].Opens)
+		}
+		return containers
 	}
+
+	// Use the function for both InitContainers and Containers
+	profile.Spec.InitContainers = processContainers(profile.Spec.InitContainers)
+	profile.Spec.Containers = processContainers(profile.Spec.Containers)
+
+	profile.Annotations[helpers.ResourceSizeMetadataKey] = strconv.Itoa(size)
 	return nil
 }
 
