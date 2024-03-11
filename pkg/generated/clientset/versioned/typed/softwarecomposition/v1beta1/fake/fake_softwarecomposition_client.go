@@ -36,10 +36,6 @@ func (c *FakeSpdxV1beta1) ApplicationProfiles(namespace string) v1beta1.Applicat
 	return &FakeApplicationProfiles{c, namespace}
 }
 
-func (c *FakeSpdxV1beta1) ApplicationProfileSummaries(namespace string) v1beta1.ApplicationProfileSummaryInterface {
-	return &FakeApplicationProfileSummaries{c, namespace}
-}
-
 func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.ConfigurationScanSummaryInterface {
 	return &FakeConfigurationScanSummaries{c, namespace}
 }
@@ -68,10 +64,6 @@ func (c *FakeSpdxV1beta1) SBOMSPDXv2p3Filtereds(namespace string) v1beta1.SBOMSP
 	return &FakeSBOMSPDXv2p3Filtereds{c, namespace}
 }
 
-func (c *FakeSpdxV1beta1) SBOMSummaries(namespace string) v1beta1.SBOMSummaryInterface {
-	return &FakeSBOMSummaries{c, namespace}
-}
-
 func (c *FakeSpdxV1beta1) SBOMSyfts(namespace string) v1beta1.SBOMSyftInterface {
 	return &FakeSBOMSyfts{c, namespace}
 }
@@ -82,14 +74,6 @@ func (c *FakeSpdxV1beta1) SBOMSyftFiltereds(namespace string) v1beta1.SBOMSyftFi
 
 func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {
 	return &FakeVulnerabilityManifests{c, namespace}
-}
-
-func (c *FakeSpdxV1beta1) VulnerabilityManifestSummaries(namespace string) v1beta1.VulnerabilityManifestSummaryInterface {
-	return &FakeVulnerabilityManifestSummaries{c, namespace}
-}
-
-func (c *FakeSpdxV1beta1) VulnerabilitySummaries(namespace string) v1beta1.VulnerabilitySummaryInterface {
-	return &FakeVulnerabilitySummaries{c, namespace}
 }
 
 func (c *FakeSpdxV1beta1) WorkloadConfigurationScans(namespace string) v1beta1.WorkloadConfigurationScanInterface {

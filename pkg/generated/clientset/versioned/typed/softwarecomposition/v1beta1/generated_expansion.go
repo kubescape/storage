@@ -22,8 +22,6 @@ type ApplicationActivityExpansion interface{}
 
 type ApplicationProfileExpansion interface{}
 
-type ApplicationProfileSummaryExpansion interface{}
-
 type ConfigurationScanSummaryExpansion interface{}
 
 type GeneratedNetworkPolicyExpansion interface{}
@@ -38,17 +36,11 @@ type SBOMSPDXv2p3Expansion interface{}
 
 type SBOMSPDXv2p3FilteredExpansion interface{}
 
-type SBOMSummaryExpansion interface{}
-
 type SBOMSyftExpansion interface{}
 
 type SBOMSyftFilteredExpansion interface{}
 
 type VulnerabilityManifestExpansion interface{}
-
-type VulnerabilityManifestSummaryExpansion interface{}
-
-type VulnerabilitySummaryExpansion interface{}
 
 type WorkloadConfigurationScanExpansion interface{}
 
