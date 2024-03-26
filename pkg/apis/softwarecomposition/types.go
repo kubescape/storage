@@ -175,6 +175,63 @@ type VulnerabilitiesComponents struct {
 	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope
 }
 
+type VulnerabilityManifestSummarySpec struct {
+	Severities      SeveritySummary
+	Vulnerabilities VulnerabilitiesComponents
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.
+type VulnerabilityManifestSummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilityManifestSummarySpec
+	Status VulnerabilityManifestStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilityManifestSummaryList is a list of VulnerabilityManifest summaries.
+type VulnerabilityManifestSummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilityManifestSummary
+}
+
+type VulnerabilitySummarySpec struct {
+	Severities                 SeveritySummary
+	WorkloadVulnerabilitiesObj []VulnerabilitiesObjScope
+}
+
+type VulnerabilitySummaryStatus struct {
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummary is a summary of a vulnerabilities for a given scope.
+type VulnerabilitySummary struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   VulnerabilitySummarySpec
+	Status VulnerabilitySummaryStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VulnerabilitySummaryList is a list of VulnerabilitySummaries.
+type VulnerabilitySummaryList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []VulnerabilitySummary
+}
+
 func (c *VulnerabilityCounters) Add(counters *VulnerabilityCounters) {
 	c.All += counters.All
 	c.Relevant += counters.Relevant
@@ -187,6 +244,16 @@ func (s *SeveritySummary) Add(severities *SeveritySummary) {
 	s.Low.Add(&severities.Low)
 	s.Negligible.Add(&severities.Negligible)
 	s.Unknown.Add(&severities.Unknown)
+}
+
+func (v *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSummary) {
+	v.Spec.Severities.Add(&vulnManifestSumm.Spec.Severities)
+	workloadVulnerabilitiesObj := VulnerabilitiesObjScope{
+		Name:      vulnManifestSumm.Name,
+		Namespace: vulnManifestSumm.Namespace,
+		Kind:      "vulnerabilitymanifestsummary",
+	}
+	v.Spec.WorkloadVulnerabilitiesObj = append(v.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
 }
 
 // +genclient

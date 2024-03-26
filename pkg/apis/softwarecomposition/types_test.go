@@ -4,7 +4,143 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func Test_VulnerabilitySummaryMerge(t *testing.T) {
+	tests := []struct {
+		fullVulnSumm         *VulnerabilitySummary
+		vulnManifestSumm     *VulnerabilityManifestSummary
+		expectedFullVulnSumm *VulnerabilitySummary
+	}{
+		{
+			fullVulnSumm: &VulnerabilitySummary{
+				Spec: VulnerabilitySummarySpec{
+					Severities: SeveritySummary{
+						Critical: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						High: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Medium: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Low: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Negligible: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Unknown: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+					},
+					WorkloadVulnerabilitiesObj: []VulnerabilitiesObjScope{},
+				},
+			},
+			vulnManifestSumm: &VulnerabilityManifestSummary{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "aaa",
+					Namespace: "bbb",
+				},
+				TypeMeta: v1.TypeMeta{
+					Kind: "vulnerabilitymanifestsummary",
+				},
+				Spec: VulnerabilityManifestSummarySpec{
+					Severities: SeveritySummary{
+						Critical: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						High: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Medium: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Low: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Negligible: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+						Unknown: VulnerabilityCounters{
+							All:      10,
+							Relevant: 3,
+						},
+					},
+					Vulnerabilities: VulnerabilitiesComponents{
+						ImageVulnerabilitiesObj: VulnerabilitiesObjScope{
+							Name:      "aaa",
+							Namespace: "bbb",
+							Kind:      "any",
+						},
+						WorkloadVulnerabilitiesObj: VulnerabilitiesObjScope{
+							Name:      "ccc",
+							Namespace: "ddd",
+							Kind:      "many",
+						},
+					},
+				},
+			},
+			expectedFullVulnSumm: &VulnerabilitySummary{
+				Spec: VulnerabilitySummarySpec{
+					Severities: SeveritySummary{
+						Critical: VulnerabilityCounters{
+							All:      20,
+							Relevant: 6,
+						},
+						High: VulnerabilityCounters{
+							All:      20,
+							Relevant: 6,
+						},
+						Medium: VulnerabilityCounters{
+							All:      20,
+							Relevant: 6,
+						},
+						Low: VulnerabilityCounters{
+							All:      20,
+							Relevant: 6,
+						},
+						Negligible: VulnerabilityCounters{
+							All:      20,
+							Relevant: 6,
+						},
+						Unknown: VulnerabilityCounters{
+							All:      20,
+							Relevant: 6,
+						},
+					},
+					WorkloadVulnerabilitiesObj: []VulnerabilitiesObjScope{
+						VulnerabilitiesObjScope{
+							Name:      "aaa",
+							Namespace: "bbb",
+							Kind:      "vulnerabilitymanifestsummary",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			tt.fullVulnSumm.Merge(tt.vulnManifestSumm)
+			assert.Equal(t, tt.expectedFullVulnSumm, tt.fullVulnSumm)
+		})
+	}
+}
 
 func Test_VulnerabilityCountersAdd(t *testing.T) {
 	tests := []struct {

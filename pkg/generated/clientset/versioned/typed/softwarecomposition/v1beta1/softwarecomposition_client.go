@@ -40,6 +40,8 @@ type SpdxV1beta1Interface interface {
 	SBOMSyftsGetter
 	SBOMSyftFilteredsGetter
 	VulnerabilityManifestsGetter
+	VulnerabilityManifestSummariesGetter
+	VulnerabilitySummariesGetter
 	WorkloadConfigurationScansGetter
 	WorkloadConfigurationScanSummariesGetter
 }
@@ -95,6 +97,14 @@ func (c *SpdxV1beta1Client) SBOMSyftFiltereds(namespace string) SBOMSyftFiltered
 
 func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) VulnerabilityManifestInterface {
 	return newVulnerabilityManifests(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) VulnerabilityManifestSummaries(namespace string) VulnerabilityManifestSummaryInterface {
+	return newVulnerabilityManifestSummaries(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) VulnerabilitySummaries(namespace string) VulnerabilitySummaryInterface {
+	return newVulnerabilitySummaries(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) WorkloadConfigurationScans(namespace string) WorkloadConfigurationScanInterface {

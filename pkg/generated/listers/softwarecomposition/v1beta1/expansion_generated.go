@@ -114,6 +114,22 @@ type VulnerabilityManifestListerExpansion interface{}
 // VulnerabilityManifestNamespaceLister.
 type VulnerabilityManifestNamespaceListerExpansion interface{}
 
+// VulnerabilityManifestSummaryListerExpansion allows custom methods to be added to
+// VulnerabilityManifestSummaryLister.
+type VulnerabilityManifestSummaryListerExpansion interface{}
+
+// VulnerabilityManifestSummaryNamespaceListerExpansion allows custom methods to be added to
+// VulnerabilityManifestSummaryNamespaceLister.
+type VulnerabilityManifestSummaryNamespaceListerExpansion interface{}
+
+// VulnerabilitySummaryListerExpansion allows custom methods to be added to
+// VulnerabilitySummaryLister.
+type VulnerabilitySummaryListerExpansion interface{}
+
+// VulnerabilitySummaryNamespaceListerExpansion allows custom methods to be added to
+// VulnerabilitySummaryNamespaceLister.
+type VulnerabilitySummaryNamespaceListerExpansion interface{}
+
 // WorkloadConfigurationScanListerExpansion allows custom methods to be added to
 // WorkloadConfigurationScanLister.
 type WorkloadConfigurationScanListerExpansion interface{}
