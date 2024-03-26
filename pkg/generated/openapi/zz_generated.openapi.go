@@ -182,8 +182,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestReportMeta":            schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestReportMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSpec":                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus":                schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummary":               schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummaryList":           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummaryList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummarySpec":           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestToolMeta":              schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestToolMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata":                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummary":                       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryList":                   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummarySpec":                   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryStatus":                 schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScan":                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScan(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanList":              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary": schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref),
@@ -7100,6 +7107,129 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilityManifestSummary is a summary of a VulnerabilityManifests.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummarySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummarySpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummaryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilityManifestSummaryList is a list of VulnerabilityManifest summaries.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummary"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummary", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"severities": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary"),
+						},
+					},
+					"vulnerabilitiesRef": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents"),
+						},
+					},
+				},
+				Required: []string{"severities", "vulnerabilitiesRef"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestToolMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7206,6 +7336,146 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref commo
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilitySummary is a summary of a vulnerabilities for a given scope.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummarySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummarySpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilitySummaryList is a list of VulnerabilitySummary.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummary"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummary", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"severities": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary"),
+						},
+					},
+					"vulnerabilitiesRef": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"severities", "vulnerabilitiesRef"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 

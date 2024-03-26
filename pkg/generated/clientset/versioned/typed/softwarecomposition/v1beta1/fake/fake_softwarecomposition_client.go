@@ -76,6 +76,14 @@ func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.Vulne
 	return &FakeVulnerabilityManifests{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) VulnerabilityManifestSummaries(namespace string) v1beta1.VulnerabilityManifestSummaryInterface {
+	return &FakeVulnerabilityManifestSummaries{c, namespace}
+}
+
+func (c *FakeSpdxV1beta1) VulnerabilitySummaries(namespace string) v1beta1.VulnerabilitySummaryInterface {
+	return &FakeVulnerabilitySummaries{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) WorkloadConfigurationScans(namespace string) v1beta1.WorkloadConfigurationScanInterface {
 	return &FakeWorkloadConfigurationScans{c, namespace}
 }

@@ -38,9 +38,9 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	"sbomsyft":                            deleteByImageId,
 	"sbomsummaries":                       deleteDeprecated,
 	"vulnerabilitymanifests":              deleteByImageIdOrInstanceId,
-	"vulnerabilitymanifestsummaries":      deleteDeprecated,
+	"vulnerabilitymanifestsummaries":      deleteByWlidAndContainer,
 	"workloadconfigurationscans":          deleteByWlid,
-	"workloadconfigurationscansummaries":  deleteDeprecated,
+	"workloadconfigurationscansummaries":  deleteByWlid,
 }
 
 type ResourcesCleanupHandler struct {

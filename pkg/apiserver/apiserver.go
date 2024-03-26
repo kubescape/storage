@@ -38,10 +38,14 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	sbomspdxv2p3storage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3"
 	sbomspdxv2p3filteredstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3filtered"
 	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
+	vmsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifestsummary"
+	vsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitysummary"
 	wcsstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscans"
+	wcssumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscansummary"
 	"github.com/spf13/afero"
 )
 
@@ -144,6 +148,8 @@ func (c completedConfig) New() (*WardleServer, error) {
 	storageImpl := file.NewStorageImpl(osFs, file.DefaultStorageRoot)
 
 	applicationProfileStorageImpl := file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.ApplicationProfileProcessor{})
+	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(&storageImpl)
+	vulnerabilitySummaryStorage := file.NewVulnerabilitySummaryStorage(&storageImpl)
 	generatedNetworkPolicyStorage := file.NewGeneratedNetworkPolicyStorage(&storageImpl)
 
 	v1beta1storage := map[string]rest.Storage{}
@@ -152,8 +158,13 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["sbomspdxv2p3filtereds"] = sbomregistry.RESTInPeace(sbomspdxv2p3filteredstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["vulnerabilitymanifestsummaries"] = sbomregistry.RESTInPeace(vmsumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	v1beta1storage["workloadconfigurationscans"] = sbomregistry.RESTInPeace(wcsstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["workloadconfigurationscansummaries"] = sbomregistry.RESTInPeace(wcssumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+
+	v1beta1storage["configurationscansummaries"] = sbomregistry.RESTInPeace(configurationscansummary.NewREST(Scheme, configScanStorageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["vulnerabilitysummaries"] = sbomregistry.RESTInPeace(vsumstorage.NewREST(Scheme, vulnerabilitySummaryStorage, c.GenericConfig.RESTOptionsGetter))
 
 	v1beta1storage["applicationprofiles"] = sbomregistry.RESTInPeace(applicationprofile.NewREST(Scheme, applicationProfileStorageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["applicationactivities"] = sbomregistry.RESTInPeace(applicationactivity.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
