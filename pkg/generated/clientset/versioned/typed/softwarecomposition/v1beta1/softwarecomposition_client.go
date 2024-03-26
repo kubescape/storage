@@ -31,10 +31,15 @@ type SpdxV1beta1Interface interface {
 	ApplicationActivitiesGetter
 	ApplicationProfilesGetter
 	ConfigurationScanSummariesGetter
+	ControlsGetter
+	ControlConfigurationsGetter
+	ExceptionsGetter
+	FrameworksGetter
 	GeneratedNetworkPoliciesGetter
 	KnownServersGetter
 	NetworkNeighborsesGetter
 	OpenVulnerabilityExchangeContainersGetter
+	RulesGetter
 	SBOMSPDXv2p3sGetter
 	SBOMSPDXv2p3FilteredsGetter
 	SBOMSyftsGetter
@@ -63,6 +68,22 @@ func (c *SpdxV1beta1Client) ConfigurationScanSummaries(namespace string) Configu
 	return newConfigurationScanSummaries(c, namespace)
 }
 
+func (c *SpdxV1beta1Client) Controls(namespace string) ControlInterface {
+	return newControls(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) ControlConfigurations(namespace string) ControlConfigurationInterface {
+	return newControlConfigurations(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) Exceptions(namespace string) ExceptionInterface {
+	return newExceptions(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) Frameworks(namespace string) FrameworkInterface {
+	return newFrameworks(c, namespace)
+}
+
 func (c *SpdxV1beta1Client) GeneratedNetworkPolicies(namespace string) GeneratedNetworkPolicyInterface {
 	return newGeneratedNetworkPolicies(c, namespace)
 }
@@ -77,6 +98,10 @@ func (c *SpdxV1beta1Client) NetworkNeighborses(namespace string) NetworkNeighbor
 
 func (c *SpdxV1beta1Client) OpenVulnerabilityExchangeContainers(namespace string) OpenVulnerabilityExchangeContainerInterface {
 	return newOpenVulnerabilityExchangeContainers(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) Rules(namespace string) RuleInterface {
+	return newRules(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) SBOMSPDXv2p3s(namespace string) SBOMSPDXv2p3Interface {
