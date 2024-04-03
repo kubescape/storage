@@ -107,6 +107,16 @@ go build -v ./...
 go test -v -failfast -count=1 ./...
 ```
 
+### Storage operations
+
+During storage operations there are several opportunities to either reject the request or modify the stored object before it is written.
+
+Each type of operation (Create/Update/Delete) has its own set of functions that will run in the lifecycle of the request.
+
+These functions are declared in `pkg/registry/softwarecomposition/<type>/strategy.go`
+
+Read more about each function and its use [here](https://github.com/kubernetes-sigs/apiserver-builder-alpha/blob/master/docs/concepts/api_building_overview.md#storage-operations)
+
 ### Authentication plugins
 
 The normal build supports only a very spare selection of
