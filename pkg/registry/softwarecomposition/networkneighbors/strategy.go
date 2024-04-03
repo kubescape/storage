@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/utils"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,11 +55,32 @@ func (networkNeighborsStrategy) NamespaceScoped() bool {
 func (networkNeighborsStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 }
 
-func (networkNeighborsStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (s networkNeighborsStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+	newNN := obj.(*softwarecomposition.NetworkNeighbors)
+	oldNN := old.(*softwarecomposition.NetworkNeighbors)
+
+	// completion status cannot be transitioned from 'complete' -> 'partial'
+	// in such case, we reject status updates
+	if oldNN.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && newNN.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
+		newNN.Annotations[helpers.CompletionMetadataKey] = helpers.Complete
+		newNN.Annotations[helpers.StatusMetadataKey] = oldNN.Annotations[helpers.StatusMetadataKey]
+	}
 }
 
 func (networkNeighborsStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+	nn := obj.(*softwarecomposition.NetworkNeighbors)
+
+	allErrors := field.ErrorList{}
+
+	if err := utils.ValidateCompletionAnnotation(nn.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	if err := utils.ValidateStatusAnnotation(nn.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	return allErrors
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
@@ -77,7 +100,19 @@ func (networkNeighborsStrategy) Canonicalize(obj runtime.Object) {
 }
 
 func (networkNeighborsStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+	nn := obj.(*softwarecomposition.NetworkNeighbors)
+
+	allErrors := field.ErrorList{}
+
+	if err := utils.ValidateCompletionAnnotation(nn.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	if err := utils.ValidateStatusAnnotation(nn.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	return allErrors
 }
 
 // WarningsOnUpdate returns warnings for the given update.

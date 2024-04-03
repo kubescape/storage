@@ -12,7 +12,9 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/utils"
 )
 
 // NewStrategy creates and returns a applicationProfileStrategy instance
@@ -57,10 +59,31 @@ func (applicationProfileStrategy) PrepareForCreate(ctx context.Context, obj runt
 }
 
 func (applicationProfileStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+	newAP := obj.(*softwarecomposition.ApplicationProfile)
+	oldAP := old.(*softwarecomposition.ApplicationProfile)
+
+	// completion status cannot be transitioned from 'complete' -> 'partial'
+	// in such case, we reject status updates
+	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && newAP.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
+		newAP.Annotations[helpers.CompletionMetadataKey] = helpers.Complete
+		newAP.Annotations[helpers.StatusMetadataKey] = oldAP.Annotations[helpers.StatusMetadataKey]
+	}
 }
 
 func (applicationProfileStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+	ap := obj.(*softwarecomposition.ApplicationProfile)
+
+	allErrors := field.ErrorList{}
+
+	if err := utils.ValidateCompletionAnnotation(ap.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	if err := utils.ValidateStatusAnnotation(ap.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	return allErrors
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
@@ -80,7 +103,19 @@ func (applicationProfileStrategy) Canonicalize(obj runtime.Object) {
 }
 
 func (applicationProfileStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+	ap := obj.(*softwarecomposition.ApplicationProfile)
+
+	allErrors := field.ErrorList{}
+
+	if err := utils.ValidateCompletionAnnotation(ap.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	if err := utils.ValidateStatusAnnotation(ap.Annotations); err != nil {
+		allErrors = append(allErrors, err)
+	}
+
+	return allErrors
 }
 
 // WarningsOnUpdate returns warnings for the given update.
