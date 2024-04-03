@@ -28,5 +28,4 @@ func ValidateStatusAnnotation(annotations map[string]string) *field.Error {
 	}
 
 	return nil
-
 }

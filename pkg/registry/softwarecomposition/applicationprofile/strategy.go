@@ -66,7 +66,12 @@ func (applicationProfileStrategy) PrepareForUpdate(ctx context.Context, obj, old
 	// in such case, we reject status updates
 	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && newAP.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
 		newAP.Annotations[helpers.CompletionMetadataKey] = helpers.Complete
-		newAP.Annotations[helpers.StatusMetadataKey] = oldAP.Annotations[helpers.StatusMetadataKey]
+
+		if v, ok := oldAP.Annotations[helpers.StatusMetadataKey]; ok {
+			newAP.Annotations[helpers.StatusMetadataKey] = v
+		} else {
+			delete(newAP.Annotations, helpers.StatusMetadataKey)
+		}
 	}
 }
 

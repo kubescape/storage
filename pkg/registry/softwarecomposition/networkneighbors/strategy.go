@@ -63,7 +63,12 @@ func (s networkNeighborsStrategy) PrepareForUpdate(ctx context.Context, obj, old
 	// in such case, we reject status updates
 	if oldNN.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && newNN.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
 		newNN.Annotations[helpers.CompletionMetadataKey] = helpers.Complete
-		newNN.Annotations[helpers.StatusMetadataKey] = oldNN.Annotations[helpers.StatusMetadataKey]
+
+		if v, ok := oldNN.Annotations[helpers.StatusMetadataKey]; ok {
+			newNN.Annotations[helpers.StatusMetadataKey] = v
+		} else {
+			delete(newNN.Annotations, helpers.StatusMetadataKey)
+		}
 	}
 }
 
