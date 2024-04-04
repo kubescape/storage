@@ -33,7 +33,7 @@ func TestPrepareForUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "transition from complete to partial - accepted",
+			name: "transition from partial (with status) to complete - accepted",
 			oldAnnotations: map[string]string{
 				helpers.CompletionMetadataKey: "partial",
 				helpers.StatusMetadataKey:     "initializing",
@@ -48,7 +48,7 @@ func TestPrepareForUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "transition from partial to complete - accepted",
+			name: "transition from partial (without status) to complete - accepted",
 			oldAnnotations: map[string]string{
 				helpers.CompletionMetadataKey: "partial",
 			},

@@ -2,8 +2,6 @@ package utils
 
 import (
 	"testing"
-
-	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 )
 
 func TestValidateStatusAnnotation(t *testing.T) {
@@ -51,7 +49,7 @@ func TestValidateStatusAnnotation(t *testing.T) {
 		},
 		{
 			name:        "invalid status",
-			annotations: map[string]string{helpers.StatusMetadataKey: "invalid"},
+			annotations: map[string]string{"kubescape.io/status": "invalid"},
 			wantErr:     true,
 		},
 		{
@@ -89,7 +87,7 @@ func TestValidateCompletionAnnotation(t *testing.T) {
 		},
 		{
 			name:        "invalid completion",
-			annotations: map[string]string{helpers.CompletionMetadataKey: "invalid"},
+			annotations: map[string]string{"kubescape.io/completion": "invalid"},
 			wantErr:     true,
 		},
 		{
