@@ -268,8 +268,9 @@ type ApplicationProfile struct {
 }
 
 type ApplicationProfileSpec struct {
-	Containers     []ApplicationProfileContainer
-	InitContainers []ApplicationProfileContainer
+	Containers          []ApplicationProfileContainer
+	InitContainers      []ApplicationProfileContainer
+	EphemeralContainers []ApplicationProfileContainer
 }
 
 type ApplicationProfileContainer struct {

@@ -248,6 +248,9 @@ type ApplicationProfileSpec struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	InitContainers []ApplicationProfileContainer `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	EphemeralContainers []ApplicationProfileContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
 type ApplicationProfileContainer struct {
