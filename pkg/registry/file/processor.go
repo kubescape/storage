@@ -2,11 +2,12 @@ package file
 
 import (
 	"fmt"
+	"strconv"
+
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
-	"strconv"
 )
 
 type Processor interface {
@@ -46,7 +47,8 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 		return containers
 	}
 
-	// Use the function for both InitContainers and Containers
+	// Use the function for InitContainers, EphemeralContainers and Containers
+	profile.Spec.EphemeralContainers = processContainers(profile.Spec.EphemeralContainers)
 	profile.Spec.InitContainers = processContainers(profile.Spec.InitContainers)
 	profile.Spec.Containers = processContainers(profile.Spec.Containers)
 

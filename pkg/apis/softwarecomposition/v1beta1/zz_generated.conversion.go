@@ -1989,6 +1989,7 @@ func Convert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationPr
 func autoConvert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(in *ApplicationProfileSpec, out *softwarecomposition.ApplicationProfileSpec, s conversion.Scope) error {
 	out.Containers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.Containers))
 	out.InitContainers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.InitContainers))
+	out.EphemeralContainers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.EphemeralContainers))
 	return nil
 }
 
@@ -2000,6 +2001,7 @@ func Convert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationPr
 func autoConvert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(in *softwarecomposition.ApplicationProfileSpec, out *ApplicationProfileSpec, s conversion.Scope) error {
 	out.Containers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.Containers))
 	out.InitContainers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.InitContainers))
+	out.EphemeralContainers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.EphemeralContainers))
 	return nil
 }
 

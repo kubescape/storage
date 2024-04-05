@@ -295,6 +295,13 @@ func (in *ApplicationProfileSpec) DeepCopyInto(out *ApplicationProfileSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.EphemeralContainers != nil {
+		in, out := &in.EphemeralContainers, &out.EphemeralContainers
+		*out = make([]ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

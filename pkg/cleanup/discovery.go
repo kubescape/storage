@@ -139,6 +139,21 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
 			}
 
+			ephemeralC, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "ephemeralContainers")...)
+			if !ok {
+				continue
+			}
+			ephemralContainers := ephemeralC.([]interface{})
+			for _, container := range ephemralContainers {
+				name, ok := workloadinterface.InspectMap(container, "name")
+				if !ok {
+					logger.L().Debug("container has no name", helpers.String("resource", resource))
+					continue
+				}
+				nameStr := name.(string)
+				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
+			}
+
 		}
 	}
 	return nil
@@ -185,6 +200,20 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(re
 		}
 		initContainers := initC.([]interface{})
 		for _, cs := range initContainers {
+			containerImageId, ok := workloadinterface.InspectMap(cs, "imageID")
+			if !ok {
+				continue
+			}
+			imageIdStr := containerImageId.(string)
+			resourceMaps.RunningContainerImageIds.Add(imageIdStr)
+		}
+
+		ephemeralC, ok := workloadinterface.InspectMap(p.Object, "status", "ephemeralContainerStatuses")
+		if !ok {
+			continue
+		}
+		ephemeralContainers := ephemeralC.([]interface{})
+		for _, cs := range ephemeralContainers {
 			containerImageId, ok := workloadinterface.InspectMap(cs, "imageID")
 			if !ok {
 				continue

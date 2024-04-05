@@ -2,12 +2,13 @@ package file
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"testing"
 )
 
 func TestApplicationProfileProcessor_PreSave(t *testing.T) {
@@ -18,12 +19,20 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			name: "ApplicationProfile with initContainers",
+			name: "ApplicationProfile with initContainers and ephemeralContainers",
 			object: &softwarecomposition.ApplicationProfile{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
 				Spec: softwarecomposition.ApplicationProfileSpec{
+					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name: "ephemeralContainer",
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/bin/bash", Args: []string{"-c", "echo abc"}},
+							},
+						},
+					},
 					InitContainers: []softwarecomposition.ApplicationProfileContainer{
 						{
 							Name: "initContainer",
@@ -56,10 +65,20 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 			want: &softwarecomposition.ApplicationProfile{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						helpers.ResourceSizeMetadataKey: "5",
+						helpers.ResourceSizeMetadataKey: "6",
 					},
 				},
 				Spec: softwarecomposition.ApplicationProfileSpec{
+					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name:         "ephemeralContainer",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/bin/bash", Args: []string{"-c", "echo abc"}},
+							},
+							Syscalls: []string{},
+						},
+					},
 					InitContainers: []softwarecomposition.ApplicationProfileContainer{
 						{
 							Name:         "initContainer",
