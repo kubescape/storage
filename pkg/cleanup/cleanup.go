@@ -29,6 +29,7 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	"applicationprofiles":                 deleteByTemplateHashOrWlid,
 	"applicationprofilesummaries":         deleteDeprecated,
 	"networkneighborses":                  deleteByWlid,
+	"networkneighborhoods":                deleteByTemplateHashOrWlid,
 	"openvulnerabilityexchangecontainers": deleteByImageId,
 	"sbomspdxv2p3filtereds":               deleteDeprecated,
 	"sbomspdxv2p3filtered":                deleteDeprecated,
