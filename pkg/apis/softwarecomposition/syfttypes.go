@@ -323,6 +323,7 @@ func unpackPkgMetadata(p *SyftPackage, unpacker packageMetadataUnpacker) error {
 			ty = "rust-cargo-audit-entry"
 		}
 	}
+	p.MetadataType = ty
 
 	typ := packagemetadata.ReflectTypeFromJSONName(ty)
 	if typ == nil {
