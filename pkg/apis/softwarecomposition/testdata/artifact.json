@@ -1,0 +1,617 @@
+{
+    "id": "8a49897e59f569c2",
+    "name": "adduser",
+    "version": "3.134",
+    "type": "deb",
+    "foundBy": "dpkg-db-cataloger",
+    "locations": [
+        {
+            "path": "/usr/share/doc/adduser/copyright",
+            "layerID": "sha256:730b9522f949b7d691cf82395a311ffe8fbf2d9d18fac0a1a06f3697f12aad55",
+            "accessPath": "/usr/share/doc/adduser/copyright",
+            "annotations": {
+                "evidence": "supporting"
+            }
+        },
+        {
+            "path": "/var/lib/dpkg/info/adduser.conffiles",
+            "layerID": "sha256:730b9522f949b7d691cf82395a311ffe8fbf2d9d18fac0a1a06f3697f12aad55",
+            "accessPath": "/var/lib/dpkg/info/adduser.conffiles",
+            "annotations": {
+                "evidence": "supporting"
+            }
+        },
+        {
+            "path": "/var/lib/dpkg/info/adduser.md5sums",
+            "layerID": "sha256:730b9522f949b7d691cf82395a311ffe8fbf2d9d18fac0a1a06f3697f12aad55",
+            "accessPath": "/var/lib/dpkg/info/adduser.md5sums",
+            "annotations": {
+                "evidence": "supporting"
+            }
+        },
+        {
+            "path": "/var/lib/dpkg/status",
+            "layerID": "sha256:730b9522f949b7d691cf82395a311ffe8fbf2d9d18fac0a1a06f3697f12aad55",
+            "accessPath": "/var/lib/dpkg/status",
+            "annotations": {
+                "evidence": "primary"
+            }
+        }
+    ],
+    "licenses": [
+        {
+            "value": "GPL-2",
+            "spdxExpression": "GPL-2.0-only",
+            "type": "declared",
+            "urls": [],
+            "locations": [
+                {
+                    "path": "/usr/share/doc/adduser/copyright",
+                    "layerID": "sha256:730b9522f949b7d691cf82395a311ffe8fbf2d9d18fac0a1a06f3697f12aad55",
+                    "accessPath": "/usr/share/doc/adduser/copyright"
+                }
+            ]
+        },
+        {
+            "value": "GPL-2+",
+            "spdxExpression": "GPL-2.0-or-later",
+            "type": "declared",
+            "urls": [],
+            "locations": [
+                {
+                    "path": "/usr/share/doc/adduser/copyright",
+                    "layerID": "sha256:730b9522f949b7d691cf82395a311ffe8fbf2d9d18fac0a1a06f3697f12aad55",
+                    "accessPath": "/usr/share/doc/adduser/copyright"
+                }
+            ]
+        }
+    ],
+    "language": "",
+    "cpes": [
+        "cpe:2.3:a:adduser:adduser:3.134:*:*:*:*:*:*:*"
+    ],
+    "purl": "pkg:deb/debian/adduser@3.134?arch=all\u0026distro=debian-12",
+    "metadataType": "dpkg-db-entry",
+    "metadata": {
+        "package": "adduser",
+        "source": "",
+        "version": "3.134",
+        "sourceVersion": "",
+        "architecture": "all",
+        "maintainer": "Debian Adduser Developers \u003cadduser@packages.debian.org\u003e",
+        "installedSize": 686,
+        "depends": [
+            "passwd"
+        ],
+        "files": [
+            {
+                "path": "/etc/adduser.conf",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "cc3493ecd2d09837ffdcc3e25fdfff18"
+                },
+                "isConfigFile": true
+            },
+            {
+                "path": "/etc/deluser.conf",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "11a06baf8245fd8d690b99024d228c1f"
+                },
+                "isConfigFile": true
+            },
+            {
+                "path": "/usr/sbin/adduser",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "2ba08fece3b3434a669f3c529bbea383"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/sbin/deluser",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "808647b72aa26222070ae241158f22bf"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/NEWS.Debian.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "0091c90861f50e7be138d37764779d22"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/README.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "30b17d2e2e9c784208f01d130f196864"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/TODO",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "a4537699e4951748913a3d3e212be34e"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/changelog.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "30bb154dfdc69a2c0ff31ec465681b39"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/copyright",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "ad1acbe264ddc19bf4f50095c1ca50e5"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/INSTALL",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "55f158219a06612fcb6d35952d1b95f2"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/README",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "ff484e503a7f8b0d6f62e8bfda86c0a2"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.conf",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "cc3493ecd2d09837ffdcc3e25fdfff18"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "04bf7a834a790dbcf91d9126ec2a93bf"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local.conf",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "51367088cb922ab47b652cad2fdf1ed1"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local.conf.examples/bash.bashrc",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "7a0388cf3e93997d82f705c29c90892a"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local.conf.examples/profile",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "c4869bc559365ab84733b15280332ae9"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local.conf.examples/skel.other/index.html",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "82589559808bbaade90a966287e51627"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local.conf.examples/skel/dot.bash_logout",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "95c9c80ac808659d74ec72d7bd86a118"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local.conf.examples/skel/dot.bash_profile",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "7e25a53e7588cdb05870608583b05b19"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/adduser.local.conf.examples/skel/dot.bashrc",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "6f2fe654cd11a739ba9fb6a9f13881fe"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/doc/adduser/examples/deluser.conf",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "11a06baf8245fd8d690b99024d228c1f"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/ca/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "b702b3ed20154b001d1b2375ec7e488f"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/cs/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "0ca2951f2ef978d48c1f7f1ce153f5e8"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/da/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "961b561f85178991cc846cd50571799b"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/de/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "1c47fa9200cb5cce8b9d8c1ed2345ed8"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/es/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "3b3cba03fcb342b5abfa8bca5afec4df"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/eu/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "2d4b6195cf6ba1d3a33c5bf55b6ecf3c"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/fr/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "6c4ab5ed96290a2477b457889d68b081"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/gl/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "6d7d3d40c026e6389aeb5c2f7e2ad043"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/hu/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "50b5a14c95b5a85b8ef249146556dcbb"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/it/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "74d23efa1335e149d0b07ad464765afd"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/ja/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "16eae53fcaa3879d6c2cb1b23e392cea"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/ko/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "3e064773563de4e35534e73bc92ebf68"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/nb/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "d88de4925b4da406cd560f57ba4b1ce2"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/nl/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "fdaa7ffe6cadbc41f6a6e7138bd3af5d"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/pl/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "c8295a7067aa3fda053d3f57d4a4ade2"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/pt/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "e1c98d35dac5ca0e73b3a7e225bc7920"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/pt_BR/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "f1642f13df692ea16e96f6f61f86443d"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/ru/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "f16bf5c78b024661e685304cc84eb322"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/sk/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "0b4f60e88db1d73b2f4bc3e3fcd71c4d"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/sv/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "6069303f3206caed75ef429164a5c29a"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/uk/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "b13acd3c3039b256184446a35075679a"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/vi/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "a99328519237e94580cbfd2a18d0834c"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/locale/zh_CN/LC_MESSAGES/adduser.mo",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "b62097a2043612a43b7de5bd2ef6ce78"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/de/man5/adduser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "279bc4b2fcee033a51226d002a619bbd"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/de/man5/deluser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "4be1449aa85465c1d1e1c230bcb65dd0"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/de/man8/adduser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "1f6de0932af4b53ad2e2b3dbc67eda78"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/de/man8/deluser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "0c139260599a1fbe30dda5bf13735765"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/fr/man5/adduser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "f9f06923354ca40ac5a4153133400df3"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/fr/man5/deluser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "3f0b00c3117649f32d4ae2fd4b8f2635"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/fr/man8/adduser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "44703ebd828a02000329a9fb78336eb3"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/fr/man8/deluser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "8c743ace7c9fec6fd736f340285187fe"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/man5/adduser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "72d8a98aca954db1e307f0af4d0e0741"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/man5/deluser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "d77325d2847f9445a98505ed6258cfbc"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/man8/adduser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "ca2b03a3887d2ef87cdaf01d5e249ba1"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/man8/adduser.local.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "205bd0d71b8575d75e1169b4d21a4b38"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/man8/deluser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "bd68f00caa2c02cdb17cbefca0983a1f"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/nl/man5/adduser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "298d0b083299fd5aac8d8e823aeef531"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/nl/man5/deluser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "573812c7b0bdb53be8810adf5a8bca04"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/nl/man8/adduser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "d66066537e31f55b9f68b5ceabc2bb5c"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/nl/man8/deluser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "86c181cd2cd77fe92165ce54088b1fcd"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/pt/man5/adduser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "f12ac762e03c1ce1f858e141142424a2"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/pt/man5/deluser.conf.5.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "bcb31d0138c1d3feed06cf9153a9302a"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/pt/man8/adduser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "21910b8714511335642c53ec92a3e2e0"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/man/pt/man8/deluser.8.gz",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "dfee1fa5f7449c26b3cf7289321309f5"
+                },
+                "isConfigFile": false
+            },
+            {
+                "path": "/usr/share/perl5/Debian/AdduserCommon.pm",
+                "digest": {
+                    "algorithm": "md5",
+                    "value": "840faf09c56199b8c10c4ef15e376224"
+                },
+                "isConfigFile": false
+            }
+        ]
+    }
+}
