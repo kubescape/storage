@@ -48,6 +48,10 @@ func (c *FakeSpdxV1beta1) KnownServers(namespace string) v1beta1.KnownServerInte
 	return &FakeKnownServers{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) NetworkNeighborhoods(namespace string) v1beta1.NetworkNeighborhoodInterface {
+	return &FakeNetworkNeighborhoods{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) NetworkNeighborses(namespace string) v1beta1.NetworkNeighborsInterface {
 	return &FakeNetworkNeighborses{c, namespace}
 }

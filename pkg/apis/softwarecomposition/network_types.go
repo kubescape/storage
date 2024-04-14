@@ -19,6 +19,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // NetworkNeighborsList is a list of NetworkNeighbors.
+// DEPRECATED - use NetworkNeighborhoodList instead.
 type NetworkNeighborsList struct {
 	metav1.TypeMeta
 	metav1.ListMeta
@@ -30,6 +31,7 @@ type NetworkNeighborsList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // NetworkNeighbors represents a list of network communications for a specific workload.
+// DEPRECATED - use NetworkNeighborhood instead.
 type NetworkNeighbors struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
@@ -43,11 +45,46 @@ type NetworkNeighborsSpec struct {
 	Egress               []NetworkNeighbor
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
+type NetworkNeighborhoodList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []NetworkNeighborhood
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NetworkNeighborhood represents a list of network communications for a specific workload.
+type NetworkNeighborhood struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec NetworkNeighborhoodSpec
+}
+
+type NetworkNeighborhoodSpec struct {
+	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
+	Containers           []NetworkNeighborhoodContainer
+	InitContainers       []NetworkNeighborhoodContainer
+	EphemeralContainers  []NetworkNeighborhoodContainer
+}
+
+type NetworkNeighborhoodContainer struct {
+	Name    string
+	Ingress []NetworkNeighbor
+	Egress  []NetworkNeighbor
+}
+
 // NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighbor struct {
 	Identifier        string
 	Type              CommunicationType
-	DNS               string
+	DNS               string // DEPRECATED - use DNSNames instead.
+	DNSNames          []string
 	Ports             []NetworkPort
 	PodSelector       *metav1.LabelSelector
 	NamespaceSelector *metav1.LabelSelector
@@ -62,6 +99,10 @@ type NetworkPort struct {
 	Name     string // protocol-port
 	Protocol Protocol
 	Port     *int32
+}
+
+func (p NetworkPort) String() string {
+	return p.Name
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

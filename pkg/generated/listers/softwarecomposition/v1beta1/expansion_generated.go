@@ -58,6 +58,14 @@ type KnownServerListerExpansion interface{}
 // KnownServerNamespaceLister.
 type KnownServerNamespaceListerExpansion interface{}
 
+// NetworkNeighborhoodListerExpansion allows custom methods to be added to
+// NetworkNeighborhoodLister.
+type NetworkNeighborhoodListerExpansion interface{}
+
+// NetworkNeighborhoodNamespaceListerExpansion allows custom methods to be added to
+// NetworkNeighborhoodNamespaceLister.
+type NetworkNeighborhoodNamespaceListerExpansion interface{}
+
 // NetworkNeighborsListerExpansion allows custom methods to be added to
 // NetworkNeighborsLister.
 type NetworkNeighborsListerExpansion interface{}

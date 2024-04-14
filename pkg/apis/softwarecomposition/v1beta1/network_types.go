@@ -19,6 +19,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // NetworkNeighborsList is a list of NetworkNeighbors.
+// DEPRECATED - use NetworkNeighborhoodList instead.
 type NetworkNeighborsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
@@ -30,6 +31,7 @@ type NetworkNeighborsList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // NetworkNeighbors represents a list of network communications for a specific workload.
+// DEPRECATED - use NetworkNeighborhood instead.
 type NetworkNeighbors struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
@@ -47,11 +49,46 @@ type NetworkNeighborsSpec struct {
 	Egress []NetworkNeighbor `json:"egress" patchStrategy:"merge" patchMergeKey:"identifier"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
+type NetworkNeighborhoodList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Items []NetworkNeighborhood `json:"items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NetworkNeighborhood represents a list of network communications for a specific workload.
+type NetworkNeighborhood struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	Spec NetworkNeighborhoodSpec `json:"spec"`
+}
+
+type NetworkNeighborhoodSpec struct {
+	metav1.LabelSelector `json:",inline"`
+	Containers           []NetworkNeighborhoodContainer `json:"containers"`
+	InitContainers       []NetworkNeighborhoodContainer `json:"initContainers"`
+	EphemeralContainers  []NetworkNeighborhoodContainer `json:"ephemeralContainers"`
+}
+
+type NetworkNeighborhoodContainer struct {
+	Name    string            `json:"name"`
+	Ingress []NetworkNeighbor `json:"ingress"`
+	Egress  []NetworkNeighbor `json:"egress"`
+}
+
 // NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighbor struct {
 	Identifier string            `json:"identifier"` // A unique identifier for this entry
 	Type       CommunicationType `json:"type"`
-	DNS        string            `json:"dns"`
+	DNS        string            `json:"dns"` // DEPRECATED - use DNSNames instead.
+	DNSNames   []string          `json:"dnsNames"`
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	Ports             []NetworkPort         `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`

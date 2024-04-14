@@ -22,6 +22,7 @@ import (
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	knownserver "github.com/kubescape/storage/pkg/registry/softwarecomposition/knownservers"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighborhood"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighbors"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/openvulnerabilityexchange"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyftfiltereds"
@@ -148,6 +149,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	storageImpl := file.NewStorageImpl(osFs, file.DefaultStorageRoot)
 
 	applicationProfileStorageImpl := file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.ApplicationProfileProcessor{})
+	networkNeighborhoodStorageImpl := file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.NetworkNeighborhoodProcessor{})
 	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(&storageImpl)
 	vulnerabilitySummaryStorage := file.NewVulnerabilitySummaryStorage(&storageImpl)
 	generatedNetworkPolicyStorage := file.NewGeneratedNetworkPolicyStorage(&storageImpl)
@@ -170,6 +172,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	v1beta1storage["applicationactivities"] = sbomregistry.RESTInPeace(applicationactivity.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	v1beta1storage["networkneighborses"] = sbomregistry.RESTInPeace(networkneighbors.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
+	v1beta1storage["networkneighborhoods"] = sbomregistry.RESTInPeace(networkneighborhood.NewREST(Scheme, networkNeighborhoodStorageImpl, c.GenericConfig.RESTOptionsGetter))
 	v1beta1storage["openvulnerabilityexchangecontainers"] = sbomregistry.RESTInPeace(openvulnerabilityexchange.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
 
 	v1beta1storage["generatednetworkpolicies"] = sbomregistry.RESTInPeace(generatednetworkpolicy.NewREST(Scheme, generatedNetworkPolicyStorage, c.GenericConfig.RESTOptionsGetter))

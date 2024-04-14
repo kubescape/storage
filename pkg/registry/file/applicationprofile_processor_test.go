@@ -76,6 +76,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 							Execs: []softwarecomposition.ExecCalls{
 								{Path: "/bin/bash", Args: []string{"-c", "echo abc"}},
 							},
+							Opens:    []softwarecomposition.OpenCalls{},
 							Syscalls: []string{},
 						},
 					},
@@ -86,6 +87,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 							Execs: []softwarecomposition.ExecCalls{
 								{Path: "/bin/bash", Args: []string{"-c", "echo hello"}},
 							},
+							Opens:    []softwarecomposition.OpenCalls{},
 							Syscalls: []string{},
 						},
 					},
@@ -97,6 +99,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
 								{Path: "/usr/bin/ls", Args: []string{"-l", "/home"}},
 							},
+							Opens:    []softwarecomposition.OpenCalls{},
 							Syscalls: []string{},
 						},
 						{

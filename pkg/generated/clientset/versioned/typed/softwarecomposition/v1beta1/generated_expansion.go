@@ -28,6 +28,8 @@ type GeneratedNetworkPolicyExpansion interface{}
 
 type KnownServerExpansion interface{}
 
+type NetworkNeighborhoodExpansion interface{}
+
 type NetworkNeighborsExpansion interface{}
 
 type OpenVulnerabilityExchangeContainerExpansion interface{}

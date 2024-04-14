@@ -296,6 +296,7 @@ func (e ExecCalls) String() string {
 		s.WriteString(sep)
 		s.WriteString(arg)
 	}
+	// FIXME should we sort the envs?
 	for _, env := range e.Envs {
 		s.WriteString(sep)
 		s.WriteString(env)
@@ -311,9 +312,10 @@ type OpenCalls struct {
 func (e OpenCalls) String() string {
 	s := strings.Builder{}
 	s.WriteString(e.Path)
-	for _, arg := range e.Flags {
+	// FIXME should we sort the flags?
+	for _, flag := range e.Flags {
 		s.WriteString(sep)
-		s.WriteString(arg)
+		s.WriteString(flag)
 	}
 	return s.String()
 }

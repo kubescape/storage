@@ -34,6 +34,8 @@ type Interface interface {
 	GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer
 	// KnownServers returns a KnownServerInformer.
 	KnownServers() KnownServerInformer
+	// NetworkNeighborhoods returns a NetworkNeighborhoodInformer.
+	NetworkNeighborhoods() NetworkNeighborhoodInformer
 	// NetworkNeighborses returns a NetworkNeighborsInformer.
 	NetworkNeighborses() NetworkNeighborsInformer
 	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
@@ -92,6 +94,11 @@ func (v *version) GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer {
 // KnownServers returns a KnownServerInformer.
 func (v *version) KnownServers() KnownServerInformer {
 	return &knownServerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NetworkNeighborhoods returns a NetworkNeighborhoodInformer.
+func (v *version) NetworkNeighborhoods() NetworkNeighborhoodInformer {
+	return &networkNeighborhoodInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // NetworkNeighborses returns a NetworkNeighborsInformer.
