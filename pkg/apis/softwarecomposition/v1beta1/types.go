@@ -255,14 +255,14 @@ type ApplicationProfileSpec struct {
 
 type ApplicationProfileContainer struct {
 	Name         string   `json:"name,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
+	Capabilities []string `json:"capabilities"`
 	// +patchMergeKey=path
 	// +patchStrategy=merge
-	Execs []ExecCalls `json:"execs,omitempty" patchStrategy:"merge" patchMergeKey:"path"`
+	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path"`
 	// +patchMergeKey=path
 	// +patchStrategy=merge
-	Opens    []OpenCalls `json:"opens,omitempty" patchStrategy:"merge" patchMergeKey:"path"`
-	Syscalls []string    `json:"syscalls,omitempty"`
+	Opens    []OpenCalls `json:"opens" patchStrategy:"merge" patchMergeKey:"path"`
+	Syscalls []string    `json:"syscalls"`
 }
 
 type ExecCalls struct {
