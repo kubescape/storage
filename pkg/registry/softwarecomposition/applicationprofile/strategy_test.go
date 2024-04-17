@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestPrepareForUpdate(t *testing.T) {
+func TestPrepareForUpdateAnnotations(t *testing.T) {
 	tests := []struct {
 		name           string
 		oldAnnotations map[string]string
@@ -74,6 +74,21 @@ func TestPrepareForUpdate(t *testing.T) {
 				helpers.CompletionMetadataKey: "complete",
 			},
 		},
+		{
+			name: "transition from a final AP - all changes are rejected",
+			oldAnnotations: map[string]string{
+				helpers.CompletionMetadataKey: "complete",
+				helpers.StatusMetadataKey:     "completed",
+			},
+			newAnnotations: map[string]string{
+				helpers.CompletionMetadataKey: "partial",
+				helpers.StatusMetadataKey:     "initializing",
+			},
+			expected: map[string]string{
+				helpers.CompletionMetadataKey: "complete",
+				helpers.StatusMetadataKey:     "completed",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -86,6 +101,167 @@ func TestPrepareForUpdate(t *testing.T) {
 			s.PrepareForUpdate(context.Background(), obj, old)
 			if !reflect.DeepEqual(obj.Annotations, tt.expected) {
 				t.Errorf("PrepareForUpdate() = %v, want %v", obj.Annotations, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPrepareForUpdateFullObj(t *testing.T) {
+	tests := []struct {
+		name     string
+		old      *softwarecomposition.ApplicationProfile
+		new      *softwarecomposition.ApplicationProfile
+		expected *softwarecomposition.ApplicationProfile
+	}{
+		{
+			name: "transition from initializing to ready - changes are accepted",
+			old: &softwarecomposition.ApplicationProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpers.CompletionMetadataKey: "complete",
+						helpers.StatusMetadataKey:     "initializing",
+					},
+				},
+				Spec: softwarecomposition.ApplicationProfileSpec{
+					Containers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name:         "container1",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+					},
+				},
+			},
+			new: &softwarecomposition.ApplicationProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpers.CompletionMetadataKey: "complete",
+						helpers.StatusMetadataKey:     "ready",
+					},
+				},
+				Spec: softwarecomposition.ApplicationProfileSpec{
+					Containers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name:         "container1",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+						{
+							Name:         "container2",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+					},
+				},
+			},
+			expected: &softwarecomposition.ApplicationProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpers.CompletionMetadataKey: "complete",
+						helpers.StatusMetadataKey:     "ready",
+					},
+				},
+				Spec: softwarecomposition.ApplicationProfileSpec{
+					Containers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name:         "container1",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+						{
+							Name:         "container2",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "transition from a final AP - all changes are rejected",
+			old: &softwarecomposition.ApplicationProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpers.CompletionMetadataKey: "complete",
+						helpers.StatusMetadataKey:     "completed",
+					},
+				},
+				Spec: softwarecomposition.ApplicationProfileSpec{
+					Containers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name:         "container1",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+					},
+				},
+			},
+			new: &softwarecomposition.ApplicationProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpers.CompletionMetadataKey: "partial",
+						helpers.StatusMetadataKey:     "initializing",
+					},
+				},
+				Spec: softwarecomposition.ApplicationProfileSpec{
+					Containers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name:         "container1",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+						{
+							Name:         "container2",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+					},
+				},
+			},
+			expected: &softwarecomposition.ApplicationProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpers.CompletionMetadataKey: "complete",
+						helpers.StatusMetadataKey:     "completed",
+					},
+				},
+				Spec: softwarecomposition.ApplicationProfileSpec{
+					Containers: []softwarecomposition.ApplicationProfileContainer{
+						{
+							Name:         "container1",
+							Capabilities: []string{},
+							Execs: []softwarecomposition.ExecCalls{
+								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := applicationProfileStrategy{}
+			s.PrepareForUpdate(context.Background(), tt.new, tt.old)
+			if !reflect.DeepEqual(tt.new, tt.expected) {
+				t.Errorf("PrepareForUpdate() = %v, want %v", tt.new, tt.expected)
 			}
 		})
 	}

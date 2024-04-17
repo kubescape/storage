@@ -617,6 +617,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 						},
 					},
 				},
+				Required: []string{"capabilities", "execs", "opens", "syscalls"},
 			},
 		},
 		Dependencies: []string{
