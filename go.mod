@@ -2,7 +2,7 @@
 
 module github.com/kubescape/storage
 
-go 1.21.3
+go 1.21.5
 
 require (
 	github.com/anchore/syft v0.101.1

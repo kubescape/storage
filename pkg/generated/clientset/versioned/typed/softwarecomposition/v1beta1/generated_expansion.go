@@ -24,6 +24,14 @@ type ApplicationProfileExpansion interface{}
 
 type ConfigurationScanSummaryExpansion interface{}
 
+type ControlExpansion interface{}
+
+type ControlConfigurationExpansion interface{}
+
+type ExceptionExpansion interface{}
+
+type FrameworkExpansion interface{}
+
 type GeneratedNetworkPolicyExpansion interface{}
 
 type KnownServerExpansion interface{}
@@ -33,6 +41,8 @@ type NetworkNeighborhoodExpansion interface{}
 type NetworkNeighborsExpansion interface{}
 
 type OpenVulnerabilityExchangeContainerExpansion interface{}
+
+type RuleExpansion interface{}
 
 type SBOMSPDXv2p3Expansion interface{}
 
