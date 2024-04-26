@@ -44,6 +44,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileSpec":                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus":                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":                          schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE":                                        schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                                   schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component":                                  schema_pkg_apis_softwarecomposition_v1beta1_Component(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary":                   schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref),
@@ -60,7 +61,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution":                               schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.DocElementID":                               schema_pkg_apis_softwarecomposition_v1beta1_DocElementID(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Document":                                   schema_pkg_apis_softwarecomposition_v1beta1_Document(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ELFSecurityFeatures":                        schema_pkg_apis_softwarecomposition_v1beta1_ELFSecurityFeatures(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls":                                  schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Executable":                                 schema_pkg_apis_softwarecomposition_v1beta1_Executable(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExternalDocumentRef":                        schema_pkg_apis_softwarecomposition_v1beta1_ExternalDocumentRef(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.File":                                       schema_pkg_apis_softwarecomposition_v1beta1_File(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense":                                schema_pkg_apis_softwarecomposition_v1beta1_FileLicense(ref),
@@ -787,6 +790,32 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref common.Re
 					},
 				},
 				Required: []string{"name", "homePage", "URI"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpe": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"cpe"},
 			},
 		},
 	}
@@ -1545,6 +1574,81 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Document(ref common.ReferenceCa
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_ELFSecurityFeatures(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"symbolTableStripped": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"stackCanary": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"nx": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"relRO": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"pie": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"dso": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"safeStack": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LlvmSafeStack represents a compiler-based security mechanism that separates the stack into a safe stack for storing return addresses and other critical data, and an unsafe stack for everything else, to mitigate stack-based memory corruption errors see https://clang.llvm.org/docs/SafeStack.html",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"cfi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ControlFlowIntegrity represents runtime checks to ensure a program's control flow adheres to the legal paths determined at compile time, thus protecting against various types of control-flow hijacking attacks see https://clang.llvm.org/docs/ControlFlowIntegrity.html",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"fortify": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClangFortifySource is a broad suite of extensions to libc aimed at catching misuses of common library functions see https://android.googlesource.com/platform//bionic/+/d192dbecf0b2a371eb127c0871f77a9caf81c4d2/docs/clang_fortify_anatomy.md",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"symbolTableStripped", "nx", "relRO", "pie", "dso"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1588,6 +1692,62 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceC
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Executable(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"format": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Format denotes either ELF, Mach-O, or PE",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hasExports": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"hasEntrypoint": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"importedLibraries": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"elfSecurityFeatures": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ELFSecurityFeatures"),
+						},
+					},
+				},
+				Required: []string{"format", "hasExports", "hasEntrypoint", "importedLibraries"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ELFSecurityFeatures"},
 	}
 }
 
@@ -2430,6 +2590,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref common.Re
 						},
 					},
 					"location": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"upstream-name": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -5059,9 +5225,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE"),
 									},
 								},
 							},
@@ -5079,7 +5244,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
 	}
 }
 
@@ -6792,12 +6957,17 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 							},
 						},
 					},
+					"executable": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Executable"),
+						},
+					},
 				},
 				Required: []string{"id", "location"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Executable", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry"},
 	}
 }
 

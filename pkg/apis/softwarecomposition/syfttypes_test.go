@@ -34,8 +34,8 @@ func TestUpdateSBOMSyft(t *testing.T) {
 			c := SyftPackage{}
 			err := c.UnmarshalJSON(tt.input)
 			assert.NoError(t, err)
-			assert.Equal(t, c.ID, tt.args.id)
-			assert.Equal(t, c.MetadataType, tt.args.metadataType)
+			assert.Equal(t, tt.args.id, c.ID)
+			assert.Equal(t, tt.args.metadataType, c.MetadataType)
 		})
 	}
 }

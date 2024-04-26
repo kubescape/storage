@@ -97,10 +97,11 @@ type IgnoreRule struct {
 }
 
 type IgnoreRulePackage struct {
-	Name     string `json:"name,omitempty"`
-	Version  string `json:"version,omitempty"`
-	Type     string `json:"type,omitempty"`
-	Location string `json:"location,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Type         string `json:"type,omitempty"`
+	Location     string `json:"location,omitempty"`
+	UpstreamName string `json:"upstream-name,omitempty"`
 }
 
 type Distribution struct {
