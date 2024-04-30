@@ -68,7 +68,10 @@
     ],
     "language": "",
     "cpes": [
-        "cpe:2.3:a:adduser:adduser:3.134:*:*:*:*:*:*:*"
+        {
+            "cpe": "cpe:2.3:a:adduser:adduser:3.134:*:*:*:*:*:*:*",
+            "source": "syft-generated"
+        }
     ],
     "purl": "pkg:deb/debian/adduser@3.134?arch=all\u0026distro=debian-12",
     "metadataType": "dpkg-db-entry",

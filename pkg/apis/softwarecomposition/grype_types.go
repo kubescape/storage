@@ -97,10 +97,11 @@ type IgnoreRule struct {
 }
 
 type IgnoreRulePackage struct {
-	Name     string
-	Version  string
-	Type     string
-	Location string
+	Name         string
+	Version      string
+	Type         string
+	Location     string
+	UpstreamName string
 }
 
 type Distribution struct {
