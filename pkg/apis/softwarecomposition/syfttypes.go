@@ -197,6 +197,42 @@ type PackageBasicData struct {
 	PURL      string     `json:"purl"`
 }
 
+// PackageBasicDataV01011 is the previous version of PackageBasicData used in schema v0.101.1.
+type PackageBasicDataV01011 struct {
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Version   string     `json:"version"`
+	Type      string     `json:"type"`
+	FoundBy   string     `json:"foundBy"`
+	Locations []Location `json:"locations"`
+	Licenses  Licenses   `json:"licenses"`
+	Language  string     `json:"language"`
+	CPEs      []string   `json:"cpes"`
+	PURL      string     `json:"purl"`
+}
+
+func PackageBasicDataFromV01011(in PackageBasicDataV01011) PackageBasicData {
+	out := PackageBasicData{
+		ID:        in.ID,
+		Name:      in.Name,
+		Version:   in.Version,
+		Type:      in.Type,
+		FoundBy:   in.FoundBy,
+		Locations: in.Locations,
+		Licenses:  in.Licenses,
+		Language:  in.Language,
+		CPEs:      CPEs{},
+		PURL:      in.PURL,
+	}
+	for _, cpe := range in.CPEs {
+		out.CPEs = append(out.CPEs, CPE{
+			Value:  cpe,
+			Source: "syft-generated",
+		})
+	}
+	return out
+}
+
 type CPEs []CPE
 
 type CPE struct {
@@ -269,7 +305,11 @@ func (p *packageMetadataUnpacker) String() string {
 func (p *SyftPackage) UnmarshalJSON(b []byte) error {
 	var basic PackageBasicData
 	if err := json.Unmarshal(b, &basic); err != nil {
-		return err
+		var basicV01011 PackageBasicDataV01011
+		if err := json.Unmarshal(b, &basicV01011); err != nil {
+			return err
+		}
+		basic = PackageBasicDataFromV01011(basicV01011)
 	}
 	p.PackageBasicData = basic
 
