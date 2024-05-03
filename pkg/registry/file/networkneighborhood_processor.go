@@ -2,9 +2,9 @@ package file
 
 import (
 	"fmt"
-	sets "github.com/deckarep/golang-set/v2"
 	"strconv"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,14 +58,14 @@ func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor) []softwar
 	out := make([]softwarecomposition.NetworkNeighbor, 0)
 	seen := map[string]int{}
 	toDeflate := sets.NewThreadUnsafeSet[int]()
-	for i, item := range in {
+	for _, item := range in {
 		if index, ok := seen[item.Identifier]; ok {
 			out[index].DNSNames = append(out[index].DNSNames, item.DNSNames...)
 			out[index].Ports = append(out[index].Ports, item.Ports...)
 			toDeflate.Add(index)
 		} else {
-			seen[item.Identifier] = i
 			out = append(out, item)
+			seen[item.Identifier] = len(out) - 1 // index of the appended item
 		}
 	}
 	for _, i := range toDeflate.ToSlice() {

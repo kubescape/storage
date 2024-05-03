@@ -32,6 +32,8 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
 								{Identifier: "b", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
 								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "443"}, {Name: "80"}}},
+								{Identifier: "c", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
+								{Identifier: "c", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
 							},
 						},
 					},
@@ -64,7 +66,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 			want: &softwarecomposition.NetworkNeighborhood{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						helpers.ResourceSizeMetadataKey: "6",
+						helpers.ResourceSizeMetadataKey: "7",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -74,6 +76,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 							Ingress: []softwarecomposition.NetworkNeighbor{
 								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}, {Name: "443"}}, DNSNames: []string{}},
 								{Identifier: "b", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
+								{Identifier: "c", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}, DNSNames: []string{}},
 							},
 							Egress: []softwarecomposition.NetworkNeighbor{},
 						},
