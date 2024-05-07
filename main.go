@@ -19,6 +19,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -81,7 +83,24 @@ func main() {
 		file.DefaultStorageRoot,
 		intervalDuration,
 		kubernetesAPI)
-	go cleanupHandler.StartCleanupTask()
+
+	isReady := true
+	go cleanupHandler.StartCleanupTask(&isReady)
+
+	// health check
+	http.HandleFunc("/v1/healthz", func(w http.ResponseWriter, r *http.Request) {
+		// Check if the app is ready. If it is, write a 200 status code. If not, write a 500 status code.
+		// You should replace this with your actual readiness check.
+
+		if isReady {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "Healthy")
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, "Not Healthy")
+		}
+	})
+	go http.ListenAndServe(":8000", nil)
 
 	logger.L().Info("APIServer started")
 	code := cli.Run(cmd)
