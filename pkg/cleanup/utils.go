@@ -1,11 +1,17 @@
 package cleanup
 
 import (
+	"bytes"
+	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"k8s.io/client-go/discovery"
 	"path/filepath"
 	"strings"
+
+	"github.com/kubescape/storage/pkg/registry/file"
+	"github.com/spf13/afero"
+	"k8s.io/client-go/discovery"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -48,6 +54,43 @@ func getConfig() (*rest.Config, error) {
 	}
 	// nothing works
 	return nil, errors.New("unable to find config")
+}
+
+func migrateToGob[T any](appFs afero.Fs, path string) error {
+	// open json file
+	jsonFile, err := appFs.Open(path)
+	if err != nil {
+		return err
+	}
+	// decode json
+	decoder := json.NewDecoder(jsonFile)
+	var objPtr T
+	err = decoder.Decode(&objPtr)
+	if err != nil {
+		return err
+	}
+	// encode to gob
+	var b bytes.Buffer
+	encoder := gob.NewEncoder(&b)
+	err = encoder.Encode(objPtr)
+	if err != nil {
+		return err
+	}
+	// write to gob file
+	err = afero.WriteFile(appFs, path[:len(path)-len(file.JsonExt)]+file.GobExt, b.Bytes(), 0644)
+	if err != nil {
+		return err
+	}
+	// remove json file
+	err = appFs.Remove(path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func moveToGobBeforeDeletion(appFs afero.Fs, path string) error {
+	return appFs.Rename(path, path[:len(path)-len(file.JsonExt)]+file.GobExt)
 }
 
 func wlidWithoutClusterName(wlid string) string {

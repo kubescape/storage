@@ -2,9 +2,15 @@ package file
 
 import (
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/utils"
@@ -17,13 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
 )
 
 const (
+	GobExt                   = ".g"
 	JsonExt                  = ".j"
 	MetadataExt              = ".m"
 	DefaultStorageRoot       = "/data"
@@ -101,7 +104,7 @@ func extractMetadata(obj runtime.Object) runtime.Object {
 
 // makePayloadPath returns a path for the payload file
 func makePayloadPath(path string) string {
-	return path + JsonExt
+	return path + GobExt
 }
 
 // makeMetadataPath returns a path for the metadata file
@@ -156,7 +159,7 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 		return fmt.Errorf("open metadata file: %w", err)
 	}
 	// write payload
-	payloadEncoder := json.NewEncoder(payloadFile)
+	payloadEncoder := gob.NewEncoder(payloadFile)
 	if err := payloadEncoder.Encode(obj); err != nil {
 		return fmt.Errorf("encode payload: %w", err)
 	}
@@ -287,7 +290,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
-	file, err := s.appFs.Open(makePayloadPath(p))
+	payloadFile, err := s.appFs.Open(makePayloadPath(p))
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			if opts.IgnoreNotFound {
@@ -299,7 +302,7 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 		logger.L().Ctx(ctx).Error("Get - read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
-	decoder := json.NewDecoder(file)
+	decoder := gob.NewDecoder(payloadFile)
 	err = decoder.Decode(objPtr)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("Get - json unmarshal failed", helpers.Error(err), helpers.String("key", key))
@@ -330,25 +333,25 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 	}
 
 	p := filepath.Join(s.root, key)
-	var files []string
+	var metadataFiles []string
 
 	metadataPath := makeMetadataPath(p)
 	if exists, _ := afero.Exists(s.appFs, metadataPath); exists {
-		files = append(files, metadataPath)
+		metadataFiles = append(metadataFiles, metadataPath)
 	} else {
 		_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return nil
 			}
 			if !info.IsDir() && IsMetadataFile(path) {
-				files = append(files, path)
+				metadataFiles = append(metadataFiles, path)
 			}
 			return nil
 		})
 	}
-	for _, path := range files {
-		if err := s.appendJSONObjectFromFile(path, v); err != nil {
-			logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
+	for _, metadataPath := range metadataFiles {
+		if err := s.appendObjectFromFile(metadataPath, v); err != nil {
+			logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", metadataPath))
 		}
 	}
 	return nil
@@ -584,7 +587,7 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 			return nil
 		}
 
-		if err := s.appendJSONObjectFromFile(path, v); err != nil {
+		if err := s.appendObjectFromFile(path, v); err != nil {
 			logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
 		}
 
@@ -624,7 +627,7 @@ func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, 
 				return nil
 			}
 
-			if err := s.appendJSONObjectFromFile(subPath, v); err != nil {
+			if err := s.appendObjectFromFile(subPath, v); err != nil {
 				logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
 			}
 
@@ -669,7 +672,7 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 					return nil
 				}
 
-				if err := s.appendJSONObjectFromFile(subPath, v); err != nil {
+				if err := s.appendObjectFromFile(subPath, v); err != nil {
 					logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
 				}
 
@@ -682,8 +685,8 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 	return nil
 }
 
-// appendJSONObjectFromFile unmarshalls a json file into a runtime.Object and appends it to the underlying list object.
-func (s *StorageImpl) appendJSONObjectFromFile(path string, v reflect.Value) error {
+// appendObjectFromFile unmarshalls a json file into a runtime.Object and appends it to the underlying list object.
+func (s *StorageImpl) appendObjectFromFile(path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
 	s.locks.RLock(key)
 	defer s.locks.RUnlock(key)
@@ -707,11 +710,18 @@ func getUnmarshaledRuntimeObject(v reflect.Value, file afero.File) (runtime.Obje
 	elem := v.Type().Elem()
 	obj := reflect.New(elem).Interface().(runtime.Object)
 
+	if strings.HasSuffix(file.Name(), GobExt) {
+		decoder := gob.NewDecoder(file)
+		if err := decoder.Decode(obj); err != nil {
+			return nil, err
+		}
+		return obj, nil
+	}
+
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(obj); err != nil {
 		return nil, err
 	}
-
 	return obj, nil
 }
 
