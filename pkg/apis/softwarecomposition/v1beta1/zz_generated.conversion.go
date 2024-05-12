@@ -1039,6 +1039,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*PackageBasicDataV01011)(nil), (*softwarecomposition.PackageBasicDataV01011)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_PackageBasicDataV01011_To_softwarecomposition_PackageBasicDataV01011(a.(*PackageBasicDataV01011), b.(*softwarecomposition.PackageBasicDataV01011), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*softwarecomposition.PackageBasicDataV01011)(nil), (*PackageBasicDataV01011)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_softwarecomposition_PackageBasicDataV01011_To_v1beta1_PackageBasicDataV01011(a.(*softwarecomposition.PackageBasicDataV01011), b.(*PackageBasicDataV01011), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*PackageCustomData)(nil), (*softwarecomposition.PackageCustomData)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData(a.(*PackageCustomData), b.(*softwarecomposition.PackageCustomData), scope)
 	}); err != nil {
@@ -2009,7 +2019,17 @@ func Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfil
 func autoConvert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(in *ApplicationProfileContainer, out *softwarecomposition.ApplicationProfileContainer, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
-	out.Execs = *(*[]softwarecomposition.ExecCalls)(unsafe.Pointer(&in.Execs))
+	if in.Execs != nil {
+		in, out := &in.Execs, &out.Execs
+		*out = make([]softwarecomposition.ExecCalls, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Execs = nil
+	}
 	out.Opens = *(*[]softwarecomposition.OpenCalls)(unsafe.Pointer(&in.Opens))
 	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
 	return nil
@@ -2023,7 +2043,17 @@ func Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_Applicat
 func autoConvert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(in *softwarecomposition.ApplicationProfileContainer, out *ApplicationProfileContainer, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
-	out.Execs = *(*[]ExecCalls)(unsafe.Pointer(&in.Execs))
+	if in.Execs != nil {
+		in, out := &in.Execs, &out.Execs
+		*out = make([]ExecCalls, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Execs = nil
+	}
 	out.Opens = *(*[]OpenCalls)(unsafe.Pointer(&in.Opens))
 	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
 	return nil
@@ -2036,7 +2066,17 @@ func Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_Applicat
 
 func autoConvert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList(in *ApplicationProfileList, out *softwarecomposition.ApplicationProfileList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]softwarecomposition.ApplicationProfile)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]softwarecomposition.ApplicationProfile, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -2047,7 +2087,17 @@ func Convert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationPr
 
 func autoConvert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList(in *softwarecomposition.ApplicationProfileList, out *ApplicationProfileList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]ApplicationProfile)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]ApplicationProfile, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -2057,9 +2107,39 @@ func Convert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationPr
 }
 
 func autoConvert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(in *ApplicationProfileSpec, out *softwarecomposition.ApplicationProfileSpec, s conversion.Scope) error {
-	out.Containers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.Containers))
-	out.InitContainers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.InitContainers))
-	out.EphemeralContainers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.EphemeralContainers))
+	if in.Containers != nil {
+		in, out := &in.Containers, &out.Containers
+		*out = make([]softwarecomposition.ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Containers = nil
+	}
+	if in.InitContainers != nil {
+		in, out := &in.InitContainers, &out.InitContainers
+		*out = make([]softwarecomposition.ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.InitContainers = nil
+	}
+	if in.EphemeralContainers != nil {
+		in, out := &in.EphemeralContainers, &out.EphemeralContainers
+		*out = make([]softwarecomposition.ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.EphemeralContainers = nil
+	}
 	return nil
 }
 
@@ -2069,9 +2149,39 @@ func Convert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationPr
 }
 
 func autoConvert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(in *softwarecomposition.ApplicationProfileSpec, out *ApplicationProfileSpec, s conversion.Scope) error {
-	out.Containers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.Containers))
-	out.InitContainers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.InitContainers))
-	out.EphemeralContainers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.EphemeralContainers))
+	if in.Containers != nil {
+		in, out := &in.Containers, &out.Containers
+		*out = make([]ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Containers = nil
+	}
+	if in.InitContainers != nil {
+		in, out := &in.InitContainers, &out.InitContainers
+		*out = make([]ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.InitContainers = nil
+	}
+	if in.EphemeralContainers != nil {
+		in, out := &in.EphemeralContainers, &out.EphemeralContainers
+		*out = make([]ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.EphemeralContainers = nil
+	}
 	return nil
 }
 
@@ -2595,9 +2705,10 @@ func Convert_softwarecomposition_ELFSecurityFeatures_To_v1beta1_ELFSecurityFeatu
 }
 
 func autoConvert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(in *ExecCalls, out *softwarecomposition.ExecCalls, s conversion.Scope) error {
-	out.Path = in.Path
 	out.Args = *(*[]string)(unsafe.Pointer(&in.Args))
 	out.Envs = *(*[]string)(unsafe.Pointer(&in.Envs))
+	out.Path = in.Path
+	out.PathInBaseImage = in.PathInBaseImage
 	return nil
 }
 
@@ -2607,6 +2718,7 @@ func Convert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(in *ExecCalls, o
 }
 
 func autoConvert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls(in *softwarecomposition.ExecCalls, out *ExecCalls, s conversion.Scope) error {
+	out.PathInBaseImage = in.PathInBaseImage
 	out.Path = in.Path
 	out.Args = *(*[]string)(unsafe.Pointer(&in.Args))
 	out.Envs = *(*[]string)(unsafe.Pointer(&in.Envs))
@@ -4464,6 +4576,44 @@ func autoConvert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicDat
 // Convert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData is an autogenerated conversion function.
 func Convert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData(in *softwarecomposition.PackageBasicData, out *PackageBasicData, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_PackageBasicData_To_v1beta1_PackageBasicData(in, out, s)
+}
+
+func autoConvert_v1beta1_PackageBasicDataV01011_To_softwarecomposition_PackageBasicDataV01011(in *PackageBasicDataV01011, out *softwarecomposition.PackageBasicDataV01011, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.FoundBy = in.FoundBy
+	out.Locations = *(*[]softwarecomposition.Location)(unsafe.Pointer(&in.Locations))
+	out.Licenses = *(*softwarecomposition.Licenses)(unsafe.Pointer(&in.Licenses))
+	out.Language = in.Language
+	out.CPEs = *(*[]string)(unsafe.Pointer(&in.CPEs))
+	out.PURL = in.PURL
+	return nil
+}
+
+// Convert_v1beta1_PackageBasicDataV01011_To_softwarecomposition_PackageBasicDataV01011 is an autogenerated conversion function.
+func Convert_v1beta1_PackageBasicDataV01011_To_softwarecomposition_PackageBasicDataV01011(in *PackageBasicDataV01011, out *softwarecomposition.PackageBasicDataV01011, s conversion.Scope) error {
+	return autoConvert_v1beta1_PackageBasicDataV01011_To_softwarecomposition_PackageBasicDataV01011(in, out, s)
+}
+
+func autoConvert_softwarecomposition_PackageBasicDataV01011_To_v1beta1_PackageBasicDataV01011(in *softwarecomposition.PackageBasicDataV01011, out *PackageBasicDataV01011, s conversion.Scope) error {
+	out.ID = in.ID
+	out.Name = in.Name
+	out.Version = in.Version
+	out.Type = in.Type
+	out.FoundBy = in.FoundBy
+	out.Locations = *(*[]Location)(unsafe.Pointer(&in.Locations))
+	out.Licenses = *(*Licenses)(unsafe.Pointer(&in.Licenses))
+	out.Language = in.Language
+	out.CPEs = *(*[]string)(unsafe.Pointer(&in.CPEs))
+	out.PURL = in.PURL
+	return nil
+}
+
+// Convert_softwarecomposition_PackageBasicDataV01011_To_v1beta1_PackageBasicDataV01011 is an autogenerated conversion function.
+func Convert_softwarecomposition_PackageBasicDataV01011_To_v1beta1_PackageBasicDataV01011(in *softwarecomposition.PackageBasicDataV01011, out *PackageBasicDataV01011, s conversion.Scope) error {
+	return autoConvert_softwarecomposition_PackageBasicDataV01011_To_v1beta1_PackageBasicDataV01011(in, out, s)
 }
 
 func autoConvert_v1beta1_PackageCustomData_To_softwarecomposition_PackageCustomData(in *PackageCustomData, out *softwarecomposition.PackageCustomData, s conversion.Scope) error {

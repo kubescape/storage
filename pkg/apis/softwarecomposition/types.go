@@ -282,9 +282,10 @@ type ApplicationProfileContainer struct {
 }
 
 type ExecCalls struct {
-	Path string
-	Args []string
-	Envs []string
+	PathInBaseImage bool
+	Path            string
+	Args            []string
+	Envs            []string
 }
 
 const sep = "␟"

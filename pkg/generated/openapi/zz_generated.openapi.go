@@ -131,6 +131,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                               schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                                    schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData":                           schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicDataV01011":                     schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData":                          schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference":                   schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":                    schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
@@ -1655,12 +1656,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceC
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"path": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"args": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -1687,6 +1682,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceC
 									},
 								},
 							},
+						},
+					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"inBaseImage": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
@@ -5245,6 +5252,111 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageBasicDataV01011 is the previous version of PackageBasicData used in schema v0.101.1.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"foundBy": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"locations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"),
+									},
+								},
+							},
+						},
+					},
+					"licenses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License"),
+									},
+								},
+							},
+						},
+					},
+					"language": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"cpes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"purl": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "name", "version", "type", "foundBy", "locations", "licenses", "language", "cpes", "purl"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
 	}
 }
 

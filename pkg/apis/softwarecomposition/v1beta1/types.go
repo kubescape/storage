@@ -266,9 +266,10 @@ type ApplicationProfileContainer struct {
 }
 
 type ExecCalls struct {
-	Path string   `json:"path,omitempty"`
-	Args []string `json:"args,omitempty"`
-	Envs []string `json:"envs,omitempty"`
+	Args            []string `json:"args,omitempty"`
+	Envs            []string `json:"envs,omitempty"`
+	Path            string   `json:"path,omitempty"`
+	PathInBaseImage bool     `json:"inBaseImage,omitempty"`
 }
 
 type OpenCalls struct {
