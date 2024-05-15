@@ -9,10 +9,9 @@ import (
 	"time"
 
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
-	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
-
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/olvrng/ujson"
@@ -89,6 +88,40 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 					return err
 				}
 
+				// FIXME: migrate to gob files - to remove after some time
+				if strings.HasSuffix(path, file.JsonExt) {
+					switch resourceKind {
+					case "applicationactivities":
+						err = migrateToGob[softwarecomposition.ApplicationActivity](h.appFs, path)
+					case "applicationprofiles":
+						err = migrateToGob[softwarecomposition.ApplicationProfile](h.appFs, path)
+					case "networkneighborses":
+						err = migrateToGob[softwarecomposition.NetworkNeighbors](h.appFs, path)
+					case "networkneighborhoods":
+						err = migrateToGob[softwarecomposition.NetworkNeighborhood](h.appFs, path)
+					case "openvulnerabilityexchangecontainers":
+						err = migrateToGob[softwarecomposition.OpenVulnerabilityExchangeContainer](h.appFs, path)
+					case "sbomsyftfiltered":
+						err = migrateToGob[softwarecomposition.SBOMSyftFiltered](h.appFs, path)
+					case "sbomsyft":
+						err = migrateToGob[softwarecomposition.SBOMSyft](h.appFs, path)
+					case "vulnerabilitymanifests":
+						err = migrateToGob[softwarecomposition.VulnerabilityManifest](h.appFs, path)
+					case "vulnerabilitymanifestsummaries":
+						err = migrateToGob[softwarecomposition.VulnerabilityManifestSummary](h.appFs, path)
+					case "workloadconfigurationscans":
+						err = migrateToGob[softwarecomposition.WorkloadConfigurationScan](h.appFs, path)
+					case "workloadconfigurationscansummaries":
+						err = migrateToGob[softwarecomposition.WorkloadConfigurationScanSummary](h.appFs, path)
+					default:
+						err = moveToGobBeforeDeletion(h.appFs, path)
+					}
+					if err != nil {
+						logger.L().Error("migration to gob error", helpers.Error(err))
+						return nil
+					}
+				}
+
 				// skip directories and files that are not metadata files
 				if info.IsDir() || !file.IsMetadataFile(path) {
 					return nil
@@ -96,7 +129,7 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 
 				metadata, err := loadMetadataFromPath(h.appFs, path)
 				if err != nil {
-					logger.L().Error("cleanup task error", helpers.Error(err))
+					logger.L().Error("load metadata error", helpers.Error(err))
 					return nil
 				}
 				if metadata == nil {
@@ -109,8 +142,8 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 					h.filesToDelete = append(h.filesToDelete, path)
 
-					jsonFilePath := path[:len(path)-len(file.MetadataExt)] + file.JsonExt
-					h.filesToDelete = append(h.filesToDelete, jsonFilePath)
+					payloadFilePath := path[:len(path)-len(file.MetadataExt)] + file.GobExt
+					h.filesToDelete = append(h.filesToDelete, payloadFilePath)
 				}
 				return nil
 			})

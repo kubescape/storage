@@ -1,7 +1,9 @@
 package file
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -16,7 +18,7 @@ import (
 )
 
 func getStoredPayloadFilepath(root, key string) string {
-	return root + key + JsonExt
+	return root + key + GobExt
 }
 
 func getStoredMetadataFilepath(root, key string) string {
@@ -248,7 +250,10 @@ func TestStorageImpl_Delete(t *testing.T) {
 }
 
 func TestStorageImpl_Get(t *testing.T) {
-	toto, _ := json.Marshal(v1beta1.SBOMSPDXv2p3{
+	var emptyObj bytes.Buffer
+	_ = gob.NewEncoder(&emptyObj).Encode(v1beta1.SBOMSPDXv2p3{})
+	var realObj bytes.Buffer
+	_ = gob.NewEncoder(&realObj).Encode(v1beta1.SBOMSPDXv2p3{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
 		},
@@ -288,7 +293,7 @@ func TestStorageImpl_Get(t *testing.T) {
 				key:    "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				objPtr: &v1beta1.SBOMSPDXv2p3{},
 			},
-			content: "{}",
+			content: emptyObj.String(),
 			create:  true,
 			want:    &v1beta1.SBOMSPDXv2p3{},
 		},
@@ -298,7 +303,7 @@ func TestStorageImpl_Get(t *testing.T) {
 				key:    "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				objPtr: &v1beta1.SBOMSPDXv2p3{},
 			},
-			content: string(toto),
+			content: realObj.String(),
 			create:  true,
 			want: &v1beta1.SBOMSPDXv2p3{
 				ObjectMeta: v1.ObjectMeta{
