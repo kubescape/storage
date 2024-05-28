@@ -18,51 +18,51 @@ import (
 )
 
 type Digest struct {
-	Algorithm string `json:"algorithm"`
-	Value     string `json:"value"`
+	Algorithm string `json:"algorithm" protobuf:"bytes,1,req,name=algorithm"`
+	Value     string `json:"value" protobuf:"bytes,2,req,name=value"`
 }
 
 type LocationMetadata struct {
-	Annotations map[string]string `json:"annotations,omitempty"` // Arbitrary key-value pairs that can be used to annotate a location
+	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,1,opt,name=annotations"` // Arbitrary key-value pairs that can be used to annotate a location
 }
 
 // Coordinates contains the minimal information needed to describe how to find a file within any possible source object (e.g. image and directory sources)
 type Coordinates struct {
-	RealPath     string `json:"path" cyclonedx:"path"`                 // The path where all path ancestors have no hardlinks / symlinks
-	FileSystemID string `json:"layerID,omitempty" cyclonedx:"layerID"` // An ID representing the filesystem. For container images, this is a layer digest. For directories or a root filesystem, this is blank.
+	RealPath     string `json:"path" cyclonedx:"path" protobuf:"bytes,1,req,name=path"`                    // The path where all path ancestors have no hardlinks / symlinks
+	FileSystemID string `json:"layerID,omitempty" cyclonedx:"layerID" protobuf:"bytes,2,opt,name=layerID"` // An ID representing the filesystem. For container images, this is a layer digest. For directories or a root filesystem, this is blank.
 }
 
 // Location represents a path relative to a particular filesystem resolved to a specific file.Reference. This struct is used as a key
 // in content fetching to uniquely identify a file relative to a request (the VirtualPath).
 type Location struct {
-	LocationData     `cyclonedx:""`
-	LocationMetadata `cyclonedx:""`
+	LocationData     `cyclonedx:"" protobuf:"bytes,1,opt,name=locationData"`
+	LocationMetadata `cyclonedx:"" protobuf:"bytes,2,opt,name=locationMetadata"`
 }
 
 type LocationData struct {
-	Coordinates `cyclonedx:""` // Empty string here means there is no intermediate property name, e.g. syft:locations:0:path without "coordinates"
+	Coordinates `cyclonedx:"" protobuf:"bytes,1,opt,name=coordinates"` // Empty string here means there is no intermediate property name, e.g. syft:locations:0:path without "coordinates"
 	// note: it is IMPORTANT to ignore anything but the coordinates for a Location when considering the ID (hash value)
 	// since the coordinates are the minimally correct ID for a location (symlinks should not come into play)
-	VirtualPath string `hash:"ignore" json:"accessPath"` // The path to the file which may or may not have hardlinks / symlinks
+	VirtualPath string `hash:"ignore" json:"accessPath" protobuf:"bytes,2,req,name=accessPath"` // The path to the file which may or may not have hardlinks / symlinks
 }
 
 // SyftSource object represents the thing that was cataloged
 type SyftSource struct {
-	ID       string          `json:"id"`
-	Name     string          `json:"name"`
-	Version  string          `json:"version"`
-	Type     string          `json:"type"`
-	Metadata json.RawMessage `json:"metadata"`
+	ID       string          `json:"id" protobuf:"bytes,1,req,name=id"`
+	Name     string          `json:"name" protobuf:"bytes,2,req,name=name"`
+	Version  string          `json:"version" protobuf:"bytes,3,req,name=version"`
+	Type     string          `json:"type" protobuf:"bytes,4,req,name=type"`
+	Metadata json.RawMessage `json:"metadata" protobuf:"bytes,5,req,name=metadata"`
 }
 
 // sourceUnpacker is used to unmarshal SyftSource objects
 type sourceUnpacker struct {
-	ID       string          `json:"id,omitempty"`
-	Name     string          `json:"name"`
-	Version  string          `json:"version"`
-	Type     string          `json:"type"`
-	Metadata json.RawMessage `json:"metadata"`
-	Target   json.RawMessage `json:"target"` // pre-v9 schema support
+	ID       string          `json:"id,omitempty" protobuf:"bytes,1,opt,name=id"`
+	Name     string          `json:"name" protobuf:"bytes,2,req,name=name"`
+	Version  string          `json:"version" protobuf:"bytes,3,req,name=version"`
+	Type     string          `json:"type" protobuf:"bytes,4,req,name=type"`
+	Metadata json.RawMessage `json:"metadata" protobuf:"bytes,5,req,name=metadata"`
+	Target   json.RawMessage `json:"target" protobuf:"bytes,6,req,name=target"` // pre-v9 schema support
 }
 
 // UnmarshalJSON populates a source object from JSON bytes.
@@ -171,44 +171,44 @@ func extractPreSchemaV9Metadata(t string, target []byte) (interface{}, error) {
 var errUnknownMetadataType = errors.New("unknown metadata type")
 
 type SyftRelationship struct {
-	Parent   string          `json:"parent"`
-	Child    string          `json:"child"`
-	Type     string          `json:"type"`
-	Metadata json.RawMessage `json:"metadata,omitempty"`
+	Parent   string          `json:"parent" protobuf:"bytes,1,req,name=parent"`
+	Child    string          `json:"child" protobuf:"bytes,2,req,name=child"`
+	Type     string          `json:"type" protobuf:"bytes,3,req,name=type"`
+	Metadata json.RawMessage `json:"metadata,omitempty" protobuf:"bytes,4,opt,name=metadata"`
 }
 
 // SyftPackage represents a pkg.SyftPackage object specialized for JSON marshaling and unmarshalling.
 type SyftPackage struct {
-	PackageBasicData
-	PackageCustomData
+	PackageBasicData  `protobuf:"bytes,1,opt,name=packageBasicData"`
+	PackageCustomData `protobuf:"bytes,2,opt,name=packageCustomData"`
 }
 
 // PackageBasicData contains non-ambiguous values (type-wise) from pkg.SyftPackage.
 type PackageBasicData struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	Version   string     `json:"version"`
-	Type      string     `json:"type"`
-	FoundBy   string     `json:"foundBy"`
-	Locations []Location `json:"locations"`
-	Licenses  Licenses   `json:"licenses"`
-	Language  string     `json:"language"`
-	CPEs      CPEs       `json:"cpes"`
-	PURL      string     `json:"purl"`
+	ID        string     `json:"id" protobuf:"bytes,1,req,name=id"`
+	Name      string     `json:"name" protobuf:"bytes,2,req,name=name"`
+	Version   string     `json:"version" protobuf:"bytes,3,req,name=version"`
+	Type      string     `json:"type" protobuf:"bytes,4,req,name=type"`
+	FoundBy   string     `json:"foundBy" protobuf:"bytes,5,req,name=foundBy"`
+	Locations []Location `json:"locations" protobuf:"bytes,6,rep,name=locations"`
+	Licenses  Licenses   `json:"licenses" protobuf:"bytes,7,rep,name=licenses"`
+	Language  string     `json:"language" protobuf:"bytes,8,req,name=language"`
+	CPEs      CPEs       `json:"cpes" protobuf:"bytes,9,rep,name=cpes"`
+	PURL      string     `json:"purl" protobuf:"bytes,10,req,name=purl"`
 }
 
 // PackageBasicDataV01011 is the previous version of PackageBasicData used in schema v0.101.1.
 type PackageBasicDataV01011 struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	Version   string     `json:"version"`
-	Type      string     `json:"type"`
-	FoundBy   string     `json:"foundBy"`
-	Locations []Location `json:"locations"`
-	Licenses  Licenses   `json:"licenses"`
-	Language  string     `json:"language"`
-	CPEs      []string   `json:"cpes"`
-	PURL      string     `json:"purl"`
+	ID        string     `json:"id" protobuf:"bytes,1,req,name=id"`
+	Name      string     `json:"name" protobuf:"bytes,2,req,name=name"`
+	Version   string     `json:"version" protobuf:"bytes,3,req,name=version"`
+	Type      string     `json:"type" protobuf:"bytes,4,req,name=type"`
+	FoundBy   string     `json:"foundBy" protobuf:"bytes,5,req,name=foundBy"`
+	Locations []Location `json:"locations" protobuf:"bytes,6,rep,name=locations"`
+	Licenses  Licenses   `json:"licenses" protobuf:"bytes,7,rep,name=licenses"`
+	Language  string     `json:"language" protobuf:"bytes,8,req,name=language"`
+	CPEs      []string   `json:"cpes" protobuf:"bytes,9,rep,name=cpes"`
+	PURL      string     `json:"purl" protobuf:"bytes,10,req,name=purl"`
 }
 
 func PackageBasicDataFromV01011(in PackageBasicDataV01011) PackageBasicData {
@@ -236,8 +236,8 @@ func PackageBasicDataFromV01011(in PackageBasicDataV01011) PackageBasicData {
 type CPEs []CPE
 
 type CPE struct {
-	Value  string `json:"cpe"`
-	Source string `json:"source,omitempty"`
+	Value  string `json:"cpe" protobuf:"bytes,1,req,name=cpe"`
+	Source string `json:"source,omitempty" protobuf:"bytes,2,opt,name=source"`
 }
 
 type LicenseType string
@@ -245,11 +245,11 @@ type LicenseType string
 type Licenses []License
 
 type License struct {
-	Value          string      `json:"value"`
-	SPDXExpression string      `json:"spdxExpression"`
-	Type           LicenseType `json:"type"`
-	URLs           []string    `json:"urls"`
-	Locations      []Location  `json:"locations"`
+	Value          string      `json:"value" protobuf:"bytes,1,req,name=value"`
+	SPDXExpression string      `json:"spdxExpression" protobuf:"bytes,2,req,name=spdxExpression"`
+	Type           LicenseType `json:"type" protobuf:"bytes,3,req,name=type"`
+	URLs           []string    `json:"urls" protobuf:"bytes,4,rep,name=urls"`
+	Locations      []Location  `json:"locations" protobuf:"bytes,5,rep,name=locations"`
 }
 
 func newModelLicensesFromValues(licenses []string) (ml []License) {
@@ -287,14 +287,14 @@ func (f *Licenses) UnmarshalJSON(b []byte) error {
 
 // PackageCustomData contains ambiguous values (type-wise) from pkg.SyftPackage.
 type PackageCustomData struct {
-	MetadataType string          `json:"metadataType,omitempty"`
-	Metadata     json.RawMessage `json:"metadata,omitempty"`
+	MetadataType string          `json:"metadataType,omitempty" protobuf:"bytes,1,opt,name=metadataType"`
+	Metadata     json.RawMessage `json:"metadata,omitempty" protobuf:"bytes,2,opt,name=metadata"`
 }
 
 // packageMetadataUnpacker is all values needed from SyftPackage to disambiguate ambiguous fields during json unmarshaling.
 type packageMetadataUnpacker struct {
-	MetadataType string          `json:"metadataType"`
-	Metadata     json.RawMessage `json:"metadata"`
+	MetadataType string          `json:"metadataType" protobuf:"bytes,1,req,name=metadataType"`
+	Metadata     json.RawMessage `json:"metadata" protobuf:"bytes,2,req,name=metadata"`
 }
 
 func (p *packageMetadataUnpacker) String() string {
@@ -408,24 +408,24 @@ func unpackPkgMetadata(p *SyftPackage, unpacker packageMetadataUnpacker) error {
 type IDLikes []string
 
 type LinuxRelease struct {
-	PrettyName       string  `json:"prettyName,omitempty"`
-	Name             string  `json:"name,omitempty"`
-	ID               string  `json:"id,omitempty"`
-	IDLike           IDLikes `json:"idLike,omitempty"`
-	Version          string  `json:"version,omitempty"`
-	VersionID        string  `json:"versionID,omitempty"`
-	VersionCodename  string  `json:"versionCodename,omitempty"`
-	BuildID          string  `json:"buildID,omitempty"`
-	ImageID          string  `json:"imageID,omitempty"`
-	ImageVersion     string  `json:"imageVersion,omitempty"`
-	Variant          string  `json:"variant,omitempty"`
-	VariantID        string  `json:"variantID,omitempty"`
-	HomeURL          string  `json:"homeURL,omitempty"`
-	SupportURL       string  `json:"supportURL,omitempty"`
-	BugReportURL     string  `json:"bugReportURL,omitempty"`
-	PrivacyPolicyURL string  `json:"privacyPolicyURL,omitempty"`
-	CPEName          string  `json:"cpeName,omitempty"`
-	SupportEnd       string  `json:"supportEnd,omitempty"`
+	PrettyName       string  `json:"prettyName,omitempty" protobuf:"bytes,1,opt,name=prettyName"`
+	Name             string  `json:"name,omitempty" protobuf:"bytes,2,opt,name=name"`
+	ID               string  `json:"id,omitempty" protobuf:"bytes,3,opt,name=id"`
+	IDLike           IDLikes `json:"idLike,omitempty" protobuf:"bytes,4,opt,name=idLike"`
+	Version          string  `json:"version,omitempty" protobuf:"bytes,5,opt,name=version"`
+	VersionID        string  `json:"versionID,omitempty" protobuf:"bytes,6,opt,name=versionID"`
+	VersionCodename  string  `json:"versionCodename,omitempty" protobuf:"bytes,7,opt,name=versionCodename"`
+	BuildID          string  `json:"buildID,omitempty" protobuf:"bytes,8,opt,name=buildID"`
+	ImageID          string  `json:"imageID,omitempty" protobuf:"bytes,9,opt,name=imageID"`
+	ImageVersion     string  `json:"imageVersion,omitempty" protobuf:"bytes,10,opt,name=imageVersion"`
+	Variant          string  `json:"variant,omitempty" protobuf:"bytes,11,opt,name=variant"`
+	VariantID        string  `json:"variantID,omitempty" protobuf:"bytes,12,opt,name=variantID"`
+	HomeURL          string  `json:"homeURL,omitempty" protobuf:"bytes,13,opt,name=homeURL"`
+	SupportURL       string  `json:"supportURL,omitempty" protobuf:"bytes,14,opt,name=supportURL"`
+	BugReportURL     string  `json:"bugReportURL,omitempty" protobuf:"bytes,15,opt,name=bugReportURL"`
+	PrivacyPolicyURL string  `json:"privacyPolicyURL,omitempty" protobuf:"bytes,16,opt,name=privacyPolicyURL"`
+	CPEName          string  `json:"cpeName,omitempty" protobuf:"bytes,17,opt,name=cpeName"`
+	SupportEnd       string  `json:"supportEnd,omitempty" protobuf:"bytes,18,opt,name=supportEnd"`
 }
 
 func (s *IDLikes) UnmarshalJSON(data []byte) error {
@@ -444,64 +444,64 @@ func (s *IDLikes) UnmarshalJSON(data []byte) error {
 }
 
 type SyftFile struct {
-	ID         string             `json:"id"`
-	Location   Coordinates        `json:"location"`
-	Metadata   *FileMetadataEntry `json:"metadata,omitempty"`
-	Contents   string             `json:"contents,omitempty"`
-	Digests    []Digest           `json:"digests,omitempty"`
-	Licenses   []FileLicense      `json:"licenses,omitempty"`
-	Executable *Executable        `json:"executable,omitempty"`
+	ID         string             `json:"id" protobuf:"bytes,1,req,name=id"`
+	Location   Coordinates        `json:"location" protobuf:"bytes,2,req,name=location"`
+	Metadata   *FileMetadataEntry `json:"metadata,omitempty" protobuf:"bytes,3,opt,name=metadata"`
+	Contents   string             `json:"contents,omitempty" protobuf:"bytes,4,opt,name=contents"`
+	Digests    []Digest           `json:"digests,omitempty" protobuf:"bytes,5,rep,name=digests"`
+	Licenses   []FileLicense      `json:"licenses,omitempty" protobuf:"bytes,6,rep,name=licenses"`
+	Executable *Executable        `json:"executable,omitempty" protobuf:"bytes,7,opt,name=executable"`
 }
 
 type FileMetadataEntry struct {
-	Mode            int    `json:"mode"`
-	Type            string `json:"type"`
-	LinkDestination string `json:"linkDestination,omitempty"`
-	UserID          int    `json:"userID"`
-	GroupID         int    `json:"groupID"`
-	MIMEType        string `json:"mimeType"`
-	Size            int64  `json:"size"`
+	Mode            int64  `json:"mode" protobuf:"bytes,1,req,name=mode"`
+	Type            string `json:"type" protobuf:"bytes,2,req,name=type"`
+	LinkDestination string `json:"linkDestination,omitempty" protobuf:"bytes,3,opt,name=linkDestination"`
+	UserID          int64  `json:"userID" protobuf:"bytes,4,req,name=userID"`
+	GroupID         int64  `json:"groupID" protobuf:"bytes,5,req,name=groupID"`
+	MIMEType        string `json:"mimeType" protobuf:"bytes,6,req,name=mimeType"`
+	Size_           int64  `json:"size" protobuf:"bytes,7,req,name=size"`
 }
 
 type FileLicense struct {
-	Value          string               `json:"value"`
-	SPDXExpression string               `json:"spdxExpression"`
-	Type           LicenseType          `json:"type"`
-	Evidence       *FileLicenseEvidence `json:"evidence,omitempty"`
+	Value          string               `json:"value" protobuf:"bytes,1,req,name=value"`
+	SPDXExpression string               `json:"spdxExpression" protobuf:"bytes,2,req,name=spdxExpression"`
+	Type           LicenseType          `json:"type" protobuf:"bytes,3,req,name=type"`
+	Evidence       *FileLicenseEvidence `json:"evidence,omitempty" protobuf:"bytes,4,opt,name=evidence"`
 }
 
 type Executable struct {
 	// Format denotes either ELF, Mach-O, or PE
-	Format ExecutableFormat `json:"format" yaml:"format" mapstructure:"format"`
+	Format ExecutableFormat `json:"format" yaml:"format" mapstructure:"format" protobuf:"bytes,1,req,name=format"`
 
-	HasExports          bool                 `json:"hasExports" yaml:"hasExports" mapstructure:"hasExports"`
-	HasEntrypoint       bool                 `json:"hasEntrypoint" yaml:"hasEntrypoint" mapstructure:"hasEntrypoint"`
-	ImportedLibraries   []string             `json:"importedLibraries" yaml:"importedLibraries" mapstructure:"importedLibraries"`
-	ELFSecurityFeatures *ELFSecurityFeatures `json:"elfSecurityFeatures,omitempty" yaml:"elfSecurityFeatures" mapstructure:"elfSecurityFeatures"`
+	HasExports          bool                 `json:"hasExports" yaml:"hasExports" mapstructure:"hasExports" protobuf:"bytes,2,req,name=hasExports"`
+	HasEntrypoint       bool                 `json:"hasEntrypoint" yaml:"hasEntrypoint" mapstructure:"hasEntrypoint" protobuf:"bytes,3,req,name=hasEntrypoint"`
+	ImportedLibraries   []string             `json:"importedLibraries" yaml:"importedLibraries" mapstructure:"importedLibraries" protobuf:"bytes,4,rep,name=importedLibraries"`
+	ELFSecurityFeatures *ELFSecurityFeatures `json:"elfSecurityFeatures,omitempty" yaml:"elfSecurityFeatures" mapstructure:"elfSecurityFeatures" protobuf:"bytes,5,opt,name=elfSecurityFeatures"`
 }
 
 type ELFSecurityFeatures struct {
-	SymbolTableStripped bool `json:"symbolTableStripped" yaml:"symbolTableStripped" mapstructure:"symbolTableStripped"`
+	SymbolTableStripped bool `json:"symbolTableStripped" yaml:"symbolTableStripped" mapstructure:"symbolTableStripped" protobuf:"bytes,1,req,name=symbolTableStripped"`
 
 	// classic protections
 
-	StackCanary                   *bool              `json:"stackCanary,omitempty" yaml:"stackCanary" mapstructure:"stackCanary"`
-	NoExecutable                  bool               `json:"nx" yaml:"nx" mapstructure:"nx"`
-	RelocationReadOnly            RelocationReadOnly `json:"relRO" yaml:"relRO" mapstructure:"relRO"`
-	PositionIndependentExecutable bool               `json:"pie" yaml:"pie" mapstructure:"pie"`
-	DynamicSharedObject           bool               `json:"dso" yaml:"dso" mapstructure:"dso"`
+	StackCanary                   *bool              `json:"stackCanary,omitempty" yaml:"stackCanary" mapstructure:"stackCanary" protobuf:"bytes,2,opt,name=stackCanary"`
+	NoExecutable                  bool               `json:"nx" yaml:"nx" mapstructure:"nx" protobuf:"bytes,3,req,name=nx"`
+	RelocationReadOnly            RelocationReadOnly `json:"relRO" yaml:"relRO" mapstructure:"relRO" protobuf:"bytes,4,req,name=relRO"`
+	PositionIndependentExecutable bool               `json:"pie" yaml:"pie" mapstructure:"pie" protobuf:"bytes,5,req,name=pie"`
+	DynamicSharedObject           bool               `json:"dso" yaml:"dso" mapstructure:"dso" protobuf:"bytes,6,req,name=dso"`
 
 	// LlvmSafeStack represents a compiler-based security mechanism that separates the stack into a safe stack for storing return addresses and other critical data, and an unsafe stack for everything else, to mitigate stack-based memory corruption errors
 	// see https://clang.llvm.org/docs/SafeStack.html
-	LlvmSafeStack *bool `json:"safeStack,omitempty" yaml:"safeStack" mapstructure:"safeStack"`
+	LlvmSafeStack *bool `json:"safeStack,omitempty" yaml:"safeStack" mapstructure:"safeStack" protobuf:"bytes,7,opt,name=safeStack"`
 
 	// ControlFlowIntegrity represents runtime checks to ensure a program's control flow adheres to the legal paths determined at compile time, thus protecting against various types of control-flow hijacking attacks
 	// see https://clang.llvm.org/docs/ControlFlowIntegrity.html
-	LlvmControlFlowIntegrity *bool `json:"cfi,omitempty" yaml:"cfi" mapstructure:"cfi"`
+	LlvmControlFlowIntegrity *bool `json:"cfi,omitempty" yaml:"cfi" mapstructure:"cfi" protobuf:"bytes,8,opt,name=cfi"`
 
 	// ClangFortifySource is a broad suite of extensions to libc aimed at catching misuses of common library functions
 	// see https://android.googlesource.com/platform//bionic/+/d192dbecf0b2a371eb127c0871f77a9caf81c4d2/docs/clang_fortify_anatomy.md
-	ClangFortifySource *bool `json:"fortify,omitempty" yaml:"fortify" mapstructure:"fortify"`
+	ClangFortifySource *bool `json:"fortify,omitempty" yaml:"fortify" mapstructure:"fortify" protobuf:"bytes,9,opt,name=fortify"`
 
 	//// Selfrando provides function order shuffling to defend against ROP and other types of code reuse
 	//// see https://github.com/runsafesecurity/selfrando
@@ -514,30 +514,30 @@ type (
 )
 
 type FileLicenseEvidence struct {
-	Confidence int `json:"confidence"`
-	Offset     int `json:"offset"`
-	Extent     int `json:"extent"`
+	Confidence int64 `json:"confidence" protobuf:"bytes,1,req,name=confidence"`
+	Offset     int64 `json:"offset" protobuf:"bytes,2,req,name=offset"`
+	Extent     int64 `json:"extent" protobuf:"bytes,3,req,name=extent"`
 }
 
 // SyftDescriptor describes what created the document as well as surrounding metadata
 type SyftDescriptor struct {
-	Name          string          `json:"name"`
-	Version       string          `json:"version"`
-	Configuration json.RawMessage `json:"configuration,omitempty"`
+	Name          string          `json:"name" protobuf:"bytes,1,req,name=name"`
+	Version       string          `json:"version" protobuf:"bytes,2,req,name=version"`
+	Configuration json.RawMessage `json:"configuration,omitempty" protobuf:"bytes,3,opt,name=configuration"`
 }
 
 type Schema struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
+	Version string `json:"version" protobuf:"bytes,1,req,name=version"`
+	URL     string `json:"url" protobuf:"bytes,2,req,name=url"`
 }
 
-// Document represents the syft cataloging findings as a JSON document
+// SyftDocument represents the syft cataloging findings as a JSON document
 type SyftDocument struct {
-	Artifacts             []SyftPackage      `json:"artifacts"` // Artifacts is the list of packages discovered and placed into the catalog
-	ArtifactRelationships []SyftRelationship `json:"artifactRelationships"`
-	Files                 []SyftFile         `json:"files,omitempty"` // note: must have omitempty
-	SyftSource            SyftSource         `json:"source"`          // SyftSource represents the original object that was cataloged
-	Distro                LinuxRelease       `json:"distro"`          // Distro represents the Linux distribution that was detected from the source
-	SyftDescriptor        SyftDescriptor     `json:"descriptor"`      // SyftDescriptor is a block containing self-describing information about syft
-	Schema                Schema             `json:"schema"`          // Schema is a block reserved for defining the version for the shape of this JSON document and where to find the schema document to validate the shape
+	Artifacts             []SyftPackage      `json:"artifacts" protobuf:"bytes,1,rep,name=artifacts"` // Artifacts is the list of packages discovered and placed into the catalog
+	ArtifactRelationships []SyftRelationship `json:"artifactRelationships" protobuf:"bytes,2,rep,name=artifactRelationships"`
+	Files                 []SyftFile         `json:"files,omitempty" protobuf:"bytes,3,rep,name=files"` // note: must have omitempty
+	SyftSource            SyftSource         `json:"source" protobuf:"bytes,4,req,name=source"`         // SyftSource represents the original object that was cataloged
+	Distro                LinuxRelease       `json:"distro" protobuf:"bytes,5,req,name=distro"`         // Distro represents the Linux distribution that was detected from the source
+	SyftDescriptor        SyftDescriptor     `json:"descriptor" protobuf:"bytes,6,req,name=descriptor"` // SyftDescriptor is a block containing self-describing information about syft
+	Schema                Schema             `json:"schema" protobuf:"bytes,7,req,name=schema"`         // Schema is a block reserved for defining the version for the shape of this JSON document and where to find the schema document to validate the shape
 }

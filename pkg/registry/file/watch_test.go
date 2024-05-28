@@ -36,18 +36,18 @@ func TestExtractKeysToNotify(t *testing.T) {
 		},
 		{
 			"Full resource key should produce the full lineage",
-			"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi",
+			"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/kubescape/titi",
 			[]string{
 				"/",
 				"/spdx.softwarecomposition.kubescape.io",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape",
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi",
+				"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds",
+				"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/kubescape",
+				"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/kubescape/titi",
 			},
 		},
 		{
 			"Missing leading slash should produce an error",
-			"spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi",
+			"spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/kubescape/titi",
 			[]string{},
 		},
 	}
@@ -73,7 +73,7 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 		{
 			name: "Watch should return new watch objects for the same key for every invocation",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape",
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape",
 			},
 		},
 	}
@@ -95,9 +95,9 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 
 func TestFilesystemStorageWatchPublishing(t *testing.T) {
 	var (
-		keyN = "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/not-kubescape"
-		keyK = "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape"
-		obj  = &v1beta1.SBOMSPDXv2p3{ObjectMeta: v1.ObjectMeta{
+		keyN = "/spdx.softwarecomposition.kubescape.io/sbomsyfts/not-kubescape"
+		keyK = "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape"
+		obj  = &v1beta1.SBOMSyft{ObjectMeta: v1.ObjectMeta{
 			Name:            "some-sbom",
 			ResourceVersion: "1",
 		}}
@@ -105,19 +105,19 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 	tt := []struct {
 		name                         string
 		start, stopBefore, stopAfter map[string]int
-		inputObjects                 map[string]*v1beta1.SBOMSPDXv2p3
+		inputObjects                 map[string]*v1beta1.SBOMSyft
 		want                         map[string][]watch.Event
 	}{{
 		name:  "Create should publish to the appropriate single channel",
 		start: map[string]int{keyK: 1},
-		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+		inputObjects: map[string]*v1beta1.SBOMSyft{
 			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		want: map[string][]watch.Event{keyK: {{Type: watch.Added, Object: obj}}},
 	}, {
 		name:  "Create should publish to all watchers on the relevant key",
 		start: map[string]int{keyK: 3},
-		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+		inputObjects: map[string]*v1beta1.SBOMSyft{
 			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		want: map[string][]watch.Event{keyK: {
@@ -128,21 +128,21 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 	}, {
 		name:  "Creating on key different than the watch should produce no event",
 		start: map[string]int{keyK: 3, keyN: 1},
-		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+		inputObjects: map[string]*v1beta1.SBOMSyft{
 			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		want: map[string][]watch.Event{keyN: {{Type: watch.Added, Object: obj}}, keyK: {}},
 	}, {
 		name:  "Creating on key not being watched should produce no events",
 		start: map[string]int{keyK: 1},
-		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+		inputObjects: map[string]*v1beta1.SBOMSyft{
 			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		want: map[string][]watch.Event{keyN: {}},
 	}, {
 		name:  "Sending to stopped watch should not produce an event",
 		start: map[string]int{keyN: 3},
-		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+		inputObjects: map[string]*v1beta1.SBOMSyft{
 			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		stopBefore: map[string]int{keyN: 1},
@@ -153,7 +153,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 	}, {
 		name:  "Stopping watch after send shouldn't deadlock",
 		start: map[string]int{keyN: 3},
-		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+		inputObjects: map[string]*v1beta1.SBOMSyft{
 			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		stopAfter: map[string]int{keyN: 0},
@@ -165,7 +165,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 	}, {
 		name:  "Stopping watch twice is ok",
 		start: map[string]int{keyN: 3},
-		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+		inputObjects: map[string]*v1beta1.SBOMSyft{
 			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		stopBefore: map[string]int{keyN: 1},
@@ -213,7 +213,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 			wait()
 			{ // Act out the creation operation
 				var ttl uint64 = 0
-				out := &v1beta1.SBOMSPDXv2p3{}
+				out := &v1beta1.SBOMSyft{}
 				for key, object := range tc.inputObjects {
 					_ = s.Create(ctx, key, object, out, ttl)
 				}
@@ -245,7 +245,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 }
 
 func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
-	toto := &v1beta1.SBOMSPDXv2p3{
+	toto := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
@@ -269,17 +269,17 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 		{
 			name: "Successful GuaranteedUpdate should produce a matching Modified event",
 			inputWatchesByKey: map[string]int{
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape": 1,
+				"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape": 1,
 			},
 			args: args{
-				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key:            "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				ignoreNotFound: true,
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return toto, nil, nil
 				},
 			},
 			expectedEvents: map[string][]watch.Event{
-				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape": {
+				"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape": {
 					{
 						Type:   watch.Modified,
 						Object: toto,
@@ -301,7 +301,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 				}
 			}
 
-			destination := &v1beta1.SBOMSPDXv2p3{}
+			destination := &v1beta1.SBOMSyft{}
 			_ = s.GuaranteedUpdate(context.TODO(), tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
 
 			for key, expectedEvents := range tc.expectedEvents {

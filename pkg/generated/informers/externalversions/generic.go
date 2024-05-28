@@ -69,10 +69,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().NetworkNeighborses().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("openvulnerabilityexchangecontainers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().OpenVulnerabilityExchangeContainers().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3s"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSPDXv2p3s().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("sbomspdxv2p3filtereds"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSPDXv2p3Filtereds().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomsyfts"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().SBOMSyfts().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("sbomsyftfiltereds"):
