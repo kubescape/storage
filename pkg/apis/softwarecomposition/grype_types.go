@@ -129,5 +129,5 @@ type GrypeDocument struct {
 	IgnoredMatches []IgnoredMatch
 	Source         *Source
 	Distro         Distribution
-	Descriptor     Descriptor
+	Descriptor_    Descriptor
 }

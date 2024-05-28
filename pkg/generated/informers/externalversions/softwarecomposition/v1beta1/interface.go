@@ -40,10 +40,6 @@ type Interface interface {
 	NetworkNeighborses() NetworkNeighborsInformer
 	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
 	OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer
-	// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
-	SBOMSPDXv2p3s() SBOMSPDXv2p3Informer
-	// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
-	SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer
 	// SBOMSyfts returns a SBOMSyftInformer.
 	SBOMSyfts() SBOMSyftInformer
 	// SBOMSyftFiltereds returns a SBOMSyftFilteredInformer.
@@ -111,16 +107,6 @@ func (v *version) NetworkNeighborses() NetworkNeighborsInformer {
 // OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
 func (v *version) OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer {
 	return &openVulnerabilityExchangeContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// SBOMSPDXv2p3s returns a SBOMSPDXv2p3Informer.
-func (v *version) SBOMSPDXv2p3s() SBOMSPDXv2p3Informer {
-	return &sBOMSPDXv2p3Informer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// SBOMSPDXv2p3Filtereds returns a SBOMSPDXv2p3FilteredInformer.
-func (v *version) SBOMSPDXv2p3Filtereds() SBOMSPDXv2p3FilteredInformer {
-	return &sBOMSPDXv2p3FilteredInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // SBOMSyfts returns a SBOMSyftInformer.

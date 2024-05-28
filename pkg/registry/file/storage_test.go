@@ -28,10 +28,10 @@ func getStoredMetadataFilepath(root, key string) string {
 func TestStorageImpl_Count(t *testing.T) {
 	files := []string{
 		"/other/type/ns/titi",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/other/toto",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/toto",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/kubescape/titi",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/other/toto",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/toto",
 	}
 	tests := []struct {
 		name    string
@@ -41,17 +41,17 @@ func TestStorageImpl_Count(t *testing.T) {
 	}{
 		{
 			name: "one object",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 			want: 1,
 		},
 		{
 			name: "one ns",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape",
+			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape",
 			want: 1,
 		},
 		{
 			name: "one type",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s",
+			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts",
 			want: 2,
 		},
 		{
@@ -105,16 +105,16 @@ func TestStorageImpl_Create(t *testing.T) {
 			name:     "readonly fs",
 			readonly: true,
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				obj: &v1beta1.SBOMSPDXv2p3{},
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				obj: &v1beta1.SBOMSyft{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "object",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				obj: &v1beta1.SBOMSPDXv2p3{
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				obj: &v1beta1.SBOMSyft{
 					ObjectMeta: v1.ObjectMeta{
 						Name: "toto",
 					},
@@ -124,16 +124,16 @@ func TestStorageImpl_Create(t *testing.T) {
 		{
 			name: "object and out",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				obj: &v1beta1.SBOMSPDXv2p3{
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				obj: &v1beta1.SBOMSyft{
 					ObjectMeta: v1.ObjectMeta{
 						Name:          "toto",
 						ManagedFields: []v1.ManagedFieldsEntry{{Manager: "node-agent"}},
 					},
 				},
-				out: &v1beta1.SBOMSPDXv2p3{},
+				out: &v1beta1.SBOMSyft{},
 			},
-			want: &v1beta1.SBOMSPDXv2p3{
+			want: &v1beta1.SBOMSyft{
 				ObjectMeta: v1.ObjectMeta{
 					Name:            "toto",
 					ResourceVersion: "1",
@@ -170,7 +170,7 @@ func TestStorageImpl_Create(t *testing.T) {
 }
 
 func TestStorageImpl_Delete(t *testing.T) {
-	toto, _ := json.Marshal(v1beta1.SBOMSPDXv2p3{
+	toto, _ := json.Marshal(v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
 		},
@@ -193,15 +193,15 @@ func TestStorageImpl_Delete(t *testing.T) {
 		{
 			name: "not found",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 			},
 			wantErr: true,
 		},
 		{
 			name: "empty string",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				out: &v1beta1.SBOMSPDXv2p3{},
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				out: &v1beta1.SBOMSyft{},
 			},
 			create:  true,
 			wantErr: true,
@@ -209,22 +209,22 @@ func TestStorageImpl_Delete(t *testing.T) {
 		{
 			name: "empty object",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				out: &v1beta1.SBOMSPDXv2p3{},
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				out: &v1beta1.SBOMSyft{},
 			},
 			content: "{}",
 			create:  true,
-			want:    &v1beta1.SBOMSPDXv2p3{},
+			want:    &v1beta1.SBOMSyft{},
 		},
 		{
 			name: "real object",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				out: &v1beta1.SBOMSPDXv2p3{},
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				out: &v1beta1.SBOMSyft{},
 			},
 			content: string(toto),
 			create:  true,
-			want: &v1beta1.SBOMSPDXv2p3{
+			want: &v1beta1.SBOMSyft{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "toto",
 				},
@@ -255,9 +255,9 @@ func isNotFoundError(_ assert.TestingT, err error, _ ...any) bool {
 
 func TestStorageImpl_Get(t *testing.T) {
 	var emptyObj bytes.Buffer
-	_ = gob.NewEncoder(&emptyObj).Encode(v1beta1.SBOMSPDXv2p3{})
+	_ = gob.NewEncoder(&emptyObj).Encode(v1beta1.SBOMSyft{})
 	var realObj bytes.Buffer
-	_ = gob.NewEncoder(&realObj).Encode(v1beta1.SBOMSPDXv2p3{
+	_ = gob.NewEncoder(&realObj).Encode(v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
 		},
@@ -278,15 +278,15 @@ func TestStorageImpl_Get(t *testing.T) {
 		{
 			name: "not found",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 			},
 			wantErr: isNotFoundError,
 		},
 		{
 			name: "empty string",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				objPtr: &v1beta1.SBOMSPDXv2p3{},
+				key:    "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				objPtr: &v1beta1.SBOMSyft{},
 			},
 			create:  true,
 			wantErr: isNotFoundError,
@@ -294,24 +294,24 @@ func TestStorageImpl_Get(t *testing.T) {
 		{
 			name: "empty object",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				objPtr: &v1beta1.SBOMSPDXv2p3{},
+				key:    "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				objPtr: &v1beta1.SBOMSyft{},
 			},
 			content: emptyObj.String(),
 			create:  true,
 			wantErr: assert.NoError,
-			want:    &v1beta1.SBOMSPDXv2p3{},
+			want:    &v1beta1.SBOMSyft{},
 		},
 		{
 			name: "real object",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				objPtr: &v1beta1.SBOMSPDXv2p3{},
+				key:    "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				objPtr: &v1beta1.SBOMSyft{},
 			},
 			content: realObj.String(),
 			create:  true,
 			wantErr: assert.NoError,
-			want: &v1beta1.SBOMSPDXv2p3{
+			want: &v1beta1.SBOMSyft{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "toto",
 				},
@@ -320,8 +320,8 @@ func TestStorageImpl_Get(t *testing.T) {
 		{
 			name: "truncated object",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				objPtr: &v1beta1.SBOMSPDXv2p3{},
+				key:    "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				objPtr: &v1beta1.SBOMSyft{},
 			},
 			content: string(realObj.Bytes()[10]),
 			create:  true,
@@ -348,19 +348,19 @@ func TestStorageImpl_Get(t *testing.T) {
 
 func TestStorageImpl_GetList(t *testing.T) {
 	objs := map[string]runtime.Object{
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto": &v1beta1.SBOMSPDXv2p3{
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "toto",
 				Namespace: "kubescape",
 			},
 		},
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/titi": &v1beta1.SBOMSPDXv2p3{
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/titi": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "titi",
 				Namespace: "kubescape",
 			},
 		},
-		"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/other/tata": &v1beta1.SBOMSPDXv2p3{
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/tata": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "tata",
 				Namespace: "other",
@@ -381,24 +381,24 @@ func TestStorageImpl_GetList(t *testing.T) {
 		{
 			name: "get object",
 			args: args{
-				key:     "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
-				listObj: &v1beta1.SBOMSPDXv2p3List{},
+				key:     "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				listObj: &v1beta1.SBOMSyftList{},
 			},
 			want: 1,
 		},
 		{
 			name: "get ns",
 			args: args{
-				key:     "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape",
-				listObj: &v1beta1.SBOMSPDXv2p3List{},
+				key:     "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape",
+				listObj: &v1beta1.SBOMSyftList{},
 			},
 			want: 2,
 		},
 		{
 			name: "get all ns",
 			args: args{
-				key:     "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s",
-				listObj: &v1beta1.SBOMSPDXv2p3List{},
+				key:     "/spdx.softwarecomposition.kubescape.io/sbomsyfts",
+				listObj: &v1beta1.SBOMSyftList{},
 			},
 			want: 3,
 		},
@@ -413,18 +413,18 @@ func TestStorageImpl_GetList(t *testing.T) {
 			if err := s.GetList(context.TODO(), tt.args.key, tt.args.in2, tt.args.listObj); (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.want, len(tt.args.listObj.(*v1beta1.SBOMSPDXv2p3List).Items))
+			assert.Equal(t, tt.want, len(tt.args.listObj.(*v1beta1.SBOMSyftList).Items))
 		})
 	}
 }
 
 func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	count := 0
-	toto := &v1beta1.SBOMSPDXv2p3{
+	toto := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
 		},
-		Spec: v1beta1.SBOMSPDXv2p3Spec{
+		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
 				Tool: v1beta1.ToolMeta{
 					Name: "titi",
@@ -432,12 +432,12 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			},
 		},
 	}
-	totov1 := &v1beta1.SBOMSPDXv2p3{
+	totov1 := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
 		},
-		Spec: v1beta1.SBOMSPDXv2p3Spec{
+		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
 				Tool: v1beta1.ToolMeta{
 					Name: "titi",
@@ -445,12 +445,12 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			},
 		},
 	}
-	totov3 := &v1beta1.SBOMSPDXv2p3{
+	totov3 := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "3",
 		},
-		Spec: v1beta1.SBOMSPDXv2p3Spec{
+		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
 				Tool: v1beta1.ToolMeta{
 					Name: "tutu",
@@ -458,12 +458,12 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			},
 		},
 	}
-	tutu := &v1beta1.SBOMSPDXv2p3{
+	tutu := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
 		},
-		Spec: v1beta1.SBOMSPDXv2p3Spec{
+		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
 				Tool: v1beta1.ToolMeta{
 					Name: "tutu",
@@ -484,12 +484,12 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		create       bool
 		wantErr      bool
 		wantNotFound bool
-		want         *v1beta1.SBOMSPDXv2p3
+		want         *v1beta1.SBOMSyft
 	}{
 		{
 			name: "test",
 			args: args{
-				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key:            "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				ignoreNotFound: true,
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return toto.DeepCopyObject(), nil, nil
@@ -500,9 +500,9 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		{
 			name: "test with existing object",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-					obj := *input.(*v1beta1.SBOMSPDXv2p3)
+					obj := *input.(*v1beta1.SBOMSyft)
 					obj.Spec.Metadata.Tool.Name = "tutu"
 					return &obj, nil, nil
 				},
@@ -513,7 +513,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		{
 			name: "test with existing object, no change",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return input, nil, nil
 				},
@@ -524,7 +524,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		{
 			name: "test with failing precondition",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				preconditions: &storage.Preconditions{
 					ResourceVersion: ptr.To("v123"),
 				},
@@ -535,14 +535,14 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		{
 			name: "test with failing tryUpdate",
 			args: args{
-				key:            "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				key:            "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				ignoreNotFound: true,
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					if count == 0 {
 						count++
 						return nil, nil, fmt.Errorf("tryUpdate error")
 					}
-					obj := *input.(*v1beta1.SBOMSPDXv2p3)
+					obj := *input.(*v1beta1.SBOMSyft)
 					obj.ResourceVersion = "2"
 					obj.Spec.Metadata.Tool.Name = "tutu"
 					return &obj, nil, nil
@@ -560,7 +560,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				err := s.Create(context.Background(), tt.args.key, toto.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
 			}
-			destination := &v1beta1.SBOMSPDXv2p3{}
+			destination := &v1beta1.SBOMSyft{}
 			err := s.GuaranteedUpdate(context.TODO(), tt.args.key, destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
 			if tt.wantErr {
 				if err == nil {
@@ -568,7 +568,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				}
 				return
 			} else {
-				onDisk := &v1beta1.SBOMSPDXv2p3{}
+				onDisk := &v1beta1.SBOMSyft{}
 				err = s.Get(context.Background(), tt.args.key, storage.GetOptions{}, onDisk)
 				if tt.wantNotFound {
 					assert.Error(t, err)
@@ -601,18 +601,18 @@ func TestStorageImpl_Versioner(t *testing.T) {
 
 func BenchmarkWriteFiles(b *testing.B) {
 	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot).(*StorageImpl)
-	key := "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto"
-	obj := &v1beta1.SBOMSPDXv2p3{
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
+	obj := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
 		},
-		Spec: v1beta1.SBOMSPDXv2p3Spec{
+		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
 				Tool: v1beta1.ToolMeta{Name: "titi"},
 			},
 		},
 	}
-	metaOut := &v1beta1.SBOMSPDXv2p3{}
+	metaOut := &v1beta1.SBOMSyft{}
 	for i := 0; i < b.N; i++ {
 		_ = s.writeFiles(key, obj, metaOut)
 	}

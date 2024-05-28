@@ -44,8 +44,6 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
-	sbomspdxv2p3storage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3"
-	sbomspdxv2p3filteredstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomspdxv2p3filtered"
 	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
 	vmsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifestsummary"
 	vsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitysummary"
@@ -141,12 +139,6 @@ func (c completedConfig) New() (*WardleServer, error) {
 	}
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
-	// Since our types don’t implement the Protobuf marshaling interface,
-	// but the default APIServer serializer advertizes it by default, a lot
-	// of unexpected things might fail. One example is that deleting an
-	// arbitrary namespace will fail while this APIServer is running (see
-	// https://github.com/kubernetes/kubernetes/issues/86666).
-	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
 	var (
 		osFs        = afero.NewOsFs()
@@ -176,8 +168,6 @@ func (c completedConfig) New() (*WardleServer, error) {
 		"networkneighborhoods":                ep(networkneighborhood.NewREST, networkNeighborhoodStorageImpl),
 		"networkneighborses":                  ep(networkneighbors.NewREST),
 		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
-		"sbomspdxv2p3filtereds":               ep(sbomspdxv2p3filteredstorage.NewREST),
-		"sbomspdxv2p3s":                       ep(sbomspdxv2p3storage.NewREST),
 		"sbomsyftfiltereds":                   ep(sbomsyftfiltereds.NewREST),
 		"sbomsyfts":                           ep(sbomsyfts.NewREST),
 		"seccompprofiles":                     ep(seccompprofiles.NewREST),
