@@ -14,7 +14,6 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,23 +22,24 @@ const (
 	storageV1ApiVersion = "spdx.kubescape.io"
 )
 
-func GenerateNetworkPolicy(networkNeighborhood NetworkNeighborhood, knownServers []KnownServer, timeProvider metav1.Time) (GeneratedNetworkPolicy, error) {
-	if !IsAvailable(networkNeighborhood) {
-		return GeneratedNetworkPolicy{}, fmt.Errorf("networkNeighborhood %s/%s status annotation is not ready", networkNeighborhood.Namespace, networkNeighborhood.Name)
+func (nn *NetworkNeighborhood) GenerateNetworkPolicy(knownServers []KnownServer, timeProvider metav1.Time) (GeneratedNetworkPolicy, error) {
+	if !nn.IsAvailable() {
+		return GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready", nn.Namespace, nn.Name)
 	}
 
 	networkPolicy := NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      networkNeighborhood.Name,
-			Namespace: networkNeighborhood.Namespace,
+			Name:      nn.Name,
+			Namespace: nn.Namespace,
 			Annotations: map[string]string{
 				"generated-by": "kubescape",
 			},
-			Labels: networkNeighborhood.Labels,
+			Labels: nn.Labels,
 		},
 		Spec: NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{},
 			PolicyTypes: []PolicyType{
 				PolicyTypeIngress,
 				PolicyTypeEgress,
@@ -47,15 +47,12 @@ func GenerateNetworkPolicy(networkNeighborhood NetworkNeighborhood, knownServers
 		},
 	}
 
-	if networkNeighborhood.Spec.MatchLabels != nil {
-		networkPolicy.Spec.PodSelector.MatchLabels = maps.Clone(networkNeighborhood.Spec.MatchLabels)
+	if nn.Spec.MatchLabels != nil {
+		networkPolicy.Spec.PodSelector.MatchLabels = nn.Spec.MatchLabels
 	}
 
-	if networkNeighborhood.Spec.MatchExpressions != nil {
-		networkPolicy.Spec.PodSelector.MatchExpressions = networkNeighborhood.Spec.MatchExpressions
-	}
-	if networkNeighborhood.Spec.MatchExpressions != nil {
-		copy(networkPolicy.Spec.PodSelector.MatchExpressions, networkNeighborhood.Spec.MatchExpressions)
+	if nn.Spec.MatchExpressions != nil {
+		networkPolicy.Spec.PodSelector.MatchExpressions = nn.Spec.MatchExpressions
 	}
 
 	generatedNetworkPolicy := GeneratedNetworkPolicy{
@@ -64,16 +61,16 @@ func GenerateNetworkPolicy(networkNeighborhood NetworkNeighborhood, knownServers
 			APIVersion: storageV1ApiVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              networkNeighborhood.Name,
-			Namespace:         networkNeighborhood.Namespace,
-			Labels:            networkNeighborhood.Labels,
+			Name:              nn.Name,
+			Namespace:         nn.Namespace,
+			Labels:            nn.Labels,
 			CreationTimestamp: timeProvider,
 		},
 		PoliciesRef: []PolicyRef{},
 	}
 
 	ingressHash := make(map[string]bool)
-	for _, neighbor := range listIngressNetworkNeighbors(&networkNeighborhood) {
+	for _, neighbor := range nn.listIngressNetworkNeighbors() {
 
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
@@ -94,7 +91,7 @@ func GenerateNetworkPolicy(networkNeighborhood NetworkNeighborhood, knownServers
 	}
 
 	egressHash := make(map[string]bool)
-	for _, neighbor := range listEgressNetworkNeighbors(&networkNeighborhood) {
+	for _, neighbor := range nn.listEgressNetworkNeighbors() {
 
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
@@ -124,31 +121,31 @@ func GenerateNetworkPolicy(networkNeighborhood NetworkNeighborhood, knownServers
 	return generatedNetworkPolicy, nil
 }
 
-func listIngressNetworkNeighbors(networkNeighborhood *NetworkNeighborhood) []NetworkNeighbor {
+func (nn *NetworkNeighborhood) listIngressNetworkNeighbors() []NetworkNeighbor {
 	var neighbors []NetworkNeighbor
-	for i := range networkNeighborhood.Spec.Containers {
-		neighbors = append(neighbors, networkNeighborhood.Spec.Containers[i].Ingress...)
+	for i := range nn.Spec.Containers {
+		neighbors = append(neighbors, nn.Spec.Containers[i].Ingress...)
 	}
-	for i := range networkNeighborhood.Spec.InitContainers {
-		neighbors = append(neighbors, networkNeighborhood.Spec.InitContainers[i].Ingress...)
+	for i := range nn.Spec.InitContainers {
+		neighbors = append(neighbors, nn.Spec.InitContainers[i].Ingress...)
 	}
-	for i := range networkNeighborhood.Spec.EphemeralContainers {
-		neighbors = append(neighbors, networkNeighborhood.Spec.EphemeralContainers[i].Ingress...)
+	for i := range nn.Spec.EphemeralContainers {
+		neighbors = append(neighbors, nn.Spec.EphemeralContainers[i].Ingress...)
 	}
 	return neighbors
 
 }
 
-func listEgressNetworkNeighbors(networkNeighborhood *NetworkNeighborhood) []NetworkNeighbor {
+func (nn *NetworkNeighborhood) listEgressNetworkNeighbors() []NetworkNeighbor {
 	var neighbors []NetworkNeighbor
-	for i := range networkNeighborhood.Spec.Containers {
-		neighbors = append(neighbors, networkNeighborhood.Spec.Containers[i].Egress...)
+	for i := range nn.Spec.Containers {
+		neighbors = append(neighbors, nn.Spec.Containers[i].Egress...)
 	}
-	for i := range networkNeighborhood.Spec.InitContainers {
-		neighbors = append(neighbors, networkNeighborhood.Spec.InitContainers[i].Egress...)
+	for i := range nn.Spec.InitContainers {
+		neighbors = append(neighbors, nn.Spec.InitContainers[i].Egress...)
 	}
-	for i := range networkNeighborhood.Spec.EphemeralContainers {
-		neighbors = append(neighbors, networkNeighborhood.Spec.EphemeralContainers[i].Egress...)
+	for i := range nn.Spec.EphemeralContainers {
+		neighbors = append(neighbors, nn.Spec.EphemeralContainers[i].Egress...)
 	}
 	return neighbors
 
@@ -477,8 +474,8 @@ func removeLabels(labels map[string]string) {
 	}
 }
 
-func IsAvailable(networkNeighborhood NetworkNeighborhood) bool {
-	switch networkNeighborhood.GetAnnotations()[helpersv1.StatusMetadataKey] {
+func (nn *NetworkNeighborhood) IsAvailable() bool {
+	switch nn.GetAnnotations()[helpersv1.StatusMetadataKey] {
 	case helpersv1.Ready, helpersv1.Completed:
 		return true
 	default:
