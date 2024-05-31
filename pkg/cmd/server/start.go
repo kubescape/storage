@@ -18,13 +18,13 @@ package server
 
 import (
 	"fmt"
-	"github.com/kubescape/go-logger/helpers"
 	"io"
 	"net"
 	"net/http"
 	"net/http/pprof"
 
 	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/apiserver"
@@ -79,17 +79,17 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 		Long:  "Launch a wardle API server",
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
-				logger.L().Error("config not completed")
+				logger.L().Error("config not completed", helpers.Error(err))
 				return err
 			}
 			logger.L().Debug("config completed")
 			if err := o.Validate(args); err != nil {
-				logger.L().Error("config not validated")
+				logger.L().Error("config not validated", helpers.Error(err))
 				return err
 			}
 			logger.L().Debug("config validated")
 			if err := o.RunWardleServer(stopCh); err != nil {
-				logger.L().Error("unable to run server validated")
+				logger.L().Error("unable to run server validated", helpers.Error(err))
 				return err
 			}
 			logger.L().Info("server ran")

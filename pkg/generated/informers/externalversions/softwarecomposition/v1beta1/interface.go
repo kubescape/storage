@@ -48,6 +48,8 @@ type Interface interface {
 	SBOMSyfts() SBOMSyftInformer
 	// SBOMSyftFiltereds returns a SBOMSyftFilteredInformer.
 	SBOMSyftFiltereds() SBOMSyftFilteredInformer
+	// SeccompProfiles returns a SeccompProfileInformer.
+	SeccompProfiles() SeccompProfileInformer
 	// VulnerabilityManifests returns a VulnerabilityManifestInformer.
 	VulnerabilityManifests() VulnerabilityManifestInformer
 	// VulnerabilityManifestSummaries returns a VulnerabilityManifestSummaryInformer.
@@ -129,6 +131,11 @@ func (v *version) SBOMSyfts() SBOMSyftInformer {
 // SBOMSyftFiltereds returns a SBOMSyftFilteredInformer.
 func (v *version) SBOMSyftFiltereds() SBOMSyftFilteredInformer {
 	return &sBOMSyftFilteredInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// SeccompProfiles returns a SeccompProfileInformer.
+func (v *version) SeccompProfiles() SeccompProfileInformer {
+	return &seccompProfileInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VulnerabilityManifests returns a VulnerabilityManifestInformer.

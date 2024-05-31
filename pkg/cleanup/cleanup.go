@@ -37,6 +37,7 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	"sbomsyftfiltered":                    deleteByInstanceId,
 	"sbomsyft":                            deleteByImageId,
 	"sbomsummaries":                       deleteDeprecated,
+	"seccompprofiles":                     deleteByTemplateHashOrWlid,
 	"vulnerabilitymanifests":              deleteByImageIdOrInstanceId,
 	"vulnerabilitymanifestsummaries":      deleteByWlidAndContainer,
 	"workloadconfigurationscans":          deleteByWlid,

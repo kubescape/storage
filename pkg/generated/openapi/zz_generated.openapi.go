@@ -43,10 +43,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileList":                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileSpec":                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus":                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg":                                        schema_pkg_apis_softwarecomposition_v1beta1_Arg(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ArtifactOfProject":                          schema_pkg_apis_softwarecomposition_v1beta1_ArtifactOfProject(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE":                                        schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Checksum":                                   schema_pkg_apis_softwarecomposition_v1beta1_Checksum(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component":                                  schema_pkg_apis_softwarecomposition_v1beta1_Component(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition":                                  schema_pkg_apis_softwarecomposition_v1beta1_Condition(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConditionedStatus":                          schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary":                   schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummaryList":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
@@ -131,6 +134,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OtherLicense":                               schema_pkg_apis_softwarecomposition_v1beta1_OtherLicense(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Package":                                    schema_pkg_apis_softwarecomposition_v1beta1_Package(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData":                           schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicDataV01011":                     schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData":                          schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageExternalReference":                   schema_pkg_apis_softwarecomposition_v1beta1_PackageExternalReference(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageVerificationCode":                    schema_pkg_apis_softwarecomposition_v1beta1_PackageVerificationCode(ref),
@@ -159,13 +163,22 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus":                       schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlSummary":                      schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema":                                     schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfile":                             schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfile(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileList":                         schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileList(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileSpec":                         schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileStatus":                       schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ServiceBackendPort":                         schema_pkg_apis_softwarecomposition_v1beta1_ServiceBackendPort(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary":                            schema_pkg_apis_softwarecomposition_v1beta1_SeveritySummary(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile":                       schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfile(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileSpec":                   schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus":                 schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Snippet":                                    schema_pkg_apis_softwarecomposition_v1beta1_Snippet(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRange":                               schema_pkg_apis_softwarecomposition_v1beta1_SnippetRange(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SnippetRangePointer":                        schema_pkg_apis_softwarecomposition_v1beta1_SnippetRangePointer(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                                     schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SpecBase":                                   schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement":                                  schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StatusBase":                                 schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent":                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Supplier":                                   schema_pkg_apis_softwarecomposition_v1beta1_Supplier(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":                            schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
@@ -175,6 +188,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage":                                schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship":                           schema_pkg_apis_softwarecomposition_v1beta1_SyftRelationship(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource":                                 schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Syscall":                                    schema_pkg_apis_softwarecomposition_v1beta1_Syscall(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":                            schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX":                                        schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref),
@@ -619,12 +633,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 							},
 						},
 					},
+					"seccompProfile": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+						},
+					},
 				},
 				Required: []string{"capabilities", "execs", "opens", "syscalls"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
 	}
 }
 
@@ -682,6 +702,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"architectures": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"containers": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -740,6 +774,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 						},
 					},
 				},
+				Required: []string{"architectures"},
 			},
 		},
 		Dependencies: []string{
@@ -752,6 +787,50 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref co
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Arg(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Arg defines the specific syscall in seccomp.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"index": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the index for syscall arguments in seccomp",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the value for syscall arguments in seccomp",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"valueTwo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the value for syscall arguments in seccomp",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"op": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the operator for syscall arguments in seccomp",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"index", "op"},
 			},
 		},
 	}
@@ -904,6 +983,86 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Component(ref common.ReferenceC
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of this condition. At most one of each condition type may apply to a resource at any point in time.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status of this condition; is it currently True, False, or Unknown?",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastTransitionTime is the last time this condition transitioned from one status to another.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A Reason for this condition's last transition from one status to another.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A Message containing details about this condition's last transition from one status to another, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "status", "lastTransitionTime", "reason"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions of the resource.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"},
 	}
 }
 
@@ -5248,6 +5407,111 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageBasicDataV01011 is the previous version of PackageBasicData used in schema v0.101.1.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"foundBy": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"locations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"),
+									},
+								},
+							},
+						},
+					},
+					"licenses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License"),
+									},
+								},
+							},
+						},
+					},
+					"language": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"cpes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"purl": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "name", "version", "type", "foundBy", "locations", "licenses", "language", "cpes", "purl"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5618,7 +5882,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SBOMSPDXv2p3 is an example type with a spec and a status.",
+				Description: "SBOMSPDXv2p3 is a custom resource that describes an SBOM in the SPDX 2.3 format.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -5810,7 +6074,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Spec(ref common.Ref
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SBOMSPDXv2p3Spec is the specification of a Flunder.",
+				Description: "SBOMSPDXv2p3Spec is the specification of an SPDX SBOM.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"metadata": {
@@ -5838,7 +6102,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSPDXv2p3Status(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SBOMSPDXv2p3Status is the status of a Flunder.",
+				Description: "SBOMSPDXv2p3Status is the status of an SPDX SBOM.",
 				Type:        []string{"object"},
 			},
 		},
@@ -5896,7 +6160,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref common.Ref
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft format.\n\nBeing filtered means that the SBOM contains only the relevant vulnerable materials.",
+				Description: "SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft 2.3 format.\n\nBeing filtered means that the SBOM contains only the relevant vulnerable materials.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -6344,6 +6608,181 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref common.ReferenceCall
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfile"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfile", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"containers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+									},
+								},
+							},
+						},
+					},
+					"initContainers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+									},
+								},
+							},
+						},
+					},
+					"ephemeralContainers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"containers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus"},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ServiceBackendPort(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -6417,6 +6856,191 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeveritySummary(ref common.Refe
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileSpec"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"baseProfileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BaseProfileName is the name of base profile (in the same namespace) that will be unioned into this profile. Base profiles can be references as remote OCI artifacts as well when prefixed with `oci://`.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"defaultAction": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the default action for seccomp",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"architectures": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the architecture used for system calls",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"listenerPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path of UNIX domain socket to contact a seccomp agent for SCMP_ACT_NOTIFY",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"listenerMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "opaque data to pass to the seccomp agent",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"syscalls": {
+						SchemaProps: spec.SchemaProps{
+							Description: "match a syscall in seccomp. While this property is OPTIONAL, some values of defaultAction are not useful without syscalls entries. For example, if defaultAction is SCMP_ACT_KILL and syscalls is empty or unset, the kernel will kill the container process on its first syscall",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Syscall"),
+									},
+								},
+							},
+						},
+					},
+					"flags": {
+						SchemaProps: spec.SchemaProps{
+							Description: "list of flags to use with seccomp(2)",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"defaultAction"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Syscall"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions of the resource.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"activeWorkloads": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"localhostProfile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The path that should be provided to the `securityContext.seccompProfile.localhostProfile` field of a Pod or container spec",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"},
 	}
 }
 
@@ -6610,6 +7234,24 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Source(ref common.ReferenceCall
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -6706,6 +7348,40 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VexVulnerability"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions of the resource.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"},
 	}
 }
 
@@ -7084,6 +7760,65 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref common.Reference
 				Required: []string{"id", "name", "version", "type", "metadata"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_Syscall(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Syscall defines a syscall in seccomp.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"names": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the names of the syscalls",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"action": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the action for seccomp rules",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"errnoRet": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the errno return code to use. Some actions like SCMP_ACT_ERRNO and SCMP_ACT_TRACE allow to specify the errno code to return",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the specific syscall in seccomp",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"names", "action"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg"},
 	}
 }
 
@@ -7543,7 +8278,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummary(re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VulnerabilityManifestSummary is a summary of a VulnerabilityManifests.",
+				Description: "VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -7822,7 +8557,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VulnerabilitySummaryList is a list of VulnerabilitySummary.",
+				Description: "VulnerabilitySummaryList is a list of VulnerabilitySummaries.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

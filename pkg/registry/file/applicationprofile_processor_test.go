@@ -2,6 +2,7 @@ package file
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
@@ -25,6 +26,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 					Annotations: map[string]string{},
 				},
 				Spec: softwarecomposition.ApplicationProfileSpec{
+					Architectures: []string{"amd64", "arm64", "amd64"},
 					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
 						{
 							Name: "ephemeralContainer",
@@ -69,6 +71,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 					},
 				},
 				Spec: softwarecomposition.ApplicationProfileSpec{
+					Architectures: []string{"amd64", "arm64"},
 					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
 						{
 							Name:         "ephemeralContainer",
@@ -123,6 +126,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			a := ApplicationProfileProcessor{}
 			tt.wantErr(t, a.PreSave(tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
+			slices.Sort(tt.object.(*softwarecomposition.ApplicationProfile).Spec.Architectures)
 			assert.Equal(t, tt.want, tt.object)
 		})
 	}

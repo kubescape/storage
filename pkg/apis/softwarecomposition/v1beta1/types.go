@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/containers/common/pkg/seccomp"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -47,20 +49,20 @@ type SPDXMeta struct {
 	Report ReportMeta `json:"report"`
 }
 
-// SBOMSPDXv2p3Spec is the specification of a Flunder.
+// SBOMSPDXv2p3Spec is the specification of an SPDX SBOM.
 type SBOMSPDXv2p3Spec struct {
 	Metadata SPDXMeta `json:"metadata"`
 	SPDX     Document `json:"spdx,omitempty"`
 }
 
-// SBOMSPDXv2p3Status is the status of a Flunder.
+// SBOMSPDXv2p3Status is the status of an SPDX SBOM.
 type SBOMSPDXv2p3Status struct {
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// SBOMSPDXv2p3 is an example type with a spec and a status.
+// SBOMSPDXv2p3 is a custom resource that describes an SBOM in the SPDX 2.3 format.
 type SBOMSPDXv2p3 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
@@ -181,7 +183,7 @@ type VulnerabilityManifestSummarySpec struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VulnerabilityManifestSummary is a summary of a VulnerabilityManifests.
+// VulnerabilityManifestSummary is a summary of a VulnerabilityManifest.
 type VulnerabilityManifestSummary struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
@@ -222,7 +224,7 @@ type VulnerabilitySummary struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VulnerabilitySummaryList is a list of VulnerabilitySummary.
+// VulnerabilitySummaryList is a list of VulnerabilitySummaries.
 type VulnerabilitySummaryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
@@ -242,6 +244,7 @@ type ApplicationProfile struct {
 }
 
 type ApplicationProfileSpec struct {
+	Architectures []string `json:"architectures"`
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	Containers []ApplicationProfileContainer `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
@@ -261,8 +264,9 @@ type ApplicationProfileContainer struct {
 	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path"`
 	// +patchMergeKey=path
 	// +patchStrategy=merge
-	Opens    []OpenCalls `json:"opens" patchStrategy:"merge" patchMergeKey:"path"`
-	Syscalls []string    `json:"syscalls"`
+	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path"`
+	Syscalls       []string             `json:"syscalls"`
+	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty"`
 }
 
 type ExecCalls struct {
@@ -516,7 +520,7 @@ type SBOMSyftList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft format.
+// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft 2.3 format.
 //
 // Being filtered means that the SBOM contains only the relevant vulnerable materials.
 type SBOMSyftFiltered struct {
@@ -535,4 +539,151 @@ type SBOMSyftFilteredList struct {
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Items []SBOMSyftFiltered `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SeccompProfile struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   SeccompProfileSpec   `json:"spec,omitempty"`
+	Status SeccompProfileStatus `json:"status,omitempty"`
+}
+
+type SeccompProfileSpec struct {
+	Containers          []SingleSeccompProfile `json:"containers,omitempty"`
+	InitContainers      []SingleSeccompProfile `json:"initContainers,omitempty"`
+	EphemeralContainers []SingleSeccompProfile `json:"ephemeralContainers,omitempty"`
+}
+
+type SingleSeccompProfile struct {
+	Name string                   `json:"name,omitempty"`
+	Path string                   `json:"path,omitempty"`
+	Spec SingleSeccompProfileSpec `json:"spec,omitempty"`
+}
+
+type SeccompProfileStatus struct {
+	Containers map[string]SingleSeccompProfileStatus `json:"containers,omitempty"`
+}
+
+type SingleSeccompProfileSpec struct {
+	// Common spec fields for all profiles.
+	SpecBase `json:",inline"`
+
+	// BaseProfileName is the name of base profile (in the same namespace) that
+	// will be unioned into this profile. Base profiles can be references as
+	// remote OCI artifacts as well when prefixed with `oci://`.
+	BaseProfileName string `json:"baseProfileName,omitempty"`
+
+	// Properties from containers/common/pkg/seccomp.Seccomp type
+
+	// the default action for seccomp
+	DefaultAction seccomp.Action `json:"defaultAction"`
+	// the architecture used for system calls
+	Architectures []Arch `json:"architectures,omitempty"`
+	// path of UNIX domain socket to contact a seccomp agent for SCMP_ACT_NOTIFY
+	ListenerPath string `json:"listenerPath,omitempty"`
+	// opaque data to pass to the seccomp agent
+	ListenerMetadata string `json:"listenerMetadata,omitempty"`
+	// match a syscall in seccomp. While this property is OPTIONAL, some values
+	// of defaultAction are not useful without syscalls entries. For example,
+	// if defaultAction is SCMP_ACT_KILL and syscalls is empty or unset, the
+	// kernel will kill the container process on its first syscall
+	Syscalls []*Syscall `json:"syscalls,omitempty"`
+
+	// Additional properties from OCI runtime spec
+
+	// list of flags to use with seccomp(2)
+	Flags []*Flag `json:"flags,omitempty"`
+}
+
+type Arch string
+
+type Flag string
+
+// Syscall defines a syscall in seccomp.
+type Syscall struct {
+	// the names of the syscalls
+	Names []string `json:"names"`
+	// the action for seccomp rules
+	Action seccomp.Action `json:"action"`
+	// the errno return code to use. Some actions like SCMP_ACT_ERRNO and
+	// SCMP_ACT_TRACE allow to specify the errno code to return
+	ErrnoRet uint `json:"errnoRet,omitempty"`
+	// the specific syscall in seccomp
+	Args []*Arg `json:"args,omitempty"`
+}
+
+// Arg defines the specific syscall in seccomp.
+type Arg struct {
+	// the index for syscall arguments in seccomp
+	Index uint `json:"index"`
+	// the value for syscall arguments in seccomp
+	Value uint64 `json:"value,omitempty"`
+	// the value for syscall arguments in seccomp
+	ValueTwo uint64 `json:"valueTwo,omitempty"`
+	// the operator for syscall arguments in seccomp
+	Op seccomp.Operator `json:"op"`
+}
+
+type SpecBase struct {
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+type SingleSeccompProfileStatus struct {
+	StatusBase      `json:",inline"`
+	Path            string   `json:"path,omitempty"`
+	ActiveWorkloads []string `json:"activeWorkloads,omitempty"`
+	// The path that should be provided to the `securityContext.seccompProfile.localhostProfile`
+	// field of a Pod or container spec
+	LocalhostProfile string `json:"localhostProfile,omitempty"`
+}
+
+type StatusBase struct {
+	ConditionedStatus `json:",inline"`
+	Status            ProfileState `json:"status,omitempty"`
+}
+
+type ConditionedStatus struct {
+	// Conditions of the resource.
+	// +optional
+	Conditions []Condition `json:"conditions,omitempty"`
+}
+
+type Condition struct {
+	// Type of this condition. At most one of each condition type may apply to
+	// a resource at any point in time.
+	Type ConditionType `json:"type"`
+
+	// Status of this condition; is it currently True, False, or Unknown?
+	Status corev1.ConditionStatus `json:"status"`
+
+	// LastTransitionTime is the last time this condition transitioned from one
+	// status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
+
+	// A Reason for this condition's last transition from one status to another.
+	Reason ConditionReason `json:"reason"`
+
+	// A Message containing details about this condition's last transition from
+	// one status to another, if any.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
+type ConditionType string
+
+type ConditionReason string
+
+type ProfileState string
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SeccompProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []SeccompProfile `json:"items"`
 }

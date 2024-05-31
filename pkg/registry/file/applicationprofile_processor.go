@@ -39,16 +39,19 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	profile.Spec.InitContainers = processContainers(profile.Spec.InitContainers)
 	profile.Spec.Containers = processContainers(profile.Spec.Containers)
 
+	profile.Spec.Architectures = sets.NewThreadUnsafeSet(profile.Spec.Architectures...).ToSlice()
+
 	profile.Annotations[helpers.ResourceSizeMetadataKey] = strconv.Itoa(size)
 	return nil
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer) softwarecomposition.ApplicationProfileContainer {
 	return softwarecomposition.ApplicationProfileContainer{
-		Name:         container.Name,
-		Capabilities: sets.NewThreadUnsafeSet(container.Capabilities...).ToSlice(),
-		Execs:        deflateStringer(container.Execs),
-		Opens:        deflateStringer(container.Opens),
-		Syscalls:     sets.NewThreadUnsafeSet(container.Syscalls...).ToSlice(),
+		Name:           container.Name,
+		Capabilities:   sets.NewThreadUnsafeSet(container.Capabilities...).ToSlice(),
+		Execs:          deflateStringer(container.Execs),
+		Opens:          deflateStringer(container.Opens),
+		Syscalls:       sets.NewThreadUnsafeSet(container.Syscalls...).ToSlice(),
+		SeccompProfile: container.SeccompProfile,
 	}
 }
