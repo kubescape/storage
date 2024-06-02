@@ -24,6 +24,6 @@ func init() {
 }
 
 // IsIgnoredLabel returns true if the label is ignored
-func isIgnoredLabel(label string) bool {
+func IsIgnoredLabel(label string) bool {
 	return ignoreLabels[label]
 }

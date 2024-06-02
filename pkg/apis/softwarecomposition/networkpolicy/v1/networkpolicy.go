@@ -15,6 +15,7 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
 	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -453,7 +454,7 @@ func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
 
 func removeLabels(labels map[string]string) {
 	for key := range labels {
-		if isIgnoredLabel(key) {
+		if networkpolicy.IsIgnoredLabel(key) {
 			delete(labels, key)
 		}
 	}
