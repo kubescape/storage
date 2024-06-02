@@ -1,4 +1,4 @@
-package softwarecomposition
+package networkpolicy
 
 import (
 	"bytes"
@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -22,12 +24,12 @@ const (
 	storageV1ApiVersion = "spdx.kubescape.io"
 )
 
-func (nn *NetworkNeighborhood) GenerateNetworkPolicy(knownServers []KnownServer, timeProvider metav1.Time) (GeneratedNetworkPolicy, error) {
-	if !nn.IsAvailable() {
-		return GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready", nn.Namespace, nn.Name)
+func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+	if !IsAvailable(nn) {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready", nn.Namespace, nn.Name)
 	}
 
-	networkPolicy := NetworkPolicy{
+	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
 		ObjectMeta: metav1.ObjectMeta{
@@ -38,11 +40,11 @@ func (nn *NetworkNeighborhood) GenerateNetworkPolicy(knownServers []KnownServer,
 			},
 			Labels: nn.Labels,
 		},
-		Spec: NetworkPolicySpec{
+		Spec: softwarecomposition.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
-			PolicyTypes: []PolicyType{
-				PolicyTypeIngress,
-				PolicyTypeEgress,
+			PolicyTypes: []softwarecomposition.PolicyType{
+				softwarecomposition.PolicyTypeIngress,
+				softwarecomposition.PolicyTypeEgress,
 			},
 		},
 	}
@@ -55,9 +57,9 @@ func (nn *NetworkNeighborhood) GenerateNetworkPolicy(knownServers []KnownServer,
 		networkPolicy.Spec.PodSelector.MatchExpressions = nn.Spec.MatchExpressions
 	}
 
-	generatedNetworkPolicy := GeneratedNetworkPolicy{
+	generatedNetworkPolicy := softwarecomposition.GeneratedNetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "GeneratedNetworkPolicy",
+			Kind:       "softwarecomposition.GeneratedNetworkPolicy",
 			APIVersion: storageV1ApiVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,11 +68,11 @@ func (nn *NetworkNeighborhood) GenerateNetworkPolicy(knownServers []KnownServer,
 			Labels:            nn.Labels,
 			CreationTimestamp: timeProvider,
 		},
-		PoliciesRef: []PolicyRef{},
+		PoliciesRef: []softwarecomposition.PolicyRef{},
 	}
 
 	ingressHash := make(map[string]bool)
-	for _, neighbor := range nn.listIngressNetworkNeighbors() {
+	for _, neighbor := range listIngressNetworkNeighbors(nn) {
 
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
@@ -91,7 +93,7 @@ func (nn *NetworkNeighborhood) GenerateNetworkPolicy(knownServers []KnownServer,
 	}
 
 	egressHash := make(map[string]bool)
-	for _, neighbor := range nn.listEgressNetworkNeighbors() {
+	for _, neighbor := range listEgressNetworkNeighbors(nn) {
 
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
@@ -121,8 +123,8 @@ func (nn *NetworkNeighborhood) GenerateNetworkPolicy(knownServers []KnownServer,
 	return generatedNetworkPolicy, nil
 }
 
-func (nn *NetworkNeighborhood) listIngressNetworkNeighbors() []NetworkNeighbor {
-	var neighbors []NetworkNeighbor
+func listIngressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {
+	var neighbors []softwarecomposition.NetworkNeighbor
 	for i := range nn.Spec.Containers {
 		neighbors = append(neighbors, nn.Spec.Containers[i].Ingress...)
 	}
@@ -136,8 +138,8 @@ func (nn *NetworkNeighborhood) listIngressNetworkNeighbors() []NetworkNeighbor {
 
 }
 
-func (nn *NetworkNeighborhood) listEgressNetworkNeighbors() []NetworkNeighbor {
-	var neighbors []NetworkNeighbor
+func listEgressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {
+	var neighbors []softwarecomposition.NetworkNeighbor
 	for i := range nn.Spec.Containers {
 		neighbors = append(neighbors, nn.Spec.Containers[i].Egress...)
 	}
@@ -151,15 +153,15 @@ func (nn *NetworkNeighborhood) listEgressNetworkNeighbors() []NetworkNeighbor {
 
 }
 
-func mergeIngressRulesByPorts(rules []NetworkPolicyIngressRule) []NetworkPolicyIngressRule {
+func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRule) []softwarecomposition.NetworkPolicyIngressRule {
 	type PortProtocolKey struct {
 		Port     int32
 		Protocol v1.Protocol
 	}
 
-	merged := make(map[PortProtocolKey][]NetworkPolicyPeer)
+	merged := make(map[PortProtocolKey][]softwarecomposition.NetworkPolicyPeer)
 	var keys []PortProtocolKey
-	var nonMergedRules []NetworkPolicyIngressRule
+	var nonMergedRules []softwarecomposition.NetworkPolicyIngressRule
 
 	for _, rule := range rules {
 		hasSelector := false
@@ -200,18 +202,18 @@ func mergeIngressRulesByPorts(rules []NetworkPolicyIngressRule) []NetworkPolicyI
 	})
 
 	// Construct merged rules using sorted keys
-	mergedRules := []NetworkPolicyIngressRule{}
+	mergedRules := []softwarecomposition.NetworkPolicyIngressRule{}
 	for i := range keys {
 		peers := merged[keys[i]]
 		sort.Slice(peers, func(i, j int) bool {
 			if peers[i].IPBlock != nil && peers[j].IPBlock != nil {
 				return peers[i].IPBlock.CIDR < peers[j].IPBlock.CIDR
 			}
-			return false // Keep the order as is if IPBlock is nil
+			return false // Keep the order as is if softwarecomposition.IPBlock is nil
 		})
 
-		mergedRules = append(mergedRules, NetworkPolicyIngressRule{
-			Ports: []NetworkPolicyPort{{Protocol: &keys[i].Protocol, Port: &keys[i].Port}},
+		mergedRules = append(mergedRules, softwarecomposition.NetworkPolicyIngressRule{
+			Ports: []softwarecomposition.NetworkPolicyPort{{Protocol: &keys[i].Protocol, Port: &keys[i].Port}},
 			From:  peers,
 		})
 	}
@@ -222,15 +224,15 @@ func mergeIngressRulesByPorts(rules []NetworkPolicyIngressRule) []NetworkPolicyI
 	return mergedRules
 }
 
-func mergeEgressRulesByPorts(rules []NetworkPolicyEgressRule) []NetworkPolicyEgressRule {
+func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule) []softwarecomposition.NetworkPolicyEgressRule {
 	type PortProtocolKey struct {
 		Port     int32
 		Protocol v1.Protocol
 	}
 
-	merged := make(map[PortProtocolKey][]NetworkPolicyPeer)
+	merged := make(map[PortProtocolKey][]softwarecomposition.NetworkPolicyPeer)
 	var keys []PortProtocolKey
-	var nonMergedRules []NetworkPolicyEgressRule
+	var nonMergedRules []softwarecomposition.NetworkPolicyEgressRule
 
 	for _, rule := range rules {
 		hasSelector := false
@@ -268,18 +270,18 @@ func mergeEgressRulesByPorts(rules []NetworkPolicyEgressRule) []NetworkPolicyEgr
 	})
 
 	// Construct merged rules using sorted keys
-	mergedRules := []NetworkPolicyEgressRule{}
+	mergedRules := []softwarecomposition.NetworkPolicyEgressRule{}
 	for i := range keys {
 		peers := merged[keys[i]]
 		sort.Slice(peers, func(i, j int) bool {
 			if peers[i].IPBlock != nil && peers[j].IPBlock != nil {
 				return peers[i].IPBlock.CIDR < peers[j].IPBlock.CIDR
 			}
-			return false // Keep the order as is if IPBlock is nil
+			return false // Keep the order as is if softwarecomposition.IPBlock is nil
 		})
 
-		mergedRules = append(mergedRules, NetworkPolicyEgressRule{
-			Ports: []NetworkPolicyPort{{Protocol: &keys[i].Protocol, Port: &keys[i].Port}},
+		mergedRules = append(mergedRules, softwarecomposition.NetworkPolicyEgressRule{
+			Ports: []softwarecomposition.NetworkPolicyPort{{Protocol: &keys[i].Protocol, Port: &keys[i].Port}},
 			To:    peers,
 		})
 	}
@@ -290,13 +292,13 @@ func mergeEgressRulesByPorts(rules []NetworkPolicyEgressRule) []NetworkPolicyEgr
 	return mergedRules
 }
 
-func generateEgressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (NetworkPolicyEgressRule, []PolicyRef) {
-	egressRule := NetworkPolicyEgressRule{}
-	policyRefs := []PolicyRef{}
+func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
+	egressRule := softwarecomposition.NetworkPolicyEgressRule{}
+	policyRefs := []softwarecomposition.PolicyRef{}
 
 	if neighbor.PodSelector != nil {
 		removeLabels(neighbor.PodSelector.MatchLabels)
-		egressRule.To = append(egressRule.To, NetworkPolicyPeer{
+		egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
 			PodSelector: neighbor.PodSelector,
 		})
 	}
@@ -306,7 +308,7 @@ func generateEgressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (N
 		if len(egressRule.To) > 0 {
 			egressRule.To[0].NamespaceSelector = neighbor.NamespaceSelector
 		} else {
-			egressRule.To = append(egressRule.To, NetworkPolicyPeer{
+			egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
 				NamespaceSelector: neighbor.NamespaceSelector,
 			})
 		}
@@ -323,14 +325,14 @@ func generateEgressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (N
 					continue
 				}
 				if subNet.Contains(net.ParseIP(neighbor.IPAddress)) {
-					egressRule.To = append(egressRule.To, NetworkPolicyPeer{
-						IPBlock: &IPBlock{
+					egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
+						IPBlock: &softwarecomposition.IPBlock{
 							CIDR: entry.IPBlock,
 						},
 					})
 					isKnownServer = true
 
-					policyRef := PolicyRef{
+					policyRef := softwarecomposition.PolicyRef{
 						Name:       entry.Name,
 						OriginalIP: neighbor.IPAddress,
 						IPBlock:    entry.IPBlock,
@@ -349,12 +351,12 @@ func generateEgressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (N
 
 		if !isKnownServer {
 			ipBlock := getSingleIP(neighbor.IPAddress)
-			egressRule.To = append(egressRule.To, NetworkPolicyPeer{
+			egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
 				IPBlock: ipBlock,
 			})
 
 			if neighbor.DNS != "" {
-				policyRefs = append(policyRefs, PolicyRef{
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
 					DNS:        neighbor.DNS,
 					IPBlock:    ipBlock.CIDR,
 					OriginalIP: neighbor.IPAddress,
@@ -367,7 +369,7 @@ func generateEgressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (N
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
 
-		egressRule.Ports = append(egressRule.Ports, NetworkPolicyPort{
+		egressRule.Ports = append(egressRule.Ports, softwarecomposition.NetworkPolicyPort{
 			Protocol: &protocol,
 			Port:     portInt32,
 		})
@@ -376,13 +378,13 @@ func generateEgressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (N
 	return egressRule, policyRefs
 }
 
-func generateIngressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (NetworkPolicyIngressRule, []PolicyRef) {
-	ingressRule := NetworkPolicyIngressRule{}
-	policyRefs := []PolicyRef{}
+func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
+	ingressRule := softwarecomposition.NetworkPolicyIngressRule{}
+	policyRefs := []softwarecomposition.PolicyRef{}
 
 	if neighbor.PodSelector != nil {
 		removeLabels(neighbor.PodSelector.MatchLabels)
-		ingressRule.From = append(ingressRule.From, NetworkPolicyPeer{
+		ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
 			PodSelector: neighbor.PodSelector,
 		})
 	}
@@ -391,7 +393,7 @@ func generateIngressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (
 		if len(ingressRule.From) > 0 {
 			ingressRule.From[0].NamespaceSelector = neighbor.NamespaceSelector
 		} else {
-			ingressRule.From = append(ingressRule.From, NetworkPolicyPeer{
+			ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
 				NamespaceSelector: neighbor.NamespaceSelector,
 			})
 		}
@@ -408,14 +410,14 @@ func generateIngressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (
 					continue
 				}
 				if subNet.Contains(net.ParseIP(neighbor.IPAddress)) {
-					ingressRule.From = append(ingressRule.From, NetworkPolicyPeer{
-						IPBlock: &IPBlock{
+					ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
+						IPBlock: &softwarecomposition.IPBlock{
 							CIDR: entry.IPBlock,
 						},
 					})
 					isKnownServer = true
 
-					policyRef := PolicyRef{
+					policyRef := softwarecomposition.PolicyRef{
 						Name:       entry.Name,
 						OriginalIP: neighbor.IPAddress,
 						IPBlock:    entry.IPBlock,
@@ -434,12 +436,12 @@ func generateIngressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (
 
 		if !isKnownServer {
 			ipBlock := getSingleIP(neighbor.IPAddress)
-			ingressRule.From = append(ingressRule.From, NetworkPolicyPeer{
+			ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
 				IPBlock: ipBlock,
 			})
 
 			if neighbor.DNS != "" {
-				policyRefs = append(policyRefs, PolicyRef{
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
 					DNS:        neighbor.DNS,
 					IPBlock:    ipBlock.CIDR,
 					OriginalIP: neighbor.IPAddress,
@@ -452,7 +454,7 @@ func generateIngressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
 
-		ingressRule.Ports = append(ingressRule.Ports, NetworkPolicyPort{
+		ingressRule.Ports = append(ingressRule.Ports, softwarecomposition.NetworkPolicyPort{
 			Protocol: &protocol,
 			Port:     portInt32,
 		})
@@ -461,54 +463,26 @@ func generateIngressRule(neighbor NetworkNeighbor, knownServers []KnownServer) (
 	return ingressRule, policyRefs
 }
 
-func getSingleIP(ipAddress string) *IPBlock {
-	ipBlock := &IPBlock{CIDR: ipAddress + "/32"}
+func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
+	ipBlock := &softwarecomposition.IPBlock{CIDR: ipAddress + "/32"}
 	return ipBlock
 }
 
 func removeLabels(labels map[string]string) {
 	for key := range labels {
-		if isIgnoredLabel(key) {
+		if networkpolicy.IsIgnoredLabel(key) {
 			delete(labels, key)
 		}
 	}
 }
 
-func (nn *NetworkNeighborhood) IsAvailable() bool {
+func IsAvailable(nn *softwarecomposition.NetworkNeighborhood) bool {
 	switch nn.GetAnnotations()[helpersv1.StatusMetadataKey] {
 	case helpersv1.Ready, helpersv1.Completed:
 		return true
 	default:
 		return false
 	}
-}
-
-var ignoreLabels map[string]bool
-
-func init() {
-
-	ignoreLabels = map[string]bool{
-		"app.kubernetes.io/name":                      false,
-		"app.kubernetes.io/part-of":                   false,
-		"app.kubernetes.io/component":                 false,
-		"app.kubernetes.io/instance":                  true,
-		"app.kubernetes.io/version":                   true,
-		"app.kubernetes.io/managed-by":                true,
-		"app.kubernetes.io/created-by":                true,
-		"app.kubernetes.io/owner":                     true,
-		"app.kubernetes.io/revision":                  true,
-		"statefulset.kubernetes.io/pod-name":          true,
-		"scheduler.alpha.kubernetes.io/node-selector": true,
-		"pod-template-hash":                           true,
-		"controller-revision-hash":                    true,
-		"pod-template-generation":                     true,
-		"helm.sh/chart":                               true,
-	}
-}
-
-// IsIgnoredLabel returns true if the label is ignored
-func isIgnoredLabel(label string) bool {
-	return ignoreLabels[label]
 }
 
 func hash(s any) (string, error) {
