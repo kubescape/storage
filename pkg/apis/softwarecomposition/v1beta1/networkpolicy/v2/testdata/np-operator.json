@@ -1,0 +1,281 @@
+{
+    "apiVersion": "spdx.softwarecomposition.kubescape.io/v1beta1",
+    "kind": "GeneratedNetworkPolicy",
+    "metadata": {
+        "creationTimestamp": "2024-06-02T08:05:33Z",
+        "labels": {
+            "kubescape.io/workload-api-group": "apps",
+            "kubescape.io/workload-api-version": "v1",
+            "kubescape.io/workload-kind": "Deployment",
+            "kubescape.io/workload-name": "operator",
+            "kubescape.io/workload-namespace": "kubescape",
+            "kubescape.io/workload-resource-version": "5358810"
+        },
+        "name": "deployment-operator",
+        "namespace": "kubescape"
+    },
+    "policyRef": [
+        {
+            "dns": "report.armo.cloud.",
+            "ipBlock": "13.50.180.111/24",
+            "name": "armo",
+            "originalIP": "13.50.180.111",
+            "server": "armosec.cloud"
+        },
+        {
+            "dns": "report.armo.cloud.",
+            "ipBlock": "16.170.0.0/15",
+            "name": "armo",
+            "originalIP": "16.171.184.118",
+            "server": "armosec.cloud"
+        },
+        {
+            "dns": "report.armo.cloud.",
+            "ipBlock": "16.170.0.0/15",
+            "name": "armo",
+            "originalIP": "16.170.46.131",
+            "server": "armosec.cloud"
+        },
+        {
+            "dns": "version-check.ks-services.co.",
+            "ipBlock": "35.186.253.219/32",
+            "name": "",
+            "originalIP": "35.186.253.219",
+            "server": ""
+        }
+    ],
+    "spec": {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {
+            "annotations": {
+                "generated-by": "kubescape"
+            },
+            "creationTimestamp": null,
+            "labels": {
+                "kubescape.io/workload-api-group": "apps",
+                "kubescape.io/workload-api-version": "v1",
+                "kubescape.io/workload-kind": "Deployment",
+                "kubescape.io/workload-name": "operator",
+                "kubescape.io/workload-namespace": "kubescape",
+                "kubescape.io/workload-resource-version": "5358810"
+            },
+            "name": "deployment-operator",
+            "namespace": "kubescape"
+        },
+        "spec": {
+            "egress": [
+                {
+                    "ports": [
+                        {
+                            "port": 443,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "to": [
+                        {
+                            "ipBlock": {
+                                "cidr": "13.50.180.111/24"
+                            }
+                        },
+                        {
+                            "ipBlock": {
+                                "cidr": "16.170.0.0/15"
+                            }
+                        },
+                        {
+                            "ipBlock": {
+                                "cidr": "35.186.253.219/32"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ports": [
+                        {
+                            "port": 443,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "to": [
+                        {
+                            "namespaceSelector": {
+                                "matchLabels": {
+                                    "kubernetes.io/metadata.name": "default"
+                                }
+                            },
+                            "podSelector": {
+                                "matchLabels": {
+                                    "component": "apiserver",
+                                    "provider": "kubernetes"
+                                }
+                            }
+                        },
+                        {
+                            "ipBlock": {
+                                "cidr": "10.245.0.1/32"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ports": [
+                        {
+                            "port": 4317,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "to": [
+                        {
+                            "podSelector": {
+                                "matchLabels": {
+                                    "app": "otel-collector"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ports": [
+                        {
+                            "port": 53,
+                            "protocol": "UDP"
+                        }
+                    ],
+                    "to": [
+                        {
+                            "namespaceSelector": {
+                                "matchLabels": {
+                                    "kubernetes.io/metadata.name": "kube-system"
+                                }
+                            },
+                            "podSelector": {
+                                "matchLabels": {
+                                    "k8s-app": "kube-dns"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ports": [
+                        {
+                            "port": 8001,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "to": [
+                        {
+                            "podSelector": {
+                                "matchLabels": {
+                                    "app": "gateway"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ports": [
+                        {
+                            "port": 8080,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "to": [
+                        {
+                            "podSelector": {
+                                "matchLabels": {
+                                    "app": "kubevuln"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ports": [
+                        {
+                            "port": 8080,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "to": [
+                        {
+                            "podSelector": {
+                                "matchLabels": {
+                                    "app": "kubescape"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ],
+            "ingress": [
+                {
+                    "from": [
+                        {
+                            "ipBlock": {
+                                "cidr": "10.244.0.67/32"
+                            }
+                        }
+                    ],
+                    "ports": [
+                        {
+                            "port": 4002,
+                            "protocol": "TCP"
+                        }
+                    ]
+                },
+                {
+                    "from": [
+                        {
+                            "ipBlock": {
+                                "cidr": "10.244.0.73/32"
+                            }
+                        }
+                    ],
+                    "ports": [
+                        {
+                            "port": 8000,
+                            "protocol": "TCP"
+                        }
+                    ]
+                },
+                {
+                    "from": [
+                        {
+                            "podSelector": {
+                                "matchLabels": {
+                                    "app": "kubescape-scheduler",
+                                    "app.kubernetes.io/name": "kubescape-scheduler",
+                                    "armo.tier": "kubescape-scan",
+                                    "batch.kubernetes.io/controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
+                                    "batch.kubernetes.io/job-name": "kubescape-scheduler-28618366",
+                                    "controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
+                                    "job-name": "kubescape-scheduler-28618366",
+                                    "kubescape.io/tier": "core"
+                                }
+                            }
+                        }
+                    ],
+                    "ports": [
+                        {
+                            "port": 4002,
+                            "protocol": "TCP"
+                        }
+                    ]
+                }
+            ],
+            "podSelector": {
+                "matchLabels": {
+                    "app.kubernetes.io/instance": "kubescape",
+                    "app.kubernetes.io/name": "operator",
+                    "tier": "ks-control-plane"
+                }
+            },
+            "policyTypes": [
+                "Ingress",
+                "Egress"
+            ]
+        }
+    }
+}

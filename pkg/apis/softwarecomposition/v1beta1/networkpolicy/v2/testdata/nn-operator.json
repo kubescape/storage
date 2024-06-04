@@ -1,0 +1,304 @@
+{
+    "apiVersion": "spdx.softwarecomposition.kubescape.io/v1beta1",
+    "kind": "NetworkNeighborhood",
+    "metadata": {
+        "annotations": {
+            "kubescape.io/completion": "complete",
+            "kubescape.io/resource-size": "13",
+            "kubescape.io/status": "completed",
+            "kubescape.io/wlid": "wlid://cluster-do-fra1-dwertent/namespace-kubescape/deployment-operator"
+        },
+        "creationTimestamp": "2024-05-30T08:20:01Z",
+        "labels": {
+            "kubescape.io/instance-template-hash": "55df98fc6d",
+            "kubescape.io/workload-api-group": "apps",
+            "kubescape.io/workload-api-version": "v1",
+            "kubescape.io/workload-kind": "Deployment",
+            "kubescape.io/workload-name": "operator",
+            "kubescape.io/workload-namespace": "kubescape",
+            "kubescape.io/workload-resource-version": "5358810"
+        },
+        "name": "replicaset-operator-55df98fc6d",
+        "namespace": "kubescape",
+        "resourceVersion": "1",
+        "uid": "98333be8-c05a-49ff-b0ff-fe029060b241"
+    },
+    "spec": {
+        "containers": [
+            {
+                "egress": [
+                    {
+                        "dns": "version-check.ks-services.co.",
+                        "dnsNames": [
+                            "version-check.ks-services.co."
+                        ],
+                        "identifier": "2393462a016456c7d3b0a027c2106de039bb34d36bf58ffff7fc8635304170aa",
+                        "ipAddress": "35.186.253.219",
+                        "namespaceSelector": null,
+                        "podSelector": null,
+                        "ports": [
+                            {
+                                "name": "TCP-443",
+                                "port": 443,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "external"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "ad98a9e00a1e4a5efbbd827f432595a31085d0e8dcec365dbdfd8141bf3cbe3e",
+                        "ipAddress": "",
+                        "namespaceSelector": null,
+                        "podSelector": {
+                            "matchLabels": {
+                                "app": "otel-collector"
+                            }
+                        },
+                        "ports": [
+                            {
+                                "name": "TCP-4317",
+                                "port": 4317,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "internal"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "ed8a3fa8750dd7045e9abb755f5dbd1a2025f5ed49c1ed67b7d8e1c534899bbb",
+                        "ipAddress": "",
+                        "namespaceSelector": null,
+                        "podSelector": {
+                            "matchLabels": {
+                                "app": "kubescape"
+                            }
+                        },
+                        "ports": [
+                            {
+                                "name": "TCP-8080",
+                                "port": 8080,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "internal"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "e6d07dcea08c02c35494f7aed68e7cff6d51843c5fbb36032a905f11ba833c13",
+                        "ipAddress": "",
+                        "namespaceSelector": null,
+                        "podSelector": {
+                            "matchLabels": {
+                                "app": "gateway"
+                            }
+                        },
+                        "ports": [
+                            {
+                                "name": "TCP-8001",
+                                "port": 8001,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "internal"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "ba56b560f0008cb2227752015bf87c5fc365fb8dfd5599162cbe71f105dfce00",
+                        "ipAddress": "",
+                        "namespaceSelector": null,
+                        "podSelector": {
+                            "matchLabels": {
+                                "app": "kubevuln"
+                            }
+                        },
+                        "ports": [
+                            {
+                                "name": "TCP-8080",
+                                "port": 8080,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "internal"
+                    },
+                    {
+                        "dns": "report.armo.cloud.",
+                        "dnsNames": [
+                            "report.armo.cloud."
+                        ],
+                        "identifier": "c6bf8190e40278af21d4d561ed3256e05a6c240a1865f19baf353cdb45d8c363",
+                        "ipAddress": "16.170.46.131",
+                        "namespaceSelector": null,
+                        "podSelector": null,
+                        "ports": [
+                            {
+                                "name": "TCP-443",
+                                "port": 443,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "external"
+                    },
+                    {
+                        "dns": "report.armo.cloud.",
+                        "dnsNames": [
+                            "report.armo.cloud."
+                        ],
+                        "identifier": "83260a3ba8236e69f12ebb706196a2d9541b6c2771cb481dde4f3f5816a1cd94",
+                        "ipAddress": "16.171.184.118",
+                        "namespaceSelector": null,
+                        "podSelector": null,
+                        "ports": [
+                            {
+                                "name": "TCP-443",
+                                "port": 443,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "external"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "e5e8ca3d76f701a19b7478fdc1c8c24ccc6cef9902b52c8c7e015439e2a1ddf3",
+                        "ipAddress": "",
+                        "namespaceSelector": {
+                            "matchLabels": {
+                                "kubernetes.io/metadata.name": "kube-system"
+                            }
+                        },
+                        "podSelector": {
+                            "matchLabels": {
+                                "k8s-app": "kube-dns"
+                            }
+                        },
+                        "ports": [
+                            {
+                                "name": "UDP-53",
+                                "port": 53,
+                                "protocol": "UDP"
+                            }
+                        ],
+                        "type": "internal"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "275a177484719f71d0e1dc151f5bca143095b34c1bf4b3525131cce48970bedb",
+                        "ipAddress": "10.245.0.1",
+                        "namespaceSelector": {
+                            "matchLabels": {
+                                "kubernetes.io/metadata.name": "default"
+                            }
+                        },
+                        "podSelector": {
+                            "matchLabels": {
+                                "component": "apiserver",
+                                "provider": "kubernetes"
+                            }
+                        },
+                        "ports": [
+                            {
+                                "name": "TCP-443",
+                                "port": 443,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "internal"
+                    },
+                    {
+                        "dns": "report.armo.cloud.",
+                        "dnsNames": [
+                            "report.armo.cloud."
+                        ],
+                        "identifier": "ba5459ff4343e49a03322aab030b548e688dcac5fd6814e3ab8415e949c71bb2",
+                        "ipAddress": "13.50.180.111",
+                        "namespaceSelector": null,
+                        "podSelector": null,
+                        "ports": [
+                            {
+                                "name": "TCP-443",
+                                "port": 443,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "external"
+                    }
+                ],
+                "ingress": [
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "e09f0b1719b5a3a09e401846cb4a171b6e1b9d5fb00df7d9f886e344aa42b861",
+                        "ipAddress": "10.244.0.73",
+                        "namespaceSelector": null,
+                        "podSelector": null,
+                        "ports": [
+                            {
+                                "name": "TCP-8000",
+                                "port": 8000,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "external"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "8d888c23b764ff6cf9fb900bf51c53287f10e889eac145c090890d546751d81e",
+                        "ipAddress": "10.244.0.67",
+                        "namespaceSelector": null,
+                        "podSelector": null,
+                        "ports": [
+                            {
+                                "name": "TCP-4002",
+                                "port": 4002,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "external"
+                    },
+                    {
+                        "dns": "",
+                        "dnsNames": null,
+                        "identifier": "a7831eb3c44184545e41f512277c3e246e60b3fe83272223f114a4db1f9759c0",
+                        "ipAddress": "",
+                        "namespaceSelector": null,
+                        "podSelector": {
+                            "matchLabels": {
+                                "app": "kubescape-scheduler",
+                                "app.kubernetes.io/name": "kubescape-scheduler",
+                                "armo.tier": "kubescape-scan",
+                                "batch.kubernetes.io/controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
+                                "batch.kubernetes.io/job-name": "kubescape-scheduler-28618366",
+                                "controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
+                                "job-name": "kubescape-scheduler-28618366",
+                                "kubescape.io/tier": "core"
+                            }
+                        },
+                        "ports": [
+                            {
+                                "name": "TCP-4002",
+                                "port": 4002,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "type": "internal"
+                    }
+                ],
+                "name": "operator"
+            }
+        ],
+        "ephemeralContainers": null,
+        "initContainers": null,
+        "matchLabels": {
+            "app.kubernetes.io/instance": "kubescape",
+            "app.kubernetes.io/name": "operator",
+            "tier": "ks-control-plane"
+        }
+    }
+}
