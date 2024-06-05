@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
+type TypeCleanupHandlerFunc func(metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
 
 var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	// configurationscansummaries is virtual
@@ -127,7 +127,24 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 					return nil
 				}
 
-				metadata, err := loadMetadataFromPath(h.appFs, path)
+				metadataFilePath := path
+				payloadFilePath := path[:len(path)-len(file.MetadataExt)] + file.GobExt
+
+				// delete if any of the resources has zero size
+				metadataFileSize := info.Size()
+				payloadFileInfo, err := h.appFs.Stat(payloadFilePath)
+				if err != nil {
+					logger.L().Error("failed to get payload file info", helpers.Error(err))
+					return nil
+				}
+				payloadFileSize := payloadFileInfo.Size()
+				if metadataFileSize == 0 || payloadFileSize == 0 {
+					logger.L().Debug("deleting empty file", helpers.String("kind", resourceKind), helpers.String("namespace", metadataFilePath))
+					h.filesToDelete = append(h.filesToDelete, metadataFilePath, payloadFilePath)
+					return nil
+				}
+
+				metadata, err := loadMetadataFromPath(h.appFs, metadataFilePath)
 				if err != nil {
 					logger.L().Error("load metadata error", helpers.Error(err))
 					return nil
@@ -137,13 +154,10 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 					return nil
 				}
 
-				toDelete := handler(resourceKind, path, metadata, h.resources)
+				toDelete := handler(metadata, h.resources)
 				if toDelete {
 					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
-					h.filesToDelete = append(h.filesToDelete, path)
-
-					payloadFilePath := path[:len(path)-len(file.MetadataExt)] + file.GobExt
-					h.filesToDelete = append(h.filesToDelete, payloadFilePath)
+					h.filesToDelete = append(h.filesToDelete, metadataFilePath, payloadFilePath)
 				}
 				return nil
 			})
@@ -226,21 +240,21 @@ func unquote(value []byte) string {
 }
 
 // delete deprecated resources
-func deleteDeprecated(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool {
+func deleteDeprecated(_ *metav1.ObjectMeta, _ ResourceMaps) bool {
 	return true
 }
 
-func deleteByInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteByInstanceId(metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	instanceId, ok := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return !ok || !resourceMaps.RunningInstanceIds.Contains(instanceId)
 }
 
-func deleteByImageId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteByImageId(metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	imageId, ok := metadata.Annotations[helpersv1.ImageIDMetadataKey]
 	return !ok || !resourceMaps.RunningContainerImageIds.Contains(imageId)
 }
 
-func deleteByWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteByWlid(metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	wlid, ok := metadata.Annotations[helpersv1.WlidMetadataKey]
 	kind := strings.ToLower(wlidPkg.GetKindFromWlid(wlid))
 	if !Workloads.Contains(kind) {
@@ -252,7 +266,7 @@ func deleteByWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps Resourc
 	return !ok || !resourceMaps.RunningWlidsToContainerNames.Has(wlidWithoutClusterName(wlid))
 }
 
-func deleteByImageIdOrInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteByImageIdOrInstanceId(metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	imageId, imageIdFound := metadata.Annotations[helpersv1.ImageIDMetadataKey]
 	instanceId, instanceIdFound := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return (!instanceIdFound && !imageIdFound) ||
@@ -260,7 +274,7 @@ func deleteByImageIdOrInstanceId(_, _ string, metadata *metav1.ObjectMeta, resou
 		(instanceIdFound && !resourceMaps.RunningInstanceIds.Contains(instanceId))
 }
 
-func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteByWlidAndContainer(metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	wlContainerName, wlContainerNameFound := metadata.Annotations[helpersv1.ContainerNameMetadataKey]
 	wlid, wlidFound := metadata.Annotations[helpersv1.WlidMetadataKey]
 	if !wlidFound || !wlContainerNameFound {
@@ -270,11 +284,11 @@ func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resource
 	return !wlidExists || !containerNames.Contains(wlContainerName)
 }
 
-func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteByTemplateHashOrWlid(metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	wlReplica, wlReplicaFound := metadata.Labels[helpersv1.TemplateHashKey] // replica
 	if wlReplicaFound && wlReplica != "" {
 		return !resourceMaps.RunningTemplateHash.Contains(wlReplica)
 	}
 	// fallback to wlid
-	return deleteByWlid("", "", metadata, resourceMaps)
+	return deleteByWlid(metadata, resourceMaps)
 }
