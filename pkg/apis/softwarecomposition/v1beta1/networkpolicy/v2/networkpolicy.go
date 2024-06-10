@@ -11,8 +11,6 @@ const (
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
 
-// FIXME switch to NetworkNeighborhood
-
 func GenerateNetworkPolicy(networkNeighborhood *v1beta1.NetworkNeighborhood, knownServers []v1beta1.KnownServer, timeProvider metav1.Time) (v1beta1.GeneratedNetworkPolicy, error) {
 	networkNeighborhoodV1, err := convertNetworkNeighborhood(networkNeighborhood)
 	if err != nil {

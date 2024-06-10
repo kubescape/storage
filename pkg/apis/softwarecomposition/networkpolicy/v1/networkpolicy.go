@@ -25,8 +25,6 @@ const (
 	storageV1ApiVersion = "spdx.softwarecomposition.kubescape.io"
 )
 
-// FIXME switch to NetworkNeighborhood
-
 func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	if !IsAvailable(networkNeighbors) {
 		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("networkNeighbors %s/%s status annotation is not ready", networkNeighbors.Namespace, networkNeighbors.Name)
