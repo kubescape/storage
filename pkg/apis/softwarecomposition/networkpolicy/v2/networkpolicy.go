@@ -29,11 +29,22 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready", nn.Namespace, nn.Name)
 	}
 
+	// get name from labels and clean labels
+	kind, ok := nn.Labels[helpersv1.KindMetadataKey]
+	if !ok {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name)
+	}
+	name, ok := nn.Labels[helpersv1.NameMetadataKey]
+	if !ok {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a name label", nn.Namespace, nn.Name)
+	}
+	delete(nn.Labels, helpersv1.TemplateHashKey)
+
 	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nn.Name,
+			Name:      fmt.Sprintf("%s-%s", strings.ToLower(kind), name),
 			Namespace: nn.Namespace,
 			Annotations: map[string]string{
 				"generated-by": "kubescape",

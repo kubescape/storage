@@ -2,7 +2,7 @@
     "apiVersion": "spdx.softwarecomposition.kubescape.io/v1beta1",
     "kind": "GeneratedNetworkPolicy",
     "metadata": {
-        "creationTimestamp": "2024-06-02T08:05:33Z",
+        "creationTimestamp": null,
         "labels": {
             "kubescape.io/workload-api-group": "apps",
             "kubescape.io/workload-api-version": "v1",
@@ -11,7 +11,7 @@
             "kubescape.io/workload-namespace": "kubescape",
             "kubescape.io/workload-resource-version": "5358810"
         },
-        "name": "deployment-operator",
+        "name": "replicaset-operator-55df98fc6d",
         "namespace": "kubescape"
     },
     "policyRef": [
@@ -64,6 +64,62 @@
             "namespace": "kubescape"
         },
         "spec": {
+            "ingress": [
+                {
+                    "from": [
+                        {
+                            "ipBlock": {
+                                "cidr": "10.244.0.67/32"
+                            }
+                        }
+                    ],
+                    "ports": [
+                        {
+                            "port": 4002,
+                            "protocol": "TCP"
+                        }
+                    ]
+                },
+                {
+                    "from": [
+                        {
+                            "ipBlock": {
+                                "cidr": "10.244.0.73/32"
+                            }
+                        }
+                    ],
+                    "ports": [
+                        {
+                            "port": 8000,
+                            "protocol": "TCP"
+                        }
+                    ]
+                },
+                {
+                    "from": [
+                        {
+                            "podSelector": {
+                                "matchLabels": {
+                                    "app": "kubescape-scheduler",
+                                    "app.kubernetes.io/name": "kubescape-scheduler",
+                                    "armo.tier": "kubescape-scan",
+                                    "batch.kubernetes.io/controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
+                                    "batch.kubernetes.io/job-name": "kubescape-scheduler-28618366",
+                                    "controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
+                                    "job-name": "kubescape-scheduler-28618366",
+                                    "kubescape.io/tier": "core"
+                                }
+                            }
+                        }
+                    ],
+                    "ports": [
+                        {
+                            "port": 4002,
+                            "protocol": "TCP"
+                        }
+                    ]
+                }
+            ],
             "egress": [
                 {
                     "ports": [
@@ -86,34 +142,6 @@
                         {
                             "ipBlock": {
                                 "cidr": "35.186.253.219/32"
-                            }
-                        }
-                    ]
-                },
-                {
-                    "ports": [
-                        {
-                            "port": 443,
-                            "protocol": "TCP"
-                        }
-                    ],
-                    "to": [
-                        {
-                            "namespaceSelector": {
-                                "matchLabels": {
-                                    "kubernetes.io/metadata.name": "default"
-                                }
-                            },
-                            "podSelector": {
-                                "matchLabels": {
-                                    "component": "apiserver",
-                                    "provider": "kubernetes"
-                                }
-                            }
-                        },
-                        {
-                            "ipBlock": {
-                                "cidr": "10.245.0.1/32"
                             }
                         }
                     ]
@@ -207,60 +235,32 @@
                             }
                         }
                     ]
-                }
-            ],
-            "ingress": [
-                {
-                    "from": [
-                        {
-                            "ipBlock": {
-                                "cidr": "10.244.0.67/32"
-                            }
-                        }
-                    ],
-                    "ports": [
-                        {
-                            "port": 4002,
-                            "protocol": "TCP"
-                        }
-                    ]
                 },
                 {
-                    "from": [
-                        {
-                            "ipBlock": {
-                                "cidr": "10.244.0.73/32"
-                            }
-                        }
-                    ],
                     "ports": [
                         {
-                            "port": 8000,
+                            "port": 443,
                             "protocol": "TCP"
                         }
-                    ]
-                },
-                {
-                    "from": [
+                    ],
+                    "to": [
                         {
+                            "namespaceSelector": {
+                                "matchLabels": {
+                                    "kubernetes.io/metadata.name": "default"
+                                }
+                            },
                             "podSelector": {
                                 "matchLabels": {
-                                    "app": "kubescape-scheduler",
-                                    "app.kubernetes.io/name": "kubescape-scheduler",
-                                    "armo.tier": "kubescape-scan",
-                                    "batch.kubernetes.io/controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
-                                    "batch.kubernetes.io/job-name": "kubescape-scheduler-28618366",
-                                    "controller-uid": "c3f4e988-0cca-40e6-bd25-69872d41281a",
-                                    "job-name": "kubescape-scheduler-28618366",
-                                    "kubescape.io/tier": "core"
+                                    "component": "apiserver",
+                                    "provider": "kubernetes"
                                 }
                             }
-                        }
-                    ],
-                    "ports": [
+                        },
                         {
-                            "port": 4002,
-                            "protocol": "TCP"
+                            "ipBlock": {
+                                "cidr": "10.245.0.1/32"
+                            }
                         }
                     ]
                 }
