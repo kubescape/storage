@@ -13,6 +13,7 @@ require (
 	github.com/goradd/maps v0.1.5
 	github.com/kubescape/go-logger v0.0.22
 	github.com/kubescape/k8s-interface v0.0.162
+	github.com/meerkat-dashboard/meerkat v0.0.0-20240605084813-bc196007bb0c
 	github.com/olvrng/ujson v1.1.0
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.11.0
@@ -20,7 +21,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.20.0
 	go.uber.org/zap v1.26.0
-	golang.org/x/exp v0.0.0-20231108232855-2478ac86f678
+	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/apiserver v0.26.2
