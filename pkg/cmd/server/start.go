@@ -18,11 +18,16 @@ package server
 
 import (
 	"fmt"
-	"github.com/kubescape/go-logger/helpers"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/http/pprof"
+	"net/url"
+	"time"
+
+	"github.com/kubescape/go-logger/helpers"
+	"github.com/meerkat-dashboard/meerkat/proxy"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
@@ -79,17 +84,17 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 		Long:  "Launch a wardle API server",
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
-				logger.L().Error("config not completed")
+				logger.L().Error("config not completed", helpers.Error(err))
 				return err
 			}
 			logger.L().Debug("config completed")
 			if err := o.Validate(args); err != nil {
-				logger.L().Error("config not validated")
+				logger.L().Error("config not validated", helpers.Error(err))
 				return err
 			}
 			logger.L().Debug("config validated")
 			if err := o.RunWardleServer(stopCh); err != nil {
-				logger.L().Error("unable to run server validated")
+				logger.L().Error("unable to run server validated", helpers.Error(err))
 				return err
 			}
 			logger.L().Info("server ran")
@@ -107,6 +112,9 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 		logger.L().Warning("failed to set profiling flag to false", helpers.Error(err))
 	}
 	servePprof()
+
+	// caching reverse proxy
+	startProxy()
 
 	// mute klog
 	// https://github.com/kubernetes/klog/issues/87
@@ -187,6 +195,22 @@ func (o WardleServerOptions) RunWardleServer(stopCh <-chan struct{}) error {
 	})
 
 	return server.GenericAPIServer.PrepareRun().Run(stopCh)
+}
+
+func startProxy() {
+	logger.L().Info("starting caching reverse proxy", helpers.String("port", "8443"))
+	revproxy := httputil.NewSingleHostReverseProxy(&url.URL{
+		Scheme: "https",
+		Host:   "localhost:8444",
+	})
+	srv := &proxy.Proxy{Next: revproxy}
+	revproxy.ModifyResponse = srv.StoreOKResponse(30 * time.Second)
+	http.Handle("/", srv)
+	go func() {
+		if err := http.ListenAndServe(":8443", nil); err != nil {
+			logger.L().Error("failed to start caching reverse proxy", helpers.Error(err))
+		}
+	}()
 }
 
 func servePprof() {

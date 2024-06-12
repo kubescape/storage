@@ -62,6 +62,7 @@ func main() {
 
 	stopCh := genericapiserver.SetupSignalHandler()
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr)
+	options.RecommendedOptions.SecureServing.BindPort = 8444
 	cmd := server.NewCommandStartWardleServer(options, stopCh)
 
 	// cleanup task
