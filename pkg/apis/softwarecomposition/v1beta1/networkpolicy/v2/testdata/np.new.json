@@ -26,22 +26,22 @@
       "ipBlock": "16.170.0.0/15",
       "originalIP": "16.170.46.131",
       "dns": "report.armo.cloud.",
-      "name": "armo",
-      "server": "armosec.cloud"
+      "name": "my-cloud",
+      "server": "cloud.io"
     },
     {
       "ipBlock": "16.170.0.0/15",
       "originalIP": "16.171.184.118",
       "dns": "report.armo.cloud.",
-      "name": "armo",
-      "server": "armosec.cloud"
+      "name": "my-cloud",
+      "server": "cloud.io"
     },
     {
       "ipBlock": "13.50.180.111/24",
       "originalIP": "13.50.180.111",
       "dns": "report.armo.cloud.",
-      "name": "armo",
-      "server": "armosec.cloud"
+      "name": "my-cloud",
+      "server": "cloud.io"
     }
   ],
   "spec": {

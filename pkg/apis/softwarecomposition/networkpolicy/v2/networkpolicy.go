@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	storageV1ApiVersion = "spdx.kubescape.io"
+	storageV1ApiVersion = "spdx.softwarecomposition.kubescape.io"
 )
 
 func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
@@ -70,7 +70,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 
 	generatedNetworkPolicy := softwarecomposition.GeneratedNetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "softwarecomposition.GeneratedNetworkPolicy",
+			Kind:       "GeneratedNetworkPolicy",
 			APIVersion: storageV1ApiVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{

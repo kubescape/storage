@@ -18,23 +18,23 @@
         {
             "dns": "report.armo.cloud.",
             "ipBlock": "13.50.180.111/24",
-            "name": "armo",
+            "name": "my-cloud",
             "originalIP": "13.50.180.111",
-            "server": "armosec.cloud"
+            "server": "cloud.io"
         },
         {
             "dns": "report.armo.cloud.",
             "ipBlock": "16.170.0.0/15",
-            "name": "armo",
+            "name": "my-cloud",
             "originalIP": "16.171.184.118",
-            "server": "armosec.cloud"
+            "server": "cloud.io"
         },
         {
             "dns": "report.armo.cloud.",
             "ipBlock": "16.170.0.0/15",
-            "name": "armo",
+            "name": "my-cloud",
             "originalIP": "16.170.46.131",
-            "server": "armosec.cloud"
+            "server": "cloud.io"
         },
         {
             "dns": "version-check.ks-services.co.",

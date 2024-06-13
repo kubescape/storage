@@ -4,20 +4,20 @@
         "kind": "KnownServer",
         "metadata": {
             "creationTimestamp": "2024-06-02T08:04:02Z",
-            "name": "armosec",
+            "name": "my-org",
             "resourceVersion": "1",
             "uid": "caf185d6-a59a-4fd1-81cd-0ce44be34b44"
         },
         "spec": [
             {
                 "ipBlock": "16.170.0.0/15",
-                "name": "armo",
-                "server": "armosec.cloud"
+                "name": "my-cloud",
+                "server": "cloud.io"
             },
             {
                 "ipBlock": "13.50.180.111/24",
-                "name": "armo",
-                "server": "armosec.cloud"
+                "name": "my-cloud",
+                "server": "cloud.io"
             }
         ]
     }
