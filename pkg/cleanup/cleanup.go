@@ -37,38 +37,37 @@ var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
 	"sbomsyftfiltered":                    deleteByInstanceId,
 	"sbomsyft":                            deleteByImageId,
 	"sbomsummaries":                       deleteDeprecated,
+	"seccompprofiles":                     deleteByTemplateHashOrWlid,
 	"vulnerabilitymanifests":              deleteByImageIdOrInstanceId,
 	"vulnerabilitymanifestsummaries":      deleteByWlidAndContainer,
 	"workloadconfigurationscans":          deleteByWlid,
 	"workloadconfigurationscansummaries":  deleteByWlid,
 }
 
+type TypeDeleteFunc func(appFs afero.Fs, path string)
+
 type ResourcesCleanupHandler struct {
-	appFs         afero.Fs
-	root          string        // root directory to start the cleanup task
-	interval      time.Duration // runs the cleanup task every Interval
-	filesToDelete []string      // list of files to delete
-	resources     ResourceMaps
-	fetcher       ResourcesFetcher
+	appFs      afero.Fs
+	root       string        // root directory to start the cleanup task
+	interval   time.Duration // runs the cleanup task every Interval
+	resources  ResourceMaps
+	fetcher    ResourcesFetcher
+	deleteFunc TypeDeleteFunc
 }
 
 func NewResourcesCleanupHandler(appFs afero.Fs, root string, interval time.Duration, fetcher ResourcesFetcher) *ResourcesCleanupHandler {
 	return &ResourcesCleanupHandler{
-		appFs:    appFs,
-		interval: interval,
-		root:     root,
-		fetcher:  fetcher,
+		appFs:      appFs,
+		interval:   interval,
+		root:       root,
+		fetcher:    fetcher,
+		deleteFunc: deleteFile,
 	}
-}
-
-func (h *ResourcesCleanupHandler) GetFilesToDelete() []string {
-	return h.filesToDelete
 }
 
 func (h *ResourcesCleanupHandler) StartCleanupTask() {
 	for {
 		logger.L().Info("started cleanup task", helpers.String("interval", h.interval.String()))
-		h.filesToDelete = []string{}
 		var err error
 		h.resources, err = h.fetcher.FetchResources()
 		if err != nil {
@@ -140,22 +139,15 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 				toDelete := handler(resourceKind, path, metadata, h.resources)
 				if toDelete {
 					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
-					h.filesToDelete = append(h.filesToDelete, path)
+					h.deleteFunc(h.appFs, path)
 
 					payloadFilePath := path[:len(path)-len(file.MetadataExt)] + file.GobExt
-					h.filesToDelete = append(h.filesToDelete, payloadFilePath)
+					h.deleteFunc(h.appFs, payloadFilePath)
 				}
 				return nil
 			})
 			if err != nil {
 				logger.L().Error("cleanup task error", helpers.Error(err))
-			}
-		}
-
-		for _, fileToDelete := range h.filesToDelete {
-			err := h.appFs.Remove(fileToDelete) // FIXME: delete along the way instead of collecting all files to delete
-			if err != nil {
-				logger.L().Error("failed deleting file", helpers.Error(err))
 			}
 		}
 
@@ -165,6 +157,12 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 
 		logger.L().Info("finished cleanup task. sleeping...")
 		time.Sleep(h.interval)
+	}
+}
+
+func deleteFile(appFs afero.Fs, path string) {
+	if err := appFs.Remove(path); err != nil {
+		logger.L().Error("failed deleting file", helpers.Error(err))
 	}
 }
 

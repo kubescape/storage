@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
-
 	"testing"
 
 	_ "embed"
@@ -39,7 +37,19 @@ func TestCleanupTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := NewResourcesCleanupHandler(memFs, file.DefaultStorageRoot, time.Hour*0, &ResourcesFetchMock{})
+	var filesDeleted []string
+	deleteFunc := func(appFs afero.Fs, path string) {
+		if err := appFs.Remove(path); err == nil {
+			filesDeleted = append(filesDeleted, path)
+		}
+	}
+
+	handler := &ResourcesCleanupHandler{
+		appFs:      memFs,
+		root:       file.DefaultStorageRoot,
+		fetcher:    &ResourcesFetchMock{},
+		deleteFunc: deleteFunc,
+	}
 	handler.StartCleanupTask()
 
 	expectedFilesToDelete := []string{
@@ -201,7 +211,6 @@ func TestCleanupTask(t *testing.T) {
 		"/data/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/apps-v1-daemonset-kubescape-host-scanner-c93b-a749.m",
 	}
 
-	filesDeleted := handler.GetFilesToDelete()
 	slices.Sort(filesDeleted)
 
 	assert.Equal(t, expectedFilesToDelete, filesDeleted)

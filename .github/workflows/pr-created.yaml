@@ -3,7 +3,7 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     paths-ignore:
-      - '*.md' 
+      - '*.md'
       - '*.yaml'
       - '.github/workflows/*'
 
@@ -16,5 +16,5 @@ jobs:
     uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@main
     with:
       CGO_ENABLED: 0
-      GO_VERSION: "1.21"
+      GO_VERSION: "1.22"
     secrets: inherit
