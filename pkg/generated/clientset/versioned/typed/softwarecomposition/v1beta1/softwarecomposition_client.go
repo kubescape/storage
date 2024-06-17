@@ -40,6 +40,7 @@ type SpdxV1beta1Interface interface {
 	SBOMSPDXv2p3FilteredsGetter
 	SBOMSyftsGetter
 	SBOMSyftFilteredsGetter
+	SeccompProfilesGetter
 	VulnerabilityManifestsGetter
 	VulnerabilityManifestSummariesGetter
 	VulnerabilitySummariesGetter
@@ -98,6 +99,10 @@ func (c *SpdxV1beta1Client) SBOMSyfts(namespace string) SBOMSyftInterface {
 
 func (c *SpdxV1beta1Client) SBOMSyftFiltereds(namespace string) SBOMSyftFilteredInterface {
 	return newSBOMSyftFiltereds(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) SeccompProfiles(namespace string) SeccompProfileInterface {
+	return newSeccompProfiles(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) VulnerabilityManifests(namespace string) VulnerabilityManifestInterface {

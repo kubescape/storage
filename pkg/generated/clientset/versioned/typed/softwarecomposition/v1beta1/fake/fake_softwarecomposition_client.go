@@ -76,6 +76,10 @@ func (c *FakeSpdxV1beta1) SBOMSyftFiltereds(namespace string) v1beta1.SBOMSyftFi
 	return &FakeSBOMSyftFiltereds{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) SeccompProfiles(namespace string) v1beta1.SeccompProfileInterface {
+	return &FakeSeccompProfiles{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {
 	return &FakeVulnerabilityManifests{c, namespace}
 }

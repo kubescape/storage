@@ -42,6 +42,8 @@ type SBOMSyftExpansion interface{}
 
 type SBOMSyftFilteredExpansion interface{}
 
+type SeccompProfileExpansion interface{}
+
 type VulnerabilityManifestExpansion interface{}
 
 type VulnerabilityManifestSummaryExpansion interface{}
