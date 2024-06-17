@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,25 +24,35 @@ const (
 	storageV1ApiVersion = "spdx.softwarecomposition.kubescape.io"
 )
 
-// FIXME switch to NetworkNeighborhood
-
-func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
-	if !IsAvailable(networkNeighbors) {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("networkNeighbors %s/%s status annotation is not ready", networkNeighbors.Namespace, networkNeighbors.Name)
+func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+	if !IsAvailable(nn) {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready", nn.Namespace, nn.Name)
 	}
+
+	// get name from labels and clean labels
+	kind, ok := nn.Labels[helpersv1.KindMetadataKey]
+	if !ok {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name)
+	}
+	name, ok := nn.Labels[helpersv1.NameMetadataKey]
+	if !ok {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a name label", nn.Namespace, nn.Name)
+	}
+	delete(nn.Labels, helpersv1.TemplateHashKey)
 
 	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      networkNeighbors.Name,
-			Namespace: networkNeighbors.Namespace,
+			Name:      fmt.Sprintf("%s-%s", strings.ToLower(kind), name),
+			Namespace: nn.Namespace,
 			Annotations: map[string]string{
 				"generated-by": "kubescape",
 			},
-			Labels: networkNeighbors.Labels,
+			Labels: nn.Labels,
 		},
 		Spec: softwarecomposition.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{},
 			PolicyTypes: []softwarecomposition.PolicyType{
 				softwarecomposition.PolicyTypeIngress,
 				softwarecomposition.PolicyTypeEgress,
@@ -50,12 +60,12 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 		},
 	}
 
-	if networkNeighbors.Spec.MatchLabels != nil {
-		networkPolicy.Spec.PodSelector.MatchLabels = maps.Clone(networkNeighbors.Spec.MatchLabels)
+	if nn.Spec.MatchLabels != nil {
+		networkPolicy.Spec.PodSelector.MatchLabels = nn.Spec.MatchLabels
 	}
 
-	if networkNeighbors.Spec.MatchExpressions != nil {
-		networkPolicy.Spec.PodSelector.MatchExpressions = networkNeighbors.Spec.MatchExpressions
+	if nn.Spec.MatchExpressions != nil {
+		networkPolicy.Spec.PodSelector.MatchExpressions = nn.Spec.MatchExpressions
 	}
 
 	generatedNetworkPolicy := softwarecomposition.GeneratedNetworkPolicy{
@@ -64,16 +74,16 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 			APIVersion: storageV1ApiVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              networkNeighbors.Name,
-			Namespace:         networkNeighbors.Namespace,
-			Labels:            networkNeighbors.Labels,
+			Name:              nn.Name,
+			Namespace:         nn.Namespace,
+			Labels:            nn.Labels,
 			CreationTimestamp: timeProvider,
 		},
 		PoliciesRef: []softwarecomposition.PolicyRef{},
 	}
 
 	ingressHash := make(map[string]bool)
-	for _, neighbor := range networkNeighbors.Spec.Ingress {
+	for _, neighbor := range listIngressNetworkNeighbors(nn) {
 
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
@@ -94,7 +104,7 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 	}
 
 	egressHash := make(map[string]bool)
-	for _, neighbor := range networkNeighbors.Spec.Egress {
+	for _, neighbor := range listEgressNetworkNeighbors(nn) {
 
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
@@ -122,6 +132,36 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 	generatedNetworkPolicy.Spec = networkPolicy
 
 	return generatedNetworkPolicy, nil
+}
+
+func listIngressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {
+	var neighbors []softwarecomposition.NetworkNeighbor
+	for i := range nn.Spec.Containers {
+		neighbors = append(neighbors, nn.Spec.Containers[i].Ingress...)
+	}
+	for i := range nn.Spec.InitContainers {
+		neighbors = append(neighbors, nn.Spec.InitContainers[i].Ingress...)
+	}
+	for i := range nn.Spec.EphemeralContainers {
+		neighbors = append(neighbors, nn.Spec.EphemeralContainers[i].Ingress...)
+	}
+	return neighbors
+
+}
+
+func listEgressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {
+	var neighbors []softwarecomposition.NetworkNeighbor
+	for i := range nn.Spec.Containers {
+		neighbors = append(neighbors, nn.Spec.Containers[i].Egress...)
+	}
+	for i := range nn.Spec.InitContainers {
+		neighbors = append(neighbors, nn.Spec.InitContainers[i].Egress...)
+	}
+	for i := range nn.Spec.EphemeralContainers {
+		neighbors = append(neighbors, nn.Spec.EphemeralContainers[i].Egress...)
+	}
+	return neighbors
+
 }
 
 func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRule) []softwarecomposition.NetworkPolicyIngressRule {
@@ -180,7 +220,7 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 			if peers[i].IPBlock != nil && peers[j].IPBlock != nil {
 				return peers[i].IPBlock.CIDR < peers[j].IPBlock.CIDR
 			}
-			return false // Keep the order as is if IPBlock is nil
+			return false // Keep the order as is if softwarecomposition.IPBlock is nil
 		})
 
 		mergedRules = append(mergedRules, softwarecomposition.NetworkPolicyIngressRule{
@@ -248,7 +288,7 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 			if peers[i].IPBlock != nil && peers[j].IPBlock != nil {
 				return peers[i].IPBlock.CIDR < peers[j].IPBlock.CIDR
 			}
-			return false // Keep the order as is if IPBlock is nil
+			return false // Keep the order as is if softwarecomposition.IPBlock is nil
 		})
 
 		mergedRules = append(mergedRules, softwarecomposition.NetworkPolicyEgressRule{
@@ -263,7 +303,7 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 	return mergedRules
 }
 
-func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServer []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
+func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
 	egressRule := softwarecomposition.NetworkPolicyEgressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
 
@@ -279,7 +319,6 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServe
 		if len(egressRule.To) > 0 {
 			egressRule.To[0].NamespaceSelector = neighbor.NamespaceSelector
 		} else {
-			// TOD0(DanielGrunberegerCA): is this a valid case?
 			egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
 				NamespaceSelector: neighbor.NamespaceSelector,
 			})
@@ -289,7 +328,7 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServe
 	if neighbor.IPAddress != "" {
 		isKnownServer := false
 		// look if this IP is part of any known server
-		for _, knownServer := range KnownServer {
+		for _, knownServer := range knownServers {
 			for _, entry := range knownServer.Spec {
 				_, subNet, err := net.ParseCIDR(entry.IPBlock)
 				if err != nil {
@@ -350,17 +389,7 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServe
 	return egressRule, policyRefs
 }
 
-func hash(s any) (string, error) {
-
-	var b bytes.Buffer
-	if err := gob.NewEncoder(&b).Encode(s); err != nil {
-		return "", err
-	}
-	vv := sha256.Sum256(b.Bytes())
-	return hex.EncodeToString(vv[:]), nil
-}
-
-func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServer []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
+func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
 	ingressRule := softwarecomposition.NetworkPolicyIngressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
 
@@ -375,7 +404,6 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServ
 		if len(ingressRule.From) > 0 {
 			ingressRule.From[0].NamespaceSelector = neighbor.NamespaceSelector
 		} else {
-			// TOD0(DanielGrunberegerCA): is this a valid case?
 			ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
 				NamespaceSelector: neighbor.NamespaceSelector,
 			})
@@ -385,7 +413,7 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, KnownServ
 	if neighbor.IPAddress != "" {
 		isKnownServer := false
 		// look if this IP is part of any known server
-		for _, knownServer := range KnownServer {
+		for _, knownServer := range knownServers {
 			for _, entry := range knownServer.Spec {
 				_, subNet, err := net.ParseCIDR(entry.IPBlock)
 				if err != nil {
@@ -453,17 +481,27 @@ func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
 
 func removeLabels(labels map[string]string) {
 	for key := range labels {
-		if isIgnoredLabel(key) {
+		if networkpolicy.IsIgnoredLabel(key) {
 			delete(labels, key)
 		}
 	}
 }
 
-func IsAvailable(networkNeighbors softwarecomposition.NetworkNeighbors) bool {
-	switch networkNeighbors.GetAnnotations()[helpersv1.StatusMetadataKey] {
+func IsAvailable(nn *softwarecomposition.NetworkNeighborhood) bool {
+	switch nn.GetAnnotations()[helpersv1.StatusMetadataKey] {
 	case helpersv1.Ready, helpersv1.Completed:
 		return true
 	default:
 		return false
 	}
+}
+
+func hash(s any) (string, error) {
+
+	var b bytes.Buffer
+	if err := gob.NewEncoder(&b).Encode(s); err != nil {
+		return "", err
+	}
+	vv := sha256.Sum256(b.Bytes())
+	return hex.EncodeToString(vv[:]), nil
 }
