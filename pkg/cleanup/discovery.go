@@ -160,7 +160,9 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 }
 
 func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(resourceMaps *ResourceMaps) error {
-	pods, err := h.Client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(context.TODO(), metav1.ListOptions{})
+	pods, err := h.Client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(context.TODO(), metav1.ListOptions{
+		FieldSelector: "status.phase=Running",
+	})
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
