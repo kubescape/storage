@@ -12,26 +12,30 @@ type Annotator struct {
 	AnnotatorType string
 }
 
+// kvJSONLine parses a key-value pair from JSON.
+// i.e. "\"<jsonencoded foo: bar>\""" -> k = "foo", v = "bar".
+func kvJSONLine(data []byte) (k, v string, err error) {
+	var (
+		s  string
+		ok bool
+	)
+	if err = json.Unmarshal(data, &s); err != nil {
+		return k, v, err
+	}
+	if k, v, ok = strings.Cut(s, ": "); !ok {
+		err = fmt.Errorf("failed to parse %q", s)
+	}
+	return k, v, err
+}
+
 // UnmarshalJSON takes an annotator in the typical one-line format and parses it into an Annotator struct.
 // This function is also used when unmarshalling YAML
 func (a *Annotator) UnmarshalJSON(data []byte) error {
-	// annotator will simply be a string
-	var annotatorStr string
-	err := json.Unmarshal(data, &annotatorStr)
-	if err != nil {
-		return err
+	// annotator will simply be a string.
+	var err error
+	if a.AnnotatorType, a.Annotator, err = kvJSONLine(data); err != nil {
+		return fmt.Errorf("failed to parse Annotator: %w", err)
 	}
-	annotatorStr = strings.Trim(annotatorStr, "\"")
-
-	annotatorFields := strings.SplitN(annotatorStr, ": ", 2)
-
-	if len(annotatorFields) != 2 {
-		return fmt.Errorf("failed to parse Annotator '%s'", annotatorStr)
-	}
-
-	a.AnnotatorType = annotatorFields[0]
-	a.Annotator = annotatorFields[1]
-
 	return nil
 }
 
@@ -87,20 +91,10 @@ type Creator struct {
 // UnmarshalJSON takes an annotator in the typical one-line format and parses it into a Creator struct.
 // This function is also used when unmarshalling YAML
 func (c *Creator) UnmarshalJSON(data []byte) error {
-	var str string
-	err := json.Unmarshal(data, &str)
-	if err != nil {
-		return err
+	var err error
+	if c.CreatorType, c.Creator, err = kvJSONLine(data); err != nil {
+		return fmt.Errorf("failed to parse Creator: %w", err)
 	}
-	fields := strings.SplitN(str, ": ", 2)
-
-	if len(fields) != 2 {
-		return fmt.Errorf("failed to parse Creator '%s'", str)
-	}
-
-	c.CreatorType = fields[0]
-	c.Creator = fields[1]
-
 	return nil
 }
 
@@ -356,23 +350,14 @@ type Supplier struct {
 // This function is also used when unmarshalling YAML
 func (s *Supplier) UnmarshalJSON(data []byte) error {
 	// the value is just a string presented as a slice of bytes
-	supplierStr := string(data)
-	supplierStr = strings.Trim(supplierStr, "\"")
-
-	if supplierStr == "NOASSERTION" {
-		s.Supplier = supplierStr
-		return nil
+	switch k, v, err := kvJSONLine(data); {
+	case k == "NOASSERTION":
+		s.Supplier = k
+	case err != nil:
+		return fmt.Errorf("failed to parse Supplier '%w'", err)
+	default:
+		s.SupplierType, s.Supplier = k, v
 	}
-
-	supplierFields := strings.SplitN(supplierStr, ": ", 2)
-
-	if len(supplierFields) != 2 {
-		return fmt.Errorf("failed to parse Supplier '%s'", supplierStr)
-	}
-
-	s.SupplierType = supplierFields[0]
-	s.Supplier = supplierFields[1]
-
 	return nil
 }
 
@@ -399,27 +384,14 @@ type Originator struct {
 // This function is also used when unmarshalling YAML
 func (o *Originator) UnmarshalJSON(data []byte) error {
 	// the value is just a string presented as a slice of bytes
-	var originatorStr string
-	err := json.Unmarshal(data, &originatorStr)
-	if err != nil {
-		return err
+	switch k, v, err := kvJSONLine(data); {
+	case k == "NOASSERTION":
+		o.Originator = k
+	case err != nil:
+		return fmt.Errorf("failed to parse Originator '%w'", err)
+	default:
+		o.OriginatorType, o.Originator = k, v
 	}
-	originatorStr = strings.Trim(originatorStr, "\"")
-
-	if originatorStr == "NOASSERTION" {
-		o.Originator = originatorStr
-		return nil
-	}
-
-	originatorFields := strings.SplitN(originatorStr, ": ", 2)
-
-	if len(originatorFields) != 2 {
-		return fmt.Errorf("failed to parse Originator '%s'", originatorStr)
-	}
-
-	o.OriginatorType = originatorFields[0]
-	o.Originator = originatorFields[1]
-
 	return nil
 }
 
