@@ -100,13 +100,9 @@ func extractKeysToNotify(key string) ([]string, error) {
 
 // Register registers a watcher for a given key
 func (wd *watchDispatcher) Register(key string, w *watcher) {
-	existingWatchers, ok := wd.watchesByKey.Load(key)
-	if ok {
-		existingWatchers = append(existingWatchers, w)
-		wd.watchesByKey.Store(key, existingWatchers)
-	} else {
-		wd.watchesByKey.Store(key, watchersList{w})
-	}
+	wd.watchesByKey.Compute(key, func(l watchersList, _ bool) (watchersList, bool) {
+		return append(l, w), false
+	})
 }
 
 // Added dispatches an "Added" event to appropriate watchers
