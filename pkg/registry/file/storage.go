@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -305,7 +306,18 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 	decoder := gob.NewDecoder(payloadFile)
 	err = decoder.Decode(objPtr)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("Get - json unmarshal failed", helpers.Error(err), helpers.String("key", key))
+		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+			// irrecoverable error, delete both files
+			_ = s.appFs.Remove(makeMetadataPath(p))
+			_ = s.appFs.Remove(makePayloadPath(p))
+			logger.L().Debug("Get - gob unexpected EOF, removed files", helpers.String("key", key))
+			if opts.IgnoreNotFound {
+				return runtime.SetZeroValue(objPtr)
+			} else {
+				return storage.NewKeyNotFoundError(key, 0)
+			}
+		}
+		logger.L().Ctx(ctx).Error("Get - gob unmarshal failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	return nil
