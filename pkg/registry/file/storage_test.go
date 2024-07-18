@@ -249,6 +249,10 @@ func TestStorageImpl_Delete(t *testing.T) {
 	}
 }
 
+func isNotFoundError(_ assert.TestingT, err error, _ ...any) bool {
+	return storage.IsNotFound(err)
+}
+
 func TestStorageImpl_Get(t *testing.T) {
 	var emptyObj bytes.Buffer
 	_ = gob.NewEncoder(&emptyObj).Encode(v1beta1.SBOMSPDXv2p3{})
@@ -268,7 +272,7 @@ func TestStorageImpl_Get(t *testing.T) {
 		args    args
 		content string
 		create  bool
-		wantErr bool
+		wantErr assert.ErrorAssertionFunc
 		want    runtime.Object
 	}{
 		{
@@ -276,7 +280,7 @@ func TestStorageImpl_Get(t *testing.T) {
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 			},
-			wantErr: true,
+			wantErr: isNotFoundError,
 		},
 		{
 			name: "empty string",
@@ -285,7 +289,7 @@ func TestStorageImpl_Get(t *testing.T) {
 				objPtr: &v1beta1.SBOMSPDXv2p3{},
 			},
 			create:  true,
-			wantErr: true,
+			wantErr: isNotFoundError,
 		},
 		{
 			name: "empty object",
@@ -295,6 +299,7 @@ func TestStorageImpl_Get(t *testing.T) {
 			},
 			content: emptyObj.String(),
 			create:  true,
+			wantErr: assert.NoError,
 			want:    &v1beta1.SBOMSPDXv2p3{},
 		},
 		{
@@ -305,11 +310,22 @@ func TestStorageImpl_Get(t *testing.T) {
 			},
 			content: realObj.String(),
 			create:  true,
+			wantErr: assert.NoError,
 			want: &v1beta1.SBOMSPDXv2p3{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "toto",
 				},
 			},
+		},
+		{
+			name: "truncated object",
+			args: args{
+				key:    "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				objPtr: &v1beta1.SBOMSPDXv2p3{},
+			},
+			content: string(realObj.Bytes()[10]),
+			create:  true,
+			wantErr: isNotFoundError,
 		},
 	}
 	for _, tt := range tests {
@@ -320,7 +336,7 @@ func TestStorageImpl_Get(t *testing.T) {
 				_ = afero.WriteFile(fs, path, []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
-			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); (err != nil) != tt.wantErr {
+			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); !tt.wantErr(t, err) {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.want != nil {
