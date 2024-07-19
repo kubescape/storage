@@ -66,14 +66,7 @@ var _ storage.Interface = &StorageImpl{}
 var _ StorageQuerier = &StorageImpl{}
 
 func NewStorageImpl(appFs afero.Fs, root string) StorageQuerier {
-	return &StorageImpl{
-		appFs:           appFs,
-		locks:           utils.NewMapMutex[string](),
-		processor:       DefaultProcessor{},
-		root:            root,
-		versioner:       storage.APIObjectVersioner{},
-		watchDispatcher: newWatchDispatcher(),
-	}
+	return NewStorageImplWithCollector(appFs, root, DefaultProcessor{})
 }
 
 func NewStorageImplWithCollector(appFs afero.Fs, root string, processor Processor) StorageQuerier {
@@ -752,4 +745,41 @@ func replaceKeyForKind(key string, kind string) string {
 	keySplit[2] = strings.ToLower(kind)
 
 	return strings.Join(keySplit, "/")
+}
+
+type immutableStorage struct{}
+
+// Create is not supported for immutable objects. Objects are generated on the fly and not stored.
+func (immutableStorage) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
+	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
+}
+
+// Delete is not supported for immutable objects. Objects are generated on the fly and not stored.
+func (immutableStorage) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
+	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
+}
+
+// Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
+func (immutableStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
+	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+}
+
+// GuaranteedUpdate is not supported for immutable objects. Objects are generated on the fly and not stored.
+func (immutableStorage) GuaranteedUpdate(_ context.Context, key string, _ runtime.Object, _ bool, _ *storage.Preconditions, _ storage.UpdateFunc, _ runtime.Object) error {
+	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
+}
+
+// Count is not supported for immutable objects. Objects are generated on the fly and not stored.
+func (immutableStorage) Count(key string) (int64, error) {
+	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+}
+
+// RequestWatchProgress fulfills the storage.Interface
+//
+// It’s function is only relevant to etcd.
+func (immutableStorage) RequestWatchProgress(context.Context) error { return nil }
+
+// Versioner Returns fixed versioner associated with this interface.
+func (immutableStorage) Versioner() storage.Versioner {
+	return storage.APIObjectVersioner{}
 }

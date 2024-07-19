@@ -2,7 +2,8 @@ package file
 
 import (
 	"errors"
-	"strings"
+	"path"
+	"slices"
 	"sync"
 
 	"github.com/puzpuzpuz/xsync/v2"
@@ -65,48 +66,27 @@ type watchDispatcher struct {
 }
 
 func newWatchDispatcher() watchDispatcher {
-	wbk := xsync.NewMapOf[watchersList]()
-	return watchDispatcher{watchesByKey: wbk}
+	return watchDispatcher{xsync.NewMapOf[watchersList]()}
 }
 
-func extractKeysToNotify(key string) ([]string, error) {
-	resKeys := []string{}
+func extractKeysToNotify(key string) []string {
 	if key[0] != '/' {
-		return resKeys, errInvalidKey
+		return []string{}
 	}
 
-	sep := '/'
-	currentKey := strings.Builder{}
-
-	for idx, char := range key {
-		consumed := false
-		last := idx == (len(key) - 1)
-
-		if char == sep {
-			resKeys = append(resKeys, currentKey.String())
-			consumed = true
-		}
-
-		currentKey.WriteRune(char)
-
-		if last && !consumed {
-			resKeys = append(resKeys, currentKey.String())
-		}
+	ret := []string{"/"}
+	for left := key; left != "/"; left = path.Dir(left) {
+		ret = append(ret, left)
 	}
-	resKeys[0] = "/"
-
-	return resKeys, nil
+	slices.Sort(ret)
+	return ret
 }
 
 // Register registers a watcher for a given key
 func (wd *watchDispatcher) Register(key string, w *watcher) {
-	existingWatchers, ok := wd.watchesByKey.Load(key)
-	if ok {
-		existingWatchers = append(existingWatchers, w)
-		wd.watchesByKey.Store(key, existingWatchers)
-	} else {
-		wd.watchesByKey.Store(key, watchersList{w})
-	}
+	wd.watchesByKey.Compute(key, func(l watchersList, _ bool) (watchersList, bool) {
+		return append(l, w), false
+	})
 }
 
 // Added dispatches an "Added" event to appropriate watchers
@@ -127,22 +107,13 @@ func (wd *watchDispatcher) Modified(key string, obj runtime.Object) {
 // notify notifies the listeners of a given key about an event of a given eventType about a given obj
 func (wd *watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
 	// Don’t block callers by publishing in a separate goroutine
+	// TODO(ttimonen) This is kind of expensive way to manage queue, yet watchers might block each other.
 	go func() {
 		event := watch.Event{Type: eventType, Object: obj}
-		keysToNotify, err := extractKeysToNotify(key)
-		if err != nil {
-			return
-		}
-
-		for idx := range keysToNotify {
-			notifiedKey := keysToNotify[idx]
-			watchers, ok := wd.watchesByKey.Load(notifiedKey)
-			if !ok {
-				continue
-			}
-
-			for idx := range watchers {
-				watchers[idx].notify(event)
+		for _, part := range extractKeysToNotify(key) {
+			ws, _ := wd.watchesByKey.Load(part)
+			for _, w := range ws {
+				w.notify(event)
 			}
 		}
 	}()
