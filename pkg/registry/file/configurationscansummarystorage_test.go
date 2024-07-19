@@ -15,7 +15,7 @@ import (
 
 func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	count, err := configScanSummaryStorage.Count("random")
 
@@ -28,7 +28,7 @@ func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
 
 func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	err := configScanSummaryStorage.Create(context.TODO(), "", nil, nil, 0)
 
@@ -39,7 +39,7 @@ func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 
 func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	err := configScanSummaryStorage.Delete(context.TODO(), "", nil, nil, nil, nil)
 
@@ -50,7 +50,7 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 
 func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	_, err := configScanSummaryStorage.Watch(context.TODO(), "", storage.ListOptions{})
 
@@ -61,7 +61,7 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 
 func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "")
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(&storageImpl)
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	err := configScanSummaryStorage.GuaranteedUpdate(context.TODO(), "", nil, false, nil, nil, nil)
 
@@ -111,7 +111,7 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configScanSummaryStorage := NewConfigurationScanSummaryStorage(&realStorage)
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
 
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
@@ -177,7 +177,7 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configScanSummaryStorage := NewConfigurationScanSummaryStorage(&realStorage)
+			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
 
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}

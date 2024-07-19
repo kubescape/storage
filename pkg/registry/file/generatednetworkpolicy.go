@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 )
 
@@ -24,37 +23,14 @@ const (
 
 // GeneratedNetworkPolicyStorage offers a storage solution for GeneratedNetworkPolicy objects, implementing custom business logic for these objects and using the underlying default storage implementation.
 type GeneratedNetworkPolicyStorage struct {
+	immutableStorage
 	realStore StorageQuerier
-	versioner storage.Versioner
 }
 
 var _ storage.Interface = &GeneratedNetworkPolicyStorage{}
 
-func NewGeneratedNetworkPolicyStorage(realStore *StorageQuerier) storage.Interface {
-	return &GeneratedNetworkPolicyStorage{
-		realStore: *realStore,
-		versioner: storage.APIObjectVersioner{},
-	}
-}
-
-// Versioner Returns Versioner associated with this interface.
-func (s *GeneratedNetworkPolicyStorage) Versioner() storage.Versioner {
-	return s.versioner
-}
-
-// Create is not supported for GeneratedNetworkPolicy objects. Objects are generated on the fly and not stored.
-func (s *GeneratedNetworkPolicyStorage) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
-	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// Delete is not supported for GeneratedNetworkPolicy objects. Objects are generated on the fly and not stored.
-func (s *GeneratedNetworkPolicyStorage) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
-	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// Watch is not supported for GeneratedNetworkPolicy objects. Objects are generated on the fly and not stored.
-func (s *GeneratedNetworkPolicyStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
-	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier) storage.Interface {
+	return &GeneratedNetworkPolicyStorage{realStore: realStore}
 }
 
 // Get generates and returns a single GeneratedNetworkPolicy object
@@ -145,24 +121,5 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		return err
 	}
 
-	return nil
-}
-
-// GuaranteedUpdate is not supported for GeneratedNetworkPolicy objects. Objects are generated on the fly and not stored.
-func (s *GeneratedNetworkPolicyStorage) GuaranteedUpdate(
-	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
-	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// Count is not supported for GeneratedNetworkPolicy objects. Objects are generated on the fly and not stored.
-func (s *GeneratedNetworkPolicyStorage) Count(key string) (int64, error) {
-	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// RequestWatchProgress fulfills the storage.Interface
-//
-// It’s function is only relevant to etcd.
-func (s *GeneratedNetworkPolicyStorage) RequestWatchProgress(context.Context) error {
 	return nil
 }
