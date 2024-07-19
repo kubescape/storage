@@ -219,7 +219,13 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 		}
 
 		for _, port := range rule.Ports {
-			key := PortProtocolKey{Port: *port.Port, Protocol: *port.Protocol}
+			key := PortProtocolKey{}
+			if port.Port != nil {
+				key.Port = *port.Port
+			}
+			if port.Protocol != nil {
+				key.Protocol = *port.Protocol
+			}
 			if _, exists := merged[key]; !exists {
 				keys = append(keys, key)
 			}
