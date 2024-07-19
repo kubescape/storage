@@ -17,6 +17,7 @@ limitations under the License.
 package apiserver
 
 import (
+	"github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationactivity"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
@@ -33,9 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/options"
+	"k8s.io/apiserver/pkg/storage"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
@@ -145,46 +148,45 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// https://github.com/kubernetes/kubernetes/issues/86666).
 	apiGroupInfo.NegotiatedSerializer = NewNoProtobufSerializer(Codecs)
 
-	osFs := afero.NewOsFs()
+	var (
+		osFs        = afero.NewOsFs()
+		storageImpl = file.NewStorageImpl(osFs, file.DefaultStorageRoot)
 
-	storageImpl := file.NewStorageImpl(osFs, file.DefaultStorageRoot)
+		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.ApplicationProfileProcessor{})
+		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.NetworkNeighborhoodProcessor{})
+		configScanStorageImpl          = file.NewConfigurationScanSummaryStorage(storageImpl)
+		vulnerabilitySummaryStorage    = file.NewVulnerabilitySummaryStorage(storageImpl)
+		generatedNetworkPolicyStorage  = file.NewGeneratedNetworkPolicyStorage(storageImpl)
 
-	applicationProfileStorageImpl := file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.ApplicationProfileProcessor{})
-	networkNeighborhoodStorageImpl := file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, &file.NetworkNeighborhoodProcessor{})
-	configScanStorageImpl := file.NewConfigurationScanSummaryStorage(&storageImpl)
-	vulnerabilitySummaryStorage := file.NewVulnerabilitySummaryStorage(&storageImpl)
-	generatedNetworkPolicyStorage := file.NewGeneratedNetworkPolicyStorage(&storageImpl)
-
-	v1beta1storage := map[string]rest.Storage{}
-
-	v1beta1storage["sbomspdxv2p3s"] = sbomregistry.RESTInPeace(sbomspdxv2p3storage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["sbomspdxv2p3filtereds"] = sbomregistry.RESTInPeace(sbomspdxv2p3filteredstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["vulnerabilitymanifests"] = sbomregistry.RESTInPeace(vmstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["vulnerabilitymanifestsummaries"] = sbomregistry.RESTInPeace(vmsumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["workloadconfigurationscans"] = sbomregistry.RESTInPeace(wcsstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["workloadconfigurationscansummaries"] = sbomregistry.RESTInPeace(wcssumstorage.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["configurationscansummaries"] = sbomregistry.RESTInPeace(configurationscansummary.NewREST(Scheme, configScanStorageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["vulnerabilitysummaries"] = sbomregistry.RESTInPeace(vsumstorage.NewREST(Scheme, vulnerabilitySummaryStorage, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["applicationprofiles"] = sbomregistry.RESTInPeace(applicationprofile.NewREST(Scheme, applicationProfileStorageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["applicationactivities"] = sbomregistry.RESTInPeace(applicationactivity.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["networkneighborses"] = sbomregistry.RESTInPeace(networkneighbors.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["networkneighborhoods"] = sbomregistry.RESTInPeace(networkneighborhood.NewREST(Scheme, networkNeighborhoodStorageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["openvulnerabilityexchangecontainers"] = sbomregistry.RESTInPeace(openvulnerabilityexchange.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["generatednetworkpolicies"] = sbomregistry.RESTInPeace(generatednetworkpolicy.NewREST(Scheme, generatedNetworkPolicyStorage, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["knownservers"] = sbomregistry.RESTInPeace(knownserver.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["sbomsyfts"] = sbomregistry.RESTInPeace(sbomsyfts.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-	v1beta1storage["sbomsyftfiltereds"] = sbomregistry.RESTInPeace(sbomsyftfiltereds.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	v1beta1storage["seccompprofiles"] = sbomregistry.RESTInPeace(seccompprofiles.NewREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter))
-
-	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = v1beta1storage
+		// REST endpoint registration, defaults to storageImpl.
+		ep = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.REST, error), s ...storage.Interface) *registry.REST {
+			var si storage.Interface = storageImpl
+			if len(s) > 0 {
+				si = s[0]
+			}
+			return sbomregistry.RESTInPeace(f(Scheme, si, c.GenericConfig.RESTOptionsGetter))
+		}
+	)
+	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
+		"applicationactivities":               ep(applicationactivity.NewREST),
+		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
+		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
+		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
+		"knownservers":                        ep(knownserver.NewREST),
+		"networkneighborhoods":                ep(networkneighborhood.NewREST, networkNeighborhoodStorageImpl),
+		"networkneighborses":                  ep(networkneighbors.NewREST),
+		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
+		"sbomspdxv2p3filtereds":               ep(sbomspdxv2p3filteredstorage.NewREST),
+		"sbomspdxv2p3s":                       ep(sbomspdxv2p3storage.NewREST),
+		"sbomsyftfiltereds":                   ep(sbomsyftfiltereds.NewREST),
+		"sbomsyfts":                           ep(sbomsyfts.NewREST),
+		"seccompprofiles":                     ep(seccompprofiles.NewREST),
+		"vulnerabilitymanifests":              ep(vmstorage.NewREST),
+		"vulnerabilitymanifestsummaries":      ep(vmsumstorage.NewREST),
+		"vulnerabilitysummaries":              ep(vsumstorage.NewREST, vulnerabilitySummaryStorage),
+		"workloadconfigurationscans":          ep(wcsstorage.NewREST),
+		"workloadconfigurationscansummaries":  ep(wcssumstorage.NewREST),
+	}
 
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err

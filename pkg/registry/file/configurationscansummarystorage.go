@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 )
 
@@ -23,37 +22,14 @@ const (
 
 // ConfigurationScanSummaryStorage offers a storage solution for ConfigurationScanSummary objects, implementing custom business logic for these objects and using the underlying default storage implementation.
 type ConfigurationScanSummaryStorage struct {
+	immutableStorage
 	realStore StorageQuerier
-	versioner storage.Versioner
 }
 
 var _ storage.Interface = &ConfigurationScanSummaryStorage{}
 
-func NewConfigurationScanSummaryStorage(realStore *StorageQuerier) storage.Interface {
-	return &ConfigurationScanSummaryStorage{
-		realStore: *realStore,
-		versioner: storage.APIObjectVersioner{},
-	}
-}
-
-// Versioner Returns Versioner associated with this interface.
-func (s *ConfigurationScanSummaryStorage) Versioner() storage.Versioner {
-	return s.versioner
-}
-
-// Create is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
-func (s *ConfigurationScanSummaryStorage) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
-	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// Delete is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
-func (s *ConfigurationScanSummaryStorage) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
-	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// Watch is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
-func (s *ConfigurationScanSummaryStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
-	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+func NewConfigurationScanSummaryStorage(realStore StorageQuerier) storage.Interface {
+	return &ConfigurationScanSummaryStorage{realStore: realStore}
 }
 
 // Get generates and returns a single ConfigurationScanSummary object for a namespace
@@ -124,67 +100,37 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	return nil
 }
 
-// GuaranteedUpdate is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
-func (s *ConfigurationScanSummaryStorage) GuaranteedUpdate(
-	ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool,
-	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// Count is not supported for ConfigurationScanSummary objects. Objects are generated on the fly and not stored.
-func (s *ConfigurationScanSummaryStorage) Count(key string) (int64, error) {
-	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
-}
-
-// RequestWatchProgress fulfills the storage.Interface
-//
-// It’s function is only relevant to etcd.
-func (s *ConfigurationScanSummaryStorage) RequestWatchProgress(context.Context) error {
-	return nil
-}
-
 // buildConfigurationScanSummaryForCluster generates a configuration scan summary list for the cluster, where each item is a configuration scan summary for a namespace
-func buildConfigurationScanSummaryForCluster(wlConfigurationScanSummaryList softwarecomposition.WorkloadConfigurationScanSummaryList) softwarecomposition.ConfigurationScanSummaryList {
+func buildConfigurationScanSummaryForCluster(list softwarecomposition.WorkloadConfigurationScanSummaryList) softwarecomposition.ConfigurationScanSummaryList {
 
 	// build an map of namespace to workload configuration scan summaries
-	mapNamespaceToSummaries := make(map[string][]softwarecomposition.WorkloadConfigurationScanSummary)
-
-	for _, wlSummary := range wlConfigurationScanSummaryList.Items {
-		if _, ok := mapNamespaceToSummaries[wlSummary.Namespace]; !ok {
-			mapNamespaceToSummaries[wlSummary.Namespace] = make([]softwarecomposition.WorkloadConfigurationScanSummary, 0)
-		}
-		mapNamespaceToSummaries[wlSummary.Namespace] = append(mapNamespaceToSummaries[wlSummary.Namespace], wlSummary)
+	perNS := map[string][]softwarecomposition.WorkloadConfigurationScanSummary{}
+	for _, s := range list.Items {
+		perNS[s.Namespace] = append(perNS[s.Namespace], s)
 	}
 
-	configurationScanSummaryList := softwarecomposition.ConfigurationScanSummaryList{
+	ret := softwarecomposition.ConfigurationScanSummaryList{
 		TypeMeta: v1.TypeMeta{
 			Kind:       configurationScanSummaryKind,
 			APIVersion: StorageV1Beta1ApiVersion,
 		},
 	}
 
+	type wList = softwarecomposition.WorkloadConfigurationScanSummaryList
 	// 1 - build a workload configuration scan summary list for each namespace
 	// 2 - generate a single configuration scan summary for the namespace
 	// 3 - add the configuration scan summary to the cluster summary list object
-	for namespace, wlSummaries := range mapNamespaceToSummaries {
+	for ns, sums := range perNS {
 		// for each namespace, create a single workload configuration scan summary object
-		nsListObj := softwarecomposition.WorkloadConfigurationScanSummaryList{
-			TypeMeta: v1.TypeMeta{
-				Kind:       configurationScanSummaryKind,
-				APIVersion: StorageV1Beta1ApiVersion,
-			},
-			Items: wlSummaries,
-		}
-
-		configurationScanSummaryList.Items = append(configurationScanSummaryList.Items, buildConfigurationScanSummary(nsListObj, namespace))
+		ret.Items = append(ret.Items, buildConfigurationScanSummary(wList{Items: sums}, ns))
 	}
 
-	return configurationScanSummaryList
+	return ret
 }
 
 // buildConfigurationScanSummary generates a single configuration scan summary for the given namespace
-func buildConfigurationScanSummary(wlConfigurationScanSummaryList softwarecomposition.WorkloadConfigurationScanSummaryList, namespace string) softwarecomposition.ConfigurationScanSummary {
-	configurationScanSummaryObj := softwarecomposition.ConfigurationScanSummary{
+func buildConfigurationScanSummary(list softwarecomposition.WorkloadConfigurationScanSummaryList, namespace string) softwarecomposition.ConfigurationScanSummary {
+	summary := softwarecomposition.ConfigurationScanSummary{
 		TypeMeta: v1.TypeMeta{
 			Kind:       configurationScanSummaryKind,
 			APIVersion: StorageV1Beta1ApiVersion,
@@ -194,22 +140,22 @@ func buildConfigurationScanSummary(wlConfigurationScanSummaryList softwarecompos
 		},
 	}
 
-	for i := range wlConfigurationScanSummaryList.Items {
-		configurationScanSummaryObj.Spec.Severities.Critical += wlConfigurationScanSummaryList.Items[i].Spec.Severities.Critical
-		configurationScanSummaryObj.Spec.Severities.High += wlConfigurationScanSummaryList.Items[i].Spec.Severities.High
-		configurationScanSummaryObj.Spec.Severities.Medium += wlConfigurationScanSummaryList.Items[i].Spec.Severities.Medium
-		configurationScanSummaryObj.Spec.Severities.Low += wlConfigurationScanSummaryList.Items[i].Spec.Severities.Low
-		configurationScanSummaryObj.Spec.Severities.Unknown += wlConfigurationScanSummaryList.Items[i].Spec.Severities.Unknown
+	for i := range list.Items {
+		summary.Spec.Severities.Critical += list.Items[i].Spec.Severities.Critical
+		summary.Spec.Severities.High += list.Items[i].Spec.Severities.High
+		summary.Spec.Severities.Medium += list.Items[i].Spec.Severities.Medium
+		summary.Spec.Severities.Low += list.Items[i].Spec.Severities.Low
+		summary.Spec.Severities.Unknown += list.Items[i].Spec.Severities.Unknown
 
-		wlIdentifier := softwarecomposition.WorkloadConfigurationScanSummaryIdentifier{
-			Namespace: wlConfigurationScanSummaryList.Items[i].Namespace,
+		id := softwarecomposition.WorkloadConfigurationScanSummaryIdentifier{
+			Namespace: list.Items[i].Namespace,
 			Kind:      "WorkloadConfigurationScanSummary",
-			Name:      wlConfigurationScanSummaryList.Items[i].Name,
+			Name:      list.Items[i].Name,
 		}
 
-		configurationScanSummaryObj.Spec.WorkloadConfigurationScanSummaryIdentifiers = append(configurationScanSummaryObj.Spec.WorkloadConfigurationScanSummaryIdentifiers, wlIdentifier)
+		summary.Spec.WorkloadConfigurationScanSummaryIdentifiers = append(summary.Spec.WorkloadConfigurationScanSummaryIdentifiers, id)
 
 	}
 
-	return configurationScanSummaryObj
+	return summary
 }
