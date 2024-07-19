@@ -20,22 +20,19 @@ const (
 
 func TestExtractKeysToNotify(t *testing.T) {
 	tt := []struct {
-		name          string
-		inputKey      string
-		expectedKeys  []string
-		expectedError error
+		name         string
+		inputKey     string
+		expectedKeys []string
 	}{
 		{
 			"root key should produce only itself",
 			"/",
 			[]string{"/"},
-			nil,
 		},
 		{
 			"API resource key should produce root and itself",
 			"/spdx.softwarecomposition.kubescape.io",
 			[]string{"/", "/spdx.softwarecomposition.kubescape.io"},
-			nil,
 		},
 		{
 			"Full resource key should produce the full lineage",
@@ -47,22 +44,18 @@ func TestExtractKeysToNotify(t *testing.T) {
 				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape",
 				"/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi",
 			},
-			nil,
 		},
 		{
 			"Missing leading slash should produce an error",
 			"spdx.softwarecomposition.kubescape.io/sbomspdxv2p3filtereds/kubescape/titi",
 			[]string{},
-			errInvalidKey,
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := extractKeysToNotify(tc.inputKey)
-
+			got := extractKeysToNotify(tc.inputKey)
 			assert.Equal(t, tc.expectedKeys, got)
-			assert.ErrorIs(t, err, tc.expectedError)
 		})
 	}
 
