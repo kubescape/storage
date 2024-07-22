@@ -26,7 +26,7 @@ const (
 
 func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	if !IsAvailable(nn) {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready", nn.Namespace, nn.Name)
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name)
 	}
 
 	// get name from labels and clean labels
