@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"time"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -32,6 +33,8 @@ import (
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
 	"github.com/spf13/cobra"
+	"github.com/victorspringer/http-cache"
+	"github.com/victorspringer/http-cache/adapter/memory"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
@@ -179,6 +182,26 @@ func (o WardleServerOptions) RunWardleServer(stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
+
+	// add http-cache
+	memcached, err := memory.NewAdapter(
+		memory.AdapterWithAlgorithm(memory.LRU),
+		memory.AdapterWithStorageCapacity(500000000), // 500MB
+	)
+	if err != nil {
+		logger.L().Fatal("failed to create memcached adapter", helpers.Error(err))
+	}
+
+	cacheClient, err := cache.NewClient(
+		cache.ClientWithAdapter(memcached),
+		cache.ClientWithTTL(10*time.Minute),
+		cache.ClientWithRefreshKey("opn"),
+	)
+	if err != nil {
+		logger.L().Fatal("failed to create cache client", helpers.Error(err))
+	}
+	fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
+	server.GenericAPIServer.Handler.FullHandlerChain = cacheClient.Middleware(fullHandlerChain)
 
 	server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {
 		config.GenericConfig.SharedInformerFactory.Start(context.StopCh)

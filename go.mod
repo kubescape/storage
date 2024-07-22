@@ -19,6 +19,7 @@ require (
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
+	github.com/victorspringer/http-cache v0.0.0-20240523143319-7d9f48f8ab91
 	go.opentelemetry.io/otel v1.24.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
@@ -189,6 +190,7 @@ require (
 
 replace (
 	github.com/openvex/go-vex => github.com/slashben/go-vex v0.0.0-20231012123606-f58e5ee0e14e
+	github.com/victorspringer/http-cache => github.com/matthyx/http-cache v0.0.0-20240719133808-8a605008c1fd
 	google.golang.org/grpc => google.golang.org/grpc v1.56.3
 	k8s.io/api => k8s.io/api v0.0.0-20231101171312-cd0ecb048ea5
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20231102051132-bc0a03b4342c
