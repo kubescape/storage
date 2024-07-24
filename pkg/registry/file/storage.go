@@ -50,7 +50,7 @@ type StorageImpl struct {
 	processor       Processor
 	root            string
 	versioner       storage.Versioner
-	watchDispatcher watchDispatcher
+	watchDispatcher *watchDispatcher
 }
 
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
