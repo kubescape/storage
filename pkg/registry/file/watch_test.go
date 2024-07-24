@@ -150,6 +150,30 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 			{Type: watch.Added, Object: obj},
 			{Type: watch.Added, Object: obj},
 		}},
+	}, {
+		name:  "Stopping watch after send shouldn't deadlock",
+		start: map[string]int{keyN: 3},
+		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+		},
+		stopAfter: map[string]int{keyN: 0},
+		want: map[string][]watch.Event{keyN: {
+			{Type: watch.Added, Object: obj},
+			{Type: watch.Added, Object: obj},
+			{Type: watch.Added, Object: obj},
+		}},
+	}, {
+		name:  "Stopping watch twice is ok",
+		start: map[string]int{keyN: 3},
+		inputObjects: map[string]*v1beta1.SBOMSPDXv2p3{
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+		},
+		stopBefore: map[string]int{keyN: 1},
+		stopAfter:  map[string]int{keyN: 1},
+		want: map[string][]watch.Event{keyN: {
+			{Type: watch.Added, Object: obj},
+			{Type: watch.Added, Object: obj},
+		}},
 	}}
 
 	for _, tc := range tt {
