@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,7 +39,7 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	profile.Spec.InitContainers = processContainers(profile.Spec.InitContainers)
 	profile.Spec.Containers = processContainers(profile.Spec.Containers)
 
-	profile.Spec.Architectures = sets.NewThreadUnsafeSet(profile.Spec.Architectures...).ToSlice()
+	profile.Spec.Architectures = mapset.Sorted(mapset.NewThreadUnsafeSet(profile.Spec.Architectures...))
 
 	profile.Annotations[helpers.ResourceSizeMetadataKey] = strconv.Itoa(size)
 	return nil
@@ -48,10 +48,10 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer) softwarecomposition.ApplicationProfileContainer {
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
-		Capabilities:   sets.NewThreadUnsafeSet(container.Capabilities...).ToSlice(),
+		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),
 		Execs:          deflateStringer(container.Execs),
 		Opens:          deflateStringer(container.Opens),
-		Syscalls:       sets.NewThreadUnsafeSet(container.Syscalls...).ToSlice(),
+		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
 		SeccompProfile: container.SeccompProfile,
 	}
 }

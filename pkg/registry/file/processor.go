@@ -1,7 +1,7 @@
 package file
 
 import (
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -24,7 +24,7 @@ type Stringer interface {
 
 func deflateStringer[T Stringer](in []T) []T {
 	out := make([]T, 0)
-	set := sets.NewThreadUnsafeSet[string]()
+	set := mapset.NewThreadUnsafeSet[string]()
 	for _, item := range in {
 		if set.Contains(item.String()) {
 			continue

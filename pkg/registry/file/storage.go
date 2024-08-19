@@ -122,13 +122,9 @@ func (s *StorageImpl) keyFromPath(path string) string {
 }
 
 func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime.Object) error {
-	// call processor on object to be saved
-	if err := s.processor.PreSave(obj); err != nil {
-		return fmt.Errorf("processor.PreSave: %w", err)
-	}
-	// set resourceversion
-	if version, _ := s.versioner.ObjectResourceVersion(obj); version == 0 {
-		if err := s.versioner.UpdateObject(obj, 1); err != nil {
+	// increment resourceVersion
+	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
+		if err := s.versioner.UpdateObject(obj, version+1); err != nil {
 			return fmt.Errorf("set resourceVersion: %w", err)
 		}
 	}
@@ -188,18 +184,21 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
 	spanLock.End()
-	// resourceversion should not be set on create
+	// resourceVersion should not be set on create
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
 		msg := "resourceVersion should not be set on objects to be created"
 		logger.L().Ctx(ctx).Error(msg)
 		return errors.New(msg)
+	}
+	// call processor on object to be saved
+	if err := s.processor.PreSave(obj); err != nil {
+		return fmt.Errorf("processor.PreSave: %w", err)
 	}
 	// write files
 	if err := s.writeFiles(key, obj, metaOut); err != nil {
 		logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
-
 	// publish event to watchers
 	s.watchDispatcher.Added(key, metaOut)
 	return nil
@@ -520,6 +519,21 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 			// Retry
 			continue
+		}
+
+		// call processor on object to be saved
+		if err := s.processor.PreSave(ret); err != nil {
+			return fmt.Errorf("processor.PreSave: %w", err)
+		}
+
+		// check if the object is the same as the original
+		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
+		_ = s.processor.PreSave(orig)
+		if reflect.DeepEqual(orig, ret) {
+			logger.L().Debug("tryUpdate returned the same object, no update needed", helpers.String("key", key))
+			// no change, return the original object
+			v.Set(reflect.ValueOf(origState.obj).Elem())
+			return nil
 		}
 
 		// save to disk and fill into metaOut

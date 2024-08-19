@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/discovery"
 
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1"
 	"github.com/kubescape/k8s-interface/k8sinterface"
@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	Workloads = sets.NewSet[string]([]string{
+	Workloads = mapset.NewSet[string]([]string{
 		"apiservice",
 		"configmap",
 		"clusterrole",
@@ -65,19 +65,19 @@ var _ ResourcesFetcher = (*KubernetesAPI)(nil)
 
 // ResourceMaps is a map of running resources in the cluster, based on these maps we can decide which files to delete
 type ResourceMaps struct {
-	RunningWlidsToContainerNames *maps.SafeMap[string, sets.Set[string]]
-	RunningInstanceIds           sets.Set[string]
-	RunningContainerImageIds     sets.Set[string]
-	RunningTemplateHash          sets.Set[string]
+	RunningWlidsToContainerNames *maps.SafeMap[string, mapset.Set[string]]
+	RunningInstanceIds           mapset.Set[string]
+	RunningContainerImageIds     mapset.Set[string]
+	RunningTemplateHash          mapset.Set[string]
 }
 
 // builds a map of running resources in the cluster needed for cleanup
 func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
 	resourceMaps := ResourceMaps{
-		RunningInstanceIds:           sets.NewSet[string](),
-		RunningContainerImageIds:     sets.NewSet[string](),
-		RunningTemplateHash:          sets.NewSet[string](),
-		RunningWlidsToContainerNames: new(maps.SafeMap[string, sets.Set[string]]),
+		RunningInstanceIds:           mapset.NewSet[string](),
+		RunningContainerImageIds:     mapset.NewSet[string](),
+		RunningTemplateHash:          mapset.NewSet[string](),
+		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
 	if err := h.fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(&resourceMaps); err != nil {
@@ -107,7 +107,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 			wlid := wlidPkg.GetK8sWLID("", workload.GetNamespace(), workload.GetKind(), workload.GetName())
 			wlid = wlidWithoutClusterName(wlid)
 
-			resourceMaps.RunningWlidsToContainerNames.Set(wlid, sets.NewSet[string]())
+			resourceMaps.RunningWlidsToContainerNames.Set(wlid, mapset.NewSet[string]())
 
 			c, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "containers")...)
 			if !ok {

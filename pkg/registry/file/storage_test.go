@@ -458,6 +458,19 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			},
 		},
 	}
+	tutu := &v1beta1.SBOMSPDXv2p3{
+		ObjectMeta: v1.ObjectMeta{
+			Name:            "toto",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.SBOMSPDXv2p3Spec{
+			Metadata: v1beta1.SPDXMeta{
+				Tool: v1beta1.ToolMeta{
+					Name: "tutu",
+				},
+			},
+		},
+	}
 	type args struct {
 		key                  string
 		ignoreNotFound       bool
@@ -466,11 +479,12 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		cachedExistingObject runtime.Object
 	}
 	tests := []struct {
-		name    string
-		args    args
-		create  bool
-		wantErr bool
-		want    *v1beta1.SBOMSPDXv2p3
+		name         string
+		args         args
+		create       bool
+		wantErr      bool
+		wantNotFound bool
+		want         *v1beta1.SBOMSPDXv2p3
 	}{
 		{
 			name: "test",
@@ -488,11 +502,24 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
 				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+					obj := *input.(*v1beta1.SBOMSPDXv2p3)
+					obj.Spec.Metadata.Tool.Name = "tutu"
+					return &obj, nil, nil
+				},
+				cachedExistingObject: toto.DeepCopyObject(),
+			},
+			want: tutu,
+		},
+		{
+			name: "test with existing object, no change",
+			args: args{
+				key: "/spdx.softwarecomposition.kubescape.io/sbomspdxv2p3s/kubescape/toto",
+				tryUpdate: func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 					return input, nil, nil
 				},
 				cachedExistingObject: toto.DeepCopyObject(),
 			},
-			want: totov1,
+			wantNotFound: true, // no change, not found because we don't call writeFiles
 		},
 		{
 			name: "test with failing precondition",
@@ -516,7 +543,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 						return nil, nil, fmt.Errorf("tryUpdate error")
 					}
 					obj := *input.(*v1beta1.SBOMSPDXv2p3)
-					obj.ResourceVersion = "3"
+					obj.ResourceVersion = "2"
 					obj.Spec.Metadata.Tool.Name = "tutu"
 					return &obj, nil, nil
 				},
@@ -543,8 +570,12 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			} else {
 				onDisk := &v1beta1.SBOMSPDXv2p3{}
 				err = s.Get(context.Background(), tt.args.key, storage.GetOptions{}, onDisk)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.want, onDisk)
+				if tt.wantNotFound {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, tt.want, onDisk)
+				}
 			}
 		})
 	}

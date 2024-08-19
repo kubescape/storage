@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,7 +57,7 @@ func deflateNetworkNeighborhoodContainer(container softwarecomposition.NetworkNe
 func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor) []softwarecomposition.NetworkNeighbor {
 	out := make([]softwarecomposition.NetworkNeighbor, 0)
 	seen := map[string]int{}
-	toDeflate := sets.NewThreadUnsafeSet[int]()
+	toDeflate := mapset.NewThreadUnsafeSet[int]()
 	for _, item := range in {
 		if index, ok := seen[item.Identifier]; ok {
 			out[index].DNSNames = append(out[index].DNSNames, item.DNSNames...)
@@ -68,8 +68,8 @@ func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor) []softwar
 			seen[item.Identifier] = len(out) - 1 // index of the appended item
 		}
 	}
-	for _, i := range toDeflate.ToSlice() {
-		out[i].DNSNames = sets.NewThreadUnsafeSet(out[i].DNSNames...).ToSlice()
+	for _, i := range mapset.Sorted(toDeflate) {
+		out[i].DNSNames = mapset.Sorted(mapset.NewThreadUnsafeSet(out[i].DNSNames...))
 		out[i].Ports = deflateStringer(out[i].Ports)
 	}
 	return out
