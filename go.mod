@@ -8,7 +8,7 @@ require (
 	github.com/anchore/syft v1.3.0
 	github.com/armosec/utils-k8s-go v0.0.26
 	github.com/containers/common v0.59.0
-	github.com/deckarep/golang-set/v2 v2.5.0
+	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/gofuzz v1.2.0
 	github.com/goradd/maps v0.1.5

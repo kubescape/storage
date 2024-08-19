@@ -13,7 +13,7 @@ import (
 
 	_ "embed"
 
-	sets "github.com/deckarep/golang-set/v2"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
@@ -239,9 +239,9 @@ var _ ResourcesFetcher = (*ResourcesFetchMock)(nil)
 
 func (r *ResourcesFetchMock) FetchResources() (ResourceMaps, error) {
 	resourceMaps := ResourceMaps{
-		RunningInstanceIds:           sets.NewSet[string](),
-		RunningContainerImageIds:     sets.NewSet[string](),
-		RunningWlidsToContainerNames: new(maps.SafeMap[string, sets.Set[string]]),
+		RunningInstanceIds:           mapset.NewSet[string](),
+		RunningContainerImageIds:     mapset.NewSet[string](),
+		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
 	var expectedImageIds []string
@@ -261,7 +261,7 @@ func (r *ResourcesFetchMock) FetchResources() (ResourceMaps, error) {
 		panic(err)
 	}
 	for wlid, containerNames := range expectedWlids {
-		resourceMaps.RunningWlidsToContainerNames.Set(wlid, sets.NewSet(containerNames...))
+		resourceMaps.RunningWlidsToContainerNames.Set(wlid, mapset.NewSet(containerNames...))
 	}
 
 	return resourceMaps, nil
