@@ -50,7 +50,7 @@ type StorageImpl struct {
 	processor       Processor
 	root            string
 	versioner       storage.Versioner
-	watchDispatcher watchDispatcher
+	watchDispatcher *watchDispatcher
 }
 
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
@@ -260,9 +260,10 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, _ storage.ListOptio
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	newWatcher := newWatcher(make(chan watch.Event))
-	s.watchDispatcher.Register(key, newWatcher)
-	return newWatcher, nil
+	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
+	nw := newWatcher(ctx)
+	s.watchDispatcher.Register(key, nw)
+	return nw, nil
 }
 
 // Get unmarshals object found at key into objPtr. On a not found error, will either
