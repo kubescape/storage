@@ -28,8 +28,8 @@ require (
 	k8s.io/client-go v0.29.0
 	k8s.io/code-generator v0.26.2
 	k8s.io/component-base v0.27.2
-	k8s.io/klog/v2 v2.110.1
-	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
+	k8s.io/klog/v2 v2.130.1
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 )
 
@@ -76,7 +76,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.0 // indirect
 	github.com/github/go-spdx/v2 v2.2.0 // indirect
-	github.com/go-logr/logr v1.4.1 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
@@ -163,22 +163,22 @@ require (
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.21.0 // indirect
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/grpc v1.62.1 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
+	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/kms v0.26.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 // indirect
 	sigs.k8s.io/controller-runtime v0.15.0 // indirect
@@ -194,7 +194,7 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20231102051132-bc0a03b4342c
 	k8s.io/apiserver => k8s.io/apiserver v0.0.0-20231101172914-798e645af694
 	k8s.io/client-go => k8s.io/client-go v0.0.0-20231101171620-66e57f767515
-	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20231101170854-66e74b777ae2
+	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20240727175048-b53d16e2b339
 	k8s.io/component-base => k8s.io/component-base v0.0.0-20231101172256-4b808112b779
 	k8s.io/kms => k8s.io/kms v0.0.0-20231101172519-156d7b7a0cca
 )
