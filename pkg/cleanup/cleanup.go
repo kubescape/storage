@@ -76,6 +76,7 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 			continue
 		}
 
+		var size int64
 		for resourceKind, handler := range resourceKindToHandler {
 			v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
 			exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
@@ -85,6 +86,11 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 			err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
+				}
+
+				// sum all files in path
+				if !info.IsDir() {
+					size += info.Size()
 				}
 
 				// FIXME: migrate to gob files - to remove after some time
@@ -150,6 +156,8 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 				logger.L().Error("cleanup task error", helpers.Error(err))
 			}
 		}
+
+		logger.L().Info("storage size before cleanup", helpers.String("path", h.root), helpers.String("size", fmt.Sprintf("%d bytes", size)))
 
 		if h.interval == 0 {
 			break
