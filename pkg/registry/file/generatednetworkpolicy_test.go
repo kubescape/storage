@@ -32,7 +32,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
 			},
-			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/networkneighborses/kubescape/toto", 0),
+			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", 0),
 		},
 		{
 			name: "existing object is returned",
@@ -51,6 +51,10 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					Name:              "toto",
 					Namespace:         "kubescape",
 					CreationTimestamp: v1.Time{},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.NameMetadataKey: "toto",
+					},
 				},
 				Spec: softwarecomposition.NetworkPolicy{
 					Kind:       "NetworkPolicy",
@@ -59,8 +63,12 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Annotations: map[string]string{
 							"generated-by": "kubescape",
 						},
-						Name:      "toto",
+						Name:      "deployment-toto",
 						Namespace: "kubescape",
+						Labels: map[string]string{
+							helpersv1.KindMetadataKey: "Deployment",
+							helpersv1.NameMetadataKey: "toto",
+						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
 						PolicyTypes: []softwarecomposition.PolicyType{
@@ -82,9 +90,9 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage)
 
 			if tt.create {
-				wlObj := &softwarecomposition.NetworkNeighbors{
+				wlObj := &softwarecomposition.NetworkNeighborhood{
 					TypeMeta: v1.TypeMeta{
-						Kind:       "NetworkNeighbors",
+						Kind:       "NetworkNeighborhood",
 						APIVersion: "spdx.softwarecomposition.kubescape.io",
 					},
 					ObjectMeta: v1.ObjectMeta{
@@ -93,9 +101,13 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Annotations: map[string]string{
 							helpersv1.StatusMetadataKey: helpersv1.Ready,
 						},
+						Labels: map[string]string{
+							helpersv1.KindMetadataKey: "Deployment",
+							helpersv1.NameMetadataKey: "toto",
+						},
 					},
 				}
-				err := realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/networkneighborses/kubescape/toto", wlObj, nil, 0)
+				err := realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", wlObj, nil, 0)
 				assert.NoError(t, err)
 			}
 
