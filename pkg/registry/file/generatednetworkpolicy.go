@@ -8,7 +8,7 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy/v1"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	networkNeighborsResource = "networkneighborses"
-	knownServersResource     = "knownservers"
+	networkNeighborhoodResource = "networkneighborhoods"
+	knownServersResource        = "knownservers"
 )
 
 // GeneratedNetworkPolicyStorage offers a storage solution for GeneratedNetworkPolicy objects, implementing custom business logic for these objects and using the underlying default storage implementation.
@@ -42,11 +42,11 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 	logger.L().Ctx(ctx).Debug("GeneratedNetworkPolicyStorage.Get", helpers.String("key", key))
 
 	// retrieve network neighbor with the same name
-	networkNeighborsObjPtr := &softwarecomposition.NetworkNeighbors{}
+	networkNeighborhoodObjPtr := &softwarecomposition.NetworkNeighborhood{}
 
-	key = replaceKeyForKind(key, networkNeighborsResource)
+	key = replaceKeyForKind(key, networkNeighborhoodResource)
 
-	if err := s.realStore.Get(ctx, key, opts, networkNeighborsObjPtr); err != nil {
+	if err := s.realStore.Get(ctx, key, opts, networkNeighborhoodObjPtr); err != nil {
 		return err
 	}
 
@@ -56,7 +56,7 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 		return err
 	}
 
-	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(*networkNeighborsObjPtr, knownServersListObjPtr.Items, metav1.Now())
+	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighborhoodObjPtr, knownServersListObjPtr.Items, metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -77,8 +77,8 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 
 // GetList generates and returns a list of GeneratedNetworkPolicy objects for the given namespace
 func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
-	// get all network neighbors on namespace
-	networkNeighborsObjListPtr := &softwarecomposition.NetworkNeighborsList{}
+	// get all network neighborhood on namespace
+	networkNeighborhoodObjListPtr := &softwarecomposition.NetworkNeighborhoodList{}
 
 	generatedNetworkPolicyList := &softwarecomposition.GeneratedNetworkPolicyList{
 		TypeMeta: metav1.TypeMeta{
@@ -88,7 +88,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 
 	namespace := getNamespaceFromKey(key)
 
-	if err := s.realStore.GetByNamespace(ctx, softwarecomposition.GroupName, networkNeighborsResource, namespace, networkNeighborsObjListPtr); err != nil {
+	if err := s.realStore.GetByNamespace(ctx, softwarecomposition.GroupName, networkNeighborhoodResource, namespace, networkNeighborhoodObjListPtr); err != nil {
 		return err
 	}
 
@@ -97,11 +97,11 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		return err
 	}
 
-	for _, networkNeighbors := range networkNeighborsObjListPtr.Items {
-		if !networkpolicy.IsAvailable(networkNeighbors) {
+	for _, networkNeighborhood := range networkNeighborhoodObjListPtr.Items {
+		if !networkpolicy.IsAvailable(&networkNeighborhood) {
 			continue
 		}
-		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighbors, knownServersListObjPtr.Items, metav1.Now())
+		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(&networkNeighborhood, knownServersListObjPtr.Items, metav1.Now())
 		if err != nil {
 			return fmt.Errorf("error generating network policy: %w", err)
 		}
