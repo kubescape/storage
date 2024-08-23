@@ -235,11 +235,26 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 	return mergedRules
 }
 
-func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule) []softwarecomposition.NetworkPolicyEgressRule {
-	type PortProtocolKey struct {
-		Port     int32
-		Protocol v1.Protocol
+type PortProtocolKey struct {
+	Port     int32
+	Protocol v1.Protocol
+}
+
+// NewPortProtocolKey creates a new PortProtocolKey from a softwarecomposition.NetworkPolicyPort
+// It ensures nil values are handled correctly (i.e. 0 for port and TCP for protocol)
+func NewPortProtocolKey(port softwarecomposition.NetworkPolicyPort) PortProtocolKey {
+	num := int32(0)
+	if port.Port != nil {
+		num = *port.Port
 	}
+	proto := v1.ProtocolTCP
+	if port.Protocol != nil {
+		proto = *port.Protocol
+	}
+	return PortProtocolKey{Port: num, Protocol: proto}
+}
+
+func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule) []softwarecomposition.NetworkPolicyEgressRule {
 
 	merged := make(map[PortProtocolKey][]softwarecomposition.NetworkPolicyPeer)
 	var keys []PortProtocolKey
@@ -260,7 +275,7 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 		}
 
 		for _, port := range rule.Ports {
-			key := PortProtocolKey{Port: *port.Port, Protocol: *port.Protocol}
+			key := NewPortProtocolKey(port)
 			if _, exists := merged[key]; !exists {
 				keys = append(keys, key)
 			}
