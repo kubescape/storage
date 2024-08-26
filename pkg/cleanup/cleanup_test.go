@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,7 +51,7 @@ func TestCleanupTask(t *testing.T) {
 		fetcher:    &ResourcesFetchMock{},
 		deleteFunc: deleteFunc,
 	}
-	handler.StartCleanupTask()
+	handler.StartCleanupTask(context.TODO())
 
 	expectedFilesToDelete := []string{
 		"/data/spdx.softwarecomposition.kubescape.io/applicationactivities/gadget/gadget-daemonset-gadget-0d7c-fd3c.g",
