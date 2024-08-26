@@ -81,7 +81,7 @@ func main() {
 		file.DefaultStorageRoot,
 		intervalDuration,
 		kubernetesAPI)
-	go cleanupHandler.StartCleanupTask()
+	go cleanupHandler.StartCleanupTask(ctx)
 
 	logger.L().Info("APIServer started")
 	code := cli.Run(cmd)
