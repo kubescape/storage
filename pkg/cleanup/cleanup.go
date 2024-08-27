@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,10 @@ import (
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	MinSizeToReport = 30 * 1024 * 1024 // 30MB
 )
 
 type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
@@ -65,7 +70,7 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, interval time.Durat
 	}
 }
 
-func (h *ResourcesCleanupHandler) StartCleanupTask() {
+func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 	for {
 		logger.L().Info("started cleanup task", helpers.String("interval", h.interval.String()))
 		var err error
@@ -76,7 +81,6 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 			continue
 		}
 
-		var size int64
 		for resourceKind, handler := range resourceKindToHandler {
 			v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
 			exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
@@ -88,9 +92,13 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 					return err
 				}
 
-				// sum all files in path
-				if !info.IsDir() {
-					size += info.Size()
+				// skip directories
+				if info.IsDir() {
+					return nil
+				}
+
+				if size := info.Size(); size > MinSizeToReport {
+					logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
 				}
 
 				// FIXME: migrate to gob files - to remove after some time
@@ -127,8 +135,8 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 					}
 				}
 
-				// skip directories and files that are not metadata files
-				if info.IsDir() || !file.IsMetadataFile(path) {
+				// skip files that are not metadata files
+				if !file.IsMetadataFile(path) {
 					return nil
 				}
 
@@ -156,8 +164,6 @@ func (h *ResourcesCleanupHandler) StartCleanupTask() {
 				logger.L().Error("cleanup task error", helpers.Error(err))
 			}
 		}
-
-		logger.L().Info("storage size before cleanup", helpers.String("path", h.root), helpers.String("size", fmt.Sprintf("%d bytes", size)))
 
 		if h.interval == 0 {
 			break
