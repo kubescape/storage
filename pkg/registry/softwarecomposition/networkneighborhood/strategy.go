@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	logHelpers "github.com/kubescape/go-logger/helpers"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 
+	"github.com/kubescape/go-logger"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/utils"
@@ -62,9 +64,22 @@ func (NetworkNeighborhoodStrategy) PrepareForUpdate(ctx context.Context, obj, ol
 	newAP := obj.(*softwarecomposition.NetworkNeighborhood)
 	oldAP := old.(*softwarecomposition.NetworkNeighborhood)
 
+	// if we have an network neighborhood that is marked as complete and completed, we do not allow any updates
+	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && oldAP.Annotations[helpers.StatusMetadataKey] == helpers.Completed {
+		logger.L().Debug("network neighborhood is marked as complete and completed, rejecting update",
+			logHelpers.String("name", oldAP.Name),
+			logHelpers.String("namespace", oldAP.Namespace))
+		*newAP = *oldAP // reset the new object to the old object
+		return
+	}
+
 	// completion status cannot be transitioned from 'complete' -> 'partial'
 	// in such case, we reject status updates
 	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && newAP.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
+		logger.L().Debug("network neighborhood completion status cannot be transitioned from 'complete' to 'partial', rejecting status updates",
+			logHelpers.String("name", oldAP.Name),
+			logHelpers.String("namespace", oldAP.Namespace))
+
 		newAP.Annotations[helpers.CompletionMetadataKey] = helpers.Complete
 
 		if v, ok := oldAP.Annotations[helpers.StatusMetadataKey]; ok {
