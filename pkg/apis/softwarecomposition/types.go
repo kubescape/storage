@@ -267,6 +267,7 @@ type ApplicationProfile struct {
 
 	Spec   ApplicationProfileSpec
 	Status ApplicationProfileStatus
+	ManegedBy string
 }
 
 type ApplicationProfileSpec struct {
@@ -325,6 +326,7 @@ func (e OpenCalls) String() string {
 }
 
 type ApplicationProfileStatus struct {
+	
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
