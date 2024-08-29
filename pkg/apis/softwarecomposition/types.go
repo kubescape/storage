@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -227,6 +228,7 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls
 	Syscalls       []string
 	SeccompProfile SingleSeccompProfile
+	Endpoints      []HTTPEndpoint
 }
 
 type ExecCalls struct {
@@ -614,6 +616,22 @@ type Arg struct {
 	ValueTwo uint64
 	// the operator for syscall arguments in seccomp
 	Op seccomp.Operator
+}
+
+type HTTPEndpoint struct {
+	Endpoint  string
+	Methods   []string
+	Internal  consts.IsInternal
+	Direction consts.NetworkDirection
+	Headers   map[string][]string
+}
+
+func (e *HTTPEndpoint) Equal(other *HTTPEndpoint) bool {
+	if e == nil || other == nil {
+		return e == other
+	}
+	return e.Endpoint == other.Endpoint && e.Direction == other.Direction && e.Internal == other.Internal
+
 }
 
 type SpecBase struct {

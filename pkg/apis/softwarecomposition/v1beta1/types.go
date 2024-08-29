@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -211,6 +212,7 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
 	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
+	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint"`
 }
 
 type ExecCalls struct {
@@ -472,7 +474,7 @@ type SBOMSyftFiltered struct {
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	Status SBOMSyftStatus `json:"status,omitempty	" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -558,6 +560,14 @@ type Syscall struct {
 	ErrnoRet uint64 `json:"errnoRet,omitempty" protobuf:"bytes,3,opt,name=errnoRet"`
 	// the specific syscall in seccomp
 	Args []*Arg `json:"args,omitempty" protobuf:"bytes,4,rep,name=args"`
+}
+
+type HTTPEndpoint struct {
+	Endpoint  string                  `json:"endpoint,omitempty"`
+	Methods   []string                `json:"methods,omitempty"`
+	Internal  consts.IsInternal       `json:"internal,omitempty"`
+	Direction consts.NetworkDirection `json:"direction,omitempty"`
+	Headers   map[string][]string     `json:"headers,omitempty"`
 }
 
 // Arg defines the specific syscall in seccomp.
