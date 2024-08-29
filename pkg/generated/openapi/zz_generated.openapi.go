@@ -545,6 +545,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref common.R
 							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus"),
 						},
 					},
+					"managedBy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},

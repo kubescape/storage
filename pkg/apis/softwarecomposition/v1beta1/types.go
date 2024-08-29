@@ -239,9 +239,9 @@ type ApplicationProfile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   ApplicationProfileSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status ApplicationProfileStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-	ManegedBy string `json:"managedBy,omitempty"`
+	Spec      ApplicationProfileSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status    ApplicationProfileStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	ManagedBy string                   `json:"managedBy,omitempty"`
 }
 
 type ApplicationProfileSpec struct {

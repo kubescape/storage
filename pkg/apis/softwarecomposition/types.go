@@ -265,9 +265,9 @@ type ApplicationProfile struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   ApplicationProfileSpec
-	Status ApplicationProfileStatus
-	ManegedBy string
+	Spec      ApplicationProfileSpec
+	Status    ApplicationProfileStatus
+	ManagedBy string
 }
 
 type ApplicationProfileSpec struct {
@@ -326,7 +326,6 @@ func (e OpenCalls) String() string {
 }
 
 type ApplicationProfileStatus struct {
-	
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
