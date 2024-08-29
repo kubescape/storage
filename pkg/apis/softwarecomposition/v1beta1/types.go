@@ -244,6 +244,7 @@ type ApplicationProfile struct {
 	ManagedBy string                   `json:"managedBy,omitempty"`
 }
 
+
 type ApplicationProfileSpec struct {
 	Architectures []string `json:"architectures"`
 	// +patchMergeKey=name
