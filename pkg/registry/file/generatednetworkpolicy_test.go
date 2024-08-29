@@ -21,11 +21,12 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 		objPtr runtime.Object
 	}
 	tests := []struct {
-		name          string
-		args          args
-		create        bool
-		expectedError error
-		want          runtime.Object
+		name           string
+		args           args
+		create         bool
+		noWorkloadName bool
+		expectedError  error
+		want           runtime.Object
 	}{
 		{
 			name: "no existing objects return empty list",
@@ -53,7 +54,55 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					CreationTimestamp: v1.Time{},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "toto",
+						helpersv1.NameMetadataKey: "totowl",
+					},
+				},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: v1.ObjectMeta{
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+						Name:      "deployment-totowl",
+						Namespace: "kubescape",
+						Labels: map[string]string{
+							helpersv1.KindMetadataKey: "Deployment",
+							helpersv1.NameMetadataKey: "totowl",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress:  []softwarecomposition.NetworkPolicyEgressRule{},
+					},
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+			},
+		},
+		{
+			name: "missing workload name label",
+			args: args{
+				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
+				objPtr: &softwarecomposition.GeneratedNetworkPolicy{},
+			},
+			expectedError:  nil,
+			create:         true,
+			noWorkloadName: true,
+			want: &softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io",
+				},
+				ObjectMeta: v1.ObjectMeta{
+					Name:              "toto",
+					Namespace:         "kubescape",
+					CreationTimestamp: v1.Time{},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
 					},
 				},
 				Spec: softwarecomposition.NetworkPolicy{
@@ -67,7 +116,6 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Namespace: "kubescape",
 						Labels: map[string]string{
 							helpersv1.KindMetadataKey: "Deployment",
-							helpersv1.NameMetadataKey: "toto",
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
@@ -103,9 +151,12 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						},
 						Labels: map[string]string{
 							helpersv1.KindMetadataKey: "Deployment",
-							helpersv1.NameMetadataKey: "toto",
+							helpersv1.NameMetadataKey: "totowl",
 						},
 					},
+				}
+				if tt.noWorkloadName {
+					delete(wlObj.ObjectMeta.Labels, helpersv1.NameMetadataKey)
 				}
 				err := realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", wlObj, nil, 0)
 				assert.NoError(t, err)

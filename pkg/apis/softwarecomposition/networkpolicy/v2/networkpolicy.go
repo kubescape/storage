@@ -36,7 +36,8 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	}
 	name, ok := nn.Labels[helpersv1.NameMetadataKey]
 	if !ok {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a name label", nn.Namespace, nn.Name)
+		logger.L().Debug("nn does not have a workload-name label, falling back to nn.Name", helpers.String("name", nn.Name), helpers.String("namespace", nn.Namespace))
+		name = nn.Name
 	}
 	delete(nn.Labels, helpersv1.TemplateHashKey)
 
