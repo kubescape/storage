@@ -241,6 +241,7 @@ type ApplicationProfile struct {
 
 	Spec   ApplicationProfileSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 	Status ApplicationProfileStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	ManegedBy string `json:"managedBy,omitempty"`
 }
 
 type ApplicationProfileSpec struct {
