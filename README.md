@@ -91,15 +91,14 @@ The code generation script will give you warnings about API rule violations.
 Don’t mind them. To address these warnings, add them to the exclusion list as
 show in the updated upstream repo.
 
-You will also see a warning about `generate-internal-groups.sh` being deprecated:
+Now it's time to generate the protobuf code:
 ```
-WARNING: generate-internal-groups.sh is deprecated.
-WARNING: Please use k8s.io/code-generator/kube_codegen.sh instead.
+docker buildx build --file build/protoc.Dockerfile --platform linux/amd64 --tag protoc --load .
+docker run --rm -it -v "$(pwd):/work" protoc
+mkdir -p github.com/kubescape/storage
+ln -sf /work/pkg github.com/kubescape/storage/
+/go/bin/go-to-protobuf --packages=github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1 --go-header-file=./hack/boilerplate.go.txt --apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/apimachinery/pkg/apis/meta/v1beta1,-k8s.io/api/core/v1,-k8s.io/api/rbac/v1' --proto-import=/go/src/k8s.io/kubernetes/staging/src/ --proto-import=/go/src/k8s.io/kubernetes/vendor
 ```
-
-This is valid, and upstream has also been updated to use the latest code
-generation script — `kube_codegen.sh`. However, as of now it breaks code
-generation for us, and we had no opportunity to reconcile the changes.
 
 Once the code generation finishes successfully, you should be able to run tests and build the binary with no errors:
 ```
