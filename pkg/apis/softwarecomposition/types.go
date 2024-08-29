@@ -283,6 +283,7 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls
 	Syscalls       []string
 	SeccompProfile SingleSeccompProfile
+	Endpoints      []HTTPEndpoint
 }
 
 type ExecCalls struct {
@@ -670,6 +671,14 @@ type Arg struct {
 	ValueTwo uint64
 	// the operator for syscall arguments in seccomp
 	Op seccomp.Operator
+}
+
+type HTTPEndpoint struct {
+	Endpoint  string
+	Methods   []string
+	Internal  bool
+	Direction string
+	Headers   map[string]string
 }
 
 type SpecBase struct {

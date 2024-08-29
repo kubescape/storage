@@ -267,6 +267,7 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path"`
 	Syscalls       []string             `json:"syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty"`
+	Endpoints      []HTTPEndpoint       `json:"endpoints"`
 }
 
 type ExecCalls struct {
@@ -614,6 +615,17 @@ type Syscall struct {
 	ErrnoRet uint `json:"errnoRet,omitempty"`
 	// the specific syscall in seccomp
 	Args []*Arg `json:"args,omitempty"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type HTTPEndpoint struct {
+	Endpoint  string            `json:"endpoint,omitempty"`
+	Methods   []string          `json:"methods,omitempty"`
+	Internal  bool              `json:"internal,omitempty"`
+	Direction string            `json:"direction,omitempty"`
+	Headers   map[string]string `json:"headers,omitempty"`
 }
 
 // Arg defines the specific syscall in seccomp.
