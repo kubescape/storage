@@ -44,6 +44,10 @@ func (c *FakeSpdxV1beta1) GeneratedNetworkPolicies(namespace string) v1beta1.Gen
 	return &FakeGeneratedNetworkPolicies{c, namespace}
 }
 
+func (c *FakeSpdxV1beta1) HTTPEndpoints(namespace string) v1beta1.HTTPEndpointInterface {
+	return &FakeHTTPEndpoints{c, namespace}
+}
+
 func (c *FakeSpdxV1beta1) KnownServers(namespace string) v1beta1.KnownServerInterface {
 	return &FakeKnownServers{c, namespace}
 }

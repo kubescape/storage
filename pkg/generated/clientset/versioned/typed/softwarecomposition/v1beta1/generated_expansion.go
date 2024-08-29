@@ -26,6 +26,8 @@ type ConfigurationScanSummaryExpansion interface{}
 
 type GeneratedNetworkPolicyExpansion interface{}
 
+type HTTPEndpointExpansion interface{}
+
 type KnownServerExpansion interface{}
 
 type NetworkNeighborhoodExpansion interface{}
