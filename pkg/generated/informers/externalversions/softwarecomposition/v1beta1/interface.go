@@ -32,8 +32,6 @@ type Interface interface {
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
 	// GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
 	GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer
-	// HTTPEndpoints returns a HTTPEndpointInformer.
-	HTTPEndpoints() HTTPEndpointInformer
 	// KnownServers returns a KnownServerInformer.
 	KnownServers() KnownServerInformer
 	// NetworkNeighborhoods returns a NetworkNeighborhoodInformer.
@@ -93,11 +91,6 @@ func (v *version) ConfigurationScanSummaries() ConfigurationScanSummaryInformer 
 // GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
 func (v *version) GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer {
 	return &generatedNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// HTTPEndpoints returns a HTTPEndpointInformer.
-func (v *version) HTTPEndpoints() HTTPEndpointInformer {
-	return &hTTPEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // KnownServers returns a KnownServerInformer.
