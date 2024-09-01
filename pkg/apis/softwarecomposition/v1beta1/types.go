@@ -22,6 +22,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type NetworkDirection string
+
+// Constants for the allowed Direction values
+const (
+	Inbound  NetworkDirection = "inbound"
+	Outbound NetworkDirection = "outbound"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SBOMSPDXv2p3List is a list of Flunder objects.
@@ -529,7 +537,7 @@ type SBOMSyftFiltered struct {
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	Status SBOMSyftStatus `json:"status,omitempty	" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -624,7 +632,7 @@ type HTTPEndpoint struct {
 	Endpoint  string            `json:"endpoint,omitempty"`
 	Methods   []string          `json:"methods,omitempty"`
 	Internal  bool              `json:"internal,omitempty"`
-	Direction string            `json:"direction,omitempty"`
+	Direction NetworkDirection  `json:"direction,omitempty"`
 	Headers   map[string]string `json:"headers,omitempty"`
 }
 
