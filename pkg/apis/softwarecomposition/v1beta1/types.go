@@ -275,7 +275,9 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path"`
 	Syscalls       []string             `json:"syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty"`
-	Endpoints      []HTTPEndpoint       `json:"endpoints"`
+	// +patchMergeKey=endpoint
+	// +patchStrategy=merge
+	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint"`
 }
 
 type ExecCalls struct {
@@ -624,9 +626,6 @@ type Syscall struct {
 	// the specific syscall in seccomp
 	Args []*Arg `json:"args,omitempty"`
 }
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type HTTPEndpoint struct {
 	Endpoint  string            `json:"endpoint,omitempty"`
