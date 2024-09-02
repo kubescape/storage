@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -676,8 +677,8 @@ type Arg struct {
 type HTTPEndpoint struct {
 	Endpoint  string
 	Methods   []string
-	Internal  string
-	Direction string
+	Internal  consts.IsInternal
+	Direction consts.NetworkDirection
 	Headers   map[string]string
 }
 

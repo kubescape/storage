@@ -27,6 +27,7 @@ import (
 
 	seccomp "github.com/containers/common/pkg/seccomp"
 	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	consts "github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
@@ -3192,8 +3193,8 @@ func Convert_softwarecomposition_GrypePackage_To_v1beta1_GrypePackage(in *softwa
 func autoConvert_v1beta1_HTTPEndpoint_To_softwarecomposition_HTTPEndpoint(in *HTTPEndpoint, out *softwarecomposition.HTTPEndpoint, s conversion.Scope) error {
 	out.Endpoint = in.Endpoint
 	out.Methods = *(*[]string)(unsafe.Pointer(&in.Methods))
-	out.Internal = in.Internal
-	out.Direction = in.Direction
+	out.Internal = consts.IsInternal(in.Internal)
+	out.Direction = consts.NetworkDirection(in.Direction)
 	out.Headers = *(*map[string]string)(unsafe.Pointer(&in.Headers))
 	return nil
 }
@@ -3206,8 +3207,8 @@ func Convert_v1beta1_HTTPEndpoint_To_softwarecomposition_HTTPEndpoint(in *HTTPEn
 func autoConvert_softwarecomposition_HTTPEndpoint_To_v1beta1_HTTPEndpoint(in *softwarecomposition.HTTPEndpoint, out *HTTPEndpoint, s conversion.Scope) error {
 	out.Endpoint = in.Endpoint
 	out.Methods = *(*[]string)(unsafe.Pointer(&in.Methods))
-	out.Internal = in.Internal
-	out.Direction = in.Direction
+	out.Internal = consts.IsInternal(in.Internal)
+	out.Direction = consts.NetworkDirection(in.Direction)
 	out.Headers = *(*map[string]string)(unsafe.Pointer(&in.Headers))
 	return nil
 }

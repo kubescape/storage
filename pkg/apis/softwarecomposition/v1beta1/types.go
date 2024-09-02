@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -620,11 +621,11 @@ type Syscall struct {
 }
 
 type HTTPEndpoint struct {
-	Endpoint  string            `json:"endpoint,omitempty"`
-	Methods   []string          `json:"methods,omitempty"`
-	Internal  string            `json:"internal,omitempty"`
-	Direction string            `json:"direction,omitempty"`
-	Headers   map[string]string `json:"headers,omitempty"`
+	Endpoint  string                  `json:"endpoint,omitempty"`
+	Methods   []string                `json:"methods,omitempty"`
+	Internal  consts.IsInternal       `json:"internal,omitempty"`
+	Direction consts.NetworkDirection `json:"direction,omitempty"`
+	Headers   map[string]string       `json:"headers,omitempty"`
 }
 
 // Arg defines the specific syscall in seccomp.

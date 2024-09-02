@@ -7,6 +7,7 @@ import (
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,8 +65,8 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 								{
 									Endpoint:  "http://localhost:8080",
 									Methods:   []string{"GET"},
-									Internal:  true,
-									Direction: "Inbound",
+									Internal:  consts.False,
+									Direction: consts.Inbound,
 									Headers:   map[string]string{},
 								},
 							},
@@ -128,8 +129,8 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 								{
 									Endpoint:  "http://localhost:8080",
 									Methods:   []string{"GET"},
-									Internal:  true,
-									Direction: "Inbound",
+									Internal:  consts.False,
+									Direction: consts.Inbound,
 									Headers:   map[string]string{},
 								},
 							},
