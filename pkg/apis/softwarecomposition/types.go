@@ -676,7 +676,7 @@ type Arg struct {
 type HTTPEndpoint struct {
 	Endpoint  string
 	Methods   []string
-	Internal  bool
+	Internal  string
 	Direction string
 	Headers   map[string]string
 }

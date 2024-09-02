@@ -622,7 +622,7 @@ type Syscall struct {
 type HTTPEndpoint struct {
 	Endpoint  string            `json:"endpoint,omitempty"`
 	Methods   []string          `json:"methods,omitempty"`
-	Internal  bool              `json:"internal,omitempty"`
+	Internal  string            `json:"internal,omitempty"`
 	Direction string            `json:"direction,omitempty"`
 	Headers   map[string]string `json:"headers,omitempty"`
 }
