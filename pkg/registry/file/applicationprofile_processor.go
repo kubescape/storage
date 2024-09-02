@@ -53,5 +53,6 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		Opens:          deflateStringer(container.Opens),
 		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
 		SeccompProfile: container.SeccompProfile,
+		Endpoints:      container.Endpoints,
 	}
 }

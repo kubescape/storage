@@ -124,6 +124,15 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 								{Path: "/etc/hosts", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
 							},
 							Syscalls: []string{},
+							Endpoints: []softwarecomposition.HTTPEndpoint{
+								{
+									Endpoint:  "http://localhost:8080",
+									Methods:   []string{"GET"},
+									Internal:  true,
+									Direction: softwarecomposition.Inbound,
+									Headers:   map[string]string{},
+								},
+							},
 						},
 					},
 				},

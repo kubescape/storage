@@ -22,14 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type NetworkDirection string
-
-// Constants for the allowed Direction values
-const (
-	Inbound  NetworkDirection = "inbound"
-	Outbound NetworkDirection = "outbound"
-)
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SBOMSPDXv2p3List is a list of Flunder objects.
@@ -631,7 +623,7 @@ type HTTPEndpoint struct {
 	Endpoint  string            `json:"endpoint,omitempty"`
 	Methods   []string          `json:"methods,omitempty"`
 	Internal  bool              `json:"internal,omitempty"`
-	Direction NetworkDirection  `json:"direction,omitempty"`
+	Direction string            `json:"direction,omitempty"`
 	Headers   map[string]string `json:"headers,omitempty"`
 }
 
