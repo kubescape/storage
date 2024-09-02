@@ -22,10 +22,6 @@ import (
 	"context"
 	"time"
 
-
-	logi "github.com/kubescape/go-logger"
-
-
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	scheme "github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -187,7 +183,6 @@ func (c *applicationProfiles) DeleteCollection(ctx context.Context, opts v1.Dele
 func (c *applicationProfiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ApplicationProfile, err error) {
 
 	result = &v1beta1.ApplicationProfile{}
-	logi.L().Info("patching application profile")
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("applicationprofiles").
@@ -197,7 +192,6 @@ func (c *applicationProfiles) Patch(ctx context.Context, name string, pt types.P
 		Body(data).
 		Do(ctx).
 		Into(result)
-	logi.L().Error(err.Error())
-	logi.L().Info("Ahhhhh")
-	return
+	
+	return result, err
 }
