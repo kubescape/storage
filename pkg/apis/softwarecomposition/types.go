@@ -673,11 +673,19 @@ type Arg struct {
 	Op seccomp.Operator
 }
 
+type NetworkDirection string
+
+// Constants for the allowed Direction values
+const (
+	Inbound  NetworkDirection = "inbound"
+	Outbound NetworkDirection = "outbound"
+)
+
 type HTTPEndpoint struct {
 	Endpoint  string
 	Methods   []string
 	Internal  bool
-	Direction string
+	Direction NetworkDirection
 	Headers   map[string]string
 }
 

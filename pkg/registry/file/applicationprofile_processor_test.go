@@ -60,6 +60,15 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 							Opens: []softwarecomposition.OpenCalls{
 								{Path: "/etc/hosts", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
 							},
+							Endpoints: []softwarecomposition.HTTPEndpoint{
+								{
+									Endpoint:  "http://localhost:8080",
+									Methods:   []string{"GET"},
+									Internal:  true,
+									Direction: softwarecomposition.Inbound,
+									Headers:   map[string]string{},
+								},
+							},
 						},
 					},
 				},
