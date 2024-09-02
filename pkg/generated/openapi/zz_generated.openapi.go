@@ -2631,7 +2631,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref common.Referen
 					},
 					"internal": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
