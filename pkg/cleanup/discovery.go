@@ -71,7 +71,7 @@ type ResourceMaps struct {
 	RunningTemplateHash          mapset.Set[string]
 }
 
-// builds a map of running resources in the cluster needed for cleanup
+// FetchResources builds a map of running resources in the cluster needed for cleanup
 func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
 	resourceMaps := ResourceMaps{
 		RunningInstanceIds:           mapset.NewSet[string](),
