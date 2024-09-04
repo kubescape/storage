@@ -1,8 +1,8 @@
 DOCKERFILE_PATH=./build/Dockerfile
 BINARY_NAME=storage
 
-IMAGE?=docker.io/armoafekb/afek-b-tests
-TAG?=storage-test
+IMAGE?=quay.io/kubescape/$(BINARY_NAME)
+
 
 build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BINARY_NAME)
