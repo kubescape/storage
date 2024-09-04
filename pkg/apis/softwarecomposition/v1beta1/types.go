@@ -22,103 +22,47 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3List is a list of Flunder objects.
-type SBOMSPDXv2p3List struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []SBOMSPDXv2p3 `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
 // ToolMeta describes metadata about a tool that generated an artifact
 type ToolMeta struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name    string `json:"name" protobuf:"bytes,1,req,name=name"`
+	Version string `json:"version" protobuf:"bytes,2,req,name=version"`
 }
 
 // ReportMeta describes metadata about a report
 type ReportMeta struct {
-	CreatedAt metav1.Time `json:"createdAt"`
+	CreatedAt metav1.Time `json:"createdAt" protobuf:"bytes,1,req,name=createdAt"`
 }
 
 // SPDXMeta describes metadata about an SPDX-formatted SBOM
 type SPDXMeta struct {
-	Tool   ToolMeta   `json:"tool"`
-	Report ReportMeta `json:"report"`
-}
-
-// SBOMSPDXv2p3Spec is the specification of an SPDX SBOM.
-type SBOMSPDXv2p3Spec struct {
-	Metadata SPDXMeta `json:"metadata"`
-	SPDX     Document `json:"spdx,omitempty"`
-}
-
-// SBOMSPDXv2p3Status is the status of an SPDX SBOM.
-type SBOMSPDXv2p3Status struct {
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3 is a custom resource that describes an SBOM in the SPDX 2.3 format.
-type SBOMSPDXv2p3 struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec   SBOMSPDXv2p3Spec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status SBOMSPDXv2p3Status `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3Filtered is a custom resource that describes a filtered SBOM in the SPDX 2.3 format.
-//
-// Being filtered means that the SBOM contains only the relevant vulnerable materials.
-type SBOMSPDXv2p3Filtered struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec   SBOMSPDXv2p3Spec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status SBOMSPDXv2p3Status `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3FilteredList is a list of SBOMSPDXv2p3Filtered objects.
-type SBOMSPDXv2p3FilteredList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []SBOMSPDXv2p3Filtered `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Tool   ToolMeta   `json:"tool" protobuf:"bytes,1,req,name=tool"`
+	Report ReportMeta `json:"report" protobuf:"bytes,2,req,name=report"`
 }
 
 // VulnerabilityManifestReportMeta holds metadata about the specific report
 // tied to a vulnerability manifest
 type VulnerabilityManifestReportMeta struct {
-	CreatedAt metav1.Time `json:"createdAt"`
+	CreatedAt metav1.Time `json:"createdAt" protobuf:"bytes,1,req,name=createdAt"`
 }
 
 // VulnerabilityManifestToolMeta describes data about the tool used to generate
 // the vulnerability manifest’s report
 type VulnerabilityManifestToolMeta struct {
-	Name            string `json:"name"`
-	Version         string `json:"version"`
-	DatabaseVersion string `json:"databaseVersion"`
+	Name            string `json:"name" protobuf:"bytes,1,req,name=name"`
+	Version         string `json:"version" protobuf:"bytes,2,req,name=version"`
+	DatabaseVersion string `json:"databaseVersion" protobuf:"bytes,3,req,name=databaseVersion"`
 }
 
 // VulnerabilityManifestMeta holds metadata about a vulnerability manifest
 type VulnerabilityManifestMeta struct {
-	WithRelevancy bool                            `json:"withRelevancy"`
-	Tool          VulnerabilityManifestToolMeta   `json:"tool"`
-	Report        VulnerabilityManifestReportMeta `json:"report"`
+	WithRelevancy bool                            `json:"withRelevancy" protobuf:"bytes,1,req,name=withRelevancy"`
+	Tool          VulnerabilityManifestToolMeta   `json:"tool" protobuf:"bytes,2,req,name=tool"`
+	Report        VulnerabilityManifestReportMeta `json:"report" protobuf:"bytes,3,req,name=report"`
 }
 
 type VulnerabilityManifestSpec struct {
-	Metadata VulnerabilityManifestMeta `json:"metadata,omitempty"`
-	Payload  GrypeDocument             `json:"payload,omitempty"`
+	Metadata VulnerabilityManifestMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Payload  GrypeDocument             `json:"payload,omitempty" protobuf:"bytes,2,opt,name=payload"`
 }
 
 type VulnerabilityManifestStatus struct {
@@ -150,34 +94,34 @@ type VulnerabilityManifestList struct {
 //
 // Intended to store relevant and total vulnerabilities in the future.
 type VulnerabilityCounters struct {
-	All      int `json:"all"`
-	Relevant int `json:"relevant,omitempty"`
+	All      int64 `json:"all" protobuf:"bytes,1,req,name=all"`
+	Relevant int64 `json:"relevant,omitempty" protobuf:"bytes,2,opt,name=relevant"`
 }
 
 // SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
 type SeveritySummary struct {
-	Critical   VulnerabilityCounters `json:"critical,omitempty"`
-	High       VulnerabilityCounters `json:"high,omitempty"`
-	Medium     VulnerabilityCounters `json:"medium,omitempty"`
-	Low        VulnerabilityCounters `json:"low,omitempty"`
-	Negligible VulnerabilityCounters `json:"negligible,omitempty"`
-	Unknown    VulnerabilityCounters `json:"unknown,omitempty"`
+	Critical   VulnerabilityCounters `json:"critical,omitempty" protobuf:"bytes,1,opt,name=critical"`
+	High       VulnerabilityCounters `json:"high,omitempty" protobuf:"bytes,2,opt,name=high"`
+	Medium     VulnerabilityCounters `json:"medium,omitempty" protobuf:"bytes,3,opt,name=medium"`
+	Low        VulnerabilityCounters `json:"low,omitempty" protobuf:"bytes,4,opt,name=low"`
+	Negligible VulnerabilityCounters `json:"negligible,omitempty" protobuf:"bytes,5,opt,name=negligible"`
+	Unknown    VulnerabilityCounters `json:"unknown,omitempty" protobuf:"bytes,6,opt,name=unknown"`
 }
 
 type VulnerabilitiesObjScope struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
-	Kind      string `json:"kind"`
+	Namespace string `json:"namespace" protobuf:"bytes,1,req,name=namespace"`
+	Name      string `json:"name" protobuf:"bytes,2,req,name=name"`
+	Kind      string `json:"kind" protobuf:"bytes,3,req,name=kind"`
 }
 
 type VulnerabilitiesComponents struct {
-	ImageVulnerabilitiesObj    VulnerabilitiesObjScope `json:"all"`
-	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope `json:"relevant,omitempty"`
+	ImageVulnerabilitiesObj    VulnerabilitiesObjScope `json:"all" protobuf:"bytes,1,req,name=all"`
+	WorkloadVulnerabilitiesObj VulnerabilitiesObjScope `json:"relevant,omitempty" protobuf:"bytes,2,opt,name=relevant"`
 }
 
 type VulnerabilityManifestSummarySpec struct {
-	Severities      SeveritySummary           `json:"severities"`
-	Vulnerabilities VulnerabilitiesComponents `json:"vulnerabilitiesRef"`
+	Severities      SeveritySummary           `json:"severities" protobuf:"bytes,1,req,name=severities"`
+	Vulnerabilities VulnerabilitiesComponents `json:"vulnerabilitiesRef" protobuf:"bytes,2,req,name=vulnerabilitiesRef"`
 }
 
 // +genclient
@@ -203,8 +147,8 @@ type VulnerabilityManifestSummaryList struct {
 }
 
 type VulnerabilitySummarySpec struct {
-	Severities                 SeveritySummary           `json:"severities"`
-	WorkloadVulnerabilitiesObj []VulnerabilitiesObjScope `json:"vulnerabilitiesRef"`
+	Severities                 SeveritySummary           `json:"severities" protobuf:"bytes,1,req,name=severities"`
+	WorkloadVulnerabilitiesObj []VulnerabilitiesObjScope `json:"vulnerabilitiesRef" protobuf:"bytes,2,rep,name=vulnerabilitiesRef"`
 }
 
 type VulnerabilitySummaryStatus struct {
@@ -244,40 +188,40 @@ type ApplicationProfile struct {
 }
 
 type ApplicationProfileSpec struct {
-	Architectures []string `json:"architectures"`
+	Architectures []string `json:"architectures" protobuf:"bytes,1,rep,name=architectures"`
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	Containers []ApplicationProfileContainer `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	Containers []ApplicationProfileContainer `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	InitContainers []ApplicationProfileContainer `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	InitContainers []ApplicationProfileContainer `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,3,rep,name=initContainers"`
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	EphemeralContainers []ApplicationProfileContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	EphemeralContainers []ApplicationProfileContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,4,rep,name=ephemeralContainers"`
 }
 
 type ApplicationProfileContainer struct {
-	Name         string   `json:"name,omitempty"`
-	Capabilities []string `json:"capabilities"`
+	Name         string   `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+	Capabilities []string `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
 	// +patchMergeKey=path
 	// +patchStrategy=merge
-	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path"`
+	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
 	// +patchMergeKey=path
 	// +patchStrategy=merge
-	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path"`
-	Syscalls       []string             `json:"syscalls"`
-	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty"`
+	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
+	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
+	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
 }
 
 type ExecCalls struct {
-	Path string   `json:"path,omitempty"`
-	Args []string `json:"args,omitempty"`
-	Envs []string `json:"envs,omitempty"`
+	Path string   `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
+	Args []string `json:"args,omitempty" protobuf:"bytes,2,opt,name=args"`
+	Envs []string `json:"envs,omitempty" protobuf:"bytes,3,opt,name=envs"`
 }
 
 type OpenCalls struct {
-	Path  string   `json:"path" yaml:"path"`
-	Flags []string `json:"flags" yaml:"flags"`
+	Path  string   `json:"path" yaml:"path" protobuf:"bytes,1,req,name=path"`
+	Flags []string `json:"flags" yaml:"flags" protobuf:"bytes,2,rep,name=flags"`
 }
 
 type ApplicationProfileStatus struct {
@@ -304,7 +248,7 @@ type ApplicationActivity struct {
 }
 
 type ApplicationActivitySpec struct {
-	Syscalls []string `json:"syscalls,omitempty"`
+	Syscalls []string `json:"syscalls,omitempty" protobuf:"bytes,1,rep,name=syscalls"`
 }
 
 type ApplicationActivityStatus struct {
@@ -336,48 +280,48 @@ type Justification string
 type Component struct {
 	// ID is an IRI identifying the component. It is optional as the component
 	// can also be identified using hashes or software identifiers.
-	ID string `json:"@id,omitempty"`
+	ID string `json:"@id,omitempty" protobuf:"bytes,1,opt,name=id"`
 
 	// Hashes is a map of hashes to identify the component using cryptographic
 	// hashes.
-	Hashes map[Algorithm]Hash `json:"hashes,omitempty"`
+	Hashes map[Algorithm]Hash `json:"hashes,omitempty" protobuf:"bytes,2,opt,name=hashes"`
 
 	// Identifiers is a list of software identifiers that describe the component.
-	Identifiers map[IdentifierType]string `json:"identifiers,omitempty"`
+	Identifiers map[IdentifierType]string `json:"identifiers,omitempty" protobuf:"bytes,3,opt,name=identifiers"`
 
 	// Supplier is an optional machine-readable identifier for the supplier of
 	// the component. Valid examples include email address or IRIs.
-	Supplier string `json:"supplier,omitempty"`
+	Supplier string `json:"supplier,omitempty" protobuf:"bytes,4,opt,name=supplier"`
 }
 
 type Product struct {
-	Component
-	Subcomponents []Subcomponent `json:"subcomponents,omitempty"`
+	Component     `protobuf:"bytes,1,opt,name=component"`
+	Subcomponents []Subcomponent `json:"subcomponents,omitempty" protobuf:"bytes,2,opt,name=subcomponents"`
 }
 
 type Subcomponent struct {
-	Component
+	Component `protobuf:"bytes,1,opt,name=component"`
 }
 
 type VexVulnerability struct {
 	//  ID is an IRI to reference the vulnerability in the statement.
-	ID string `json:"@id,omitempty"`
+	ID string `json:"@id,omitempty" protobuf:"bytes,1,opt,name=id"`
 
 	// Name is the main vulnerability identifier.
-	Name string `json:"name,omitempty"`
+	Name string `json:"name,omitempty" protobuf:"bytes,2,opt,name=name"`
 
 	// Description is a short free form text description of the vulnerability.
-	Description string `json:"description,omitempty"`
+	Description string `json:"description,omitempty" protobuf:"bytes,3,opt,name=description"`
 
 	// Aliases is a list of other vulnerability identifier strings that
 	// locate the vulnerability in other tracking systems.
-	Aliases []string `json:"aliases,omitempty"`
+	Aliases []string `json:"aliases,omitempty" protobuf:"bytes,4,opt,name=aliases"`
 }
 
 type Statement struct {
 	// ID is an optional identifier for the statement. It takes an IRI and must
 	// be unique for each statement in the document.
-	ID string `json:"@id,omitempty"`
+	ID string `json:"@id,omitempty" protobuf:"bytes,1,opt,name=id"`
 
 	// [vul_id] SHOULD use existing and well known identifiers, for example:
 	// CVE, the Global Security Database (GSD), or a supplier’s vulnerability
@@ -386,84 +330,84 @@ type Statement struct {
 	//
 	// [vul_id] MAY be URIs or URLs.
 	// [vul_id] MAY be arbitrary and MAY be created by the VEX statement [author].
-	Vulnerability VexVulnerability `json:"vulnerability,omitempty"`
+	Vulnerability VexVulnerability `json:"vulnerability,omitempty" protobuf:"bytes,2,opt,name=vulnerability"`
 
 	// Timestamp is the time at which the information expressed in the Statement
 	// was known to be true.
-	Timestamp string `json:"timestamp,omitempty"`
+	Timestamp string `json:"timestamp,omitempty" protobuf:"bytes,3,opt,name=timestamp"`
 
 	// LastUpdated records the time when the statement last had a modification
-	LastUpdated string `json:"last_updated,omitempty"`
+	LastUpdated string `json:"last_updated,omitempty" protobuf:"bytes,4,opt,name=last_updated"`
 
 	// Product
 	// Product details MUST specify what Status applies to.
 	// Product details MUST include [product_id] and MAY include [subcomponent_id].
-	Products []Product `json:"products,omitempty"`
+	Products []Product `json:"products,omitempty" protobuf:"bytes,5,opt,name=products"`
 
 	// A VEX statement MUST provide Status of the vulnerabilities with respect to the
 	// products and components listed in the statement. Status MUST be one of the
 	// Status const values, some of which have further options and requirements.
-	Status Status `json:"status"`
+	Status Status `json:"status" protobuf:"bytes,6,req,name=status"`
 
 	// [status_notes] MAY convey information about how [status] was determined
 	// and MAY reference other VEX information.
-	StatusNotes string `json:"status_notes,omitempty"`
+	StatusNotes string `json:"status_notes,omitempty" protobuf:"bytes,7,opt,name=status_notes"`
 
 	// For ”not_affected” status, a VEX statement MUST include a status Justification
 	// that further explains the status.
-	Justification Justification `json:"justification,omitempty"`
+	Justification Justification `json:"justification,omitempty" protobuf:"bytes,8,opt,name=justification"`
 
 	// For ”not_affected” status, a VEX statement MAY include an ImpactStatement
 	// that contains a description why the vulnerability cannot be exploited.
-	ImpactStatement string `json:"impact_statement,omitempty"`
+	ImpactStatement string `json:"impact_statement,omitempty" protobuf:"bytes,9,opt,name=impact_statement"`
 
 	// For "affected" status, a VEX statement MUST include an ActionStatement that
 	// SHOULD describe actions to remediate or mitigate [vul_id].
-	ActionStatement          string `json:"action_statement,omitempty"`
-	ActionStatementTimestamp string `json:"action_statement_timestamp,omitempty"`
+	ActionStatement          string `json:"action_statement,omitempty" protobuf:"bytes,10,opt,name=action_statement"`
+	ActionStatementTimestamp string `json:"action_statement_timestamp,omitempty" protobuf:"bytes,11,opt,name=action_statement_timestamp"`
 }
 
 type VEX struct {
-	Metadata
-	Statements []Statement `json:"statements"`
+	Metadata   `protobuf:"bytes,1,opt,name=metadata"`
+	Statements []Statement `json:"statements" protobuf:"bytes,2,rep,name=statements"`
 }
 
 type Metadata struct {
 	// Context is the URL pointing to the jsonld context definition
-	Context string `json:"@context"`
+	Context string `json:"@context" protobuf:"bytes,1,req,name=context"`
 
 	// ID is the identifying string for the VEX document. This should be unique per
 	// document.
-	ID string `json:"@id"`
+	ID string `json:"@id" protobuf:"bytes,2,req,name=id"`
 
 	// Author is the identifier for the author of the VEX statement, ideally a common
 	// name, may be a URI. [author] is an individual or organization. [author]
 	// identity SHOULD be cryptographically associated with the signature of the VEX
 	// statement or document or transport.
-	Author string `json:"author"`
+	Author string `json:"author" protobuf:"bytes,3,req,name=author"`
 
 	// AuthorRole describes the role of the document Author.
-	AuthorRole string `json:"role,omitempty"`
+	AuthorRole string `json:"role,omitempty" protobuf:"bytes,4,opt,name=role"`
 
 	// Timestamp defines the time at which the document was issued.
-	Timestamp string `json:"timestamp"`
+	Timestamp string `json:"timestamp" protobuf:"bytes,5,req,name=timestamp"`
 
 	// LastUpdated marks the time when the document had its last update. When the
 	// document changes both version and this field should be updated.
-	LastUpdated string `json:"last_updated,omitempty"`
+	LastUpdated string `json:"last_updated,omitempty" protobuf:"bytes,6,opt,name=last_updated"`
 
 	// Version is the document version. It must be incremented when any content
 	// within the VEX document changes, including any VEX statements included within
 	// the VEX document.
-	Version int `json:"version"`
+	Version int64 `json:"version" protobuf:"bytes,7,req,name=version"`
 
 	// Tooling expresses how the VEX document and contained VEX statements were
 	// generated. It's optional. It may specify tools or automated processes used in
 	// the document or statement generation.
-	Tooling string `json:"tooling,omitempty"`
+	Tooling string `json:"tooling,omitempty" protobuf:"bytes,8,opt,name=tooling"`
 
 	// Supplier is an optional field.
-	Supplier string `json:"supplier,omitempty"`
+	Supplier string `json:"supplier,omitempty" protobuf:"bytes,9,opt,name=supplier"`
 }
 
 // +genclient
@@ -491,8 +435,8 @@ type SBOMSyftStatus struct {
 
 // SBOMSyftSpec is the specification of a Syft SBOM
 type SBOMSyftSpec struct {
-	Metadata SPDXMeta     `json:"metadata"`
-	Syft     SyftDocument `json:"syft,omitempty"`
+	Metadata SPDXMeta     `json:"metadata" protobuf:"bytes,1,req,name=metadata"`
+	Syft     SyftDocument `json:"syft,omitempty" protobuf:"bytes,2,opt,name=syft"`
 }
 
 // +genclient
@@ -520,7 +464,7 @@ type SBOMSyftList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft 2.3 format.
+// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft format.
 //
 // Being filtered means that the SBOM contains only the relevant vulnerable materials.
 type SBOMSyftFiltered struct {
@@ -546,57 +490,57 @@ type SBOMSyftFilteredList struct {
 
 type SeccompProfile struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   SeccompProfileSpec   `json:"spec,omitempty"`
-	Status SeccompProfileStatus `json:"status,omitempty"`
+	Spec   SeccompProfileSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status SeccompProfileStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 type SeccompProfileSpec struct {
-	Containers          []SingleSeccompProfile `json:"containers,omitempty"`
-	InitContainers      []SingleSeccompProfile `json:"initContainers,omitempty"`
-	EphemeralContainers []SingleSeccompProfile `json:"ephemeralContainers,omitempty"`
+	Containers          []SingleSeccompProfile `json:"containers,omitempty" protobuf:"bytes,1,rep,name=containers"`
+	InitContainers      []SingleSeccompProfile `json:"initContainers,omitempty" protobuf:"bytes,2,rep,name=initContainers"`
+	EphemeralContainers []SingleSeccompProfile `json:"ephemeralContainers,omitempty" protobuf:"bytes,3,rep,name=ephemeralContainers"`
 }
 
 type SingleSeccompProfile struct {
-	Name string                   `json:"name,omitempty"`
-	Path string                   `json:"path,omitempty"`
-	Spec SingleSeccompProfileSpec `json:"spec,omitempty"`
+	Name string                   `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+	Path string                   `json:"path,omitempty" protobuf:"bytes,2,opt,name=path"`
+	Spec SingleSeccompProfileSpec `json:"spec,omitempty" protobuf:"bytes,3,opt,name=spec"`
 }
 
 type SeccompProfileStatus struct {
-	Containers map[string]SingleSeccompProfileStatus `json:"containers,omitempty"`
+	Containers map[string]SingleSeccompProfileStatus `json:"containers,omitempty" protobuf:"bytes,1,rep,name=containers"`
 }
 
 type SingleSeccompProfileSpec struct {
 	// Common spec fields for all profiles.
-	SpecBase `json:",inline"`
+	SpecBase `json:",inline" protobuf:"bytes,1,opt,name=specBase"`
 
 	// BaseProfileName is the name of base profile (in the same namespace) that
 	// will be unioned into this profile. Base profiles can be references as
 	// remote OCI artifacts as well when prefixed with `oci://`.
-	BaseProfileName string `json:"baseProfileName,omitempty"`
+	BaseProfileName string `json:"baseProfileName,omitempty" protobuf:"bytes,2,opt,name=baseProfileName"`
 
 	// Properties from containers/common/pkg/seccomp.Seccomp type
 
 	// the default action for seccomp
-	DefaultAction seccomp.Action `json:"defaultAction"`
+	DefaultAction seccomp.Action `json:"defaultAction" protobuf:"bytes,3,opt,name=defaultAction"`
 	// the architecture used for system calls
-	Architectures []Arch `json:"architectures,omitempty"`
+	Architectures []Arch `json:"architectures,omitempty" protobuf:"bytes,4,rep,name=architectures"`
 	// path of UNIX domain socket to contact a seccomp agent for SCMP_ACT_NOTIFY
-	ListenerPath string `json:"listenerPath,omitempty"`
+	ListenerPath string `json:"listenerPath,omitempty" protobuf:"bytes,5,opt,name=listenerPath"`
 	// opaque data to pass to the seccomp agent
-	ListenerMetadata string `json:"listenerMetadata,omitempty"`
+	ListenerMetadata string `json:"listenerMetadata,omitempty" protobuf:"bytes,6,opt,name=listenerMetadata"`
 	// match a syscall in seccomp. While this property is OPTIONAL, some values
 	// of defaultAction are not useful without syscalls entries. For example,
 	// if defaultAction is SCMP_ACT_KILL and syscalls is empty or unset, the
 	// kernel will kill the container process on its first syscall
-	Syscalls []*Syscall `json:"syscalls,omitempty"`
+	Syscalls []*Syscall `json:"syscalls,omitempty" protobuf:"bytes,7,rep,name=syscalls"`
 
 	// Additional properties from OCI runtime spec
 
 	// list of flags to use with seccomp(2)
-	Flags []*Flag `json:"flags,omitempty"`
+	Flags []Flag `json:"flags,omitempty" protobuf:"bytes,8,rep,name=flags"`
 }
 
 type Arch string
@@ -606,71 +550,71 @@ type Flag string
 // Syscall defines a syscall in seccomp.
 type Syscall struct {
 	// the names of the syscalls
-	Names []string `json:"names"`
+	Names []string `json:"names" protobuf:"bytes,1,rep,name=names"`
 	// the action for seccomp rules
-	Action seccomp.Action `json:"action"`
+	Action seccomp.Action `json:"action" protobuf:"bytes,2,opt,name=action"`
 	// the errno return code to use. Some actions like SCMP_ACT_ERRNO and
 	// SCMP_ACT_TRACE allow to specify the errno code to return
-	ErrnoRet uint `json:"errnoRet,omitempty"`
+	ErrnoRet uint64 `json:"errnoRet,omitempty" protobuf:"bytes,3,opt,name=errnoRet"`
 	// the specific syscall in seccomp
-	Args []*Arg `json:"args,omitempty"`
+	Args []*Arg `json:"args,omitempty" protobuf:"bytes,4,rep,name=args"`
 }
 
 // Arg defines the specific syscall in seccomp.
 type Arg struct {
 	// the index for syscall arguments in seccomp
-	Index uint `json:"index"`
+	Index uint64 `json:"index" protobuf:"bytes,1,opt,name=index"`
 	// the value for syscall arguments in seccomp
-	Value uint64 `json:"value,omitempty"`
+	Value uint64 `json:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
 	// the value for syscall arguments in seccomp
-	ValueTwo uint64 `json:"valueTwo,omitempty"`
+	ValueTwo uint64 `json:"valueTwo,omitempty" protobuf:"bytes,3,opt,name=valueTwo"`
 	// the operator for syscall arguments in seccomp
-	Op seccomp.Operator `json:"op"`
+	Op seccomp.Operator `json:"op" protobuf:"bytes,4,opt,name=op"`
 }
 
 type SpecBase struct {
-	Disabled bool `json:"disabled,omitempty"`
+	Disabled bool `json:"disabled,omitempty" protobuf:"bytes,1,opt,name=disabled"`
 }
 
 type SingleSeccompProfileStatus struct {
-	StatusBase      `json:",inline"`
-	Path            string   `json:"path,omitempty"`
-	ActiveWorkloads []string `json:"activeWorkloads,omitempty"`
+	StatusBase      `json:",inline" protobuf:"bytes,1,opt,name=statusBase"`
+	Path            string   `json:"path,omitempty" protobuf:"bytes,2,opt,name=path"`
+	ActiveWorkloads []string `json:"activeWorkloads,omitempty" protobuf:"bytes,3,opt,name=activeWorkloads"`
 	// The path that should be provided to the `securityContext.seccompProfile.localhostProfile`
 	// field of a Pod or container spec
-	LocalhostProfile string `json:"localhostProfile,omitempty"`
+	LocalhostProfile string `json:"localhostProfile,omitempty" protobuf:"bytes,4,opt,name=localhostProfile"`
 }
 
 type StatusBase struct {
-	ConditionedStatus `json:",inline"`
-	Status            ProfileState `json:"status,omitempty"`
+	ConditionedStatus `json:",inline" protobuf:"bytes,1,opt,name=conditionedStatus"`
+	Status            ProfileState `json:"status,omitempty" protobuf:"bytes,2,opt,name=status"`
 }
 
 type ConditionedStatus struct {
 	// Conditions of the resource.
 	// +optional
-	Conditions []Condition `json:"conditions,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 type Condition struct {
 	// Type of this condition. At most one of each condition type may apply to
 	// a resource at any point in time.
-	Type ConditionType `json:"type"`
+	Type ConditionType `json:"type" protobuf:"bytes,1,req,name=type"`
 
 	// Status of this condition; is it currently True, False, or Unknown?
-	Status corev1.ConditionStatus `json:"status"`
+	Status corev1.ConditionStatus `json:"status" protobuf:"bytes,2,req,name=status"`
 
 	// LastTransitionTime is the last time this condition transitioned from one
 	// status to another.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime" protobuf:"bytes,3,req,name=lastTransitionTime"`
 
 	// A Reason for this condition's last transition from one status to another.
-	Reason ConditionReason `json:"reason"`
+	Reason ConditionReason `json:"reason" protobuf:"bytes,4,req,name=reason"`
 
 	// A Message containing details about this condition's last transition from
 	// one status to another, if any.
 	// +optional
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
 
 type ConditionType string
@@ -683,7 +627,7 @@ type ProfileState string
 
 type SeccompProfileList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []SeccompProfile `json:"items"`
+	Items []SeccompProfile `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

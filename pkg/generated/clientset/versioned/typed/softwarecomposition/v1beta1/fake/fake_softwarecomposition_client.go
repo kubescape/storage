@@ -60,14 +60,6 @@ func (c *FakeSpdxV1beta1) OpenVulnerabilityExchangeContainers(namespace string) 
 	return &FakeOpenVulnerabilityExchangeContainers{c, namespace}
 }
 
-func (c *FakeSpdxV1beta1) SBOMSPDXv2p3s(namespace string) v1beta1.SBOMSPDXv2p3Interface {
-	return &FakeSBOMSPDXv2p3s{c, namespace}
-}
-
-func (c *FakeSpdxV1beta1) SBOMSPDXv2p3Filtereds(namespace string) v1beta1.SBOMSPDXv2p3FilteredInterface {
-	return &FakeSBOMSPDXv2p3Filtereds{c, namespace}
-}
-
 func (c *FakeSpdxV1beta1) SBOMSyfts(namespace string) v1beta1.SBOMSyftInterface {
 	return &FakeSBOMSyfts{c, namespace}
 }

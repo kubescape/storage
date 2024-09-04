@@ -36,8 +36,6 @@ type SpdxV1beta1Interface interface {
 	NetworkNeighborhoodsGetter
 	NetworkNeighborsesGetter
 	OpenVulnerabilityExchangeContainersGetter
-	SBOMSPDXv2p3sGetter
-	SBOMSPDXv2p3FilteredsGetter
 	SBOMSyftsGetter
 	SBOMSyftFilteredsGetter
 	SeccompProfilesGetter
@@ -83,14 +81,6 @@ func (c *SpdxV1beta1Client) NetworkNeighborses(namespace string) NetworkNeighbor
 
 func (c *SpdxV1beta1Client) OpenVulnerabilityExchangeContainers(namespace string) OpenVulnerabilityExchangeContainerInterface {
 	return newOpenVulnerabilityExchangeContainers(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) SBOMSPDXv2p3s(namespace string) SBOMSPDXv2p3Interface {
-	return newSBOMSPDXv2p3s(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) SBOMSPDXv2p3Filtereds(namespace string) SBOMSPDXv2p3FilteredInterface {
-	return newSBOMSPDXv2p3Filtereds(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) SBOMSyfts(namespace string) SBOMSyftInterface {

@@ -9,11 +9,11 @@ type NetworkPolicy struct {
 	Kind       string `json:"kind,omitempty" protobuf:"bytes,1,opt,name=kind"`
 	APIVersion string `json:"apiVersion,omitempty" protobuf:"bytes,2,opt,name=apiVersion"`
 
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,3,opt,name=metadata"`
 
 	// spec represents the specification of the desired behavior for this NetworkPolicy.
 
-	Spec NetworkPolicySpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Spec NetworkPolicySpec `json:"spec,omitempty" protobuf:"bytes,4,opt,name=spec"`
 }
 
 type PolicyType string
@@ -33,7 +33,7 @@ type NetworkPolicySpec struct {
 	// the ingress rules for each are combined additively.
 	// This field is NOT optional and follows standard label selector semantics.
 	// An empty podSelector matches all pods in this namespace.
-	PodSelector metav1.LabelSelector `json:"podSelector" protobuf:"bytes,1,opt,name=podSelector"`
+	PodSelector metav1.LabelSelector `json:"podSelector" protobuf:"bytes,1,req,name=podSelector"`
 
 	// ingress is a list of ingress rules to be applied to the selected pods.
 	// Traffic is allowed to a pod if there are no NetworkPolicies selecting the pod
@@ -174,7 +174,7 @@ type NetworkPolicyPeer struct {
 	// ipBlock defines policy on a particular IPBlock. If this field is set then
 	// neither of the other fields can be.
 
-	IPBlock *IPBlock `json:"ipBlock,omitempty" protobuf:"bytes,3,rep,name=ipBlock"`
+	IPBlock *IPBlock `json:"ipBlock,omitempty" protobuf:"bytes,3,opt,name=ipBlock"`
 }
 
 // NetworkPolicyConditionType is the type for status conditions on
@@ -358,11 +358,11 @@ type IngressLoadBalancerIngress struct {
 // IngressPortStatus represents the error condition of a service port
 type IngressPortStatus struct {
 	// port is the port number of the ingress port.
-	Port int32 `json:"port" protobuf:"varint,1,opt,name=port"`
+	Port int32 `json:"port" protobuf:"varint,1,req,name=port"`
 
 	// protocol is the protocol of the ingress port.
 	// The supported values are: "TCP", "UDP", "SCTP"
-	Protocol v1.Protocol `json:"protocol" protobuf:"bytes,2,opt,name=protocol,casttype=Protocol"`
+	Protocol v1.Protocol `json:"protocol" protobuf:"bytes,2,req,name=protocol,casttype=Protocol"`
 
 	// error is to record the problem with the service port
 	// The format of the error shall comply with the following rules:
@@ -490,11 +490,11 @@ type HTTPIngressPath struct {
 	//   the IngressClass. Implementations can treat this as a separate PathType
 	//   or treat it identically to Prefix or Exact path types.
 	// Implementations are required to support all path types.
-	PathType *PathType `json:"pathType" protobuf:"bytes,3,opt,name=pathType"`
+	PathType *PathType `json:"pathType" protobuf:"bytes,3,req,name=pathType"`
 
 	// backend defines the referenced service endpoint to which the traffic
 	// will be forwarded to.
-	Backend IngressBackend `json:"backend" protobuf:"bytes,2,opt,name=backend"`
+	Backend IngressBackend `json:"backend" protobuf:"bytes,2,req,name=backend"`
 }
 
 // IngressBackend describes all endpoints for a given service and port.
@@ -516,7 +516,7 @@ type IngressBackend struct {
 type IngressServiceBackend struct {
 	// name is the referenced service. The service must exist in
 	// the same namespace as the Ingress object.
-	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 
 	// port of the referenced service. A port name or port number
 	// is required for a IngressServiceBackend.
@@ -591,15 +591,15 @@ type IngressClassParametersReference struct {
 	APIGroup *string `json:"apiGroup,omitempty" protobuf:"bytes,1,opt,name=aPIGroup"`
 
 	// kind is the type of resource being referenced.
-	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
+	Kind string `json:"kind" protobuf:"bytes,2,req,name=kind"`
 
 	// name is the name of resource being referenced.
-	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
+	Name string `json:"name" protobuf:"bytes,3,req,name=name"`
 
 	// scope represents if this refers to a cluster or namespace scoped resource.
 	// This may be set to "Cluster" (default) or "Namespace".
 
-	Scope *string `json:"scope" protobuf:"bytes,4,opt,name=scope"`
+	Scope *string `json:"scope" protobuf:"bytes,4,req,name=scope"`
 
 	// namespace is the namespace of the resource being referenced. This field is
 	// required when scope is set to "Namespace" and must be unset when scope is set to
