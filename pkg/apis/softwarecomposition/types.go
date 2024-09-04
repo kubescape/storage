@@ -679,7 +679,7 @@ type HTTPEndpoint struct {
 	Methods   []string
 	Internal  consts.IsInternal
 	Direction consts.NetworkDirection
-	Headers   map[string]string
+	Headers   map[string][]string
 }
 
 type SpecBase struct {

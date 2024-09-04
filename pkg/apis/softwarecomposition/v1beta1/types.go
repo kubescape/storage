@@ -625,7 +625,7 @@ type HTTPEndpoint struct {
 	Methods   []string                `json:"methods,omitempty"`
 	Internal  consts.IsInternal       `json:"internal,omitempty"`
 	Direction consts.NetworkDirection `json:"direction,omitempty"`
-	Headers   map[string]string       `json:"headers,omitempty"`
+	Headers   map[string][]string     `json:"headers,omitempty"`
 }
 
 // Arg defines the specific syscall in seccomp.
