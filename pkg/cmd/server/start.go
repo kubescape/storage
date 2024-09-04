@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -66,7 +67,47 @@ func NewWardleServerOptions(out, errOut io.Writer) *WardleServerOptions {
 		StdErr: errOut,
 	}
 	o.RecommendedOptions.Etcd = nil
+
+	// Set TLS up and bind to 8443
+	// read the client cert filenames from the environment variables
+	value, exists := os.LookupEnv("TLS_CLIENT_CA_FILE")
+	if exists {
+		// This can be /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+		// Read the file and set the value
+		if s, err := os.Stat(value); err != nil {
+			logger.L().Error("TLS_CLIENT_CA_FILE not found", helpers.Error(err))
+		} else {
+			if f, err := os.Open(value); err != nil {
+				logger.L().Error("TLS_CLIENT_CA_FILE not readable", helpers.Error(err))
+			} else {
+				defer f.Close()
+				// Read the contents of the file as string and set the value
+				contents := make([]byte, s.Size())
+				n, err := f.Read(contents)
+				if err != nil {
+					logger.L().Error("TLS_CLIENT_CA_FILE not readable", helpers.Error(err))
+				} else {
+					o.RecommendedOptions.Authentication.ClientCert.ClientCA = string(contents[:n])
+				}
+			}
+		}
+	} else {
+		logger.L().Warning("TLS_CLIENT_CA_FILE not set")
+	}
+	value, exists = os.LookupEnv("TLS_SERVER_CERT_FILE")
+	if exists {
+		o.RecommendedOptions.SecureServing.ServerCert.CertKey.CertFile = value
+	} else {
+		logger.L().Warning("TLS_SERVER_CERT_FILE not set")
+	}
+	value, exists = os.LookupEnv("TLS_SERVER_KEY_FILE")
+	if exists {
+		o.RecommendedOptions.SecureServing.ServerCert.CertKey.KeyFile = value
+	} else {
+		logger.L().Warning("TLS_SERVER_KEY_FILE not set")
+	}
 	o.RecommendedOptions.SecureServing.BindPort = 8443
+
 	return o
 }
 
