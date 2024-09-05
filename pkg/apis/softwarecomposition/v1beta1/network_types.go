@@ -24,7 +24,7 @@ type NetworkNeighborsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []NetworkNeighbors `json:"items"`
+	Items []NetworkNeighbors `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -36,17 +36,17 @@ type NetworkNeighbors struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec NetworkNeighborsSpec `json:"spec"`
+	Spec NetworkNeighborsSpec `json:"spec" protobuf:"bytes,2,req,name=spec"`
 }
 
 type NetworkNeighborsSpec struct {
-	metav1.LabelSelector `json:",inline"`
+	metav1.LabelSelector `json:",inline" protobuf:"bytes,3,opt,name=labelSelector"`
 	// +patchMergeKey=identifier
 	// +patchStrategy=merge
-	Ingress []NetworkNeighbor `json:"ingress" patchStrategy:"merge" patchMergeKey:"identifier"`
+	Ingress []NetworkNeighbor `json:"ingress" patchStrategy:"merge" patchMergeKey:"identifier" protobuf:"bytes,4,rep,name=ingress"`
 	// +patchMergeKey=identifier
 	// +patchStrategy=merge
-	Egress []NetworkNeighbor `json:"egress" patchStrategy:"merge" patchMergeKey:"identifier"`
+	Egress []NetworkNeighbor `json:"egress" patchStrategy:"merge" patchMergeKey:"identifier" protobuf:"bytes,5,rep,name=egress"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -56,7 +56,7 @@ type NetworkNeighborhoodList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []NetworkNeighborhood `json:"items"`
+	Items []NetworkNeighborhood `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -67,40 +67,40 @@ type NetworkNeighborhood struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec NetworkNeighborhoodSpec `json:"spec"`
+	Spec NetworkNeighborhoodSpec `json:"spec" protobuf:"bytes,2,req,name=spec"`
 }
 
 type NetworkNeighborhoodSpec struct {
-	metav1.LabelSelector `json:",inline"`
-	Containers           []NetworkNeighborhoodContainer `json:"containers"`
-	InitContainers       []NetworkNeighborhoodContainer `json:"initContainers"`
-	EphemeralContainers  []NetworkNeighborhoodContainer `json:"ephemeralContainers"`
+	metav1.LabelSelector `json:",inline" protobuf:"bytes,3,opt,name=labelSelector"`
+	Containers           []NetworkNeighborhoodContainer `json:"containers" protobuf:"bytes,4,rep,name=containers"`
+	InitContainers       []NetworkNeighborhoodContainer `json:"initContainers" protobuf:"bytes,5,rep,name=initContainers"`
+	EphemeralContainers  []NetworkNeighborhoodContainer `json:"ephemeralContainers" protobuf:"bytes,6,rep,name=ephemeralContainers"`
 }
 
 type NetworkNeighborhoodContainer struct {
-	Name    string            `json:"name"`
-	Ingress []NetworkNeighbor `json:"ingress"`
-	Egress  []NetworkNeighbor `json:"egress"`
+	Name    string            `json:"name" protobuf:"bytes,1,req,name=name"`
+	Ingress []NetworkNeighbor `json:"ingress" protobuf:"bytes,2,rep,name=ingress"`
+	Egress  []NetworkNeighbor `json:"egress" protobuf:"bytes,3,rep,name=egress"`
 }
 
 // NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighbor struct {
-	Identifier string            `json:"identifier"` // A unique identifier for this entry
-	Type       CommunicationType `json:"type"`
-	DNS        string            `json:"dns"` // DEPRECATED - use DNSNames instead.
-	DNSNames   []string          `json:"dnsNames"`
+	Identifier string            `json:"identifier" protobuf:"bytes,1,req,name=identifier"` // A unique identifier for this entry
+	Type       CommunicationType `json:"type" protobuf:"bytes,2,req,name=type"`
+	DNS        string            `json:"dns" protobuf:"bytes,3,req,name=dns"` // DEPRECATED - use DNSNames instead.
+	DNSNames   []string          `json:"dnsNames" protobuf:"bytes,4,rep,name=dnsNames"`
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	Ports             []NetworkPort         `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
-	PodSelector       *metav1.LabelSelector `json:"podSelector"`
-	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector"`
-	IPAddress         string                `json:"ipAddress"`
+	Ports             []NetworkPort         `json:"ports" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,5,rep,name=ports"`
+	PodSelector       *metav1.LabelSelector `json:"podSelector" protobuf:"bytes,6,req,name=podSelector"`
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector" protobuf:"bytes,7,req,name=namespaceSelector"`
+	IPAddress         string                `json:"ipAddress" protobuf:"bytes,8,req,name=ipAddress"`
 }
 
 type NetworkPort struct {
-	Name     string   `json:"name"` // protocol-port
-	Protocol Protocol `json:"protocol"`
-	Port     *int32   `json:"port"`
+	Name     string   `json:"name" protobuf:"bytes,1,req,name=name"` // protocol-port
+	Protocol Protocol `json:"protocol" protobuf:"bytes,2,req,name=protocol"`
+	Port     *int32   `json:"port" protobuf:"bytes,3,req,name=port"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -110,7 +110,7 @@ type GeneratedNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []GeneratedNetworkPolicy `json:"items"`
+	Items []GeneratedNetworkPolicy `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -121,16 +121,16 @@ type GeneratedNetworkPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec        NetworkPolicy `json:"spec"`
-	PoliciesRef []PolicyRef   `json:"policyRef,omitempty"`
+	Spec        NetworkPolicy `json:"spec" protobuf:"bytes,2,req,name=spec"`
+	PoliciesRef []PolicyRef   `json:"policyRef,omitempty" protobuf:"bytes,3,rep,name=policyRef"`
 }
 
 type PolicyRef struct {
-	IPBlock    string `json:"ipBlock"`
-	OriginalIP string `json:"originalIP"`
-	DNS        string `json:"dns"`
-	Name       string `json:"name"`
-	Server     string `json:"server"`
+	IPBlock    string `json:"ipBlock" protobuf:"bytes,1,req,name=ipBlock"`
+	OriginalIP string `json:"originalIP" protobuf:"bytes,2,req,name=originalIP"`
+	DNS        string `json:"dns" protobuf:"bytes,3,req,name=dns"`
+	Name       string `json:"name" protobuf:"bytes,4,req,name=name"`
+	Server     string `json:"server" protobuf:"bytes,5,req,name=server"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -140,7 +140,7 @@ type KnownServerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []KnownServer `json:"items"`
+	Items []KnownServer `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -151,13 +151,13 @@ type KnownServer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec KnownServerSpec `json:"spec"`
+	Spec KnownServerSpec `json:"spec" protobuf:"bytes,2,req,name=spec"`
 }
 
 type KnownServerSpec []KnownServerEntry
 
 type KnownServerEntry struct {
-	IPBlock string `json:"ipBlock"`
-	Server  string `json:"server"`
-	Name    string `json:"name"`
+	IPBlock string `json:"ipBlock" protobuf:"bytes,1,req,name=ipBlock"`
+	Server  string `json:"server" protobuf:"bytes,2,req,name=server"`
+	Name    string `json:"name" protobuf:"bytes,3,req,name=name"`
 }

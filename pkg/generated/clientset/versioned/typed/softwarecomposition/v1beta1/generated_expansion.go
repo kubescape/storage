@@ -34,10 +34,6 @@ type NetworkNeighborsExpansion interface{}
 
 type OpenVulnerabilityExchangeContainerExpansion interface{}
 
-type SBOMSPDXv2p3Expansion interface{}
-
-type SBOMSPDXv2p3FilteredExpansion interface{}
-
 type SBOMSyftExpansion interface{}
 
 type SBOMSyftFilteredExpansion interface{}

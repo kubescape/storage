@@ -24,16 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3List is a list of Flunder objects.
-type SBOMSPDXv2p3List struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []SBOMSPDXv2p3
-}
-
 // ToolMeta describes metadata about a tool that generated an artifact
 type ToolMeta struct {
 	Name    string
@@ -49,52 +39,6 @@ type ReportMeta struct {
 type SPDXMeta struct {
 	Tool   ToolMeta
 	Report ReportMeta
-}
-
-// SBOMSPDXv2p3Spec is the specification of an SPDX SBOM.
-type SBOMSPDXv2p3Spec struct {
-	Metadata SPDXMeta
-	SPDX     Document
-}
-
-// SBOMSPDXv2p3Status is the status of an SPDX SBOM.
-type SBOMSPDXv2p3Status struct {
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3 is a custom resource that describes an SBOM in the SPDX 2.3 format.
-type SBOMSPDXv2p3 struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	Spec   SBOMSPDXv2p3Spec
-	Status SBOMSPDXv2p3Status
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3Filtered is a custom resource that describes a filtered SBOM in the SPDX 2.3 format.
-//
-// Being filtered means that the SBOM contains only the relevant vulnerable materials.
-type SBOMSPDXv2p3Filtered struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	Spec   SBOMSPDXv2p3Spec
-	Status SBOMSPDXv2p3Status
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// SBOMSPDXv2p3FilteredList is a list of SBOMSPDXv2p3Filtered objects.
-type SBOMSPDXv2p3FilteredList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []SBOMSPDXv2p3Filtered
 }
 
 // VulnerabilityManifestReportMeta holds metadata about the specific report
@@ -152,8 +96,8 @@ type VulnerabilityManifestList struct {
 //
 // Intended to store relevant and total vulnerabilities in the future.
 type VulnerabilityCounters struct {
-	All      int
-	Relevant int
+	All      int64
+	Relevant int64
 }
 
 // SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
@@ -499,7 +443,7 @@ type Metadata struct {
 	// Version is the document version. It must be incremented when any content
 	// within the VEX document changes, including any VEX statements included within
 	// the VEX document.
-	Version int
+	Version int64
 
 	// Tooling expresses how the VEX document and contained VEX statements were
 	// generated. It's optional. It may specify tools or automated processes used in
@@ -564,7 +508,7 @@ type SBOMSyftList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft 2.3 format.
+// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft format.
 //
 // Being filtered means that the SBOM contains only the relevant vulnerable materials.
 type SBOMSyftFiltered struct {
@@ -640,7 +584,7 @@ type SingleSeccompProfileSpec struct {
 	// Additional properties from OCI runtime spec
 
 	// list of flags to use with seccomp(2)
-	Flags []*Flag
+	Flags []Flag
 }
 
 type Arch string
@@ -655,7 +599,7 @@ type Syscall struct {
 	Action seccomp.Action
 	// the errno return code to use. Some actions like SCMP_ACT_ERRNO and
 	// SCMP_ACT_TRACE allow to specify the errno code to return
-	ErrnoRet uint
+	ErrnoRet uint64
 	// the specific syscall in seccomp
 	Args []*Arg
 }
@@ -663,7 +607,7 @@ type Syscall struct {
 // Arg defines the specific syscall in seccomp.
 type Arg struct {
 	// the index for syscall arguments in seccomp
-	Index uint
+	Index uint64
 	// the value for syscall arguments in seccomp
 	Value uint64
 	// the value for syscall arguments in seccomp

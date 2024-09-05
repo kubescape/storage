@@ -1,6 +1,8 @@
 package softwarecomposition
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -52,10 +54,10 @@ type ScannedControlStatus struct {
 type ScannedControlRule struct {
 	Name                  string
 	Status                RuleStatus
-	ControlConfigurations map[string][]string
+	ControlConfigurations map[string]json.RawMessage
 	Paths                 []RulePath
 	AppliedIgnoreRules    []string
-	RelatedResourcesIDs   []string // ?
+	RelatedResourcesIDs   []string
 }
 
 type RuleStatus struct {
@@ -105,11 +107,11 @@ type WorkloadConfigurationScanSummarySpec struct {
 }
 
 type WorkloadConfigurationScanSeveritiesSummary struct {
-	Critical int
-	High     int
-	Medium   int
-	Low      int
-	Unknown  int
+	Critical int64
+	High     int64
+	Medium   int64
+	Low      int64
+	Unknown  int64
 }
 
 type ScannedControlSummary struct {
