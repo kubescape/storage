@@ -1,6 +1,7 @@
 package dynamicpathdetector
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 
 func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) ([]types.HTTPEndpoint, error) {
 	var newEndpoints []types.HTTPEndpoint
-
+	MergeDuplicateEndpoints(endpoints)
 	for _, endpoint := range *endpoints {
 		AnalyzeURL(endpoint.Endpoint, analyzer)
 	}
@@ -72,6 +73,30 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 
 	path, _ := analyzer.AnalyzePath(parsedURL.Path, hostname)
 	return hostname + path, nil
+}
+
+func MergeDuplicateEndpoints(endpoints *[]types.HTTPEndpoint) {
+	seen := make(map[string]*types.HTTPEndpoint)
+	newEndpoints := make([]types.HTTPEndpoint, 0)
+
+	for i := range *endpoints {
+		endpoint := &(*endpoints)[i]
+		key := getEndpointKey(endpoint)
+
+		if existing, found := seen[key]; found {
+			existing.Methods = mergeMethods(existing.Methods, endpoint.Methods)
+			existing.Headers = mergeHeaders(existing.Headers, endpoint.Headers)
+		} else {
+			seen[key] = endpoint
+			newEndpoints = append(newEndpoints, *endpoint)
+		}
+	}
+
+	*endpoints = newEndpoints
+}
+
+func getEndpointKey(endpoint *types.HTTPEndpoint) string {
+	return fmt.Sprintf("%s|%v|%v", endpoint.Endpoint, endpoint.Internal, endpoint.Direction)
 }
 
 func mergeHeaders(existing, new map[string][]string) map[string][]string {

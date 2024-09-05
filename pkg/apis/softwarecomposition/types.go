@@ -682,6 +682,14 @@ type HTTPEndpoint struct {
 	Headers   map[string][]string
 }
 
+func (e *HTTPEndpoint) Equal(other *HTTPEndpoint) bool {
+	if e == nil || other == nil {
+		return e == other
+	}
+	return e.Endpoint == other.Endpoint && e.Direction == other.Direction && e.Internal == other.Internal
+
+}
+
 type SpecBase struct {
 	Disabled bool
 }
