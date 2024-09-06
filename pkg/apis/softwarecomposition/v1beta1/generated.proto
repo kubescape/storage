@@ -80,6 +80,8 @@ message ApplicationProfileContainer {
   repeated string syscalls = 5;
 
   optional SingleSeccompProfile seccompProfile = 6;
+
+  repeated HTTPEndpoint endpoints = 7;
 }
 
 message ApplicationProfileList {
@@ -387,6 +389,18 @@ message GrypePackage {
   optional string metadataType = 10;
 
   optional bytes metadata = 11;
+}
+
+message HTTPEndpoint {
+  optional string endpoint = 1;
+
+  repeated string methods = 2;
+
+  optional bool internal = 3;
+
+  optional string direction = 4;
+
+  map<string, string> headers = 5;
 }
 
 // HTTPIngressPath associates a path with a backend. Incoming urls matching the

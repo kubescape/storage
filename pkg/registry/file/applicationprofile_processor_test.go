@@ -65,7 +65,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 								{
 									Endpoint:  "http://localhost:8080",
 									Methods:   []string{"GET"},
-									Internal:  consts.False,
+									Internal:  false,
 									Direction: consts.Inbound,
 									Headers:   map[string][]string{},
 								},
@@ -129,7 +129,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 								{
 									Endpoint:  "http://localhost:8080",
 									Methods:   []string{"GET"},
-									Internal:  consts.False,
+									Internal:  false,
 									Direction: consts.Inbound,
 									Headers:   map[string][]string{},
 								},

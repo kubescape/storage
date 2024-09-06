@@ -212,7 +212,7 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
 	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
-	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint"`
+	Endpoints      []HTTPEndpoint       `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
 }
 
 type ExecCalls struct {
@@ -474,7 +474,7 @@ type SBOMSyftFiltered struct {
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status SBOMSyftStatus `json:"status,omitempty	" protobuf:"bytes,3,opt,name=status"`
+	Status SBOMSyftStatus `json:"status,omitempty\t" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -563,11 +563,11 @@ type Syscall struct {
 }
 
 type HTTPEndpoint struct {
-	Endpoint  string                  `json:"endpoint,omitempty"`
-	Methods   []string                `json:"methods,omitempty"`
-	Internal  consts.IsInternal       `json:"internal,omitempty"`
-	Direction consts.NetworkDirection `json:"direction,omitempty"`
-	Headers   map[string][]string     `json:"headers,omitempty"`
+	Endpoint  string                  `json:"endpoint,omitempty" protobuf:"bytes,1,opt,name=endpoint"`
+	Methods   []string                `json:"methods,omitempty" protobuf:"bytes,2,opt,name=methods"`
+	Internal  bool                    `json:"internal,omitempty" protobuf:"bytes,3,opt,name=internal"`
+	Direction consts.NetworkDirection `json:"direction,omitempty" protobuf:"bytes,4,opt,name=direction"`
+	Headers   map[string][]string     `json:"headers,omitempty" protobuf:"bytes,5,opt,name=headers"`
 }
 
 // Arg defines the specific syscall in seccomp.

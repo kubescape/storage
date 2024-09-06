@@ -621,7 +621,7 @@ type Arg struct {
 type HTTPEndpoint struct {
 	Endpoint  string
 	Methods   []string
-	Internal  consts.IsInternal
+	Internal  bool
 	Direction consts.NetworkDirection
 	Headers   map[string][]string
 }
@@ -631,7 +631,6 @@ func (e *HTTPEndpoint) Equal(other *HTTPEndpoint) bool {
 		return e == other
 	}
 	return e.Endpoint == other.Endpoint && e.Direction == other.Direction && e.Internal == other.Internal
-
 }
 
 type SpecBase struct {

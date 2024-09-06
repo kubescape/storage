@@ -54,7 +54,6 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		logger.L().Debug("failed to analyze endpoints", loggerhelpers.Error(err))
 		endpoints = container.Endpoints
 	}
-
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
 		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),
