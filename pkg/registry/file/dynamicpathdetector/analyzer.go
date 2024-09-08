@@ -1,6 +1,7 @@
 package dynamicpathdetector
 
 import (
+	pathUtils "path"
 	"strings"
 )
 
@@ -10,7 +11,7 @@ func NewPathAnalyzer() *PathAnalyzer {
 	}
 }
 func (ua *PathAnalyzer) AnalyzePath(path, identifier string) (string, error) {
-
+	path = pathUtils.Clean(path)
 	node, exists := ua.RootNodes[identifier]
 	if !exists {
 		node = &SegmentNode{

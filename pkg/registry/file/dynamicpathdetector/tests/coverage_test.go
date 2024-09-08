@@ -2,7 +2,6 @@ package dynamicpathdetectortests
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
@@ -96,7 +95,6 @@ func TestMultipleDynamicSegments(t *testing.T) {
 		t.Errorf("AnalyzePath(\"/users/99/posts/99\", \"api\") = %q, want %q", result, expected)
 	}
 
-	printPaths(analyzer.RootNodes["api"], []string{})
 }
 
 func TestMixedStaticAndDynamicSegments(t *testing.T) {
@@ -156,19 +154,29 @@ func TestDynamicThreshold(t *testing.T) {
 	}
 }
 
-func printPaths(node *dynamicpathdetector.SegmentNode, currentPath []string) {
-	if len(node.Children) == 0 {
-		fmt.Printf("/%s\n", strings.Join(currentPath, "/"))
-		return
-	}
-	fmt.Printf("/%s\n", strings.Join(currentPath, "/"))
+func TestEdgeCases(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer()
 
-	for segment, child := range node.Children {
-		newPath := append(currentPath, segment)
-		if child.IsNextDynamic() {
-			printPaths(child, newPath)
-		} else {
-			printPaths(child, newPath)
-		}
+	testCases := []struct {
+		name       string
+		path       string
+		identifier string
+		expected   string
+	}{
+		{"Path with multiple slashes", "//users///123////", "api", "/users/123"},
+		{"Path with special characters", "/users/@johndoe/settings", "api", "/users/@johndoe/settings"},
+		{"Very long path", "/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p", "api", "/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := analyzer.AnalyzePath(tc.path, tc.identifier)
+			if err != nil {
+				t.Errorf("AnalyzePath(%q, %q) returned an error: %v", tc.path, tc.identifier, err)
+			}
+			if result != tc.expected {
+				t.Errorf("AnalyzePath(%q, %q) = %q, want %q", tc.path, tc.identifier, result, tc.expected)
+			}
+		})
 	}
 }
