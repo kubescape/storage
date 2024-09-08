@@ -88,7 +88,7 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 
 	// Copy all existing children to the new dynamic node
 	for _, child := range node.Children {
-		shallowChildrensCopy(child, dynamicNode)
+		shallowChildrenCopy(child, dynamicNode)
 	}
 
 	// Replace all children with the new dynamic node
@@ -100,7 +100,7 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 }
 
 func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
-	if node.Count > theshold && !node.IsNextDynamic() {
+	if node.Count > threshold && !node.IsNextDynamic() {
 
 		dynamicChild := &SegmentNode{
 			SegmentName: dynamicIdentifier,
@@ -110,7 +110,7 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 
 		// Copy all descendants
 		for _, child := range node.Children {
-			shallowChildrensCopy(child, dynamicChild)
+			shallowChildrenCopy(child, dynamicChild)
 		}
 
 		node.Children = map[string]*SegmentNode{
@@ -119,7 +119,7 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 	}
 }
 
-func shallowChildrensCopy(src, dst *SegmentNode) {
+func shallowChildrenCopy(src, dst *SegmentNode) {
 	for segmentName := range src.Children {
 		if !KeyInMap(dst.Children, segmentName) {
 			dst.Children[segmentName] = src.Children[segmentName]
