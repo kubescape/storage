@@ -11,7 +11,7 @@ type SegmentNode struct {
 }
 
 type PathAnalyzer struct {
-	rootNodes map[string]*SegmentNode
+	RootNodes map[string]*SegmentNode
 }
 
 func (sn *SegmentNode) IsNextDynamic() bool {

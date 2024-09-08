@@ -1,14 +1,16 @@
-package dynamicpathdetector
+package dynamicpathdetectortests
 
 import (
 	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
+
+	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 )
 
 func BenchmarkAnalyzePath(b *testing.B) {
-	analyzer := NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer()
 	paths := generateMixedPaths(10000, 0) // 0 means use default mixed lengths
 
 	identifier := "test"
@@ -34,7 +36,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 	for _, length := range pathLengths {
 		b.Run(fmt.Sprintf("PathLength-%d", length), func(b *testing.B) {
-			analyzer := NewPathAnalyzer()
+			analyzer := dynamicpathdetector.NewPathAnalyzer()
 			paths := generateMixedPaths(10000, length)
 			identifier := "test"
 

@@ -6,19 +6,19 @@ import (
 
 func NewPathAnalyzer() *PathAnalyzer {
 	return &PathAnalyzer{
-		rootNodes: make(map[string]*SegmentNode),
+		RootNodes: make(map[string]*SegmentNode),
 	}
 }
 func (ua *PathAnalyzer) AnalyzePath(path, identifier string) (string, error) {
 
-	node, exists := ua.rootNodes[identifier]
+	node, exists := ua.RootNodes[identifier]
 	if !exists {
 		node = &SegmentNode{
 			SegmentName: identifier,
 			Count:       0,
 			Children:    make(map[string]*SegmentNode),
 		}
-		ua.rootNodes[identifier] = node
+		ua.RootNodes[identifier] = node
 	}
 
 	segments := strings.Split(strings.Trim(path, "/"), "/")
@@ -123,6 +123,9 @@ func shallowChildrenCopy(src, dst *SegmentNode) {
 	for segmentName := range src.Children {
 		if !KeyInMap(dst.Children, segmentName) {
 			dst.Children[segmentName] = src.Children[segmentName]
+		} else {
+			dst.Children[segmentName].Count += src.Children[segmentName].Count
+			shallowChildrenCopy(src.Children[segmentName], dst.Children[segmentName])
 		}
 	}
 }
