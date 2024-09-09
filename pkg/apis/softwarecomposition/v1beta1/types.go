@@ -574,6 +574,17 @@ type HTTPEndpoint struct {
 	Headers   json.RawMessage         `json:"headers,omitempty" protobuf:"bytes,5,opt,name=headers"`
 }
 
+func (e *HTTPEndpoint) GetHeaders() (map[string][]string, error) {
+	headers := make(map[string][]string)
+
+	// Unmarshal the JSON into the map
+	err := json.Unmarshal([]byte(e.Headers), &headers)
+	if err != nil {
+		return nil, err
+	}
+	return headers, nil
+}
+
 // Arg defines the specific syscall in seccomp.
 type Arg struct {
 	// the index for syscall arguments in seccomp
