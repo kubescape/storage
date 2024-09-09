@@ -8,6 +8,7 @@ import (
 func NewPathAnalyzer() *PathAnalyzer {
 	return &PathAnalyzer{
 		RootNodes: make(map[string]*SegmentNode),
+		threshold: 100,
 	}
 }
 func (ua *PathAnalyzer) AnalyzePath(path, identifier string) (string, error) {
@@ -101,7 +102,7 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 }
 
 func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
-	if node.Count > threshold && !node.IsNextDynamic() {
+	if node.Count > ua.threshold && !node.IsNextDynamic() {
 
 		dynamicChild := &SegmentNode{
 			SegmentName: dynamicIdentifier,

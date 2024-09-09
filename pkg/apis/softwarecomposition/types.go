@@ -17,6 +17,7 @@ limitations under the License.
 package softwarecomposition
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -624,7 +625,18 @@ type HTTPEndpoint struct {
 	Methods   []string
 	Internal  bool
 	Direction consts.NetworkDirection
-	Headers   map[string][]string
+	Headers   json.RawMessage
+}
+
+func (e *HTTPEndpoint) GetHeaders() (map[string][]string, error) {
+	headers := make(map[string][]string)
+
+	// Unmarshal the JSON into the map
+	err := json.Unmarshal([]byte(e.Headers), &headers)
+	if err != nil {
+		return nil, err
+	}
+	return headers, nil
 }
 
 func (e *HTTPEndpoint) Equal(other *HTTPEndpoint) bool {
@@ -666,17 +678,20 @@ func (e HTTPEndpoint) String() string {
 		s.WriteString(strings.Title(string(e.Direction)))
 	}
 
-	// Append Headers
-	if len(e.Headers) > 0 {
-		// Define the order of headers
-		orderedHeaders := []string{"Content-Type", "Authorization"}
+	headers, err := e.GetHeaders()
+	if err == nil {
+		// Append Headers
+		if len(headers) > 0 {
+			// Define the order of headers
+			orderedHeaders := []string{"Content-Type", "Authorization"}
 
-		for _, k := range orderedHeaders {
-			if values, ok := e.Headers[k]; ok {
-				if s.Len() > 0 {
-					s.WriteString(sep)
+			for _, k := range orderedHeaders {
+				if values, ok := headers[k]; ok {
+					if s.Len() > 0 {
+						s.WriteString(sep)
+					}
+					s.WriteString(fmt.Sprintf("%s: %s", k, strings.Join(values, ",")))
 				}
-				s.WriteString(fmt.Sprintf("%s: %s", k, strings.Join(values, ",")))
 			}
 		}
 	}

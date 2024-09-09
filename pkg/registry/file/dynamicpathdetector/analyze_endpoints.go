@@ -1,6 +1,7 @@
 package dynamicpathdetector
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -40,7 +41,7 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 		for i, e := range newEndpoints {
 			if e.Endpoint == url {
 				newEndpoints[i].Methods = mergeMethods(e.Methods, endpoint.Methods)
-				newEndpoints[i].Headers = mergeHeaders(e.Headers, endpoint.Headers)
+				mergeHeaders(&e, endpoint)
 				return nil, nil
 			}
 		}
@@ -88,7 +89,7 @@ func MergeDuplicateEndpoints(endpoints *[]types.HTTPEndpoint) {
 
 		if existing, found := seen[key]; found {
 			existing.Methods = mergeMethods(existing.Methods, endpoint.Methods)
-			existing.Headers = mergeHeaders(existing.Headers, endpoint.Headers)
+			mergeHeaders(existing, endpoint)
 		} else {
 			seen[key] = endpoint
 			newEndpoints = append(newEndpoints, *endpoint)
@@ -102,18 +103,33 @@ func getEndpointKey(endpoint *types.HTTPEndpoint) string {
 	return fmt.Sprintf("%s|%v|%v", endpoint.Endpoint, endpoint.Internal, endpoint.Direction)
 }
 
-func mergeHeaders(existing, new map[string][]string) map[string][]string {
+func mergeHeaders(existing, new *types.HTTPEndpoint) {
+	existingHeaders, err := existing.GetHeaders()
+	if err != nil {
+		return
+	}
 
-	for k, v := range new {
-		if _, exists := existing[k]; exists {
-			set := mapset.NewSet[string](append(existing[k], v...)...)
-			existing[k] = set.ToSlice()
+	newHeaders, err := new.GetHeaders()
+	if err != nil {
+		return
+	}
+
+	for k, v := range newHeaders {
+		if _, exists := existingHeaders[k]; exists {
+			set := mapset.NewSet[string](append(existingHeaders[k], v...)...)
+			existingHeaders[k] = set.ToSlice()
 		} else {
-			existing[k] = v
+			existingHeaders[k] = v
 		}
 	}
 
-	return existing
+	rawJSON, err := json.Marshal(existingHeaders)
+	if err != nil {
+		fmt.Println("Error marshaling JSON:", err)
+		return
+	}
+
+	existing.Headers = rawJSON
 }
 
 func mergeMethods(existing, new []string) []string {

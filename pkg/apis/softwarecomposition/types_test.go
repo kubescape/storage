@@ -1,6 +1,7 @@
 package softwarecomposition
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
@@ -348,6 +349,13 @@ func TestOpenCalls_String(t *testing.T) {
 }
 
 func TestHTTPEndpoint_String(t *testing.T) {
+	headers := map[string][]string{
+		"Content-Type":  {"application/json"},
+		"Authorization": {"Bearer token123", "ApiKey abcdef"},
+	}
+
+	rawJSON, _ := json.Marshal(headers)
+
 	tests := []struct {
 		name string
 		e    HTTPEndpoint
@@ -367,16 +375,14 @@ func TestHTTPEndpoint_String(t *testing.T) {
 			want: "/api/v1/users␟GET,POST",
 		},
 		{
+
 			name: "Full HTTPEndpoint",
 			e: HTTPEndpoint{
 				Endpoint:  "/api/v1/users",
 				Methods:   []string{"GET", "POST"},
 				Internal:  true,
 				Direction: consts.Inbound,
-				Headers: map[string][]string{
-					"Content-Type":  {"application/json"},
-					"Authorization": {"Bearer token123", "ApiKey abcdef"},
-				},
+				Headers:   rawJSON,
 			},
 			want: "/api/v1/users␟GET,POST␟Internal␟Inbound␟Content-Type: application/json␟Authorization: Bearer token123,ApiKey abcdef",
 		},

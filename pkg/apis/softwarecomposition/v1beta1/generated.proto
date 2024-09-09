@@ -81,6 +81,8 @@ message ApplicationProfileContainer {
 
   optional SingleSeccompProfile seccompProfile = 6;
 
+  // +patchStrategy=merge
+  // +patchMergeKey=endpoint
   repeated HTTPEndpoint endpoints = 7;
 }
 
@@ -400,7 +402,7 @@ message HTTPEndpoint {
 
   optional string direction = 4;
 
-  map<string, string> headers = 5;
+  optional bytes headers = 5;
 }
 
 // HTTPIngressPath associates a path with a backend. Incoming urls matching the

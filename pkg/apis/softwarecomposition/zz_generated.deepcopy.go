@@ -972,18 +972,8 @@ func (in *HTTPEndpoint) DeepCopyInto(out *HTTPEndpoint) {
 	}
 	if in.Headers != nil {
 		in, out := &in.Headers, &out.Headers
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				in, out := &val, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
-		}
+		*out = make(json.RawMessage, len(*in))
+		copy(*out, *in)
 	}
 	return
 }

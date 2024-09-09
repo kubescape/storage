@@ -2621,7 +2621,7 @@ func autoConvert_v1beta1_HTTPEndpoint_To_softwarecomposition_HTTPEndpoint(in *HT
 	out.Methods = *(*[]string)(unsafe.Pointer(&in.Methods))
 	out.Internal = in.Internal
 	out.Direction = consts.NetworkDirection(in.Direction)
-	out.Headers = *(*map[string][]string)(unsafe.Pointer(&in.Headers))
+	out.Headers = *(*json.RawMessage)(unsafe.Pointer(&in.Headers))
 	return nil
 }
 
@@ -2635,7 +2635,7 @@ func autoConvert_softwarecomposition_HTTPEndpoint_To_v1beta1_HTTPEndpoint(in *so
 	out.Methods = *(*[]string)(unsafe.Pointer(&in.Methods))
 	out.Internal = in.Internal
 	out.Direction = consts.NetworkDirection(in.Direction)
-	out.Headers = *(*map[string][]string)(unsafe.Pointer(&in.Headers))
+	out.Headers = *(*json.RawMessage)(unsafe.Pointer(&in.Headers))
 	return nil
 }
 

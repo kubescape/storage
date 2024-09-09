@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"encoding/json"
+
 	"github.com/containers/common/pkg/seccomp"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	corev1 "k8s.io/api/core/v1"
@@ -569,7 +571,7 @@ type HTTPEndpoint struct {
 	Methods   []string                `json:"methods,omitempty" protobuf:"bytes,2,opt,name=methods"`
 	Internal  bool                    `json:"internal" protobuf:"bytes,3,opt,name=internal"`
 	Direction consts.NetworkDirection `json:"direction,omitempty" protobuf:"bytes,4,opt,name=direction"`
-	Headers   map[string][]string     `json:"headers,omitempty" protobuf:"bytes,5,opt,name=headers"`
+	Headers   json.RawMessage         `json:"headers,omitempty" protobuf:"bytes,5,opt,name=headers"`
 }
 
 // Arg defines the specific syscall in seccomp.

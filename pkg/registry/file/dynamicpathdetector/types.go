@@ -2,8 +2,6 @@ package dynamicpathdetector
 
 const dynamicIdentifier string = "<dynamic>"
 
-const threshold = 100
-
 type SegmentNode struct {
 	SegmentName string
 	Count       int
@@ -12,6 +10,7 @@ type SegmentNode struct {
 
 type PathAnalyzer struct {
 	RootNodes map[string]*SegmentNode
+	threshold int
 }
 
 func (sn *SegmentNode) IsNextDynamic() bool {
