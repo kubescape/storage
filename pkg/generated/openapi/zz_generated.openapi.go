@@ -1931,8 +1931,9 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref common.Referen
 					},
 					"internal": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
 						},
 					},
 					"direction": {
@@ -1964,6 +1965,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref common.Referen
 						},
 					},
 				},
+				Required: []string{"internal"},
 			},
 		},
 	}

@@ -567,7 +567,7 @@ type Syscall struct {
 type HTTPEndpoint struct {
 	Endpoint  string                  `json:"endpoint,omitempty" protobuf:"bytes,1,opt,name=endpoint"`
 	Methods   []string                `json:"methods,omitempty" protobuf:"bytes,2,opt,name=methods"`
-	Internal  bool                    `json:"internal,omitempty" protobuf:"bytes,3,opt,name=internal"`
+	Internal  bool                    `json:"internal" protobuf:"bytes,3,opt,name=internal"`
 	Direction consts.NetworkDirection `json:"direction,omitempty" protobuf:"bytes,4,opt,name=direction"`
 	Headers   map[string][]string     `json:"headers,omitempty" protobuf:"bytes,5,opt,name=headers"`
 }
