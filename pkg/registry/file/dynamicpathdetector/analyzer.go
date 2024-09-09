@@ -1,24 +1,25 @@
 package dynamicpathdetector
 
 import (
+	pathUtils "path"
 	"strings"
 )
 
 func NewPathAnalyzer() *PathAnalyzer {
 	return &PathAnalyzer{
-		rootNodes: make(map[string]*SegmentNode),
+		RootNodes: make(map[string]*SegmentNode),
 	}
 }
 func (ua *PathAnalyzer) AnalyzePath(path, identifier string) (string, error) {
-
-	node, exists := ua.rootNodes[identifier]
+	path = pathUtils.Clean(path)
+	node, exists := ua.RootNodes[identifier]
 	if !exists {
 		node = &SegmentNode{
 			SegmentName: identifier,
 			Count:       0,
 			Children:    make(map[string]*SegmentNode),
 		}
-		ua.rootNodes[identifier] = node
+		ua.RootNodes[identifier] = node
 	}
 
 	segments := strings.Split(strings.Trim(path, "/"), "/")
@@ -88,7 +89,7 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 
 	// Copy all existing children to the new dynamic node
 	for _, child := range node.Children {
-		shallowChildrensCopy(child, dynamicNode)
+		shallowChildrenCopy(child, dynamicNode)
 	}
 
 	// Replace all children with the new dynamic node
@@ -100,7 +101,7 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 }
 
 func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
-	if node.Count > theshold && !node.IsNextDynamic() {
+	if node.Count > threshold && !node.IsNextDynamic() {
 
 		dynamicChild := &SegmentNode{
 			SegmentName: dynamicIdentifier,
@@ -110,7 +111,7 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 
 		// Copy all descendants
 		for _, child := range node.Children {
-			shallowChildrensCopy(child, dynamicChild)
+			shallowChildrenCopy(child, dynamicChild)
 		}
 
 		node.Children = map[string]*SegmentNode{
@@ -119,10 +120,13 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 	}
 }
 
-func shallowChildrensCopy(src, dst *SegmentNode) {
+func shallowChildrenCopy(src, dst *SegmentNode) {
 	for segmentName := range src.Children {
 		if !KeyInMap(dst.Children, segmentName) {
 			dst.Children[segmentName] = src.Children[segmentName]
+		} else {
+			dst.Children[segmentName].Count += src.Children[segmentName].Count
+			shallowChildrenCopy(src.Children[segmentName], dst.Children[segmentName])
 		}
 	}
 }

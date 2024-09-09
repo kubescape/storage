@@ -72,6 +72,9 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 	hostname := parsedURL.Hostname()
 
 	path, _ := analyzer.AnalyzePath(parsedURL.Path, hostname)
+	if path == "/." {
+		path = "/"
+	}
 	return hostname + path, nil
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package softwarecomposition
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
@@ -631,6 +632,56 @@ func (e *HTTPEndpoint) Equal(other *HTTPEndpoint) bool {
 		return e == other
 	}
 	return e.Endpoint == other.Endpoint && e.Direction == other.Direction && e.Internal == other.Internal
+}
+
+func (e HTTPEndpoint) String() string {
+	const sep = "␟"
+	var s strings.Builder
+
+	// Append Endpoint
+	s.WriteString(e.Endpoint)
+
+	// Append Methods
+	if len(e.Methods) > 0 {
+		if s.Len() > 0 {
+			s.WriteString(sep)
+		}
+		s.WriteString(strings.Join(e.Methods, ","))
+	}
+
+	// Append Internal status
+	if e.Internal {
+		if s.Len() > 0 {
+			s.WriteString(sep)
+		}
+		s.WriteString("Internal")
+	}
+
+	// Append Direction
+	if e.Direction != "" {
+		if s.Len() > 0 {
+			s.WriteString(sep)
+		}
+		// Capitalize the first letter of the direction
+		s.WriteString(strings.Title(string(e.Direction)))
+	}
+
+	// Append Headers
+	if len(e.Headers) > 0 {
+		// Define the order of headers
+		orderedHeaders := []string{"Content-Type", "Authorization"}
+
+		for _, k := range orderedHeaders {
+			if values, ok := e.Headers[k]; ok {
+				if s.Len() > 0 {
+					s.WriteString(sep)
+				}
+				s.WriteString(fmt.Sprintf("%s: %s", k, strings.Join(values, ",")))
+			}
+		}
+	}
+
+	return s.String()
 }
 
 type SpecBase struct {
