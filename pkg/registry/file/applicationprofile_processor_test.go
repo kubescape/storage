@@ -70,16 +70,6 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 									Headers:   map[string][]string{},
 								},
 							},
-							Extra: map[string][]map[string]string{
-								"metadata": {
-									{"version": "v1"},
-									{"environment": "production"},
-								},
-								"security": {
-									{"encryption": "AES-256"},
-									{"audit": "enabled"},
-								},
-							},
 						},
 					},
 				},
@@ -142,16 +132,6 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 									Internal:  consts.False,
 									Direction: consts.Inbound,
 									Headers:   map[string][]string{},
-								},
-							},
-							Extra: map[string][]map[string]string{
-								"metadata": {
-									{"version": "v1"},
-									{"environment": "production"},
-								},
-								"security": {
-									{"encryption": "AES-256"},
-									{"audit": "enabled"},
 								},
 							},
 						},

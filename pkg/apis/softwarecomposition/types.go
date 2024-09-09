@@ -286,7 +286,6 @@ type ApplicationProfileContainer struct {
 	Syscalls       []string
 	SeccompProfile SingleSeccompProfile
 	Endpoints      []HTTPEndpoint
-	Extra          map[string][]map[string]string
 }
 
 type ExecCalls struct {

@@ -2168,7 +2168,6 @@ func autoConvert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_Appl
 		return err
 	}
 	out.Endpoints = *(*[]softwarecomposition.HTTPEndpoint)(unsafe.Pointer(&in.Endpoints))
-	out.Extra = *(*map[string][]map[string]string)(unsafe.Pointer(&in.Extra))
 	return nil
 }
 
@@ -2187,7 +2186,6 @@ func autoConvert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_Appl
 		return err
 	}
 	out.Endpoints = *(*[]HTTPEndpoint)(unsafe.Pointer(&in.Endpoints))
-	out.Extra = *(*map[string][]map[string]string)(unsafe.Pointer(&in.Extra))
 	return nil
 }
 

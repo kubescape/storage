@@ -240,29 +240,6 @@ func (in *ApplicationProfileContainer) DeepCopyInto(out *ApplicationProfileConta
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Extra != nil {
-		in, out := &in.Extra, &out.Extra
-		*out = make(map[string][]map[string]string, len(*in))
-		for key, val := range *in {
-			var outVal []map[string]string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				in, out := &val, &outVal
-				*out = make([]map[string]string, len(*in))
-				for i := range *in {
-					if (*in)[i] != nil {
-						in, out := &(*in)[i], &(*out)[i]
-						*out = make(map[string]string, len(*in))
-						for key, val := range *in {
-							(*out)[key] = val
-						}
-					}
-				}
-			}
-			(*out)[key] = outVal
-		}
-	}
 	return
 }
 
