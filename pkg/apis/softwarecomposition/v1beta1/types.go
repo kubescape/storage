@@ -270,7 +270,8 @@ type ApplicationProfileContainer struct {
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty"`
 	// +patchMergeKey=endpoint
 	// +patchStrategy=merge
-	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint"`
+	Endpoints []HTTPEndpoint                 `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint"`
+	Extra     map[string][]map[string]string `json:"extra,omitempty"`
 }
 
 type ExecCalls struct {

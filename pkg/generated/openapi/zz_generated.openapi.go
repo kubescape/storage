@@ -657,6 +657,36 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 							},
 						},
 					},
+					"extra": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"array"},
+										Items: &spec.SchemaOrArray{
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Type: []string{"object"},
+													AdditionalProperties: &spec.SchemaOrBool{
+														Allows: true,
+														Schema: &spec.Schema{
+															SchemaProps: spec.SchemaProps{
+																Default: "",
+																Type:    []string{"string"},
+																Format:  "",
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints"},
 			},

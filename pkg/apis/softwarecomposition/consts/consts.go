@@ -4,7 +4,7 @@ type NetworkDirection string
 
 const (
 	Inbound  NetworkDirection = "inbound"
-	Outbound NetworkDirection = "inbound"
+	Outbound NetworkDirection = "outbound"
 )
 
 type IsInternal string
