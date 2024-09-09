@@ -371,7 +371,7 @@ func TestHTTPEndpoint_String(t *testing.T) {
 			e: HTTPEndpoint{
 				Endpoint:  "/api/v1/users",
 				Methods:   []string{"GET", "POST"},
-				Internal:  consts.True,
+				Internal:  true,
 				Direction: consts.Inbound,
 				Headers: map[string][]string{
 					"Content-Type":  {"application/json"},

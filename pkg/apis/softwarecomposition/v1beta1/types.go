@@ -212,7 +212,9 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
 	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
-	Endpoints      []HTTPEndpoint       `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	// +patchStrategy=merge
+	// +patchMergeKey=endpoint
+	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
 }
 
 type ExecCalls struct {
