@@ -478,7 +478,7 @@ type SBOMSyftFiltered struct {
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	Spec   SBOMSyftSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status SBOMSyftStatus `json:"status,omitempty\t" protobuf:"bytes,3,opt,name=status"`
+	Status SBOMSyftStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

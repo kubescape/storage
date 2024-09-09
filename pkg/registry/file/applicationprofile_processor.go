@@ -51,7 +51,7 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer) softwarecomposition.ApplicationProfileContainer {
 	endpoints, err := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer())
 	if err != nil {
-		logger.L().Debug("failed to analyze endpoints", loggerhelpers.Error(err))
+		logger.L().Warning("failed to analyze endpoints", loggerhelpers.Error(err))
 		endpoints = container.Endpoints
 	}
 	return softwarecomposition.ApplicationProfileContainer{
