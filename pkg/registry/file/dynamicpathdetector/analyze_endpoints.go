@@ -109,6 +109,7 @@ func getEndpointKey(endpoint *types.HTTPEndpoint) string {
 }
 
 func mergeHeaders(existing, new *types.HTTPEndpoint) {
+	// TODO: Find a better way to unmashal the headers
 	existingHeaders, err := existing.GetHeaders()
 	if err != nil {
 		return
