@@ -11,8 +11,7 @@ import (
 )
 
 func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) ([]types.HTTPEndpoint, error) {
-	var newEndpoints []types.HTTPEndpoint
-	MergeDuplicateEndpoints(endpoints)
+	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range *endpoints {
 		AnalyzeURL(endpoint.Endpoint, analyzer)
 	}
@@ -22,14 +21,19 @@ func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) (
 		if processedEndpoint == nil && err == nil || err != nil {
 			continue
 		} else {
-			newEndpoints = append(newEndpoints, *processedEndpoint)
+			newEndpoints = append(newEndpoints, processedEndpoint)
 		}
 	}
 
-	return newEndpoints, nil
+	newEndpoints, err := MergeDuplicateEndpoints(newEndpoints)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertPointerToValueSlice(newEndpoints), nil
 }
 
-func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEndpoints []types.HTTPEndpoint) (*types.HTTPEndpoint, error) {
+func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEndpoints []*types.HTTPEndpoint) (*types.HTTPEndpoint, error) {
 	url, err := AnalyzeURL(endpoint.Endpoint, analyzer)
 	if err != nil {
 		return nil, err
@@ -41,7 +45,7 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 		for i, e := range newEndpoints {
 			if e.Endpoint == url {
 				newEndpoints[i].Methods = mergeMethods(e.Methods, endpoint.Methods)
-				mergeHeaders(&e, endpoint)
+				mergeHeaders(e, endpoint)
 				return nil, nil
 			}
 		}
@@ -65,6 +69,10 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 		urlString = "http://" + urlString
 	}
 
+	if err := isValidURL(urlString); err != nil {
+		return "", err
+	}
+
 	parsedURL, err := url.Parse(urlString)
 	if err != nil {
 		return "", err
@@ -79,12 +87,10 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 	return hostname + path, nil
 }
 
-func MergeDuplicateEndpoints(endpoints *[]types.HTTPEndpoint) {
+func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) ([]*types.HTTPEndpoint, error) {
 	seen := make(map[string]*types.HTTPEndpoint)
-	newEndpoints := make([]types.HTTPEndpoint, 0)
-
-	for i := range *endpoints {
-		endpoint := &(*endpoints)[i]
+	var newEndpoints []*types.HTTPEndpoint
+	for _, endpoint := range endpoints {
 		key := getEndpointKey(endpoint)
 
 		if existing, found := seen[key]; found {
@@ -92,11 +98,10 @@ func MergeDuplicateEndpoints(endpoints *[]types.HTTPEndpoint) {
 			mergeHeaders(existing, endpoint)
 		} else {
 			seen[key] = endpoint
-			newEndpoints = append(newEndpoints, *endpoint)
+			newEndpoints = append(newEndpoints, endpoint)
 		}
 	}
-
-	*endpoints = newEndpoints
+	return newEndpoints, nil
 }
 
 func getEndpointKey(endpoint *types.HTTPEndpoint) string {
@@ -143,5 +148,21 @@ func mergeMethods(existing, new []string) []string {
 			methodSet[m] = true
 		}
 	}
+
 	return existing
+}
+
+func convertPointerToValueSlice(m []*types.HTTPEndpoint) []types.HTTPEndpoint {
+	result := make([]types.HTTPEndpoint, 0, len(m))
+	for _, v := range m {
+		if v != nil {
+			result = append(result, *v)
+		}
+	}
+	return result
+}
+
+func isValidURL(rawURL string) error {
+	_, err := url.ParseRequestURI(rawURL)
+	return err
 }

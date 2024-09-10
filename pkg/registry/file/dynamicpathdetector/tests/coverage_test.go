@@ -8,14 +8,14 @@ import (
 )
 
 func TestNewPathAnalyzer(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 	if analyzer == nil {
 		t.Error("NewPathAnalyzer() returned nil")
 	}
 }
 
 func TestAnalyzePath(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	testCases := []struct {
 		name       string
@@ -43,7 +43,7 @@ func TestAnalyzePath(t *testing.T) {
 }
 
 func TestDynamicSegments(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	// Create 99 different paths under the 'users' segment
 	for i := 0; i < 101; i++ {
@@ -74,7 +74,7 @@ func TestDynamicSegments(t *testing.T) {
 }
 
 func TestMultipleDynamicSegments(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	// Create 99 different paths for both 'users' and 'posts' segments
 	for i := 0; i < 110; i++ {
@@ -98,7 +98,7 @@ func TestMultipleDynamicSegments(t *testing.T) {
 }
 
 func TestMixedStaticAndDynamicSegments(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	// Create 99 different paths for 'users' but keep 'posts' static
 	for i := 0; i < 101; i++ {
@@ -122,7 +122,7 @@ func TestMixedStaticAndDynamicSegments(t *testing.T) {
 }
 
 func TestDifferentRootIdentifiers(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	// Analyze paths with different root identifiers
 	result1, _ := analyzer.AnalyzePath("/api/users/123", "api")
@@ -138,7 +138,7 @@ func TestDifferentRootIdentifiers(t *testing.T) {
 }
 
 func TestDynamicThreshold(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	for i := 0; i < 101; i++ {
 		path := fmt.Sprintf("/api/users/%d", i)
@@ -155,7 +155,7 @@ func TestDynamicThreshold(t *testing.T) {
 }
 
 func TestEdgeCases(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	testCases := []struct {
 		name       string
@@ -179,4 +179,29 @@ func TestEdgeCases(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDynamicInsertion(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+
+	// Insert a new path with a different identifier
+	result, err := analyzer.AnalyzePath("/api/users/<dynamic>", "api")
+	if err != nil {
+		t.Errorf("AnalyzePath() returned an error: %v", err)
+	}
+	expected := "/api/users/<dynamic>"
+	if result != expected {
+		t.Errorf("AnalyzePath(\"/api/users/<dynamic>\", \"api\") = %q, want %q", result, expected)
+	}
+
+	// Insert a new path with the same identifier
+	result, err = analyzer.AnalyzePath("/api/users/102", "api")
+	if err != nil {
+		t.Errorf("AnalyzePath() returned an error: %v", err)
+	}
+	expected = "/api/users/<dynamic>"
+	if result != expected {
+		t.Errorf("AnalyzePath(\"/api/users/<dynamic>\", \"api\") = %q, want %q", result, expected)
+	}
+
 }

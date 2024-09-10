@@ -10,16 +10,10 @@ import (
 )
 
 func BenchmarkAnalyzePath(b *testing.B) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer()
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 	paths := generateMixedPaths(10000, 0) // 0 means use default mixed lengths
 
 	identifier := "test"
-
-	// Ensure we analyze at least 10,000 paths
-	minIterations := 10000
-	if b.N < minIterations {
-		b.N = minIterations
-	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -36,15 +30,9 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 	for _, length := range pathLengths {
 		b.Run(fmt.Sprintf("PathLength-%d", length), func(b *testing.B) {
-			analyzer := dynamicpathdetector.NewPathAnalyzer()
+			analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 			paths := generateMixedPaths(10000, length)
 			identifier := "test"
-
-			// Ensure we analyze at least 10,000 paths
-			minIterations := 10000
-			if b.N < minIterations {
-				b.N = minIterations
-			}
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {

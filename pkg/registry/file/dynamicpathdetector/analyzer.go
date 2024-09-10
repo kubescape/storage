@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-func NewPathAnalyzer() *PathAnalyzer {
+func NewPathAnalyzer(threshold int) *PathAnalyzer {
 	return &PathAnalyzer{
 		RootNodes: make(map[string]*SegmentNode),
-		threshold: 100,
+		threshold: threshold,
 	}
 }
 func (ua *PathAnalyzer) AnalyzePath(path, identifier string) (string, error) {
