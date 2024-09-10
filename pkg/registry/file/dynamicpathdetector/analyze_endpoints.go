@@ -11,6 +11,10 @@ import (
 )
 
 func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) ([]types.HTTPEndpoint, error) {
+	if len(*endpoints) == 0 {
+		return nil, nil
+	}
+
 	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range *endpoints {
 		AnalyzeURL(endpoint.Endpoint, analyzer)
