@@ -48,7 +48,7 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 		// Check if this dynamic exists
 		for i, e := range newEndpoints {
 			if e.Endpoint == url {
-				newEndpoints[i].Methods = mergeMethods(e.Methods, endpoint.Methods)
+				newEndpoints[i].Methods = MergeStrings(e.Methods, endpoint.Methods)
 				mergeHeaders(e, endpoint)
 				return nil, nil
 			}
@@ -98,7 +98,7 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) ([]*types.HTTPEndp
 		key := getEndpointKey(endpoint)
 
 		if existing, found := seen[key]; found {
-			existing.Methods = mergeMethods(existing.Methods, endpoint.Methods)
+			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
 			mergeHeaders(existing, endpoint)
 		} else {
 			seen[key] = endpoint
@@ -140,21 +140,6 @@ func mergeHeaders(existing, new *types.HTTPEndpoint) {
 	}
 
 	existing.Headers = rawJSON
-}
-
-func mergeMethods(existing, new []string) []string {
-	methodSet := make(map[string]bool)
-	for _, m := range existing {
-		methodSet[m] = true
-	}
-	for _, m := range new {
-		if !methodSet[m] {
-			existing = append(existing, m)
-			methodSet[m] = true
-		}
-	}
-
-	return existing
 }
 
 func convertPointerToValueSlice(m []*types.HTTPEndpoint) []types.HTTPEndpoint {

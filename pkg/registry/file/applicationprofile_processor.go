@@ -13,6 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const (
+	OpenDynamicThreshold     = 50
+	EndpointDynamicThreshold = 100
+)
+
 type ApplicationProfileProcessor struct {
 }
 
@@ -58,7 +63,7 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		Name:           container.Name,
 		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),
 		Execs:          deflateStringer(container.Execs),
-		Opens:          deflateStringer(container.Opens),
+		Opens:          opens,
 		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
 		SeccompProfile: container.SeccompProfile,
 		Endpoints:      endpoints,
