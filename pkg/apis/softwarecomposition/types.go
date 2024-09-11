@@ -17,9 +17,12 @@ limitations under the License.
 package softwarecomposition
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -227,6 +230,7 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls
 	Syscalls       []string
 	SeccompProfile SingleSeccompProfile
+	Endpoints      []HTTPEndpoint
 }
 
 type ExecCalls struct {
@@ -614,6 +618,85 @@ type Arg struct {
 	ValueTwo uint64
 	// the operator for syscall arguments in seccomp
 	Op seccomp.Operator
+}
+
+type HTTPEndpoint struct {
+	Endpoint  string
+	Methods   []string
+	Internal  bool
+	Direction consts.NetworkDirection
+	Headers   json.RawMessage
+}
+
+func (e *HTTPEndpoint) GetHeaders() (map[string][]string, error) {
+	headers := make(map[string][]string)
+
+	// Unmarshal the JSON into the map
+	err := json.Unmarshal([]byte(e.Headers), &headers)
+	if err != nil {
+		return nil, err
+	}
+	return headers, nil
+}
+
+func (e *HTTPEndpoint) Equal(other *HTTPEndpoint) bool {
+	if e == nil || other == nil {
+		return e == other
+	}
+	return e.Endpoint == other.Endpoint && e.Direction == other.Direction && e.Internal == other.Internal
+}
+
+func (e HTTPEndpoint) String() string {
+	const sep = "␟"
+	var s strings.Builder
+
+	// Append Endpoint
+	s.WriteString(e.Endpoint)
+
+	// Append Methods
+	if len(e.Methods) > 0 {
+		if s.Len() > 0 {
+			s.WriteString(sep)
+		}
+		s.WriteString(strings.Join(e.Methods, ","))
+	}
+
+	// Append Internal status
+	if e.Internal {
+		if s.Len() > 0 {
+			s.WriteString(sep)
+		}
+		s.WriteString("Internal")
+	}
+
+	// Append Direction
+	if e.Direction != "" {
+		if s.Len() > 0 {
+			s.WriteString(sep)
+		}
+		// Capitalize the first letter of the direction
+		s.WriteString(strings.Title(string(e.Direction)))
+	}
+
+	headers, err := e.GetHeaders()
+	if err == nil {
+		// Append Headers
+		if len(headers) > 0 {
+			// Define the order of headers
+			orderedHeaders := []string{"Content-Type", "Authorization"}
+
+			for _, k := range orderedHeaders {
+				if values, ok := headers[k]; ok {
+					if s.Len() > 0 {
+						s.WriteString(sep)
+					}
+					s.WriteString(fmt.Sprintf("%s: %s", k, strings.Join(values, ",")))
+				}
+			}
+		}
+	}
+
+	return s.String()
 }
 
 type SpecBase struct {
