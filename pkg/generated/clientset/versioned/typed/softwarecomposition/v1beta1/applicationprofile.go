@@ -181,6 +181,7 @@ func (c *applicationProfiles) DeleteCollection(ctx context.Context, opts v1.Dele
 
 // Patch applies the patch and returns the patched applicationProfile.
 func (c *applicationProfiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ApplicationProfile, err error) {
+
 	result = &v1beta1.ApplicationProfile{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
@@ -191,5 +192,6 @@ func (c *applicationProfiles) Patch(ctx context.Context, name string, pt types.P
 		Body(data).
 		Do(ctx).
 		Into(result)
-	return
+	
+	return result, err
 }

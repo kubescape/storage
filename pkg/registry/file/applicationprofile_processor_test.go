@@ -7,6 +7,7 @@ import (
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,6 +60,15 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 							},
 							Opens: []softwarecomposition.OpenCalls{
 								{Path: "/etc/hosts", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
+							},
+							Endpoints: []softwarecomposition.HTTPEndpoint{
+								{
+									Endpoint:  "http://localhost:8080",
+									Methods:   []string{"GET"},
+									Internal:  false,
+									Direction: consts.Inbound,
+									Headers:   []byte{},
+								},
 							},
 						},
 					},
@@ -115,6 +125,15 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 								{Path: "/etc/hosts", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
 							},
 							Syscalls: []string{},
+							Endpoints: []softwarecomposition.HTTPEndpoint{
+								{
+									Endpoint:  "localhost/",
+									Methods:   []string{"GET"},
+									Internal:  false,
+									Direction: consts.Inbound,
+									Headers:   []byte{},
+								},
+							},
 						},
 					},
 				},

@@ -1,8 +1,10 @@
 package softwarecomposition
 
 import (
+	"encoding/json"
 	"testing"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -342,6 +344,52 @@ func TestOpenCalls_String(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, tt.o.String(), "String()")
+		})
+	}
+}
+
+func TestHTTPEndpoint_String(t *testing.T) {
+	headers := map[string][]string{
+		"Content-Type":  {"application/json"},
+		"Authorization": {"Bearer token123", "ApiKey abcdef"},
+	}
+
+	rawJSON, _ := json.Marshal(headers)
+
+	tests := []struct {
+		name string
+		e    HTTPEndpoint
+		want string
+	}{
+		{
+			name: "Empty",
+			e:    HTTPEndpoint{},
+			want: "",
+		},
+		{
+			name: "Endpoint and Methods only",
+			e: HTTPEndpoint{
+				Endpoint: "/api/v1/users",
+				Methods:  []string{"GET", "POST"},
+			},
+			want: "/api/v1/users␟GET,POST",
+		},
+		{
+
+			name: "Full HTTPEndpoint",
+			e: HTTPEndpoint{
+				Endpoint:  "/api/v1/users",
+				Methods:   []string{"GET", "POST"},
+				Internal:  true,
+				Direction: consts.Inbound,
+				Headers:   rawJSON,
+			},
+			want: "/api/v1/users␟GET,POST␟Internal␟Inbound␟Content-Type: application/json␟Authorization: Bearer token123,ApiKey abcdef",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, tt.e.String(), "String()")
 		})
 	}
 }
