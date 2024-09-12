@@ -43,7 +43,7 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, segments []string) st
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
 
 	switch {
-	case segment == dynamicIdentifier:
+	case segment == DynamicIdentifier:
 		return ua.handleDynamicSegment(node)
 	case KeyInMap(node.Children, segment) || node.IsNextDynamic():
 		child, exists := node.Children[segment]
@@ -58,7 +58,7 @@ func (ua *PathAnalyzer) handleExistingSegment(node *SegmentNode, child *SegmentN
 	if exists {
 		return child
 	} else {
-		return node.Children[dynamicIdentifier]
+		return node.Children[DynamicIdentifier]
 	}
 }
 
@@ -74,7 +74,7 @@ func (ua *PathAnalyzer) handleNewSegment(node *SegmentNode, segment string) *Seg
 }
 
 func (ua *PathAnalyzer) handleDynamicSegment(node *SegmentNode) *SegmentNode {
-	if dynamicChild, exists := node.Children[dynamicIdentifier]; exists {
+	if dynamicChild, exists := node.Children[DynamicIdentifier]; exists {
 		return dynamicChild
 	} else {
 		return ua.createDynamicNode(node)
@@ -83,7 +83,7 @@ func (ua *PathAnalyzer) handleDynamicSegment(node *SegmentNode) *SegmentNode {
 
 func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 	dynamicNode := &SegmentNode{
-		SegmentName: dynamicIdentifier,
+		SegmentName: DynamicIdentifier,
 		Count:       0,
 		Children:    make(map[string]*SegmentNode),
 	}
@@ -95,7 +95,7 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 
 	// Replace all children with the new dynamic node
 	node.Children = map[string]*SegmentNode{
-		dynamicIdentifier: dynamicNode,
+		DynamicIdentifier: dynamicNode,
 	}
 
 	return dynamicNode
@@ -105,7 +105,7 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 	if node.Count > ua.threshold && !node.IsNextDynamic() {
 
 		dynamicChild := &SegmentNode{
-			SegmentName: dynamicIdentifier,
+			SegmentName: DynamicIdentifier,
 			Count:       0,
 			Children:    make(map[string]*SegmentNode),
 		}
@@ -116,7 +116,7 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 		}
 
 		node.Children = map[string]*SegmentNode{
-			dynamicIdentifier: dynamicChild,
+			DynamicIdentifier: dynamicChild,
 		}
 	}
 }
