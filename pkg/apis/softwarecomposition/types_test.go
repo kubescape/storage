@@ -393,3 +393,86 @@ func TestHTTPEndpoint_String(t *testing.T) {
 		})
 	}
 }
+
+func TestApplicationProfileContainerExtra(t *testing.T) {
+	tests := []struct {
+		name      string
+		container ApplicationProfileContainer
+		wantJSON  string
+	}{
+		{
+			name: "Empty Extra",
+			container: ApplicationProfileContainer{
+				Name: "test-container",
+				SeccompProfile: SingleSeccompProfile{
+					Spec: SingleSeccompProfileSpec{
+						SpecBase: SpecBase{
+							Disabled: false,
+						},
+					},
+				},
+			},
+			wantJSON: `{"Name":"test-container","Capabilities":null,"Execs":null,"Opens":null,"Syscalls":null,"SeccompProfile":{"Name":"","Path":"","Spec":{"Disabled":false,"BaseProfileName":"","DefaultAction":"","Architectures":null,"ListenerPath":"","ListenerMetadata":"","Syscalls":null,"Flags":null}},"Endpoints":null,"Extra":null}`,
+		},
+		{
+			name: "Extra with string data",
+			container: ApplicationProfileContainer{
+				Name:  "test-container",
+				Extra: json.RawMessage(`"extra string data"`),
+				SeccompProfile: SingleSeccompProfile{
+					Spec: SingleSeccompProfileSpec{
+						SpecBase: SpecBase{
+							Disabled: false,
+						},
+					},
+				},
+			},
+			wantJSON: `{"Name":"test-container","Capabilities":null,"Execs":null,"Opens":null,"Syscalls":null,"SeccompProfile":{"Name":"","Path":"","Spec":{"Disabled":false,"BaseProfileName":"","DefaultAction":"","Architectures":null,"ListenerPath":"","ListenerMetadata":"","Syscalls":null,"Flags":null}},"Endpoints":null,"Extra":"extra string data"}`,
+		},
+		{
+			name: "Extra with object data",
+			container: ApplicationProfileContainer{
+				Name:  "test-container",
+				Extra: json.RawMessage(`{"key1":"value1","key2":42}`),
+				SeccompProfile: SingleSeccompProfile{
+					Spec: SingleSeccompProfileSpec{
+						SpecBase: SpecBase{
+							Disabled: false,
+						},
+					},
+				},
+			},
+			wantJSON: `{"Name":"test-container","Capabilities":null,"Execs":null,"Opens":null,"Syscalls":null,"SeccompProfile":{"Name":"","Path":"","Spec":{"Disabled":false,"BaseProfileName":"","DefaultAction":"","Architectures":null,"ListenerPath":"","ListenerMetadata":"","Syscalls":null,"Flags":null}},"Endpoints":null,"Extra":{"key1":"value1","key2":42}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test marshaling
+			got, err := json.Marshal(tt.container)
+			assert.NoError(t, err)
+			assert.JSONEq(t, tt.wantJSON, string(got))
+
+			// Test unmarshaling
+			var unmarshaledContainer ApplicationProfileContainer
+			err = json.Unmarshal([]byte(tt.wantJSON), &unmarshaledContainer)
+			assert.NoError(t, err)
+
+			// Compare the unmarshaled container with the original
+			assert.Equal(t, tt.container.Name, unmarshaledContainer.Name)
+			assert.Equal(t, tt.container.Capabilities, unmarshaledContainer.Capabilities)
+			assert.Equal(t, tt.container.Execs, unmarshaledContainer.Execs)
+			assert.Equal(t, tt.container.Opens, unmarshaledContainer.Opens)
+			assert.Equal(t, tt.container.Syscalls, unmarshaledContainer.Syscalls)
+			assert.Equal(t, tt.container.SeccompProfile, unmarshaledContainer.SeccompProfile)
+			assert.Equal(t, tt.container.Endpoints, unmarshaledContainer.Endpoints)
+
+			// Compare Extra field separately
+			if tt.container.Extra == nil {
+				assert.Equal(t, json.RawMessage("null"), unmarshaledContainer.Extra)
+			} else {
+				assert.JSONEq(t, string(tt.container.Extra), string(unmarshaledContainer.Extra))
+			}
+		})
+	}
+}

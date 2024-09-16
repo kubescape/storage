@@ -231,6 +231,7 @@ type ApplicationProfileContainer struct {
 	Syscalls       []string
 	SeccompProfile SingleSeccompProfile
 	Endpoints      []HTTPEndpoint
+	Extra          json.RawMessage
 }
 
 type ExecCalls struct {
