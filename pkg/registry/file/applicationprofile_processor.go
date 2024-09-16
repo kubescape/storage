@@ -44,6 +44,10 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 
 	profile.Spec.Architectures = mapset.Sorted(mapset.NewThreadUnsafeSet(profile.Spec.Architectures...))
 
+	// make sure annotations are initialized
+	if profile.Annotations == nil {
+		profile.Annotations = make(map[string]string)
+	}
 	profile.Annotations[helpers.ResourceSizeMetadataKey] = strconv.Itoa(size)
 	return nil
 }
