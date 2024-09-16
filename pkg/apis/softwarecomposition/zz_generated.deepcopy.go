@@ -206,6 +206,11 @@ func (in *ApplicationProfileContainer) DeepCopyInto(out *ApplicationProfileConta
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Extra != nil {
+		in, out := &in.Extra, &out.Extra
+		*out = make(json.RawMessage, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

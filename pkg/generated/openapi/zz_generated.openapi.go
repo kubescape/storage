@@ -556,6 +556,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 							},
 						},
 					},
+					"extra": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
 				},
 				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints"},
 			},

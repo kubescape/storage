@@ -84,6 +84,8 @@ message ApplicationProfileContainer {
   // +patchStrategy=merge
   // +patchMergeKey=endpoint
   repeated HTTPEndpoint endpoints = 7;
+
+  optional bytes extra = 8;
 }
 
 message ApplicationProfileList {

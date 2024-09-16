@@ -216,7 +216,8 @@ type ApplicationProfileContainer struct {
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
 	// +patchStrategy=merge
 	// +patchMergeKey=endpoint
-	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	Endpoints []HTTPEndpoint  `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	Extra     json.RawMessage `json:"extra,omitempty" protobuf:"bytes,8,opt,name=extra"`
 }
 
 type ExecCalls struct {
