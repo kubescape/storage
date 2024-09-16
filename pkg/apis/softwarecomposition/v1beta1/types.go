@@ -17,7 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"encoding/json"
+
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -211,6 +214,9 @@ type ApplicationProfileContainer struct {
 	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
 	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
+	// +patchStrategy=merge
+	// +patchMergeKey=endpoint
+	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
 }
 
 type ExecCalls struct {
@@ -558,6 +564,25 @@ type Syscall struct {
 	ErrnoRet uint64 `json:"errnoRet,omitempty" protobuf:"bytes,3,opt,name=errnoRet"`
 	// the specific syscall in seccomp
 	Args []*Arg `json:"args,omitempty" protobuf:"bytes,4,rep,name=args"`
+}
+
+type HTTPEndpoint struct {
+	Endpoint  string                  `json:"endpoint,omitempty" protobuf:"bytes,1,opt,name=endpoint"`
+	Methods   []string                `json:"methods,omitempty" protobuf:"bytes,2,opt,name=methods"`
+	Internal  bool                    `json:"internal" protobuf:"bytes,3,opt,name=internal"`
+	Direction consts.NetworkDirection `json:"direction,omitempty" protobuf:"bytes,4,opt,name=direction"`
+	Headers   json.RawMessage         `json:"headers,omitempty" protobuf:"bytes,5,opt,name=headers"`
+}
+
+func (e *HTTPEndpoint) GetHeaders() (map[string][]string, error) {
+	headers := make(map[string][]string)
+
+	// Unmarshal the JSON into the map
+	err := json.Unmarshal([]byte(e.Headers), &headers)
+	if err != nil {
+		return nil, err
+	}
+	return headers, nil
 }
 
 // Arg defines the specific syscall in seccomp.

@@ -5,8 +5,11 @@ import (
 	"strconv"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/kubescape/go-logger"
+	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -46,6 +49,11 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer) softwarecomposition.ApplicationProfileContainer {
+	endpoints, err := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(100))
+	if err != nil {
+		logger.L().Warning("failed to analyze endpoints", loggerhelpers.Error(err))
+		endpoints = container.Endpoints
+	}
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
 		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),
@@ -53,5 +61,6 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		Opens:          deflateStringer(container.Opens),
 		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
 		SeccompProfile: container.SeccompProfile,
+		Endpoints:      endpoints,
 	}
 }
