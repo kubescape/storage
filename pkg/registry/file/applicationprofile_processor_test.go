@@ -63,7 +63,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 							},
 							Endpoints: []softwarecomposition.HTTPEndpoint{
 								{
-									Endpoint:  "http://localhost:8080",
+									Endpoint:  ":443/abc",
 									Methods:   []string{"GET"},
 									Internal:  false,
 									Direction: consts.Inbound,
@@ -127,7 +127,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 							Syscalls: []string{},
 							Endpoints: []softwarecomposition.HTTPEndpoint{
 								{
-									Endpoint:  "localhost/",
+									Endpoint:  ":443/abc",
 									Methods:   []string{"GET"},
 									Internal:  false,
 									Direction: consts.Inbound,

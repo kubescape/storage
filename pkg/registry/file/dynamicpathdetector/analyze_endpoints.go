@@ -82,13 +82,13 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 		return "", err
 	}
 
-	hostname := parsedURL.Hostname()
+	port := parsedURL.Port()
 
-	path, _ := analyzer.AnalyzePath(parsedURL.Path, hostname)
+	path, _ := analyzer.AnalyzePath(parsedURL.Path, port)
 	if path == "/." {
 		path = "/"
 	}
-	return hostname + path, nil
+	return ":" + port + path, nil
 }
 
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) ([]*types.HTTPEndpoint, error) {
