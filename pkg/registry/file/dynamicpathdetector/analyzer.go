@@ -1,7 +1,7 @@
 package dynamicpathdetector
 
 import (
-	pathUtils "path"
+	"path"
 	"strings"
 )
 
@@ -11,8 +11,9 @@ func NewPathAnalyzer(threshold int) *PathAnalyzer {
 		threshold: threshold,
 	}
 }
-func (ua *PathAnalyzer) AnalyzePath(path, identifier string) (string, error) {
-	path = pathUtils.Clean(path)
+
+func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
+	p = path.Clean(p)
 	node, exists := ua.RootNodes[identifier]
 	if !exists {
 		node = &SegmentNode{
@@ -22,35 +23,40 @@ func (ua *PathAnalyzer) AnalyzePath(path, identifier string) (string, error) {
 		}
 		ua.RootNodes[identifier] = node
 	}
-
-	segments := strings.Split(strings.Trim(path, "/"), "/")
-
-	return ua.processSegments(node, segments), nil
+	return ua.processSegments(node, p), nil
 }
 
-func (ua *PathAnalyzer) processSegments(node *SegmentNode, segments []string) string {
-	resultPath := []string{}
+func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
+	var result strings.Builder
 	currentNode := node
-	for _, segment := range segments {
+	start := 0
+	for i := range p {
+		if p[i] == '/' {
+			segment := p[start:i]
+			currentNode = ua.processSegment(currentNode, segment)
+			ua.updateNodeStats(currentNode)
+			result.WriteString(currentNode.SegmentName)
+			result.WriteByte('/')
+			start = i + 1
+		}
+	}
+	// Process the last segment
+	if start < len(p) {
+		segment := p[start:]
 		currentNode = ua.processSegment(currentNode, segment)
 		ua.updateNodeStats(currentNode)
-		resultPath = append(resultPath, currentNode.SegmentName)
+		result.WriteString(currentNode.SegmentName)
 	}
-	return "/" + strings.Join(resultPath, "/")
-
+	return result.String()
 }
 
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
-
-	switch {
-	case segment == DynamicIdentifier:
+	if segment == DynamicIdentifier {
 		return ua.handleDynamicSegment(node)
-	case KeyInMap(node.Children, segment) || node.IsNextDynamic():
-		child, exists := node.Children[segment]
+	} else if child, exists := node.Children[segment]; exists || node.IsNextDynamic() {
 		return ua.handleExistingSegment(node, child, exists)
-	default:
+	} else {
 		return ua.handleNewSegment(node, segment)
-
 	}
 }
 
@@ -103,7 +109,6 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 
 func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 	if node.Count > ua.threshold && !node.IsNextDynamic() {
-
 		dynamicChild := &SegmentNode{
 			SegmentName: DynamicIdentifier,
 			Count:       0,
@@ -123,16 +128,11 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 
 func shallowChildrenCopy(src, dst *SegmentNode) {
 	for segmentName := range src.Children {
-		if !KeyInMap(dst.Children, segmentName) {
+		if _, ok := dst.Children[segmentName]; !ok {
 			dst.Children[segmentName] = src.Children[segmentName]
 		} else {
 			dst.Children[segmentName].Count += src.Children[segmentName].Count
 			shallowChildrenCopy(src.Children[segmentName], dst.Children[segmentName])
 		}
 	}
-}
-
-func KeyInMap[T any](TestMap map[string]T, key string) bool {
-	_, ok := TestMap[key]
-	return ok
 }

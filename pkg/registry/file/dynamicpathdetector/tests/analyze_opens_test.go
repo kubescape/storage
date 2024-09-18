@@ -21,7 +21,8 @@ func TestAnalyzeOpensWithThreshold(t *testing.T) {
 
 	expected := []types.OpenCalls{
 		{
-			Path: "/home/<dynamic>/file.txt",
+			Path:  "/home/<dynamic>/file.txt",
+			Flags: []string{},
 		},
 	}
 
@@ -45,7 +46,7 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 				{Path: "/home/user4/file.txt", Flags: []string{"READ", "WRITE"}},
 			},
 			expected: []types.OpenCalls{
-				{Path: "/home/<dynamic>/file.txt", Flags: []string{"READ", "WRITE", "APPEND"}},
+				{Path: "/home/<dynamic>/file.txt", Flags: []string{"APPEND", "READ", "WRITE"}},
 			},
 		},
 		{
@@ -70,7 +71,7 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 				{Path: "/var/log/app2.log", Flags: []string{"WRITE"}},
 			},
 			expected: []types.OpenCalls{
-				{Path: "/home/<dynamic>/common.txt", Flags: []string{"READ", "WRITE", "APPEND"}},
+				{Path: "/home/<dynamic>/common.txt", Flags: []string{"APPEND", "READ", "WRITE"}},
 				{Path: "/var/log/app1.log", Flags: []string{"READ"}},
 				{Path: "/var/log/app2.log", Flags: []string{"WRITE"}},
 			},
@@ -88,8 +89,8 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 				{Path: "/home/user4/file2.txt", Flags: []string{"READ", "WRITE"}},
 			},
 			expected: []types.OpenCalls{
-				{Path: "/home/<dynamic>/file1.txt", Flags: []string{"READ", "WRITE", "APPEND"}},
-				{Path: "/home/<dynamic>/file2.txt", Flags: []string{"READ", "WRITE", "APPEND"}},
+				{Path: "/home/<dynamic>/file1.txt", Flags: []string{"APPEND", "READ", "WRITE"}},
+				{Path: "/home/<dynamic>/file2.txt", Flags: []string{"APPEND", "READ", "WRITE"}},
 			},
 		},
 	}

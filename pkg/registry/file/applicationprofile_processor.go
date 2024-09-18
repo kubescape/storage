@@ -58,9 +58,7 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer) softwarecomposition.ApplicationProfileContainer {
-	opens := DeflateStringer(container.Opens)
-
-	opens, err := dynamicpathdetector.AnalyzeOpens(opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold))
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold))
 	if err != nil {
 		logger.L().Warning("failed to analyze opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
@@ -70,12 +68,11 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		opens = []softwarecomposition.OpenCalls{}
 	}
 
-	endpoints, err := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(100))
+	endpoints, err := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
 	if err != nil {
 		logger.L().Warning("failed to analyze endpoints", loggerhelpers.Error(err))
 		endpoints = container.Endpoints
 	}
-
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
 		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),

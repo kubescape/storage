@@ -59,6 +59,7 @@ func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 			_ = file.DeflateStringer(paths)
 			_, _ = dynamicpathdetector.AnalyzeOpens(paths, analyzer)
 		}
+		b.ReportAllocs()
 	})
 
 	b.Run("deflateStringer", func(b *testing.B) {
@@ -66,6 +67,7 @@ func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			_ = file.DeflateStringer(paths)
 		}
+		b.ReportAllocs()
 	})
 }
 
