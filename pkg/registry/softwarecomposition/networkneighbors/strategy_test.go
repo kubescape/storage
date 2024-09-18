@@ -2,11 +2,11 @@ package networkneighbors
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -84,9 +84,7 @@ func TestPrepareForUpdate(t *testing.T) {
 			old := &softwarecomposition.NetworkNeighbors{ObjectMeta: metav1.ObjectMeta{Annotations: tt.oldAnnotations}}
 
 			s.PrepareForUpdate(context.Background(), obj, old)
-			if !reflect.DeepEqual(obj.Annotations, tt.expected) {
-				t.Errorf("PrepareForUpdate() = %v, want %v", obj.Annotations, tt.expected)
-			}
+			assert.Equal(t, tt.expected, obj.Annotations)
 		})
 	}
 }

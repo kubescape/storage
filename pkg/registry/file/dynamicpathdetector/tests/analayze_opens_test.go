@@ -2,11 +2,11 @@ package dynamicpathdetectortests
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAnalyzeOpensWithThreshold(t *testing.T) {
@@ -26,13 +26,8 @@ func TestAnalyzeOpensWithThreshold(t *testing.T) {
 	}
 
 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer)
-	if err != nil {
-		t.Errorf("AnalyzeOpens() error = %v", err)
-		return
-	}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("AnalyzeOpens() = %v, want %v", result, expected)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
 }
 
 func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
@@ -103,20 +98,13 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			analyzer := dynamicpathdetector.NewPathAnalyzer(3)
 			result, err := dynamicpathdetector.AnalyzeOpens(tt.input, analyzer)
-			if err != nil {
-				t.Errorf("AnalyzeOpens() error = %v", err)
-				return
-			}
+			assert.NoError(t, err)
 
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("AnalyzeOpens() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 
 			// Additional check for flag uniqueness
 			for _, openCall := range result {
-				if !areStringSlicesUnique(openCall.Flags) {
-					t.Errorf("Flags are not unique for path %s: %v", openCall.Path, openCall.Flags)
-				}
+				assert.True(t, areStringSlicesUnique(openCall.Flags), "Flags are not unique for path %s: %v", openCall.Path, openCall.Flags)
 			}
 		})
 	}

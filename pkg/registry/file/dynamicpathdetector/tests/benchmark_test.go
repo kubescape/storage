@@ -50,7 +50,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 }
 
 func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
-	paths := PathsToOpens(generateMixedPaths(10000, 0))
+	paths := pathsToOpens(generateMixedPaths(10000, 0))
 	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	b.Run("AnalyzeOpens", func(b *testing.B) {
@@ -125,7 +125,7 @@ func generateRandomString(length int) string {
 	return string(result)
 }
 
-func PathsToOpens(paths []string) []types.OpenCalls {
+func pathsToOpens(paths []string) []types.OpenCalls {
 	opens := make([]types.OpenCalls, len(paths))
 	for i, path := range paths {
 		opens[i] = types.OpenCalls{

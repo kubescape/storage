@@ -12,6 +12,7 @@ require (
 	github.com/go-logr/zapr v1.2.4
 	github.com/gogo/protobuf v1.3.2
 	github.com/goradd/maps v0.1.5
+	github.com/kinbiko/jsonassert v1.1.1
 	github.com/kubescape/go-logger v0.0.22
 	github.com/kubescape/k8s-interface v0.0.162
 	github.com/olvrng/ujson v1.1.0

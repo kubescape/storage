@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewPathAnalyzer(t *testing.T) {
@@ -32,12 +33,8 @@ func TestAnalyzePath(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := analyzer.AnalyzePath(tc.path, tc.identifier)
-			if err != nil {
-				t.Errorf("AnalyzePath(%q, %q) returned an error: %v", tc.path, tc.identifier, err)
-			}
-			if result != tc.expected {
-				t.Errorf("AnalyzePath(%q, %q) = %q, want %q", tc.path, tc.identifier, result, tc.expected)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
@@ -49,9 +46,7 @@ func TestDynamicSegments(t *testing.T) {
 	for i := 0; i < 101; i++ {
 		path := fmt.Sprintf("/api/users/%d", i)
 		_, err := analyzer.AnalyzePath(path, "api")
-		if err != nil {
-			t.Errorf("AnalyzePath() returned an error: %v", err)
-		}
+		assert.NoError(t, err)
 	}
 
 	result, err := analyzer.AnalyzePath("/api/users/101", "api")
@@ -59,18 +54,12 @@ func TestDynamicSegments(t *testing.T) {
 		t.Errorf("AnalyzePath() returned an error: %v", err)
 	}
 	expected := "/api/users/<dynamic>"
-	if result != expected {
-		t.Errorf("AnalyzePath(\"/users/101\", \"api\") = %q, want %q", result, expected)
-	}
+	assert.Equal(t, expected, result)
 
 	// Test with one of the original IDs to ensure it's also marked as dynamic
 	result, err = analyzer.AnalyzePath("/api/users/50", "api")
-	if err != nil {
-		t.Errorf("AnalyzePath() returned an error: %v", err)
-	}
-	if result != expected {
-		t.Errorf("AnalyzePath(\"/users/50\", \"api\") = %q, want %q", result, expected)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
 }
 
 func TestMultipleDynamicSegments(t *testing.T) {
@@ -87,14 +76,9 @@ func TestMultipleDynamicSegments(t *testing.T) {
 
 	// Test with the 100th unique user and post IDs (should trigger dynamic segments)
 	result, err := analyzer.AnalyzePath("/api/users/101/posts/1031", "api")
-	if err != nil {
-		t.Errorf("AnalyzePath() returned an error: %v", err)
-	}
+	assert.NoError(t, err)
 	expected := "/api/users/<dynamic>/posts/<dynamic>"
-	if result != expected {
-		t.Errorf("AnalyzePath(\"/users/99/posts/99\", \"api\") = %q, want %q", result, expected)
-	}
-
+	assert.Equal(t, expected, result)
 }
 
 func TestMixedStaticAndDynamicSegments(t *testing.T) {
@@ -111,14 +95,9 @@ func TestMixedStaticAndDynamicSegments(t *testing.T) {
 
 	// Test with the 100th unique user ID but same 'posts' segment (should trigger dynamic segment for users)
 	result, err := analyzer.AnalyzePath("/api/users/99/posts", "api")
-	if err != nil {
-		t.Errorf("AnalyzePath() returned an error: %v", err)
-	}
+	assert.NoError(t, err)
 	expected := "/api/users/<dynamic>/posts"
-	if result != expected {
-		t.Errorf("AnalyzePath(\"/users/99/posts\", \"api\") = %q, want %q", result, expected)
-	}
-
+	assert.Equal(t, expected, result)
 }
 
 func TestDifferentRootIdentifiers(t *testing.T) {
@@ -128,13 +107,9 @@ func TestDifferentRootIdentifiers(t *testing.T) {
 	result1, _ := analyzer.AnalyzePath("/api/users/123", "api")
 	result2, _ := analyzer.AnalyzePath("/api/products/456", "store")
 
-	if result1 != "/api/users/123" {
-		t.Errorf("AnalyzePath(\"/users/123\", \"api\") = %q, want \"/api/users/123\"", result1)
-	}
+	assert.Equal(t, "/api/users/123", result1)
 
-	if result2 != "/api/products/456" {
-		t.Errorf("AnalyzePath(\"/products/456\", \"store\") = %q, want \"/store/products/456\"", result2)
-	}
+	assert.Equal(t, "/api/products/456", result2)
 }
 
 func TestDynamicThreshold(t *testing.T) {
@@ -149,9 +124,7 @@ func TestDynamicThreshold(t *testing.T) {
 	}
 
 	result, _ := analyzer.AnalyzePath("/api/users/991", "api")
-	if result != "/api/users/<dynamic>" {
-		t.Errorf("Path did not become dynamic after 99 different paths")
-	}
+	assert.Equal(t, "/api/users/<dynamic>", result)
 }
 
 func TestEdgeCases(t *testing.T) {
@@ -171,12 +144,8 @@ func TestEdgeCases(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := analyzer.AnalyzePath(tc.path, tc.identifier)
-			if err != nil {
-				t.Errorf("AnalyzePath(%q, %q) returned an error: %v", tc.path, tc.identifier, err)
-			}
-			if result != tc.expected {
-				t.Errorf("AnalyzePath(%q, %q) = %q, want %q", tc.path, tc.identifier, result, tc.expected)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
@@ -186,22 +155,13 @@ func TestDynamicInsertion(t *testing.T) {
 
 	// Insert a new path with a different identifier
 	result, err := analyzer.AnalyzePath("/api/users/<dynamic>", "api")
-	if err != nil {
-		t.Errorf("AnalyzePath() returned an error: %v", err)
-	}
+	assert.NoError(t, err)
 	expected := "/api/users/<dynamic>"
-	if result != expected {
-		t.Errorf("AnalyzePath(\"/api/users/<dynamic>\", \"api\") = %q, want %q", result, expected)
-	}
+	assert.Equal(t, expected, result)
 
 	// Insert a new path with the same identifier
 	result, err = analyzer.AnalyzePath("/api/users/102", "api")
-	if err != nil {
-		t.Errorf("AnalyzePath() returned an error: %v", err)
-	}
+	assert.NoError(t, err)
 	expected = "/api/users/<dynamic>"
-	if result != expected {
-		t.Errorf("AnalyzePath(\"/api/users/<dynamic>\", \"api\") = %q, want %q", result, expected)
-	}
-
+	assert.Equal(t, expected, result)
 }
