@@ -14,12 +14,14 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -33,6 +35,10 @@ const (
 	DefaultStorageRoot       = "/data"
 	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 	operationNotSupportedMsg = "operation not supported"
+)
+
+var (
+	TooLargeObjectError = errors.New("object is too large")
 )
 
 type objState struct {
@@ -106,7 +112,7 @@ func makeMetadataPath(path string) string {
 	return path + MetadataExt
 }
 
-// isMetadataFile returns true if a given file at `path` is an object metadata file, else false
+// IsMetadataFile returns true if a given file at `path` is an object metadata file, else false
 func IsMetadataFile(path string) bool {
 	return strings.HasSuffix(path, MetadataExt)
 }
@@ -191,12 +197,12 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 		return errors.New(msg)
 	}
 	// call processor on object to be saved
-	if err := s.processor.PreSave(obj); err != nil {
+	if err := s.processor.PreSave(obj); err != nil && !errors.Is(err, TooLargeObjectError) {
 		return fmt.Errorf("processor.PreSave: %w", err)
 	}
 	// write files
 	if err := s.writeFiles(key, obj, metaOut); err != nil {
-		logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Create - write files failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	// publish event to watchers
@@ -328,12 +334,12 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 	defer span.End()
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("get items ptr failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("GetList - get items ptr failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
 
@@ -356,7 +362,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 	}
 	for _, metadataPath := range metadataFiles {
 		if err := s.appendObjectFromFile(metadataPath, v); err != nil {
-			logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", metadataPath))
+			logger.L().Ctx(ctx).Error("GetList - appending JSON object from file failed", helpers.Error(err), helpers.String("path", metadataPath))
 		}
 	}
 	return nil
@@ -370,7 +376,7 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 
 	rv, err := s.versioner.ObjectResourceVersion(obj)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("get object resource version failed", helpers.Error(err), helpers.Interface("object", obj))
+		logger.L().Ctx(ctx).Error("getStateFromObject - get object resource version failed", helpers.Error(err), helpers.Interface("object", obj))
 		return nil, fmt.Errorf("couldn't get resource version: %v", err)
 	}
 	state.rev = int64(rv)
@@ -378,11 +384,11 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 
 	state.data, err = json.Marshal(obj)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("marshal object failed", helpers.Error(err), helpers.Interface("object", obj))
+		logger.L().Ctx(ctx).Error("getStateFromObject - marshal object failed", helpers.Error(err), helpers.Interface("object", obj))
 		return nil, err
 	}
 	if err := s.versioner.UpdateObject(state.obj, rv); err != nil {
-		logger.L().Ctx(ctx).Error("update object version failed", helpers.Error(err), helpers.Interface("object", obj))
+		logger.L().Ctx(ctx).Error("getStateFromObject - update object version failed", helpers.Error(err), helpers.Interface("object", obj))
 	}
 	return state, nil
 }
@@ -393,7 +399,7 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 // other writers are simultaneously updating it, so tryUpdate() needs to take into account
 // the current contents of the object when deciding how the update object should look.
 // If the key doesn't exist, it will return NotFound storage error if ignoreNotFound=false
-// else `destination` will be set to the zero value of it's type.
+// else `destination` will be set to the zero value of its type.
 // If the eventual successful invocation of `tryUpdate` returns an output with the same serialized
 // contents as the input, it won't perform any update, but instead set `destination` to an object with those
 // contents.
@@ -437,7 +443,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 	v, err := conversion.EnforcePtr(metaOut)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("unable to convert output object to pointer", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("GuaranteedUpdate - unable to convert output object to pointer", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("unable to convert output object to pointer: %v", err)
 	}
 
@@ -445,7 +451,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		objPtr := reflect.New(v.Type()).Interface().(runtime.Object)
 		err := s.get(ctx, key, storage.GetOptions{IgnoreNotFound: ignoreNotFound}, objPtr)
 		if err != nil {
-			logger.L().Ctx(ctx).Error("get failed", helpers.Error(err), helpers.String("key", key))
+			logger.L().Ctx(ctx).Error("GuaranteedUpdate - get failed", helpers.Error(err), helpers.String("key", key))
 			return nil, err
 		}
 		return s.getStateFromObject(ctx, objPtr)
@@ -460,7 +466,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		origStateIsCurrent = true
 	}
 	if err != nil {
-		logger.L().Ctx(ctx).Error("get original state failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("GuaranteedUpdate - get original state failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 
@@ -469,7 +475,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		if err := preconditions.Check(key, origState.obj); err != nil {
 			// If our data is already up-to-date, return the error
 			if origStateIsCurrent {
-				logger.L().Ctx(ctx).Error("preconditions check failed", helpers.Error(err), helpers.String("key", key))
+				logger.L().Ctx(ctx).Error("GuaranteedUpdate - preconditions check failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 
@@ -477,7 +483,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 			// Actually fetch
 			origState, err = getCurrentState()
 			if err != nil {
-				logger.L().Ctx(ctx).Error("get state failed", helpers.Error(err), helpers.String("key", key))
+				logger.L().Ctx(ctx).Error("GuaranteedUpdate - get state failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 			origStateIsCurrent = true
@@ -491,7 +497,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 			// If our data is already up-to-date, return the error
 			if origStateIsCurrent {
 				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
-					logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
 				return err
 			}
@@ -504,7 +510,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 			// Actually fetch
 			origState, err = getCurrentState()
 			if err != nil {
-				logger.L().Ctx(ctx).Error("get state failed", helpers.Error(err), helpers.String("key", key))
+				logger.L().Ctx(ctx).Error("GuaranteedUpdate - get state failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 			origStateIsCurrent = true
@@ -512,7 +518,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 			// it turns out our cached data was not stale, return the error
 			if cachedRev == origState.rev {
 				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
-					logger.L().Ctx(ctx).Error("tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
 				return cachedUpdateErr
 			}
@@ -523,14 +529,25 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 		// call processor on object to be saved
 		if err := s.processor.PreSave(ret); err != nil {
-			return fmt.Errorf("processor.PreSave: %w", err)
+			if errors.Is(err, TooLargeObjectError) {
+				// revert spec
+				ret = origState.obj.DeepCopyObject() // FIXME this is expensive
+				// update annotations with the new state
+				metadata := ret.(metav1.Object)
+				annotations := metadata.GetAnnotations()
+				annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
+				metadata.SetAnnotations(annotations)
+				logger.L().Ctx(ctx).Warning("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
+			} else {
+				return fmt.Errorf("processor.PreSave: %w", err)
+			}
 		}
 
 		// check if the object is the same as the original
 		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
 		_ = s.processor.PreSave(orig)
 		if reflect.DeepEqual(orig, ret) {
-			logger.L().Debug("tryUpdate returned the same object, no update needed", helpers.String("key", key))
+			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object
 			v.Set(reflect.ValueOf(origState.obj).Elem())
 			return nil
@@ -542,7 +559,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 			// Only successful updates should produce modification events
 			s.watchDispatcher.Modified(key, metaOut)
 		} else {
-			logger.L().Ctx(ctx).Error("write files failed", helpers.Error(err), helpers.String("key", key))
+			logger.L().Ctx(ctx).Error("GuaranteedUpdate - write files failed", helpers.Error(err), helpers.String("key", key))
 		}
 		return err
 	}
@@ -589,13 +606,13 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("get items ptr failed", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
+		logger.L().Ctx(ctx).Error("GetByNamespace - get items ptr failed", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
 		return err
 	}
 
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
+		logger.L().Ctx(ctx).Error("GetByNamespace - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
 		return err
 	}
 
@@ -608,7 +625,7 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 		}
 
 		if err := s.appendObjectFromFile(path, v); err != nil {
-			logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
+			logger.L().Ctx(ctx).Error("GetByNamespace - appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
 		}
 
 		return nil
@@ -624,13 +641,13 @@ func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, 
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		logger.L().Ctx(ctx).Error("GetClusterScopedResource - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
 		return err
 	}
 
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		logger.L().Ctx(ctx).Error("GetClusterScopedResource - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
 		return err
 	}
 
@@ -648,7 +665,7 @@ func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, 
 			}
 
 			if err := s.appendObjectFromFile(subPath, v); err != nil {
-				logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
+				logger.L().Ctx(ctx).Error("GetClusterScopedResource - appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
 			}
 
 			return nil
@@ -666,13 +683,13 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		logger.L().Ctx(ctx).Error("GetByCluster - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
 		return err
 	}
 
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
+		logger.L().Ctx(ctx).Error("GetByCluster - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
 		return err
 	}
 
@@ -693,7 +710,7 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 				}
 
 				if err := s.appendObjectFromFile(subPath, v); err != nil {
-					logger.L().Ctx(ctx).Error("appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
+					logger.L().Ctx(ctx).Error("GetByCluster - appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
 				}
 
 				return nil
@@ -765,17 +782,17 @@ func replaceKeyForKind(key string, kind string) string {
 type immutableStorage struct{}
 
 // Create is not supported for immutable objects. Objects are generated on the fly and not stored.
-func (immutableStorage) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
+func (immutableStorage) Create(_ context.Context, key string, _, _ runtime.Object, _ uint64) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
 // Delete is not supported for immutable objects. Objects are generated on the fly and not stored.
-func (immutableStorage) Delete(ctx context.Context, key string, out runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
+func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
 // Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
-func (immutableStorage) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
+func (immutableStorage) Watch(_ context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
 	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 

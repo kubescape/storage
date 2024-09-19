@@ -2,6 +2,7 @@ package file
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -14,11 +15,24 @@ import (
 )
 
 const (
-	OpenDynamicThreshold     = 50
-	EndpointDynamicThreshold = 100
+	OpenDynamicThreshold             = 50
+	EndpointDynamicThreshold         = 100
+	DefaultMaxApplicationProfileSize = 10000
 )
 
 type ApplicationProfileProcessor struct {
+	maxApplicationProfileSize int
+}
+
+func NewApplicationProfileProcessor() *ApplicationProfileProcessor {
+	maxApplicationProfileSize, err := strconv.Atoi(os.Getenv("MAX_APPLICATION_PROFILE_SIZE"))
+	if err != nil {
+		maxApplicationProfileSize = DefaultMaxApplicationProfileSize
+	}
+	logger.L().Debug("maxApplicationProfileSize", loggerhelpers.Int("size", maxApplicationProfileSize))
+	return &ApplicationProfileProcessor{
+		maxApplicationProfileSize: maxApplicationProfileSize,
+	}
 }
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
@@ -48,6 +62,11 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	profile.Spec.Containers = processContainers(profile.Spec.Containers)
 
 	profile.Spec.Architectures = mapset.Sorted(mapset.NewThreadUnsafeSet(profile.Spec.Architectures...))
+
+	// check the size of the profile
+	if size > a.maxApplicationProfileSize {
+		return fmt.Errorf("application profile size exceeds the limit of %d: %w", a.maxApplicationProfileSize, TooLargeObjectError)
+	}
 
 	// make sure annotations are initialized
 	if profile.Annotations == nil {

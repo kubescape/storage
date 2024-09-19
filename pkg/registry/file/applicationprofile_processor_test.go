@@ -3,6 +3,7 @@ package file
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
@@ -13,67 +14,71 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func TestApplicationProfileProcessor_PreSave(t *testing.T) {
-	tests := []struct {
-		name    string
-		object  runtime.Object
-		want    runtime.Object
-		wantErr assert.ErrorAssertionFunc
-	}{
-		{
-			name: "ApplicationProfile with initContainers and ephemeralContainers",
-			object: &softwarecomposition.ApplicationProfile{
-				ObjectMeta: v1.ObjectMeta{
-					Annotations: map[string]string{},
+var ap = softwarecomposition.ApplicationProfile{
+	ObjectMeta: v1.ObjectMeta{
+		Annotations: map[string]string{},
+	},
+	Spec: softwarecomposition.ApplicationProfileSpec{
+		Architectures: []string{"amd64", "arm64", "amd64"},
+		EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
+			{
+				Name: "ephemeralContainer",
+				Execs: []softwarecomposition.ExecCalls{
+					{Path: "/bin/bash", Args: []string{"-c", "echo abc"}},
 				},
-				Spec: softwarecomposition.ApplicationProfileSpec{
-					Architectures: []string{"amd64", "arm64", "amd64"},
-					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
-						{
-							Name: "ephemeralContainer",
-							Execs: []softwarecomposition.ExecCalls{
-								{Path: "/bin/bash", Args: []string{"-c", "echo abc"}},
-							},
-						},
-					},
-					InitContainers: []softwarecomposition.ApplicationProfileContainer{
-						{
-							Name: "initContainer",
-							Execs: []softwarecomposition.ExecCalls{
-								{Path: "/bin/bash", Args: []string{"-c", "echo hello"}},
-							},
-						},
-					},
-					Containers: []softwarecomposition.ApplicationProfileContainer{
-						{
-							Name: "container1",
-							Execs: []softwarecomposition.ExecCalls{
-								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
-								{Path: "/usr/bin/ls", Args: []string{"-l", "/home"}},
-								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
-							},
-						},
-						{
-							Name: "container2",
-							Execs: []softwarecomposition.ExecCalls{
-								{Path: "/usr/bin/ping", Args: []string{"localhost"}},
-							},
-							Opens: []softwarecomposition.OpenCalls{
-								{Path: "/etc/hosts", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
-							},
-							Endpoints: []softwarecomposition.HTTPEndpoint{
-								{
-									Endpoint:  ":443/abc",
-									Methods:   []string{"GET"},
-									Internal:  false,
-									Direction: consts.Inbound,
-									Headers:   []byte{},
-								},
-							},
-						},
+			},
+		},
+		InitContainers: []softwarecomposition.ApplicationProfileContainer{
+			{
+				Name: "initContainer",
+				Execs: []softwarecomposition.ExecCalls{
+					{Path: "/bin/bash", Args: []string{"-c", "echo hello"}},
+				},
+			},
+		},
+		Containers: []softwarecomposition.ApplicationProfileContainer{
+			{
+				Name: "container1",
+				Execs: []softwarecomposition.ExecCalls{
+					{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+					{Path: "/usr/bin/ls", Args: []string{"-l", "/home"}},
+					{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
+				},
+			},
+			{
+				Name: "container2",
+				Execs: []softwarecomposition.ExecCalls{
+					{Path: "/usr/bin/ping", Args: []string{"localhost"}},
+				},
+				Opens: []softwarecomposition.OpenCalls{
+					{Path: "/etc/hosts", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
+				},
+				Endpoints: []softwarecomposition.HTTPEndpoint{
+					{
+						Endpoint:  ":443/abc",
+						Methods:   []string{"GET"},
+						Internal:  false,
+						Direction: consts.Inbound,
+						Headers:   []byte{},
 					},
 				},
 			},
+		},
+	},
+}
+
+func TestApplicationProfileProcessor_PreSave(t *testing.T) {
+	tests := []struct {
+		name                      string
+		maxApplicationProfileSize int
+		object                    runtime.Object
+		want                      runtime.Object
+		wantErr                   assert.ErrorAssertionFunc
+	}{
+		{
+			name:                      "ApplicationProfile with initContainers and ephemeralContainers",
+			maxApplicationProfileSize: DefaultMaxApplicationProfileSize,
+			object:                    &ap,
 			want: &softwarecomposition.ApplicationProfile{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
@@ -140,10 +145,18 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 			},
 			wantErr: assert.NoError,
 		},
+		{
+			name:                      "ApplicationProfile too big",
+			maxApplicationProfileSize: 5,
+			object:                    &ap,
+			want:                      &ap,
+			wantErr:                   assert.Error,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := ApplicationProfileProcessor{}
+			t.Setenv("MAX_APPLICATION_PROFILE_SIZE", strconv.Itoa(tt.maxApplicationProfileSize))
+			a := NewApplicationProfileProcessor()
 			tt.wantErr(t, a.PreSave(tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
 			slices.Sort(tt.object.(*softwarecomposition.ApplicationProfile).Spec.Architectures)
 			assert.Equal(t, tt.want, tt.object)

@@ -2,17 +2,12 @@ package file
 
 import (
 	"context"
-	"errors"
 	"path"
 	"slices"
 
 	"github.com/puzpuzpuz/xsync/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-)
-
-var (
-	errInvalidKey = errors.New("Provided key is invalid")
 )
 
 /*
