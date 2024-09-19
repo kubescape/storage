@@ -13,6 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const (
+	OpenDynamicThreshold     = 50
+	EndpointDynamicThreshold = 100
+)
+
 type ApplicationProfileProcessor struct {
 }
 
@@ -53,7 +58,17 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer) softwarecomposition.ApplicationProfileContainer {
-	endpoints, err := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(100))
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold))
+	if err != nil {
+		logger.L().Warning("failed to analyze opens", loggerhelpers.Error(err))
+		opens = DeflateStringer(container.Opens)
+	}
+
+	if opens == nil {
+		opens = []softwarecomposition.OpenCalls{}
+	}
+
+	endpoints, err := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
 	if err != nil {
 		logger.L().Warning("failed to analyze endpoints", loggerhelpers.Error(err))
 		endpoints = container.Endpoints
@@ -61,8 +76,8 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
 		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),
-		Execs:          deflateStringer(container.Execs),
-		Opens:          deflateStringer(container.Opens),
+		Execs:          DeflateStringer(container.Execs),
+		Opens:          opens,
 		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
 		SeccompProfile: container.SeccompProfile,
 		Endpoints:      endpoints,

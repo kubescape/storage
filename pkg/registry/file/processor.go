@@ -22,7 +22,7 @@ type Stringer interface {
 	String() string
 }
 
-func deflateStringer[T Stringer](in []T) []T {
+func DeflateStringer[T Stringer](in []T) []T {
 	out := make([]T, 0)
 	set := mapset.NewThreadUnsafeSet[string]()
 	for _, item := range in {

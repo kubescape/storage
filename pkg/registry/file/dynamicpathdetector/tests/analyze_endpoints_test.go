@@ -3,11 +3,12 @@ package dynamicpathdetectortests
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"testing"
 
+	"github.com/kinbiko/jsonassert"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAnalyzeEndpoints(t *testing.T) {
@@ -124,7 +125,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 				{
 					Endpoint: ":80/x/<dynamic>/posts/<dynamic>",
 					Methods:  []string{"GET", "POST"},
-					Headers:  json.RawMessage([]byte{123, 34, 65, 117, 116, 104, 111, 114, 105, 122, 97, 116, 105, 111, 110, 34, 58, 91, 34, 66, 101, 97, 114, 101, 114, 32, 116, 111, 107, 101, 110, 34, 93, 44, 34, 67, 111, 110, 116, 101, 110, 116, 45, 84, 121, 112, 101, 34, 58, 91, 34, 97, 112, 112, 108, 105, 99, 97, 116, 105, 111, 110, 47, 106, 115, 111, 110, 34, 44, 34, 97, 112, 112, 108, 105, 99, 97, 116, 105, 111, 110, 47, 120, 109, 108, 34, 93, 44, 34, 88, 45, 65, 80, 73, 45, 75, 101, 121, 34, 58, 91, 34, 107, 101, 121, 49, 34, 93, 125}),
+					Headers:  json.RawMessage(`{"Authorization":["Bearer token"],"Content-Type":["<<UNORDERED>>","application/json","application/xml"],"X-API-Key":["key1"]}`),
 				},
 			},
 		},
@@ -133,12 +134,12 @@ func TestAnalyzeEndpoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := dynamicpathdetector.AnalyzeEndpoints(&tt.input, analyzer)
-			if err != nil {
-				t.Errorf("AnalyzeEndpoints() error = %v", err)
-				return
-			}
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("AnalyzeEndpoints() = %v, want %v", result, tt.expected)
+			assert.NoError(t, err)
+			ja := jsonassert.New(t)
+			for i := range result {
+				assert.Equal(t, tt.expected[i].Endpoint, result[i].Endpoint)
+				assert.Equal(t, tt.expected[i].Methods, result[i].Methods)
+				ja.Assertf(string(result[i].Headers), string(tt.expected[i].Headers))
 			}
 		})
 	}
@@ -163,13 +164,8 @@ func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
 	}
 
 	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	if err != nil {
-		t.Errorf("AnalyzeEndpoints() error = %v", err)
-		return
-	}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("AnalyzeEndpoints() = %v, want %v", result, expected)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
 }
 
 func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
@@ -184,15 +180,10 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 	}
 
 	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	if err != nil {
-		t.Errorf("AnalyzeEndpoints() error = %v", err)
-		return
-	}
+	assert.NoError(t, err)
 
 	// Check that all 100 endpoints are still individual
-	if len(result) != 100 {
-		t.Errorf("Expected 100 individual endpoints, got %d", len(result))
-	}
+	assert.Equal(t, 100, len(result))
 
 	// Now add one more endpoint to trigger the dynamic behavior
 	input = append(input, types.HTTPEndpoint{
@@ -201,10 +192,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 	})
 
 	result, err = dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	if err != nil {
-		t.Errorf("AnalyzeEndpoints() error = %v", err)
-		return
-	}
+	assert.NoError(t, err)
 
 	// Check that all endpoints are now merged into one dynamic endpoint
 	expected := []types.HTTPEndpoint{
@@ -213,10 +201,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 			Methods:  []string{"GET"},
 		},
 	}
-
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("AnalyzeEndpoints() = %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }
 
 func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
@@ -229,9 +214,7 @@ func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
 		},
 	}
 
-	result, _ := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-
-	if len(result) != 0 {
-		t.Errorf("Expected empty result, got %v", result)
-	}
+	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(result))
 }

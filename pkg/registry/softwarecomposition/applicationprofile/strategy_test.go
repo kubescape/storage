@@ -2,11 +2,11 @@ package applicationprofile
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -99,9 +99,7 @@ func TestPrepareForUpdateAnnotations(t *testing.T) {
 			old := &softwarecomposition.ApplicationProfile{ObjectMeta: metav1.ObjectMeta{Annotations: tt.oldAnnotations}}
 
 			s.PrepareForUpdate(context.Background(), obj, old)
-			if !reflect.DeepEqual(obj.Annotations, tt.expected) {
-				t.Errorf("PrepareForUpdate() = %v, want %v", obj.Annotations, tt.expected)
-			}
+			assert.Equal(t, tt.expected, obj.Annotations)
 		})
 	}
 }
@@ -260,9 +258,7 @@ func TestPrepareForUpdateFullObj(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := applicationProfileStrategy{}
 			s.PrepareForUpdate(context.Background(), tt.new, tt.old)
-			if !reflect.DeepEqual(tt.new, tt.expected) {
-				t.Errorf("PrepareForUpdate() = %v, want %v", tt.new, tt.expected)
-			}
+			assert.Equal(t, tt.expected, tt.new)
 		})
 	}
 }

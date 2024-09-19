@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 )
 
@@ -45,6 +47,28 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 		})
 	}
+}
+
+func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
+	paths := pathsToOpens(generateMixedPaths(10000, 0))
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+
+	b.Run("AnalyzeOpens", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = file.DeflateStringer(paths)
+			_, _ = dynamicpathdetector.AnalyzeOpens(paths, analyzer)
+		}
+		b.ReportAllocs()
+	})
+
+	b.Run("deflateStringer", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = file.DeflateStringer(paths)
+		}
+		b.ReportAllocs()
+	})
 }
 
 func generateMixedPaths(count int, fixedLength int) []string {
@@ -101,4 +125,15 @@ func generateRandomString(length int) string {
 		result[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(result)
+}
+
+func pathsToOpens(paths []string) []types.OpenCalls {
+	opens := make([]types.OpenCalls, len(paths))
+	for i, path := range paths {
+		opens[i] = types.OpenCalls{
+			Path:  path,
+			Flags: []string{"READ"},
+		}
+	}
+	return opens
 }

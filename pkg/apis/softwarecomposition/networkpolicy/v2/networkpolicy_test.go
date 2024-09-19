@@ -1387,9 +1387,7 @@ func TestRemoveLabels(t *testing.T) {
 
 	removeLabels(labels)
 
-	if !reflect.DeepEqual(labels, expected) {
-		t.Errorf("removeLabels() = %v, want %v", labels, expected)
-	}
+	assert.Equal(t, expected, labels)
 }
 
 func TestMergeIngressRulesByPorts(t *testing.T) {
