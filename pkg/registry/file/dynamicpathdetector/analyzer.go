@@ -29,23 +29,21 @@ func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 	var result strings.Builder
 	currentNode := node
-	start := 0
-	for i := range p {
-		if p[i] == '/' {
-			segment := p[start:i]
-			currentNode = ua.processSegment(currentNode, segment)
-			ua.updateNodeStats(currentNode)
-			result.WriteString(currentNode.SegmentName)
-			result.WriteByte('/')
-			start = i + 1
+	i := 0
+	for {
+		start := i
+		for i < len(p) && p[i] != '/' {
+			i++
 		}
-	}
-	// Process the last segment
-	if start < len(p) {
-		segment := p[start:]
+		segment := p[start:i]
 		currentNode = ua.processSegment(currentNode, segment)
 		ua.updateNodeStats(currentNode)
 		result.WriteString(currentNode.SegmentName)
+		i++
+		if len(p) < i {
+			break
+		}
+		result.WriteByte('/')
 	}
 	return result.String()
 }
