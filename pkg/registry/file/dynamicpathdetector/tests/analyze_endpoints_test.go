@@ -38,7 +38,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with multiple endpoints",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/<dynamic>",
+					Endpoint: ":80/users/\u22ef",
 					Methods:  []string{"GET"},
 				},
 				{
@@ -48,7 +48,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/<dynamic>",
+					Endpoint: ":80/users/\u22ef",
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -57,17 +57,17 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with dynamic segments",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/123/posts/<dynamic>",
+					Endpoint: ":80/users/123/posts/\u22ef",
 					Methods:  []string{"GET"},
 				},
 				{
-					Endpoint: ":80/users/<dynamic>/posts/101",
+					Endpoint: ":80/users/\u22ef/posts/101",
 					Methods:  []string{"POST"},
 				},
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/<dynamic>/posts/<dynamic>",
+					Endpoint: ":80/users/\u22ef/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -111,19 +111,19 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with dynamic segments and different headers",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/x/123/posts/<dynamic>",
+					Endpoint: ":80/x/123/posts/\u22ef",
 					Methods:  []string{"GET"},
 					Headers:  json.RawMessage(`{"Content-Type": ["application/json"], "X-API-Key": ["key1"]}`),
 				},
 				{
-					Endpoint: ":80/x/<dynamic>/posts/101",
+					Endpoint: ":80/x/\u22ef/posts/101",
 					Methods:  []string{"POST"},
 					Headers:  json.RawMessage(`{"Content-Type": ["application/xml"], "Authorization": ["Bearer token"]}`),
 				},
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/x/<dynamic>/posts/<dynamic>",
+					Endpoint: ":80/x/\u22ef/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 					Headers:  json.RawMessage(`{"Authorization":["Bearer token"],"Content-Type":["<<UNORDERED>>","application/json","application/xml"],"X-API-Key":["key1"]}`),
 				},
@@ -158,7 +158,7 @@ func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
 
 	expected := []types.HTTPEndpoint{
 		{
-			Endpoint: ":80/users/<dynamic>",
+			Endpoint: ":80/users/\u22ef",
 			Methods:  []string{"GET"},
 		},
 	}
@@ -197,7 +197,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 	// Check that all endpoints are now merged into one dynamic endpoint
 	expected := []types.HTTPEndpoint{
 		{
-			Endpoint: ":80/users/<dynamic>",
+			Endpoint: ":80/users/\u22ef",
 			Methods:  []string{"GET"},
 		},
 	}

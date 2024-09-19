@@ -1,6 +1,6 @@
 package dynamicpathdetector
 
-const DynamicIdentifier string = "<dynamic>"
+const DynamicIdentifier string = "\u22ef"
 
 type SegmentNode struct {
 	SegmentName string

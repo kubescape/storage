@@ -136,3 +136,34 @@ func shallowChildrenCopy(src, dst *SegmentNode) {
 		}
 	}
 }
+
+func CompareDynamic(dynamicPath, regularPath string) bool {
+	dynamicIndex, regularIndex := 0, 0
+	dynamicLen, regularLen := len(dynamicPath), len(regularPath)
+
+	for dynamicIndex < dynamicLen && regularIndex < regularLen {
+		// Find the next segment in dynamicPath
+		dynamicSegmentStart := dynamicIndex
+		for dynamicIndex < dynamicLen && dynamicPath[dynamicIndex] != '/' {
+			dynamicIndex++
+		}
+		dynamicSegment := dynamicPath[dynamicSegmentStart:dynamicIndex]
+
+		// Find the next segment in regularPath
+		regularSegmentStart := regularIndex
+		for regularIndex < regularLen && regularPath[regularIndex] != '/' {
+			regularIndex++
+		}
+		regularSegment := regularPath[regularSegmentStart:regularIndex]
+
+		if dynamicSegment != DynamicIdentifier && dynamicSegment != regularSegment {
+			return false
+		}
+
+		// Move to the next segment
+		dynamicIndex++
+		regularIndex++
+	}
+
+	return true
+}

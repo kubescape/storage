@@ -53,7 +53,7 @@ func TestDynamicSegments(t *testing.T) {
 	if err != nil {
 		t.Errorf("AnalyzePath() returned an error: %v", err)
 	}
-	expected := "/api/users/<dynamic>"
+	expected := "/api/users/\u22ef"
 	assert.Equal(t, expected, result)
 
 	// Test with one of the original IDs to ensure it's also marked as dynamic
@@ -77,7 +77,7 @@ func TestMultipleDynamicSegments(t *testing.T) {
 	// Test with the 100th unique user and post IDs (should trigger dynamic segments)
 	result, err := analyzer.AnalyzePath("/api/users/101/posts/1031", "api")
 	assert.NoError(t, err)
-	expected := "/api/users/<dynamic>/posts/<dynamic>"
+	expected := "/api/users/\u22ef/posts/\u22ef"
 	assert.Equal(t, expected, result)
 }
 
@@ -96,7 +96,7 @@ func TestMixedStaticAndDynamicSegments(t *testing.T) {
 	// Test with the 100th unique user ID but same 'posts' segment (should trigger dynamic segment for users)
 	result, err := analyzer.AnalyzePath("/api/users/99/posts", "api")
 	assert.NoError(t, err)
-	expected := "/api/users/<dynamic>/posts"
+	expected := "/api/users/\u22ef/posts"
 	assert.Equal(t, expected, result)
 }
 
@@ -124,7 +124,7 @@ func TestDynamicThreshold(t *testing.T) {
 	}
 
 	result, _ := analyzer.AnalyzePath("/api/users/991", "api")
-	assert.Equal(t, "/api/users/<dynamic>", result)
+	assert.Equal(t, "/api/users/\u22ef", result)
 }
 
 func TestEdgeCases(t *testing.T) {
@@ -154,14 +154,91 @@ func TestDynamicInsertion(t *testing.T) {
 	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
 
 	// Insert a new path with a different identifier
-	result, err := analyzer.AnalyzePath("/api/users/<dynamic>", "api")
+	result, err := analyzer.AnalyzePath("/api/users/\u22ef", "api")
 	assert.NoError(t, err)
-	expected := "/api/users/<dynamic>"
+	expected := "/api/users/\u22ef"
 	assert.Equal(t, expected, result)
 
 	// Insert a new path with the same identifier
 	result, err = analyzer.AnalyzePath("/api/users/102", "api")
 	assert.NoError(t, err)
-	expected = "/api/users/<dynamic>"
+	expected = "/api/users/\u22ef"
 	assert.Equal(t, expected, result)
+}
+
+func TestCompareDynamic(t *testing.T) {
+	tests := []struct {
+		name        string
+		dynamicPath string
+		regularPath string
+		want        bool
+	}{
+		{
+			name:        "Equal paths",
+			dynamicPath: "/api/users/123",
+			regularPath: "/api/users/123",
+			want:        true,
+		},
+		{
+			name:        "Different paths",
+			dynamicPath: "/api/users/123",
+			regularPath: "/api/users/456",
+			want:        false,
+		},
+		{
+			name:        "Dynamic segment at the end",
+			dynamicPath: "/api/users/\u22ef",
+			regularPath: "/api/users/123",
+			want:        true,
+		},
+		{
+			name:        "Dynamic segment at the end, no match",
+			dynamicPath: "/api/users/\u22ef",
+			regularPath: "/api/apps/123",
+			want:        false,
+		},
+		{
+			name:        "Dynamic segment in the middle",
+			dynamicPath: "/api/\u22ef/123",
+			regularPath: "/api/users/123",
+			want:        true,
+		},
+		{
+			name:        "Dynamic segment in the middle, no match",
+			dynamicPath: "/api/\u22ef/123",
+			regularPath: "/api/users/456",
+			want:        false,
+		},
+		{
+			name:        "2 dynamic segments",
+			dynamicPath: "/api/\u22ef/\u22ef",
+			regularPath: "/api/users/123",
+			want:        true,
+		},
+		{
+			name:        "2 dynamic segments, no match",
+			dynamicPath: "/api/\u22ef/\u22ef",
+			regularPath: "/papi/users/456",
+			want:        false,
+		},
+		{
+			name:        "2 other dynamic segments",
+			dynamicPath: "/\u22ef/users/\u22ef",
+			regularPath: "/api/users/123",
+			want:        true,
+		},
+		{
+			name:        "2 other dynamic segments, no match",
+			dynamicPath: "/\u22ef/users/\u22ef",
+			regularPath: "/api/apps/456",
+			want:        false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := dynamicpathdetector.CompareDynamic(tt.dynamicPath, tt.regularPath); got != tt.want {
+				t.Errorf("CompareDynamic() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
