@@ -51,18 +51,17 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
 	if segment == DynamicIdentifier {
 		return ua.handleDynamicSegment(node)
-	} else if child, exists := node.Children[segment]; exists || node.IsNextDynamic() {
-		return ua.handleExistingSegment(node, child, exists)
-	} else {
-		return ua.handleNewSegment(node, segment)
-	}
-}
-
-func (ua *PathAnalyzer) handleExistingSegment(node *SegmentNode, child *SegmentNode, exists bool) *SegmentNode {
-	if exists {
+	} else if node.IsNextDynamic() {
+		if len(node.Children) > 1 {
+			temp := node.Children[DynamicIdentifier]
+			node.Children = map[string]*SegmentNode{}
+			node.Children[DynamicIdentifier] = temp
+		}
+		return node.Children[DynamicIdentifier]
+	} else if child, exists := node.Children[segment]; exists {
 		return child
 	} else {
-		return node.Children[DynamicIdentifier]
+		return ua.handleNewSegment(node, segment)
 	}
 }
 
