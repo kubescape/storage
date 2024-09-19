@@ -192,6 +192,12 @@ func TestCompareDynamic(t *testing.T) {
 			want:        true,
 		},
 		{
+			name:        "Dynamic segment at the end",
+			dynamicPath: "/api/users/\u22ef",
+			regularPath: "/api/users/123/posts",
+			want:        false,
+		},
+		{
 			name:        "Dynamic segment at the end, no match",
 			dynamicPath: "/api/users/\u22ef",
 			regularPath: "/api/apps/123",
