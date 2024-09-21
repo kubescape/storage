@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -284,7 +286,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
-	payloadFile, err := s.appFs.Open(makePayloadPath(p))
+	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			if opts.IgnoreNotFound {
@@ -293,10 +295,15 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 				return storage.NewKeyNotFoundError(key, 0)
 			}
 		}
-		logger.L().Ctx(ctx).Error("Get - read file failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Get - open file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
-	decoder := gob.NewDecoder(payloadFile)
+	b, err := readData(payloadFile) // FIXME try to create a buffered reader and pass it to gob.NewDecoder directly
+	if err != nil {
+		logger.L().Ctx(ctx).Error("Get - read data failed", helpers.Error(err), helpers.String("key", key))
+		return err
+	}
+	decoder := gob.NewDecoder(bytes.NewReader(b))
 	err = decoder.Decode(objPtr)
 	if err != nil {
 		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
