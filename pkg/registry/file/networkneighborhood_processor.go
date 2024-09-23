@@ -70,7 +70,7 @@ func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor) []softwar
 	}
 	for _, i := range mapset.Sorted(toDeflate) {
 		out[i].DNSNames = mapset.Sorted(mapset.NewThreadUnsafeSet(out[i].DNSNames...))
-		out[i].Ports = deflateStringer(out[i].Ports)
+		out[i].Ports = DeflateStringer(out[i].Ports)
 	}
 	return out
 }

@@ -1,6 +1,6 @@
 package dynamicpathdetector
 
-const dynamicIdentifier string = "<dynamic>"
+const DynamicIdentifier string = "\u22ef"
 
 type SegmentNode struct {
 	SegmentName string
@@ -14,6 +14,6 @@ type PathAnalyzer struct {
 }
 
 func (sn *SegmentNode) IsNextDynamic() bool {
-	_, exists := sn.Children[dynamicIdentifier]
+	_, exists := sn.Children[DynamicIdentifier]
 	return exists
 }
