@@ -100,5 +100,7 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
 		SeccompProfile: container.SeccompProfile,
 		Endpoints:      endpoints,
+		ImageTag:       container.ImageTag,
+		ImageID:        container.ImageID,
 	}
 }

@@ -84,6 +84,10 @@ message ApplicationProfileContainer {
   // +patchStrategy=merge
   // +patchMergeKey=endpoint
   repeated HTTPEndpoint endpoints = 7;
+
+  optional string imageID = 8;
+
+  optional string imageTag = 9;
 }
 
 message ApplicationProfileList {
