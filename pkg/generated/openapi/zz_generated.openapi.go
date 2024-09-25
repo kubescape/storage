@@ -556,8 +556,22 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 							},
 						},
 					},
+					"imageID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"imageTag": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints"},
+				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag"},
 			},
 		},
 		Dependencies: []string{

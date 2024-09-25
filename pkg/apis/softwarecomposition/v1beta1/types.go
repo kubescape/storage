@@ -217,6 +217,8 @@ type ApplicationProfileContainer struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=endpoint
 	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	ImageID   string         `json:"imageID" protobuf:"bytes,8,opt,name=imageID"`
+	ImageTag  string         `json:"imageTag" protobuf:"bytes,9,opt,name=imageTag"`
 }
 
 type ExecCalls struct {

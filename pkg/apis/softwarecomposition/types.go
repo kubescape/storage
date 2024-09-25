@@ -231,6 +231,8 @@ type ApplicationProfileContainer struct {
 	Syscalls       []string
 	SeccompProfile SingleSeccompProfile
 	Endpoints      []HTTPEndpoint
+	ImageID        string
+	ImageTag       string
 }
 
 type ExecCalls struct {
