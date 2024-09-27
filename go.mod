@@ -9,6 +9,7 @@ require (
 	github.com/armosec/utils-k8s-go v0.0.26
 	github.com/containers/common v0.59.0
 	github.com/deckarep/golang-set/v2 v2.6.0
+	github.com/didip/tollbooth/v7 v7.0.2
 	github.com/go-logr/zapr v1.2.4
 	github.com/gogo/protobuf v1.3.2
 	github.com/goradd/maps v0.1.5
@@ -83,6 +84,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
+	github.com/go-pkgz/expirable-cache/v3 v3.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/cel-go v0.17.7 // indirect
