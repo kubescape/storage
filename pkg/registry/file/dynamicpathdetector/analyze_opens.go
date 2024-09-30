@@ -1,7 +1,7 @@
 package dynamicpathdetector
 
 import (
-	"fmt"
+	"maps"
 	"slices"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -9,7 +9,7 @@ import (
 )
 
 func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer) ([]types.OpenCalls, error) {
-	var dynamicOpens []types.OpenCalls
+	dynamicOpens := make(map[string]types.OpenCalls)
 	for _, open := range opens {
 		_, _ = AnalyzeOpen(open.Path, analyzer)
 	}
@@ -21,29 +21,21 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer) ([]types.Open
 		}
 
 		if result != opens[i].Path {
-			if existing, err := getIfExists(result, dynamicOpens); err == nil {
+			if existing, ok := dynamicOpens[result]; ok {
 				existing.Flags = mapset.Sorted(mapset.NewThreadUnsafeSet(slices.Concat(existing.Flags, opens[i].Flags)...))
+				dynamicOpens[result] = existing
 			} else {
 				dynamicOpen := types.OpenCalls{Path: result, Flags: opens[i].Flags}
-				dynamicOpens = append(dynamicOpens, dynamicOpen)
+				dynamicOpens[result] = dynamicOpen
 			}
 		} else {
-			dynamicOpens = append(dynamicOpens, opens[i])
+			dynamicOpens[opens[i].Path] = opens[i]
 		}
 	}
 
-	return dynamicOpens, nil
+	return slices.Collect(maps.Values(dynamicOpens)), nil
 }
 
 func AnalyzeOpen(path string, analyzer *PathAnalyzer) (string, error) {
 	return analyzer.AnalyzePath(path, "opens")
-}
-
-func getIfExists(path string, dynamicOpens []types.OpenCalls) (*types.OpenCalls, error) {
-	for i := range dynamicOpens {
-		if dynamicOpens[i].Path == path {
-			return &dynamicOpens[i], nil
-		}
-	}
-	return nil, fmt.Errorf("not found")
 }
