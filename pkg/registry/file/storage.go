@@ -662,7 +662,7 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 	span.SetAttributes(attribute.String("apiVersion", apiVersion), attribute.String("kind", kind), attribute.String("namespace", namespace))
 	defer span.End()
 
-	p := filepath.Join(s.root, apiVersion, kind, namespace)
+	p := filepath.Join(apiVersion, kind, namespace)
 
 	return s.GetListWithSpec(ctx, p, storage.ListOptions{}, listObj)
 }
@@ -672,7 +672,7 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetClusterScopedResource")
 	defer span.End()
 
-	p := filepath.Join(s.root, apiVersion, kind)
+	p := filepath.Join(apiVersion, kind)
 
 	return s.GetListWithSpec(ctx, p, storage.ListOptions{}, listObj)
 }
