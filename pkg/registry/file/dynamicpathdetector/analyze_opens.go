@@ -3,6 +3,7 @@ package dynamicpathdetector
 import (
 	"maps"
 	"slices"
+	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -33,7 +34,9 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer) ([]types.Open
 		}
 	}
 
-	return slices.Collect(maps.Values(dynamicOpens)), nil
+	return slices.SortedFunc(maps.Values(dynamicOpens), func(a, b types.OpenCalls) int {
+		return strings.Compare(a.Path, b.Path)
+	}), nil
 }
 
 func AnalyzeOpen(path string, analyzer *PathAnalyzer) (string, error) {
