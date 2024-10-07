@@ -1842,6 +1842,7 @@ func autoConvert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_Appl
 	out.Endpoints = *(*[]softwarecomposition.HTTPEndpoint)(unsafe.Pointer(&in.Endpoints))
 	out.ImageID = in.ImageID
 	out.ImageTag = in.ImageTag
+	out.Extra = *(*json.RawMessage)(unsafe.Pointer(&in.Extra))
 	return nil
 }
 
@@ -1862,6 +1863,7 @@ func autoConvert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_Appl
 	out.Endpoints = *(*[]HTTPEndpoint)(unsafe.Pointer(&in.Endpoints))
 	out.ImageID = in.ImageID
 	out.ImageTag = in.ImageTag
+	out.Extra = *(*json.RawMessage)(unsafe.Pointer(&in.Extra))
 	return nil
 }
 

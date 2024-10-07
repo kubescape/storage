@@ -216,9 +216,10 @@ type ApplicationProfileContainer struct {
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
 	// +patchStrategy=merge
 	// +patchMergeKey=endpoint
-	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
-	ImageID   string         `json:"imageID" protobuf:"bytes,8,opt,name=imageID"`
-	ImageTag  string         `json:"imageTag" protobuf:"bytes,9,opt,name=imageTag"`
+	Endpoints []HTTPEndpoint  `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	ImageID   string          `json:"imageID" protobuf:"bytes,8,opt,name=imageID"`
+	ImageTag  string          `json:"imageTag" protobuf:"bytes,9,opt,name=imageTag"`
+	Extra     json.RawMessage `json:"extra,omitempty" protobuf:"bytes,10,opt,name=extra"`
 }
 
 type ExecCalls struct {

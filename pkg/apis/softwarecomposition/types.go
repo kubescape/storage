@@ -233,6 +233,7 @@ type ApplicationProfileContainer struct {
 	Endpoints      []HTTPEndpoint
 	ImageID        string
 	ImageTag       string
+	Extra          json.RawMessage
 }
 
 type ExecCalls struct {
