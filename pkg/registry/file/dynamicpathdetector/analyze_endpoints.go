@@ -41,8 +41,10 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 	}
 
 	if url != endpoint.Endpoint {
+		endpoint.Endpoint = url
+
 		for i, e := range newEndpoints {
-			if e.Endpoint == url {
+			if getEndpointKey(e) == getEndpointKey(endpoint) {
 				newEndpoints[i].Methods = MergeStrings(e.Methods, endpoint.Methods)
 				mergeHeaders(e, endpoint)
 				return nil, nil
