@@ -87,8 +87,6 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 }
 
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
-	fmt.Println("Merging duplicate endpoints")
-	fmt.Println("Before", endpoints)
 	seen := make(map[string]*types.HTTPEndpoint)
 	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range endpoints {
@@ -102,7 +100,7 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 			newEndpoints = append(newEndpoints, endpoint)
 		}
 	}
-	fmt.Println("After", newEndpoints)
+
 	return newEndpoints
 }
 
