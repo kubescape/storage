@@ -10,9 +10,9 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
-func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) ([]types.HTTPEndpoint, error) {
+func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) []types.HTTPEndpoint {
 	if len(*endpoints) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	var newEndpoints []*types.HTTPEndpoint
@@ -29,12 +29,9 @@ func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) (
 		}
 	}
 
-	newEndpoints, err := MergeDuplicateEndpoints(newEndpoints)
-	if err != nil {
-		return nil, err
-	}
+	newEndpoints = MergeDuplicateEndpoints(newEndpoints)
 
-	return convertPointerToValueSlice(newEndpoints), nil
+	return convertPointerToValueSlice(newEndpoints)
 }
 
 func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEndpoints []*types.HTTPEndpoint) (*types.HTTPEndpoint, error) {
@@ -45,7 +42,6 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 
 	if url != endpoint.Endpoint {
 
-		// Check if this dynamic exists
 		for i, e := range newEndpoints {
 			if e.Endpoint == url {
 				newEndpoints[i].Methods = MergeStrings(e.Methods, endpoint.Methods)
@@ -91,7 +87,7 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 	return ":" + port + path, nil
 }
 
-func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) ([]*types.HTTPEndpoint, error) {
+func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
 	seen := make(map[string]*types.HTTPEndpoint)
 	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range endpoints {
@@ -105,11 +101,11 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) ([]*types.HTTPEndp
 			newEndpoints = append(newEndpoints, endpoint)
 		}
 	}
-	return newEndpoints, nil
+	return newEndpoints
 }
 
 func getEndpointKey(endpoint *types.HTTPEndpoint) string {
-	return fmt.Sprintf("%s|%v|%v", endpoint.Endpoint, endpoint.Internal, endpoint.Direction)
+	return fmt.Sprintf("%s|%s", endpoint.Endpoint, endpoint.Direction)
 }
 
 func mergeHeaders(existing, new *types.HTTPEndpoint) {

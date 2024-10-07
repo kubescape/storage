@@ -87,11 +87,8 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		opens = []softwarecomposition.OpenCalls{}
 	}
 
-	endpoints, err := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
-	if err != nil {
-		logger.L().Warning("failed to analyze endpoints", loggerhelpers.Error(err))
-		endpoints = container.Endpoints
-	}
+	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
+
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
 		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),

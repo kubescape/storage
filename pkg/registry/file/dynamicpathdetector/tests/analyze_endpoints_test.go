@@ -133,8 +133,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := dynamicpathdetector.AnalyzeEndpoints(&tt.input, analyzer)
-			assert.NoError(t, err)
+			result := dynamicpathdetector.AnalyzeEndpoints(&tt.input, analyzer)
 			ja := jsonassert.New(t)
 			for i := range result {
 				assert.Equal(t, tt.expected[i].Endpoint, result[i].Endpoint)
@@ -163,8 +162,7 @@ func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
 		},
 	}
 
-	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 	assert.Equal(t, expected, result)
 }
 
@@ -179,8 +177,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 		})
 	}
 
-	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
 	// Check that all 100 endpoints are still individual
 	assert.Equal(t, 100, len(result))
@@ -191,8 +188,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 		Methods:  []string{"GET"},
 	})
 
-	result, err = dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result = dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
 	// Check that all endpoints are now merged into one dynamic endpoint
 	expected := []types.HTTPEndpoint{
@@ -214,7 +210,23 @@ func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
 		},
 	}
 
-	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 	assert.Equal(t, 0, len(result))
+}
+
+func TestAnalyzeEndpointsBug(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+
+	endpoints := []types.HTTPEndpoint{
+		types.HTTPEndpoint{Endpoint: ":8000/", Methods: []string{"GET"}, Internal: false, Direction: "inbound", Headers: json.RawMessage{0x7b, 0x22, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x3a, 0x5b, 0x22, 0x63, 0x6c, 0x6f, 0x73, 0x65, 0x22, 0x5d, 0x2c, 0x22, 0x48, 0x6f, 0x73, 0x74, 0x22, 0x3a, 0x5b, 0x22, 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31, 0x3a, 0x38, 0x30, 0x30, 0x30, 0x22, 0x5d, 0x7d}},
+		types.HTTPEndpoint{Endpoint: ":8000/", Methods: []string{"POST"}, Internal: false, Direction: "inbound", Headers: json.RawMessage{0x7b, 0x22, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x3a, 0x5b, 0x22, 0x63, 0x6c, 0x6f, 0x73, 0x65, 0x22, 0x5d, 0x2c, 0x22, 0x48, 0x6f, 0x73, 0x74, 0x22, 0x3a, 0x5b, 0x22, 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31, 0x3a, 0x38, 0x30, 0x30, 0x30, 0x22, 0x5d, 0x7d}},
+		types.HTTPEndpoint{Endpoint: ":8000/users/<dynamic>", Methods: []string{"GET"}, Internal: false, Direction: "inbound", Headers: json.RawMessage{0x7b, 0x22, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x3a, 0x5b, 0x22, 0x31, 0x32, 0x33, 0x34, 0x72, 0x22, 0x2c, 0x22, 0x63, 0x6c, 0x6f, 0x73, 0x65, 0x22, 0x2c, 0x22, 0x7a, 0x69, 0x7a, 0x22, 0x5d, 0x2c, 0x22, 0x48, 0x6f, 0x73, 0x74, 0x22, 0x3a, 0x5b, 0x22, 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31, 0x3a, 0x38, 0x30, 0x30, 0x30, 0x22, 0x5d, 0x7d}},
+	}
+
+	fmt.Println(endpoints)
+	
+	result := dynamicpathdetector.AnalyzeEndpoints(&endpoints, analyzer)
+
+	fmt.Println(result)
+
 }
