@@ -52,7 +52,7 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 
 	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
 
-	if err := s.realStore.GetClusterScopedResource(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
+	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	}
 
 	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
-	if err := s.realStore.GetClusterScopedResource(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
+	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
 		return err
 	}
 

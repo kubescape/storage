@@ -23,7 +23,9 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"strconv"
 
+	"github.com/didip/tollbooth/v7"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
@@ -42,7 +44,10 @@ import (
 	netutils "k8s.io/utils/net"
 )
 
-const defaultEtcdPathPrefix = "/registry/spdx.softwarecomposition.kubescape.io"
+const (
+	defaultEtcdPathPrefix = "/registry/spdx.softwarecomposition.kubescape.io"
+	defaultRateLimit      = 10000
+)
 
 // WardleServerOptions contains state for master/api server
 type WardleServerOptions struct {
@@ -219,6 +224,20 @@ func (o WardleServerOptions) RunWardleServer(stopCh <-chan struct{}) error {
 	server, err := config.Complete().New()
 	if err != nil {
 		return err
+	}
+
+	if rateLimitPerClient, err := strconv.ParseFloat(os.Getenv("RATE_LIMIT_PER_CLIENT"), 64); err == nil {
+		rateLimitTotal := defaultRateLimit
+		if value, err := strconv.Atoi(os.Getenv("RATE_LIMIT_TOTAL")); err == nil {
+			rateLimitTotal = value
+		}
+		logger.L().Info("rate limiting enabled", helpers.Interface("rateLimitPerClient", rateLimitPerClient), helpers.Int("rateLimitTotal", rateLimitTotal))
+		// modify fullHandlerChain to include the Tollbooth rate limiter
+		fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
+		ipLimiter := tollbooth.NewLimiter(rateLimitPerClient, nil)
+		ipLimiter.SetIPLookups([]string{"X-Forwarded-For"}) // api-server acts as a reverse proxy
+		globalLimiter := NewConcurrentLimiter(rateLimitTotal)
+		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
 	}
 
 	server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {

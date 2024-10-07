@@ -65,7 +65,6 @@ type StorageQuerier interface {
 	storage.Interface
 	GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error
 	GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
-	GetClusterScopedResource(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
 }
 
 var _ storage.Interface = &StorageImpl{}
@@ -146,17 +145,25 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 		return fmt.Errorf("mkdir: %w", err)
 	}
 	// prepare payload file
-	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open payload file: %w", err)
 	}
+	directIOWriter := NewDirectIOWriter(payloadFile)
+	defer func() {
+		_ = directIOWriter.Close()
+		_ = payloadFile.Close()
+	}()
 	// prepare metadata file
 	metadataFile, err := s.appFs.OpenFile(makeMetadataPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open metadata file: %w", err)
 	}
+	defer func() {
+		_ = metadataFile.Close()
+	}()
 	// write payload
-	payloadEncoder := gob.NewEncoder(payloadFile)
+	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
 		return fmt.Errorf("encode payload: %w", err)
 	}
@@ -226,7 +233,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	spanLock.End()
 	p := filepath.Join(s.root, key)
 	// read metadata file
-	file, err := s.appFs.Open(makeMetadataPath(p))
+	metadataFile, err := s.appFs.Open(makeMetadataPath(p))
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
@@ -234,8 +241,11 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 		logger.L().Ctx(ctx).Error("Delete - read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
+	defer func() {
+		_ = metadataFile.Close()
+	}()
 	// try to fill metaOut
-	decoder := json.NewDecoder(file)
+	decoder := json.NewDecoder(metadataFile)
 	err = decoder.Decode(metaOut)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("Delete - json unmarshal failed", helpers.Error(err), helpers.String("key", key))
@@ -303,6 +313,9 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 		logger.L().Ctx(ctx).Error("Get - read file failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
+	defer func() {
+		_ = payloadFile.Close()
+	}()
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
 	err = decoder.Decode(objPtr)
 	if err != nil {
@@ -329,6 +342,7 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 // is true, 'key' is used as a prefix.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
+// GetList only returns metadata for the objects, not the objects themselves.
 func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
@@ -349,11 +363,12 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 
 	metadataPath := makeMetadataPath(p)
 	if exists, _ := afero.Exists(s.appFs, metadataPath); exists {
+		// key refers to one object
 		metadataFiles = append(metadataFiles, metadataPath)
 	} else {
 		_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return nil
+				return err
 			}
 			if !info.IsDir() && IsMetadataFile(path) {
 				metadataFiles = append(metadataFiles, path)
@@ -361,9 +376,51 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 			return nil
 		})
 	}
-	for _, metadataPath := range metadataFiles {
-		if err := s.appendObjectFromFile(metadataPath, v); err != nil {
-			logger.L().Ctx(ctx).Error("GetList - appending JSON object from file failed", helpers.Error(err), helpers.String("path", metadataPath))
+	for _, metadataFile := range metadataFiles {
+		if err := s.appendJsonObjectFromFile(metadataFile, v); err != nil {
+			logger.L().Ctx(ctx).Error("GetList - appending JSON object from file failed", helpers.Error(err), helpers.String("path", metadataFile))
+		}
+	}
+	return nil
+}
+
+// GetListWithSpec is the same as GetList, but it returns the full objects instead of just the metadata.
+func (s *StorageImpl) GetListWithSpec(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetListWithSpec")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+	listPtr, err := meta.GetItemsPtr(listObj)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GetListWithSpec - get items ptr failed", helpers.Error(err), helpers.String("key", key))
+		return err
+	}
+	v, err := conversion.EnforcePtr(listPtr)
+	if err != nil || v.Kind() != reflect.Slice {
+		logger.L().Ctx(ctx).Error("GetListWithSpec - need ptr to slice", helpers.Error(err), helpers.String("key", key))
+		return fmt.Errorf("need ptr to slice: %v", err)
+	}
+
+	p := filepath.Join(s.root, key)
+	var payloadFiles []string
+
+	payloadPath := makePayloadPath(p)
+	if exists, _ := afero.Exists(s.appFs, payloadPath); exists {
+		// key refers to one object
+		payloadFiles = append(payloadFiles, payloadPath)
+	} else {
+		_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && isPayloadFile(path) {
+				payloadFiles = append(payloadFiles, path)
+			}
+			return nil
+		})
+	}
+	for _, payloadFile := range payloadFiles {
+		if err := s.appendGobObjectFromFile(payloadFile, v); err != nil {
+			logger.L().Ctx(ctx).Error("GetListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
 		}
 	}
 	return nil
@@ -605,138 +662,41 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 	span.SetAttributes(attribute.String("apiVersion", apiVersion), attribute.String("kind", kind), attribute.String("namespace", namespace))
 	defer span.End()
 
-	listPtr, err := meta.GetItemsPtr(listObj)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("GetByNamespace - get items ptr failed", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
-		return err
-	}
+	p := filepath.Join(apiVersion, kind, namespace)
 
-	v, err := conversion.EnforcePtr(listPtr)
-	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("GetByNamespace - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind), helpers.String("namespace", namespace))
-		return err
-	}
-
-	p := filepath.Join(s.root, apiVersion, kind, namespace)
-
-	// read all json files under the namespace and append to list
-	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
-		if !isPayloadFile(path) {
-			return nil
-		}
-
-		if err := s.appendObjectFromFile(path, v); err != nil {
-			logger.L().Ctx(ctx).Error("GetByNamespace - appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
-		}
-
-		return nil
-	})
-
-	return nil
-}
-
-// GetClusterScopedResource returns all objects in a given cluster, given their api version and kind.
-func (s *StorageImpl) GetClusterScopedResource(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
-	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetClusterScopedResource")
-	defer span.End()
-
-	listPtr, err := meta.GetItemsPtr(listObj)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("GetClusterScopedResource - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
-		return err
-	}
-
-	v, err := conversion.EnforcePtr(listPtr)
-	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("GetClusterScopedResource - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
-		return err
-	}
-
-	p := filepath.Join(s.root, apiVersion, kind)
-
-	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
-		// the first path is the root path
-		if path == p {
-			return nil
-		}
-
-		_ = afero.Walk(s.appFs, path, func(subPath string, info os.FileInfo, err error) error {
-			if !isPayloadFile(subPath) {
-				return nil
-			}
-
-			if err := s.appendObjectFromFile(subPath, v); err != nil {
-				logger.L().Ctx(ctx).Error("GetClusterScopedResource - appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
-			}
-
-			return nil
-		})
-		return nil
-	})
-
-	return nil
+	return s.GetListWithSpec(ctx, p, storage.ListOptions{}, listObj)
 }
 
 // GetByCluster returns all objects in a given cluster, given their api version and kind.
 func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error {
-	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetByCluster")
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetClusterScopedResource")
 	defer span.End()
 
-	listPtr, err := meta.GetItemsPtr(listObj)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("GetByCluster - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
-		return err
-	}
+	p := filepath.Join(apiVersion, kind)
 
-	v, err := conversion.EnforcePtr(listPtr)
-	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("GetByCluster - need ptr to slice", helpers.Error(err), helpers.String("apiVersion", apiVersion), helpers.String("kind", kind))
-		return err
-	}
-
-	p := filepath.Join(s.root, apiVersion, kind)
-
-	// for each namespace, read all json files and append it to list obj
-	_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
-		// the first path is the root path
-		if path == p {
-			return nil
-		}
-
-		// under the root path, each directory is a namespace
-		if info.IsDir() {
-			_ = afero.Walk(s.appFs, path, func(subPath string, info os.FileInfo, err error) error {
-				if !isPayloadFile(subPath) {
-					return nil
-				}
-
-				if err := s.appendObjectFromFile(subPath, v); err != nil {
-					logger.L().Ctx(ctx).Error("GetByCluster - appending JSON object from file failed", helpers.Error(err), helpers.String("path", path))
-				}
-
-				return nil
-			})
-		}
-		return nil
-	})
-
-	return nil
+	return s.GetListWithSpec(ctx, p, storage.ListOptions{}, listObj)
 }
 
-// appendObjectFromFile unmarshalls a json file into a runtime.Object and appends it to the underlying list object.
-func (s *StorageImpl) appendObjectFromFile(path string, v reflect.Value) error {
+// appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
+func (s *StorageImpl) appendGobObjectFromFile(path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
 	s.locks.RLock(key)
 	defer s.locks.RUnlock(key)
-	file, err := s.appFs.Open(path)
+	payloadFile, err := s.appFs.OpenFile(path, syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
 		// skip if file is not readable, maybe it was deleted
 		return nil
 	}
+	defer func() {
+		_ = payloadFile.Close()
+	}()
 
-	obj, err := getUnmarshaledRuntimeObject(v, file)
-	if err != nil {
-		return nil
+	elem := v.Type().Elem()
+	obj := reflect.New(elem).Interface().(runtime.Object)
+
+	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
+	if err := decoder.Decode(obj); err != nil {
+		return err
 	}
 
 	v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
@@ -744,23 +704,31 @@ func (s *StorageImpl) appendObjectFromFile(path string, v reflect.Value) error {
 	return nil
 }
 
-func getUnmarshaledRuntimeObject(v reflect.Value, file afero.File) (runtime.Object, error) {
+// appendJsonObjectFromFile unmarshalls a JSON file into a runtime.Object and appends it to the underlying list object.
+func (s *StorageImpl) appendJsonObjectFromFile(path string, v reflect.Value) error {
+	key := s.keyFromPath(path)
+	s.locks.RLock(key)
+	defer s.locks.RUnlock(key)
+	metadataFile, err := s.appFs.Open(path)
+	if err != nil {
+		// skip if file is not readable, maybe it was deleted
+		return nil
+	}
+	defer func() {
+		_ = metadataFile.Close()
+	}()
+
 	elem := v.Type().Elem()
 	obj := reflect.New(elem).Interface().(runtime.Object)
 
-	if strings.HasSuffix(file.Name(), GobExt) {
-		decoder := gob.NewDecoder(file)
-		if err := decoder.Decode(obj); err != nil {
-			return nil, err
-		}
-		return obj, nil
+	decoder := json.NewDecoder(metadataFile)
+	if err := decoder.Decode(obj); err != nil {
+		return err
 	}
 
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(obj); err != nil {
-		return nil, err
-	}
-	return obj, nil
+	v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+
+	return nil
 }
 
 func getNamespaceFromKey(key string) string {
