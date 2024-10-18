@@ -1833,7 +1833,7 @@ func Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfil
 func autoConvert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(in *ApplicationProfileContainer, out *softwarecomposition.ApplicationProfileContainer, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
-	out.Execs = *(*[]softwarecomposition.ExecCalls)(unsafe.Pointer(&in.Execs))
+	out.Execs = *(*json.RawMessage)(unsafe.Pointer(&in.Execs))
 	out.Opens = *(*[]softwarecomposition.OpenCalls)(unsafe.Pointer(&in.Opens))
 	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
 	if err := Convert_v1beta1_SingleSeccompProfile_To_softwarecomposition_SingleSeccompProfile(&in.SeccompProfile, &out.SeccompProfile, s); err != nil {
@@ -1853,7 +1853,7 @@ func Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_Applicat
 func autoConvert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(in *softwarecomposition.ApplicationProfileContainer, out *ApplicationProfileContainer, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Capabilities = *(*[]string)(unsafe.Pointer(&in.Capabilities))
-	out.Execs = *(*[]ExecCalls)(unsafe.Pointer(&in.Execs))
+	out.Execs = *(*json.RawMessage)(unsafe.Pointer(&in.Execs))
 	out.Opens = *(*[]OpenCalls)(unsafe.Pointer(&in.Opens))
 	out.Syscalls = *(*[]string)(unsafe.Pointer(&in.Syscalls))
 	if err := Convert_softwarecomposition_SingleSeccompProfile_To_v1beta1_SingleSeccompProfile(&in.SeccompProfile, &out.SeccompProfile, s); err != nil {

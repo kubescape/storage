@@ -226,7 +226,7 @@ type ApplicationProfileSpec struct {
 type ApplicationProfileContainer struct {
 	Name           string
 	Capabilities   []string
-	Execs          []ExecCalls
+	Execs          json.RawMessage
 	Opens          []OpenCalls
 	Syscalls       []string
 	SeccompProfile SingleSeccompProfile

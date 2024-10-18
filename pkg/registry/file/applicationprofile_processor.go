@@ -95,7 +95,7 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
 		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),
-		Execs:          DeflateStringer(container.Execs),
+		Execs:          container.Execs, // FIXME - this is a temporary solution
 		Opens:          opens,
 		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
 		SeccompProfile: container.SeccompProfile,

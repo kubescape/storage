@@ -69,9 +69,7 @@ message ApplicationProfileContainer {
 
   repeated string capabilities = 2;
 
-  // +patchMergeKey=path
-  // +patchStrategy=merge
-  repeated ExecCalls execs = 3;
+  optional bytes execs = 3;
 
   // +patchMergeKey=path
   // +patchStrategy=merge

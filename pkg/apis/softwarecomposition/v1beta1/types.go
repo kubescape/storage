@@ -204,11 +204,9 @@ type ApplicationProfileSpec struct {
 }
 
 type ApplicationProfileContainer struct {
-	Name         string   `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
-	Capabilities []string `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
-	// +patchMergeKey=path
-	// +patchStrategy=merge
-	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
+	Name         string          `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+	Capabilities []string        `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
+	Execs        json.RawMessage `json:"execs" protobuf:"bytes,3,rep,name=execs"`
 	// +patchMergeKey=path
 	// +patchStrategy=merge
 	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`

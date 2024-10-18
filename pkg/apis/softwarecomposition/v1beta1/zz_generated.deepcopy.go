@@ -181,10 +181,8 @@ func (in *ApplicationProfileContainer) DeepCopyInto(out *ApplicationProfileConta
 	}
 	if in.Execs != nil {
 		in, out := &in.Execs, &out.Execs
-		*out = make([]ExecCalls, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+		*out = make(json.RawMessage, len(*in))
+		copy(*out, *in)
 	}
 	if in.Opens != nil {
 		in, out := &in.Opens, &out.Opens
