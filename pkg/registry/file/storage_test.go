@@ -203,8 +203,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				out: &v1beta1.SBOMSyft{},
 			},
-			create:  true,
-			wantErr: true,
+			create: true,
 		},
 		{
 			name: "empty object",
