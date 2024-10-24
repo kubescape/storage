@@ -296,6 +296,19 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
+	if opts.ResourceVersion == "metadata" {
+		// get metadata from SQLite
+		conn, err := s.pool.Take(context.Background())
+		if err != nil {
+			return fmt.Errorf("take connection: %w", err)
+		}
+		defer s.pool.Put(conn)
+		metadata, err := ReadMetadata(conn, key)
+		if err != nil {
+			return fmt.Errorf("read metadata: %w", err)
+		}
+		return json.Unmarshal(metadata, objPtr)
+	}
 	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
