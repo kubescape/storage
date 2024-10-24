@@ -301,7 +301,13 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
-	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_RDONLY, 0)
+	var openPath string
+	if opts.ResourceVersion == "metadata" {
+		openPath = makeMetadataPath(p)
+	} else {
+		openPath = makePayloadPath(p)
+	}
+	openFile, err := s.appFs.OpenFile(openPath, syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			if opts.IgnoreNotFound {
@@ -314,10 +320,13 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 		return err
 	}
 	defer func() {
-		_ = payloadFile.Close()
+		_ = openFile.Close()
 	}()
-	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
-	err = decoder.Decode(objPtr)
+	if opts.ResourceVersion == "metadata" {
+		err = json.NewDecoder(NewDirectIOReader(openFile)).Decode(objPtr)
+	} else {
+		err = gob.NewDecoder(NewDirectIOReader(openFile)).Decode(objPtr)
+	}
 	if err != nil {
 		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 			// irrecoverable error, delete both files

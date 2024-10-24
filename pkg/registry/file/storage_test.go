@@ -255,10 +255,22 @@ func isNotFoundError(_ assert.TestingT, err error, _ ...any) bool {
 func TestStorageImpl_Get(t *testing.T) {
 	var emptyObj bytes.Buffer
 	_ = gob.NewEncoder(&emptyObj).Encode(v1beta1.SBOMSyft{})
+	var realMeta bytes.Buffer
+	_ = json.NewEncoder(&realMeta).Encode(v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "toto",
+		},
+	})
 	var realObj bytes.Buffer
 	_ = gob.NewEncoder(&realObj).Encode(v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "toto",
+		},
+		Spec: v1beta1.SBOMSyftSpec{
+			Metadata: v1beta1.SPDXMeta{
+				Tool: v1beta1.ToolMeta{
+					Name: "syft"},
+			},
 		},
 	})
 	type args struct {
@@ -267,12 +279,13 @@ func TestStorageImpl_Get(t *testing.T) {
 		objPtr runtime.Object
 	}
 	tests := []struct {
-		name    string
-		args    args
-		content string
-		create  bool
-		wantErr assert.ErrorAssertionFunc
-		want    runtime.Object
+		name        string
+		args        args
+		content     string
+		contentMeta string
+		create      bool
+		wantErr     assert.ErrorAssertionFunc
+		want        runtime.Object
 	}{
 		{
 			name: "not found",
@@ -314,6 +327,28 @@ func TestStorageImpl_Get(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name: "toto",
 				},
+				Spec: v1beta1.SBOMSyftSpec{
+					Metadata: v1beta1.SPDXMeta{
+						Tool: v1beta1.ToolMeta{
+							Name: "syft"},
+					},
+				},
+			},
+		},
+		{
+			name: "real object - metadata only",
+			args: args{
+				key:    "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+				objPtr: &v1beta1.SBOMSyft{},
+				opts:   storage.GetOptions{ResourceVersion: "metadata"},
+			},
+			contentMeta: realMeta.String(),
+			create:      true,
+			wantErr:     assert.NoError,
+			want: &v1beta1.SBOMSyft{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "toto",
+				},
 			},
 		},
 		{
@@ -331,8 +366,8 @@ func TestStorageImpl_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.create {
-				path := getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key)
-				_ = afero.WriteFile(fs, path, []byte(tt.content), 0644)
+				_ = afero.WriteFile(fs, getStoredMetadataFilepath(DefaultStorageRoot, tt.args.key), []byte(tt.contentMeta), 0644)
+				_ = afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key), []byte(tt.content), 0644)
 			}
 			s := NewStorageImpl(fs, DefaultStorageRoot)
 			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); !tt.wantErr(t, err) {
