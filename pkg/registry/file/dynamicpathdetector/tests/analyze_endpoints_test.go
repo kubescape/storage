@@ -133,8 +133,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := dynamicpathdetector.AnalyzeEndpoints(&tt.input, analyzer)
-			assert.NoError(t, err)
+			result := dynamicpathdetector.AnalyzeEndpoints(&tt.input, analyzer)
 			ja := jsonassert.New(t)
 			for i := range result {
 				assert.Equal(t, tt.expected[i].Endpoint, result[i].Endpoint)
@@ -163,8 +162,7 @@ func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
 		},
 	}
 
-	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 	assert.Equal(t, expected, result)
 }
 
@@ -179,8 +177,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 		})
 	}
 
-	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
 	// Check that all 100 endpoints are still individual
 	assert.Equal(t, 100, len(result))
@@ -191,8 +188,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 		Methods:  []string{"GET"},
 	})
 
-	result, err = dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result = dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
 	// Check that all endpoints are now merged into one dynamic endpoint
 	expected := []types.HTTPEndpoint{
@@ -214,7 +210,6 @@ func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
 		},
 	}
 
-	result, err := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
-	assert.NoError(t, err)
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 	assert.Equal(t, 0, len(result))
 }
