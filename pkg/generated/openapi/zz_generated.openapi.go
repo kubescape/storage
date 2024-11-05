@@ -572,6 +572,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 						},
 					},
 					"rulePolicies": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "ruleId",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
@@ -4713,6 +4719,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_RulePolicy(ref common.Reference
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"processAllowed": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type":      "atomic",
+								"x-kubernetes-patch-strategy": "merge",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{

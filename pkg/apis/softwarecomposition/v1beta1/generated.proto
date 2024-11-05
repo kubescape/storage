@@ -89,6 +89,8 @@ message ApplicationProfileContainer {
 
   optional string imageTag = 9;
 
+  // +patchStrategy=merge
+  // +patchMergeKey=ruleId
   map<string, RulePolicy> rulePolicies = 10;
 }
 
@@ -1067,6 +1069,8 @@ message RulePath {
 }
 
 message RulePolicy {
+  // +patchStrategy=merge
+  // +listType=atomic
   repeated string processAllowed = 1;
 
   optional bool containerAllowed = 2;
