@@ -393,3 +393,72 @@ func TestHTTPEndpoint_String(t *testing.T) {
 		})
 	}
 }
+
+func TestApplicationProfileContainer_PolicyValidation(t *testing.T) {
+	tests := []struct {
+		name         string
+		container    ApplicationProfileContainer
+		wantPolicy   RulePolicy
+		policyRuleID string
+		wantExists   bool
+	}{
+		{
+			name: "Empty container",
+			container: ApplicationProfileContainer{
+				PolicyByRuleId: map[string]RulePolicy{},
+			},
+			policyRuleID: "rule1",
+			wantExists:   false,
+		},
+		{
+			name: "Container with policies",
+			container: ApplicationProfileContainer{
+				Name:         "nginx",
+				Capabilities: []string{"NET_BIND_SERVICE", "CHOWN"},
+				ImageID:      "sha256:abc123",
+				ImageTag:     "1.21-alpine",
+				PolicyByRuleId: map[string]RulePolicy{
+					"rule1": {
+						AllowedProcesses: []string{"nginx", "sh"},
+						AllowedContainer: true,
+					},
+					"rule2": {
+						AllowedProcesses: []string{},
+						AllowedContainer: false,
+					},
+				},
+			},
+			policyRuleID: "rule1",
+			wantPolicy: RulePolicy{
+				AllowedProcesses: []string{"nginx", "sh"},
+				AllowedContainer: true,
+			},
+			wantExists: true,
+		},
+		{
+			name: "Non-existent rule",
+			container: ApplicationProfileContainer{
+				Name: "nginx",
+				PolicyByRuleId: map[string]RulePolicy{
+					"rule1": {
+						AllowedProcesses: []string{"nginx"},
+						AllowedContainer: true,
+					},
+				},
+			},
+			policyRuleID: "rule2",
+			wantExists:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy, exists := tt.container.PolicyByRuleId[tt.policyRuleID]
+			assert.Equal(t, tt.wantExists, exists, "policy existence")
+
+			if tt.wantExists {
+				assert.Equal(t, tt.wantPolicy, policy, "policy content")
+			}
+		})
+	}
+}

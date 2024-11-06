@@ -126,6 +126,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product":                                    schema_pkg_apis_softwarecomposition_v1beta1_Product(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta":                                 schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePath":                                   schema_pkg_apis_softwarecomposition_v1beta1_RulePath(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy":                                 schema_pkg_apis_softwarecomposition_v1beta1_RulePolicy(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RuleStatus":                                 schema_pkg_apis_softwarecomposition_v1beta1_RuleStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft":                                   schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyft(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered":                           schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref),
@@ -570,12 +571,32 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 							Format:  "",
 						},
 					},
+					"rulePolicies": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "ruleId",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag"},
+				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag", "rulePolicies"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
 	}
 }
 
@@ -4686,6 +4707,44 @@ func schema_pkg_apis_softwarecomposition_v1beta1_RulePath(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"failedPath", "fixPath", "fixPathValue", "fixCommand"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_RulePolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"processAllowed": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type":      "atomic",
+								"x-kubernetes-patch-strategy": "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"containerAllowed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}

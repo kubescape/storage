@@ -219,6 +219,9 @@ type ApplicationProfileContainer struct {
 	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
 	ImageID   string         `json:"imageID" protobuf:"bytes,8,opt,name=imageID"`
 	ImageTag  string         `json:"imageTag" protobuf:"bytes,9,opt,name=imageTag"`
+	// +patchStrategy=merge
+	// +patchMergeKey=ruleId
+	PolicyByRuleId map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
 }
 
 type ExecCalls struct {
@@ -566,6 +569,13 @@ type Syscall struct {
 	ErrnoRet uint64 `json:"errnoRet,omitempty" protobuf:"bytes,3,opt,name=errnoRet"`
 	// the specific syscall in seccomp
 	Args []*Arg `json:"args,omitempty" protobuf:"bytes,4,rep,name=args"`
+}
+
+type RulePolicy struct {
+	// +patchStrategy=merge
+	// +listType=atomic
+	AllowedProcesses []string `json:"processAllowed,omitempty" protobuf:"bytes,1,rep,name=processAllowed" patchStrategy:"merge"`
+	AllowedContainer bool     `json:"containerAllowed,omitempty" protobuf:"bytes,2,opt,name=containerAllowed"`
 }
 
 type HTTPEndpoint struct {

@@ -233,6 +233,12 @@ type ApplicationProfileContainer struct {
 	Endpoints      []HTTPEndpoint
 	ImageID        string
 	ImageTag       string
+	PolicyByRuleId map[string]RulePolicy
+}
+
+type RulePolicy struct {
+	AllowedProcesses []string
+	AllowedContainer bool
 }
 
 type ExecCalls struct {
