@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 const (
@@ -82,7 +83,7 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, nil)
 
 			got1, _ := s.Watch(context.TODO(), tt.args.key, tt.args.opts)
 			got1chan := got1.ResultChan()
@@ -182,9 +183,14 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			pool := NewTestPool(t.TempDir())
+			require.NotNil(t, pool)
+			defer func(pool *sqlitemigration.Pool) {
+				_ = pool.Close()
+			}(pool)
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, sch)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, sch)
 			ctx := context.Background()
 			opts := storage.ListOptions{}
 
@@ -297,9 +303,14 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			pool := NewTestPool(t.TempDir())
+			require.NotNil(t, pool)
+			defer func(pool *sqlitemigration.Pool) {
+				_ = pool.Close()
+			}(pool)
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, sch)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, sch)
 			opts := storage.ListOptions{}
 
 			watchers := map[string][]watch.Interface{}

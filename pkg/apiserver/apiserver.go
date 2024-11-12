@@ -17,10 +17,14 @@ limitations under the License.
 package apiserver
 
 import (
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/registry"
+	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationactivity"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	knownserver "github.com/kubescape/storage/pkg/registry/softwarecomposition/knownservers"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighborhood"
@@ -29,6 +33,12 @@ import (
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyftfiltereds"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyfts"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/seccompprofiles"
+	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
+	vmsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifestsummary"
+	vsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitysummary"
+	wcsstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscans"
+	wcssumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscansummary"
+	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,17 +49,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage"
-
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
-	sbomregistry "github.com/kubescape/storage/pkg/registry"
-	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
-	vmstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifest"
-	vmsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitymanifestsummary"
-	vsumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/vulnerabilitysummary"
-	wcsstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscans"
-	wcssumstorage "github.com/kubescape/storage/pkg/registry/softwarecomposition/workloadconfigurationscansummary"
-	"github.com/spf13/afero"
+	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 const maxRequestBodyBytes = 1024 * 1024 * 1024
@@ -82,7 +82,8 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	// Place you custom config here.
+	OsFs afero.Fs
+	Pool *sqlitemigration.Pool
 }
 
 // Config defines the config for the apiserver
@@ -141,11 +142,10 @@ func (c completedConfig) New() (*WardleServer, error) {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 
 	var (
-		osFs        = afero.NewOsFs()
-		storageImpl = file.NewStorageImpl(osFs, file.DefaultStorageRoot, Scheme)
+		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme)
 
-		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, Scheme, file.NewApplicationProfileProcessor())
-		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, Scheme, file.NewNetworkNeighborhoodProcessor())
+		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme, file.NewApplicationProfileProcessor())
+		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme, file.NewNetworkNeighborhoodProcessor())
 		configScanStorageImpl          = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage    = file.NewVulnerabilitySummaryStorage(storageImpl)
 		generatedNetworkPolicyStorage  = file.NewGeneratedNetworkPolicyStorage(storageImpl)

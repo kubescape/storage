@@ -60,6 +60,56 @@ then you already have a copy of this demo in
 `kubernetes/staging/src/k8s.io/sample-apiserver` and its dependencies
 --- including the code generator --- are in usable locations.
 
+## Design changes
+
+Compared to the upstream repository, the following changes have been made:
+- metadata are stored in a SQLite database
+- payload are stored in a virtual filesystem (afero) mapping to a directory
+
+### Database schema
+
+```mermaid
+erDiagram
+   METADATA {
+        string kind
+        string namespace
+        string name
+        JSON metadata
+    }
+    RESOURCE only one to one METADATA : has
+```
+
+Metadata are stored in JSON format, and should be unmarshalled to the appropriate struct when needed.
+
+GetList() operations should support pagination, we are using ROWID to sort the results and limit the number
+of rows returned. On subsequent calls, the client provides the last ROWID to get the next page.
+
+### Filesystem layout
+
+The filesystem contains both the metadata database and the payload files.
+
+```mermaid
+graph LR
+    root["/data/"] --> metadata.sq3
+    root --> metadata.sq3-shm
+    root --> metadata.sq3-wal
+    root --> spdx["spdx.softwarecomposition.kubescape.io/"]
+    spdx --> ap["applicationprofiles/"]
+    ap --> aps["..."]
+    spdx --> sbom["sbomsyft/"]
+    sbom --> sboms["..."]
+    spdx --> sbomf["sbomsyftfiltered/"]
+    sbomf --> sbomfs["..."]
+    spdx --> vuln["vulnerabilitymanifests/"]
+    vuln --> ns1["namespace1/"]
+    ns1 --> dp1["deployment-deployment1.g"]
+    ns1 --> dp2["deployment-deployment2.g"]
+    ns1 --> pod1["pod-pod1.g"]
+    ns1 --> st1["statefulset-statefulset1.g"]
+```
+
+Payloads are stored in Gob format, and since they can be quite big, we are using direct I/O when possible
+to reduce memory allocations when unmarshalling them.
 
 ## Normal Build and Deploy
 
