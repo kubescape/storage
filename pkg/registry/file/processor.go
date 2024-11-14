@@ -2,6 +2,7 @@ package file
 
 import (
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -33,4 +34,16 @@ func DeflateStringer[T Stringer](in []T) []T {
 		out = append(out, item)
 	}
 	return out
+}
+
+func DeflateRulePolicies(in map[string]softwarecomposition.RulePolicy) map[string]softwarecomposition.RulePolicy {
+	if in == nil {
+		return nil
+	}
+
+	for key, item := range in {
+		item.AllowedProcesses = mapset.Sorted(mapset.NewThreadUnsafeSet(item.AllowedProcesses...))
+		in[key] = item
+	}
+	return in
 }

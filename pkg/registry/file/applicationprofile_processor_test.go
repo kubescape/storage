@@ -163,3 +163,97 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 		})
 	}
 }
+
+func TestDeflateRulePolicies(t *testing.T) {
+	tests := []struct {
+		name string
+		in   map[string]softwarecomposition.RulePolicy
+		want map[string]softwarecomposition.RulePolicy
+	}{
+		{
+			name: "nil map",
+			in:   nil,
+			want: nil,
+		},
+		{
+			name: "empty map",
+			in:   map[string]softwarecomposition.RulePolicy{},
+			want: map[string]softwarecomposition.RulePolicy{},
+		},
+		{
+			name: "single rule with unsorted processes",
+			in: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: []string{"cat", "bash", "ls"},
+					AllowedContainer: true,
+				},
+			},
+			want: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: []string{"bash", "cat", "ls"},
+					AllowedContainer: true,
+				},
+			},
+		},
+		{
+			name: "multiple rules with duplicate processes",
+			in: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: []string{"cat", "bash", "ls", "bash"},
+					AllowedContainer: true,
+				},
+				"rule2": {
+					AllowedProcesses: []string{"nginx", "nginx", "python"},
+					AllowedContainer: false,
+				},
+			},
+			want: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: []string{"bash", "cat", "ls"},
+					AllowedContainer: true,
+				},
+				"rule2": {
+					AllowedProcesses: []string{"nginx", "python"},
+					AllowedContainer: false,
+				},
+			},
+		},
+		{
+			name: "rule with empty processes",
+			in: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: []string{},
+					AllowedContainer: true,
+				},
+			},
+			want: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: []string{},
+					AllowedContainer: true,
+				},
+			},
+		},
+		{
+			name: "rule with nil processes",
+			in: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: nil,
+					AllowedContainer: true,
+				},
+			},
+			want: map[string]softwarecomposition.RulePolicy{
+				"rule1": {
+					AllowedProcesses: []string{},
+					AllowedContainer: true,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DeflateRulePolicies(tt.in)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
