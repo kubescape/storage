@@ -42,8 +42,15 @@ func DeflateRulePolicies(in map[string]softwarecomposition.RulePolicy) map[strin
 	}
 
 	for key, item := range in {
-		item.AllowedProcesses = mapset.Sorted(mapset.NewThreadUnsafeSet(item.AllowedProcesses...))
+		item.AllowedProcesses = DeflateSortString(item.AllowedProcesses)
 		in[key] = item
 	}
 	return in
+}
+
+func DeflateSortString(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	return mapset.Sorted(mapset.NewThreadUnsafeSet(in...))
 }

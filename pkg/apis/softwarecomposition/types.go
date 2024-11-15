@@ -23,6 +23,8 @@ import (
 
 	"github.com/containers/common/pkg/seccomp"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -640,7 +642,7 @@ func (e *HTTPEndpoint) GetHeaders() (map[string][]string, error) {
 	headers := make(map[string][]string)
 
 	// Unmarshal the JSON into the map
-	err := json.Unmarshal([]byte(e.Headers), &headers)
+	err := json.Unmarshal(e.Headers, &headers)
 	if err != nil {
 		return nil, err
 	}
@@ -683,7 +685,7 @@ func (e HTTPEndpoint) String() string {
 			s.WriteString(sep)
 		}
 		// Capitalize the first letter of the direction
-		s.WriteString(strings.Title(string(e.Direction)))
+		s.WriteString(cases.Title(language.English, cases.NoLower).String(string(e.Direction)))
 	}
 
 	headers, err := e.GetHeaders()

@@ -5,7 +5,6 @@ import (
 	"os"
 	"strconv"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
@@ -61,7 +60,7 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	profile.Spec.InitContainers = processContainers(profile.Spec.InitContainers)
 	profile.Spec.Containers = processContainers(profile.Spec.Containers)
 
-	profile.Spec.Architectures = mapset.Sorted(mapset.NewThreadUnsafeSet(profile.Spec.Architectures...))
+	profile.Spec.Architectures = DeflateSortString(profile.Spec.Architectures)
 
 	// check the size of the profile
 	if size > a.maxApplicationProfileSize {
@@ -83,18 +82,14 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		opens = DeflateStringer(container.Opens)
 	}
 
-	if opens == nil {
-		opens = []softwarecomposition.OpenCalls{}
-	}
-
 	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
 
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:           container.Name,
-		Capabilities:   mapset.Sorted(mapset.NewThreadUnsafeSet(container.Capabilities...)),
+		Capabilities:   DeflateSortString(container.Capabilities),
 		Execs:          DeflateStringer(container.Execs),
 		Opens:          opens,
-		Syscalls:       mapset.Sorted(mapset.NewThreadUnsafeSet(container.Syscalls...)),
+		Syscalls:       DeflateSortString(container.Syscalls),
 		SeccompProfile: container.SeccompProfile,
 		Endpoints:      endpoints,
 		ImageTag:       container.ImageTag,

@@ -79,20 +79,18 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 						{
 							Name: "ephemeralContainer",
 							Ingress: []softwarecomposition.NetworkNeighbor{
-								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}, {Name: "443"}}, DNSNames: []string{}},
+								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}, {Name: "443"}}},
 								{Identifier: "b", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
-								{Identifier: "c", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}, DNSNames: []string{}},
+								{Identifier: "c", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{},
 						},
 					},
 					InitContainers: []softwarecomposition.NetworkNeighborhoodContainer{
 						{
 							Name: "initContainer",
 							Ingress: []softwarecomposition.NetworkNeighbor{
-								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}, DNSNames: []string{}},
+								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{},
 						},
 					},
 					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
@@ -102,14 +100,12 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
 								{Identifier: "c", Ports: []softwarecomposition.NetworkPort{{Name: "8080"}}},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{},
 						},
 						{
 							Name: "container2",
 							Ingress: []softwarecomposition.NetworkNeighbor{
 								{Identifier: "a", Ports: []softwarecomposition.NetworkPort{{Name: "80"}}},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{},
 						},
 					},
 				},

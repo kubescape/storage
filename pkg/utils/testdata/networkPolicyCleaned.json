@@ -1,0 +1,59 @@
+{
+  "kind": "NetworkPolicy",
+  "apiVersion": "networking.k8s.io/v1",
+  "metadata": {
+    "name": "argocd-dex-server-network-policy",
+    "namespace": "argocd",
+    "uid": "1976d83a-4745-4e2b-8e43-799b15e7b4a2",
+    "resourceVersion": "856454",
+    "generation": 1,
+    "creationTimestamp": "2023-12-21T15:11:15Z",
+    "annotations": {}
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app.kubernetes.io/name": "argocd-dex-server"
+      }
+    },
+    "ingress": [
+      {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 5556
+          },
+          {
+            "protocol": "TCP",
+            "port": 5557
+          }
+        ],
+        "from": [
+          {
+            "podSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/name": "argocd-server"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 5558
+          }
+        ],
+        "from": [
+          {
+            "namespaceSelector": {}
+          }
+        ]
+      }
+    ],
+    "policyTypes": [
+      "Ingress"
+    ]
+  }
+}

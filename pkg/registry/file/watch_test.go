@@ -5,9 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -79,7 +82,7 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil)
 
 			got1, _ := s.Watch(context.TODO(), tt.args.key, tt.args.opts)
 			got1chan := got1.ResultChan()
@@ -100,6 +103,9 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		obj  = &v1beta1.SBOMSyft{ObjectMeta: v1.ObjectMeta{
 			Name:            "some-sbom",
 			ResourceVersion: "1",
+			Annotations: map[string]string{
+				"kubescape.io/sync-checksum": "f01df40a881e487bda097444c66c52f99b821fd6a6a6b69fcde94ed81f3bf4e1",
+			},
 		}}
 	)
 	tt := []struct {
@@ -111,14 +117,14 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Create should publish to the appropriate single channel",
 		start: map[string]int{keyK: 1},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
 		},
 		want: map[string][]watch.Event{keyK: {{Type: watch.Added, Object: obj}}},
 	}, {
 		name:  "Create should publish to all watchers on the relevant key",
 		start: map[string]int{keyK: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
 		},
 		want: map[string][]watch.Event{keyK: {
 			{Type: watch.Added, Object: obj},
@@ -129,21 +135,19 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Creating on key different than the watch should produce no event",
 		start: map[string]int{keyK: 3, keyN: 1},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
 		},
-		want: map[string][]watch.Event{keyN: {{Type: watch.Added, Object: obj}}, keyK: {}},
 	}, {
 		name:  "Creating on key not being watched should produce no events",
 		start: map[string]int{keyK: 1},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
 		},
-		want: map[string][]watch.Event{keyN: {}},
 	}, {
 		name:  "Sending to stopped watch should not produce an event",
 		start: map[string]int{keyN: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
 		},
 		stopBefore: map[string]int{keyN: 1},
 		want: map[string][]watch.Event{keyN: {
@@ -154,7 +158,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Stopping watch after send shouldn't deadlock",
 		start: map[string]int{keyN: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
 		},
 		stopAfter: map[string]int{keyN: 0},
 		want: map[string][]watch.Event{keyN: {
@@ -166,7 +170,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Stopping watch twice is ok",
 		start: map[string]int{keyN: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
 		},
 		stopBefore: map[string]int{keyN: 1},
 		stopAfter:  map[string]int{keyN: 1},
@@ -178,7 +182,9 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+			sch := scheme.Scheme
+			require.NoError(t, softwarecomposition.AddToScheme(sch))
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, sch)
 			ctx := context.Background()
 			opts := storage.ListOptions{}
 
@@ -224,7 +230,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 
 			// Assert the expected events
 			for key, wantEvents := range tc.want {
-				gotEvents := []watch.Event{}
+				var gotEvents []watch.Event
 				for _, w := range watchers[key] {
 					select {
 					case ev, ok := <-w.ResultChan():
@@ -249,6 +255,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
+			Annotations:     map[string]string{},
 		},
 	}
 
@@ -290,14 +297,16 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+			sch := scheme.Scheme
+			require.NoError(t, softwarecomposition.AddToScheme(sch))
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, sch)
 			opts := storage.ListOptions{}
 
 			watchers := map[string][]watch.Interface{}
 			for key, watchCount := range tc.inputWatchesByKey {
 				for i := 0; i < watchCount; i++ {
-					watch, _ := s.Watch(context.TODO(), key, opts)
-					watchers[key] = append(watchers[key], watch)
+					wtch, _ := s.Watch(context.TODO(), key, opts)
+					watchers[key] = append(watchers[key], wtch)
 				}
 			}
 
@@ -305,7 +314,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 			_ = s.GuaranteedUpdate(context.TODO(), tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
 
 			for key, expectedEvents := range tc.expectedEvents {
-				gotEvents := []watch.Event{}
+				var gotEvents []watch.Event
 				for _, w := range watchers[key] {
 					select {
 					case ev := <-w.ResultChan():

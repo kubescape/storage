@@ -89,47 +89,36 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 					Architectures: []string{"amd64", "arm64"},
 					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
 						{
-							Name:         "ephemeralContainer",
-							Capabilities: []string{},
+							Name: "ephemeralContainer",
 							Execs: []softwarecomposition.ExecCalls{
 								{Path: "/bin/bash", Args: []string{"-c", "echo abc"}},
 							},
-							Opens:    []softwarecomposition.OpenCalls{},
-							Syscalls: []string{},
 						},
 					},
 					InitContainers: []softwarecomposition.ApplicationProfileContainer{
 						{
-							Name:         "initContainer",
-							Capabilities: []string{},
+							Name: "initContainer",
 							Execs: []softwarecomposition.ExecCalls{
 								{Path: "/bin/bash", Args: []string{"-c", "echo hello"}},
 							},
-							Opens:    []softwarecomposition.OpenCalls{},
-							Syscalls: []string{},
 						},
 					},
 					Containers: []softwarecomposition.ApplicationProfileContainer{
 						{
-							Name:         "container1",
-							Capabilities: []string{},
+							Name: "container1",
 							Execs: []softwarecomposition.ExecCalls{
 								{Path: "/usr/bin/ls", Args: []string{"-l", "/tmp"}},
 								{Path: "/usr/bin/ls", Args: []string{"-l", "/home"}},
 							},
-							Opens:    []softwarecomposition.OpenCalls{},
-							Syscalls: []string{},
 						},
 						{
-							Name:         "container2",
-							Capabilities: []string{},
+							Name: "container2",
 							Execs: []softwarecomposition.ExecCalls{
 								{Path: "/usr/bin/ping", Args: []string{"localhost"}},
 							},
 							Opens: []softwarecomposition.OpenCalls{
 								{Path: "/etc/hosts", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
 							},
-							Syscalls: []string{},
 							Endpoints: []softwarecomposition.HTTPEndpoint{
 								{
 									Endpoint:  ":443/abc",
@@ -243,7 +232,7 @@ func TestDeflateRulePolicies(t *testing.T) {
 			},
 			want: map[string]softwarecomposition.RulePolicy{
 				"rule1": {
-					AllowedProcesses: []string{},
+					AllowedProcesses: nil,
 					AllowedContainer: true,
 				},
 			},

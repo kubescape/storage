@@ -16,6 +16,8 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
@@ -25,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -56,6 +59,7 @@ type StorageImpl struct {
 	locks           utils.MapMutex[string]
 	processor       Processor
 	root            string
+	scheme          *runtime.Scheme
 	versioner       storage.Versioner
 	watchDispatcher *watchDispatcher
 }
@@ -63,6 +67,7 @@ type StorageImpl struct {
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
 type StorageQuerier interface {
 	storage.Interface
+	CalculateChecksum(in runtime.Object) (string, error)
 	GetByNamespace(ctx context.Context, apiVersion, kind, namespace string, listObj runtime.Object) error
 	GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
 }
@@ -71,16 +76,17 @@ var _ storage.Interface = &StorageImpl{}
 
 var _ StorageQuerier = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string) StorageQuerier {
-	return NewStorageImplWithCollector(appFs, root, DefaultProcessor{})
+func NewStorageImpl(appFs afero.Fs, root string, scheme *runtime.Scheme) StorageQuerier {
+	return NewStorageImplWithCollector(appFs, root, scheme, DefaultProcessor{})
 }
 
-func NewStorageImplWithCollector(appFs afero.Fs, root string, processor Processor) StorageQuerier {
+func NewStorageImplWithCollector(appFs afero.Fs, root string, scheme *runtime.Scheme, processor Processor) StorageQuerier {
 	return &StorageImpl{
 		appFs:           appFs,
 		locks:           utils.NewMapMutex[string](),
 		processor:       processor,
 		root:            root,
+		scheme:          scheme,
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: newWatchDispatcher(),
 	}
@@ -169,6 +175,13 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 	}
 	// extract metadata
 	metadata := extractMetadata(obj)
+	// calculate checksum
+	checksum, err := s.CalculateChecksum(obj)
+	if err != nil {
+		return fmt.Errorf("calculate checksum: %w", err)
+	}
+	// add checksum to metadata
+	metadata.(metav1.Object).GetAnnotations()[helpersv1.SyncChecksumMetadataKey] = checksum
 	// write metadata
 	metadataEncoder := json.NewEncoder(metadataFile)
 	if err := metadataEncoder.Encode(metadata); err != nil {
@@ -729,6 +742,34 @@ func (s *StorageImpl) appendJsonObjectFromFile(path string, v reflect.Value) err
 	v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
 
 	return nil
+}
+
+func (s *StorageImpl) CalculateChecksum(in runtime.Object) (string, error) {
+	// convert to v1beta1 object
+	obj, err := s.scheme.ConvertToVersion(in, v1beta1.SchemeGroupVersion)
+	if err != nil {
+		return "", fmt.Errorf("convert to v1beta1: %w", err)
+	}
+	utils.RemoveManagedFields(obj.(metav1.Object))
+	// add type meta information to the object
+	sl := strings.Split(reflect.ValueOf(obj).Elem().Type().String(), ".")
+	for len(sl) < 2 {
+		sl = append(sl, "")
+	}
+	obj.GetObjectKind().SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   softwarecomposition.GroupName,
+		Version: sl[0],
+		Kind:    sl[1],
+	})
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return "", fmt.Errorf("marshal object: %w", err)
+	}
+	hash, err := utils.CanonicalHash(b)
+	if err != nil {
+		return "", fmt.Errorf("calculate checksum: %w", err)
+	}
+	return hash, nil
 }
 
 func getNamespaceFromKey(key string) string {

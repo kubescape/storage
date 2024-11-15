@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
@@ -74,7 +77,7 @@ func TestStorageImpl_Count(t *testing.T) {
 				fpath := DefaultStorageRoot + f
 				_ = afero.WriteFile(fs, fpath, []byte(""), 0644)
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot)
+			s := NewStorageImpl(fs, DefaultStorageRoot, nil)
 			got, err := s.Count(tt.key)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Count() error = %v, wantErr %v", err, tt.wantErr)
@@ -116,7 +119,8 @@ func TestStorageImpl_Create(t *testing.T) {
 				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				obj: &v1beta1.SBOMSyft{
 					ObjectMeta: v1.ObjectMeta{
-						Name: "toto",
+						Name:        "toto",
+						Annotations: map[string]string{},
 					},
 				},
 			},
@@ -127,6 +131,7 @@ func TestStorageImpl_Create(t *testing.T) {
 				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				obj: &v1beta1.SBOMSyft{
 					ObjectMeta: v1.ObjectMeta{
+						Annotations:   map[string]string{},
 						Name:          "toto",
 						ManagedFields: []v1.ManagedFieldsEntry{{Manager: "node-agent"}},
 					},
@@ -137,6 +142,9 @@ func TestStorageImpl_Create(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:            "toto",
 					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"kubescape.io/sync-checksum": "c1cabafe2019d04e697774db7bc943c2d9012ff3ccf5ea78af2179f5558e764d",
+					},
 				},
 			},
 		},
@@ -149,7 +157,9 @@ func TestStorageImpl_Create(t *testing.T) {
 			} else {
 				fs = afero.NewMemMapFs()
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot)
+			sch := scheme.Scheme
+			require.NoError(t, softwarecomposition.AddToScheme(sch))
+			s := NewStorageImpl(fs, DefaultStorageRoot, sch)
 			err := s.Create(context.TODO(), tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -238,7 +248,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 				fpath := getStoredMetadataFilepath(DefaultStorageRoot, tt.args.key)
 				_ = afero.WriteFile(fs, fpath, []byte(tt.content), 0644)
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot)
+			s := NewStorageImpl(fs, DefaultStorageRoot, nil)
 			if err := s.Delete(context.TODO(), tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -335,9 +345,9 @@ func TestStorageImpl_Get(t *testing.T) {
 				path := getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key)
 				_ = afero.WriteFile(fs, path, []byte(tt.content), 0644)
 			}
-			s := NewStorageImpl(fs, DefaultStorageRoot)
+			s := NewStorageImpl(fs, DefaultStorageRoot, nil)
 			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); !tt.wantErr(t, err) {
-				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr(t, err))
 			}
 			if tt.want != nil {
 				assert.Equal(t, tt.want, tt.args.objPtr)
@@ -350,20 +360,23 @@ func TestStorageImpl_GetList(t *testing.T) {
 	objs := map[string]runtime.Object{
 		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "toto",
-				Namespace: "kubescape",
+				Name:        "toto",
+				Namespace:   "kubescape",
+				Annotations: map[string]string{},
 			},
 		},
 		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/titi": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "titi",
-				Namespace: "kubescape",
+				Name:        "titi",
+				Namespace:   "kubescape",
+				Annotations: map[string]string{},
 			},
 		},
 		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/tata": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "tata",
-				Namespace: "other",
+				Name:        "tata",
+				Namespace:   "other",
+				Annotations: map[string]string{},
 			},
 		},
 	}
@@ -405,7 +418,9 @@ func TestStorageImpl_GetList(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+			sch := scheme.Scheme
+			require.NoError(t, softwarecomposition.AddToScheme(sch))
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, sch)
 			for k, v := range objs {
 				err := s.Create(context.Background(), k, v.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
@@ -422,7 +437,8 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	count := 0
 	toto := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "toto",
+			Name:        "toto",
+			Annotations: map[string]string{},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -436,6 +452,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
+			Annotations:     map[string]string{},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -449,6 +466,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "3",
+			Annotations:     map[string]string{},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -462,6 +480,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
+			Annotations:     map[string]string{},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -555,7 +574,9 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+			sch := scheme.Scheme
+			require.NoError(t, softwarecomposition.AddToScheme(sch))
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, sch)
 			if tt.create {
 				err := s.Create(context.Background(), tt.args.key, toto.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
@@ -593,14 +614,14 @@ func TestStorageImpl_Versioner(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil)
 			assert.Equal(t, tt.want, s.Versioner())
 		})
 	}
 }
 
 func BenchmarkWriteFiles(b *testing.B) {
-	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot).(*StorageImpl)
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil).(*StorageImpl)
 	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
 	obj := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
@@ -617,4 +638,49 @@ func BenchmarkWriteFiles(b *testing.B) {
 		_ = s.writeFiles(key, obj, metaOut)
 	}
 	b.ReportAllocs()
+}
+
+func Test_calculateChecksum(t *testing.T) {
+	tests := []struct {
+		name    string
+		obj     runtime.Object
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "applicationprofile",
+			obj: &softwarecomposition.ApplicationProfile{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "toto",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"key": "value",
+					},
+				},
+				Spec: softwarecomposition.ApplicationProfileSpec{
+					Architectures: []string{"amd64"},
+					Containers: []softwarecomposition.ApplicationProfileContainer{{
+						Name: "nginx",
+						Execs: []softwarecomposition.ExecCalls{{
+							Path: "/usr/sbin/nginx",
+						}},
+					}},
+				},
+			},
+			want:    "5816a857c672b2d147d3c2a4e5c5c86716ec4be951dad16a77c7e760ff15658b",
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sch := scheme.Scheme
+			require.NoError(t, softwarecomposition.AddToScheme(sch))
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, sch)
+			got, err := s.CalculateChecksum(tt.obj)
+			if !tt.wantErr(t, err, fmt.Sprintf("CalculateChecksum(%v)", tt.obj)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "CalculateChecksum(%v)", tt.obj)
+		})
+	}
 }

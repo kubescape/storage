@@ -1,0 +1,402 @@
+{
+  "apiVersion": "v1",
+  "kind": "Node",
+  "metadata": {
+    "annotations": {
+      "alpha.kubernetes.io/provided-node-ip": "10.1.17.10",
+      "csi.volume.kubernetes.io/nodeid": "{\"ebs.csi.aws.com\":\"i-099ef91944855a3fe\"}",
+      "node.alpha.kubernetes.io/ttl": "0",
+      "volumes.kubernetes.io/controller-managed-attach-detach": "true"
+    },
+    "creationTimestamp": "2024-02-22T15:34:14Z",
+    "labels": {
+      "beta.kubernetes.io/arch": "amd64",
+      "beta.kubernetes.io/instance-type": "m5.large",
+      "beta.kubernetes.io/os": "linux",
+      "eks.amazonaws.com/capacityType": "ON_DEMAND",
+      "eks.amazonaws.com/nodegroup": "dev-general-purpose",
+      "eks.amazonaws.com/nodegroup-image": "ami-01e9ddd1133df4709",
+      "env": "dev",
+      "failure-domain.beta.kubernetes.io/region": "eu-west-1",
+      "failure-domain.beta.kubernetes.io/zone": "eu-west-1a",
+      "k8s.io/cloud-provider-aws": "4f9e76a978be69f0320476d8299e6345",
+      "kubernetes.io/arch": "amd64",
+      "kubernetes.io/hostname": "ip-10-1-17-10.eu-west-1.compute.internal",
+      "kubernetes.io/os": "linux",
+      "node.kubernetes.io/instance-type": "m5.large",
+      "provisioner.cast.ai/node-id": "d688acf0-ea8e-4ab0-8f4b-958f3c8145c4",
+      "subgroup": "gp",
+      "topology.ebs.csi.aws.com/zone": "eu-west-1a",
+      "topology.kubernetes.io/region": "eu-west-1",
+      "topology.kubernetes.io/zone": "eu-west-1a"
+    },
+    "name": "ip-10-1-17-10.eu-west-1.compute.internal",
+    "resourceVersion": "748258858",
+    "uid": "820a5099-c22f-4826-82e9-a3596c778e90"
+  },
+  "spec": {
+    "providerID": "aws:///eu-west-1a/i-099ef91944855a3fe"
+  },
+  "status": {
+    "addresses": [
+      {
+        "address": "10.1.17.10",
+        "type": "InternalIP"
+      },
+      {
+        "address": "18.201.14.225",
+        "type": "ExternalIP"
+      },
+      {
+        "address": "ip-10-1-17-10.eu-west-1.compute.internal",
+        "type": "Hostname"
+      },
+      {
+        "address": "ip-10-1-17-10.eu-west-1.compute.internal",
+        "type": "InternalDNS"
+      },
+      {
+        "address": "ec2-18-201-14-225.eu-west-1.compute.amazonaws.com",
+        "type": "ExternalDNS"
+      }
+    ],
+    "allocatable": {
+      "attachable-volumes-aws-ebs": "25",
+      "cpu": "1930m",
+      "ephemeral-storage": "18242267924",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "memory": "7220184Ki",
+      "pods": "29"
+    },
+    "capacity": {
+      "attachable-volumes-aws-ebs": "25",
+      "cpu": "2",
+      "ephemeral-storage": "20959212Ki",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "memory": "7910360Ki",
+      "pods": "29"
+    },
+    "conditions": null,
+    "daemonEndpoints": {
+      "kubeletEndpoint": {
+        "Port": 10250
+      }
+    },
+    "images": [
+      {
+        "names": [
+          "docker.io/apachepulsar/pulsar-all@sha256:fd3e027771f08eb224a3a9e8874514f0f258a0356059120d3f25f151f96506c8",
+          "docker.io/apachepulsar/pulsar-all:2.10.2"
+        ],
+        "sizeBytes": 2648867873
+      },
+      {
+        "names": [
+          "dreg.armo.cloud:443/portal-backend@sha256:5454525ff0550ef9ccce3db57feabec68183f57f945c69a9634dd7e032084786",
+          "dreg.armo.cloud:443/portal-backend:1318"
+        ],
+        "sizeBytes": 178896658
+      },
+      {
+        "names": [
+          "docker.io/bitnami/mongodb@sha256:d8c93cb3ab205e9d144ec00ef04d9d8ca733e7b4dd9bc5b4bea5866f47b73bc5",
+          "docker.io/bitnami/mongodb:4.2.8-debian-10-r33"
+        ],
+        "sizeBytes": 174546726
+      },
+      {
+        "names": [
+          "quay.io/argoproj/argocd@sha256:5f1de1b4d959868c1e006e08d46361c8f019d9730e74bc1feeab8c7b413f1187",
+          "quay.io/argoproj/argocd:v2.10.1"
+        ],
+        "sizeBytes": 169935379
+      },
+      {
+        "names": [
+          "quay.io/argoproj/argocd@sha256:6a5d0e909b6ad106cef2b7ce73df509b09dc33da9c27e69775c8777084554c52",
+          "quay.io/argoproj/argocd:v2.7.7"
+        ],
+        "sizeBytes": 147277137
+      },
+      {
+        "names": [
+          "registry.k8s.io/ingress-nginx/controller@sha256:e5c4824e7375fcf2a393e1c03c293b69759af37a9ca6abdb91b13d78a93da8bd"
+        ],
+        "sizeBytes": 113903192
+      },
+      {
+        "names": [
+          "docker.io/grafana/agent@sha256:df177cf6e405258fe78a73d164526a57d5239c9e912ec48cd549bb1a533a9344",
+          "docker.io/grafana/agent:v0.35.2"
+        ],
+        "sizeBytes": 88247981
+      },
+      {
+        "names": [
+          "quay.io/armosec/event-ingester-service@sha256:8d98f7234432e06e11f66857ca6ed434d668171408b84368e77b9a6eaa2a1f86",
+          "quay.io/armosec/event-ingester-service:rc-v0.0.237-279"
+        ],
+        "sizeBytes": 83685504
+      },
+      {
+        "names": [
+          "quay.io/armosec/event-ingester-service@sha256:e51dde89d01de86614e9b26bc32f05e6803ed968653ad573979bb1e227f96948",
+          "quay.io/armosec/event-ingester-service:rc-v0.0.236-277"
+        ],
+        "sizeBytes": 83684676
+      },
+      {
+        "names": [
+          "quay.io/armosec/event-ingester-service@sha256:023ec24f24a348f36dea5a02327a864457bfc18f1361167c1a13e56faa7ee5a6",
+          "quay.io/armosec/event-ingester-service:v0.0.236"
+        ],
+        "sizeBytes": 83684647
+      },
+      {
+        "names": [
+          "dreg.armo.cloud:443/backend-conf-reloader@sha256:c70d7d38f48f50bbf3bcee701c0e7f79a883ea648083847b5be01389ffed4063",
+          "dreg.armo.cloud:443/backend-conf-reloader:v1.0"
+        ],
+        "sizeBytes": 71840316
+      },
+      {
+        "names": [
+          "quay.io/armosec/backend-conf-reloader@sha256:c2ecba824467482e802c61e80d01220808eeaa5181dba385d4836075b961a574",
+          "quay.io/armosec/backend-conf-reloader:v1.0"
+        ],
+        "sizeBytes": 71838291
+      },
+      {
+        "names": [
+          "docker.io/grafana/promtail@sha256:626900031c4ea955ef9094bf49386eb4b6928609b5d8aa27df8172342edf1136",
+          "docker.io/grafana/promtail:2.4.2"
+        ],
+        "sizeBytes": 67329843
+      },
+      {
+        "names": [
+          "602401143452.dkr.ecr-fips.us-east-1.amazonaws.com/amazon-k8s-cni-init:v1.13.2",
+          "602401143452.dkr.ecr-fips.us-east-1.amazonaws.com/amazon-k8s-cni-init:v1.13.2-eksbuild.1",
+          "602401143452.dkr.ecr-fips.us-east-2.amazonaws.com/amazon-k8s-cni-init:v1.13.2",
+          "602401143452.dkr.ecr-fips.us-east-2.amazonaws.com/amazon-k8s-cni-init:v1.13.2-eksbuild.1",
+          "602401143452.dkr.ecr-fips.us-west-1.amazonaws.com/amazon-k8s-cni-init:v1.13.2"
+        ],
+        "sizeBytes": 59663187
+      },
+      {
+        "names": [
+          "dreg.armo.cloud:443/armo-ui-sonar-predev@sha256:9ad0f7d7526659506c2ece707dda50b0a0d275a8993ab942fdac43be00601e2b",
+          "dreg.armo.cloud:443/armo-ui-sonar-predev:86"
+        ],
+        "sizeBytes": 58791251
+      },
+      {
+        "names": [
+          "docker.io/bitnami/mongodb-exporter@sha256:2cb375c08d9a7d4d9b4e8f937a2abae05d7daebab19cf699196d47406b905c1c",
+          "docker.io/bitnami/mongodb-exporter:0.11.0-debian-10-r82"
+        ],
+        "sizeBytes": 44347800
+      },
+      {
+        "names": [
+          "602401143452.dkr.ecr-fips.us-east-1.amazonaws.com/amazon-k8s-cni:v1.13.2",
+          "602401143452.dkr.ecr-fips.us-east-1.amazonaws.com/amazon-k8s-cni:v1.13.2-eksbuild.1",
+          "602401143452.dkr.ecr-fips.us-east-2.amazonaws.com/amazon-k8s-cni:v1.13.2",
+          "602401143452.dkr.ecr-fips.us-east-2.amazonaws.com/amazon-k8s-cni:v1.13.2-eksbuild.1",
+          "602401143452.dkr.ecr-fips.us-west-1.amazonaws.com/amazon-k8s-cni:v1.13.2"
+        ],
+        "sizeBytes": 44059679
+      },
+      {
+        "names": [
+          "docker.io/grafana/tempo@sha256:4bcaa474c47869039b738395dec656eaa87a4916a9cef69604c6d82cde63b073",
+          "docker.io/grafana/tempo:2.2.1"
+        ],
+        "sizeBytes": 43225658
+      },
+      {
+        "names": [
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/kube-proxy@sha256:60be4699c5a0baa0867490358acad8041f1c981ecfe4d95d7aa35c1a5184cc9b",
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/kube-proxy:v1.24.10-eksbuild.2"
+        ],
+        "sizeBytes": 39742300
+      },
+      {
+        "names": [
+          "quay.io/matthiasb_1/node-agent@sha256:3f17cd9fb5f6aee97a049288117972fb15f5734c85a0d0f5dddac781022e8587"
+        ],
+        "sizeBytes": 38353990
+      },
+      {
+        "names": [
+          "quay.io/armosec/kubecop@sha256:0dac6dc01d12adb917c909a0dae267da0ee06cb4fc85644f50752c972deb38a4",
+          "quay.io/armosec/kubecop:v0.0.36"
+        ],
+        "sizeBytes": 36922588
+      },
+      {
+        "names": [
+          "ghcr.io/dexidp/dex@sha256:f579d00721b0d842328c43a562f50343c54b0048ef2d58d6b54e750c21fc7938",
+          "ghcr.io/dexidp/dex:v2.37.0"
+        ],
+        "sizeBytes": 32502483
+      },
+      {
+        "names": [
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/aws-ebs-csi-driver@sha256:71885dc32a4a1d7c9a1911589f44dcb92a28551fb60da05b6f2b246e59dac90e",
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/aws-ebs-csi-driver:v1.20.0"
+        ],
+        "sizeBytes": 30363212
+      },
+      {
+        "names": [
+          "quay.io/armosec/dashboard-backend@sha256:ac2825e3cfb2ced4bff86469588dabe05c809ef42de59273122bdb2320955bcc",
+          "quay.io/armosec/dashboard-backend:rc-v0.0.52-1054"
+        ],
+        "sizeBytes": 28959368
+      },
+      {
+        "names": [
+          "quay.io/armosec/dashboard-backend@sha256:1431c665da35889f497d3ef5742654fc1c50019be0cfc5fd98d97f89f0e61ac0",
+          "quay.io/armosec/dashboard-backend:rc-v0.0.51-1052",
+          "quay.io/armosec/dashboard-backend:v0.0.51"
+        ],
+        "sizeBytes": 28958156
+      },
+      {
+        "names": [
+          "quay.io/armosec/dashboard-backend@sha256:47f1e7d95c1e671f2c817ac71581d433c6c44b7963a87b5a2431afee1d49833c",
+          "quay.io/armosec/dashboard-backend:v0.0.50"
+        ],
+        "sizeBytes": 28904211
+      },
+      {
+        "names": [
+          "docker.io/fission/fission-bundle@sha256:3c50884b04ca48a1f0f8afcc8d107037fb9079af2421294d4aba1370832c6b3d",
+          "docker.io/fission/fission-bundle:v1.15.1"
+        ],
+        "sizeBytes": 21561920
+      },
+      {
+        "names": [
+          "dreg.armo.cloud:443/dashboard-event-receiver@sha256:f68a1d2ad46f564ae553bf52ce67f0676437aed25298d537f77dcf12b4c3dbe0",
+          "dreg.armo.cloud:443/dashboard-event-receiver:284"
+        ],
+        "sizeBytes": 16393386
+      },
+      {
+        "names": [
+          "quay.io/armosec/kubescape-config-service@sha256:4a7574ecfe0ae0431fed6f25431c5e8dac1480a3a70192cf4c6450b1788a7914",
+          "quay.io/armosec/kubescape-config-service:rc-v0.0.102-109"
+        ],
+        "sizeBytes": 15650719
+      },
+      {
+        "names": [
+          "quay.io/armosec/kubescape-config-service@sha256:c9f4d1e46b2c20e887440306d0fbde3032aed41c4d413329aafc9abb77d4c8b3",
+          "quay.io/armosec/kubescape-config-service:rc-v0.0.102-110"
+        ],
+        "sizeBytes": 15650567
+      },
+      {
+        "names": [
+          "quay.io/armosec/kubescape-config-service@sha256:f5268c58ce29220623e58f37ce2f44bf56659102f1d5703b9d1cbf06d3653a14",
+          "quay.io/armosec/kubescape-config-service:v0.0.101"
+        ],
+        "sizeBytes": 15648171
+      },
+      {
+        "names": [
+          "quay.io/prometheus/node-exporter@sha256:d2e48098c364e61ee62d9016eed863b66331d87cf67146f2068b70ed9d9b4f98",
+          "quay.io/prometheus/node-exporter:v1.6.0"
+        ],
+        "sizeBytes": 11728452
+      },
+      {
+        "names": [
+          "quay.io/armosec/users-notification-service@sha256:d90dd66c73eddbcb8720f092e18e2b2e8ce7cf1526a99e5881d388c6c99d441e",
+          "quay.io/armosec/users-notification-service:v0.0.127"
+        ],
+        "sizeBytes": 10896270
+      },
+      {
+        "names": [
+          "dreg.armo.cloud:443/notification-server@sha256:338c659982df5722c6880bcec91ceb34d3391358a0df41a0b9d22e15d3ece19a",
+          "dreg.armo.cloud:443/notification-server:92"
+        ],
+        "sizeBytes": 6959386
+      },
+      {
+        "names": [
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/csi-node-driver-registrar@sha256:74e13dfff1d73b0e39ae5883b5843d1672258b34f7d4757995c72d92a26bed1e",
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/csi-node-driver-registrar:v2.8.0-eks-1-27-3"
+        ],
+        "sizeBytes": 6651094
+      },
+      {
+        "names": [
+          "quay.io/kubescape/host-scanner@sha256:89fe7df48898769110dc6fb96050c3a8f58dd8d8dbc795b21471bb68148516f2",
+          "quay.io/kubescape/host-scanner:v1.0.66"
+        ],
+        "sizeBytes": 6472151
+      },
+      {
+        "names": [
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/livenessprobe@sha256:25b4d3f9cf686ac464a742ead16e705da3adcfe574296dd75c5c05ec7473a513",
+          "602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/livenessprobe:v2.10.0-eks-1-27-3"
+        ],
+        "sizeBytes": 6178396
+      },
+      {
+        "names": [
+          "docker.io/library/busybox@sha256:6d9ac9237a84afe1516540f40a0fafdc86859b2141954b4d643af7066d598b74",
+          "docker.io/library/busybox:latest"
+        ],
+        "sizeBytes": 2231050
+      },
+      {
+        "names": [
+          "602401143452.dkr.ecr-fips.us-east-1.amazonaws.com/eks/pause:3.5",
+          "602401143452.dkr.ecr-fips.us-east-2.amazonaws.com/eks/pause:3.5",
+          "602401143452.dkr.ecr-fips.us-west-1.amazonaws.com/eks/pause:3.5",
+          "602401143452.dkr.ecr-fips.us-west-2.amazonaws.com/eks/pause:3.5",
+          "602401143452.dkr.ecr.af-south-1.amazonaws.com/eks/pause:3.5"
+        ],
+        "sizeBytes": 298689
+      }
+    ],
+    "nodeInfo": {
+      "architecture": "amd64",
+      "bootID": "735e07e4-2d03-4374-b81f-dc194db90a92",
+      "containerRuntimeVersion": "containerd://1.6.19",
+      "kernelVersion": "5.10.184-175.731.amzn2.x86_64",
+      "kubeProxyVersion": "v1.24.13-eks-0a21954",
+      "kubeletVersion": "v1.24.13-eks-0a21954",
+      "machineID": "ec280c68e1518670527543983845f958",
+      "operatingSystem": "linux",
+      "osImage": "Amazon Linux 2",
+      "systemUUID": "ec280c68-e151-8670-5275-43983845f958"
+    },
+    "volumesAttached": [
+      {
+        "devicePath": "",
+        "name": "kubernetes.io/csi/ebs.csi.aws.com^vol-04274721dcf507828"
+      },
+      {
+        "devicePath": "",
+        "name": "kubernetes.io/csi/ebs.csi.aws.com^vol-002f3eb275d4677e9"
+      },
+      {
+        "devicePath": "",
+        "name": "kubernetes.io/csi/ebs.csi.aws.com^vol-0431d2091bea4aff6"
+      }
+    ],
+    "volumesInUse": [
+      "kubernetes.io/csi/ebs.csi.aws.com^vol-002f3eb275d4677e9",
+      "kubernetes.io/csi/ebs.csi.aws.com^vol-04274721dcf507828",
+      "kubernetes.io/csi/ebs.csi.aws.com^vol-0431d2091bea4aff6"
+    ]
+  }
+}
