@@ -99,6 +99,6 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		Endpoints:      endpoints,
 		ImageTag:       container.ImageTag,
 		ImageID:        container.ImageID,
-		PolicyByRuleId: container.PolicyByRuleId,
+		PolicyByRuleId: DeflateRulePolicies(container.PolicyByRuleId),
 	}
 }
