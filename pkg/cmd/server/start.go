@@ -34,6 +34,7 @@ import (
 	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -42,6 +43,7 @@ import (
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	netutils "k8s.io/utils/net"
+	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 const (
@@ -58,10 +60,13 @@ type WardleServerOptions struct {
 	StdErr                io.Writer
 
 	AlternateDNS []string
+
+	OsFs afero.Fs
+	Pool *sqlitemigration.Pool
 }
 
 // NewWardleServerOptions returns a new WardleServerOptions
-func NewWardleServerOptions(out, errOut io.Writer) *WardleServerOptions {
+func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
@@ -70,6 +75,9 @@ func NewWardleServerOptions(out, errOut io.Writer) *WardleServerOptions {
 
 		StdOut: out,
 		StdErr: errOut,
+
+		OsFs: osFs,
+		Pool: pool,
 	}
 	o.RecommendedOptions.Etcd = nil
 
@@ -209,7 +217,10 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 
 	config := &apiserver.Config{
 		GenericConfig: serverConfig,
-		ExtraConfig:   apiserver.ExtraConfig{},
+		ExtraConfig: apiserver.ExtraConfig{
+			OsFs: o.OsFs,
+			Pool: o.Pool,
+		},
 	}
 	return config, nil
 }

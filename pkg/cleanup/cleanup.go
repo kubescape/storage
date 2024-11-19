@@ -1,7 +1,6 @@
 package cleanup
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -15,9 +14,9 @@ import (
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file"
-	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 const (
@@ -53,18 +52,20 @@ type TypeDeleteFunc func(appFs afero.Fs, path string)
 
 type ResourcesCleanupHandler struct {
 	appFs      afero.Fs
-	root       string        // root directory to start the cleanup task
+	root       string // root directory to start the cleanup task
+	pool       *sqlitemigration.Pool
 	interval   time.Duration // runs the cleanup task every Interval
 	resources  ResourceMaps
 	fetcher    ResourcesFetcher
 	deleteFunc TypeDeleteFunc
 }
 
-func NewResourcesCleanupHandler(appFs afero.Fs, root string, interval time.Duration, fetcher ResourcesFetcher) *ResourcesCleanupHandler {
+func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, interval time.Duration, fetcher ResourcesFetcher) *ResourcesCleanupHandler {
 	return &ResourcesCleanupHandler{
 		appFs:      appFs,
 		interval:   interval,
 		root:       root,
+		pool:       pool,
 		fetcher:    fetcher,
 		deleteFunc: deleteFile,
 	}
@@ -89,7 +90,7 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 			}
 			err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
-					return err
+					return nil // we might encounter already deleted files from readMetadata when migrating to SQLite
 				}
 
 				// skip directories
@@ -133,20 +134,18 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 						logger.L().Error("migration to gob error", helpers.Error(err))
 						return nil
 					}
+					// change path to gob file before continuing
+					path = path[:len(path)-len(file.JsonExt)] + file.GobExt
 				}
 
-				// skip files that are not metadata files
-				if !file.IsMetadataFile(path) {
+				// skip files that are not payload files
+				if !file.IsPayloadFile(path) {
 					return nil
 				}
 
-				metadata, err := loadMetadataFromPath(h.appFs, path)
+				metadata, err := h.readMetadata(path)
 				if err != nil {
 					logger.L().Error("load metadata error", helpers.Error(err))
-					return nil
-				}
-				if metadata == nil {
-					// no metadata found
 					return nil
 				}
 
@@ -155,8 +154,7 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 					h.deleteFunc(h.appFs, path)
 
-					payloadFilePath := path[:len(path)-len(file.MetadataExt)] + file.GobExt
-					h.deleteFunc(h.appFs, payloadFilePath)
+					h.deleteMetadata(path)
 				}
 				return nil
 			})
@@ -178,63 +176,6 @@ func deleteFile(appFs afero.Fs, path string) {
 	if err := appFs.Remove(path); err != nil {
 		logger.L().Error("failed deleting file", helpers.Error(err))
 	}
-}
-
-func loadMetadataFromPath(appFs afero.Fs, rootPath string) (*metav1.ObjectMeta, error) {
-	input, err := afero.ReadFile(appFs, rootPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %w", rootPath, err)
-	}
-
-	data := metav1.ObjectMeta{
-		Annotations: map[string]string{},
-		Labels:      map[string]string{},
-	}
-
-	if len(input) == 0 {
-		// empty file
-		return nil, nil
-	}
-
-	// ujson parsing
-	var parent string
-	err = ujson.Walk(input, func(level int, key, value []byte) bool {
-		switch level {
-		case 1:
-			// read name
-			if bytes.EqualFold(key, []byte(`"name"`)) {
-				data.Name = unquote(value)
-			}
-			// read namespace
-			if bytes.EqualFold(key, []byte(`"namespace"`)) {
-				data.Namespace = unquote(value)
-			}
-			// record parent for level 3
-			parent = unquote(key)
-		case 2:
-			// read annotations
-			if parent == "annotations" {
-				data.Annotations[unquote(key)] = unquote(value)
-			}
-			// read labels
-			if parent == "labels" {
-				data.Labels[unquote(key)] = unquote(value)
-			}
-		}
-		return true
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse file %s: %w", rootPath, err)
-	}
-	return &data, nil
-}
-
-func unquote(value []byte) string {
-	buf, err := ujson.Unquote(value)
-	if err != nil {
-		return string(value)
-	}
-	return string(buf)
 }
 
 // delete deprecated resources

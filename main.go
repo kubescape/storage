@@ -21,6 +21,7 @@ import (
 	"flag"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
@@ -60,8 +61,12 @@ func main() {
 		defer logger.ShutdownOtel(ctx)
 	}
 
+	// setup storage components
+	osFs := afero.NewOsFs()
+	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), 0) // If less than 1, a reasonable default is used.
+
 	stopCh := genericapiserver.SetupSignalHandler()
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr)
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool)
 	cmd := server.NewCommandStartWardleServer(options, stopCh)
 
 	// cleanup task
@@ -76,11 +81,7 @@ func main() {
 		intervalDuration = time.Hour * 24
 		logger.L().Info("failed to parse cleanup interval, falling back to default", helpers.Error(err), helpers.String("interval", intervalDuration.String()))
 	}
-	cleanupHandler := cleanup.NewResourcesCleanupHandler(
-		afero.NewOsFs(),
-		file.DefaultStorageRoot,
-		intervalDuration,
-		kubernetesAPI)
+	cleanupHandler := cleanup.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, intervalDuration, kubernetesAPI)
 	go cleanupHandler.StartCleanupTask(ctx)
 
 	logger.L().Info("APIServer started")

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 const (
@@ -56,6 +57,7 @@ type objState struct {
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
 	appFs           afero.Fs
+	pool            *sqlitemigration.Pool
 	locks           utils.MapMutex[string]
 	processor       Processor
 	root            string
@@ -76,13 +78,14 @@ var _ storage.Interface = &StorageImpl{}
 
 var _ StorageQuerier = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string, scheme *runtime.Scheme) StorageQuerier {
-	return NewStorageImplWithCollector(appFs, root, scheme, DefaultProcessor{})
+func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, scheme *runtime.Scheme) StorageQuerier {
+	return NewStorageImplWithCollector(appFs, root, pool, scheme, DefaultProcessor{})
 }
 
-func NewStorageImplWithCollector(appFs afero.Fs, root string, scheme *runtime.Scheme, processor Processor) StorageQuerier {
+func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, scheme *runtime.Scheme, processor Processor) StorageQuerier {
 	return &StorageImpl{
 		appFs:           appFs,
+		pool:            conn,
 		locks:           utils.NewMapMutex[string](),
 		processor:       processor,
 		root:            root,
@@ -113,19 +116,9 @@ func makePayloadPath(path string) string {
 	return path + GobExt
 }
 
-// makeMetadataPath returns a path for the metadata file
-func makeMetadataPath(path string) string {
-	return path + MetadataExt
-}
-
-// IsMetadataFile returns true if a given file at `path` is an object metadata file, else false
-func IsMetadataFile(path string) bool {
-	return strings.HasSuffix(path, MetadataExt)
-}
-
-// isPayloadFile returns true if a given file at `path` is an object payload file, else false
-func isPayloadFile(path string) bool {
-	return !IsMetadataFile(path)
+// IsPayloadFile returns true if a given file at `path` is an object payload file, else false
+func IsPayloadFile(path string) bool {
+	return strings.HasSuffix(path, GobExt)
 }
 
 func (s *StorageImpl) keyFromPath(path string) string {
@@ -160,14 +153,6 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 		_ = directIOWriter.Close()
 		_ = payloadFile.Close()
 	}()
-	// prepare metadata file
-	metadataFile, err := s.appFs.OpenFile(makeMetadataPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return fmt.Errorf("open metadata file: %w", err)
-	}
-	defer func() {
-		_ = metadataFile.Close()
-	}()
 	// write payload
 	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
@@ -186,10 +171,14 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 	} else {
 		anno[helpersv1.SyncChecksumMetadataKey] = checksum
 	}
-	// write metadata
-	metadataEncoder := json.NewEncoder(metadataFile)
-	if err := metadataEncoder.Encode(metadata); err != nil {
-		return fmt.Errorf("encode metadata: %w", err)
+	// store metadata in SQLite
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return fmt.Errorf("take connection: %w", err)
+	}
+	defer s.pool.Put(conn)
+	if err := writeMetadata(conn, key, metadata); err != nil {
+		return fmt.Errorf("write metadata: %w", err)
 	}
 	// eventually fill metaOut
 	if metaOut != nil {
@@ -249,33 +238,18 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	defer s.locks.Unlock(key)
 	spanLock.End()
 	p := filepath.Join(s.root, key)
-	// read metadata file
-	metadataFile, err := s.appFs.Open(makeMetadataPath(p))
+	// delete metadata in SQLite
+	conn, err := s.pool.Take(context.Background())
 	if err != nil {
-		if errors.Is(err, afero.ErrFileNotFound) {
-			return storage.NewKeyNotFoundError(key, 0)
-		}
-		logger.L().Ctx(ctx).Error("Delete - read file failed", helpers.Error(err), helpers.String("key", key))
-		return err
+		return fmt.Errorf("take connection: %w", err)
 	}
-	defer func() {
-		_ = metadataFile.Close()
-	}()
-	// try to fill metaOut
-	decoder := json.NewDecoder(metadataFile)
-	err = decoder.Decode(metaOut)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("Delete - json unmarshal failed", helpers.Error(err), helpers.String("key", key))
-		return err
+	defer s.pool.Put(conn)
+	if err := DeleteMetadata(conn, key, metaOut); err != nil {
+		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
 	}
-	// delete payload and metadata files
-	err = s.appFs.Remove(makePayloadPath(p))
-	if err != nil {
+	// delete payload file
+	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
-	}
-	err = s.appFs.Remove(makeMetadataPath(p))
-	if err != nil {
-		logger.L().Ctx(ctx).Error("Delete - remove metadata file failed", helpers.Error(err), helpers.String("key", key))
 	}
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
@@ -337,8 +311,13 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 	err = decoder.Decode(objPtr)
 	if err != nil {
 		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
-			// irrecoverable error, delete both files
-			_ = s.appFs.Remove(makeMetadataPath(p))
+			// irrecoverable error, delete corresponding data
+			conn, err := s.pool.Take(context.Background())
+			if err != nil {
+				return fmt.Errorf("take connection: %w", err)
+			}
+			defer s.pool.Put(conn)
+			_ = DeleteMetadata(conn, key, nil)
 			_ = s.appFs.Remove(makePayloadPath(p))
 			logger.L().Debug("Get - gob unexpected EOF, removed files", helpers.String("key", key))
 			if opts.IgnoreNotFound {
@@ -360,7 +339,7 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
-func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -374,46 +353,55 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, _ storage.ListOpt
 		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
-
-	p := filepath.Join(s.root, key)
-	var metadataFiles []string
-
-	metadataPath := makeMetadataPath(p)
-	if exists, _ := afero.Exists(s.appFs, metadataPath); exists {
-		// key refers to one object
-		metadataFiles = append(metadataFiles, metadataPath)
-	} else {
-		_ = afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() && IsMetadataFile(path) {
-				metadataFiles = append(metadataFiles, path)
-			}
-			return nil
-		})
+	// get metadata from SQLite
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return fmt.Errorf("take connection: %w", err)
 	}
-	for _, metadataFile := range metadataFiles {
-		if err := s.appendJsonObjectFromFile(metadataFile, v); err != nil {
-			logger.L().Ctx(ctx).Error("GetList - appending JSON object from file failed", helpers.Error(err), helpers.String("path", metadataFile))
+	defer s.pool.Put(conn)
+	metadataJSONs, last, err := listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
+	}
+	// populate list object
+	for _, metadataJSON := range metadataJSONs {
+		elem := v.Type().Elem()
+		obj := reflect.New(elem).Interface().(runtime.Object)
+		if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
+			logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
 		}
+		v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+	}
+	// eventually set list accessor fields
+	if len(metadataJSONs) == int(opts.Predicate.Limit) {
+		listAccessor, err := meta.ListAccessor(listObj)
+		if err != nil {
+			return fmt.Errorf("list accessor: %w", err)
+		}
+		listAccessor.SetContinue(last)
+		//if rsp.RemainingItemCount > 0 {
+		//listAccessor.SetRemainingItemCount(&rsp.RemainingItemCount)
+		//}
+		//if rsp.ResourceVersion > 0 {
+		//listAccessor.SetResourceVersion(strconv.FormatInt(rsp.ResourceVersion, 10))
+		//}
 	}
 	return nil
 }
 
-// GetListWithSpec is the same as GetList, but it returns the full objects instead of just the metadata.
-func (s *StorageImpl) GetListWithSpec(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
-	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetListWithSpec")
+// getListWithSpec is the same as GetList, but it returns the full objects instead of just the metadata.
+func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.getListWithSpec")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("GetListWithSpec - get items ptr failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("getListWithSpec - get items ptr failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
 	v, err := conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("GetListWithSpec - need ptr to slice", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("getListWithSpec - need ptr to slice", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
 
@@ -429,7 +417,7 @@ func (s *StorageImpl) GetListWithSpec(ctx context.Context, key string, _ storage
 			if err != nil {
 				return err
 			}
-			if !info.IsDir() && isPayloadFile(path) {
+			if !info.IsDir() && IsPayloadFile(path) {
 				payloadFiles = append(payloadFiles, path)
 			}
 			return nil
@@ -437,7 +425,7 @@ func (s *StorageImpl) GetListWithSpec(ctx context.Context, key string, _ storage
 	}
 	for _, payloadFile := range payloadFiles {
 		if err := s.appendGobObjectFromFile(payloadFile, v); err != nil {
-			logger.L().Ctx(ctx).Error("GetListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
+			logger.L().Ctx(ctx).Error("getListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
 		}
 	}
 	return nil
@@ -643,27 +631,12 @@ func (s *StorageImpl) GuaranteedUpdate(
 // Count returns number of different entries under the key (generally being path prefix).
 func (s *StorageImpl) Count(key string) (int64, error) {
 	logger.L().Debug("Custom storage count", helpers.String("key", key))
-	p := filepath.Join(s.root, key)
-	metadataPath := makeMetadataPath(p)
-
-	pathExists, _ := afero.Exists(s.appFs, metadataPath)
-	pathIsDir, _ := afero.IsDir(s.appFs, metadataPath)
-	if pathExists && !pathIsDir {
-		return 1, nil
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("take connection: %w", err)
 	}
-
-	n := 0
-	err := afero.Walk(s.appFs, p, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Only payload files should count towards found objects
-		if !info.IsDir() && isPayloadFile(path) {
-			n++
-		}
-		return nil
-	})
-	return int64(n), err
+	defer s.pool.Put(conn)
+	return countMetadata(conn, key)
 }
 
 // RequestWatchProgress fulfills the storage.Interface
@@ -681,7 +654,7 @@ func (s *StorageImpl) GetByNamespace(ctx context.Context, apiVersion, kind, name
 
 	p := filepath.Join(apiVersion, kind, namespace)
 
-	return s.GetListWithSpec(ctx, p, storage.ListOptions{}, listObj)
+	return s.getListWithSpec(ctx, p, storage.ListOptions{}, listObj)
 }
 
 // GetByCluster returns all objects in a given cluster, given their api version and kind.
@@ -691,7 +664,7 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 
 	p := filepath.Join(apiVersion, kind)
 
-	return s.GetListWithSpec(ctx, p, storage.ListOptions{}, listObj)
+	return s.getListWithSpec(ctx, p, storage.ListOptions{}, listObj)
 }
 
 // appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
@@ -712,33 +685,6 @@ func (s *StorageImpl) appendGobObjectFromFile(path string, v reflect.Value) erro
 	obj := reflect.New(elem).Interface().(runtime.Object)
 
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
-	if err := decoder.Decode(obj); err != nil {
-		return err
-	}
-
-	v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
-
-	return nil
-}
-
-// appendJsonObjectFromFile unmarshalls a JSON file into a runtime.Object and appends it to the underlying list object.
-func (s *StorageImpl) appendJsonObjectFromFile(path string, v reflect.Value) error {
-	key := s.keyFromPath(path)
-	s.locks.RLock(key)
-	defer s.locks.RUnlock(key)
-	metadataFile, err := s.appFs.Open(path)
-	if err != nil {
-		// skip if file is not readable, maybe it was deleted
-		return nil
-	}
-	defer func() {
-		_ = metadataFile.Close()
-	}()
-
-	elem := v.Type().Elem()
-	obj := reflect.New(elem).Interface().(runtime.Object)
-
-	decoder := json.NewDecoder(metadataFile)
 	if err := decoder.Decode(obj); err != nil {
 		return err
 	}
