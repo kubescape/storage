@@ -353,6 +353,10 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
+	// set default limit
+	if opts.Predicate.Limit == 0 {
+		opts.Predicate.Limit = 500
+	}
 	// get metadata from SQLite
 	conn, err := s.pool.Take(context.Background())
 	if err != nil {
