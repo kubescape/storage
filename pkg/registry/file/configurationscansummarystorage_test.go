@@ -118,7 +118,7 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
 
 			if tt.create {
-				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{}}}
+				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
 				_ = realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
 			}
 
@@ -186,7 +186,7 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
 
 			if tt.create {
-				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{}}}
+				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
 				_ = realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
 			}
 

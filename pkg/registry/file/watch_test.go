@@ -117,14 +117,14 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Create should publish to the appropriate single channel",
 		start: map[string]int{keyK: 1},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
+			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		want: map[string][]watch.Event{keyK: {{Type: watch.Added, Object: obj}}},
 	}, {
 		name:  "Create should publish to all watchers on the relevant key",
 		start: map[string]int{keyK: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
+			keyK + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		want: map[string][]watch.Event{keyK: {
 			{Type: watch.Added, Object: obj},
@@ -135,19 +135,19 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Creating on key different than the watch should produce no event",
 		start: map[string]int{keyK: 3, keyN: 1},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 	}, {
 		name:  "Creating on key not being watched should produce no events",
 		start: map[string]int{keyK: 1},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 	}, {
 		name:  "Sending to stopped watch should not produce an event",
 		start: map[string]int{keyN: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		stopBefore: map[string]int{keyN: 1},
 		want: map[string][]watch.Event{keyN: {
@@ -158,7 +158,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Stopping watch after send shouldn't deadlock",
 		start: map[string]int{keyN: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		stopAfter: map[string]int{keyN: 0},
 		want: map[string][]watch.Event{keyN: {
@@ -170,7 +170,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 		name:  "Stopping watch twice is ok",
 		start: map[string]int{keyN: 3},
 		inputObjects: map[string]*v1beta1.SBOMSyft{
-			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom", Annotations: map[string]string{}}},
+			keyN + "/some-sbom": {ObjectMeta: v1.ObjectMeta{Name: "some-sbom"}},
 		},
 		stopBefore: map[string]int{keyN: 1},
 		stopAfter:  map[string]int{keyN: 1},

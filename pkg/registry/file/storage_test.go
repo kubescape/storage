@@ -119,8 +119,7 @@ func TestStorageImpl_Create(t *testing.T) {
 				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				obj: &v1beta1.SBOMSyft{
 					ObjectMeta: v1.ObjectMeta{
-						Name:        "toto",
-						Annotations: map[string]string{},
+						Name: "toto",
 					},
 				},
 			},
@@ -131,7 +130,6 @@ func TestStorageImpl_Create(t *testing.T) {
 				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
 				obj: &v1beta1.SBOMSyft{
 					ObjectMeta: v1.ObjectMeta{
-						Annotations:   map[string]string{},
 						Name:          "toto",
 						ManagedFields: []v1.ManagedFieldsEntry{{Manager: "node-agent"}},
 					},
@@ -360,23 +358,20 @@ func TestStorageImpl_GetList(t *testing.T) {
 	objs := map[string]runtime.Object{
 		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        "toto",
-				Namespace:   "kubescape",
-				Annotations: map[string]string{},
+				Name:      "toto",
+				Namespace: "kubescape",
 			},
 		},
 		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/titi": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        "titi",
-				Namespace:   "kubescape",
-				Annotations: map[string]string{},
+				Name:      "titi",
+				Namespace: "kubescape",
 			},
 		},
 		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/tata": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        "tata",
-				Namespace:   "other",
-				Annotations: map[string]string{},
+				Name:      "tata",
+				Namespace: "other",
 			},
 		},
 	}
@@ -437,8 +432,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	count := 0
 	toto := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "toto",
-			Annotations: map[string]string{},
+			Name: "toto",
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -452,7 +446,6 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
-			Annotations:     map[string]string{},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -466,7 +459,6 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "3",
-			Annotations:     map[string]string{},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -480,7 +472,6 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
-			Annotations:     map[string]string{},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
