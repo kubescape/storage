@@ -10,6 +10,10 @@ import (
 )
 
 func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer) ([]types.OpenCalls, error) {
+	if opens == nil {
+		return nil, nil
+	}
+
 	dynamicOpens := make(map[string]types.OpenCalls)
 	for _, open := range opens {
 		_, _ = AnalyzeOpen(open.Path, analyzer)

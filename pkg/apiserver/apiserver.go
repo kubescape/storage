@@ -142,10 +142,10 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	var (
 		osFs        = afero.NewOsFs()
-		storageImpl = file.NewStorageImpl(osFs, file.DefaultStorageRoot)
+		storageImpl = file.NewStorageImpl(osFs, file.DefaultStorageRoot, Scheme)
 
-		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, file.NewApplicationProfileProcessor())
-		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, file.NewNetworkNeighborhoodProcessor())
+		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, Scheme, file.NewApplicationProfileProcessor())
+		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(osFs, file.DefaultStorageRoot, Scheme, file.NewNetworkNeighborhoodProcessor())
 		configScanStorageImpl          = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage    = file.NewVulnerabilitySummaryStorage(storageImpl)
 		generatedNetworkPolicyStorage  = file.NewGeneratedNetworkPolicyStorage(storageImpl)

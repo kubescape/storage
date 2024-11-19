@@ -83,6 +83,9 @@ func deflateNetworkNeighborhoodContainer(container softwarecomposition.NetworkNe
 // DNSNames are deduplicated
 // Ports are merged on Name
 func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor) []softwarecomposition.NetworkNeighbor {
+	if in == nil {
+		return nil
+	}
 	out := make([]softwarecomposition.NetworkNeighbor, 0)
 	seen := map[string]int{}
 	toDeflate := mapset.NewThreadUnsafeSet[int]()
@@ -97,7 +100,7 @@ func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor) []softwar
 		}
 	}
 	for _, i := range mapset.Sorted(toDeflate) {
-		out[i].DNSNames = mapset.Sorted(mapset.NewThreadUnsafeSet(out[i].DNSNames...))
+		out[i].DNSNames = DeflateSortString(out[i].DNSNames)
 		out[i].Ports = DeflateStringer(out[i].Ports)
 	}
 	return out
