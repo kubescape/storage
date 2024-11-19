@@ -181,7 +181,11 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 		return fmt.Errorf("calculate checksum: %w", err)
 	}
 	// add checksum to metadata
-	metadata.(metav1.Object).GetAnnotations()[helpersv1.SyncChecksumMetadataKey] = checksum
+	if anno := metadata.(metav1.Object).GetAnnotations(); anno == nil {
+		metadata.(metav1.Object).SetAnnotations(map[string]string{helpersv1.SyncChecksumMetadataKey: checksum})
+	} else {
+		anno[helpersv1.SyncChecksumMetadataKey] = checksum
+	}
 	// write metadata
 	metadataEncoder := json.NewEncoder(metadataFile)
 	if err := metadataEncoder.Encode(metadata); err != nil {
