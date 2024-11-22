@@ -82,7 +82,7 @@ func loadMetadata(metadataJSON []byte) (*metav1.ObjectMeta, error) {
 
 	if len(metadataJSON) == 0 {
 		// empty string
-		return nil, nil
+		return nil, errors.New("metadata is empty")
 	}
 
 	// ujson parsing
