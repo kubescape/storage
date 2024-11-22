@@ -22,28 +22,13 @@ import (
 
 var (
 	Workloads = mapset.NewSet[string]([]string{
-		"apiservice",
-		"configmap",
-		"clusterrole",
-		"clusterrolebinding",
 		"cronjob",
 		"daemonset",
 		"deployment",
-		"endpoints",
-		"endpointslice",
 		"job",
-		"lease",
-		"namespace",
-		"node",
-		"persistentvolume",
-		"persistentvolumeclaim",
 		"pod",
 		"replicaset",
-		"role",
-		"rolebinding",
-		"secret",
 		"service",
-		"serviceaccount",
 		"statefulset",
 	}...) // FIXME put in a configmap
 )
