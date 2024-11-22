@@ -17,6 +17,8 @@ limitations under the License.
 package apiserver
 
 import (
+	"os"
+
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/registry"
@@ -176,6 +178,11 @@ func (c completedConfig) New() (*WardleServer, error) {
 		"vulnerabilitysummaries":              ep(vsumstorage.NewREST, vulnerabilitySummaryStorage),
 		"workloadconfigurationscans":          ep(wcsstorage.NewREST),
 		"workloadconfigurationscansummaries":  ep(wcssumstorage.NewREST),
+	}
+	if os.Getenv("DISABLE_VIRTUAL_CRDS") == "true" {
+		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "configurationscansummaries")
+		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "generatednetworkpolicies")
+		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "vulnerabilitysummaries")
 	}
 
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
