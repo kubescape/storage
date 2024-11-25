@@ -66,7 +66,7 @@ func main() {
 	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), 0) // If less than 1, a reasonable default is used.
 
 	stopCh := genericapiserver.SetupSignalHandler()
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool)
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, clusterData.Namespace)
 	cmd := server.NewCommandStartWardleServer(options, stopCh)
 
 	// cleanup task
