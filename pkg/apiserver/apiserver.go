@@ -84,8 +84,9 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	OsFs afero.Fs
-	Pool *sqlitemigration.Pool
+	Namespace string
+	OsFs      afero.Fs
+	Pool      *sqlitemigration.Pool
 }
 
 // Config defines the config for the apiserver
@@ -146,7 +147,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	var (
 		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme)
 
-		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme, file.NewApplicationProfileProcessor())
+		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme, file.NewApplicationProfileProcessor(c.ExtraConfig.Namespace))
 		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme, file.NewNetworkNeighborhoodProcessor())
 		configScanStorageImpl          = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage    = file.NewVulnerabilitySummaryStorage(storageImpl)

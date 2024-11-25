@@ -145,7 +145,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("MAX_APPLICATION_PROFILE_SIZE", strconv.Itoa(tt.maxApplicationProfileSize))
-			a := NewApplicationProfileProcessor()
+			a := NewApplicationProfileProcessor("kubescape")
 			tt.wantErr(t, a.PreSave(tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
 			slices.Sort(tt.object.(*softwarecomposition.ApplicationProfile).Spec.Architectures)
 			assert.Equal(t, tt.want, tt.object)
