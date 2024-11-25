@@ -193,7 +193,7 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 	return nil
 }
 
-// Create adds a new object at a key even when it already exists. 'ttl' is time-to-live
+// Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
@@ -204,6 +204,10 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
 	spanLock.End()
+	// check if object already exists
+	if _, err := s.appFs.Stat(makePayloadPath(filepath.Join(s.root, key))); err == nil {
+		return storage.NewKeyExistsError(key, 0)
+	}
 	// resourceVersion should not be set on create
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
 		msg := "resourceVersion should not be set on objects to be created"
@@ -292,6 +296,19 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
+	if opts.ResourceVersion == "metadata" {
+		// get metadata from SQLite
+		conn, err := s.pool.Take(context.Background())
+		if err != nil {
+			return fmt.Errorf("take connection: %w", err)
+		}
+		defer s.pool.Put(conn)
+		metadata, err := ReadMetadata(conn, key)
+		if err != nil {
+			return fmt.Errorf("read metadata: %w", err)
+		}
+		return json.Unmarshal(metadata, objPtr)
+	}
 	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
