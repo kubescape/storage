@@ -71,6 +71,8 @@ func (a NetworkNeighborhoodProcessor) PreSave(object runtime.Object) error {
 	return nil
 }
 
+func (a NetworkNeighborhoodProcessor) SetStorage(_ *StorageImpl) {}
+
 func deflateNetworkNeighborhoodContainer(container softwarecomposition.NetworkNeighborhoodContainer) softwarecomposition.NetworkNeighborhoodContainer {
 	return softwarecomposition.NetworkNeighborhoodContainer{
 		Name:    container.Name,

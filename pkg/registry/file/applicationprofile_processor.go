@@ -1,16 +1,20 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"github.com/kubescape/k8s-interface/names"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/storage"
 )
 
 const (
@@ -20,23 +24,26 @@ const (
 )
 
 type ApplicationProfileProcessor struct {
+	defaultNamespace          string
 	maxApplicationProfileSize int
+	storageImpl               *StorageImpl
 }
 
-func NewApplicationProfileProcessor() *ApplicationProfileProcessor {
+func NewApplicationProfileProcessor(defaultNamespace string) *ApplicationProfileProcessor {
 	maxApplicationProfileSize, err := strconv.Atoi(os.Getenv("MAX_APPLICATION_PROFILE_SIZE"))
 	if err != nil {
 		maxApplicationProfileSize = DefaultMaxApplicationProfileSize
 	}
 	logger.L().Debug("maxApplicationProfileSize", loggerhelpers.Int("size", maxApplicationProfileSize))
 	return &ApplicationProfileProcessor{
+		defaultNamespace:          defaultNamespace,
 		maxApplicationProfileSize: maxApplicationProfileSize,
 	}
 }
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
-func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
+func (a *ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
@@ -48,7 +55,25 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	// Define a function to process a slice of containers
 	processContainers := func(containers []softwarecomposition.ApplicationProfileContainer) []softwarecomposition.ApplicationProfileContainer {
 		for i, container := range containers {
-			containers[i] = deflateApplicationProfileContainer(container)
+			var sbomSet mapset.Set[string]
+			// get files from corresponding sbom
+			sbomName, err := names.ImageInfoToSlug(container.ImageTag, container.ImageID)
+			if err == nil {
+				sbom := softwarecomposition.SBOMSyft{}
+				key := fmt.Sprintf("/spdx.softwarecomposition.kubescape.io/sbomsyft/%s/%s", a.defaultNamespace, sbomName)
+				if err := a.storageImpl.Get(context.Background(), key, storage.GetOptions{}, &sbom); err == nil {
+					// fill sbomSet
+					sbomSet = mapset.NewSet[string]()
+					for _, f := range sbom.Spec.Syft.Files {
+						sbomSet.Add(f.Location.RealPath)
+					}
+				} else {
+					logger.L().Debug("failed to get sbom", loggerhelpers.Error(err), loggerhelpers.String("key", key))
+				}
+			} else {
+				logger.L().Debug("failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", container.ImageTag), loggerhelpers.String("imageID", container.ImageID))
+			}
+			containers[i] = deflateApplicationProfileContainer(container, sbomSet)
 			size += len(containers[i].Execs)
 			size += len(containers[i].Opens)
 		}
@@ -75,10 +100,14 @@ func (a ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 	return nil
 }
 
-func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer) softwarecomposition.ApplicationProfileContainer {
-	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold))
+func (a *ApplicationProfileProcessor) SetStorage(storageImpl *StorageImpl) {
+	a.storageImpl = storageImpl
+}
+
+func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string]) softwarecomposition.ApplicationProfileContainer {
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
 	if err != nil {
-		logger.L().Warning("failed to analyze opens", loggerhelpers.Error(err))
+		logger.L().Debug("failed to analyze opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
 

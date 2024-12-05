@@ -83,7 +83,7 @@ func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, sch
 }
 
 func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, scheme *runtime.Scheme, processor Processor) StorageQuerier {
-	return &StorageImpl{
+	storageImpl := &StorageImpl{
 		appFs:           appFs,
 		pool:            conn,
 		locks:           utils.NewMapMutex[string](),
@@ -93,6 +93,8 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: newWatchDispatcher(),
 	}
+	processor.SetStorage(storageImpl)
+	return storageImpl
 }
 
 // Versioner Returns Versioner associated with this interface.

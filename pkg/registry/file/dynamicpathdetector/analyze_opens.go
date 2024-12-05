@@ -1,6 +1,7 @@
 package dynamicpathdetector
 
 import (
+	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -9,9 +10,13 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
-func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer) ([]types.OpenCalls, error) {
+func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer, sbomSet mapset.Set[string]) ([]types.OpenCalls, error) {
 	if opens == nil {
 		return nil, nil
+	}
+
+	if sbomSet == nil {
+		return nil, errors.New("sbomSet is nil")
 	}
 
 	dynamicOpens := make(map[string]types.OpenCalls)
@@ -20,6 +25,12 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer) ([]types.Open
 	}
 
 	for i := range opens {
+		// sbomSet files have to be always present in the dynamicOpens
+		if sbomSet.ContainsOne(opens[i].Path) {
+			dynamicOpens[opens[i].Path] = opens[i]
+			continue
+		}
+
 		result, err := AnalyzeOpen(opens[i].Path, analyzer)
 		if err != nil {
 			continue

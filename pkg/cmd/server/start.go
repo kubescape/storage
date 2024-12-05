@@ -61,12 +61,13 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
-	OsFs afero.Fs
-	Pool *sqlitemigration.Pool
+	OsFs      afero.Fs
+	Pool      *sqlitemigration.Pool
+	Namespace string
 }
 
 // NewWardleServerOptions returns a new WardleServerOptions
-func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool) *WardleServerOptions {
+func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, namespace string) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
@@ -76,8 +77,9 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 		StdOut: out,
 		StdErr: errOut,
 
-		OsFs: osFs,
-		Pool: pool,
+		OsFs:      osFs,
+		Pool:      pool,
+		Namespace: namespace,
 	}
 	o.RecommendedOptions.Etcd = nil
 
@@ -218,8 +220,9 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	config := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
-			OsFs: o.OsFs,
-			Pool: o.Pool,
+			OsFs:      o.OsFs,
+			Pool:      o.Pool,
+			Namespace: o.Namespace,
 		},
 	}
 	return config, nil
