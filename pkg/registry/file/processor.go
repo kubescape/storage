@@ -8,6 +8,7 @@ import (
 
 type Processor interface {
 	PreSave(object runtime.Object) error
+	SetStorage(storageImpl *StorageImpl)
 }
 
 type DefaultProcessor struct {
@@ -18,6 +19,8 @@ var _ Processor = (*DefaultProcessor)(nil)
 func (d DefaultProcessor) PreSave(_ runtime.Object) error {
 	return nil
 }
+
+func (d DefaultProcessor) SetStorage(_ *StorageImpl) {}
 
 type Stringer interface {
 	String() string

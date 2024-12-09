@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,34 @@ func TestAnalyzeOpensWithThreshold(t *testing.T) {
 		},
 	}
 
-	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer)
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
+}
+
+func TestAnalyzeOpensWithThresholdAndExclusion(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+
+	var input []types.OpenCalls
+	for i := 0; i < 101; i++ {
+		input = append(input, types.OpenCalls{
+			Path:  fmt.Sprintf("/home/user%d/file.txt", i),
+			Flags: []string{"READ"},
+		})
+	}
+
+	expected := []types.OpenCalls{
+		{
+			Path:  "/home/user42/file.txt",
+			Flags: []string{"READ"},
+		},
+		{
+			Path:  "/home/\u22ef/file.txt",
+			Flags: []string{"READ"},
+		},
+	}
+
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]("/home/user42/file.txt"))
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
 }
@@ -98,7 +126,7 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			analyzer := dynamicpathdetector.NewPathAnalyzer(3)
-			result, err := dynamicpathdetector.AnalyzeOpens(tt.input, analyzer)
+			result, err := dynamicpathdetector.AnalyzeOpens(tt.input, analyzer, mapset.NewSet[string]())
 			assert.NoError(t, err)
 
 			assert.Equal(t, tt.expected, result)

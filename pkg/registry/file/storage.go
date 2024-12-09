@@ -83,7 +83,7 @@ func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, sch
 }
 
 func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, scheme *runtime.Scheme, processor Processor) StorageQuerier {
-	return &StorageImpl{
+	storageImpl := &StorageImpl{
 		appFs:           appFs,
 		pool:            conn,
 		locks:           utils.NewMapMutex[string](),
@@ -93,6 +93,8 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: newWatchDispatcher(),
 	}
+	processor.SetStorage(storageImpl)
+	return storageImpl
 }
 
 // Versioner Returns Versioner associated with this interface.
@@ -554,6 +556,15 @@ func (s *StorageImpl) GuaranteedUpdate(
 		return err
 	}
 
+	// check object size
+	annotations := origState.obj.(metav1.Object).GetAnnotations()
+	if annotations != nil && annotations[helpersv1.StatusMetadataKey] == helpersv1.TooLarge {
+		logger.L().Ctx(ctx).Debug("GuaranteedUpdate - already too large object, skipping update", helpers.String("key", key))
+		// no change, return the original object
+		v.Set(reflect.ValueOf(origState.obj).Elem())
+		return nil
+	}
+
 	for {
 		// run preconditions
 		if err := preconditions.Check(key, origState.obj); err != nil {
@@ -621,7 +632,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 				annotations := metadata.GetAnnotations()
 				annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
 				metadata.SetAnnotations(annotations)
-				logger.L().Ctx(ctx).Warning("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
+				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
 			} else {
 				return fmt.Errorf("processor.PreSave: %w", err)
 			}
