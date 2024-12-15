@@ -174,5 +174,4 @@ type IKnownServerEntry interface {
 
 type IKnownServersFinder interface {
 	Contains(ip net.IP) ([]IKnownServerEntry, bool)
-	GetKnownServers() []KnownServer
 }

@@ -10,8 +10,7 @@ var _ IKnownServersFinder = (*KnownServersFinderImpl)(nil)
 var _ IKnownServerEntry = (*KnownServersFinderEntry)(nil)
 
 type KnownServersFinderImpl struct {
-	ranger       cidranger.Ranger
-	knownServers []KnownServer
+	ranger cidranger.Ranger
 }
 
 type KnownServersFinderEntry struct {
@@ -30,8 +29,7 @@ func NewKnownServersFinderImpl(knownServers []KnownServer) IKnownServersFinder {
 		}
 	}
 	return &KnownServersFinderImpl{
-		ranger:       ranger,
-		knownServers: knownServers,
+		ranger: ranger,
 	}
 }
 
@@ -52,10 +50,6 @@ func (k *KnownServersFinderImpl) Contains(ip net.IP) ([]IKnownServerEntry, bool)
 		}
 	}
 	return nil, false
-}
-
-func (k *KnownServersFinderImpl) GetKnownServers() []KnownServer {
-	return k.knownServers
 }
 
 func NewKnownServersFinderEntry(kse KnownServerEntry) *KnownServersFinderEntry {
