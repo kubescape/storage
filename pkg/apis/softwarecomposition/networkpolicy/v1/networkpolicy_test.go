@@ -2010,7 +2010,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 
 	for _, test := range tests {
 
-		got, err := GenerateNetworkPolicy(test.networkNeighbors, test.KnownServer, timeProvider)
+		got, err := GenerateNetworkPolicy(test.networkNeighbors, softwarecomposition.NewKnownServersFinderImpl(test.KnownServer), timeProvider)
 
 		assert.NoError(t, err)
 

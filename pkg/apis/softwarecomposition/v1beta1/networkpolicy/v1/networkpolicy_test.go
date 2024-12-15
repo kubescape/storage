@@ -5,6 +5,7 @@ import (
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 
+	sc "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	softwarecomposition "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -2009,8 +2010,9 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 	}
 
 	for _, test := range tests {
-
-		got, err := GenerateNetworkPolicy(test.networkNeighbors, test.KnownServer, timeProvider)
+		knownServersV1, err := convertKnownServersList(test.KnownServer)
+		assert.NoError(t, err)
+		got, err := GenerateNetworkPolicy(test.networkNeighbors, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
 
 		assert.NoError(t, err)
 

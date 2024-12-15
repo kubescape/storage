@@ -10,6 +10,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	sc "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,8 +40,10 @@ func TestGenerateNetworkPolicyFromFile(t *testing.T) {
 	if err := json.Unmarshal([]byte(networkPolicyFile), expectedNetworkPolicy); err != nil {
 		t.Fatalf("failed to unmarshal JSON data from file %s: %v", networkNeighborhoodFile, err)
 	}
+	knownServersV1, err := convertKnownServersList(knownServers)
+	assert.NoError(t, err)
 	// Generate the network policy
-	generatedNetworkPolicy, err := GenerateNetworkPolicy(networkNeighborhood, knownServers, timeProvider)
+	generatedNetworkPolicy, err := GenerateNetworkPolicy(networkNeighborhood, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
 	if err != nil {
 		t.Fatalf("failed to generate network policy: %v", err)
 	}
