@@ -21,7 +21,7 @@ func GenerateNetworkPolicy(networkNeighborhood *v1beta1.NetworkNeighborhood, kno
 		return v1beta1.GeneratedNetworkPolicy{}, err
 	}
 
-	npv1, err := np.GenerateNetworkPolicy(networkNeighborhoodV1, knownServersV1, timeProvider)
+	npv1, err := np.GenerateNetworkPolicy(networkNeighborhoodV1, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
 	if err != nil {
 		return v1beta1.GeneratedNetworkPolicy{}, err
 	}

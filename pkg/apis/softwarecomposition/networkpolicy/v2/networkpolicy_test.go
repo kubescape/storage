@@ -1353,7 +1353,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateNetworkPolicy(&tt.networkNeighborhood, tt.knownServers, timeProvider)
+			got, err := GenerateNetworkPolicy(&tt.networkNeighborhood, softwarecomposition.NewKnownServersFinderImpl(tt.knownServers), timeProvider)
 
 			if tt.expectError {
 				assert.Error(t, err)
