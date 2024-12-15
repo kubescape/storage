@@ -19,37 +19,13 @@ type KnownServersFinderEntry struct {
 	network     net.IPNet
 }
 
-func NewKnownServersFinderEntry(kse KnownServerEntry) (*KnownServersFinderEntry, error) {
-	_, res, err := net.ParseCIDR(kse.IPBlock)
-	if err != nil || res == nil {
-		return nil, err
-	}
-	return &KnownServersFinderEntry{knownServer: kse, network: *res}, nil
-}
-
-func (k *KnownServersFinderEntry) GetServer() string {
-	return k.knownServer.Server
-}
-
-func (k *KnownServersFinderEntry) GetName() string {
-	return k.knownServer.Name
-}
-
-func (k *KnownServersFinderEntry) GetIPBlock() string {
-	return k.knownServer.IPBlock
-}
-
-func (k *KnownServersFinderEntry) Network() net.IPNet {
-	return k.network
-}
-
 func NewKnownServersFinderImpl(knownServers []KnownServer) IKnownServersFinder {
 	// build the ranger for searching
 	ranger := cidranger.NewPCTrieRanger()
 	for _, knownServer := range knownServers {
 		for _, knownServerEntry := range knownServer.Spec {
-			if rangerEntry, err := NewKnownServersFinderEntry(knownServerEntry); err == nil && rangerEntry != nil {
-				_ = ranger.Insert(rangerEntry)
+			if v := NewKnownServersFinderEntry(knownServerEntry); v != nil {
+				_ = ranger.Insert(v)
 			}
 		}
 	}
@@ -80,4 +56,28 @@ func (k *KnownServersFinderImpl) Contains(ip net.IP) ([]IKnownServerEntry, bool)
 
 func (k *KnownServersFinderImpl) GetKnownServers() []KnownServer {
 	return k.knownServers
+}
+
+func NewKnownServersFinderEntry(kse KnownServerEntry) *KnownServersFinderEntry {
+	_, res, err := net.ParseCIDR(kse.IPBlock)
+	if err != nil || res == nil {
+		return nil
+	}
+	return &KnownServersFinderEntry{knownServer: kse, network: *res}
+}
+
+func (k *KnownServersFinderEntry) GetServer() string {
+	return k.knownServer.Server
+}
+
+func (k *KnownServersFinderEntry) GetName() string {
+	return k.knownServer.Name
+}
+
+func (k *KnownServersFinderEntry) GetIPBlock() string {
+	return k.knownServer.IPBlock
+}
+
+func (k *KnownServersFinderEntry) Network() net.IPNet {
+	return k.network
 }
