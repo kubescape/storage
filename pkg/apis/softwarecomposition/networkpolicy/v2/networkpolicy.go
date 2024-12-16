@@ -24,7 +24,7 @@ const (
 	storageV1ApiVersion = "spdx.softwarecomposition.kubescape.io"
 )
 
-func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers []softwarecomposition.KnownServer, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	if !IsAvailable(nn) {
 		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name)
 	}
@@ -319,7 +319,7 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 	return mergedRules
 }
 
-func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
+func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers softwarecomposition.IKnownServersFinder) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
 	egressRule := softwarecomposition.NetworkPolicyEgressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
 
@@ -342,41 +342,30 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 	}
 
 	if neighbor.IPAddress != "" {
-		isKnownServer := false
 		// look if this IP is part of any known server
-		for _, knownServer := range knownServers {
-			for _, entry := range knownServer.Spec {
-				_, subNet, err := net.ParseCIDR(entry.IPBlock)
-				if err != nil {
-					logger.L().Error("error parsing cidr", helpers.Error(err))
-					continue
+		if entries, contains := knownServers.Contains(net.ParseIP(neighbor.IPAddress)); contains {
+			for _, entry := range entries {
+				egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
+					IPBlock: &softwarecomposition.IPBlock{
+						CIDR: entry.GetIPBlock(),
+					},
+				})
+
+				policyRef := softwarecomposition.PolicyRef{
+					Name:       entry.GetName(),
+					OriginalIP: neighbor.IPAddress,
+					IPBlock:    entry.GetIPBlock(),
+					Server:     entry.GetServer(),
 				}
-				if subNet.Contains(net.ParseIP(neighbor.IPAddress)) {
-					egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
-						IPBlock: &softwarecomposition.IPBlock{
-							CIDR: entry.IPBlock,
-						},
-					})
-					isKnownServer = true
 
-					policyRef := softwarecomposition.PolicyRef{
-						Name:       entry.Name,
-						OriginalIP: neighbor.IPAddress,
-						IPBlock:    entry.IPBlock,
-						Server:     entry.Server,
-					}
-
-					if neighbor.DNS != "" {
-						policyRef.DNS = neighbor.DNS
-					}
-
-					policyRefs = append(policyRefs, policyRef)
-					break
+				if neighbor.DNS != "" {
+					policyRef.DNS = neighbor.DNS
 				}
+
+				policyRefs = append(policyRefs, policyRef)
+
 			}
-		}
-
-		if !isKnownServer {
+		} else {
 			ipBlock := getSingleIP(neighbor.IPAddress)
 			egressRule.To = append(egressRule.To, softwarecomposition.NetworkPolicyPeer{
 				IPBlock: ipBlock,
@@ -405,7 +394,7 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 	return egressRule, policyRefs
 }
 
-func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers []softwarecomposition.KnownServer) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
+func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers softwarecomposition.IKnownServersFinder) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
 	ingressRule := softwarecomposition.NetworkPolicyIngressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
 
@@ -427,41 +416,29 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 	}
 
 	if neighbor.IPAddress != "" {
-		isKnownServer := false
 		// look if this IP is part of any known server
-		for _, knownServer := range knownServers {
-			for _, entry := range knownServer.Spec {
-				_, subNet, err := net.ParseCIDR(entry.IPBlock)
-				if err != nil {
-					logger.L().Error("error parsing cidr", helpers.Error(err))
-					continue
+		if entries, ok := knownServers.Contains(net.ParseIP(neighbor.IPAddress)); ok {
+			for _, entry := range entries {
+				ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
+					IPBlock: &softwarecomposition.IPBlock{
+						CIDR: entry.GetIPBlock(),
+					},
+				})
+
+				policyRef := softwarecomposition.PolicyRef{
+					Name:       entry.GetName(),
+					OriginalIP: neighbor.IPAddress,
+					IPBlock:    entry.GetIPBlock(),
+					Server:     entry.GetServer(),
 				}
-				if subNet.Contains(net.ParseIP(neighbor.IPAddress)) {
-					ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
-						IPBlock: &softwarecomposition.IPBlock{
-							CIDR: entry.IPBlock,
-						},
-					})
-					isKnownServer = true
 
-					policyRef := softwarecomposition.PolicyRef{
-						Name:       entry.Name,
-						OriginalIP: neighbor.IPAddress,
-						IPBlock:    entry.IPBlock,
-						Server:     entry.Server,
-					}
-
-					if neighbor.DNS != "" {
-						policyRef.DNS = neighbor.DNS
-					}
-
-					policyRefs = append(policyRefs, policyRef)
-					break
+				if neighbor.DNS != "" {
+					policyRef.DNS = neighbor.DNS
 				}
+
+				policyRefs = append(policyRefs, policyRef)
 			}
-		}
-
-		if !isKnownServer {
+		} else {
 			ipBlock := getSingleIP(neighbor.IPAddress)
 			ingressRule.From = append(ingressRule.From, softwarecomposition.NetworkPolicyPeer{
 				IPBlock: ipBlock,

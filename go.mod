@@ -25,6 +25,7 @@ require (
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
+	github.com/yl2chen/cidranger v1.0.2
 	go.opentelemetry.io/otel v1.30.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0

@@ -1,6 +1,8 @@
 package softwarecomposition
 
 import (
+	"net"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -162,4 +164,14 @@ type KnownServerEntry struct {
 	IPBlock string
 	Server  string
 	Name    string
+}
+
+type IKnownServerEntry interface {
+	GetIPBlock() string
+	GetName() string
+	GetServer() string
+}
+
+type IKnownServersFinder interface {
+	Contains(ip net.IP) ([]IKnownServerEntry, bool)
 }
