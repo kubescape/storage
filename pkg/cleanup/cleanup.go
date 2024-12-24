@@ -25,27 +25,27 @@ const (
 
 type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
 
-var resourceKindToHandler = map[string]TypeCleanupHandlerFunc{
+var resourceKindToHandler = map[string][]TypeCleanupHandlerFunc{
 	// configurationscansummaries is virtual
 	// vulnerabilitysummaries is virtual
-	"applicationactivities":               deleteByTemplateHashOrWlid,
-	"applicationprofiles":                 deleteByTemplateHashOrWlid,
-	"applicationprofilesummaries":         deleteDeprecated,
-	"networkneighborses":                  deleteDeprecated,
-	"networkneighborhoods":                deleteByTemplateHashOrWlid,
-	"openvulnerabilityexchangecontainers": deleteByImageId,
-	"sbomspdxv2p3filtereds":               deleteDeprecated,
-	"sbomspdxv2p3filtered":                deleteDeprecated,
-	"sbomspdxv2p3s":                       deleteDeprecated,
-	"sbomspdxv2p3":                        deleteDeprecated,
-	"sbomsyftfiltered":                    deleteByInstanceId,
-	"sbomsyft":                            deleteByImageId,
-	"sbomsummaries":                       deleteDeprecated,
-	"seccompprofiles":                     deleteByTemplateHashOrWlid,
-	"vulnerabilitymanifests":              deleteByImageIdOrInstanceId,
-	"vulnerabilitymanifestsummaries":      deleteByWlidAndContainer,
-	"workloadconfigurationscans":          deleteByWlid,
-	"workloadconfigurationscansummaries":  deleteByWlid,
+	"applicationactivities":               []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
+	"applicationprofiles":                 []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid, deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation},
+	"applicationprofilesummaries":         []TypeCleanupHandlerFunc{deleteDeprecated},
+	"networkneighborses":                  []TypeCleanupHandlerFunc{deleteDeprecated},
+	"networkneighborhoods":                []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
+	"openvulnerabilityexchangecontainers": []TypeCleanupHandlerFunc{deleteByImageId},
+	"sbomspdxv2p3filtereds":               []TypeCleanupHandlerFunc{deleteDeprecated},
+	"sbomspdxv2p3filtered":                []TypeCleanupHandlerFunc{deleteDeprecated},
+	"sbomspdxv2p3s":                       []TypeCleanupHandlerFunc{deleteDeprecated},
+	"sbomspdxv2p3":                        []TypeCleanupHandlerFunc{deleteDeprecated},
+	"sbomsyftfiltered":                    []TypeCleanupHandlerFunc{deleteByInstanceId},
+	"sbomsyft":                            []TypeCleanupHandlerFunc{deleteByImageId},
+	"sbomsummaries":                       []TypeCleanupHandlerFunc{deleteDeprecated},
+	"seccompprofiles":                     []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
+	"vulnerabilitymanifests":              []TypeCleanupHandlerFunc{deleteByImageIdOrInstanceId},
+	"vulnerabilitymanifestsummaries":      []TypeCleanupHandlerFunc{deleteByWlidAndContainer},
+	"workloadconfigurationscans":          []TypeCleanupHandlerFunc{deleteByWlid},
+	"workloadconfigurationscansummaries":  []TypeCleanupHandlerFunc{deleteByWlid},
 }
 
 type TypeDeleteFunc func(appFs afero.Fs, path string)
@@ -82,7 +82,7 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 			continue
 		}
 
-		for resourceKind, handler := range resourceKindToHandler {
+		for resourceKind, handlers := range resourceKindToHandler {
 			v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
 			exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
 			if !exists {
@@ -149,7 +149,14 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 					return nil
 				}
 
-				toDelete := handler(resourceKind, path, metadata, h.resources)
+				// either run single handler, or perform OR operation on multiple handlers
+				var toDelete bool
+				if len(handlers) == 1 {
+					toDelete = handlers[0](resourceKind, path, metadata, h.resources)
+				} else {
+					toDelete = or(handlers, resourceKind, path, metadata, h.resources)
+				}
+
 				if toDelete {
 					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 					h.deleteFunc(h.appFs, path)
@@ -170,6 +177,15 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 		logger.L().Info("finished cleanup task. sleeping...")
 		time.Sleep(h.interval)
 	}
+}
+
+func or(funcs []TypeCleanupHandlerFunc, kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	for _, f := range funcs {
+		if f(kind, path, metadata, resourceMaps) {
+			return true
+		}
+	}
+	return false
 }
 
 func deleteFile(appFs afero.Fs, path string) {
@@ -230,4 +246,16 @@ func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resour
 	}
 	// fallback to wlid
 	return deleteByWlid("", "", metadata, resourceMaps)
+}
+
+// deleteMissingInstanceIdAnnotation deletes resources that have missing instanceId annotation
+func deleteMissingInstanceIdAnnotation(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	_, ok := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
+	return !ok
+}
+
+// deleteMissingInstanceIdAnnotation deletes resources that have missing wlid annotation
+func deleteMissingWlidAnnotation(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	_, ok := metadata.Annotations[helpersv1.WlidMetadataKey]
+	return !ok
 }
