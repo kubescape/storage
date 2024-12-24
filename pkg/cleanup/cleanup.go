@@ -25,49 +25,57 @@ const (
 
 type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
 
-var resourceKindToHandler = map[string][]TypeCleanupHandlerFunc{
-	// configurationscansummaries is virtual
-	// vulnerabilitysummaries is virtual
-	"applicationactivities":               []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
-	"applicationprofiles":                 []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid, deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation},
-	"applicationprofilesummaries":         []TypeCleanupHandlerFunc{deleteDeprecated},
-	"networkneighborses":                  []TypeCleanupHandlerFunc{deleteDeprecated},
-	"networkneighborhoods":                []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
-	"openvulnerabilityexchangecontainers": []TypeCleanupHandlerFunc{deleteByImageId},
-	"sbomspdxv2p3filtereds":               []TypeCleanupHandlerFunc{deleteDeprecated},
-	"sbomspdxv2p3filtered":                []TypeCleanupHandlerFunc{deleteDeprecated},
-	"sbomspdxv2p3s":                       []TypeCleanupHandlerFunc{deleteDeprecated},
-	"sbomspdxv2p3":                        []TypeCleanupHandlerFunc{deleteDeprecated},
-	"sbomsyftfiltered":                    []TypeCleanupHandlerFunc{deleteByInstanceId},
-	"sbomsyft":                            []TypeCleanupHandlerFunc{deleteByImageId},
-	"sbomsummaries":                       []TypeCleanupHandlerFunc{deleteDeprecated},
-	"seccompprofiles":                     []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
-	"vulnerabilitymanifests":              []TypeCleanupHandlerFunc{deleteByImageIdOrInstanceId},
-	"vulnerabilitymanifestsummaries":      []TypeCleanupHandlerFunc{deleteByWlidAndContainer},
-	"workloadconfigurationscans":          []TypeCleanupHandlerFunc{deleteByWlid},
-	"workloadconfigurationscansummaries":  []TypeCleanupHandlerFunc{deleteByWlid},
-}
-
 type TypeDeleteFunc func(appFs afero.Fs, path string)
 
 type ResourcesCleanupHandler struct {
-	appFs      afero.Fs
-	root       string // root directory to start the cleanup task
-	pool       *sqlitemigration.Pool
-	interval   time.Duration // runs the cleanup task every Interval
-	resources  ResourceMaps
-	fetcher    ResourcesFetcher
-	deleteFunc TypeDeleteFunc
+	appFs                 afero.Fs
+	root                  string // root directory to start the cleanup task
+	pool                  *sqlitemigration.Pool
+	interval              time.Duration // runs the cleanup task every Interval
+	resources             ResourceMaps
+	fetcher               ResourcesFetcher
+	deleteFunc            TypeDeleteFunc
+	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
 }
 
-func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, interval time.Duration, fetcher ResourcesFetcher) *ResourcesCleanupHandler {
+func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
+	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
+		// configurationscansummaries is virtual
+		// vulnerabilitysummaries is virtual
+		"applicationactivities":               []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
+		"applicationprofiles":                 []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
+		"applicationprofilesummaries":         []TypeCleanupHandlerFunc{deleteDeprecated},
+		"networkneighborses":                  []TypeCleanupHandlerFunc{deleteDeprecated},
+		"networkneighborhoods":                []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
+		"openvulnerabilityexchangecontainers": []TypeCleanupHandlerFunc{deleteByImageId},
+		"sbomspdxv2p3filtereds":               []TypeCleanupHandlerFunc{deleteDeprecated},
+		"sbomspdxv2p3filtered":                []TypeCleanupHandlerFunc{deleteDeprecated},
+		"sbomspdxv2p3s":                       []TypeCleanupHandlerFunc{deleteDeprecated},
+		"sbomspdxv2p3":                        []TypeCleanupHandlerFunc{deleteDeprecated},
+		"sbomsyftfiltered":                    []TypeCleanupHandlerFunc{deleteByInstanceId},
+		"sbomsyft":                            []TypeCleanupHandlerFunc{deleteByImageId},
+		"sbomsummaries":                       []TypeCleanupHandlerFunc{deleteDeprecated},
+		"seccompprofiles":                     []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
+		"vulnerabilitymanifests":              []TypeCleanupHandlerFunc{deleteByImageIdOrInstanceId},
+		"vulnerabilitymanifestsummaries":      []TypeCleanupHandlerFunc{deleteByWlidAndContainer},
+		"workloadconfigurationscans":          []TypeCleanupHandlerFunc{deleteByWlid},
+		"workloadconfigurationscansummaries":  []TypeCleanupHandlerFunc{deleteByWlid},
+	}
+
+	// only if relevancy is enabled, we need to delete application profiles with missing instanceId or wlid annotations
+	if relevancyEnabled {
+		logger.L().Debug("relevancy is enabled, adding additional cleanup handlers")
+		resourceKindToHandler["applicationprofiles"] = append(resourceKindToHandler["applicationprofiles"], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
+	}
+
 	return &ResourcesCleanupHandler{
-		appFs:      appFs,
-		interval:   interval,
-		root:       root,
-		pool:       pool,
-		fetcher:    fetcher,
-		deleteFunc: deleteFile,
+		appFs:                 appFs,
+		interval:              interval,
+		root:                  root,
+		pool:                  pool,
+		fetcher:               fetcher,
+		deleteFunc:            deleteFile,
+		resourceToKindHandler: resourceKindToHandler,
 	}
 }
 
@@ -82,7 +90,7 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 			continue
 		}
 
-		for resourceKind, handlers := range resourceKindToHandler {
+		for resourceKind, handlers := range h.resourceToKindHandler {
 			v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
 			exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
 			if !exists {
