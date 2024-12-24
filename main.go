@@ -81,7 +81,10 @@ func main() {
 		intervalDuration = time.Hour * 24
 		logger.L().Info("failed to parse cleanup interval, falling back to default", helpers.Error(err), helpers.String("interval", intervalDuration.String()))
 	}
-	cleanupHandler := cleanup.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, intervalDuration, kubernetesAPI)
+
+	relevancyEnabled := clusterData.RelevantImageVulnerabilitiesEnabled != nil && *clusterData.RelevantImageVulnerabilitiesEnabled
+
+	cleanupHandler := cleanup.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, intervalDuration, kubernetesAPI, relevancyEnabled)
 	go cleanupHandler.StartCleanupTask(ctx)
 
 	logger.L().Info("APIServer started")

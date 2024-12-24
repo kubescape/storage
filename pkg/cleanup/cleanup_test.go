@@ -50,11 +50,12 @@ func TestCleanupTask(t *testing.T) {
 	}
 
 	handler := &ResourcesCleanupHandler{
-		appFs:      memFs,
-		pool:       file.NewTestPool(t.TempDir()),
-		root:       file.DefaultStorageRoot,
-		fetcher:    &ResourcesFetchMock{},
-		deleteFunc: deleteFunc,
+		appFs:                 memFs,
+		pool:                  file.NewTestPool(t.TempDir()),
+		root:                  file.DefaultStorageRoot,
+		fetcher:               &ResourcesFetchMock{},
+		deleteFunc:            deleteFunc,
+		resourceToKindHandler: initResourceToKindHandler(false),
 	}
 	handler.StartCleanupTask(context.TODO())
 
