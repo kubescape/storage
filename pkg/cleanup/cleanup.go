@@ -38,7 +38,7 @@ type ResourcesCleanupHandler struct {
 	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
 }
 
-func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
+func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {
 	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
 		// configurationscansummaries is virtual
 		// vulnerabilitysummaries is virtual
@@ -67,6 +67,10 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 		logger.L().Debug("relevancy is enabled, adding additional cleanup handlers")
 		resourceKindToHandler["applicationprofiles"] = append(resourceKindToHandler["applicationprofiles"], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
 	}
+	return resourceKindToHandler
+}
+
+func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
 
 	return &ResourcesCleanupHandler{
 		appFs:                 appFs,
@@ -75,7 +79,7 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 		pool:                  pool,
 		fetcher:               fetcher,
 		deleteFunc:            deleteFile,
-		resourceToKindHandler: resourceKindToHandler,
+		resourceToKindHandler: initResourceToKindHandler(relevancyEnabled),
 	}
 }
 
