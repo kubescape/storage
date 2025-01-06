@@ -33,7 +33,7 @@ func NewConfigurationScanSummaryStorage(realStore StorageQuerier) storage.Interf
 }
 
 // Get generates and returns a single ConfigurationScanSummary object for a namespace
-func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, _ storage.GetOptions, objPtr runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "ConfigurationScanSummaryStorage.Get")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -79,11 +79,11 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	workloadScanSummaryListObjPtr := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
 
 	// ask for all workloadconfigurationscansummaries in the cluster
-	if err := s.realStore.GetByCluster(ctx, v1beta1.GroupName, workloadConfigurationScanSummariesResource, workloadScanSummaryListObjPtr); err != nil {
+	if err := s.realStore.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/"+workloadConfigurationScanSummariesResource, storage.ListOptions{}, workloadScanSummaryListObjPtr); err != nil {
 		return err
 	}
 
-	// generate a single configurationScanSummary for the cluster, with an configuration scan summary for each namespace
+	// generate a single configurationScanSummary for the cluster, with a configuration scan summary for each namespace
 	nsSummaries := buildConfigurationScanSummaryForCluster(*workloadScanSummaryListObjPtr)
 
 	data, err := json.Marshal(nsSummaries)
@@ -103,7 +103,7 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 // buildConfigurationScanSummaryForCluster generates a configuration scan summary list for the cluster, where each item is a configuration scan summary for a namespace
 func buildConfigurationScanSummaryForCluster(list softwarecomposition.WorkloadConfigurationScanSummaryList) softwarecomposition.ConfigurationScanSummaryList {
 
-	// build an map of namespace to workload configuration scan summaries
+	// build a map of namespace to workload configuration scan summaries
 	perNS := map[string][]softwarecomposition.WorkloadConfigurationScanSummary{}
 	for _, s := range list.Items {
 		perNS[s.Namespace] = append(perNS[s.Namespace], s)

@@ -49,7 +49,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			want: &softwarecomposition.GeneratedNetworkPolicy{
 				TypeMeta: v1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
 					Name:              "toto",
@@ -98,7 +98,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			want: &softwarecomposition.GeneratedNetworkPolicy{
 				TypeMeta: v1.TypeMeta{
 					Kind:       "GeneratedNetworkPolicy",
-					APIVersion: "spdx.softwarecomposition.kubescape.io",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
 					Name:              "toto",
@@ -151,7 +151,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 				wlObj := &softwarecomposition.NetworkNeighborhood{
 					TypeMeta: v1.TypeMeta{
 						Kind:       "NetworkNeighborhood",
-						APIVersion: "spdx.softwarecomposition.kubescape.io",
+						APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 					},
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "toto",

@@ -20,10 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	storageV1ApiVersion = "spdx.softwarecomposition.kubescape.io"
-)
-
 func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	if !IsAvailable(nn) {
 		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name)
@@ -72,7 +68,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	generatedNetworkPolicy := softwarecomposition.GeneratedNetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "GeneratedNetworkPolicy",
-			APIVersion: storageV1ApiVersion,
+			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              nn.Name,
