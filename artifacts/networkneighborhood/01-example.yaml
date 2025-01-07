@@ -3,7 +3,7 @@ kind: NetworkNeighborhood
 metadata:
   name: deployment-nginx
   annotations:
-    status: incomplete
+    kubescape.io/status: ready
   labels:
       "kubescape.io/workload-api-group": "apps"
       "kubescape.io/workload-api-version": "v1"

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -77,37 +76,35 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 
 // GetList generates and returns a list of GeneratedNetworkPolicy objects for the given namespace
 func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
-	// get all network neighborhood on namespace
-	networkNeighborhoodObjListPtr := &softwarecomposition.NetworkNeighborhoodList{}
-
 	generatedNetworkPolicyList := &softwarecomposition.GeneratedNetworkPolicyList{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: StorageV1Beta1ApiVersion,
 		},
 	}
 
-	namespace := getNamespaceFromKey(key)
-
-	if err := s.realStore.GetByNamespace(ctx, softwarecomposition.GroupName, networkNeighborhoodResource, namespace, networkNeighborhoodObjListPtr); err != nil {
+	// get all network neighborhood on namespace
+	networkNeighborhoodObjListPtr := &softwarecomposition.NetworkNeighborhoodList{}
+	if err := s.realStore.GetList(ctx, replaceKeyForKind(key, networkNeighborhoodResource), storage.ListOptions{}, networkNeighborhoodObjListPtr); err != nil {
 		return err
 	}
 
-	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
-	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
-		return err
-	}
-
-	for _, networkNeighborhood := range networkNeighborhoodObjListPtr.Items {
-		if !networkpolicy.IsAvailable(&networkNeighborhood) {
+	for _, nn := range networkNeighborhoodObjListPtr.Items {
+		if !networkpolicy.IsAvailable(&nn) {
 			continue
 		}
-		generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(&networkNeighborhood, softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items), metav1.Now())
-		if err != nil {
-			return fmt.Errorf("error generating network policy: %w", err)
-		}
-
-		generatedNetworkPolicyList.Items = append(generatedNetworkPolicyList.Items, generatedNetworkPolicy)
-
+		generatedNetworkPolicyList.Items = append(generatedNetworkPolicyList.Items, softwarecomposition.GeneratedNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "GeneratedNetworkPolicy",
+				APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              nn.Name,
+				Namespace:         nn.Namespace,
+				Labels:            nn.Labels,
+				CreationTimestamp: metav1.Now(),
+			},
+			PoliciesRef: []softwarecomposition.PolicyRef{},
+		})
 	}
 
 	data, err := json.Marshal(generatedNetworkPolicyList)
