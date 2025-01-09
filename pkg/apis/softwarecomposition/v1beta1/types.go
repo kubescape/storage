@@ -225,15 +225,31 @@ type ApplicationProfileContainer struct {
 }
 
 type ExecCalls struct {
-	Path string   `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
-	Args []string `json:"args,omitempty" protobuf:"bytes,2,opt,name=args"`
-	Envs []string `json:"envs,omitempty" protobuf:"bytes,3,opt,name=envs"`
+	Path        string     `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
+	Args        []string   `json:"args,omitempty" protobuf:"bytes,2,opt,name=args"`
+	Envs        []string   `json:"envs,omitempty" protobuf:"bytes,3,opt,name=envs"`
+	ProcessTree StackTrace `json:"processTree,omitempty" protobuf:"bytes,4,opt,name=processTree"`
 }
 
 type OpenCalls struct {
-	Path  string   `json:"path" yaml:"path" protobuf:"bytes,1,req,name=path"`
-	Flags []string `json:"flags" yaml:"flags" protobuf:"bytes,2,rep,name=flags"`
+	Path        string     `json:"path" yaml:"path" protobuf:"bytes,1,req,name=path"`
+	Flags       []string   `json:"flags" yaml:"flags" protobuf:"bytes,2,rep,name=flags"`
+	ProcessTree StackTrace `json:"processTree,omitempty" protobuf:"bytes,4,opt,name=processTree"`
 }
+
+type StackTrace struct {
+	Root  FileName                `json:"root" protobuf:"bytes,1,opt,name=root"`
+	Nodes map[FileName]StackFrame `json:"nodes" protobuf:"bytes,2,rep,name=nodes"`
+}
+
+type StackFrame struct {
+	File     FileName   `json:"file" protobuf:"bytes,1,opt,name=file"`
+	Address  uint64     `json:"address" protobuf:"bytes,2,opt,name=address"`
+	Children []FileName `json:"children" protobuf:"bytes,3,rep,name=children"`
+	Parents  []FileName `json:"parents" protobuf:"bytes,4,rep,name=parents"`
+}
+
+type FileName string
 
 type ApplicationProfileStatus struct {
 }

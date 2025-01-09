@@ -151,6 +151,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus":                 schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                                     schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SpecBase":                                   schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame":                                 schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackTrace":                                 schema_pkg_apis_softwarecomposition_v1beta1_StackTrace(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement":                                  schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StatusBase":                                 schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent":                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
@@ -1427,9 +1429,17 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceC
 							},
 						},
 					},
+					"processTree": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackTrace"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackTrace"},
 	}
 }
 
@@ -4239,10 +4249,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref common.ReferenceC
 							},
 						},
 					},
+					"processTree": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackTrace"),
+						},
+					},
 				},
 				Required: []string{"path", "flags"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackTrace"},
 	}
 }
 
@@ -5746,6 +5764,97 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref common.ReferenceCa
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"address": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"children": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"parents": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"file", "address", "children", "parents"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_StackTrace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"root": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"nodes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"root", "nodes"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"},
 	}
 }
 

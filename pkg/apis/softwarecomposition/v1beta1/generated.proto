@@ -292,6 +292,8 @@ message ExecCalls {
   repeated string args = 2;
 
   repeated string envs = 3;
+
+  optional StackTrace processTree = 4;
 }
 
 message Executable {
@@ -968,6 +970,8 @@ message OpenCalls {
   optional string path = 1;
 
   repeated string flags = 2;
+
+  optional StackTrace processTree = 4;
 }
 
 message OpenVulnerabilityExchangeContainer {
@@ -1289,6 +1293,22 @@ message Source {
 
 message SpecBase {
   optional bool disabled = 1;
+}
+
+message StackFrame {
+  optional string file = 1;
+
+  optional uint64 address = 2;
+
+  repeated string children = 3;
+
+  repeated string parents = 4;
+}
+
+message StackTrace {
+  optional string root = 1;
+
+  map<string, StackFrame> nodes = 2;
 }
 
 message Statement {
