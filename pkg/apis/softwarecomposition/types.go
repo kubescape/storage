@@ -244,9 +244,10 @@ type RulePolicy struct {
 }
 
 type ExecCalls struct {
-	Path string
-	Args []string
-	Envs []string
+	Path        string
+	Args        []string
+	Envs        []string
+	ProcessTree StackTrace
 }
 
 const sep = "␟"
@@ -267,8 +268,9 @@ func (e ExecCalls) String() string {
 }
 
 type OpenCalls struct {
-	Path  string
-	Flags []string
+	Path        string
+	Flags       []string
+	ProcessTree StackTrace
 }
 
 func (e OpenCalls) String() string {
@@ -281,6 +283,20 @@ func (e OpenCalls) String() string {
 	}
 	return s.String()
 }
+
+type StackTrace struct {
+	Root  FileName
+	Nodes map[FileName]StackFrame
+}
+
+type StackFrame struct {
+	File     FileName
+	Address  uint64
+	Children []FileName
+	Parents  []FileName
+}
+
+type FileName string
 
 type ApplicationProfileStatus struct {
 }

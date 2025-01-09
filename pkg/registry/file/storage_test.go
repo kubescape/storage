@@ -709,7 +709,7 @@ func Test_calculateChecksum(t *testing.T) {
 					}},
 				},
 			},
-			want:    "5816a857c672b2d147d3c2a4e5c5c86716ec4be951dad16a77c7e760ff15658b",
+			want:    "621c17873e9c9a6256b862e22a3a168dcc35b944264fffd1febda04ba11486ce",
 			wantErr: assert.NoError,
 		},
 	}

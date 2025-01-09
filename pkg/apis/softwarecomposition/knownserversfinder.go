@@ -9,10 +9,12 @@ import (
 var _ IKnownServersFinder = (*KnownServersFinderImpl)(nil)
 var _ IKnownServerEntry = (*KnownServersFinderEntry)(nil)
 
+// +k8s:deepcopy-gen=false
 type KnownServersFinderImpl struct {
 	ranger cidranger.Ranger
 }
 
+// +k8s:deepcopy-gen=false
 type KnownServersFinderEntry struct {
 	knownServer KnownServerEntry
 	network     net.IPNet
