@@ -83,6 +83,9 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 	}
 	o.RecommendedOptions.Etcd = nil
 
+	// Disable authorization since we are publishing an internal endpoint (that only answers the API server)
+	o.RecommendedOptions.Authorization = nil
+
 	// Set TLS up and bind to 8443
 	// read the client cert filenames from the environment variables
 	value, exists := os.LookupEnv("TLS_CLIENT_CA_FILE")
