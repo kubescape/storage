@@ -114,15 +114,16 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
 
 	return softwarecomposition.ApplicationProfileContainer{
-		Name:           container.Name,
-		Capabilities:   DeflateSortString(container.Capabilities),
-		Execs:          DeflateStringer(container.Execs),
-		Opens:          opens,
-		Syscalls:       DeflateSortString(container.Syscalls),
-		SeccompProfile: container.SeccompProfile,
-		Endpoints:      endpoints,
-		ImageTag:       container.ImageTag,
-		ImageID:        container.ImageID,
-		PolicyByRuleId: DeflateRulePolicies(container.PolicyByRuleId),
+		Name:                 container.Name,
+		Capabilities:         DeflateSortString(container.Capabilities),
+		Execs:                DeflateStringer(container.Execs),
+		Opens:                opens,
+		Syscalls:             DeflateSortString(container.Syscalls),
+		SeccompProfile:       container.SeccompProfile,
+		Endpoints:            endpoints,
+		ImageTag:             container.ImageTag,
+		ImageID:              container.ImageID,
+		PolicyByRuleId:       DeflateRulePolicies(container.PolicyByRuleId),
+		IdentifiedCallStacks: DeflateIdentifiedCallStacks(container.IdentifiedCallStacks),
 	}
 }
