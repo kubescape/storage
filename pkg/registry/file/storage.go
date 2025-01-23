@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -203,9 +204,14 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	beforeLock := time.Now()
 	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
+	if lockDuration > time.Second {
+		logger.L().Debug("Create", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+	}
 	// check if object already exists
 	if _, err := s.appFs.Stat(makePayloadPath(filepath.Join(s.root, key))); err == nil {
 		return storage.NewKeyExistsError(key, 0)
@@ -240,9 +246,14 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	beforeLock := time.Now()
 	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
+	if lockDuration > time.Second {
+		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+	}
 	p := filepath.Join(s.root, key)
 	// delete metadata in SQLite
 	conn, err := s.pool.Take(context.Background())
@@ -289,9 +300,14 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	beforeLock := time.Now()
 	s.locks.RLock(key)
 	defer s.locks.RUnlock(key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
+	if lockDuration > time.Second {
+		logger.L().Debug("Get", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+	}
 	return s.get(ctx, key, opts, objPtr)
 }
 
@@ -520,9 +536,14 @@ func (s *StorageImpl) GuaranteedUpdate(
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	beforeLock := time.Now()
 	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
+	if lockDuration > time.Second {
+		logger.L().Debug("GuaranteedUpdate/", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+	}
 
 	// key preparation is skipped
 	// otel span tracking is skipped
