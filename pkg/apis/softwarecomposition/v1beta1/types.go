@@ -250,8 +250,6 @@ type StackFrame struct {
 
 type CallStackNode struct {
 	Children []*CallStackNode `json:"children" protobuf:"bytes,1,rep,name=children"`
-	IsEnd    bool             `json:"isEnd" protobuf:"bytes,2,opt,name=isEnd"`
-	IsStart  bool             `json:"isStart" protobuf:"bytes,3,opt,name=isStart"`
 	Parent   *CallStackNode   `json:"parent" protobuf:"bytes,4,opt,name=parent"`
 	Frame    *StackFrame      `json:"frame" protobuf:"bytes,4,opt,name=frame"`
 }

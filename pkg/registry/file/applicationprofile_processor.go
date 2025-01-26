@@ -12,6 +12,7 @@ import (
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/k8s-interface/names"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
@@ -124,6 +125,6 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		ImageTag:             container.ImageTag,
 		ImageID:              container.ImageID,
 		PolicyByRuleId:       DeflateRulePolicies(container.PolicyByRuleId),
-		IdentifiedCallStacks: DeflateIdentifiedCallStacks(container.IdentifiedCallStacks),
+		IdentifiedCallStacks: callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks),
 	}
 }

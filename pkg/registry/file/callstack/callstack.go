@@ -4,123 +4,127 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
-// NOTE: THIS DOESN'T WORK. IT'S WIP.
-
-// UnifyCallStacks takes two CallStacks and returns a unified CallStack
-func UnifyCallStacks(cs1, cs2 *types.CallStack) *types.CallStack {
-	if cs1 == nil && cs2 == nil {
+// copyNode creates a new copy of a CallStackNode without its children
+func copyNode(node *types.CallStackNode) *types.CallStackNode {
+	if node == nil {
 		return nil
 	}
-	if cs1 == nil {
-		return cs2
+	newNode := &types.CallStackNode{
+		Children: make([]*types.CallStackNode, 0),
+		Parent:   nil,
+		Frame:    nil,
 	}
-	if cs2 == nil {
-		return cs1
+	if node.Frame != nil {
+		newNode.Frame = &types.StackFrame{
+			FileID: node.Frame.FileID,
+			Lineno: node.Frame.Lineno,
+		}
 	}
+	return newNode
+}
 
-	// Create a new unified CallStack with a dummy root node
-	unified := &types.CallStack{
+// copySubtree creates a deep copy of a CallStackNode and all its children
+func copySubtree(node *types.CallStackNode) *types.CallStackNode {
+	if node == nil {
+		return nil
+	}
+	newNode := copyNode(node)
+	for _, child := range node.Children {
+		childCopy := copySubtree(child)
+		childCopy.Parent = newNode
+		newNode.Children = append(newNode.Children, childCopy)
+	}
+	return newNode
+}
+
+// framesEqual checks if two StackFrames are equal
+func framesEqual(f1, f2 *types.StackFrame) bool {
+	if f1 == nil && f2 == nil {
+		return true
+	}
+	if f1 == nil || f2 == nil {
+		return false
+	}
+	return f1.FileID == f2.FileID && f1.Lineno == f2.Lineno
+}
+
+// getNodesToProcess returns the nodes that should be processed for unification
+func getNodesToProcess(cs *types.CallStack) []*types.CallStackNode {
+	if cs == nil {
+		return nil
+	}
+	if cs.Root.Frame != nil {
+		// If root has a frame, treat the root itself as a node to process
+		return []*types.CallStackNode{cs.Root}
+	}
+	// Otherwise process its children
+	return cs.Root.Children
+}
+
+// createDummyRoot creates a new CallStack with a dummy root node
+func createDummyRoot() *types.CallStack {
+	return &types.CallStack{
 		Root: &types.CallStackNode{
 			Children: make([]*types.CallStackNode, 0),
-			IsStart:  false,
-			IsEnd:    false,
 			Parent:   nil,
 			Frame:    nil,
 		},
 	}
+}
 
-	// Helper function to copy a node and its children
-	var copyNode func(node *types.CallStackNode) *types.CallStackNode
-	copyNode = func(node *types.CallStackNode) *types.CallStackNode {
-		if node == nil {
-			return nil
-		}
-		newNode := &types.CallStackNode{
-			Children: make([]*types.CallStackNode, 0, len(node.Children)),
-			IsEnd:    node.IsEnd,
-			IsStart:  node.IsStart,
-			Parent:   nil,
-			Frame:    nil,
-		}
-		if node.Frame != nil {
-			newNode.Frame = &types.StackFrame{
-				FileID: node.Frame.FileID,
-				Lineno: node.Frame.Lineno,
-			}
-		}
-		for _, child := range node.Children {
-			childCopy := copyNode(child)
-			childCopy.Parent = newNode
-			newNode.Children = append(newNode.Children, childCopy)
-		}
-		return newNode
+// UnifyCallStacks takes two CallStacks and returns a unified CallStack
+func UnifyCallStacks(cs1, cs2 *types.CallStack) *types.CallStack {
+	unified := createDummyRoot()
+
+	if cs1 == nil && cs2 == nil {
+		return unified
 	}
 
-	// Helper function to merge nodes
-	var mergeNodes func(node1, node2, parent *types.CallStackNode)
-	mergeNodes = func(node1, node2, parent *types.CallStackNode) {
-		if node1 == nil && node2 == nil {
-			return
-		}
+	// Process nodes from cs1
+	for _, node1 := range getNodesToProcess(cs1) {
+		subtree := copySubtree(node1)
+		subtree.Parent = unified.Root
+		unified.Root.Children = append(unified.Root.Children, subtree)
+	}
 
-		// Create maps to group children by frame
-		childrenMap := make(map[uint64]map[uint64][]*types.CallStackNode)
-
-		// Helper function to add children to the map
-		addToMap := func(nodes []*types.CallStackNode) {
-			for _, child := range nodes {
-				if child.Frame != nil {
-					if _, ok := childrenMap[child.Frame.FileID]; !ok {
-						childrenMap[child.Frame.FileID] = make(map[uint64][]*types.CallStackNode)
+	// Process nodes from cs2
+	for _, node2 := range getNodesToProcess(cs2) {
+		merged := false
+		for _, existingChild := range unified.Root.Children {
+			if framesEqual(node2.Frame, existingChild.Frame) {
+				// If frames are equal at this level, try to merge their children
+				for _, child2 := range node2.Children {
+					foundMatch := false
+					for _, existingGrandChild := range existingChild.Children {
+						if framesEqual(child2.Frame, existingGrandChild.Frame) {
+							foundMatch = true
+							break
+						}
 					}
-					childrenMap[child.Frame.FileID][child.Frame.Lineno] = append(
-						childrenMap[child.Frame.FileID][child.Frame.Lineno],
-						child,
-					)
+					if !foundMatch {
+						// Add this as a new path under the existing node
+						subtree := copySubtree(child2)
+						subtree.Parent = existingChild
+						existingChild.Children = append(existingChild.Children, subtree)
+					}
 				}
+				merged = true
+				break
 			}
 		}
-
-		// Add children from both nodes to the map
-		if node1 != nil {
-			addToMap(node1.Children)
-		}
-		if node2 != nil {
-			addToMap(node2.Children)
-		}
-
-		// Merge children with the same frame
-		for _, linenoMap := range childrenMap {
-			for _, nodes := range linenoMap {
-				if len(nodes) == 0 {
-					continue
-				}
-
-				// Create a new merged node
-				mergedNode := copyNode(nodes[0])
-				mergedNode.Parent = parent
-				parent.Children = append(parent.Children, mergedNode)
-
-				// Recursively merge children of nodes with the same frame
-				var childNode1, childNode2 *types.CallStackNode
-				if len(nodes) > 0 {
-					childNode1 = nodes[0]
-				}
-				if len(nodes) > 1 {
-					childNode2 = nodes[1]
-				}
-				mergeNodes(childNode1, childNode2, mergedNode)
-			}
+		if !merged {
+			// Add this as a completely new path
+			subtree := copySubtree(node2)
+			subtree.Parent = unified.Root
+			unified.Root.Children = append(unified.Root.Children, subtree)
 		}
 	}
 
-	// Start merging from the root nodes
-	mergeNodes(cs1.Root, cs2.Root, unified.Root)
 	return unified
 }
 
-// UnifyIdentifiedCallStacks takes a list of IdentifiedCallStack and returns a map of unified CallStacks
-func UnifyIdentifiedCallStacks(stacks []types.IdentifiedCallStack) map[types.CallID]*types.CallStack {
+// UnifyIdentifiedCallStacks takes a list of IdentifiedCallStack and returns a list of unified CallStacks
+func UnifyIdentifiedCallStacks(stacks []types.IdentifiedCallStack) []types.IdentifiedCallStack {
 	// Group CallStacks by CallID
 	stacksByID := make(map[types.CallID][]*types.CallStack)
 	for _, stack := range stacks {
@@ -145,5 +149,14 @@ func UnifyIdentifiedCallStacks(stacks []types.IdentifiedCallStack) map[types.Cal
 		result[callID] = unified
 	}
 
-	return result
+	// Convert map to slice
+	var resultSlice []types.IdentifiedCallStack
+	for callID, unified := range result {
+		resultSlice = append(resultSlice, types.IdentifiedCallStack{
+			CallID:    callID,
+			CallStack: *unified,
+		})
+	}
+
+	return resultSlice
 }

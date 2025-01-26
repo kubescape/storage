@@ -297,8 +297,6 @@ type StackFrame struct {
 
 type CallStackNode struct {
 	Children []*CallStackNode
-	IsEnd    bool
-	IsStart  bool
 	Parent   *CallStackNode
 	Frame    *StackFrame
 }
