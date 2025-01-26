@@ -222,7 +222,7 @@ type ApplicationProfileContainer struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=ruleId
 	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
-	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks" protobuf:"bytes,1,rep,name=identifiedCallStacks"`
+	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
 }
 
 type ExecCalls struct {
@@ -250,8 +250,8 @@ type StackFrame struct {
 
 type CallStackNode struct {
 	Children []*CallStackNode `json:"children" protobuf:"bytes,1,rep,name=children"`
-	Parent   *CallStackNode   `json:"parent" protobuf:"bytes,4,opt,name=parent"`
-	Frame    *StackFrame      `json:"frame" protobuf:"bytes,4,opt,name=frame"`
+	Parent   *CallStackNode   `json:"parent" protobuf:"bytes,2,opt,name=parent"`
+	Frame    *StackFrame      `json:"frame" protobuf:"bytes,3,opt,name=frame"`
 }
 
 type CallStack struct {
