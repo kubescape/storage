@@ -221,7 +221,8 @@ type ApplicationProfileContainer struct {
 	ImageTag  string         `json:"imageTag" protobuf:"bytes,9,opt,name=imageTag"`
 	// +patchStrategy=merge
 	// +patchMergeKey=ruleId
-	PolicyByRuleId map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
+	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
+	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
 }
 
 type ExecCalls struct {
@@ -233,6 +234,28 @@ type ExecCalls struct {
 type OpenCalls struct {
 	Path  string   `json:"path" yaml:"path" protobuf:"bytes,1,req,name=path"`
 	Flags []string `json:"flags" yaml:"flags" protobuf:"bytes,2,rep,name=flags"`
+}
+
+type CallID string
+
+type IdentifiedCallStack struct {
+	CallID    CallID    `json:"callID" protobuf:"bytes,1,opt,name=callID"`
+	CallStack CallStack `json:"callStack" protobuf:"bytes,2,opt,name=callStack"`
+}
+
+type StackFrame struct {
+	FileID uint64 `json:"fileID" protobuf:"bytes,1,opt,name=fileID"`
+	Lineno uint64 `json:"lineno" protobuf:"bytes,2,opt,name=lineno"`
+}
+
+type CallStackNode struct {
+	Children []*CallStackNode `json:"children" protobuf:"bytes,1,rep,name=children"`
+	Parent   *CallStackNode   `json:"parent" protobuf:"bytes,2,opt,name=parent"`
+	Frame    *StackFrame      `json:"frame" protobuf:"bytes,3,opt,name=frame"`
+}
+
+type CallStack struct {
+	Root *CallStackNode `json:"root" protobuf:"bytes,1,opt,name=root"`
 }
 
 type ApplicationProfileStatus struct {

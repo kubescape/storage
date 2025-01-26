@@ -92,6 +92,8 @@ message ApplicationProfileContainer {
   // +patchStrategy=merge
   // +patchMergeKey=ruleId
   map<string, RulePolicy> rulePolicies = 10;
+
+  repeated IdentifiedCallStack identifiedCallStacks = 11;
 }
 
 message ApplicationProfileList {
@@ -138,6 +140,18 @@ message CPE {
   optional string cpe = 1;
 
   optional string source = 2;
+}
+
+message CallStack {
+  optional CallStackNode root = 1;
+}
+
+message CallStackNode {
+  repeated CallStackNode children = 1;
+
+  optional CallStackNode parent = 2;
+
+  optional StackFrame frame = 3;
 }
 
 message Component {
@@ -459,6 +473,12 @@ message IPBlock {
   optional string cidr = 1;
 
   repeated string except = 2;
+}
+
+message IdentifiedCallStack {
+  optional string callID = 1;
+
+  optional CallStack callStack = 2;
 }
 
 message IgnoreRule {
@@ -1289,6 +1309,12 @@ message Source {
 
 message SpecBase {
   optional bool disabled = 1;
+}
+
+message StackFrame {
+  optional uint64 fileID = 1;
+
+  optional uint64 lineno = 2;
 }
 
 message Statement {
