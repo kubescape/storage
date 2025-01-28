@@ -1312,9 +1312,9 @@ message SpecBase {
 }
 
 message StackFrame {
-  optional uint64 fileID = 1;
+  optional string fileID = 1;
 
-  optional uint64 lineno = 2;
+  optional string lineno = 2;
 }
 
 message Statement {
