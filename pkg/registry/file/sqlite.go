@@ -39,17 +39,17 @@ func NewTestPool(dir string) *sqlitemigration.Pool {
 	return NewPool(filepath.Join(dir, "test.sq3"), 0)
 }
 
-func pathToKeys(path string) (string, string, string) {
+func pathToKeys(path string) (string, string, string, string, string) {
 	s := strings.SplitN(path, "/", 5)
 	// ensure we have at least 5 parts
 	for len(s) < 5 {
 		s = append(s, "")
 	}
-	return s[2], s[3], s[4]
+	return s[0], s[1], s[2], s[3], s[4]
 }
 
 func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
-	kind, namespace, _ := pathToKeys(path)
+	_, _, kind, namespace, _ := pathToKeys(path)
 	var count int64
 	err := sqlitex.Execute(conn,
 		`SELECT COUNT(*) FROM metadata
@@ -69,7 +69,7 @@ func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 }
 
 func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) error {
-	kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := pathToKeys(path)
 	err := sqlitex.ExecuteTransient(conn,
 		`DELETE FROM metadata
 				WHERE kind = :kind
@@ -92,8 +92,38 @@ func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) err
 	return nil
 }
 
+func listKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
+	prefix, root, kind, namespace, _ := pathToKeys(path)
+	if cont == "" {
+		cont = "0"
+	}
+	var last string
+	var names []string
+	err := sqlitex.Execute(conn,
+		`SELECT rowid, namespace, name FROM metadata
+                WHERE kind = :kind
+                    AND (:namespace = '' OR namespace = :namespace)
+                	AND rowid > :cont
+				ORDER BY rowid
+				LIMIT :limit`,
+		&sqlitex.ExecOptions{
+			Named: map[string]any{":kind": kind, ":namespace": namespace, ":cont": cont, ":limit": limit},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				last = stmt.ColumnText(0)
+				ns := stmt.ColumnText(1)
+				name := stmt.ColumnText(2)
+				names = append(names, fmt.Sprintf("%s/%s/%s/%s/%s", prefix, root, kind, ns, name))
+				return nil
+			},
+		})
+	if err != nil {
+		return nil, "", fmt.Errorf("list names: %w", err)
+	}
+	return names, last, nil
+}
+
 func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
-	kind, namespace, _ := pathToKeys(path)
+	_, _, kind, namespace, _ := pathToKeys(path)
 	if cont == "" {
 		cont = "0"
 	}
@@ -122,7 +152,7 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 }
 
 func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
-	kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := pathToKeys(path)
 	var metadataJSON string
 	err := sqlitex.Execute(conn,
 		`SELECT metadata FROM metadata
@@ -154,7 +184,7 @@ func writeMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) erro
 }
 
 func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
-	kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := pathToKeys(path)
 	err := sqlitex.ExecuteTransient(conn,
 		`INSERT OR REPLACE INTO metadata
 				(kind, namespace, name, metadata) VALUES (?, ?, ?, ?)`,

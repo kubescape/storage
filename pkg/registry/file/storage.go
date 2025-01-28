@@ -392,27 +392,47 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	if opts.Predicate.Limit == 0 {
 		opts.Predicate.Limit = 500
 	}
-	// get metadata from SQLite
+	// prepare SQLite connection
 	conn, err := s.pool.Take(context.Background())
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
 	defer s.pool.Put(conn)
-	metadataJSONs, last, err := listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
-	}
-	// populate list object
-	for _, metadataJSON := range metadataJSONs {
-		elem := v.Type().Elem()
-		obj := reflect.New(elem).Interface().(runtime.Object)
-		if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
-			logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+	var list []string
+	var last string
+	if opts.ResourceVersion == "fullSpec" {
+		// get names from SQLite
+		list, last, err = listKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		if err != nil {
+			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
-		v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		// populate list object
+		for _, k := range list {
+			elem := v.Type().Elem()
+			obj := reflect.New(elem).Interface().(runtime.Object)
+			if err := s.get(ctx, k, storage.GetOptions{}, obj); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", k))
+			}
+			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		}
+	} else {
+		// get metadata from SQLite
+		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		if err != nil {
+			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
+		}
+		// populate list object
+		for _, metadataJSON := range list {
+			elem := v.Type().Elem()
+			obj := reflect.New(elem).Interface().(runtime.Object)
+			if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+			}
+			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		}
 	}
 	// eventually set list accessor fields
-	if len(metadataJSONs) == int(opts.Predicate.Limit) {
+	if len(list) == int(opts.Predicate.Limit) {
 		listAccessor, err := meta.ListAccessor(listObj)
 		if err != nil {
 			return fmt.Errorf("list accessor: %w", err)
