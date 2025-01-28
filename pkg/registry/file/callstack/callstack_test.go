@@ -1,6 +1,9 @@
 package callstack
 
 import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
 	"testing"
 
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -680,4 +683,135 @@ func TestUnifyIdentifiedCallStacksWithMixedRoots(t *testing.T) {
 	assert.Equal(t, "1", firstLevel.Frame.FileID)
 	assert.Equal(t, "1", firstLevel.Frame.Lineno)
 	assert.Equal(t, 2, len(firstLevel.Children), "Should have both 2,1 and 2,2 children")
+}
+
+func TestRealWorldCallStackEncoding(t *testing.T) {
+	// Create the call stack structure from your example
+	callStack := &types.IdentifiedCallStack{
+		CallID: "2bea65ce108e73407c3970e448009e58c46dad6f2463c1dbf2d23a92ba5ad81c",
+		CallStack: types.CallStack{
+			Root: &types.CallStackNode{
+				Frame: &types.StackFrame{
+					FileID: "10425069705252389217",
+					Lineno: "645761",
+				},
+				Children: []*types.CallStackNode{
+					{
+						Frame: &types.StackFrame{
+							FileID: "10425069705252389217",
+							Lineno: "653231",
+						},
+						Children: []*types.CallStackNode{
+							{
+								Frame: &types.StackFrame{
+									FileID: "10425069705252389217",
+									Lineno: "654232",
+								},
+								Children: []*types.CallStackNode{
+									{
+										Frame: &types.StackFrame{
+											FileID: "10425069705252389217",
+											Lineno: "10678645",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Try to encode
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(callStack)
+	if err != nil {
+		t.Logf("Encoding error: %v", err)
+		t.Fail()
+	}
+
+	// Try to decode
+	dec := gob.NewDecoder(&buf)
+	var decodedCallStack types.IdentifiedCallStack
+	err = dec.Decode(&decodedCallStack)
+	if err != nil {
+		t.Logf("Decoding error: %v", err)
+		t.Fail()
+	}
+
+	// Verify the decoded structure matches the original
+	if decodedCallStack.CallID != callStack.CallID {
+		t.Errorf("CallID mismatch: got %v, want %v", decodedCallStack.CallID, callStack.CallID)
+	}
+}
+
+func TestGobCallStackEncoding(t *testing.T) {
+	// Create a deep call stack
+	root := &types.CallStackNode{
+		Children: make([]*types.CallStackNode, 0),
+		Frame: &types.StackFrame{
+			FileID: "10425069705252389217",
+			Lineno: "645761",
+		},
+	}
+
+	// Create a very deep stack to trigger the overflow
+	currentNode := root
+	for i := 0; i < 100; i++ { // Large number to trigger stack overflow
+		newNode := &types.CallStackNode{
+			Children: make([]*types.CallStackNode, 0),
+			Frame: &types.StackFrame{
+				FileID: fmt.Sprintf("file_%d", i),
+				Lineno: fmt.Sprintf("line_%d", i),
+			},
+		}
+		currentNode.Children = append(currentNode.Children, newNode)
+		currentNode = newNode
+	}
+
+	callStack := &types.IdentifiedCallStack{
+		CallID: "test_call_id",
+		CallStack: types.CallStack{
+			Root: root,
+		},
+	}
+
+	t.Logf("Total nodes in call stack: %d", countNodes(callStack.CallStack.Root))
+
+	// Try to encode
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(callStack)
+	if err != nil {
+		t.Logf("Encoding error: %v", err)
+		t.Fail()
+	}
+
+	// Try to decode
+	dec := gob.NewDecoder(&buf)
+	var decodedCallStack types.IdentifiedCallStack
+	err = dec.Decode(&decodedCallStack)
+	if err != nil {
+		t.Logf("Decoding error: %v", err)
+		t.Fail()
+	}
+
+	// Verify structure (basic check)
+	if decodedCallStack.CallID != callStack.CallID {
+		t.Errorf("CallID mismatch: got %v, want %v", decodedCallStack.CallID, callStack.CallID)
+	}
+}
+
+// Helper function to count total nodes in a call stack
+func countNodes(node *types.CallStackNode) int {
+	if node == nil {
+		return 0
+	}
+	count := 1
+	for _, child := range node.Children {
+		count += countNodes(child)
+	}
+	return count
 }
