@@ -24,10 +24,10 @@ func TestUnifyCallStacks(t *testing.T) {
 	*/
 	cs1 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 					},
 				},
@@ -37,10 +37,10 @@ func TestUnifyCallStacks(t *testing.T) {
 
 	cs2 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
@@ -82,16 +82,16 @@ func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
 	*/
 	cs1 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 					},
 				},
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "2"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
@@ -101,16 +101,16 @@ func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
 
 	cs2 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "2"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "3"}},
 					},
 				},
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "3"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "4"}},
 					},
 				},
@@ -126,7 +126,7 @@ func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
 	assert.Equal(t, 3, len(result.Root.Children), "Should have three children under root")
 
 	// Find the node with frame 1,2
-	var node12 *types.CallStackNode
+	var node12 types.CallStackNode
 	for _, child := range result.Root.Children {
 		if child.Frame.FileID == "1" && child.Frame.Lineno == "2" {
 			node12 = child
@@ -164,13 +164,13 @@ func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
 	*/
 	cs1 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "2", Lineno: "1"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 							},
 						},
@@ -182,13 +182,13 @@ func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
 
 	cs2 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "2"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "2", Lineno: "3"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 							},
 						},
@@ -206,7 +206,7 @@ func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
 	assert.Equal(t, 2, len(result.Root.Children), "Should have two children under root (1,1 and 1,2)")
 
 	// Find nodes 1,1 and 1,2
-	var node11, node12 *types.CallStackNode
+	var node11, node12 types.CallStackNode
 	for _, child := range result.Root.Children {
 		if child.Frame.FileID == "1" {
 			if child.Frame.Lineno == "1" {
@@ -255,10 +255,10 @@ func TestUnifyCallStacksWithSameParentDifferentChildren(t *testing.T) {
 	*/
 	cs1 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 					},
 				},
@@ -268,10 +268,10 @@ func TestUnifyCallStacksWithSameParentDifferentChildren(t *testing.T) {
 
 	cs2 := &types.CallStack{
 		Root: &types.CallStackNode{
-			Children: []*types.CallStackNode{
+			Children: []types.CallStackNode{
 				{
 					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
@@ -324,10 +324,10 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 			CallID: "test1",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 							},
 						},
@@ -339,10 +339,10 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 			CallID: "test1",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 							},
 						},
@@ -354,10 +354,10 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 			CallID: "test2",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "2", Lineno: "2"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 							},
 						},
@@ -433,16 +433,16 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 			CallID: "test1",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{
 									Frame: &types.StackFrame{FileID: "2", Lineno: "1"},
-									Children: []*types.CallStackNode{
+									Children: []types.CallStackNode{
 										{
 											Frame: &types.StackFrame{FileID: "3", Lineno: "1"},
-											Children: []*types.CallStackNode{
+											Children: []types.CallStackNode{
 												{Frame: &types.StackFrame{FileID: "4", Lineno: "1"}},
 											},
 										},
@@ -458,16 +458,16 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 			CallID: "test1",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{
 									Frame: &types.StackFrame{FileID: "2", Lineno: "2"},
-									Children: []*types.CallStackNode{
+									Children: []types.CallStackNode{
 										{
 											Frame: &types.StackFrame{FileID: "3", Lineno: "2"},
-											Children: []*types.CallStackNode{
+											Children: []types.CallStackNode{
 												{Frame: &types.StackFrame{FileID: "4", Lineno: "2"}},
 											},
 										},
@@ -483,13 +483,13 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 			CallID: "test1",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{
 									Frame: &types.StackFrame{FileID: "2", Lineno: "3"},
-									Children: []*types.CallStackNode{
+									Children: []types.CallStackNode{
 										{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 									},
 								},
@@ -503,7 +503,7 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 			CallID: "", // Empty group test
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "1", Lineno: "1"}},
 					},
 				},
@@ -583,7 +583,7 @@ func TestUnifyCallStacksWithDummyRoots(t *testing.T) {
 	createStackWithDummy := func(fileID, lineno string) *types.CallStack {
 		return &types.CallStack{
 			Root: &types.CallStackNode{
-				Children: []*types.CallStackNode{
+				Children: []types.CallStackNode{
 					{
 						Frame: &types.StackFrame{FileID: fileID, Lineno: lineno},
 					},
@@ -640,10 +640,10 @@ func TestUnifyIdentifiedCallStacksWithMixedRoots(t *testing.T) {
 			CallID: "test1",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{ // With dummy root
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{
 							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-							Children: []*types.CallStackNode{
+							Children: []types.CallStackNode{
 								{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 							},
 						},
@@ -656,7 +656,7 @@ func TestUnifyIdentifiedCallStacksWithMixedRoots(t *testing.T) {
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{ // Without dummy root
 					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []*types.CallStackNode{
+					Children: []types.CallStackNode{
 						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
@@ -695,19 +695,19 @@ func TestRealWorldCallStackEncoding(t *testing.T) {
 					FileID: "10425069705252389217",
 					Lineno: "645761",
 				},
-				Children: []*types.CallStackNode{
+				Children: []types.CallStackNode{
 					{
 						Frame: &types.StackFrame{
 							FileID: "10425069705252389217",
 							Lineno: "653231",
 						},
-						Children: []*types.CallStackNode{
+						Children: []types.CallStackNode{
 							{
 								Frame: &types.StackFrame{
 									FileID: "10425069705252389217",
 									Lineno: "654232",
 								},
-								Children: []*types.CallStackNode{
+								Children: []types.CallStackNode{
 									{
 										Frame: &types.StackFrame{
 											FileID: "10425069705252389217",
@@ -749,8 +749,8 @@ func TestRealWorldCallStackEncoding(t *testing.T) {
 
 func TestGobCallStackEncoding(t *testing.T) {
 	// Create a deep call stack
-	root := &types.CallStackNode{
-		Children: make([]*types.CallStackNode, 0),
+	root := types.CallStackNode{
+		Children: make([]types.CallStackNode, 0),
 		Frame: &types.StackFrame{
 			FileID: "10425069705252389217",
 			Lineno: "645761",
@@ -760,8 +760,8 @@ func TestGobCallStackEncoding(t *testing.T) {
 	// Create a very deep stack to trigger the overflow
 	currentNode := root
 	for i := 0; i < 100; i++ { // Large number to trigger stack overflow
-		newNode := &types.CallStackNode{
-			Children: make([]*types.CallStackNode, 0),
+		newNode := types.CallStackNode{
+			Children: make([]types.CallStackNode, 0),
 			Frame: &types.StackFrame{
 				FileID: fmt.Sprintf("file_%d", i),
 				Lineno: fmt.Sprintf("line_%d", i),
@@ -774,7 +774,7 @@ func TestGobCallStackEncoding(t *testing.T) {
 	callStack := &types.IdentifiedCallStack{
 		CallID: "test_call_id",
 		CallStack: types.CallStack{
-			Root: root,
+			Root: &root,
 		},
 	}
 
@@ -811,7 +811,7 @@ func countNodes(node *types.CallStackNode) int {
 	}
 	count := 1
 	for _, child := range node.Children {
-		count += countNodes(child)
+		count += countNodes(&child)
 	}
 	return count
 }

@@ -249,9 +249,9 @@ type StackFrame struct {
 }
 
 type CallStackNode struct {
-	Children []*CallStackNode `json:"children" protobuf:"bytes,1,rep,name=children"`
-	Parent   *CallStackNode   `json:"parent" protobuf:"bytes,2,opt,name=parent"`
-	Frame    *StackFrame      `json:"frame" protobuf:"bytes,3,opt,name=frame"`
+	Children []CallStackNode `json:"children" protobuf:"bytes,1,rep,name=children"`
+	Parent   *CallStackNode  `json:"parent" protobuf:"bytes,2,opt,name=parent"`
+	Frame    *StackFrame     `json:"frame" protobuf:"bytes,3,opt,name=frame"`
 }
 
 type CallStack struct {

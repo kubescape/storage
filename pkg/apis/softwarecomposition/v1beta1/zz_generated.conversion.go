@@ -2059,7 +2059,7 @@ func Convert_softwarecomposition_CallStack_To_v1beta1_CallStack(in *softwarecomp
 }
 
 func autoConvert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(in *CallStackNode, out *softwarecomposition.CallStackNode, s conversion.Scope) error {
-	out.Children = *(*[]*softwarecomposition.CallStackNode)(unsafe.Pointer(&in.Children))
+	out.Children = *(*[]softwarecomposition.CallStackNode)(unsafe.Pointer(&in.Children))
 	out.Parent = (*softwarecomposition.CallStackNode)(unsafe.Pointer(in.Parent))
 	out.Frame = (*softwarecomposition.StackFrame)(unsafe.Pointer(in.Frame))
 	return nil
@@ -2071,7 +2071,7 @@ func Convert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(in *Call
 }
 
 func autoConvert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(in *softwarecomposition.CallStackNode, out *CallStackNode, s conversion.Scope) error {
-	out.Children = *(*[]*CallStackNode)(unsafe.Pointer(&in.Children))
+	out.Children = *(*[]CallStackNode)(unsafe.Pointer(&in.Children))
 	out.Parent = (*CallStackNode)(unsafe.Pointer(in.Parent))
 	out.Frame = (*StackFrame)(unsafe.Pointer(in.Frame))
 	return nil

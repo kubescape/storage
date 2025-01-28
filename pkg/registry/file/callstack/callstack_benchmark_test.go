@@ -9,54 +9,54 @@ import (
 
 // Helper function to create a linear call stack of specified depth
 func createLinearCallStack(depth int) *types.CallStack {
-	root := &types.CallStackNode{
-		Children: make([]*types.CallStackNode, 0),
+	root := types.CallStackNode{
+		Children: make([]types.CallStackNode, 0),
 	}
 
 	current := root
 	for i := 1; i <= depth; i++ {
-		newNode := &types.CallStackNode{
+		newNode := types.CallStackNode{
 			Frame: &types.StackFrame{
 				FileID: strconv.Itoa(i),
 				Lineno: strconv.Itoa(i),
 			},
-			Children: make([]*types.CallStackNode, 0),
-			Parent:   current,
+			Children: make([]types.CallStackNode, 0),
+			Parent:   &current,
 		}
 		current.Children = append(current.Children, newNode)
 		current = newNode
 	}
 
-	return &types.CallStack{Root: root}
+	return &types.CallStack{Root: &root}
 }
 
 // Helper function to create a branching call stack with specified depth and width
 func createBranchingCallStack(depth, width int) *types.CallStack {
 	root := &types.CallStackNode{
-		Children: make([]*types.CallStackNode, 0),
+		Children: make([]types.CallStackNode, 0),
 	}
 
-	var addChildren func(*types.CallStackNode, int, int)
-	addChildren = func(node *types.CallStackNode, currentDepth, maxDepth int) {
+	var addChildren func(types.CallStackNode, int, int)
+	addChildren = func(node types.CallStackNode, currentDepth, maxDepth int) {
 		if currentDepth >= maxDepth {
 			return
 		}
 
 		for i := 0; i < width; i++ {
-			child := &types.CallStackNode{
+			child := types.CallStackNode{
 				Frame: &types.StackFrame{
 					FileID: strconv.Itoa(currentDepth + 1),
 					Lineno: strconv.Itoa(i + 1),
 				},
-				Children: make([]*types.CallStackNode, 0),
-				Parent:   node,
+				Children: make([]types.CallStackNode, 0),
+				Parent:   &node,
 			}
 			node.Children = append(node.Children, child)
 			addChildren(child, currentDepth+1, maxDepth)
 		}
 	}
 
-	addChildren(root, 0, depth)
+	addChildren(*root, 0, depth)
 	return &types.CallStack{Root: root}
 }
 

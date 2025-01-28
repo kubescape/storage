@@ -296,7 +296,7 @@ type StackFrame struct {
 }
 
 type CallStackNode struct {
-	Children []*CallStackNode
+	Children []CallStackNode
 	Parent   *CallStackNode
 	Frame    *StackFrame
 }
