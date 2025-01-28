@@ -297,12 +297,12 @@ type StackFrame struct {
 
 type CallStackNode struct {
 	Children []CallStackNode
-	Parent   *CallStackNode
-	Frame    *StackFrame
+	// Parent   *CallStackNode
+	Frame StackFrame
 }
 
 type CallStack struct {
-	Root *CallStackNode
+	Root CallStackNode
 }
 
 type ApplicationProfileStatus struct {

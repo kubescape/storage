@@ -149,9 +149,8 @@ message CallStack {
 message CallStackNode {
   repeated CallStackNode children = 1;
 
-  optional CallStackNode parent = 2;
-
-  optional StackFrame frame = 3;
+  // Parent   *CallStackNode  `json:"parent" protobuf:"bytes,2,opt,name=parent"`
+  optional StackFrame frame = 2;
 }
 
 message Component {

@@ -2039,7 +2039,9 @@ func Convert_softwarecomposition_CPE_To_v1beta1_CPE(in *softwarecomposition.CPE,
 }
 
 func autoConvert_v1beta1_CallStack_To_softwarecomposition_CallStack(in *CallStack, out *softwarecomposition.CallStack, s conversion.Scope) error {
-	out.Root = (*softwarecomposition.CallStackNode)(unsafe.Pointer(in.Root))
+	if err := Convert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(&in.Root, &out.Root, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2049,7 +2051,9 @@ func Convert_v1beta1_CallStack_To_softwarecomposition_CallStack(in *CallStack, o
 }
 
 func autoConvert_softwarecomposition_CallStack_To_v1beta1_CallStack(in *softwarecomposition.CallStack, out *CallStack, s conversion.Scope) error {
-	out.Root = (*CallStackNode)(unsafe.Pointer(in.Root))
+	if err := Convert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(&in.Root, &out.Root, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2060,8 +2064,9 @@ func Convert_softwarecomposition_CallStack_To_v1beta1_CallStack(in *softwarecomp
 
 func autoConvert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(in *CallStackNode, out *softwarecomposition.CallStackNode, s conversion.Scope) error {
 	out.Children = *(*[]softwarecomposition.CallStackNode)(unsafe.Pointer(&in.Children))
-	out.Parent = (*softwarecomposition.CallStackNode)(unsafe.Pointer(in.Parent))
-	out.Frame = (*softwarecomposition.StackFrame)(unsafe.Pointer(in.Frame))
+	if err := Convert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(&in.Frame, &out.Frame, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2072,8 +2077,9 @@ func Convert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(in *Call
 
 func autoConvert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(in *softwarecomposition.CallStackNode, out *CallStackNode, s conversion.Scope) error {
 	out.Children = *(*[]CallStackNode)(unsafe.Pointer(&in.Children))
-	out.Parent = (*CallStackNode)(unsafe.Pointer(in.Parent))
-	out.Frame = (*StackFrame)(unsafe.Pointer(in.Frame))
+	if err := Convert_softwarecomposition_StackFrame_To_v1beta1_StackFrame(&in.Frame, &out.Frame, s); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -250,12 +250,12 @@ type StackFrame struct {
 
 type CallStackNode struct {
 	Children []CallStackNode `json:"children" protobuf:"bytes,1,rep,name=children"`
-	Parent   *CallStackNode  `json:"parent" protobuf:"bytes,2,opt,name=parent"`
-	Frame    *StackFrame     `json:"frame" protobuf:"bytes,3,opt,name=frame"`
+	// Parent   *CallStackNode  `json:"parent" protobuf:"bytes,2,opt,name=parent"`
+	Frame StackFrame `json:"frame" protobuf:"bytes,2,opt,name=frame"`
 }
 
 type CallStack struct {
-	Root *CallStackNode `json:"root" protobuf:"bytes,1,opt,name=root"`
+	Root CallStackNode `json:"root" protobuf:"bytes,1,opt,name=root"`
 }
 
 type ApplicationProfileStatus struct {

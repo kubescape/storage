@@ -839,7 +839,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref common.ReferenceC
 				Properties: map[string]spec.Schema{
 					"root": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
 						},
 					},
 				},
@@ -870,18 +871,15 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.Refere
 							},
 						},
 					},
-					"parent": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
-						},
-					},
 					"frame": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
+							Description: "Parent   *CallStackNode  `json:\"parent\" protobuf:\"bytes,2,opt,name=parent\"`",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
 						},
 					},
 				},
-				Required: []string{"children", "parent", "frame"},
+				Required: []string{"children", "frame"},
 			},
 		},
 		Dependencies: []string{
