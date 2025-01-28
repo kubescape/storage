@@ -1,6 +1,7 @@
 package callstack
 
 import (
+	"strconv"
 	"testing"
 
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -16,8 +17,8 @@ func createLinearCallStack(depth int) *types.CallStack {
 	for i := 1; i <= depth; i++ {
 		newNode := &types.CallStackNode{
 			Frame: &types.StackFrame{
-				FileID: uint64(i),
-				Lineno: uint64(i),
+				FileID: strconv.Itoa(i),
+				Lineno: strconv.Itoa(i),
 			},
 			Children: make([]*types.CallStackNode, 0),
 			Parent:   current,
@@ -44,8 +45,8 @@ func createBranchingCallStack(depth, width int) *types.CallStack {
 		for i := 0; i < width; i++ {
 			child := &types.CallStackNode{
 				Frame: &types.StackFrame{
-					FileID: uint64(currentDepth + 1),
-					Lineno: uint64(i + 1),
+					FileID: strconv.Itoa(currentDepth + 1),
+					Lineno: strconv.Itoa(i + 1),
 				},
 				Children: make([]*types.CallStackNode, 0),
 				Parent:   node,
@@ -183,18 +184,18 @@ func BenchmarkFramesEqual(b *testing.B) {
 		},
 		{
 			name: "one_nil",
-			f1:   &types.StackFrame{FileID: 1, Lineno: 1},
+			f1:   &types.StackFrame{FileID: "1", Lineno: "1"},
 			f2:   nil,
 		},
 		{
 			name: "equal",
-			f1:   &types.StackFrame{FileID: 1, Lineno: 1},
-			f2:   &types.StackFrame{FileID: 1, Lineno: 1},
+			f1:   &types.StackFrame{FileID: "1", Lineno: "1"},
+			f2:   &types.StackFrame{FileID: "1", Lineno: "1"},
 		},
 		{
 			name: "different",
-			f1:   &types.StackFrame{FileID: 1, Lineno: 1},
-			f2:   &types.StackFrame{FileID: 2, Lineno: 2},
+			f1:   &types.StackFrame{FileID: "1", Lineno: "1"},
+			f2:   &types.StackFrame{FileID: "1", Lineno: "1"},
 		},
 	}
 

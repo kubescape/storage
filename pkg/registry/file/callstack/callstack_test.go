@@ -23,9 +23,9 @@ func TestUnifyCallStacks(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 1}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 					},
 				},
 			},
@@ -36,9 +36,9 @@ func TestUnifyCallStacks(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 2}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
 			},
@@ -54,15 +54,15 @@ func TestUnifyCallStacks(t *testing.T) {
 
 	// First level should have FileID 1, Lineno 1
 	firstLevel := result.Root.Children[0]
-	assert.Equal(t, uint64(1), firstLevel.Frame.FileID)
-	assert.Equal(t, uint64(1), firstLevel.Frame.Lineno)
+	assert.Equal(t, "1", firstLevel.Frame.FileID)
+	assert.Equal(t, "1", firstLevel.Frame.Lineno)
 
 	// Should have two children at second level with different Linenos
 	assert.Equal(t, 2, len(firstLevel.Children))
-	assert.Equal(t, uint64(2), firstLevel.Children[0].Frame.FileID)
-	assert.Equal(t, uint64(1), firstLevel.Children[0].Frame.Lineno)
-	assert.Equal(t, uint64(2), firstLevel.Children[1].Frame.FileID)
-	assert.Equal(t, uint64(2), firstLevel.Children[1].Frame.Lineno)
+	assert.Equal(t, "2", firstLevel.Children[0].Frame.FileID)
+	assert.Equal(t, "1", firstLevel.Children[0].Frame.Lineno)
+	assert.Equal(t, "2", firstLevel.Children[1].Frame.FileID)
+	assert.Equal(t, "2", firstLevel.Children[1].Frame.Lineno)
 }
 
 func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
@@ -81,15 +81,15 @@ func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 1}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 					},
 				},
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 2},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "2"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 2}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
 			},
@@ -100,15 +100,15 @@ func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 2},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "2"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 3}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "3"}},
 					},
 				},
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 3},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "3"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 4}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "4"}},
 					},
 				},
 			},
@@ -125,7 +125,7 @@ func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
 	// Find the node with frame 1,2
 	var node12 *types.CallStackNode
 	for _, child := range result.Root.Children {
-		if child.Frame.FileID == 1 && child.Frame.Lineno == 2 {
+		if child.Frame.FileID == "1" && child.Frame.Lineno == "2" {
 			node12 = child
 			break
 		}
@@ -135,13 +135,13 @@ func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
 	assert.Equal(t, 2, len(node12.Children), "Node 1,2 should have two children at the same level")
 
 	// Verify that both children of 1,2 are different and at the same level
-	childrenFrames := make(map[uint64]bool)
+	childrenFrames := make(map[string]bool)
 	for _, child := range node12.Children {
-		assert.Equal(t, uint64(2), child.Frame.FileID)
+		assert.Equal(t, "2", child.Frame.FileID)
 		childrenFrames[child.Frame.Lineno] = true
 	}
-	assert.True(t, childrenFrames[2], "Should have child 2,2")
-	assert.True(t, childrenFrames[3], "Should have child 2,3")
+	assert.True(t, childrenFrames["2"], "Should have child 2,2")
+	assert.True(t, childrenFrames["3"], "Should have child 2,3")
 }
 
 func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
@@ -163,12 +163,12 @@ func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 2, Lineno: 1},
+							Frame: &types.StackFrame{FileID: "2", Lineno: "1"},
 							Children: []*types.CallStackNode{
-								{Frame: &types.StackFrame{FileID: 3, Lineno: 3}},
+								{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 							},
 						},
 					},
@@ -181,12 +181,12 @@ func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 2},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "2"},
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 2, Lineno: 3},
+							Frame: &types.StackFrame{FileID: "2", Lineno: "3"},
 							Children: []*types.CallStackNode{
-								{Frame: &types.StackFrame{FileID: 3, Lineno: 3}},
+								{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 							},
 						},
 					},
@@ -205,10 +205,10 @@ func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
 	// Find nodes 1,1 and 1,2
 	var node11, node12 *types.CallStackNode
 	for _, child := range result.Root.Children {
-		if child.Frame.FileID == 1 {
-			if child.Frame.Lineno == 1 {
+		if child.Frame.FileID == "1" {
+			if child.Frame.Lineno == "1" {
 				node11 = child
-			} else if child.Frame.Lineno == 2 {
+			} else if child.Frame.Lineno == "2" {
 				node12 = child
 			}
 		}
@@ -218,23 +218,23 @@ func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
 	assert.NotNil(t, node11, "Should have node 1,1")
 	assert.Equal(t, 1, len(node11.Children), "Node 1,1 should have one child")
 	node21 := node11.Children[0]
-	assert.Equal(t, uint64(2), node21.Frame.FileID)
-	assert.Equal(t, uint64(1), node21.Frame.Lineno)
+	assert.Equal(t, "2", node21.Frame.FileID)
+	assert.Equal(t, "1", node21.Frame.Lineno)
 	assert.Equal(t, 1, len(node21.Children), "Node 2,1 should have one child")
 	node33_1 := node21.Children[0]
-	assert.Equal(t, uint64(3), node33_1.Frame.FileID)
-	assert.Equal(t, uint64(3), node33_1.Frame.Lineno)
+	assert.Equal(t, "3", node33_1.Frame.FileID)
+	assert.Equal(t, "3", node33_1.Frame.Lineno)
 
 	// Verify path under 1,2
 	assert.NotNil(t, node12, "Should have node 1,2")
 	assert.Equal(t, 1, len(node12.Children), "Node 1,2 should have one child")
 	node23 := node12.Children[0]
-	assert.Equal(t, uint64(2), node23.Frame.FileID)
-	assert.Equal(t, uint64(3), node23.Frame.Lineno)
+	assert.Equal(t, "2", node23.Frame.FileID)
+	assert.Equal(t, "3", node23.Frame.Lineno)
 	assert.Equal(t, 1, len(node23.Children), "Node 2,3 should have one child")
 	node33_2 := node23.Children[0]
-	assert.Equal(t, uint64(3), node33_2.Frame.FileID)
-	assert.Equal(t, uint64(3), node33_2.Frame.Lineno)
+	assert.Equal(t, "3", node33_2.Frame.FileID)
+	assert.Equal(t, "3", node33_2.Frame.Lineno)
 
 	// Verify the two 3,3 nodes are different instances
 	assert.NotSame(t, node33_1, node33_2, "The two 3,3 nodes should be different instances")
@@ -254,9 +254,9 @@ func TestUnifyCallStacksWithSameParentDifferentChildren(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 1}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 					},
 				},
 			},
@@ -267,9 +267,9 @@ func TestUnifyCallStacksWithSameParentDifferentChildren(t *testing.T) {
 		Root: &types.CallStackNode{
 			Children: []*types.CallStackNode{
 				{
-					Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 2}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
 			},
@@ -285,8 +285,8 @@ func TestUnifyCallStacksWithSameParentDifferentChildren(t *testing.T) {
 
 	// Get node 1,1
 	node11 := result.Root.Children[0]
-	assert.Equal(t, uint64(1), node11.Frame.FileID)
-	assert.Equal(t, uint64(1), node11.Frame.Lineno)
+	assert.Equal(t, "1", node11.Frame.FileID)
+	assert.Equal(t, "1", node11.Frame.Lineno)
 
 	// Node 1,1 should have two children (2,1 and 2,2)
 	assert.Equal(t, 2, len(node11.Children), "Node 1,1 should have two children")
@@ -295,10 +295,10 @@ func TestUnifyCallStacksWithSameParentDifferentChildren(t *testing.T) {
 	foundNode21 := false
 	foundNode22 := false
 	for _, child := range node11.Children {
-		assert.Equal(t, uint64(2), child.Frame.FileID)
-		if child.Frame.Lineno == 1 {
+		assert.Equal(t, "2", child.Frame.FileID)
+		if child.Frame.Lineno == "1" {
 			foundNode21 = true
-		} else if child.Frame.Lineno == 2 {
+		} else if child.Frame.Lineno == "2" {
 			foundNode22 = true
 		}
 	}
@@ -323,9 +323,9 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 				Root: &types.CallStackNode{
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 							Children: []*types.CallStackNode{
-								{Frame: &types.StackFrame{FileID: 2, Lineno: 1}},
+								{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 							},
 						},
 					},
@@ -338,9 +338,9 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 				Root: &types.CallStackNode{
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 							Children: []*types.CallStackNode{
-								{Frame: &types.StackFrame{FileID: 2, Lineno: 2}},
+								{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 							},
 						},
 					},
@@ -353,9 +353,9 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 				Root: &types.CallStackNode{
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 2, Lineno: 2},
+							Frame: &types.StackFrame{FileID: "2", Lineno: "2"},
 							Children: []*types.CallStackNode{
-								{Frame: &types.StackFrame{FileID: 3, Lineno: 3}},
+								{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 							},
 						},
 					},
@@ -380,8 +380,8 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 	assert.True(t, exists, "Should have test1 CallStack")
 	assert.Equal(t, 1, len(test1Stack.Root.Children))
 	firstLevel := test1Stack.Root.Children[0]
-	assert.Equal(t, uint64(1), firstLevel.Frame.FileID)
-	assert.Equal(t, uint64(1), firstLevel.Frame.Lineno)
+	assert.Equal(t, "1", firstLevel.Frame.FileID)
+	assert.Equal(t, "1", firstLevel.Frame.Lineno)
 	assert.Equal(t, 2, len(firstLevel.Children))
 
 	// Validate "test2" CallStack
@@ -389,12 +389,12 @@ func TestUnifyIdentifiedCallStacks(t *testing.T) {
 	assert.True(t, exists, "Should have test2 CallStack")
 	assert.Equal(t, 1, len(test2Stack.Root.Children))
 	test2FirstLevel := test2Stack.Root.Children[0]
-	assert.Equal(t, uint64(2), test2FirstLevel.Frame.FileID)
-	assert.Equal(t, uint64(2), test2FirstLevel.Frame.Lineno)
+	assert.Equal(t, "2", test2FirstLevel.Frame.FileID)
+	assert.Equal(t, "2", test2FirstLevel.Frame.Lineno)
 	assert.Equal(t, 1, len(test2FirstLevel.Children))
 	test2SecondLevel := test2FirstLevel.Children[0]
-	assert.Equal(t, uint64(3), test2SecondLevel.Frame.FileID)
-	assert.Equal(t, uint64(3), test2SecondLevel.Frame.Lineno)
+	assert.Equal(t, "3", test2SecondLevel.Frame.FileID)
+	assert.Equal(t, "3", test2SecondLevel.Frame.Lineno)
 }
 
 func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
@@ -432,15 +432,15 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 				Root: &types.CallStackNode{
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 							Children: []*types.CallStackNode{
 								{
-									Frame: &types.StackFrame{FileID: 2, Lineno: 1},
+									Frame: &types.StackFrame{FileID: "2", Lineno: "1"},
 									Children: []*types.CallStackNode{
 										{
-											Frame: &types.StackFrame{FileID: 3, Lineno: 1},
+											Frame: &types.StackFrame{FileID: "3", Lineno: "1"},
 											Children: []*types.CallStackNode{
-												{Frame: &types.StackFrame{FileID: 4, Lineno: 1}},
+												{Frame: &types.StackFrame{FileID: "4", Lineno: "1"}},
 											},
 										},
 									},
@@ -457,15 +457,15 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 				Root: &types.CallStackNode{
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 							Children: []*types.CallStackNode{
 								{
-									Frame: &types.StackFrame{FileID: 2, Lineno: 2},
+									Frame: &types.StackFrame{FileID: "2", Lineno: "2"},
 									Children: []*types.CallStackNode{
 										{
-											Frame: &types.StackFrame{FileID: 3, Lineno: 2},
+											Frame: &types.StackFrame{FileID: "3", Lineno: "2"},
 											Children: []*types.CallStackNode{
-												{Frame: &types.StackFrame{FileID: 4, Lineno: 2}},
+												{Frame: &types.StackFrame{FileID: "4", Lineno: "2"}},
 											},
 										},
 									},
@@ -482,12 +482,12 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 				Root: &types.CallStackNode{
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 							Children: []*types.CallStackNode{
 								{
-									Frame: &types.StackFrame{FileID: 2, Lineno: 3},
+									Frame: &types.StackFrame{FileID: "2", Lineno: "3"},
 									Children: []*types.CallStackNode{
-										{Frame: &types.StackFrame{FileID: 3, Lineno: 3}},
+										{Frame: &types.StackFrame{FileID: "3", Lineno: "3"}},
 									},
 								},
 							},
@@ -501,7 +501,7 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 1, Lineno: 1}},
+						{Frame: &types.StackFrame{FileID: "1", Lineno: "1"}},
 					},
 				},
 			},
@@ -530,38 +530,38 @@ func TestUnifyIdentifiedCallStacksComplex(t *testing.T) {
 	// Should have one child at root (1,1)
 	assert.Equal(t, 1, len(test1Stack.Root.Children))
 	node11 := test1Stack.Root.Children[0]
-	assert.Equal(t, uint64(1), node11.Frame.FileID)
-	assert.Equal(t, uint64(1), node11.Frame.Lineno)
+	assert.Equal(t, "1", node11.Frame.FileID)
+	assert.Equal(t, "1", node11.Frame.Lineno)
 
 	// Should have three children under 1,1 (2,1 2,2 and 2,3)
 	assert.Equal(t, 3, len(node11.Children))
 
 	// Verify each path is complete
 	for _, node2 := range node11.Children {
-		assert.Equal(t, uint64(2), node2.Frame.FileID)
-		if node2.Frame.Lineno == 1 {
+		assert.Equal(t, "2", node2.Frame.FileID)
+		if node2.Frame.Lineno == "1" {
 			assert.Equal(t, 1, len(node2.Children))
 			node31 := node2.Children[0]
-			assert.Equal(t, uint64(3), node31.Frame.FileID)
-			assert.Equal(t, uint64(1), node31.Frame.Lineno)
+			assert.Equal(t, "3", node31.Frame.FileID)
+			assert.Equal(t, "1", node31.Frame.Lineno)
 			assert.Equal(t, 1, len(node31.Children))
 			node41 := node31.Children[0]
-			assert.Equal(t, uint64(4), node41.Frame.FileID)
-			assert.Equal(t, uint64(1), node41.Frame.Lineno)
-		} else if node2.Frame.Lineno == 2 {
+			assert.Equal(t, "4", node41.Frame.FileID)
+			assert.Equal(t, "1", node41.Frame.Lineno)
+		} else if node2.Frame.Lineno == "2" {
 			assert.Equal(t, 1, len(node2.Children))
 			node32 := node2.Children[0]
-			assert.Equal(t, uint64(3), node32.Frame.FileID)
-			assert.Equal(t, uint64(2), node32.Frame.Lineno)
+			assert.Equal(t, "3", node32.Frame.FileID)
+			assert.Equal(t, "2", node32.Frame.Lineno)
 			assert.Equal(t, 1, len(node32.Children))
 			node42 := node32.Children[0]
-			assert.Equal(t, uint64(4), node42.Frame.FileID)
-			assert.Equal(t, uint64(2), node42.Frame.Lineno)
-		} else if node2.Frame.Lineno == 3 {
+			assert.Equal(t, "4", node42.Frame.FileID)
+			assert.Equal(t, "2", node42.Frame.Lineno)
+		} else if node2.Frame.Lineno == "3" {
 			assert.Equal(t, 1, len(node2.Children))
 			node33 := node2.Children[0]
-			assert.Equal(t, uint64(3), node33.Frame.FileID)
-			assert.Equal(t, uint64(3), node33.Frame.Lineno)
+			assert.Equal(t, "3", node33.Frame.FileID)
+			assert.Equal(t, "3", node33.Frame.Lineno)
 			assert.Equal(t, 0, len(node33.Children))
 		}
 	}
@@ -577,7 +577,7 @@ func TestUnifyCallStacksWithDummyRoots(t *testing.T) {
 	*/
 
 	// Helper to create a stack with dummy root
-	createStackWithDummy := func(fileID, lineno uint64) *types.CallStack {
+	createStackWithDummy := func(fileID, lineno string) *types.CallStack {
 		return &types.CallStack{
 			Root: &types.CallStackNode{
 				Children: []*types.CallStackNode{
@@ -590,7 +590,7 @@ func TestUnifyCallStacksWithDummyRoots(t *testing.T) {
 	}
 
 	// Helper to create a stack without dummy root
-	createStackNoDummy := func(fileID, lineno uint64) *types.CallStack {
+	createStackNoDummy := func(fileID, lineno string) *types.CallStack {
 		return &types.CallStack{
 			Root: &types.CallStackNode{
 				Frame: &types.StackFrame{FileID: fileID, Lineno: lineno},
@@ -599,29 +599,29 @@ func TestUnifyCallStacksWithDummyRoots(t *testing.T) {
 	}
 
 	// Case 1: Both have dummy roots
-	cs1 := createStackWithDummy(1, 1)
-	cs2 := createStackWithDummy(2, 2)
+	cs1 := createStackWithDummy("1", "1")
+	cs2 := createStackWithDummy("2", "2")
 	result := UnifyCallStacks(cs1, cs2)
 	assert.Nil(t, result.Root.Frame, "Root should be dummy node")
 	assert.Equal(t, 2, len(result.Root.Children), "Should have both children under dummy root")
 
 	// Case 2: First has dummy, second doesn't
-	cs1 = createStackWithDummy(1, 1)
-	cs2 = createStackNoDummy(2, 2)
+	cs1 = createStackWithDummy("1", "1")
+	cs2 = createStackNoDummy("2", "2")
 	result = UnifyCallStacks(cs1, cs2)
 	assert.Nil(t, result.Root.Frame, "Root should be dummy node")
 	assert.Equal(t, 2, len(result.Root.Children), "Should have both children under dummy root")
 
 	// Case 3: First doesn't have dummy, second has
-	cs1 = createStackNoDummy(1, 1)
-	cs2 = createStackWithDummy(2, 2)
+	cs1 = createStackNoDummy("1", "1")
+	cs2 = createStackWithDummy("2", "2")
 	result = UnifyCallStacks(cs1, cs2)
 	assert.Nil(t, result.Root.Frame, "Root should be dummy node")
 	assert.Equal(t, 2, len(result.Root.Children), "Should have both children under dummy root")
 
 	// Case 4: Neither has dummy
-	cs1 = createStackNoDummy(1, 1)
-	cs2 = createStackNoDummy(2, 2)
+	cs1 = createStackNoDummy("1", "1")
+	cs2 = createStackNoDummy("2", "2")
 	result = UnifyCallStacks(cs1, cs2)
 	assert.Nil(t, result.Root.Frame, "Root should be dummy node")
 	assert.Equal(t, 2, len(result.Root.Children), "Should have both children under dummy root")
@@ -639,9 +639,9 @@ func TestUnifyIdentifiedCallStacksWithMixedRoots(t *testing.T) {
 				Root: &types.CallStackNode{ // With dummy root
 					Children: []*types.CallStackNode{
 						{
-							Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+							Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 							Children: []*types.CallStackNode{
-								{Frame: &types.StackFrame{FileID: 2, Lineno: 1}},
+								{Frame: &types.StackFrame{FileID: "2", Lineno: "1"}},
 							},
 						},
 					},
@@ -652,9 +652,9 @@ func TestUnifyIdentifiedCallStacksWithMixedRoots(t *testing.T) {
 			CallID: "test1",
 			CallStack: types.CallStack{
 				Root: &types.CallStackNode{ // Without dummy root
-					Frame: &types.StackFrame{FileID: 1, Lineno: 1},
+					Frame: &types.StackFrame{FileID: "1", Lineno: "1"},
 					Children: []*types.CallStackNode{
-						{Frame: &types.StackFrame{FileID: 2, Lineno: 2}},
+						{Frame: &types.StackFrame{FileID: "2", Lineno: "2"}},
 					},
 				},
 			},
@@ -677,7 +677,7 @@ func TestUnifyIdentifiedCallStacksWithMixedRoots(t *testing.T) {
 	assert.Nil(t, test1Stack.Root.Frame, "Result should have dummy root")
 	assert.Equal(t, 1, len(test1Stack.Root.Children), "Should have one child under root")
 	firstLevel := test1Stack.Root.Children[0]
-	assert.Equal(t, uint64(1), firstLevel.Frame.FileID)
-	assert.Equal(t, uint64(1), firstLevel.Frame.Lineno)
+	assert.Equal(t, "1", firstLevel.Frame.FileID)
+	assert.Equal(t, "1", firstLevel.Frame.Lineno)
 	assert.Equal(t, 2, len(firstLevel.Children), "Should have both 2,1 and 2,2 children")
 }

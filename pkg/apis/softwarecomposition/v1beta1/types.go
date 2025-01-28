@@ -244,8 +244,8 @@ type IdentifiedCallStack struct {
 }
 
 type StackFrame struct {
-	FileID uint64 `json:"fileID" protobuf:"bytes,1,opt,name=fileID"`
-	Lineno uint64 `json:"lineno" protobuf:"bytes,2,opt,name=lineno"`
+	FileID string `json:"fileID" protobuf:"bytes,1,opt,name=fileID"`
+	Lineno string `json:"lineno" protobuf:"bytes,2,opt,name=lineno"`
 }
 
 type CallStackNode struct {
