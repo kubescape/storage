@@ -9,391 +9,6 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
-func TestUnifyCallStacks(t *testing.T) {
-	/*
-		Test Case 1: Simple merge of two linear paths
-		CallStack1:           CallStack2:          Expected Result:
-		   root                  root                   root
-		     |                    |                      |
-		    1,1                  1,1                    1,1
-		     |                    |                      |
-		    2,1                  2,2                   /   \
-		                                            2,1    2,2
-		Where (x,y) represents (FileID, Lineno)
-	*/
-	cs1 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "1"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	cs2 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "2"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	result := UnifyCallStacks(cs1, cs2)
-
-	// Test structure validation
-	if len(result.Root.Children) != 1 {
-		t.Errorf("Expected root to have 1 child, got %d", len(result.Root.Children))
-	}
-
-	// First level should have FileID 1, Lineno 1
-	firstLevel := result.Root.Children[0]
-	if firstLevel.Frame.FileID != "1" || firstLevel.Frame.Lineno != "1" {
-		t.Errorf("Expected first level frame to be (1,1), got (%s,%s)",
-			firstLevel.Frame.FileID, firstLevel.Frame.Lineno)
-	}
-
-	// Should have two children at second level with different Linenos
-	if len(firstLevel.Children) != 2 {
-		t.Errorf("Expected first level to have 2 children, got %d", len(firstLevel.Children))
-	}
-
-	if firstLevel.Children[0].Frame.FileID != "2" || firstLevel.Children[0].Frame.Lineno != "1" {
-		t.Errorf("Expected first child frame to be (2,1), got (%s,%s)",
-			firstLevel.Children[0].Frame.FileID, firstLevel.Children[0].Frame.Lineno)
-	}
-
-	if firstLevel.Children[1].Frame.FileID != "2" || firstLevel.Children[1].Frame.Lineno != "2" {
-		t.Errorf("Expected second child frame to be (2,2), got (%s,%s)",
-			firstLevel.Children[1].Frame.FileID, firstLevel.Children[1].Frame.Lineno)
-	}
-}
-
-func TestUnifyCallStacksWithSameDummyRoot(t *testing.T) {
-	/*
-		Test Case: Multiple paths under the same dummy root
-		CallStack1:              CallStack2:             Expected Result:
-		   root                     root                      root
-		   /   \                   /   \                    /  |  \
-		1,1    1,2              1,2    1,3              1,1  1,2  1,3
-		 |      |                |      |                |    /\    |
-		2,1    2,2              2,3    2,4              2,1 2,2 2,3 2,4
-
-		Notice that under 1,2 both 2,2 and 2,3 are at the same level
-	*/
-	cs1 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "1"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "2"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "2"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	cs2 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "2"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "3"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "3"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "4"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	result := UnifyCallStacks(cs1, cs2)
-
-	if len(result.Root.Children) != 3 {
-		t.Errorf("Should have three children under root, got %d", len(result.Root.Children))
-	}
-
-	// Find the node with frame 1,2
-	var node12 types.CallStackNode
-	foundNode12 := false
-	for _, child := range result.Root.Children {
-		if child.Frame.FileID == "1" && child.Frame.Lineno == "2" {
-			node12 = child
-			foundNode12 = true
-			break
-		}
-	}
-
-	if !foundNode12 {
-		t.Error("Should have node with frame 1,2")
-	}
-
-	if len(node12.Children) != 2 {
-		t.Errorf("Node 1,2 should have two children at the same level, got %d", len(node12.Children))
-	}
-
-	// Verify that both children of 1,2 are different and at the same level
-	childrenFrames := make(map[string]bool)
-	for _, child := range node12.Children {
-		if child.Frame.FileID != "2" {
-			t.Errorf("Expected child FileID to be 2, got %s", child.Frame.FileID)
-		}
-		childrenFrames[child.Frame.Lineno] = true
-	}
-
-	if !childrenFrames["2"] {
-		t.Error("Should have child 2,2")
-	}
-	if !childrenFrames["3"] {
-		t.Error("Should have child 2,3")
-	}
-}
-
-func TestUnifyCallStacksWithDuplicateFrames(t *testing.T) {
-	/*
-		Test Case: Same frame (3,3) appears in different paths
-		CallStack1:              CallStack2:             Expected Result:
-		   root                     root                      root
-		     |                       |                       /   \
-		    1,1                    1,2                    1,1    1,2
-		     |                       |                      |      |
-		    2,1                    2,3                    2,1    2,3
-		     |                       |                      |      |
-		    3,3                    3,3                    3,3    3,3
-
-		Frame (3,3) appears under different parents (2,1 and 2,3)
-		and should remain as separate nodes in their respective paths
-	*/
-	cs1 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []types.CallStackNode{
-						{
-							Frame: types.StackFrame{FileID: "2", Lineno: "1"},
-							Children: []types.CallStackNode{
-								{
-									Frame:    types.StackFrame{FileID: "3", Lineno: "3"},
-									Children: []types.CallStackNode{},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	cs2 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "2"},
-					Children: []types.CallStackNode{
-						{
-							Frame: types.StackFrame{FileID: "2", Lineno: "3"},
-							Children: []types.CallStackNode{
-								{
-									Frame:    types.StackFrame{FileID: "3", Lineno: "3"},
-									Children: []types.CallStackNode{},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	result := UnifyCallStacks(cs1, cs2)
-
-	if len(result.Root.Children) != 2 {
-		t.Errorf("Should have two children under root (1,1 and 1,2), got %d", len(result.Root.Children))
-	}
-
-	// Find nodes 1,1 and 1,2
-	var node11, node12 types.CallStackNode
-	found11, found12 := false, false
-	for _, child := range result.Root.Children {
-		if child.Frame.FileID == "1" {
-			if child.Frame.Lineno == "1" {
-				node11 = child
-				found11 = true
-			} else if child.Frame.Lineno == "2" {
-				node12 = child
-				found12 = true
-			}
-		}
-	}
-
-	// Verify path under 1,1
-	if !found11 {
-		t.Error("Should have node 1,1")
-	}
-	if len(node11.Children) != 1 {
-		t.Errorf("Node 1,1 should have one child, got %d", len(node11.Children))
-	}
-
-	node21 := node11.Children[0]
-	if node21.Frame.FileID != "2" || node21.Frame.Lineno != "1" {
-		t.Errorf("Expected node (2,1), got (%s,%s)", node21.Frame.FileID, node21.Frame.Lineno)
-	}
-
-	if len(node21.Children) != 1 {
-		t.Errorf("Node 2,1 should have one child, got %d", len(node21.Children))
-	}
-
-	node33_1 := node21.Children[0]
-	if node33_1.Frame.FileID != "3" || node33_1.Frame.Lineno != "3" {
-		t.Errorf("Expected node (3,3), got (%s,%s)", node33_1.Frame.FileID, node33_1.Frame.Lineno)
-	}
-
-	// Verify path under 1,2
-	if !found12 {
-		t.Error("Should have node 1,2")
-	}
-	if len(node12.Children) != 1 {
-		t.Errorf("Node 1,2 should have one child, got %d", len(node12.Children))
-	}
-
-	node23 := node12.Children[0]
-	if node23.Frame.FileID != "2" || node23.Frame.Lineno != "3" {
-		t.Errorf("Expected node (2,3), got (%s,%s)", node23.Frame.FileID, node23.Frame.Lineno)
-	}
-
-	if len(node23.Children) != 1 {
-		t.Errorf("Node 2,3 should have one child, got %d", len(node23.Children))
-	}
-
-	node33_2 := node23.Children[0]
-	if node33_2.Frame.FileID != "3" || node33_2.Frame.Lineno != "3" {
-		t.Errorf("Expected node (3,3), got (%s,%s)", node33_2.Frame.FileID, node33_2.Frame.Lineno)
-	}
-
-	// Note: NotSame assertion is not needed for value types since they're always different instances
-}
-
-func TestUnifyCallStacksWithSameParentDifferentChildren(t *testing.T) {
-	/*
-	   Test Case: Same parent frame (1,1) with different children
-	   CallStack1:              CallStack2:             Expected Result:
-	      root                     root                      root
-	        |                       |                         |
-	       1,1                     1,1                      1,1
-	        |                       |                      /    \
-	       2,1                     2,2                  2,1     2,2
-	*/
-	cs1 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "1"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	cs2 := types.CallStack{
-		Root: types.CallStackNode{
-			Children: []types.CallStackNode{
-				{
-					Frame: types.StackFrame{FileID: "1", Lineno: "1"},
-					Children: []types.CallStackNode{
-						{
-							Frame:    types.StackFrame{FileID: "2", Lineno: "2"},
-							Children: []types.CallStackNode{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	result := UnifyCallStacks(cs1, cs2)
-
-	// Test structure validation
-	if len(result.Root.Children) != 1 {
-		t.Errorf("Should have one child under root (1,1), got %d", len(result.Root.Children))
-	}
-
-	// Get node 1,1
-	node11 := result.Root.Children[0]
-	if node11.Frame.FileID != "1" || node11.Frame.Lineno != "1" {
-		t.Errorf("Expected node (1,1), got (%s,%s)", node11.Frame.FileID, node11.Frame.Lineno)
-	}
-
-	// Node 1,1 should have two children (2,1 and 2,2)
-	if len(node11.Children) != 2 {
-		t.Errorf("Node 1,1 should have two children, got %d", len(node11.Children))
-	}
-
-	// Verify both children exist
-	foundNode21 := false
-	foundNode22 := false
-	for _, child := range node11.Children {
-		if child.Frame.FileID != "2" {
-			t.Errorf("Expected child FileID to be 2, got %s", child.Frame.FileID)
-		}
-		if child.Frame.Lineno == "1" {
-			foundNode21 = true
-		} else if child.Frame.Lineno == "2" {
-			foundNode22 = true
-		}
-	}
-
-	if !foundNode21 {
-		t.Error("Should have child node 2,1")
-	}
-	if !foundNode22 {
-		t.Error("Should have child node 2,2")
-	}
-}
-
 func TestUnifyIdentifiedCallStacks(t *testing.T) {
 	/*
 	   Test merging multiple CallStacks with same CallID
@@ -768,7 +383,7 @@ func validatePath3(t *testing.T, node2 types.CallStackNode) {
 	}
 }
 
-func TestUnifyCallStacksWithDummyRoots(t *testing.T) {
+func TestUnifyIdentifiedCallStacksWithDummyRoots(t *testing.T) {
 	/*
 	   Test all combinations of dummy/non-dummy root nodes:
 	   Case 1: Both have dummy roots
@@ -781,6 +396,7 @@ func TestUnifyCallStacksWithDummyRoots(t *testing.T) {
 	createStackWithDummy := func(fileID, lineno string) types.CallStack {
 		return types.CallStack{
 			Root: types.CallStackNode{
+				Frame: types.StackFrame{}, // Empty frame = dummy root
 				Children: []types.CallStackNode{
 					{
 						Frame:    types.StackFrame{FileID: fileID, Lineno: lineno},
@@ -801,48 +417,105 @@ func TestUnifyCallStacksWithDummyRoots(t *testing.T) {
 		}
 	}
 
-	// Case 1: Both have dummy roots
-	cs1 := createStackWithDummy("1", "1")
-	cs2 := createStackWithDummy("2", "2")
-	result := UnifyCallStacks(cs1, cs2)
-	if !isEmptyFrame(result.Root.Frame) {
-		t.Error("Root should be dummy node")
-	}
-	if len(result.Root.Children) != 2 {
-		t.Errorf("Should have both children under dummy root, got %d", len(result.Root.Children))
+	testCases := []struct {
+		name      string
+		stacks    []types.IdentifiedCallStack
+		callID    types.CallID
+		wantLen   int
+		wantDummy bool
+	}{
+		{
+			name: "Both have dummy roots",
+			stacks: []types.IdentifiedCallStack{
+				{CallID: "test1", CallStack: createStackWithDummy("1", "1")},
+				{CallID: "test1", CallStack: createStackWithDummy("2", "2")},
+			},
+			callID:    "test1",
+			wantLen:   2,
+			wantDummy: true,
+		},
+		{
+			name: "First has dummy, second doesn't",
+			stacks: []types.IdentifiedCallStack{
+				{CallID: "test2", CallStack: createStackWithDummy("1", "1")},
+				{CallID: "test2", CallStack: createStackNoDummy("2", "2")},
+			},
+			callID:    "test2",
+			wantLen:   2,
+			wantDummy: true,
+		},
+		{
+			name: "First doesn't have dummy, second has",
+			stacks: []types.IdentifiedCallStack{
+				{CallID: "test3", CallStack: createStackNoDummy("1", "1")},
+				{CallID: "test3", CallStack: createStackWithDummy("2", "2")},
+			},
+			callID:    "test3",
+			wantLen:   2,
+			wantDummy: true,
+		},
+		{
+			name: "Neither has dummy",
+			stacks: []types.IdentifiedCallStack{
+				{CallID: "test4", CallStack: createStackNoDummy("1", "1")},
+				{CallID: "test4", CallStack: createStackNoDummy("2", "2")},
+			},
+			callID:    "test4",
+			wantLen:   2,
+			wantDummy: true,
+		},
 	}
 
-	// Case 2: First has dummy, second doesn't
-	cs1 = createStackWithDummy("1", "1")
-	cs2 = createStackNoDummy("2", "2")
-	result = UnifyCallStacks(cs1, cs2)
-	if !isEmptyFrame(result.Root.Frame) {
-		t.Error("Root should be dummy node")
-	}
-	if len(result.Root.Children) != 2 {
-		t.Errorf("Should have both children under dummy root, got %d", len(result.Root.Children))
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := UnifyIdentifiedCallStacks(tc.stacks)
 
-	// Case 3: First doesn't have dummy, second has
-	cs1 = createStackNoDummy("1", "1")
-	cs2 = createStackWithDummy("2", "2")
-	result = UnifyCallStacks(cs1, cs2)
-	if !isEmptyFrame(result.Root.Frame) {
-		t.Error("Root should be dummy node")
-	}
-	if len(result.Root.Children) != 2 {
-		t.Errorf("Should have both children under dummy root, got %d", len(result.Root.Children))
-	}
+			// Find the result stack with matching CallID
+			var found *types.CallStack
+			for _, r := range result {
+				if r.CallID == tc.callID {
+					found = &r.CallStack
+					break
+				}
+			}
 
-	// Case 4: Neither has dummy
-	cs1 = createStackNoDummy("1", "1")
-	cs2 = createStackNoDummy("2", "2")
-	result = UnifyCallStacks(cs1, cs2)
-	if !isEmptyFrame(result.Root.Frame) {
-		t.Error("Root should be dummy node")
-	}
-	if len(result.Root.Children) != 2 {
-		t.Errorf("Should have both children under dummy root, got %d", len(result.Root.Children))
+			if found == nil {
+				t.Fatalf("No result found for CallID %s", tc.callID)
+			}
+
+			// Check if root is dummy when expected
+			if tc.wantDummy && !isEmptyFrame(found.Root.Frame) {
+				t.Error("Root should be dummy node")
+			}
+
+			// Check number of children
+			if len(found.Root.Children) != tc.wantLen {
+				t.Errorf("Want %d children under root, got %d", tc.wantLen, len(found.Root.Children))
+			}
+
+			// Verify all original nodes are present
+			seen := make(map[string]bool)
+			var checkNodes func(types.CallStackNode)
+			checkNodes = func(node types.CallStackNode) {
+				if !isEmptyFrame(node.Frame) {
+					key := node.Frame.FileID + ":" + node.Frame.Lineno
+					seen[key] = true
+				}
+				for _, child := range node.Children {
+					checkNodes(child)
+				}
+			}
+
+			checkNodes(found.Root)
+
+			// Check that we found both original nodes
+			for _, stack := range tc.stacks {
+				checkNodes(stack.CallStack.Root)
+			}
+			if len(seen) != tc.wantLen {
+				t.Errorf("Want %d unique nodes, got %d", tc.wantLen, len(seen))
+			}
+		})
 	}
 }
 
@@ -922,11 +595,6 @@ func TestUnifyIdentifiedCallStacksWithMixedRoots(t *testing.T) {
 		t.Errorf("Should have both 2,1 and 2,2 children, got %d children",
 			len(firstLevel.Children))
 	}
-}
-
-// Helper function to check if a frame is empty (dummy)
-func isEmptyFrame(frame types.StackFrame) bool {
-	return frame.FileID == "" && frame.Lineno == ""
 }
 
 func TestRealWorldCallStackEncoding(t *testing.T) {
@@ -1089,4 +757,713 @@ func verifyNodesEqual(t *testing.T, node1, node2 types.CallStackNode) bool {
 	}
 
 	return true
+}
+
+func TestUnifyIdentifiedCallStacksRealData(t *testing.T) {
+	// Test case based on the repeated patterns in the real data
+	stacks := []types.IdentifiedCallStack{
+		{
+			CallID: "b9e310c00779300bebd7f9fc616a8a6d74e2b44bfb8e1a1bc206e70014096329",
+			CallStack: types.CallStack{
+				Root: types.CallStackNode{
+					Children: []types.CallStackNode{
+						{
+							Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "645761"},
+							Children: []types.CallStackNode{
+								{
+									Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "653231"},
+									Children: []types.CallStackNode{
+										{
+											Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "654232"},
+											Children: []types.CallStackNode{
+												{
+													Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "10678645"},
+													Children: []types.CallStackNode{
+														{
+															Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "12583206"},
+															Children: []types.CallStackNode{
+																{
+																	Frame:    types.StackFrame{FileID: "0", Lineno: "4012"},
+																	Children: []types.CallStackNode{},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			CallID: "70e9681008bbee682463bf37966e1d9892138d20cd83cdd00ace9eacbf9b72c3",
+			CallStack: types.CallStack{
+				Root: types.CallStackNode{
+					Children: []types.CallStackNode{
+						{
+							Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "645761"},
+							Children: []types.CallStackNode{
+								{
+									Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "653231"},
+									Children: []types.CallStackNode{
+										{
+											Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "654496"},
+											Children: []types.CallStackNode{
+												{
+													Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "10678645"},
+													Children: []types.CallStackNode{
+														{
+															Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "12583206"},
+															Children: []types.CallStackNode{
+																{
+																	Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "1087561"},
+																	Children: []types.CallStackNode{
+																		{
+																			Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "1087661"},
+																			Children: []types.CallStackNode{
+																				{
+																					Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "560624"},
+																					Children: []types.CallStackNode{
+																						{
+																							Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "563389"},
+																							Children: []types.CallStackNode{
+																								{
+																									Frame:    types.StackFrame{FileID: "0", Lineno: "4012"},
+																									Children: []types.CallStackNode{},
+																								},
+																							},
+																						},
+																					},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// Adding a duplicate of the first stack to test unification of identical stacks
+		{
+			CallID: "b9e310c00779300bebd7f9fc616a8a6d74e2b44bfb8e1a1bc206e70014096329",
+			CallStack: types.CallStack{
+				Root: types.CallStackNode{
+					Children: []types.CallStackNode{
+						{
+							Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "645761"},
+							Children: []types.CallStackNode{
+								{
+									Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "653231"},
+									Children: []types.CallStackNode{
+										{
+											Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "654232"},
+											Children: []types.CallStackNode{
+												{
+													Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "10678645"},
+													Children: []types.CallStackNode{
+														{
+															Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "12583206"},
+															Children: []types.CallStackNode{
+																{
+																	Frame:    types.StackFrame{FileID: "0", Lineno: "4012"},
+																	Children: []types.CallStackNode{},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	result := UnifyIdentifiedCallStacks(stacks)
+
+	// Should have exactly two CallStacks after unification (one for each unique CallID)
+	if len(result) != 2 {
+		t.Errorf("Expected 2 unified CallStacks, got %d", len(result))
+	}
+
+	// Create a map for easier testing
+	resultMap := make(map[types.CallID]types.CallStack)
+	for _, stack := range result {
+		resultMap[stack.CallID] = stack.CallStack
+	}
+
+	// Test the first CallID's stack (b9e3...)
+	firstStack, exists := resultMap["b9e310c00779300bebd7f9fc616a8a6d74e2b44bfb8e1a1bc206e70014096329"]
+	if !exists {
+		t.Error("Missing expected CallStack for first CallID")
+	} else {
+		// Should have one path with exactly 6 levels
+		validateCallStackDepth(t, firstStack.Root, 6, "first")
+
+		// Verify specific path
+		validatePath(t, firstStack.Root, []types.StackFrame{
+			{FileID: "10425069705252389217", Lineno: "645761"},
+			{FileID: "10425069705252389217", Lineno: "653231"},
+			{FileID: "10425069705252389217", Lineno: "654232"},
+			{FileID: "10425069705252389217", Lineno: "10678645"},
+			{FileID: "10425069705252389217", Lineno: "12583206"},
+			{FileID: "0", Lineno: "4012"},
+		})
+	}
+
+	// Test the second CallID's stack (70e9...)
+	secondStack, exists := resultMap["70e9681008bbee682463bf37966e1d9892138d20cd83cdd00ace9eacbf9b72c3"]
+	if !exists {
+		t.Error("Missing expected CallStack for second CallID")
+	} else {
+		// Should have one path with exactly 10 levels
+		validateCallStackDepth(t, secondStack.Root, 10, "second")
+
+		// Verify specific path
+		validatePath(t, secondStack.Root, []types.StackFrame{
+			{FileID: "10425069705252389217", Lineno: "645761"},
+			{FileID: "10425069705252389217", Lineno: "653231"},
+			{FileID: "10425069705252389217", Lineno: "654496"},
+			{FileID: "10425069705252389217", Lineno: "10678645"},
+			{FileID: "10425069705252389217", Lineno: "12583206"},
+			{FileID: "2918313636494991837", Lineno: "1087561"},
+			{FileID: "2918313636494991837", Lineno: "1087661"},
+			{FileID: "2918313636494991837", Lineno: "560624"},
+			{FileID: "2918313636494991837", Lineno: "563389"},
+			{FileID: "0", Lineno: "4012"},
+		})
+	}
+}
+
+// Helper function to validate the depth of a call stack
+func validateCallStackDepth(t *testing.T, node types.CallStackNode, expectedDepth int, stackName string) {
+	depth := 0
+	current := node
+	for len(current.Children) > 0 {
+		depth++
+		current = current.Children[0]
+	}
+	if depth != expectedDepth {
+		t.Errorf("%s stack: Expected depth of %d, got %d", stackName, expectedDepth, depth)
+	}
+}
+
+// Helper function to validate a specific path in the call stack
+func validatePath(t *testing.T, root types.CallStackNode, expectedFrames []types.StackFrame) {
+	current := root
+	for i, expectedFrame := range expectedFrames {
+		if len(current.Children) == 0 {
+			t.Errorf("Stack ended prematurely at depth %d", i)
+			return
+		}
+		frame := current.Children[0].Frame
+		if frame.FileID != expectedFrame.FileID || frame.Lineno != expectedFrame.Lineno {
+			t.Errorf("At depth %d: Expected frame (%s:%s), got (%s:%s)",
+				i, expectedFrame.FileID, expectedFrame.Lineno, frame.FileID, frame.Lineno)
+		}
+		current = current.Children[0]
+	}
+}
+
+func TestUnifyIdentifiedCallStackSingleCallID(t *testing.T) {
+	// Test case with two stacks having the same CallID and different paths
+	stacks := []types.IdentifiedCallStack{
+		{
+			CallID: "b9e310c00779300bebd7f9fc616a8a6d74e2b44bfb8e1a1bc206e70014096329",
+			CallStack: types.CallStack{
+				Root: types.CallStackNode{
+					Children: []types.CallStackNode{
+						{
+							Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "645761"},
+							Children: []types.CallStackNode{
+								{
+									Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "653231"},
+									Children: []types.CallStackNode{
+										{
+											Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "654232"},
+											Children: []types.CallStackNode{
+												{
+													Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "10678645"},
+													Children: []types.CallStackNode{
+														{
+															Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "12583206"},
+															Children: []types.CallStackNode{
+																{
+																	Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "869139"},
+																	Children: []types.CallStackNode{
+																		{
+																			Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "867979"},
+																			Children: []types.CallStackNode{
+																				{
+																					Frame:    types.StackFrame{FileID: "4298936378959959569", Lineno: "390324"},
+																					Children: []types.CallStackNode{},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			CallID: "b9e310c00779300bebd7f9fc616a8a6d74e2b44bfb8e1a1bc206e70014096329",
+			CallStack: types.CallStack{
+				Root: types.CallStackNode{
+					Children: []types.CallStackNode{
+						{
+							Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "645761"},
+							Children: []types.CallStackNode{
+								{
+									Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "653231"},
+									Children: []types.CallStackNode{
+										{
+											Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "654232"},
+											Children: []types.CallStackNode{
+												{
+													Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "10678645"},
+													Children: []types.CallStackNode{
+														{
+															Frame: types.StackFrame{FileID: "10425069705252389217", Lineno: "12583206"},
+															Children: []types.CallStackNode{
+																{
+																	Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "869139"},
+																	Children: []types.CallStackNode{
+																		{
+																			Frame: types.StackFrame{FileID: "2918313636494991837", Lineno: "867979"},
+																			Children: []types.CallStackNode{
+																				{
+																					Frame:    types.StackFrame{FileID: "0", Lineno: "4012"},
+																					Children: []types.CallStackNode{},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := UnifyIdentifiedCallStacks(stacks)
+
+	// Should have exactly one CallStack after unification
+	if len(result) != 1 {
+		t.Errorf("Expected 1 unified CallStack, got %d", len(result))
+		return
+	}
+
+	// Verify the unified stack has the correct call ID
+	if result[0].CallID != "b9e310c00779300bebd7f9fc616a8a6d74e2b44bfb8e1a1bc206e70014096329" {
+		t.Error("Incorrect CallID in unified stack")
+		return
+	}
+
+	// Navigate to the branching point (after "867979")
+	current := result[0].CallStack.Root.Children[0] // Start at first real node
+	for i := 0; i < 6; i++ {                        // Navigate through the common path
+		if len(current.Children) == 0 {
+			t.Errorf("Stack ended prematurely at depth %d", i)
+			return
+		}
+		current = current.Children[0]
+	}
+
+	// At branching point (867979 node), verify it has both paths
+	if len(current.Children) != 2 {
+		t.Errorf("Expected 2 branches after 867979 node, got %d", len(current.Children))
+		return
+	}
+
+	// Verify both branches exist
+	foundBranch1 := false
+	foundBranch2 := false
+	for _, child := range current.Children {
+		if child.Frame.FileID == "4298936378959959569" && child.Frame.Lineno == "390324" {
+			foundBranch1 = true
+		}
+		if child.Frame.FileID == "0" && child.Frame.Lineno == "4012" {
+			foundBranch2 = true
+		}
+	}
+
+	if !foundBranch1 {
+		t.Error("Missing branch with 390324")
+	}
+	if !foundBranch2 {
+		t.Error("Missing branch with 4012")
+	}
+}
+
+func TestUnifyIdentifiedCallStacksComplex2(t *testing.T) {
+	testCases := []struct {
+		name         string
+		stacks       []types.IdentifiedCallStack
+		expectedSize int
+		validateFunc func(*testing.T, []types.IdentifiedCallStack)
+	}{
+		{
+			name: "Multiple branches at different levels",
+			stacks: []types.IdentifiedCallStack{
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "1"}, {"4", "1"}},
+				}),
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "2"}, {"4", "2"}},
+				}),
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "2"}, {"3", "3"}, {"4", "3"}},
+				}),
+			},
+			expectedSize: 1,
+			validateFunc: func(t *testing.T, result []types.IdentifiedCallStack) {
+				stack := result[0]
+				// Should branch at level 2 (two branches) and level 3 (additional branch)
+				current := stack.CallStack.Root.Children[0]
+				if len(current.Children) != 2 { // First branch point
+					t.Errorf("Expected 2 branches at first level, got %d", len(current.Children))
+				}
+			},
+		},
+		{
+			name: "Multiple call IDs with shared prefixes",
+			stacks: []types.IdentifiedCallStack{
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "1"}},
+				}),
+				buildCallStack("id2", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "2"}},
+				}),
+				buildCallStack("id2", []framePath{
+					{{"1", "1"}, {"2", "2"}, {"3", "3"}},
+				}),
+			},
+			expectedSize: 2,
+			validateFunc: func(t *testing.T, result []types.IdentifiedCallStack) {
+				if len(result) != 2 {
+					t.Errorf("Expected 2 distinct call IDs, got %d", len(result))
+				}
+				// Verify each call ID has the correct number of branches
+				for _, stack := range result {
+					if stack.CallID == "id1" {
+						if len(stack.CallStack.Root.Children[0].Children) != 1 {
+							t.Error("id1 should have single path")
+						}
+					}
+					if stack.CallID == "id2" {
+						if len(stack.CallStack.Root.Children[0].Children) != 2 {
+							t.Error("id2 should have two branches")
+						}
+					}
+				}
+			},
+		},
+		{
+			name: "Deep branches with reconvergence",
+			stacks: []types.IdentifiedCallStack{
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "1"}, {"4", "1"}, {"5", "1"}},
+				}),
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "2"}, {"4", "1"}, {"5", "1"}},
+				}),
+			},
+			expectedSize: 1,
+			validateFunc: func(t *testing.T, result []types.IdentifiedCallStack) {
+				stack := result[0]
+				// Verify branch at level 3 and reconvergence at level 4
+				current := stack.CallStack.Root.Children[0].Children[0]
+				if len(current.Children) != 2 {
+					t.Error("Expected branch at level 3")
+				}
+				// Both branches should converge back to the same frame
+				frame1 := current.Children[0].Children[0].Frame
+				frame2 := current.Children[1].Children[0].Frame
+				if !framesEqual(frame1, frame2) {
+					t.Error("Expected paths to reconverge")
+				}
+			},
+		},
+		{
+			name: "Multiple branches with empty frames",
+			stacks: []types.IdentifiedCallStack{
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"", ""}, {"3", "1"}},
+				}),
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "2"}, {"3", "1"}},
+				}),
+			},
+			expectedSize: 1,
+			validateFunc: func(t *testing.T, result []types.IdentifiedCallStack) {
+				// Verify handling of empty frames
+				stack := result[0]
+				current := stack.CallStack.Root.Children[0]
+				if len(current.Children) != 2 {
+					t.Error("Expected branch after first frame")
+				}
+			},
+		},
+		{
+			name: "Cyclic patterns",
+			stacks: []types.IdentifiedCallStack{
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "1"}, {"2", "1"}, {"3", "1"}},
+				}),
+				buildCallStack("id1", []framePath{
+					{{"1", "1"}, {"2", "1"}, {"3", "2"}, {"2", "1"}, {"3", "1"}},
+				}),
+			},
+			expectedSize: 1,
+			validateFunc: func(t *testing.T, result []types.IdentifiedCallStack) {
+				// Verify handling of repeating patterns
+				stack := result[0]
+				current := stack.CallStack.Root.Children[0].Children[0]
+				if len(current.Children) != 2 {
+					t.Error("Expected branch at repeated pattern")
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := UnifyIdentifiedCallStacks(tc.stacks)
+			if len(result) != tc.expectedSize {
+				t.Errorf("Expected %d stacks, got %d", tc.expectedSize, len(result))
+			}
+			tc.validateFunc(t, result)
+		})
+	}
+}
+
+// Helper type for building test cases
+type framePath []types.StackFrame
+
+// Helper function to build a call stack from a series of frames
+func buildCallStack(id types.CallID, paths []framePath) types.IdentifiedCallStack {
+	cs := types.CallStack{
+		Root: types.CallStackNode{
+			Children: make([]types.CallStackNode, 0),
+		},
+	}
+
+	for _, path := range paths {
+		current := &cs.Root
+		for _, frame := range path {
+			node := types.CallStackNode{
+				Frame:    types.StackFrame{FileID: frame.FileID, Lineno: frame.Lineno},
+				Children: make([]types.CallStackNode, 0),
+			}
+			current.Children = append(current.Children, node)
+			current = &current.Children[len(current.Children)-1]
+		}
+	}
+
+	return types.IdentifiedCallStack{
+		CallID:    id,
+		CallStack: cs,
+	}
+}
+
+func TestUnifyCallStacksEdgeCases(t *testing.T) {
+	testCases := []struct {
+		name     string
+		stacks   []types.IdentifiedCallStack
+		validate func(*testing.T, []types.IdentifiedCallStack)
+	}{
+		{
+			name: "Complex branch divergence",
+			stacks: []types.IdentifiedCallStack{
+				// First stack
+				buildCallStack("test1", []framePath{
+					{
+						{"1", "1"},
+						{"2", "1"},
+						{"3", "1"},
+						{"4", "1"},
+						{"5", "1"},
+					},
+				}),
+				// Second stack with early divergence
+				buildCallStack("test1", []framePath{
+					{
+						{"1", "1"},
+						{"2", "2"}, // Diverges here
+						{"3", "2"},
+						{"4", "2"},
+						{"5", "2"},
+					},
+				}),
+				// Third stack that shares part of first path but diverges later
+				buildCallStack("test1", []framePath{
+					{
+						{"1", "1"},
+						{"2", "1"},
+						{"3", "1"},
+						{"4", "3"}, // Diverges later
+						{"5", "3"},
+					},
+				}),
+			},
+			validate: func(t *testing.T, result []types.IdentifiedCallStack) {
+				if len(result) != 1 {
+					t.Fatalf("Expected 1 stack, got %d", len(result))
+				}
+
+				stack := result[0].CallStack
+				root := stack.Root.Children[0] // First real node
+
+				// Verify first level (1,1)
+				if !framesEqual(root.Frame, types.StackFrame{FileID: "1", Lineno: "1"}) {
+					t.Error("Root should be (1,1)")
+				}
+
+				// Should have 2 branches after (1,1): (2,1) and (2,2)
+				if len(root.Children) != 2 {
+					t.Errorf("Expected 2 children at level 2, got %d", len(root.Children))
+					return
+				}
+
+				// Find the (2,1) branch
+				var branch21 *types.CallStackNode
+				for i := range root.Children {
+					if framesEqual(root.Children[i].Frame, types.StackFrame{FileID: "2", Lineno: "1"}) {
+						branch21 = &root.Children[i]
+						break
+					}
+				}
+
+				if branch21 == nil {
+					t.Error("Missing (2,1) branch")
+					return
+				}
+
+				// The (2,1) branch should split at (4,1) and (4,3)
+				found31 := false
+				for _, node := range branch21.Children {
+					if framesEqual(node.Frame, types.StackFrame{FileID: "3", Lineno: "1"}) {
+						found31 = true
+						if len(node.Children) != 2 {
+							t.Errorf("Expected branch at (3,1) to have 2 children, got %d", len(node.Children))
+						}
+					}
+				}
+
+				if !found31 {
+					t.Error("Missing (3,1) node in first branch")
+				}
+
+				// Print the entire tree for debugging
+				// t.Logf("Tree structure:\n%s", printTree(stack.Root, 0))
+			},
+		},
+		{
+			name: "Branch with special frame [0:4012]",
+			stacks: []types.IdentifiedCallStack{
+				buildCallStack("test2", []framePath{
+					{
+						{"1", "1"},
+						{"2", "1"},
+						{"3", "1"},
+						{"0", "4012"},
+					},
+				}),
+				buildCallStack("test2", []framePath{
+					{
+						{"1", "1"},
+						{"2", "1"},
+						{"3", "1"},
+						{"4", "1"},
+						{"5", "1"},
+					},
+				}),
+			},
+			validate: func(t *testing.T, result []types.IdentifiedCallStack) {
+				if len(result) != 1 {
+					t.Fatalf("Expected 1 stack, got %d", len(result))
+				}
+
+				stack := result[0].CallStack
+
+				// Follow path to [0:4012]
+				current := stack.Root.Children[0]
+				for i := 0; i < 2; i++ {
+					if len(current.Children) == 0 {
+						t.Errorf("Path ended too early at depth %d", i)
+						return
+					}
+					current = current.Children[0]
+				}
+
+				// At this point we should have two branches
+				if len(current.Children) != 2 {
+					t.Errorf("Expected 2 branches at divergence point, got %d", len(current.Children))
+					return
+				}
+
+				// One branch should be [0:4012]
+				found4012 := false
+				for _, child := range current.Children {
+					if framesEqual(child.Frame, types.StackFrame{FileID: "0", Lineno: "4012"}) {
+						found4012 = true
+						if len(child.Children) != 0 {
+							t.Error("[0:4012] should be a leaf node")
+						}
+					}
+				}
+
+				if !found4012 {
+					t.Error("Missing [0:4012] branch")
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := UnifyIdentifiedCallStacks(tc.stacks)
+			tc.validate(t, result)
+		})
+	}
 }

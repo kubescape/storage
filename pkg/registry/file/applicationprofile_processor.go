@@ -111,8 +111,16 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		logger.L().Debug("failed to analyze opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
-
 	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
+	logger.L().Info("Printing before merge", loggerhelpers.Int("size", len(container.IdentifiedCallStacks)))
+	for _, identifiedCallStack := range container.IdentifiedCallStacks {
+		callstack.PrettyPrintCallStack(identifiedCallStack)
+	}
+	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
+	logger.L().Info("Printing after merge", loggerhelpers.Int("size", len(identifiedCallStacks)))
+	for _, identifiedCallStack := range identifiedCallStacks {
+		callstack.PrettyPrintCallStack(identifiedCallStack)
+	}
 
 	return softwarecomposition.ApplicationProfileContainer{
 		Name:                 container.Name,
@@ -125,6 +133,6 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		ImageTag:             container.ImageTag,
 		ImageID:              container.ImageID,
 		PolicyByRuleId:       DeflateRulePolicies(container.PolicyByRuleId),
-		IdentifiedCallStacks: callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks),
+		IdentifiedCallStacks: identifiedCallStacks,
 	}
 }

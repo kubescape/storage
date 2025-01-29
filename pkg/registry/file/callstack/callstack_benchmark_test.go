@@ -14,7 +14,7 @@ func createLinearCallStack(depth int) types.CallStack {
 		Frame:    types.StackFrame{},
 	}
 
-	current := root
+	current := &root
 	for i := 1; i <= depth; i++ {
 		newNode := types.CallStackNode{
 			Frame: types.StackFrame{
@@ -24,7 +24,7 @@ func createLinearCallStack(depth int) types.CallStack {
 			Children: make([]types.CallStackNode, 0),
 		}
 		current.Children = append(current.Children, newNode)
-		current = newNode
+		current = &current.Children[len(current.Children)-1]
 	}
 
 	return types.CallStack{Root: root}
@@ -37,10 +37,10 @@ func createBranchingCallStack(depth, width int) types.CallStack {
 		Frame:    types.StackFrame{},
 	}
 
-	var addChildren func(node types.CallStackNode, currentDepth, maxDepth int) types.CallStackNode
-	addChildren = func(node types.CallStackNode, currentDepth, maxDepth int) types.CallStackNode {
+	var addChildren func(node *types.CallStackNode, currentDepth, maxDepth int)
+	addChildren = func(node *types.CallStackNode, currentDepth, maxDepth int) {
 		if currentDepth >= maxDepth {
-			return node
+			return
 		}
 
 		for i := 0; i < width; i++ {
@@ -51,13 +51,12 @@ func createBranchingCallStack(depth, width int) types.CallStack {
 				},
 				Children: make([]types.CallStackNode, 0),
 			}
-			child = addChildren(child, currentDepth+1, maxDepth)
 			node.Children = append(node.Children, child)
+			addChildren(&node.Children[len(node.Children)-1], currentDepth+1, maxDepth)
 		}
-		return node
 	}
 
-	root = addChildren(root, 0, depth)
+	addChildren(&root, 0, depth)
 	return types.CallStack{Root: root}
 }
 
@@ -70,9 +69,14 @@ func BenchmarkUnifyLinearCallStacks(b *testing.B) {
 			cs1 := createLinearCallStack(depth)
 			cs2 := createLinearCallStack(depth)
 
+			stacks := []types.IdentifiedCallStack{
+				{CallID: "test", CallStack: cs1},
+				{CallID: "test", CallStack: cs2},
+			}
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				UnifyCallStacks(cs1, cs2)
+				UnifyIdentifiedCallStacks(stacks)
 			}
 		})
 	}
@@ -96,9 +100,14 @@ func BenchmarkUnifyBranchingCallStacks(b *testing.B) {
 			cs1 := createBranchingCallStack(sc.depth, sc.width)
 			cs2 := createBranchingCallStack(sc.depth, sc.width)
 
+			stacks := []types.IdentifiedCallStack{
+				{CallID: "test", CallStack: cs1},
+				{CallID: "test", CallStack: cs2},
+			}
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				UnifyCallStacks(cs1, cs2)
+				UnifyIdentifiedCallStacks(stacks)
 			}
 		})
 	}
@@ -141,31 +150,6 @@ func BenchmarkUnifyIdentifiedCallStacks(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				UnifyIdentifiedCallStacks(stacks)
-			}
-		})
-	}
-}
-
-// Benchmark just the copySubtree function
-func BenchmarkCopySubtree(b *testing.B) {
-	scenarios := []struct {
-		depth int
-		width int
-	}{
-		{3, 2}, // 8 nodes
-		{4, 2}, // 16 nodes
-		{3, 3}, // 27 nodes
-		{4, 3}, // 81 nodes
-	}
-
-	for _, sc := range scenarios {
-		name := "depth=" + strconv.Itoa(sc.depth) + "_width=" + strconv.Itoa(sc.width)
-		b.Run(name, func(b *testing.B) {
-			cs := createBranchingCallStack(sc.depth, sc.width)
-
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				copySubtree(cs.Root)
 			}
 		})
 	}

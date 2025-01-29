@@ -12,6 +12,7 @@ require (
 	github.com/armosec/utils-k8s-go v0.0.26
 	github.com/containers/common v0.60.4
 	github.com/deckarep/golang-set/v2 v2.6.0
+	github.com/dghubble/trie v0.1.0
 	github.com/didip/tollbooth/v7 v7.0.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/gogo/protobuf v1.3.2
