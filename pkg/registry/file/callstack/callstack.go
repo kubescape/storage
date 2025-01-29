@@ -29,6 +29,21 @@ func createDummyRoot() types.CallStack {
 	}
 }
 
+// copySubtree creates a deep copy of a subtree rooted at the given node
+func copySubtree(node types.CallStackNode) types.CallStackNode {
+	newNode := types.CallStackNode{
+		Children: make([]types.CallStackNode, 0),
+		Frame:    node.Frame,
+	}
+
+	for _, child := range node.Children {
+		childCopy := copySubtree(child)
+		newNode.Children = append(newNode.Children, childCopy)
+	}
+
+	return newNode
+}
+
 func UnifyCallStacks(cs1, cs2 types.CallStack) types.CallStack {
 	unified := createDummyRoot()
 
@@ -71,20 +86,6 @@ func UnifyCallStacks(cs1, cs2 types.CallStack) types.CallStack {
 	}
 
 	return unified
-}
-
-func copySubtree(node types.CallStackNode) types.CallStackNode {
-	newNode := types.CallStackNode{
-		Children: make([]types.CallStackNode, 0),
-		Frame:    node.Frame,
-	}
-
-	for _, child := range node.Children {
-		childCopy := copySubtree(child)
-		newNode.Children = append(newNode.Children, childCopy)
-	}
-
-	return newNode
 }
 
 // UnifyIdentifiedCallStacks takes a list of IdentifiedCallStack and returns a list of unified CallStacks
