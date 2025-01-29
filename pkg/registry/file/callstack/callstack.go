@@ -4,14 +4,6 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
-// copyNode creates a new copy of a CallStackNode without its children
-func copyNode(node types.CallStackNode) types.CallStackNode {
-	return types.CallStackNode{
-		Children: make([]types.CallStackNode, 0),
-		Frame:    node.Frame,
-	}
-}
-
 // framesEqual checks if two StackFrames are equal
 func framesEqual(f1, f2 types.StackFrame) bool {
 	return f1.FileID == f2.FileID && f1.Lineno == f2.Lineno
