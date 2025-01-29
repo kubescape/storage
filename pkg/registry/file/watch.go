@@ -64,19 +64,21 @@ backlogged or that we are dropping messages.
 Let's choose one. The c_a seems like the path of least suprise (c_b is possible as well).
 */
 type watcher struct {
-	ctx         context.Context
-	stop        context.CancelFunc
-	outCh, inCh chan watch.Event
+	ctx            context.Context
+	stop           context.CancelFunc
+	outCh, inCh    chan watch.Event
+	sendFullObject bool
 }
 
 // newWatcher creates a new watcher
-func newWatcher(ctx context.Context) *watcher {
+func newWatcher(ctx context.Context, sendFullObject bool) *watcher {
 	ctx, cn := context.WithCancel(ctx)
 	w := &watcher{
-		ctx:   ctx,
-		stop:  cn,
-		outCh: make(chan watch.Event, 100),
-		inCh:  make(chan watch.Event),
+		ctx:            ctx,
+		stop:           cn,
+		outCh:          make(chan watch.Event, 100),
+		inCh:           make(chan watch.Event),
+		sendFullObject: sendFullObject,
 	}
 	go w.shipIt()
 	return w
@@ -105,7 +107,15 @@ func (w *watcher) shipIt() {
 	}
 }
 
-func (w *watcher) notify(e watch.Event) {
+func (w *watcher) notify(eventFull, eventMeta watch.Event) {
+	if w.sendFullObject {
+		w.send(eventFull)
+	} else {
+		w.send(eventMeta)
+	}
+}
+
+func (w *watcher) send(e watch.Event) {
 	select {
 	case w.inCh <- e:
 	case <-w.ctx.Done():
@@ -173,28 +183,32 @@ func (wd *watchDispatcher) gcer() {
 }
 
 // Added dispatches an "Added" event to appropriate watchers
-func (wd *watchDispatcher) Added(key string, obj runtime.Object) {
-	wd.notify(key, watch.Added, obj)
+func (wd *watchDispatcher) Added(key string, metaOut, obj runtime.Object) {
+	eventFull := watch.Event{Type: watch.Added, Object: obj}
+	eventMeta := watch.Event{Type: watch.Added, Object: metaOut}
+	wd.notify(key, eventFull, eventMeta)
 }
 
 // Deleted dispatches a "Deleted" event to appropriate watchers
-func (wd *watchDispatcher) Deleted(key string, obj runtime.Object) {
-	wd.notify(key, watch.Deleted, obj)
+func (wd *watchDispatcher) Deleted(key string, metaOut runtime.Object) {
+	eventMeta := watch.Event{Type: watch.Deleted, Object: metaOut}
+	wd.notify(key, eventMeta, eventMeta) // We don't have the full object to send here
 }
 
 // Modified dispatches a "Modified" event to appropriate watchers
-func (wd *watchDispatcher) Modified(key string, obj runtime.Object) {
-	wd.notify(key, watch.Modified, obj)
+func (wd *watchDispatcher) Modified(key string, metaOut, obj runtime.Object) {
+	eventFull := watch.Event{Type: watch.Modified, Object: obj}
+	eventMeta := watch.Event{Type: watch.Modified, Object: metaOut}
+	wd.notify(key, eventFull, eventMeta)
 }
 
 // notify notifies the listeners of a given key about an event of a given eventType about a given obj
-func (wd *watchDispatcher) notify(key string, eventType watch.EventType, obj runtime.Object) {
+func (wd *watchDispatcher) notify(key string, eventFull, eventMeta watch.Event) {
 	// Notify calls do not block normally, unless the client-side is messed up.
-	event := watch.Event{Type: eventType, Object: obj}
 	for _, part := range extractKeysToNotify(key) {
 		ws, _ := wd.watchesByKey.Load(part)
 		for _, w := range ws {
-			w.notify(event)
+			w.notify(eventFull, eventMeta)
 		}
 	}
 }
