@@ -41,8 +41,6 @@ const (
 	DefaultStorageRoot       = "/data"
 	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 	operationNotSupportedMsg = "operation not supported"
-	ResourceVersionFullSpec  = "fullSpec"
-	ResourceVersionMetadata  = "metadata"
 )
 
 var (
@@ -287,7 +285,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
-	nw := newWatcher(ctx, opts.ResourceVersion == ResourceVersionFullSpec)
+	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
 	s.watchDispatcher.Register(key, nw)
 	return nw, nil
 }
@@ -316,7 +314,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
-	if opts.ResourceVersion == ResourceVersionMetadata {
+	if opts.ResourceVersion == softwarecomposition.ResourceVersionMetadata {
 		// get metadata from SQLite
 		conn, err := s.pool.Take(context.Background())
 		if err != nil {
@@ -402,7 +400,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	defer s.pool.Put(conn)
 	var list []string
 	var last string
-	if opts.ResourceVersion == ResourceVersionFullSpec {
+	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
 		// get names from SQLite
 		list, last, err = listKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
 		if err != nil {
