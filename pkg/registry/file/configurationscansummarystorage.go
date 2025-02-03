@@ -71,7 +71,7 @@ func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, _
 }
 
 // GetList generates and returns a list of ConfigurationScanSummary objects for the cluster
-func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "ConfigurationScanSummaryStorage.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -79,7 +79,7 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	workloadScanSummaryListObjPtr := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
 
 	// ask for all workloadconfigurationscansummaries in the cluster
-	if err := s.realStore.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/"+workloadConfigurationScanSummariesResource, storage.ListOptions{}, workloadScanSummaryListObjPtr); err != nil {
+	if err := s.realStore.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/"+workloadConfigurationScanSummariesResource, opts, workloadScanSummaryListObjPtr); err != nil {
 		return err
 	}
 

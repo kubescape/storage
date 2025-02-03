@@ -75,7 +75,7 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 }
 
 // GetList generates and returns a list of GeneratedNetworkPolicy objects for the given namespace
-func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	generatedNetworkPolicyList := &softwarecomposition.GeneratedNetworkPolicyList{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: StorageV1Beta1ApiVersion,
@@ -84,7 +84,7 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 
 	// get all network neighborhood on namespace
 	networkNeighborhoodObjListPtr := &softwarecomposition.NetworkNeighborhoodList{}
-	if err := s.realStore.GetList(ctx, replaceKeyForKind(key, networkNeighborhoodResource), storage.ListOptions{}, networkNeighborhoodObjListPtr); err != nil {
+	if err := s.realStore.GetList(ctx, replaceKeyForKind(key, networkNeighborhoodResource), opts, networkNeighborhoodObjListPtr); err != nil {
 		return err
 	}
 
