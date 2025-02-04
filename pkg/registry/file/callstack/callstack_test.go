@@ -455,6 +455,16 @@ func TestUnifyIdentifiedCallStacksWithDummyRoots(t *testing.T) {
 			wantDummy: true,
 		},
 		{
+			name: "First doesn't have dummy, second has2",
+			stacks: []types.IdentifiedCallStack{
+				{CallID: "test3", CallStack: createStackNoDummy("1", "1")},
+				{CallID: "test3", CallStack: createStackWithDummy("1", "1")},
+			},
+			callID:    "test3",
+			wantLen:   1,
+			wantDummy: true,
+		},
+		{
 			name: "Neither has dummy",
 			stacks: []types.IdentifiedCallStack{
 				{CallID: "test4", CallStack: createStackNoDummy("1", "1")},

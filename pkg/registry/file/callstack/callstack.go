@@ -13,6 +13,7 @@ func framesEqual(f1, f2 types.StackFrame) bool {
 	return f1.FileID == f2.FileID && f1.Lineno == f2.Lineno
 }
 
+// isEmptyFrame checks if a StackFrame is empty
 func isEmptyFrame(frame types.StackFrame) bool {
 	return frame.FileID == "" && frame.Lineno == ""
 }
