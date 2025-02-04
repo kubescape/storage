@@ -21,7 +21,7 @@ import (
 const (
 	OpenDynamicThreshold             = 50
 	EndpointDynamicThreshold         = 100
-	DefaultMaxApplicationProfileSize = 10000
+	DefaultMaxApplicationProfileSize = 11000
 )
 
 type ApplicationProfileProcessor struct {
@@ -50,7 +50,7 @@ func (a *ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 		return fmt.Errorf("given object is not an ApplicationProfile")
 	}
 
-	// size is the sum of all execs/opens in all containers
+	// size is the sum of all fields in all containers
 	var size int
 
 	// Define a function to process a slice of containers
@@ -77,6 +77,10 @@ func (a *ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 			containers[i] = deflateApplicationProfileContainer(container, sbomSet)
 			size += len(containers[i].Execs)
 			size += len(containers[i].Opens)
+			size += len(containers[i].Syscalls)
+			size += len(containers[i].Capabilities)
+			size += len(containers[i].Endpoints)
+			size += len(containers[i].IdentifiedCallStacks)
 		}
 		return containers
 	}
