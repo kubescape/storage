@@ -873,9 +873,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.Refere
 					},
 					"frame": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parent   *CallStackNode  `json:\"parent\" protobuf:\"bytes,2,opt,name=parent\"`",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
 						},
 					},
 				},
