@@ -166,15 +166,15 @@ func UnifyIdentifiedCallStacks(stacks []types.IdentifiedCallStack) []types.Ident
 			continue
 		}
 
-		// Collect all paths from all stacks in this group
-		var allPaths [][]types.CallStackNode
+		// Build trie directly from all paths
+		t := trie.NewPathTrie()
 		for _, cs := range groupStacks {
 			paths := getCallStackPaths(cs)
-			allPaths = append(allPaths, paths...)
+			for _, path := range paths {
+				key := pathKey(path)
+				t.Put(key, path)
+			}
 		}
-
-		// Build trie from all paths
-		t := buildTrieFromPaths(allPaths)
 
 		// Reconstruct unified call stack from trie
 		unified := reconstructCallStack(t)

@@ -78,6 +78,7 @@ func BenchmarkUnifyLinearCallStacks(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				UnifyIdentifiedCallStacks(stacks)
 			}
+			b.ReportAllocs()
 		})
 	}
 }
@@ -109,6 +110,7 @@ func BenchmarkUnifyBranchingCallStacks(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				UnifyIdentifiedCallStacks(stacks)
 			}
+			b.ReportAllocs()
 		})
 	}
 }
@@ -151,6 +153,7 @@ func BenchmarkUnifyIdentifiedCallStacks(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				UnifyIdentifiedCallStacks(stacks)
 			}
+			b.ReportAllocs()
 		})
 	}
 }
@@ -189,6 +192,7 @@ func BenchmarkFramesEqual(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				framesEqual(sc.f1, sc.f2)
 			}
+			b.ReportAllocs()
 		})
 	}
 }
