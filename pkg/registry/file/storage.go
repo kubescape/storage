@@ -232,7 +232,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 		return err
 	}
 	// publish event to watchers
-	s.watchDispatcher.Added(key, metaOut)
+	s.watchDispatcher.Added(key, metaOut, obj)
 	return nil
 }
 
@@ -280,12 +280,12 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 // (e.g. reconnecting without missing any updates).
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
-func (s *StorageImpl) Watch(ctx context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
+func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
-	nw := newWatcher(ctx)
+	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
 	s.watchDispatcher.Register(key, nw)
 	return nw, nil
 }
@@ -314,7 +314,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
-	if opts.ResourceVersion == "metadata" {
+	if opts.ResourceVersion == softwarecomposition.ResourceVersionMetadata {
 		// get metadata from SQLite
 		conn, err := s.pool.Take(context.Background())
 		if err != nil {
@@ -392,27 +392,47 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	if opts.Predicate.Limit == 0 {
 		opts.Predicate.Limit = 500
 	}
-	// get metadata from SQLite
+	// prepare SQLite connection
 	conn, err := s.pool.Take(context.Background())
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
 	defer s.pool.Put(conn)
-	metadataJSONs, last, err := listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
-	}
-	// populate list object
-	for _, metadataJSON := range metadataJSONs {
-		elem := v.Type().Elem()
-		obj := reflect.New(elem).Interface().(runtime.Object)
-		if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
-			logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+	var list []string
+	var last string
+	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
+		// get names from SQLite
+		list, last, err = listKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		if err != nil {
+			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
-		v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		// populate list object
+		for _, k := range list {
+			elem := v.Type().Elem()
+			obj := reflect.New(elem).Interface().(runtime.Object)
+			if err := s.get(ctx, k, storage.GetOptions{}, obj); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", k))
+			}
+			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		}
+	} else {
+		// get metadata from SQLite
+		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		if err != nil {
+			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
+		}
+		// populate list object
+		for _, metadataJSON := range list {
+			elem := v.Type().Elem()
+			obj := reflect.New(elem).Interface().(runtime.Object)
+			if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+			}
+			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		}
 	}
 	// eventually set list accessor fields
-	if len(metadataJSONs) == int(opts.Predicate.Limit) {
+	if len(list) == int(opts.Predicate.Limit) {
 		listAccessor, err := meta.ListAccessor(listObj)
 		if err != nil {
 			return fmt.Errorf("list accessor: %w", err)
@@ -673,7 +693,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		err = s.writeFiles(key, ret, metaOut)
 		if err == nil {
 			// Only successful updates should produce modification events
-			s.watchDispatcher.Modified(key, metaOut)
+			s.watchDispatcher.Modified(key, metaOut, ret)
 		} else {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - write files failed", helpers.Error(err), helpers.String("key", key))
 		}

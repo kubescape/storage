@@ -21,6 +21,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// Special resource versions used to modify the behavior of the API server calls.
+const (
+	ResourceVersionFullSpec = "fullSpec"
+	ResourceVersionMetadata = "metadata"
+)
+
 // GroupName is the group name used in this package
 const GroupName = "spdx.softwarecomposition.kubescape.io"
 
