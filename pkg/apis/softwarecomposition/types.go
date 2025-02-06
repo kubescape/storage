@@ -226,16 +226,17 @@ type ApplicationProfileSpec struct {
 }
 
 type ApplicationProfileContainer struct {
-	Name           string
-	Capabilities   []string
-	Execs          []ExecCalls
-	Opens          []OpenCalls
-	Syscalls       []string
-	SeccompProfile SingleSeccompProfile
-	Endpoints      []HTTPEndpoint
-	ImageID        string
-	ImageTag       string
-	PolicyByRuleId map[string]RulePolicy
+	Name                 string
+	Capabilities         []string
+	Execs                []ExecCalls
+	Opens                []OpenCalls
+	Syscalls             []string
+	SeccompProfile       SingleSeccompProfile
+	Endpoints            []HTTPEndpoint
+	ImageID              string
+	ImageTag             string
+	PolicyByRuleId       map[string]RulePolicy
+	IdentifiedCallStacks []IdentifiedCallStack
 }
 
 type RulePolicy struct {
@@ -280,6 +281,27 @@ func (e OpenCalls) String() string {
 		s.WriteString(flag)
 	}
 	return s.String()
+}
+
+type CallID string
+
+type IdentifiedCallStack struct {
+	CallID    CallID
+	CallStack CallStack
+}
+
+type StackFrame struct {
+	FileID string
+	Lineno string
+}
+
+type CallStackNode struct {
+	Children []CallStackNode
+	Frame    StackFrame
+}
+
+type CallStack struct {
+	Root CallStackNode
 }
 
 type ApplicationProfileStatus struct {

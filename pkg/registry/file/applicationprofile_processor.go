@@ -12,6 +12,7 @@ import (
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/k8s-interface/names"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
@@ -20,7 +21,7 @@ import (
 const (
 	OpenDynamicThreshold             = 50
 	EndpointDynamicThreshold         = 100
-	DefaultMaxApplicationProfileSize = 10000
+	DefaultMaxApplicationProfileSize = 11000
 )
 
 type ApplicationProfileProcessor struct {
@@ -49,7 +50,7 @@ func (a *ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 		return fmt.Errorf("given object is not an ApplicationProfile")
 	}
 
-	// size is the sum of all execs/opens in all containers
+	// size is the sum of all fields in all containers
 	var size int
 
 	// Define a function to process a slice of containers
@@ -76,6 +77,10 @@ func (a *ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 			containers[i] = deflateApplicationProfileContainer(container, sbomSet)
 			size += len(containers[i].Execs)
 			size += len(containers[i].Opens)
+			size += len(containers[i].Syscalls)
+			size += len(containers[i].Capabilities)
+			size += len(containers[i].Endpoints)
+			size += len(containers[i].IdentifiedCallStacks)
 		}
 		return containers
 	}
@@ -110,19 +115,20 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		logger.L().Debug("failed to analyze opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
-
 	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
+	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
 
 	return softwarecomposition.ApplicationProfileContainer{
-		Name:           container.Name,
-		Capabilities:   DeflateSortString(container.Capabilities),
-		Execs:          DeflateStringer(container.Execs),
-		Opens:          opens,
-		Syscalls:       DeflateSortString(container.Syscalls),
-		SeccompProfile: container.SeccompProfile,
-		Endpoints:      endpoints,
-		ImageTag:       container.ImageTag,
-		ImageID:        container.ImageID,
-		PolicyByRuleId: DeflateRulePolicies(container.PolicyByRuleId),
+		Name:                 container.Name,
+		Capabilities:         DeflateSortString(container.Capabilities),
+		Execs:                DeflateStringer(container.Execs),
+		Opens:                opens,
+		Syscalls:             DeflateSortString(container.Syscalls),
+		SeccompProfile:       container.SeccompProfile,
+		Endpoints:            endpoints,
+		ImageTag:             container.ImageTag,
+		ImageID:              container.ImageID,
+		PolicyByRuleId:       DeflateRulePolicies(container.PolicyByRuleId),
+		IdentifiedCallStacks: identifiedCallStacks,
 	}
 }

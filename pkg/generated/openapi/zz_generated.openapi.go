@@ -41,6 +41,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus":                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg":                                        schema_pkg_apis_softwarecomposition_v1beta1_Arg(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE":                                        schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack":                                  schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode":                              schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component":                                  schema_pkg_apis_softwarecomposition_v1beta1_Component(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition":                                  schema_pkg_apis_softwarecomposition_v1beta1_Condition(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConditionedStatus":                          schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref),
@@ -69,6 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressPath":                            schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressPath(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressRuleValue":                       schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressRuleValue(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IPBlock":                                    schema_pkg_apis_softwarecomposition_v1beta1_IPBlock(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack":                        schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule":                                 schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage":                          schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch":                               schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
@@ -151,6 +154,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus":                 schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                                     schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SpecBase":                                   schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame":                                 schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement":                                  schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StatusBase":                                 schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent":                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
@@ -591,12 +595,25 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 							},
 						},
 					},
+					"identifiedCallStacks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag", "rulePolicies"},
+				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag", "rulePolicies", "identifiedCallStacks"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
 	}
 }
 
@@ -811,6 +828,61 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref common.ReferenceCallbac
 				Required: []string{"cpe"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"root": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
+						},
+					},
+				},
+				Required: []string{"root"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"children": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
+									},
+								},
+							},
+						},
+					},
+					"frame": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
+						},
+					},
+				},
+				Required: []string{"children", "frame"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"},
 	}
 }
 
@@ -2095,6 +2167,34 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IPBlock(ref common.ReferenceCal
 				Required: []string{"cidr"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"callID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"callStack": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack"),
+						},
+					},
+				},
+				Required: []string{"callID", "callStack"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack"},
 	}
 }
 
@@ -5744,6 +5844,33 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref common.ReferenceCa
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"fileID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"lineno": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"fileID", "lineno"},
 			},
 		},
 	}

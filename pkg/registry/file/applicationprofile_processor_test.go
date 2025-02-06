@@ -82,7 +82,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 			want: &softwarecomposition.ApplicationProfile{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						helpers.ResourceSizeMetadataKey: "6",
+						helpers.ResourceSizeMetadataKey: "7",
 					},
 				},
 				Spec: softwarecomposition.ApplicationProfileSpec{
