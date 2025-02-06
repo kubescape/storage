@@ -61,16 +61,6 @@ func getCallStackPaths(cs types.CallStack) [][]types.CallStackNode {
 	return paths
 }
 
-// buildTrieFromPaths constructs a trie from all paths in the call stacks
-func buildTrieFromPaths(paths [][]types.CallStackNode) *trie.PathTrie {
-	t := trie.NewPathTrie()
-	for _, path := range paths {
-		key := pathKey(path)
-		t.Put(key, path)
-	}
-	return t
-}
-
 // parsePath converts a path string back to frame sequence
 func parsePath(path string) []types.StackFrame {
 	if path == "" {
