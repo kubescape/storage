@@ -83,7 +83,7 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, nil)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, nil, nil)
 
 			got1, _ := s.Watch(context.TODO(), tt.args.key, tt.args.opts)
 			got1chan := got1.ResultChan()
@@ -190,7 +190,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 			}(pool)
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, sch)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
 			ctx := context.Background()
 			opts := storage.ListOptions{}
 
@@ -310,7 +310,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 			}(pool)
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, sch)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
 			opts := storage.ListOptions{}
 
 			watchers := map[string][]watch.Interface{}

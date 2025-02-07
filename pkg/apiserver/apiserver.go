@@ -84,9 +84,10 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	Namespace string
-	OsFs      afero.Fs
-	Pool      *sqlitemigration.Pool
+	Namespace       string
+	OsFs            afero.Fs
+	Pool            *sqlitemigration.Pool
+	WatchDispatcher *file.WatchDispatcher
 }
 
 // Config defines the config for the apiserver
@@ -145,10 +146,10 @@ func (c completedConfig) New() (*WardleServer, error) {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 
 	var (
-		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme)
+		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme, file.NewApplicationProfileProcessor(c.ExtraConfig.Namespace))
-		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, Scheme, file.NewNetworkNeighborhoodProcessor())
+		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewApplicationProfileProcessor(c.ExtraConfig.Namespace))
+		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewNetworkNeighborhoodProcessor())
 		configScanStorageImpl          = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage    = file.NewVulnerabilitySummaryStorage(storageImpl)
 		generatedNetworkPolicyStorage  = file.NewGeneratedNetworkPolicyStorage(storageImpl)

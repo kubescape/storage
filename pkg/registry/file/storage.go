@@ -64,7 +64,7 @@ type StorageImpl struct {
 	root            string
 	scheme          *runtime.Scheme
 	versioner       storage.Versioner
-	watchDispatcher *watchDispatcher
+	watchDispatcher *WatchDispatcher
 }
 
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
@@ -79,11 +79,14 @@ var _ storage.Interface = &StorageImpl{}
 
 var _ StorageQuerier = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, scheme *runtime.Scheme) StorageQuerier {
-	return NewStorageImplWithCollector(appFs, root, pool, scheme, DefaultProcessor{})
+func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme) StorageQuerier {
+	return NewStorageImplWithCollector(appFs, root, pool, watchDispatcher, scheme, DefaultProcessor{})
 }
 
-func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, scheme *runtime.Scheme, processor Processor) StorageQuerier {
+func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme, processor Processor) StorageQuerier {
+	if watchDispatcher == nil {
+		watchDispatcher = NewWatchDispatcher()
+	}
 	storageImpl := &StorageImpl{
 		appFs:           appFs,
 		pool:            conn,
@@ -92,7 +95,7 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		root:            root,
 		scheme:          scheme,
 		versioner:       storage.APIObjectVersioner{},
-		watchDispatcher: newWatchDispatcher(),
+		watchDispatcher: watchDispatcher,
 	}
 	processor.SetStorage(storageImpl)
 	return storageImpl
