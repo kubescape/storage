@@ -124,16 +124,16 @@ func (w *watcher) send(e watch.Event) {
 
 type watchersList []*watcher
 
-// watchDispatcher dispatches events to registered watches
+// WatchDispatcher dispatches events to registered watches
 //
-// TODO(ttimonen): There's currently no way to gracefully take down watchDispatcher without leaking a goroutine.
-type watchDispatcher struct {
+// TODO(ttimonen): There's currently no way to gracefully take down WatchDispatcher without leaking a goroutine.
+type WatchDispatcher struct {
 	watchesByKey *xsync.MapOf[string, watchersList]
 	gcCh         chan string
 }
 
-func newWatchDispatcher() *watchDispatcher {
-	wd := watchDispatcher{xsync.NewMapOf[watchersList](), make(chan string)}
+func NewWatchDispatcher() *WatchDispatcher {
+	wd := WatchDispatcher{xsync.NewMapOf[watchersList](), make(chan string)}
 	go wd.gcer()
 	return &wd
 }
@@ -152,7 +152,7 @@ func extractKeysToNotify(key string) []string {
 }
 
 // Register registers a watcher for a given key
-func (wd *watchDispatcher) Register(key string, w *watcher) {
+func (wd *WatchDispatcher) Register(key string, w *watcher) {
 	wd.watchesByKey.Compute(key, func(l watchersList, _ bool) (watchersList, bool) {
 		return append(l, w), false
 	})
@@ -162,7 +162,7 @@ func (wd *watchDispatcher) Register(key string, w *watcher) {
 	}()
 }
 
-func (wd *watchDispatcher) gcer() {
+func (wd *WatchDispatcher) gcer() {
 	for key := range wd.gcCh { // This is an O(n) op, where n is # of watchers in a particular key.
 		wd.watchesByKey.Compute(key, func(l watchersList, _ bool) (watchersList, bool) {
 			if len(l) == 0 {
@@ -183,27 +183,27 @@ func (wd *watchDispatcher) gcer() {
 }
 
 // Added dispatches an "Added" event to appropriate watchers
-func (wd *watchDispatcher) Added(key string, metaOut, obj runtime.Object) {
+func (wd *WatchDispatcher) Added(key string, metaOut, obj runtime.Object) {
 	eventFull := watch.Event{Type: watch.Added, Object: obj}
 	eventMeta := watch.Event{Type: watch.Added, Object: metaOut}
 	wd.notify(key, eventFull, eventMeta)
 }
 
 // Deleted dispatches a "Deleted" event to appropriate watchers
-func (wd *watchDispatcher) Deleted(key string, metaOut runtime.Object) {
+func (wd *WatchDispatcher) Deleted(key string, metaOut runtime.Object) {
 	eventMeta := watch.Event{Type: watch.Deleted, Object: metaOut}
 	wd.notify(key, eventMeta, eventMeta) // We don't have the full object to send here
 }
 
 // Modified dispatches a "Modified" event to appropriate watchers
-func (wd *watchDispatcher) Modified(key string, metaOut, obj runtime.Object) {
+func (wd *WatchDispatcher) Modified(key string, metaOut, obj runtime.Object) {
 	eventFull := watch.Event{Type: watch.Modified, Object: obj}
 	eventMeta := watch.Event{Type: watch.Modified, Object: metaOut}
 	wd.notify(key, eventFull, eventMeta)
 }
 
 // notify notifies the listeners of a given key about an event of a given eventType about a given obj
-func (wd *watchDispatcher) notify(key string, eventFull, eventMeta watch.Event) {
+func (wd *WatchDispatcher) notify(key string, eventFull, eventMeta watch.Event) {
 	// Notify calls do not block normally, unless the client-side is messed up.
 	for _, part := range extractKeysToNotify(key) {
 		ws, _ := wd.watchesByKey.Load(part)

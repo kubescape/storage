@@ -34,6 +34,7 @@ import (
 	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
+	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -61,13 +62,14 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
-	OsFs      afero.Fs
-	Pool      *sqlitemigration.Pool
-	Namespace string
+	OsFs            afero.Fs
+	Pool            *sqlitemigration.Pool
+	Namespace       string
+	WatchDispatcher *file.WatchDispatcher
 }
 
 // NewWardleServerOptions returns a new WardleServerOptions
-func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, namespace string) *WardleServerOptions {
+func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, namespace string, watchDispatcher *file.WatchDispatcher) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
@@ -77,9 +79,10 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 		StdOut: out,
 		StdErr: errOut,
 
-		OsFs:      osFs,
-		Pool:      pool,
-		Namespace: namespace,
+		OsFs:            osFs,
+		Pool:            pool,
+		Namespace:       namespace,
+		WatchDispatcher: watchDispatcher,
 	}
 	o.RecommendedOptions.Etcd = nil
 
@@ -205,9 +208,10 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	config := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
-			OsFs:      o.OsFs,
-			Pool:      o.Pool,
-			Namespace: o.Namespace,
+			OsFs:            o.OsFs,
+			Pool:            o.Pool,
+			Namespace:       o.Namespace,
+			WatchDispatcher: o.WatchDispatcher,
 		},
 	}
 	return config, nil

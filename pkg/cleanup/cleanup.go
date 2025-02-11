@@ -36,6 +36,7 @@ type ResourcesCleanupHandler struct {
 	fetcher               ResourcesFetcher
 	deleteFunc            TypeDeleteFunc
 	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
+	watchDispatcher       *file.WatchDispatcher
 }
 
 func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {
@@ -70,7 +71,7 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 	return resourceKindToHandler
 }
 
-func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
+func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *file.WatchDispatcher, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
 
 	return &ResourcesCleanupHandler{
 		appFs:                 appFs,
@@ -80,6 +81,7 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 		fetcher:               fetcher,
 		deleteFunc:            deleteFile,
 		resourceToKindHandler: initResourceToKindHandler(relevancyEnabled),
+		watchDispatcher:       watchDispatcher,
 	}
 }
 
@@ -173,7 +175,11 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 					h.deleteFunc(h.appFs, path)
 
-					h.deleteMetadata(path)
+					metaOut := h.deleteMetadata(path)
+					if h.watchDispatcher != nil {
+						key := path[len(h.root) : len(path)-len(file.GobExt)]
+						h.watchDispatcher.Deleted(key, metaOut)
+					}
 				}
 				return nil
 			})
