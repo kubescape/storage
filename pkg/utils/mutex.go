@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"sync"
 )
 
@@ -27,12 +28,34 @@ func (m *MapMutex[T]) ensureLock(key T) *sync.RWMutex {
 	return l
 }
 
-func (m *MapMutex[T]) Lock(key T) {
-	m.ensureLock(key).Lock()
+func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
+	done := make(chan struct{})
+	go func() {
+		m.ensureLock(key).Lock()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		return nil
+	}
 }
 
-func (m *MapMutex[T]) RLock(key T) {
-	m.ensureLock(key).RLock()
+func (m *MapMutex[T]) RLock(ctx context.Context, key T) error {
+	done := make(chan struct{})
+	go func() {
+		m.ensureLock(key).RLock()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		return nil
+	}
 }
 
 func (m *MapMutex[T]) RUnlock(key T) {

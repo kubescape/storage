@@ -208,7 +208,10 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	s.locks.Lock(key)
+	err := s.locks.Lock(ctx, key)
+	if err != nil {
+		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
+	}
 	defer s.locks.Unlock(key)
 	spanLock.End()
 	lockDuration := time.Since(beforeLock)
@@ -250,7 +253,10 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	s.locks.Lock(key)
+	err := s.locks.Lock(ctx, key)
+	if err != nil {
+		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
+	}
 	defer s.locks.Unlock(key)
 	spanLock.End()
 	lockDuration := time.Since(beforeLock)
@@ -304,7 +310,10 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	s.locks.RLock(key)
+	err := s.locks.RLock(ctx, key)
+	if err != nil {
+		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
+	}
 	defer s.locks.RUnlock(key)
 	spanLock.End()
 	lockDuration := time.Since(beforeLock)
@@ -486,7 +495,7 @@ func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage
 		})
 	}
 	for _, payloadFile := range payloadFiles {
-		if err := s.appendGobObjectFromFile(payloadFile, v); err != nil {
+		if err := s.appendGobObjectFromFile(ctx, payloadFile, v); err != nil {
 			logger.L().Ctx(ctx).Error("getListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
 		}
 	}
@@ -560,7 +569,11 @@ func (s *StorageImpl) GuaranteedUpdate(
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	s.locks.Lock(key)
+	err := s.locks.Lock(ctx, key)
+	if err != nil {
+		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
+		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
+	}
 	defer s.locks.Unlock(key)
 	spanLock.End()
 	lockDuration := time.Since(beforeLock)
@@ -638,6 +651,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
 					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
+				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 
@@ -659,6 +673,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
 					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
+				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				return cachedUpdateErr
 			}
 
@@ -677,7 +692,9 @@ func (s *StorageImpl) GuaranteedUpdate(
 				annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
 				metadata.SetAnnotations(annotations)
 				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
+				// we don't return here as we still need to save the object with updated annotations
 			} else {
+				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - processor.PreSave failed", helpers.Error(err), helpers.String("key", key))
 				return fmt.Errorf("processor.PreSave: %w", err)
 			}
 		}
@@ -693,14 +710,13 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into metaOut
-		err = s.writeFiles(key, ret, metaOut)
-		if err == nil {
-			// Only successful updates should produce modification events
-			s.watchDispatcher.Modified(key, metaOut, ret)
-		} else {
+		if err := s.writeFiles(key, ret, metaOut); err != nil {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - write files failed", helpers.Error(err), helpers.String("key", key))
+			return err
 		}
-		return err
+		// Only successful updates should produce modification events
+		s.watchDispatcher.Modified(key, metaOut, ret)
+		return nil
 	}
 }
 
@@ -744,9 +760,12 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 }
 
 // appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
-func (s *StorageImpl) appendGobObjectFromFile(path string, v reflect.Value) error {
+func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
-	s.locks.RLock(key)
+	err := s.locks.RLock(ctx, key)
+	if err != nil {
+		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
+	}
 	defer s.locks.RUnlock(key)
 	payloadFile, err := s.appFs.OpenFile(path, syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
