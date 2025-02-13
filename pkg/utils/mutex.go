@@ -1,21 +1,18 @@
 package utils
 
 import (
-	"fmt"
+	"context"
 	"sync"
-	"time"
 )
 
 type MapMutex[T comparable] struct {
-	locks      map[T]*sync.RWMutex
-	maxTimeout time.Duration
-	m          sync.Mutex
+	locks map[T]*sync.RWMutex
+	m     sync.Mutex
 }
 
-func NewMapMutex[T comparable](maxTimeout time.Duration) MapMutex[T] {
+func NewMapMutex[T comparable]() MapMutex[T] {
 	return MapMutex[T]{
-		locks:      make(map[T]*sync.RWMutex),
-		maxTimeout: maxTimeout,
+		locks: make(map[T]*sync.RWMutex),
 	}
 }
 
@@ -31,7 +28,7 @@ func (m *MapMutex[T]) ensureLock(key T) *sync.RWMutex {
 	return l
 }
 
-func (m *MapMutex[T]) Lock(key T) error {
+func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
 	done := make(chan struct{})
 	go func() {
 		m.ensureLock(key).Lock()
@@ -39,14 +36,14 @@ func (m *MapMutex[T]) Lock(key T) error {
 	}()
 
 	select {
-	case <-time.After(m.maxTimeout):
-		return fmt.Errorf("lock timeout")
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-done:
 		return nil
 	}
 }
 
-func (m *MapMutex[T]) RLock(key T) error {
+func (m *MapMutex[T]) RLock(ctx context.Context, key T) error {
 	done := make(chan struct{})
 	go func() {
 		m.ensureLock(key).RLock()
@@ -54,8 +51,8 @@ func (m *MapMutex[T]) RLock(key T) error {
 	}()
 
 	select {
-	case <-time.After(m.maxTimeout):
-		return fmt.Errorf("lock timeout")
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-done:
 		return nil
 	}

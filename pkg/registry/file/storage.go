@@ -90,7 +90,7 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 	storageImpl := &StorageImpl{
 		appFs:           appFs,
 		pool:            conn,
-		locks:           utils.NewMapMutex[string](60 * time.Second), // this is the default for Kubernetes requests
+		locks:           utils.NewMapMutex[string](),
 		processor:       processor,
 		root:            root,
 		scheme:          scheme,
@@ -208,7 +208,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.Lock(key)
+	err := s.locks.Lock(ctx, key)
 	if err != nil {
 		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
 	}
@@ -253,7 +253,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.Lock(key)
+	err := s.locks.Lock(ctx, key)
 	if err != nil {
 		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
 	}
@@ -310,7 +310,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.RLock(key)
+	err := s.locks.RLock(ctx, key)
 	if err != nil {
 		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
 	}
@@ -495,7 +495,7 @@ func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage
 		})
 	}
 	for _, payloadFile := range payloadFiles {
-		if err := s.appendGobObjectFromFile(payloadFile, v); err != nil {
+		if err := s.appendGobObjectFromFile(ctx, payloadFile, v); err != nil {
 			logger.L().Ctx(ctx).Error("getListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
 		}
 	}
@@ -569,7 +569,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.Lock(key)
+	err := s.locks.Lock(ctx, key)
 	if err != nil {
 		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
 		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
@@ -760,9 +760,9 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 }
 
 // appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
-func (s *StorageImpl) appendGobObjectFromFile(path string, v reflect.Value) error {
+func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
-	err := s.locks.RLock(key)
+	err := s.locks.RLock(ctx, key)
 	if err != nil {
 		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
 	}
