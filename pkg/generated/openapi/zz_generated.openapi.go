@@ -41,6 +41,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus":                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg":                                        schema_pkg_apis_softwarecomposition_v1beta1_Arg(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE":                                        schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack":                                  schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode":                              schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component":                                  schema_pkg_apis_softwarecomposition_v1beta1_Component(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition":                                  schema_pkg_apis_softwarecomposition_v1beta1_Condition(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConditionedStatus":                          schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref),
@@ -69,6 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressPath":                            schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressPath(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressRuleValue":                       schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressRuleValue(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IPBlock":                                    schema_pkg_apis_softwarecomposition_v1beta1_IPBlock(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack":                        schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule":                                 schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage":                          schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch":                               schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
@@ -104,9 +107,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodContainer":               schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodList":                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodList(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodSpec":                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbors":                           schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbors(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborsList":                       schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborsSpec":                       schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy":                              schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicy(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyEgressRule":                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyIngressRule":                   schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref),
@@ -151,6 +151,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus":                 schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                                     schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SpecBase":                                   schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref),
+		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame":                                 schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement":                                  schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StatusBase":                                 schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref),
 		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent":                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
@@ -591,12 +592,25 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 							},
 						},
 					},
+					"identifiedCallStacks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag", "rulePolicies"},
+				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag", "rulePolicies", "identifiedCallStacks"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
 	}
 }
 
@@ -811,6 +825,61 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref common.ReferenceCallbac
 				Required: []string{"cpe"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"root": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
+						},
+					},
+				},
+				Required: []string{"root"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"children": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
+									},
+								},
+							},
+						},
+					},
+					"frame": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
+						},
+					},
+				},
+				Required: []string{"children", "frame"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"},
 	}
 }
 
@@ -2095,6 +2164,34 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IPBlock(ref common.ReferenceCal
 				Required: []string{"cidr"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"callID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"callStack": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack"),
+						},
+					},
+				},
+				Required: []string{"callID", "callStack"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack"},
 	}
 }
 
@@ -3669,180 +3766,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref com
 		},
 		Dependencies: []string{
 			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodContainer", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbors(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "NetworkNeighbors represents a list of network communications for a specific workload. DEPRECATED - use NetworkNeighborhood instead.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborsSpec"),
-						},
-					},
-				},
-				Required: []string{"spec"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborsSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "NetworkNeighborsList is a list of NetworkNeighbors. DEPRECATED - use NetworkNeighborhoodList instead.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbors"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbors", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborsSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"matchLabels": {
-						SchemaProps: spec.SchemaProps{
-							Description: "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"matchExpressions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"),
-									},
-								},
-							},
-						},
-					},
-					"ingress": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "identifier",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
-									},
-								},
-							},
-						},
-					},
-					"egress": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "identifier",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"ingress", "egress"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"},
 	}
 }
 
@@ -5744,6 +5667,33 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref common.ReferenceCa
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"fileID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"lineno": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"fileID", "lineno"},
 			},
 		},
 	}

@@ -161,26 +161,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*CallStack)(nil), (*softwarecomposition.CallStack)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_CallStack_To_softwarecomposition_CallStack(a.(*CallStack), b.(*softwarecomposition.CallStack), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.CallStack)(nil), (*CallStack)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_CallStack_To_v1beta1_CallStack(a.(*softwarecomposition.CallStack), b.(*CallStack), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*CallStackNode)(nil), (*softwarecomposition.CallStackNode)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(a.(*CallStackNode), b.(*softwarecomposition.CallStackNode), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.CallStackNode)(nil), (*CallStackNode)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(a.(*softwarecomposition.CallStackNode), b.(*CallStackNode), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*Component)(nil), (*softwarecomposition.Component)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Component_To_softwarecomposition_Component(a.(*Component), b.(*softwarecomposition.Component), scope)
 	}); err != nil {
@@ -458,16 +438,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.IPBlock)(nil), (*IPBlock)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_IPBlock_To_v1beta1_IPBlock(a.(*softwarecomposition.IPBlock), b.(*IPBlock), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*IdentifiedCallStack)(nil), (*softwarecomposition.IdentifiedCallStack)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_IdentifiedCallStack_To_softwarecomposition_IdentifiedCallStack(a.(*IdentifiedCallStack), b.(*softwarecomposition.IdentifiedCallStack), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.IdentifiedCallStack)(nil), (*IdentifiedCallStack)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_IdentifiedCallStack_To_v1beta1_IdentifiedCallStack(a.(*softwarecomposition.IdentifiedCallStack), b.(*IdentifiedCallStack), scope)
 	}); err != nil {
 		return err
 	}
@@ -818,36 +788,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.NetworkNeighborhoodSpec)(nil), (*NetworkNeighborhoodSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_NetworkNeighborhoodSpec_To_v1beta1_NetworkNeighborhoodSpec(a.(*softwarecomposition.NetworkNeighborhoodSpec), b.(*NetworkNeighborhoodSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*NetworkNeighbors)(nil), (*softwarecomposition.NetworkNeighbors)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(a.(*NetworkNeighbors), b.(*softwarecomposition.NetworkNeighbors), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.NetworkNeighbors)(nil), (*NetworkNeighbors)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_NetworkNeighbors_To_v1beta1_NetworkNeighbors(a.(*softwarecomposition.NetworkNeighbors), b.(*NetworkNeighbors), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*NetworkNeighborsList)(nil), (*softwarecomposition.NetworkNeighborsList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_NetworkNeighborsList_To_softwarecomposition_NetworkNeighborsList(a.(*NetworkNeighborsList), b.(*softwarecomposition.NetworkNeighborsList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.NetworkNeighborsList)(nil), (*NetworkNeighborsList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_NetworkNeighborsList_To_v1beta1_NetworkNeighborsList(a.(*softwarecomposition.NetworkNeighborsList), b.(*NetworkNeighborsList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*NetworkNeighborsSpec)(nil), (*softwarecomposition.NetworkNeighborsSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighborsSpec(a.(*NetworkNeighborsSpec), b.(*softwarecomposition.NetworkNeighborsSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.NetworkNeighborsSpec)(nil), (*NetworkNeighborsSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighborsSpec(a.(*softwarecomposition.NetworkNeighborsSpec), b.(*NetworkNeighborsSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -1288,16 +1228,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*softwarecomposition.SpecBase)(nil), (*SpecBase)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_softwarecomposition_SpecBase_To_v1beta1_SpecBase(a.(*softwarecomposition.SpecBase), b.(*SpecBase), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*StackFrame)(nil), (*softwarecomposition.StackFrame)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(a.(*StackFrame), b.(*softwarecomposition.StackFrame), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*softwarecomposition.StackFrame)(nil), (*StackFrame)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_softwarecomposition_StackFrame_To_v1beta1_StackFrame(a.(*softwarecomposition.StackFrame), b.(*StackFrame), scope)
 	}); err != nil {
 		return err
 	}
@@ -1893,13 +1823,8 @@ func autoConvert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_Appl
 	out.ImageID = in.ImageID
 	out.ImageTag = in.ImageTag
 	out.PolicyByRuleId = *(*map[string]softwarecomposition.RulePolicy)(unsafe.Pointer(&in.PolicyByRuleId))
-	out.IdentifiedCallStacks = *(*[]softwarecomposition.IdentifiedCallStack)(unsafe.Pointer(&in.IdentifiedCallStacks))
+	// WARNING: in.IdentifiedCallStacks requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer is an autogenerated conversion function.
-func Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(in *ApplicationProfileContainer, out *softwarecomposition.ApplicationProfileContainer, s conversion.Scope) error {
-	return autoConvert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(in, out, s)
 }
 
 func autoConvert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(in *softwarecomposition.ApplicationProfileContainer, out *ApplicationProfileContainer, s conversion.Scope) error {
@@ -1915,7 +1840,6 @@ func autoConvert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_Appl
 	out.ImageID = in.ImageID
 	out.ImageTag = in.ImageTag
 	out.PolicyByRuleId = *(*map[string]RulePolicy)(unsafe.Pointer(&in.PolicyByRuleId))
-	out.IdentifiedCallStacks = *(*[]IdentifiedCallStack)(unsafe.Pointer(&in.IdentifiedCallStacks))
 	return nil
 }
 
@@ -1926,7 +1850,17 @@ func Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_Applicat
 
 func autoConvert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList(in *ApplicationProfileList, out *softwarecomposition.ApplicationProfileList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]softwarecomposition.ApplicationProfile)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]softwarecomposition.ApplicationProfile, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -1937,7 +1871,17 @@ func Convert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationPr
 
 func autoConvert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList(in *softwarecomposition.ApplicationProfileList, out *ApplicationProfileList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]ApplicationProfile)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]ApplicationProfile, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -1948,9 +1892,39 @@ func Convert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationPr
 
 func autoConvert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationProfileSpec(in *ApplicationProfileSpec, out *softwarecomposition.ApplicationProfileSpec, s conversion.Scope) error {
 	out.Architectures = *(*[]string)(unsafe.Pointer(&in.Architectures))
-	out.Containers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.Containers))
-	out.InitContainers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.InitContainers))
-	out.EphemeralContainers = *(*[]softwarecomposition.ApplicationProfileContainer)(unsafe.Pointer(&in.EphemeralContainers))
+	if in.Containers != nil {
+		in, out := &in.Containers, &out.Containers
+		*out = make([]softwarecomposition.ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Containers = nil
+	}
+	if in.InitContainers != nil {
+		in, out := &in.InitContainers, &out.InitContainers
+		*out = make([]softwarecomposition.ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.InitContainers = nil
+	}
+	if in.EphemeralContainers != nil {
+		in, out := &in.EphemeralContainers, &out.EphemeralContainers
+		*out = make([]softwarecomposition.ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfileContainer_To_softwarecomposition_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.EphemeralContainers = nil
+	}
 	return nil
 }
 
@@ -1961,9 +1935,39 @@ func Convert_v1beta1_ApplicationProfileSpec_To_softwarecomposition_ApplicationPr
 
 func autoConvert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(in *softwarecomposition.ApplicationProfileSpec, out *ApplicationProfileSpec, s conversion.Scope) error {
 	out.Architectures = *(*[]string)(unsafe.Pointer(&in.Architectures))
-	out.Containers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.Containers))
-	out.InitContainers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.InitContainers))
-	out.EphemeralContainers = *(*[]ApplicationProfileContainer)(unsafe.Pointer(&in.EphemeralContainers))
+	if in.Containers != nil {
+		in, out := &in.Containers, &out.Containers
+		*out = make([]ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Containers = nil
+	}
+	if in.InitContainers != nil {
+		in, out := &in.InitContainers, &out.InitContainers
+		*out = make([]ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.InitContainers = nil
+	}
+	if in.EphemeralContainers != nil {
+		in, out := &in.EphemeralContainers, &out.EphemeralContainers
+		*out = make([]ApplicationProfileContainer, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_ApplicationProfileContainer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.EphemeralContainers = nil
+	}
 	return nil
 }
 
@@ -2036,56 +2040,6 @@ func autoConvert_softwarecomposition_CPE_To_v1beta1_CPE(in *softwarecomposition.
 // Convert_softwarecomposition_CPE_To_v1beta1_CPE is an autogenerated conversion function.
 func Convert_softwarecomposition_CPE_To_v1beta1_CPE(in *softwarecomposition.CPE, out *CPE, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_CPE_To_v1beta1_CPE(in, out, s)
-}
-
-func autoConvert_v1beta1_CallStack_To_softwarecomposition_CallStack(in *CallStack, out *softwarecomposition.CallStack, s conversion.Scope) error {
-	if err := Convert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(&in.Root, &out.Root, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_CallStack_To_softwarecomposition_CallStack is an autogenerated conversion function.
-func Convert_v1beta1_CallStack_To_softwarecomposition_CallStack(in *CallStack, out *softwarecomposition.CallStack, s conversion.Scope) error {
-	return autoConvert_v1beta1_CallStack_To_softwarecomposition_CallStack(in, out, s)
-}
-
-func autoConvert_softwarecomposition_CallStack_To_v1beta1_CallStack(in *softwarecomposition.CallStack, out *CallStack, s conversion.Scope) error {
-	if err := Convert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(&in.Root, &out.Root, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_softwarecomposition_CallStack_To_v1beta1_CallStack is an autogenerated conversion function.
-func Convert_softwarecomposition_CallStack_To_v1beta1_CallStack(in *softwarecomposition.CallStack, out *CallStack, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_CallStack_To_v1beta1_CallStack(in, out, s)
-}
-
-func autoConvert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(in *CallStackNode, out *softwarecomposition.CallStackNode, s conversion.Scope) error {
-	out.Children = *(*[]softwarecomposition.CallStackNode)(unsafe.Pointer(&in.Children))
-	if err := Convert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(&in.Frame, &out.Frame, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode is an autogenerated conversion function.
-func Convert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(in *CallStackNode, out *softwarecomposition.CallStackNode, s conversion.Scope) error {
-	return autoConvert_v1beta1_CallStackNode_To_softwarecomposition_CallStackNode(in, out, s)
-}
-
-func autoConvert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(in *softwarecomposition.CallStackNode, out *CallStackNode, s conversion.Scope) error {
-	out.Children = *(*[]CallStackNode)(unsafe.Pointer(&in.Children))
-	if err := Convert_softwarecomposition_StackFrame_To_v1beta1_StackFrame(&in.Frame, &out.Frame, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode is an autogenerated conversion function.
-func Convert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(in *softwarecomposition.CallStackNode, out *CallStackNode, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_CallStackNode_To_v1beta1_CallStackNode(in, out, s)
 }
 
 func autoConvert_v1beta1_Component_To_softwarecomposition_Component(in *Component, out *softwarecomposition.Component, s conversion.Scope) error {
@@ -2820,32 +2774,6 @@ func autoConvert_softwarecomposition_IPBlock_To_v1beta1_IPBlock(in *softwarecomp
 // Convert_softwarecomposition_IPBlock_To_v1beta1_IPBlock is an autogenerated conversion function.
 func Convert_softwarecomposition_IPBlock_To_v1beta1_IPBlock(in *softwarecomposition.IPBlock, out *IPBlock, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_IPBlock_To_v1beta1_IPBlock(in, out, s)
-}
-
-func autoConvert_v1beta1_IdentifiedCallStack_To_softwarecomposition_IdentifiedCallStack(in *IdentifiedCallStack, out *softwarecomposition.IdentifiedCallStack, s conversion.Scope) error {
-	out.CallID = softwarecomposition.CallID(in.CallID)
-	if err := Convert_v1beta1_CallStack_To_softwarecomposition_CallStack(&in.CallStack, &out.CallStack, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_IdentifiedCallStack_To_softwarecomposition_IdentifiedCallStack is an autogenerated conversion function.
-func Convert_v1beta1_IdentifiedCallStack_To_softwarecomposition_IdentifiedCallStack(in *IdentifiedCallStack, out *softwarecomposition.IdentifiedCallStack, s conversion.Scope) error {
-	return autoConvert_v1beta1_IdentifiedCallStack_To_softwarecomposition_IdentifiedCallStack(in, out, s)
-}
-
-func autoConvert_softwarecomposition_IdentifiedCallStack_To_v1beta1_IdentifiedCallStack(in *softwarecomposition.IdentifiedCallStack, out *IdentifiedCallStack, s conversion.Scope) error {
-	out.CallID = CallID(in.CallID)
-	if err := Convert_softwarecomposition_CallStack_To_v1beta1_CallStack(&in.CallStack, &out.CallStack, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_softwarecomposition_IdentifiedCallStack_To_v1beta1_IdentifiedCallStack is an autogenerated conversion function.
-func Convert_softwarecomposition_IdentifiedCallStack_To_v1beta1_IdentifiedCallStack(in *softwarecomposition.IdentifiedCallStack, out *IdentifiedCallStack, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_IdentifiedCallStack_To_v1beta1_IdentifiedCallStack(in, out, s)
 }
 
 func autoConvert_v1beta1_IgnoreRule_To_softwarecomposition_IgnoreRule(in *IgnoreRule, out *softwarecomposition.IgnoreRule, s conversion.Scope) error {
@@ -3764,78 +3692,6 @@ func autoConvert_softwarecomposition_NetworkNeighborhoodSpec_To_v1beta1_NetworkN
 // Convert_softwarecomposition_NetworkNeighborhoodSpec_To_v1beta1_NetworkNeighborhoodSpec is an autogenerated conversion function.
 func Convert_softwarecomposition_NetworkNeighborhoodSpec_To_v1beta1_NetworkNeighborhoodSpec(in *softwarecomposition.NetworkNeighborhoodSpec, out *NetworkNeighborhoodSpec, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_NetworkNeighborhoodSpec_To_v1beta1_NetworkNeighborhoodSpec(in, out, s)
-}
-
-func autoConvert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(in *NetworkNeighbors, out *softwarecomposition.NetworkNeighbors, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighborsSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors is an autogenerated conversion function.
-func Convert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(in *NetworkNeighbors, out *softwarecomposition.NetworkNeighbors, s conversion.Scope) error {
-	return autoConvert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(in, out, s)
-}
-
-func autoConvert_softwarecomposition_NetworkNeighbors_To_v1beta1_NetworkNeighbors(in *softwarecomposition.NetworkNeighbors, out *NetworkNeighbors, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighborsSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_softwarecomposition_NetworkNeighbors_To_v1beta1_NetworkNeighbors is an autogenerated conversion function.
-func Convert_softwarecomposition_NetworkNeighbors_To_v1beta1_NetworkNeighbors(in *softwarecomposition.NetworkNeighbors, out *NetworkNeighbors, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_NetworkNeighbors_To_v1beta1_NetworkNeighbors(in, out, s)
-}
-
-func autoConvert_v1beta1_NetworkNeighborsList_To_softwarecomposition_NetworkNeighborsList(in *NetworkNeighborsList, out *softwarecomposition.NetworkNeighborsList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]softwarecomposition.NetworkNeighbors)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_v1beta1_NetworkNeighborsList_To_softwarecomposition_NetworkNeighborsList is an autogenerated conversion function.
-func Convert_v1beta1_NetworkNeighborsList_To_softwarecomposition_NetworkNeighborsList(in *NetworkNeighborsList, out *softwarecomposition.NetworkNeighborsList, s conversion.Scope) error {
-	return autoConvert_v1beta1_NetworkNeighborsList_To_softwarecomposition_NetworkNeighborsList(in, out, s)
-}
-
-func autoConvert_softwarecomposition_NetworkNeighborsList_To_v1beta1_NetworkNeighborsList(in *softwarecomposition.NetworkNeighborsList, out *NetworkNeighborsList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]NetworkNeighbors)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_softwarecomposition_NetworkNeighborsList_To_v1beta1_NetworkNeighborsList is an autogenerated conversion function.
-func Convert_softwarecomposition_NetworkNeighborsList_To_v1beta1_NetworkNeighborsList(in *softwarecomposition.NetworkNeighborsList, out *NetworkNeighborsList, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_NetworkNeighborsList_To_v1beta1_NetworkNeighborsList(in, out, s)
-}
-
-func autoConvert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighborsSpec(in *NetworkNeighborsSpec, out *softwarecomposition.NetworkNeighborsSpec, s conversion.Scope) error {
-	out.LabelSelector = in.LabelSelector
-	out.Ingress = *(*[]softwarecomposition.NetworkNeighbor)(unsafe.Pointer(&in.Ingress))
-	out.Egress = *(*[]softwarecomposition.NetworkNeighbor)(unsafe.Pointer(&in.Egress))
-	return nil
-}
-
-// Convert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighborsSpec is an autogenerated conversion function.
-func Convert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighborsSpec(in *NetworkNeighborsSpec, out *softwarecomposition.NetworkNeighborsSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_NetworkNeighborsSpec_To_softwarecomposition_NetworkNeighborsSpec(in, out, s)
-}
-
-func autoConvert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighborsSpec(in *softwarecomposition.NetworkNeighborsSpec, out *NetworkNeighborsSpec, s conversion.Scope) error {
-	out.LabelSelector = in.LabelSelector
-	out.Ingress = *(*[]NetworkNeighbor)(unsafe.Pointer(&in.Ingress))
-	out.Egress = *(*[]NetworkNeighbor)(unsafe.Pointer(&in.Egress))
-	return nil
-}
-
-// Convert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighborsSpec is an autogenerated conversion function.
-func Convert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighborsSpec(in *softwarecomposition.NetworkNeighborsSpec, out *NetworkNeighborsSpec, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_NetworkNeighborsSpec_To_v1beta1_NetworkNeighborsSpec(in, out, s)
 }
 
 func autoConvert_v1beta1_NetworkPolicy_To_softwarecomposition_NetworkPolicy(in *NetworkPolicy, out *softwarecomposition.NetworkPolicy, s conversion.Scope) error {
@@ -5008,28 +4864,6 @@ func autoConvert_softwarecomposition_SpecBase_To_v1beta1_SpecBase(in *softwareco
 // Convert_softwarecomposition_SpecBase_To_v1beta1_SpecBase is an autogenerated conversion function.
 func Convert_softwarecomposition_SpecBase_To_v1beta1_SpecBase(in *softwarecomposition.SpecBase, out *SpecBase, s conversion.Scope) error {
 	return autoConvert_softwarecomposition_SpecBase_To_v1beta1_SpecBase(in, out, s)
-}
-
-func autoConvert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(in *StackFrame, out *softwarecomposition.StackFrame, s conversion.Scope) error {
-	out.FileID = in.FileID
-	out.Lineno = in.Lineno
-	return nil
-}
-
-// Convert_v1beta1_StackFrame_To_softwarecomposition_StackFrame is an autogenerated conversion function.
-func Convert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(in *StackFrame, out *softwarecomposition.StackFrame, s conversion.Scope) error {
-	return autoConvert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(in, out, s)
-}
-
-func autoConvert_softwarecomposition_StackFrame_To_v1beta1_StackFrame(in *softwarecomposition.StackFrame, out *StackFrame, s conversion.Scope) error {
-	out.FileID = in.FileID
-	out.Lineno = in.Lineno
-	return nil
-}
-
-// Convert_softwarecomposition_StackFrame_To_v1beta1_StackFrame is an autogenerated conversion function.
-func Convert_softwarecomposition_StackFrame_To_v1beta1_StackFrame(in *softwarecomposition.StackFrame, out *StackFrame, s conversion.Scope) error {
-	return autoConvert_softwarecomposition_StackFrame_To_v1beta1_StackFrame(in, out, s)
 }
 
 func autoConvert_v1beta1_Statement_To_softwarecomposition_Statement(in *Statement, out *softwarecomposition.Statement, s conversion.Scope) error {
