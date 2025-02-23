@@ -92,6 +92,8 @@ message ApplicationProfileContainer {
   // +patchStrategy=merge
   // +patchMergeKey=ruleId
   map<string, RulePolicy> rulePolicies = 10;
+
+  repeated IdentifiedCallStack identifiedCallStacks = 11;
 }
 
 message ApplicationProfileList {
@@ -138,6 +140,16 @@ message CPE {
   optional string cpe = 1;
 
   optional string source = 2;
+}
+
+message CallStack {
+  optional CallStackNode root = 1;
+}
+
+message CallStackNode {
+  repeated CallStackNode children = 1;
+
+  optional StackFrame frame = 2;
 }
 
 message Component {
@@ -459,6 +471,12 @@ message IPBlock {
   optional string cidr = 1;
 
   repeated string except = 2;
+}
+
+message IdentifiedCallStack {
+  optional string callID = 1;
+
+  optional CallStack callStack = 2;
 }
 
 message IgnoreRule {
@@ -845,34 +863,6 @@ message NetworkNeighborhoodSpec {
   repeated NetworkNeighborhoodContainer initContainers = 5;
 
   repeated NetworkNeighborhoodContainer ephemeralContainers = 6;
-}
-
-// NetworkNeighbors represents a list of network communications for a specific workload.
-// DEPRECATED - use NetworkNeighborhood instead.
-message NetworkNeighbors {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
-
-  optional NetworkNeighborsSpec spec = 2;
-}
-
-// NetworkNeighborsList is a list of NetworkNeighbors.
-// DEPRECATED - use NetworkNeighborhoodList instead.
-message NetworkNeighborsList {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
-
-  repeated NetworkNeighbors items = 2;
-}
-
-message NetworkNeighborsSpec {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector labelSelector = 3;
-
-  // +patchMergeKey=identifier
-  // +patchStrategy=merge
-  repeated NetworkNeighbor ingress = 4;
-
-  // +patchMergeKey=identifier
-  // +patchStrategy=merge
-  repeated NetworkNeighbor egress = 5;
 }
 
 message NetworkPolicy {
@@ -1289,6 +1279,12 @@ message Source {
 
 message SpecBase {
   optional bool disabled = 1;
+}
+
+message StackFrame {
+  optional string fileID = 1;
+
+  optional string lineno = 2;
 }
 
 message Statement {

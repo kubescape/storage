@@ -45,7 +45,6 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 		"applicationactivities":               []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
 		"applicationprofiles":                 []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
 		"applicationprofilesummaries":         []TypeCleanupHandlerFunc{deleteDeprecated},
-		"networkneighborses":                  []TypeCleanupHandlerFunc{deleteDeprecated},
 		"networkneighborhoods":                []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
 		"openvulnerabilityexchangecontainers": []TypeCleanupHandlerFunc{deleteByImageId},
 		"sbomspdxv2p3filtereds":               []TypeCleanupHandlerFunc{deleteDeprecated},
@@ -121,8 +120,6 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 						err = migrateToGob[softwarecomposition.ApplicationActivity](h.appFs, path)
 					case "applicationprofiles":
 						err = migrateToGob[softwarecomposition.ApplicationProfile](h.appFs, path)
-					case "networkneighborses":
-						err = migrateToGob[softwarecomposition.NetworkNeighbors](h.appFs, path)
 					case "networkneighborhoods":
 						err = migrateToGob[softwarecomposition.NetworkNeighborhood](h.appFs, path)
 					case "openvulnerabilityexchangecontainers":

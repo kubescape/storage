@@ -7,7 +7,7 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy/v2"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

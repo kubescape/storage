@@ -12,7 +12,6 @@ import (
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
