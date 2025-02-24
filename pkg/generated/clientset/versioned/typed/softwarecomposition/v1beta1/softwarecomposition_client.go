@@ -34,7 +34,6 @@ type SpdxV1beta1Interface interface {
 	GeneratedNetworkPoliciesGetter
 	KnownServersGetter
 	NetworkNeighborhoodsGetter
-	NetworkNeighborsesGetter
 	OpenVulnerabilityExchangeContainersGetter
 	SBOMSyftsGetter
 	SBOMSyftFilteredsGetter
@@ -73,10 +72,6 @@ func (c *SpdxV1beta1Client) KnownServers(namespace string) KnownServerInterface 
 
 func (c *SpdxV1beta1Client) NetworkNeighborhoods(namespace string) NetworkNeighborhoodInterface {
 	return newNetworkNeighborhoods(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) NetworkNeighborses(namespace string) NetworkNeighborsInterface {
-	return newNetworkNeighborses(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) OpenVulnerabilityExchangeContainers(namespace string) OpenVulnerabilityExchangeContainerInterface {

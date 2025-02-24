@@ -2,7 +2,6 @@ package networkpolicy
 
 import (
 	sc "github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	np "github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy/v1"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -11,13 +10,13 @@ const (
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
 
-func GenerateNetworkPolicy(networkNeighbors v1beta1.NetworkNeighbors, knownServers sc.IKnownServersFinder, timeProvider metav1.Time) (v1beta1.GeneratedNetworkPolicy, error) {
-	networkNeighborsV1, err := convertNetworkNeighbors(&networkNeighbors)
+func GenerateNetworkPolicy(networkNeighborhood *v1beta1.NetworkNeighborhood, knownServersFinder sc.IKnownServersFinder, timeProvider metav1.Time) (v1beta1.GeneratedNetworkPolicy, error) {
+	networkNeighborhoodV1, err := convertNetworkNeighborhood(networkNeighborhood)
 	if err != nil {
 		return v1beta1.GeneratedNetworkPolicy{}, err
 	}
 
-	npv1, err := np.GenerateNetworkPolicy(networkNeighborsV1, knownServers, timeProvider)
+	npv1, err := np.GenerateNetworkPolicy(networkNeighborhoodV1, knownServersFinder, timeProvider)
 	if err != nil {
 		return v1beta1.GeneratedNetworkPolicy{}, err
 	}
@@ -36,9 +35,9 @@ func convertGeneratedNetworkPolicy(old *sc.GeneratedNetworkPolicy) (v1beta1.Gene
 	return npv1beta1, nil
 }
 
-func convertNetworkNeighbors(old *v1beta1.NetworkNeighbors) (sc.NetworkNeighbors, error) {
-	neighbors := sc.NetworkNeighbors{}
-	err := v1beta1.Convert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(old, &neighbors, nil)
+func convertNetworkNeighborhood(old *v1beta1.NetworkNeighborhood) (*sc.NetworkNeighborhood, error) {
+	neighbors := &sc.NetworkNeighborhood{}
+	err := v1beta1.Convert_v1beta1_NetworkNeighborhood_To_softwarecomposition_NetworkNeighborhood(old, neighbors, nil)
 	return neighbors, err
 }
 func convertKnownServersList(old []v1beta1.KnownServer) ([]sc.KnownServer, error) {

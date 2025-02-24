@@ -32,8 +32,6 @@ type KnownServerExpansion interface{}
 
 type NetworkNeighborhoodExpansion interface{}
 
-type NetworkNeighborsExpansion interface{}
-
 type OpenVulnerabilityExchangeContainerExpansion interface{}
 
 type SBOMSyftExpansion interface{}
