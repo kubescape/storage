@@ -24,13 +24,11 @@ import (
 	"github.com/kubescape/storage/pkg/registry"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
-	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationactivity"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	knownserver "github.com/kubescape/storage/pkg/registry/softwarecomposition/knownservers"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighborhood"
-	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighbors"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/openvulnerabilityexchange"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyftfiltereds"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyfts"
@@ -164,13 +162,11 @@ func (c completedConfig) New() (*WardleServer, error) {
 		}
 	)
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
-		"applicationactivities":               ep(applicationactivity.NewREST),
 		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
 		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
 		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
 		"knownservers":                        ep(knownserver.NewREST),
 		"networkneighborhoods":                ep(networkneighborhood.NewREST, networkNeighborhoodStorageImpl),
-		"networkneighborses":                  ep(networkneighbors.NewREST),
 		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
 		"sbomsyftfiltereds":                   ep(sbomsyftfiltereds.NewREST),
 		"sbomsyfts":                           ep(sbomsyfts.NewREST),
