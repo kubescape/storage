@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -146,7 +147,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("MAX_APPLICATION_PROFILE_SIZE", strconv.Itoa(tt.maxApplicationProfileSize))
 			a := NewApplicationProfileProcessor("kubescape")
-			tt.wantErr(t, a.PreSave(tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
+			tt.wantErr(t, a.PreSave(context.TODO(), tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
 			slices.Sort(tt.object.(*softwarecomposition.ApplicationProfile).Spec.Architectures)
 			assert.Equal(t, tt.want, tt.object)
 		})

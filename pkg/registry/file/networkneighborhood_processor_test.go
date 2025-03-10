@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -124,7 +125,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("MAX_NETWORK_NEIGHBORHOOD_SIZE", strconv.Itoa(tt.maxNetworkNeighborhoodSize))
 			a := NewNetworkNeighborhoodProcessor()
-			tt.wantErr(t, a.PreSave(tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
+			tt.wantErr(t, a.PreSave(context.TODO(), tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
 			assert.Equal(t, tt.want, tt.object)
 		})
 	}

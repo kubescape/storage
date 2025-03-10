@@ -146,7 +146,8 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
 			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage)
-
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.NetworkNeighborhood{
 					TypeMeta: v1.TypeMeta{
@@ -168,11 +169,11 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 				if tt.noWorkloadName {
 					delete(wlObj.ObjectMeta.Labels, helpersv1.NameMetadataKey)
 				}
-				err := realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", wlObj, nil, 0)
-				assert.NoError(t, err)
+				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", wlObj, nil, 0)
+				require.NoError(t, err)
 			}
 
-			err := generatedNetworkPolicyStorage.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr)
+			err := generatedNetworkPolicyStorage.Get(ctx, tt.args.key, tt.args.opts, tt.args.objPtr)
 
 			if tt.expectedError != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())

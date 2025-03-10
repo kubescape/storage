@@ -2,14 +2,15 @@
 
 module github.com/kubescape/storage
 
-go 1.22.5
+go 1.23
 
-toolchain go1.23.3
+toolchain go1.24.1
 
 require (
 	github.com/SergJa/jsonhash v0.0.0-20210531165746-fc45f346aa74
 	github.com/anchore/syft v1.3.0
 	github.com/armosec/utils-k8s-go v0.0.26
+	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/containers/common v0.60.4
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/dghubble/trie v0.1.0
