@@ -122,13 +122,15 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
-
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
-				_ = realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
+				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
+				require.NoError(t, err)
 			}
 
-			err := configScanSummaryStorage.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr)
+			err := configScanSummaryStorage.Get(ctx, tt.args.key, tt.args.opts, tt.args.objPtr)
 
 			if tt.expectedError != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
@@ -195,13 +197,15 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
-
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
-				_ = realStorage.Create(context.TODO(), "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
+				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/kubescape/toto", wlObj, nil, 0)
+				require.NoError(t, err)
 			}
 
-			err := configScanSummaryStorage.GetList(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr)
+			err := configScanSummaryStorage.GetList(ctx, tt.args.key, tt.args.opts, tt.args.objPtr)
 
 			if tt.expectedError != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())

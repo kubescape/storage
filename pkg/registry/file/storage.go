@@ -229,7 +229,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 		return errors.New(msg)
 	}
 	// call processor on object to be saved
-	if err := s.processor.PreSave(obj); err != nil && !errors.Is(err, TooLargeObjectError) {
+	if err := s.processor.PreSave(ctx, obj); err != nil && !errors.Is(err, TooLargeObjectError) {
 		return fmt.Errorf("processor.PreSave: %w", err)
 	}
 	// write files
@@ -682,7 +682,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// call processor on object to be saved
-		if err := s.processor.PreSave(ret); err != nil {
+		if err := s.processor.PreSave(ctx, ret); err != nil {
 			if errors.Is(err, TooLargeObjectError) {
 				// revert spec
 				ret = origState.obj.DeepCopyObject() // FIXME this is expensive
@@ -701,7 +701,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 		// check if the object is the same as the original
 		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
-		_ = s.processor.PreSave(orig)
+		_ = s.processor.PreSave(ctx, orig)
 		if reflect.DeepEqual(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object

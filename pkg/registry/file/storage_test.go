@@ -156,7 +156,9 @@ func TestStorageImpl_Create(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, sch)
-			err := s.Create(context.TODO(), tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			err := s.Create(ctx, tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -248,7 +250,9 @@ func TestStorageImpl_Delete(t *testing.T) {
 			pool.Put(conn)
 
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, nil)
-			if err := s.Delete(context.TODO(), tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			if err := s.Delete(ctx, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.want != nil {
@@ -382,13 +386,15 @@ func TestStorageImpl_Get(t *testing.T) {
 			}(pool)
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, nil)
 			if tt.create {
-				conn, err := pool.Take(context.Background())
+				conn, err := pool.Take(context.TODO())
 				require.NoError(t, err)
 				require.NoError(t, WriteJSON(conn, tt.args.key, tt.contentMeta))
 				require.NoError(t, afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key), tt.content, 0644))
 				pool.Put(conn)
 			}
-			if err := s.Get(context.TODO(), tt.args.key, tt.args.opts, tt.args.objPtr); !tt.wantErr(t, err) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			if err := s.Get(ctx, tt.args.key, tt.args.opts, tt.args.objPtr); !tt.wantErr(t, err) {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr(t, err))
 			}
 			if tt.want != nil {
@@ -454,14 +460,16 @@ func TestStorageImpl_GetList(t *testing.T) {
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	for k, v := range objs {
-		err := s.Create(context.Background(), k, v.DeepCopyObject(), nil, 0)
+		err := s.Create(ctx, k, v.DeepCopyObject(), nil, 0)
 		assert.NoError(t, err)
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := storage.ListOptions{Predicate: storage.SelectionPredicate{Limit: 500}} // this is the limit
-			if err := s.GetList(context.TODO(), tt.args.key, opts, tt.args.listObj); (err != nil) != tt.wantErr {
+			if err := s.GetList(ctx, tt.args.key, opts, tt.args.listObj); (err != nil) != tt.wantErr {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			assert.Equal(t, tt.want, len(tt.args.listObj.(*v1beta1.SBOMSyftList).Items))
@@ -614,12 +622,14 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 			if tt.create {
-				err := s.Create(context.Background(), tt.args.key, toto.DeepCopyObject(), nil, 0)
+				err := s.Create(ctx, tt.args.key, toto.DeepCopyObject(), nil, 0)
 				assert.NoError(t, err)
 			}
 			destination := &v1beta1.SBOMSyft{}
-			err := s.GuaranteedUpdate(context.TODO(), tt.args.key, destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
+			err := s.GuaranteedUpdate(ctx, tt.args.key, destination, tt.args.ignoreNotFound, tt.args.preconditions, tt.args.tryUpdate, tt.args.cachedExistingObject)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("GuaranteedUpdate() error = %v, wantErr %v", err, tt.wantErr)
@@ -627,7 +637,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				return
 			} else {
 				onDisk := &v1beta1.SBOMSyft{}
-				err = s.Get(context.Background(), tt.args.key, storage.GetOptions{}, onDisk)
+				err = s.Get(ctx, tt.args.key, storage.GetOptions{}, onDisk)
 				if tt.wantNotFound {
 					assert.Error(t, err)
 				} else {

@@ -44,7 +44,7 @@ func NewApplicationProfileProcessor(defaultNamespace string) *ApplicationProfile
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
-func (a *ApplicationProfileProcessor) PreSave(object runtime.Object) error {
+func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
@@ -62,7 +62,7 @@ func (a *ApplicationProfileProcessor) PreSave(object runtime.Object) error {
 			if err == nil {
 				sbom := softwarecomposition.SBOMSyft{}
 				key := fmt.Sprintf("/spdx.softwarecomposition.kubescape.io/sbomsyft/%s/%s", a.defaultNamespace, sbomName)
-				if err := a.storageImpl.Get(context.Background(), key, storage.GetOptions{}, &sbom); err == nil {
+				if err := a.storageImpl.Get(ctx, key, storage.GetOptions{}, &sbom); err == nil {
 					// fill sbomSet
 					sbomSet = mapset.NewSet[string]()
 					for _, f := range sbom.Spec.Syft.Files {
