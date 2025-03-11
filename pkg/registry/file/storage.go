@@ -342,6 +342,14 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
+			// file not found, delete corresponding metadata
+			conn, err := s.pool.Take(context.Background())
+			if err != nil {
+				return fmt.Errorf("take connection: %w", err)
+			}
+			defer s.pool.Put(conn)
+			_ = DeleteMetadata(conn, key, nil)
+			logger.L().Debug("Get - file not found, removed metadata", helpers.String("key", key))
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {
