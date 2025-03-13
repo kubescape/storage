@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	if !IsAvailable(networkNeighbors) {
 		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("networkNeighbors %s/%s status annotation is not ready nor completed", networkNeighbors.Namespace, networkNeighbors.Name)
@@ -117,6 +118,7 @@ func GenerateNetworkPolicy(networkNeighbors softwarecomposition.NetworkNeighbors
 	return generatedNetworkPolicy, nil
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRule) []softwarecomposition.NetworkPolicyIngressRule {
 	type PortProtocolKey struct {
 		Port     int32
@@ -188,6 +190,7 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 	return mergedRules
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule) []softwarecomposition.NetworkPolicyEgressRule {
 	type PortProtocolKey struct {
 		Port     int32
@@ -262,6 +265,7 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 	return mergedRules
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers softwarecomposition.IKnownServersFinder) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
 	egressRule := softwarecomposition.NetworkPolicyEgressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
@@ -340,6 +344,7 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 	return egressRule, policyRefs
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func hash(s any) (string, error) {
 
 	var b bytes.Buffer
@@ -350,6 +355,7 @@ func hash(s any) (string, error) {
 	return hex.EncodeToString(vv[:]), nil
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers softwarecomposition.IKnownServersFinder) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
 	ingressRule := softwarecomposition.NetworkPolicyIngressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
@@ -426,11 +432,13 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 	return ingressRule, policyRefs
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
 	ipBlock := &softwarecomposition.IPBlock{CIDR: ipAddress + "/32"}
 	return ipBlock
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func removeLabels(labels map[string]string) {
 	for key := range labels {
 		if networkpolicy.IsIgnoredLabel(key) {
@@ -439,6 +447,7 @@ func removeLabels(labels map[string]string) {
 	}
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func IsAvailable(networkNeighbors softwarecomposition.NetworkNeighbors) bool {
 	switch networkNeighbors.GetAnnotations()[helpersv1.StatusMetadataKey] {
 	case helpersv1.Ready, helpersv1.Completed:

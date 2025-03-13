@@ -11,6 +11,7 @@ const (
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func GenerateNetworkPolicy(networkNeighbors v1beta1.NetworkNeighbors, knownServers sc.IKnownServersFinder, timeProvider metav1.Time) (v1beta1.GeneratedNetworkPolicy, error) {
 	networkNeighborsV1, err := convertNetworkNeighbors(&networkNeighbors)
 	if err != nil {
@@ -36,6 +37,7 @@ func convertGeneratedNetworkPolicy(old *sc.GeneratedNetworkPolicy) (v1beta1.Gene
 	return npv1beta1, nil
 }
 
+// Deprecated: Use v2 instead. This version relies on deprecated functionality.
 func convertNetworkNeighbors(old *v1beta1.NetworkNeighbors) (sc.NetworkNeighbors, error) {
 	neighbors := sc.NetworkNeighbors{}
 	err := v1beta1.Convert_v1beta1_NetworkNeighbors_To_softwarecomposition_NetworkNeighbors(old, &neighbors, nil)
