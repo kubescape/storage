@@ -18,39 +18,6 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NetworkNeighborsList is a list of NetworkNeighbors.
-// DEPRECATED - use NetworkNeighborhoodList instead.
-type NetworkNeighborsList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []NetworkNeighbors `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighbors represents a list of network communications for a specific workload.
-// DEPRECATED - use NetworkNeighborhood instead.
-type NetworkNeighbors struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec NetworkNeighborsSpec `json:"spec" protobuf:"bytes,2,req,name=spec"`
-}
-
-type NetworkNeighborsSpec struct {
-	metav1.LabelSelector `json:",inline" protobuf:"bytes,3,opt,name=labelSelector"`
-	// +patchMergeKey=identifier
-	// +patchStrategy=merge
-	Ingress []NetworkNeighbor `json:"ingress" patchStrategy:"merge" patchMergeKey:"identifier" protobuf:"bytes,4,rep,name=ingress"`
-	// +patchMergeKey=identifier
-	// +patchStrategy=merge
-	Egress []NetworkNeighbor `json:"egress" patchStrategy:"merge" patchMergeKey:"identifier" protobuf:"bytes,5,rep,name=egress"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // NetworkNeighborhoodList is a list of NetworkNeighborhoods.
 type NetworkNeighborhoodList struct {
 	metav1.TypeMeta `json:",inline"`

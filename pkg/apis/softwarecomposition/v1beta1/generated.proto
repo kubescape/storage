@@ -865,34 +865,6 @@ message NetworkNeighborhoodSpec {
   repeated NetworkNeighborhoodContainer ephemeralContainers = 6;
 }
 
-// NetworkNeighbors represents a list of network communications for a specific workload.
-// DEPRECATED - use NetworkNeighborhood instead.
-message NetworkNeighbors {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
-
-  optional NetworkNeighborsSpec spec = 2;
-}
-
-// NetworkNeighborsList is a list of NetworkNeighbors.
-// DEPRECATED - use NetworkNeighborhoodList instead.
-message NetworkNeighborsList {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
-
-  repeated NetworkNeighbors items = 2;
-}
-
-message NetworkNeighborsSpec {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector labelSelector = 3;
-
-  // +patchMergeKey=identifier
-  // +patchStrategy=merge
-  repeated NetworkNeighbor ingress = 4;
-
-  // +patchMergeKey=identifier
-  // +patchStrategy=merge
-  repeated NetworkNeighbor egress = 5;
-}
-
 message NetworkPolicy {
   optional string kind = 1;
 
