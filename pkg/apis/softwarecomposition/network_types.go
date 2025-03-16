@@ -20,35 +20,6 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NetworkNeighborsList is a list of NetworkNeighbors.
-// DEPRECATED - use NetworkNeighborhoodList instead.
-type NetworkNeighborsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []NetworkNeighbors
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighbors represents a list of network communications for a specific workload.
-// DEPRECATED - use NetworkNeighborhood instead.
-type NetworkNeighbors struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	Spec NetworkNeighborsSpec
-}
-
-type NetworkNeighborsSpec struct {
-	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
-	Ingress              []NetworkNeighbor
-	Egress               []NetworkNeighbor
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // NetworkNeighborhoodList is a list of NetworkNeighborhoods.
 type NetworkNeighborhoodList struct {
 	metav1.TypeMeta

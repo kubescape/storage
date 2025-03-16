@@ -43,24 +43,24 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
 		// configurationscansummaries is virtual
 		// vulnerabilitysummaries is virtual
-		"applicationactivities":               []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
-		"applicationprofiles":                 []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
-		"applicationprofilesummaries":         []TypeCleanupHandlerFunc{deleteDeprecated},
-		"networkneighborses":                  []TypeCleanupHandlerFunc{deleteDeprecated},
-		"networkneighborhoods":                []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
-		"openvulnerabilityexchangecontainers": []TypeCleanupHandlerFunc{deleteByImageId},
-		"sbomspdxv2p3filtereds":               []TypeCleanupHandlerFunc{deleteDeprecated},
-		"sbomspdxv2p3filtered":                []TypeCleanupHandlerFunc{deleteDeprecated},
-		"sbomspdxv2p3s":                       []TypeCleanupHandlerFunc{deleteDeprecated},
-		"sbomspdxv2p3":                        []TypeCleanupHandlerFunc{deleteDeprecated},
-		"sbomsyftfiltered":                    []TypeCleanupHandlerFunc{deleteByInstanceId},
-		"sbomsyft":                            []TypeCleanupHandlerFunc{deleteByImageId},
-		"sbomsummaries":                       []TypeCleanupHandlerFunc{deleteDeprecated},
-		"seccompprofiles":                     []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid},
-		"vulnerabilitymanifests":              []TypeCleanupHandlerFunc{deleteByImageIdOrInstanceId},
-		"vulnerabilitymanifestsummaries":      []TypeCleanupHandlerFunc{deleteByWlidAndContainer},
-		"workloadconfigurationscans":          []TypeCleanupHandlerFunc{deleteByWlid},
-		"workloadconfigurationscansummaries":  []TypeCleanupHandlerFunc{deleteByWlid},
+		"applicationactivities":               {deleteByTemplateHashOrWlid},
+		"applicationprofiles":                 {deleteByTemplateHashOrWlid},
+		"applicationprofilesummaries":         {deleteDeprecated},
+		"networkneighborses":                  {deleteDeprecated},
+		"networkneighborhoods":                {deleteByTemplateHashOrWlid},
+		"openvulnerabilityexchangecontainers": {deleteByImageId},
+		"sbomspdxv2p3filtereds":               {deleteDeprecated},
+		"sbomspdxv2p3filtered":                {deleteDeprecated},
+		"sbomspdxv2p3s":                       {deleteDeprecated},
+		"sbomspdxv2p3":                        {deleteDeprecated},
+		"sbomsyftfiltered":                    {deleteByInstanceId},
+		"sbomsyft":                            {deleteByImageId},
+		"sbomsummaries":                       {deleteDeprecated},
+		"seccompprofiles":                     {deleteByTemplateHashOrWlid},
+		"vulnerabilitymanifests":              {deleteByImageIdOrInstanceId},
+		"vulnerabilitymanifestsummaries":      {deleteByWlidAndContainer},
+		"workloadconfigurationscans":          {deleteByWlid},
+		"workloadconfigurationscansummaries":  {deleteByWlid},
 	}
 
 	// only if relevancy is enabled, we need to delete application profiles with missing instanceId or wlid annotations
@@ -123,8 +123,6 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 						err = migrateToGob[softwarecomposition.ApplicationActivity](h.appFs, path)
 					case "applicationprofiles":
 						err = migrateToGob[softwarecomposition.ApplicationProfile](h.appFs, path)
-					case "networkneighborses":
-						err = migrateToGob[softwarecomposition.NetworkNeighbors](h.appFs, path)
 					case "networkneighborhoods":
 						err = migrateToGob[softwarecomposition.NetworkNeighborhood](h.appFs, path)
 					case "openvulnerabilityexchangecontainers":
@@ -267,13 +265,13 @@ func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resour
 }
 
 // deleteMissingInstanceIdAnnotation deletes resources that have missing instanceId annotation
-func deleteMissingInstanceIdAnnotation(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteMissingInstanceIdAnnotation(_, _ string, metadata *metav1.ObjectMeta, _ ResourceMaps) bool {
 	_, ok := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return !ok
 }
 
 // deleteMissingInstanceIdAnnotation deletes resources that have missing wlid annotation
-func deleteMissingWlidAnnotation(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+func deleteMissingWlidAnnotation(_, _ string, metadata *metav1.ObjectMeta, _ ResourceMaps) bool {
 	_, ok := metadata.Annotations[helpersv1.WlidMetadataKey]
 	return !ok
 }
