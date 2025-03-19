@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/uuid"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
@@ -20,15 +21,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error, string) {
 	if !IsAvailable(nn) {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name)
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name), ""
 	}
 
-	// get name from labels and clean labels
 	kind, ok := nn.Labels[helpersv1.KindMetadataKey]
 	if !ok {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name)
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name), ""
 	}
 	name, ok := nn.Labels[helpersv1.NameMetadataKey]
 	if !ok {
@@ -36,6 +36,8 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 		name = nn.Name
 	}
 	delete(nn.Labels, helpersv1.TemplateHashKey)
+
+	actionGUID := uuid.New().String()
 
 	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
@@ -45,6 +47,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 			Namespace: nn.Namespace,
 			Annotations: map[string]string{
 				"generated-by": "kubescape",
+				"action-guid":  actionGUID,
 			},
 			Labels: nn.Labels,
 		},
@@ -81,32 +84,29 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 
 	ingressHash := make(map[string]bool)
 	for _, neighbor := range listIngressNetworkNeighbors(nn) {
-
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
 		if ruleHash, err := hash(rule); err == nil {
-			if ok := ingressHash[ruleHash]; !ok {
+			if !ingressHash[ruleHash] {
 				networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, rule)
 				ingressHash[ruleHash] = true
 			}
 		}
 
 		if refsHash, err := hash(policyRefs); err == nil {
-			if ok := ingressHash[refsHash]; !ok {
+			if !ingressHash[refsHash] {
 				generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
 				ingressHash[refsHash] = true
 			}
 		}
-
 	}
 
 	egressHash := make(map[string]bool)
 	for _, neighbor := range listEgressNetworkNeighbors(nn) {
-
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
 		if ruleHash, err := hash(rule); err == nil {
-			if ok := egressHash[ruleHash]; !ok {
+			if !egressHash[ruleHash] {
 				networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, rule)
 				egressHash[ruleHash] = true
 			}
@@ -114,7 +114,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 
 		for i := range policyRefs {
 			if refsHash, err := hash(policyRefs[i]); err == nil {
-				if ok := egressHash[refsHash]; !ok {
+				if !egressHash[refsHash] {
 					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
 					egressHash[refsHash] = true
 				}
@@ -123,12 +123,11 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	}
 
 	networkPolicy.Spec.Egress = mergeEgressRulesByPorts(networkPolicy.Spec.Egress)
-
 	networkPolicy.Spec.Ingress = mergeIngressRulesByPorts(networkPolicy.Spec.Ingress)
 
 	generatedNetworkPolicy.Spec = networkPolicy
 
-	return generatedNetworkPolicy, nil
+	return generatedNetworkPolicy, nil, actionGUID
 }
 
 func listIngressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {

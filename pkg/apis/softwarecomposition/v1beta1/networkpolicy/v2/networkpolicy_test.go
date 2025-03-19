@@ -10,6 +10,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/google/uuid"
 	sc "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/stretchr/testify/assert"
@@ -32,24 +33,33 @@ func TestGenerateNetworkPolicyFromFile(t *testing.T) {
 	expectedNetworkPolicy := &v1beta1.GeneratedNetworkPolicy{}
 
 	if err := json.Unmarshal([]byte(networkNeighborhoodFile), networkNeighborhood); err != nil {
-		t.Fatalf("failed to unmarshal JSON data from file %s: %v", networkNeighborhoodFile, err)
+		t.Fatalf("failed to unmarshal networkNeighborhoodFile: %v", err)
 	}
 	if err := json.Unmarshal([]byte(knownServersFile), &knownServers); err != nil {
-		t.Fatalf("failed to unmarshal JSON data from file %s: %v", networkNeighborhoodFile, err)
+		t.Fatalf("failed to unmarshal knownServersFile: %v", err)
 	}
 	if err := json.Unmarshal([]byte(networkPolicyFile), expectedNetworkPolicy); err != nil {
-		t.Fatalf("failed to unmarshal JSON data from file %s: %v", networkNeighborhoodFile, err)
-	}
-	knownServersV1, err := convertKnownServersList(knownServers)
-	assert.NoError(t, err)
-	// Generate the network policy
-	generatedNetworkPolicy, err := GenerateNetworkPolicy(networkNeighborhood, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
-	if err != nil {
-		t.Fatalf("failed to generate network policy: %v", err)
+		t.Fatalf("failed to unmarshal networkPolicyFile: %v", err)
 	}
 
-	// Compare the generated policy with the expected policy
-	assert.Nil(t, compareNP(&generatedNetworkPolicy, expectedNetworkPolicy))
+	knownServersV1, err := convertKnownServersList(knownServers)
+	assert.NoError(t, err)
+
+	generatedNetworkPolicy, err, actionGUID := GenerateNetworkPolicy(networkNeighborhood, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
+	assert.NoError(t, err)
+
+	assert.NotEmpty(t, actionGUID, "actionGUID should not be empty")
+	assert.True(t, isValidUUID(actionGUID), "actionGUID should be a valid UUID")
+
+	// Validate that `actionGUID` exists in the annotations
+	assert.Contains(t, generatedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid", "action-guid annotation is missing")
+	assert.Equal(t, actionGUID, generatedNetworkPolicy.Spec.ObjectMeta.Annotations["action-guid"], "actionGUID should match the annotation")
+
+	// Compare the generated policy with the expected policy (excluding actionGUID)
+	delete(generatedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid")
+	delete(expectedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid")
+
+	assert.NoError(t, compareNP(&generatedNetworkPolicy, expectedNetworkPolicy))
 }
 
 func compareNP(p1, p2 *v1beta1.GeneratedNetworkPolicy) error {
@@ -129,4 +139,9 @@ func compareEgress(a, b []v1beta1.NetworkPolicyEgressRule) error {
 		return fmt.Errorf("a != b. a: %v, b: %v", a, b)
 	}
 	return nil
+}
+
+func isValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
 }
