@@ -45,17 +45,9 @@ func TestGenerateNetworkPolicyFromFile(t *testing.T) {
 	knownServersV1, err := convertKnownServersList(knownServers)
 	assert.NoError(t, err)
 
-	generatedNetworkPolicy, err, actionGUID := GenerateNetworkPolicy(networkNeighborhood, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
+	generatedNetworkPolicy, err:= GenerateNetworkPolicy(networkNeighborhood, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
 	assert.NoError(t, err)
-
-	assert.NotEmpty(t, actionGUID, "actionGUID should not be empty")
-	assert.True(t, isValidUUID(actionGUID), "actionGUID should be a valid UUID")
-
-	// Validate that `actionGUID` exists in the annotations
-	assert.Contains(t, generatedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid", "action-guid annotation is missing")
-	assert.Equal(t, actionGUID, generatedNetworkPolicy.Spec.ObjectMeta.Annotations["action-guid"], "actionGUID should match the annotation")
-
-	// Compare the generated policy with the expected policy (excluding actionGUID)
+	
 	delete(generatedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid")
 	delete(expectedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid")
 

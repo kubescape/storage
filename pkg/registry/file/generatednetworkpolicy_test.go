@@ -179,7 +179,15 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			}
 			if tt.args.objPtr != nil {
-				tt.args.objPtr.(*softwarecomposition.GeneratedNetworkPolicy).CreationTimestamp = v1.Time{}
+				gnp := tt.args.objPtr.(*softwarecomposition.GeneratedNetworkPolicy)
+				gnp.CreationTimestamp = v1.Time{}
+
+				// Remove action-guid annotation if present
+				if gnp.Spec.ObjectMeta.Annotations != nil {
+					if _, exists := gnp.Spec.ObjectMeta.Annotations["action-guid"]; exists {
+						delete(gnp.Spec.ObjectMeta.Annotations, "action-guid")
+					}
+				}
 			}
 
 			assert.Equal(t, tt.want, tt.args.objPtr)

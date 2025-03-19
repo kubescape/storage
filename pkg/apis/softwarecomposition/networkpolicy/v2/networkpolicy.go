@@ -21,14 +21,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error, string) {
+const (
+	// NetworkPolicyAnnotation is the annotation key used to store the generated network policy
+	ActionGUIDAnnotation = "action-guid"
+	GenerateByAnnotation = "generated-by"
+)
+
+func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	if !IsAvailable(nn) {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name), ""
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name)
 	}
 
 	kind, ok := nn.Labels[helpersv1.KindMetadataKey]
 	if !ok {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name), ""
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name)
 	}
 	name, ok := nn.Labels[helpersv1.NameMetadataKey]
 	if !ok {
@@ -46,8 +52,8 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 			Name:      fmt.Sprintf("%s-%s", strings.ToLower(kind), name),
 			Namespace: nn.Namespace,
 			Annotations: map[string]string{
-				"generated-by": "kubescape",
-				"action-guid":  actionGUID,
+				GenerateByAnnotation: "kubescape",
+				ActionGUIDAnnotation: actionGUID,
 			},
 			Labels: nn.Labels,
 		},
@@ -127,7 +133,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 
 	generatedNetworkPolicy.Spec = networkPolicy
 
-	return generatedNetworkPolicy, nil, actionGUID
+	return generatedNetworkPolicy, nil
 }
 
 func listIngressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {
