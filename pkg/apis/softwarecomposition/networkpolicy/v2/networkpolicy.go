@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/uuid"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
@@ -27,7 +26,7 @@ const (
 	GenerateByAnnotation = "generated-by"
 )
 
-func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time, actionGUID string) (softwarecomposition.GeneratedNetworkPolicy, error) {
 	if !IsAvailable(nn) {
 		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name)
 	}
@@ -43,19 +42,21 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	}
 	delete(nn.Labels, helpersv1.TemplateHashKey)
 
-	actionGUID := uuid.New().String()
+	annotations := map[string]string{
+		GenerateByAnnotation: "kubescape",
+	}
+	if actionGUID != "" {
+		annotations[ActionGUIDAnnotation] = actionGUID
+	}
 
 	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", strings.ToLower(kind), name),
-			Namespace: nn.Namespace,
-			Annotations: map[string]string{
-				GenerateByAnnotation: "kubescape",
-				ActionGUIDAnnotation: actionGUID,
-			},
-			Labels: nn.Labels,
+			Name:        fmt.Sprintf("%s-%s", strings.ToLower(kind), name),
+			Namespace:   nn.Namespace,
+			Annotations: annotations,
+			Labels:      nn.Labels,
 		},
 		Spec: softwarecomposition.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -118,10 +119,10 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 			}
 		}
 
-		for i := range policyRefs {
-			if refsHash, err := hash(policyRefs[i]); err == nil {
+		for _, ref := range policyRefs {
+			if refsHash, err := hash(ref); err == nil {
 				if !egressHash[refsHash] {
-					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
+					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, ref)
 					egressHash[refsHash] = true
 				}
 			}

@@ -45,11 +45,8 @@ func TestGenerateNetworkPolicyFromFile(t *testing.T) {
 	knownServersV1, err := convertKnownServersList(knownServers)
 	assert.NoError(t, err)
 
-	generatedNetworkPolicy, err:= GenerateNetworkPolicy(networkNeighborhood, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider)
+	generatedNetworkPolicy, err:= GenerateNetworkPolicy(networkNeighborhood, sc.NewKnownServersFinderImpl(knownServersV1), timeProvider, "")
 	assert.NoError(t, err)
-	
-	delete(generatedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid")
-	delete(expectedNetworkPolicy.Spec.ObjectMeta.Annotations, "action-guid")
 
 	assert.NoError(t, compareNP(&generatedNetworkPolicy, expectedNetworkPolicy))
 }

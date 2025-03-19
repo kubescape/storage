@@ -11,13 +11,13 @@ const (
 	storageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 )
 
-func GenerateNetworkPolicy(networkNeighborhood *v1beta1.NetworkNeighborhood, knownServersFinder sc.IKnownServersFinder, timeProvider metav1.Time) (v1beta1.GeneratedNetworkPolicy, error) {
+func GenerateNetworkPolicy(networkNeighborhood *v1beta1.NetworkNeighborhood, knownServersFinder sc.IKnownServersFinder, timeProvider metav1.Time, actionGUID string) (v1beta1.GeneratedNetworkPolicy, error) {
 	networkNeighborhoodV1, err := convertNetworkNeighborhood(networkNeighborhood)
 	if err != nil {
 		return v1beta1.GeneratedNetworkPolicy{}, err
 	}
 
-	npv1, err:= np.GenerateNetworkPolicy(networkNeighborhoodV1, knownServersFinder, timeProvider)
+	npv1, err := np.GenerateNetworkPolicy(networkNeighborhoodV1, knownServersFinder, timeProvider, actionGUID)
 	if err != nil {
 		return v1beta1.GeneratedNetworkPolicy{}, err
 	}
