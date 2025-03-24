@@ -58,15 +58,15 @@ func NewKubernetesClient() (dynamic.Interface, discovery.DiscoveryInterface, err
 }
 
 func (h *ResourcesCleanupHandler) deleteMetadata(path string) runtime.Object {
+	key := payloadPathToKey(path)
+	metaOut := &PartialObjectMetadata{}
 	conn, err := h.pool.Take(context.Background())
 	if err != nil {
 		logger.L().Error("failed to take connection", helpers.Error(err))
 		return nil
 	}
-	defer h.pool.Put(conn)
-	key := payloadPathToKey(path)
-	metaOut := &PartialObjectMetadata{}
 	err = file.DeleteMetadata(conn, key, metaOut)
+	h.pool.Put(conn)
 	if err != nil {
 		logger.L().Error("failed to delete metadata", helpers.Error(err))
 	}
@@ -179,13 +179,13 @@ func payloadPathToKey(path string) string {
 }
 
 func (h *ResourcesCleanupHandler) readMetadata(payloadFilePath string) (*metav1.ObjectMeta, error) {
+	key := payloadPathToKey(payloadFilePath)
 	conn, err := h.pool.Take(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to take connection: %w", err)
 	}
-	defer h.pool.Put(conn)
-	key := payloadPathToKey(payloadFilePath)
 	metadataJSON, err := file.ReadMetadata(conn, key)
+	h.pool.Put(conn)
 	if err == nil {
 		metadata, err := loadMetadata(metadataJSON)
 		if err == nil {
