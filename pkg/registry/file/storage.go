@@ -182,8 +182,9 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
-	defer s.pool.Put(conn)
-	if err := writeMetadata(conn, key, metadata); err != nil {
+	err = writeMetadata(conn, key, metadata)
+	s.pool.Put(conn)
+	if err != nil {
 		return fmt.Errorf("write metadata: %w", err)
 	}
 	// eventually fill metaOut
@@ -269,8 +270,9 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
-	defer s.pool.Put(conn)
-	if err := DeleteMetadata(conn, key, metaOut); err != nil {
+	err = DeleteMetadata(conn, key, metaOut)
+	s.pool.Put(conn)
+	if err != nil {
 		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
 	}
 	// delete payload file
@@ -332,8 +334,8 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 		if err != nil {
 			return fmt.Errorf("take connection: %w", err)
 		}
-		defer s.pool.Put(conn)
 		metadata, err := ReadMetadata(conn, key)
+		s.pool.Put(conn)
 		if err != nil {
 			return fmt.Errorf("read metadata: %w", err)
 		}
@@ -347,8 +349,8 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 			if err != nil {
 				return fmt.Errorf("take connection: %w", err)
 			}
-			defer s.pool.Put(conn)
 			_ = DeleteMetadata(conn, key, nil)
+			s.pool.Put(conn)
 			logger.L().Debug("Get - file not found, removed metadata", helpers.String("key", key))
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
@@ -371,8 +373,8 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 			if err != nil {
 				return fmt.Errorf("take connection: %w", err)
 			}
-			defer s.pool.Put(conn)
 			_ = DeleteMetadata(conn, key, nil)
+			s.pool.Put(conn)
 			_ = s.appFs.Remove(makePayloadPath(p))
 			logger.L().Debug("Get - gob unexpected EOF, removed files", helpers.String("key", key))
 			if opts.IgnoreNotFound {
@@ -413,16 +415,16 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 		opts.Predicate.Limit = 500
 	}
 	// prepare SQLite connection
-	conn, err := s.pool.Take(context.Background())
+	conn, err := s.pool.Take(context.Background()) // TODO maybe use ctx here to have cancellation?
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
-	defer s.pool.Put(conn)
 	var list []string
 	var last string
 	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
 		// get names from SQLite
 		list, last, err = listKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		s.pool.Put(conn)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
@@ -438,6 +440,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	} else {
 		// get metadata from SQLite
 		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		s.pool.Put(conn)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
 		}
