@@ -13,6 +13,10 @@ import (
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
+var (
+	ErrMetadataNotFound = errors.New("metadata not found")
+)
+
 // NewPool creates a new SQLite connection pool at the given path.
 // It returns an error if the connection cannot be opened or the database cannot be initialized.
 // It is your responsibility to call conn.Close() when you no longer need conn.
@@ -170,7 +174,7 @@ func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
 		return nil, fmt.Errorf("read metadata: %w", err)
 	}
 	if len(metadataJSON) == 0 {
-		return nil, errors.New("metadata not found")
+		return nil, ErrMetadataNotFound
 	}
 	return []byte(metadataJSON), nil
 }

@@ -337,7 +337,15 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 		metadata, err := ReadMetadata(conn, key)
 		s.pool.Put(conn)
 		if err != nil {
-			return fmt.Errorf("read metadata: %w", err)
+			if errors.Is(err, ErrMetadataNotFound) {
+				if opts.IgnoreNotFound {
+					return runtime.SetZeroValue(objPtr)
+				} else {
+					return storage.NewKeyNotFoundError(key, 0)
+				}
+			} else {
+				return fmt.Errorf("read metadata: %w", err)
+			}
 		}
 		return json.Unmarshal(metadata, objPtr)
 	}
