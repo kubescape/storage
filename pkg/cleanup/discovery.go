@@ -54,6 +54,8 @@ type ResourceMaps struct {
 	RunningInstanceIds           mapset.Set[string]
 	RunningContainerImageIds     mapset.Set[string]
 	RunningTemplateHash          mapset.Set[string]
+	// FIXME add nodes
+	// FIXME how about hosts?
 }
 
 // FetchResources builds a map of running resources in the cluster needed for cleanup
