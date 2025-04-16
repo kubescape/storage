@@ -215,7 +215,7 @@ func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
 
-	err := generatedNetworkPolicyStorage.Delete(context.TODO(), "", nil, nil, nil, nil)
+	err := generatedNetworkPolicyStorage.Delete(context.TODO(), "", nil, nil, nil, nil, storage.DeleteOptions{})
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 

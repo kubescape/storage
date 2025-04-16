@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -47,7 +48,7 @@ func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, _
 	}
 
 	if &workloadScanSummaryListObjPtr == nil {
-		return storage.NewInternalError("workload scan summary list is nil")
+		return storage.NewInternalError(fmt.Errorf("workload scan summary list is nil"))
 	}
 
 	if len(workloadScanSummaryListObjPtr.Items) == 0 {
