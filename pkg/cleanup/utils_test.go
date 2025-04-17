@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	helpers2 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_wlidWithoutClusterName(t *testing.T) {
@@ -36,4 +38,59 @@ func TestUnmarshalPartialObjectMetadata(t *testing.T) {
 	assert.Equal(t, "default", metadata.Namespace)
 	assert.Equal(t, "1", metadata.ResourceVersion)
 	assert.Equal(t, int64(1739205806), metadata.CreationTimestamp.Unix())
+}
+
+func Test_isHostOrNode(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata *metav1.ObjectMeta
+		want     bool
+	}{
+		{
+			name: "Host artifact type",
+			metadata: &metav1.ObjectMeta{
+				Labels: map[string]string{
+					helpers2.ArtifactTypeMetadataKey: helpers2.HostArtifactType,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Node artifact type",
+			metadata: &metav1.ObjectMeta{
+				Labels: map[string]string{
+					helpers2.ArtifactTypeMetadataKey: helpers2.NodeArtifactType,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Other artifact type",
+			metadata: &metav1.ObjectMeta{
+				Labels: map[string]string{
+					helpers2.ArtifactTypeMetadataKey: helpers2.ImageArtifactType,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "No artifact type label",
+			metadata: &metav1.ObjectMeta{
+				Labels: map[string]string{},
+			},
+			want: false,
+		},
+		{
+			name:     "Nil metadata",
+			metadata: nil,
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isHostOrNode(tt.metadata)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

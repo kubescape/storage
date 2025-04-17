@@ -101,6 +101,10 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 	return storageImpl
 }
 
+func (s *StorageImpl) ReadinessCheck() error {
+	return nil
+}
+
 // Versioner Returns Versioner associated with this interface.
 func (s *StorageImpl) Versioner() storage.Versioner {
 	return s.versioner
@@ -248,7 +252,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 // If 'cachedExistingObject' is non-nil, it can be used as a suggestion about the
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
-func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
+func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -861,7 +865,7 @@ func (immutableStorage) Create(_ context.Context, key string, _, _ runtime.Objec
 }
 
 // Delete is not supported for immutable objects. Objects are generated on the fly and not stored.
-func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object) error {
+func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	return storage.NewInvalidObjError(key, operationNotSupportedMsg)
 }
 
@@ -878,6 +882,10 @@ func (immutableStorage) GuaranteedUpdate(_ context.Context, key string, _ runtim
 // Count is not supported for immutable objects. Objects are generated on the fly and not stored.
 func (immutableStorage) Count(key string) (int64, error) {
 	return 0, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+}
+
+func (immutableStorage) ReadinessCheck() error {
+	return nil
 }
 
 // RequestWatchProgress fulfills the storage.Interface

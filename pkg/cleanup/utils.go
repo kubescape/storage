@@ -12,6 +12,7 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	helpers2 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
@@ -233,4 +234,16 @@ func unquote(value []byte) string {
 		return string(value)
 	}
 	return string(buf)
+}
+
+func isHostOrNode(metadata *metav1.ObjectMeta) bool {
+	if metadata == nil {
+		return false
+	}
+	if artifactType, ok := metadata.Labels[helpers2.ArtifactTypeMetadataKey]; ok {
+		if artifactType == helpers2.HostArtifactType || artifactType == helpers2.NodeArtifactType {
+			return true
+		}
+	}
+	return false
 }

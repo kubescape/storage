@@ -44,7 +44,7 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
-	err := configScanSummaryStorage.Delete(context.TODO(), "", nil, nil, nil, nil)
+	err := configScanSummaryStorage.Delete(context.TODO(), "", nil, nil, nil, nil, storage.DeleteOptions{})
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 

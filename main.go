@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"net/url"
 	"os"
@@ -46,7 +45,7 @@ func main() {
 		klog.SetLogger(zapr.NewLogger(logger))
 	}
 
-	ctx := context.Background()
+	ctx := genericapiserver.SetupSignalContext()
 	clusterData, err := utilsmetadata.LoadConfig("/etc/config/clusterData.json")
 	if err != nil {
 		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
@@ -68,9 +67,8 @@ func main() {
 	// setup watcher
 	watchDispatcher := file.NewWatchDispatcher()
 
-	stopCh := genericapiserver.SetupSignalHandler()
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, clusterData.Namespace, watchDispatcher)
-	cmd := server.NewCommandStartWardleServer(options, stopCh)
+	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 
 	// cleanup task
 	client, disco, err := cleanup.NewKubernetesClient()

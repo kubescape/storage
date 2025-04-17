@@ -216,11 +216,19 @@ func deleteDeprecated(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool {
 }
 
 func deleteByInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	// skip host and node types
+	if isHostOrNode(metadata) {
+		return false
+	}
 	instanceId, ok := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return !ok || !resourceMaps.RunningInstanceIds.Contains(instanceId)
 }
 
 func deleteByImageId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	// skip host and node types
+	if isHostOrNode(metadata) {
+		return false
+	}
 	imageId, ok := metadata.Annotations[helpersv1.ImageIDMetadataKey]
 	return !ok || !resourceMaps.RunningContainerImageIds.Contains(imageId)
 }
@@ -238,6 +246,10 @@ func deleteByWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps Resourc
 }
 
 func deleteByImageIdOrInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	// skip host and node types
+	if isHostOrNode(metadata) {
+		return false
+	}
 	imageId, imageIdFound := metadata.Annotations[helpersv1.ImageIDMetadataKey]
 	instanceId, instanceIdFound := metadata.Annotations[helpersv1.InstanceIDMetadataKey]
 	return (!instanceIdFound && !imageIdFound) ||
