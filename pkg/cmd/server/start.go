@@ -129,7 +129,19 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 	} else {
 		logger.L().Warning("TLS_SERVER_KEY_FILE not set")
 	}
-	o.RecommendedOptions.SecureServing.BindPort = 8443
+	value, exists = os.LookupEnv("SERVER_BIND_PORT")
+	if exists {
+		port, err := strconv.Atoi(value)
+		if err != nil {
+			logger.L().Error("SERVER_BIND_PORT not a valid integer", helpers.Error(err))
+		} else {
+			logger.L().Info("SERVER_BIND_PORT set to", helpers.Int("port", port))
+			o.RecommendedOptions.SecureServing.BindPort = port
+		}
+	} else {
+		logger.L().Warning("SERVER_BIND_PORT defaulting to 8443")
+		o.RecommendedOptions.SecureServing.BindPort = 8443
+	}
 
 	return o
 }
