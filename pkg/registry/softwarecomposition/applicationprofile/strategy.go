@@ -16,6 +16,7 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/common"
 	"github.com/kubescape/storage/pkg/utils"
 )
 
@@ -65,7 +66,7 @@ func (applicationProfileStrategy) PrepareForUpdate(ctx context.Context, obj, old
 	oldAP := old.(*softwarecomposition.ApplicationProfile)
 
 	// if we have an application profile that is marked as complete and completed, we do not allow any updates
-	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && oldAP.Annotations[helpers.StatusMetadataKey] == helpers.Completed {
+	if common.IsComplete(oldAP.Annotations, newAP.Annotations) {
 		logger.L().Debug("application profile is marked as complete and completed, rejecting update",
 			logHelpers.String("name", oldAP.Name),
 			logHelpers.String("namespace", oldAP.Namespace))
