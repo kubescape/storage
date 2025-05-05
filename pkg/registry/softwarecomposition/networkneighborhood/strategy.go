@@ -16,6 +16,7 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/common"
 	"github.com/kubescape/storage/pkg/utils"
 )
 
@@ -64,9 +65,9 @@ func (NetworkNeighborhoodStrategy) PrepareForUpdate(ctx context.Context, obj, ol
 	newAP := obj.(*softwarecomposition.NetworkNeighborhood)
 	oldAP := old.(*softwarecomposition.NetworkNeighborhood)
 
-	// if we have an network neighborhood that is marked as complete and completed, we do not allow any updates
-	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && oldAP.Annotations[helpers.StatusMetadataKey] == helpers.Completed {
-		logger.L().Debug("network neighborhood is marked as complete and completed, rejecting update",
+	// if we have an network neighborhood that is marked as completed, we do not allow any updates
+	if common.IsComplete(oldAP.Annotations, newAP.Annotations) {
+		logger.L().Debug("network neighborhood is marked as completed, rejecting update",
 			logHelpers.String("name", oldAP.Name),
 			logHelpers.String("namespace", oldAP.Namespace))
 		*newAP = *oldAP // reset the new object to the old object
