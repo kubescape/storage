@@ -21,7 +21,7 @@ import (
 const (
 	OpenDynamicThreshold             = 50
 	EndpointDynamicThreshold         = 100
-	DefaultMaxApplicationProfileSize = 11000
+	DefaultMaxApplicationProfileSize = 40000
 )
 
 type ApplicationProfileProcessor struct {
