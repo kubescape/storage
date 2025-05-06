@@ -161,7 +161,7 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(re
 			resourceMaps.RunningTemplateHash.Add(replicaHash)
 		}
 
-		instanceIds, err := instanceidhandler.GenerateInstanceID(pod)
+		instanceIds, err := instanceidhandler.GenerateInstanceID(pod, nil) // TODO eventually implement excludeJsonPaths - not needed today as we don't rely on slug
 		if err != nil {
 			return fmt.Errorf("failed to generate instance id for pod %s: %w", pod.GetName(), err)
 		}

@@ -20,7 +20,7 @@ require (
 	github.com/goradd/maps v0.1.5
 	github.com/kinbiko/jsonassert v1.1.1
 	github.com/kubescape/go-logger v0.0.23
-	github.com/kubescape/k8s-interface v0.0.191
+	github.com/kubescape/k8s-interface v0.0.194
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
