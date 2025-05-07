@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
 	"github.com/go-logr/zapr"
@@ -29,6 +28,7 @@ import (
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/cleanup"
 	"github.com/kubescape/storage/pkg/cmd/server"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
@@ -50,11 +50,20 @@ func main() {
 	if err != nil {
 		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
 	}
+	configDir := "/etc/config"
+	if envPath, present := os.LookupEnv("CONFIG_DIR"); present {
+		configDir = envPath
+	}
+	cfg, err := config.LoadConfig(configDir)
+	if err != nil {
+		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
+	}
+	cfg.DefaultNamespace = clusterData.Namespace
 	// to enable otel, set OTEL_COLLECTOR_SVC=otel-collector:4317
 	if otelHost, present := os.LookupEnv("OTEL_COLLECTOR_SVC"); present {
 		ctx = logger.InitOtel("storage",
 			os.Getenv("RELEASE"),
-			os.Getenv("ACCOUNT_ID"),
+			clusterData.AccountID,
 			clusterData.ClusterName,
 			url.URL{Host: otelHost})
 		defer logger.ShutdownOtel(ctx)
@@ -67,25 +76,19 @@ func main() {
 	// setup watcher
 	watchDispatcher := file.NewWatchDispatcher()
 
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, clusterData.Namespace, watchDispatcher)
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher)
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 
 	// cleanup task
 	client, disco, err := cleanup.NewKubernetesClient()
-	kubernetesAPI := cleanup.NewKubernetesAPI(client, disco)
+	kubernetesAPI := cleanup.NewKubernetesAPI(cfg, client, disco)
 	if err != nil {
 		panic(err.Error())
-	}
-	interval := os.Getenv("CLEANUP_INTERVAL")
-	intervalDuration, err := time.ParseDuration(interval)
-	if err != nil {
-		intervalDuration = time.Hour * 24
-		logger.L().Info("failed to parse cleanup interval, falling back to default", helpers.Error(err), helpers.String("interval", intervalDuration.String()))
 	}
 
 	relevancyEnabled := clusterData.RelevantImageVulnerabilitiesEnabled != nil && *clusterData.RelevantImageVulnerabilitiesEnabled
 
-	cleanupHandler := cleanup.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, intervalDuration, kubernetesAPI, relevancyEnabled)
+	cleanupHandler := cleanup.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, cfg.CleanupInterval, kubernetesAPI, relevancyEnabled)
 	go cleanupHandler.StartCleanupTask(ctx)
 
 	logger.L().Info("APIServer started")

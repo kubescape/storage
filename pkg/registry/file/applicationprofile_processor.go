@@ -3,7 +3,6 @@ package file
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -12,6 +11,7 @@ import (
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/k8s-interface/names"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,9 +19,8 @@ import (
 )
 
 const (
-	OpenDynamicThreshold             = 50
-	EndpointDynamicThreshold         = 100
-	DefaultMaxApplicationProfileSize = 40000
+	OpenDynamicThreshold     = 50
+	EndpointDynamicThreshold = 100
 )
 
 type ApplicationProfileProcessor struct {
@@ -30,15 +29,10 @@ type ApplicationProfileProcessor struct {
 	storageImpl               *StorageImpl
 }
 
-func NewApplicationProfileProcessor(defaultNamespace string) *ApplicationProfileProcessor {
-	maxApplicationProfileSize, err := strconv.Atoi(os.Getenv("MAX_APPLICATION_PROFILE_SIZE"))
-	if err != nil {
-		maxApplicationProfileSize = DefaultMaxApplicationProfileSize
-	}
-	logger.L().Debug("maxApplicationProfileSize", loggerhelpers.Int("size", maxApplicationProfileSize))
+func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProcessor {
 	return &ApplicationProfileProcessor{
-		defaultNamespace:          defaultNamespace,
-		maxApplicationProfileSize: maxApplicationProfileSize,
+		defaultNamespace:          cfg.DefaultNamespace,
+		maxApplicationProfileSize: cfg.MaxApplicationProfileSize,
 	}
 }
 
