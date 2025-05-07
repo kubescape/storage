@@ -6,6 +6,7 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/config"
 
 	"k8s.io/client-go/discovery"
 
@@ -38,12 +39,16 @@ type ResourcesFetcher interface {
 }
 
 type KubernetesAPI struct {
-	Client dynamic.Interface
+	cfg    config.Config
+	client dynamic.Interface
 }
 
-func NewKubernetesAPI(client dynamic.Interface, discovery discovery.DiscoveryInterface) *KubernetesAPI {
+func NewKubernetesAPI(cfg config.Config, client dynamic.Interface, discovery discovery.DiscoveryInterface) *KubernetesAPI {
 	k8sinterface.InitializeMapResources(discovery)
-	return &KubernetesAPI{Client: client}
+	return &KubernetesAPI{
+		cfg:    cfg,
+		client: client,
+	}
 }
 
 var _ ResourcesFetcher = (*KubernetesAPI)(nil)
@@ -67,7 +72,7 @@ func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
 		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
-	if err := h.fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(&resourceMaps); err != nil {
+	if err := h.fetchInstanceIdsAndImageIdsAndReplicasFromPods(&resourceMaps); err != nil {
 		return resourceMaps, fmt.Errorf("failed to fetch instance ids and image ids from running pods: %w", err)
 	}
 
@@ -85,7 +90,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 			return fmt.Errorf("failed to get group version resource for %s: %w", resource, err)
 		}
 
-		workloads, err := h.Client.Resource(gvr).List(context.TODO(), metav1.ListOptions{})
+		workloads, err := h.client.Resource(gvr).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to list %s: %w", gvr, err)
 		}
@@ -130,8 +135,8 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 			if !ok {
 				continue
 			}
-			ephemralContainers := ephemeralC.([]interface{})
-			for _, container := range ephemralContainers {
+			ephemeralContainers := ephemeralC.([]interface{})
+			for _, container := range ephemeralContainers {
 				name, ok := workloadinterface.InspectMap(container, "name")
 				if !ok {
 					logger.L().Debug("container has no name", helpers.String("resource", resource))
@@ -146,10 +151,8 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 	return nil
 }
 
-func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(resourceMaps *ResourceMaps) error {
-	pods, err := h.Client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(context.TODO(), metav1.ListOptions{
-		FieldSelector: "status.phase=Running",
-	})
+func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromPods(resourceMaps *ResourceMaps) error {
+	pods, err := h.client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
@@ -157,16 +160,13 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromRunningPods(re
 	for _, p := range pods.Items {
 		pod := workloadinterface.NewWorkloadObj(p.Object)
 
-		if replicaHash, ok := pod.GetLabel("pod-template-hash"); ok {
-			resourceMaps.RunningTemplateHash.Add(replicaHash)
-		}
-
-		instanceIds, err := instanceidhandler.GenerateInstanceID(pod, nil) // TODO eventually implement excludeJsonPaths - not needed today as we don't rely on slug
+		instanceIds, err := instanceidhandler.GenerateInstanceID(pod, h.cfg.ExcludeJsonPaths)
 		if err != nil {
 			return fmt.Errorf("failed to generate instance id for pod %s: %w", pod.GetName(), err)
 		}
 		for _, instanceId := range instanceIds {
 			resourceMaps.RunningInstanceIds.Add(instanceId.GetStringFormatted())
+			resourceMaps.RunningTemplateHash.Add(instanceId.GetTemplateHash())
 		}
 
 		s, ok := workloadinterface.InspectMap(p.Object, "status", "containerStatuses")

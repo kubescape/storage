@@ -23,8 +23,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"os"
-	"strconv"
 
 	"github.com/didip/tollbooth/v7"
 	"github.com/kubescape/go-logger"
@@ -32,6 +30,7 @@ import (
 	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/apiserver"
+	"github.com/kubescape/storage/pkg/config"
 	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
@@ -54,7 +53,6 @@ import (
 
 const (
 	defaultEtcdPathPrefix = "/registry/spdx.softwarecomposition.kubescape.io"
-	defaultRateLimit      = 10000
 )
 
 // WardleServerOptions contains state for master/api server
@@ -69,7 +67,7 @@ type WardleServerOptions struct {
 
 	OsFs            afero.Fs
 	Pool            *sqlitemigration.Pool
-	Namespace       string
+	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
 }
 
@@ -88,7 +86,7 @@ func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
 }
 
 // NewWardleServerOptions returns a new WardleServerOptions
-func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, namespace string, watchDispatcher *file.WatchDispatcher) *WardleServerOptions {
+func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, cfg config.Config, watchDispatcher *file.WatchDispatcher) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
@@ -100,7 +98,7 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 
 		OsFs:            osFs,
 		Pool:            pool,
-		Namespace:       namespace,
+		StorageConfig:   cfg,
 		WatchDispatcher: watchDispatcher,
 	}
 	o.RecommendedOptions.Admission = nil
@@ -109,39 +107,11 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 	// Disable authorization since we are publishing an internal endpoint (that only answers the API server)
 	o.RecommendedOptions.Authorization = nil
 
-	// Set TLS up and bind to 8443
-	value, exists := os.LookupEnv("TLS_CLIENT_CA_FILE")
-	if exists {
-		// Instead of reading the file contents, just set the path
-		o.RecommendedOptions.Authentication.ClientCert.ClientCA = value
-	} else {
-		logger.L().Warning("TLS_CLIENT_CA_FILE not set")
-	}
-	value, exists = os.LookupEnv("TLS_SERVER_CERT_FILE")
-	if exists {
-		o.RecommendedOptions.SecureServing.ServerCert.CertKey.CertFile = value
-	} else {
-		logger.L().Warning("TLS_SERVER_CERT_FILE not set")
-	}
-	value, exists = os.LookupEnv("TLS_SERVER_KEY_FILE")
-	if exists {
-		o.RecommendedOptions.SecureServing.ServerCert.CertKey.KeyFile = value
-	} else {
-		logger.L().Warning("TLS_SERVER_KEY_FILE not set")
-	}
-	value, exists = os.LookupEnv("SERVER_BIND_PORT")
-	if exists {
-		port, err := strconv.Atoi(value)
-		if err != nil {
-			logger.L().Error("SERVER_BIND_PORT not a valid integer", helpers.Error(err))
-		} else {
-			logger.L().Info("SERVER_BIND_PORT set to", helpers.Int("port", port))
-			o.RecommendedOptions.SecureServing.BindPort = port
-		}
-	} else {
-		logger.L().Warning("SERVER_BIND_PORT defaulting to 8443")
-		o.RecommendedOptions.SecureServing.BindPort = 8443
-	}
+	// Set TLS up and bind to secure port
+	o.RecommendedOptions.Authentication.ClientCert.ClientCA = o.StorageConfig.TlsClientCaFile
+	o.RecommendedOptions.SecureServing.ServerCert.CertKey.CertFile = o.StorageConfig.TlsServerCertFile
+	o.RecommendedOptions.SecureServing.ServerCert.CertKey.KeyFile = o.StorageConfig.TlsServerKeyFile
+	o.RecommendedOptions.SecureServing.BindPort = o.StorageConfig.ServerBindPort
 
 	return o
 }
@@ -290,9 +260,9 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	config := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
+			StorageConfig:   o.StorageConfig,
 			OsFs:            o.OsFs,
 			Pool:            o.Pool,
-			Namespace:       o.Namespace,
 			WatchDispatcher: o.WatchDispatcher,
 		},
 	}
@@ -301,21 +271,19 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 
 // RunWardleServer starts a new WardleServer given WardleServerOptions
 func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
-	config, err := o.Config()
+	c, err := o.Config()
 	if err != nil {
 		return err
 	}
 
-	server, err := config.Complete().New()
+	server, err := c.Complete().New()
 	if err != nil {
 		return err
 	}
 
-	if rateLimitPerClient, err := strconv.ParseFloat(os.Getenv("RATE_LIMIT_PER_CLIENT"), 64); err == nil {
-		rateLimitTotal := defaultRateLimit
-		if value, err := strconv.Atoi(os.Getenv("RATE_LIMIT_TOTAL")); err == nil {
-			rateLimitTotal = value
-		}
+	rateLimitPerClient := c.ExtraConfig.StorageConfig.RateLimitPerClient
+	if rateLimitPerClient > 0 {
+		rateLimitTotal := c.ExtraConfig.StorageConfig.RateLimitTotal
 		logger.L().Info("rate limiting enabled", helpers.Interface("rateLimitPerClient", rateLimitPerClient), helpers.Int("rateLimitTotal", rateLimitTotal))
 		// modify fullHandlerChain to include the Tollbooth rate limiter
 		fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
@@ -326,7 +294,7 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 	}
 
 	server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {
-		config.GenericConfig.SharedInformerFactory.Start(context.Done())
+		c.GenericConfig.SharedInformerFactory.Start(context.Done())
 		o.SharedInformerFactory.Start(context.Done())
 		return nil
 	})
