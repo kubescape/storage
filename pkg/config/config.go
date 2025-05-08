@@ -30,7 +30,7 @@ func LoadConfig(path string) (Config, error) {
 	viper.SetDefault("cleanupInterval", 24*time.Hour)
 	viper.SetDefault("defaultNamespace", "kubescape")
 	viper.SetDefault("maxApplicationProfileSize", 40000)
-	viper.SetDefault("maxNetworkNeighborhoodSize", 1000)
+	viper.SetDefault("maxNetworkNeighborhoodSize", 40000)
 	viper.SetDefault("rateLimitTotal", 10)
 	viper.SetDefault("serverBindPort", 8443)
 

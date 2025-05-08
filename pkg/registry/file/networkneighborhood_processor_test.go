@@ -67,7 +67,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 	}{
 		{
 			name:                       "NetworkNeighborhood with initContainers and ephemeralContainers",
-			maxNetworkNeighborhoodSize: 1000,
+			maxNetworkNeighborhoodSize: 40000,
 			object:                     &nn,
 			want: &softwarecomposition.NetworkNeighborhood{
 				ObjectMeta: v1.ObjectMeta{
