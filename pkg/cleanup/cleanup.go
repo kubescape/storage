@@ -128,40 +128,6 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 					logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
 				}
 
-				// FIXME: migrate to gob files - to remove after some time
-				if strings.HasSuffix(path, file.JsonExt) {
-					switch resourceKind {
-					case "applicationactivities":
-						err = migrateToGob[softwarecomposition.ApplicationActivity](h.appFs, path)
-					case "applicationprofiles":
-						err = migrateToGob[softwarecomposition.ApplicationProfile](h.appFs, path)
-					case "networkneighborhoods":
-						err = migrateToGob[softwarecomposition.NetworkNeighborhood](h.appFs, path)
-					case "openvulnerabilityexchangecontainers":
-						err = migrateToGob[softwarecomposition.OpenVulnerabilityExchangeContainer](h.appFs, path)
-					case "sbomsyftfiltered":
-						err = migrateToGob[softwarecomposition.SBOMSyftFiltered](h.appFs, path)
-					case "sbomsyft":
-						err = migrateToGob[softwarecomposition.SBOMSyft](h.appFs, path)
-					case "vulnerabilitymanifests":
-						err = migrateToGob[softwarecomposition.VulnerabilityManifest](h.appFs, path)
-					case "vulnerabilitymanifestsummaries":
-						err = migrateToGob[softwarecomposition.VulnerabilityManifestSummary](h.appFs, path)
-					case "workloadconfigurationscans":
-						err = migrateToGob[softwarecomposition.WorkloadConfigurationScan](h.appFs, path)
-					case "workloadconfigurationscansummaries":
-						err = migrateToGob[softwarecomposition.WorkloadConfigurationScanSummary](h.appFs, path)
-					default:
-						err = moveToGobBeforeDeletion(h.appFs, path)
-					}
-					if err != nil {
-						logger.L().Error("migration to gob error", helpers.Error(err))
-						return nil
-					}
-					// change path to gob file before continuing
-					path = path[:len(path)-len(file.JsonExt)] + file.GobExt
-				}
-
 				// skip files that are not payload files
 				if !file.IsPayloadFile(path) {
 					return nil
