@@ -3,8 +3,6 @@ package cleanup
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -136,43 +134,6 @@ func loadMetadata(metadataJSON []byte) (*metav1.ObjectMeta, error) {
 		return nil, errors.New("failed to parse metadata")
 	}
 	return &data, nil
-}
-
-func migrateToGob[T any](appFs afero.Fs, path string) error {
-	// open json file
-	jsonFile, err := appFs.Open(path)
-	if err != nil {
-		return err
-	}
-	// decode json
-	decoder := json.NewDecoder(jsonFile)
-	var objPtr T
-	err = decoder.Decode(&objPtr)
-	if err != nil {
-		return err
-	}
-	// encode to gob
-	var b bytes.Buffer
-	encoder := gob.NewEncoder(&b)
-	err = encoder.Encode(objPtr)
-	if err != nil {
-		return err
-	}
-	// write to gob file
-	err = afero.WriteFile(appFs, path[:len(path)-len(file.JsonExt)]+file.GobExt, b.Bytes(), 0644)
-	if err != nil {
-		return err
-	}
-	// remove json file
-	err = appFs.Remove(path)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func moveToGobBeforeDeletion(appFs afero.Fs, path string) error {
-	return appFs.Rename(path, path[:len(path)-len(file.JsonExt)]+file.GobExt)
 }
 
 func payloadPathToKey(path string) string {
