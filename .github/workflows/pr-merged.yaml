@@ -13,6 +13,7 @@ jobs:
     if: ${{ github.event.pull_request.merged == true }} ## Skip if not merged
     uses: kubescape/workflows/.github/workflows/incluster-comp-pr-merged.yaml@main
     with:
+      HELM_BRANCH: bump
       IMAGE_NAME: quay.io/${{ github.repository_owner }}/storage
       IMAGE_TAG: v0.0.${{ github.run_number }}
       COMPONENT_NAME: storage
