@@ -49,9 +49,16 @@ func TestCleanupTask(t *testing.T) {
 		}
 	}
 
+	// copy sqlite file to the temp directory
+	tempDir := t.TempDir()
+	bytes, err := os.ReadFile("./testdata/test.sq3")
+	require.NoError(t, err)
+	err = os.WriteFile(tempDir+"/test.sq3", bytes, 0644)
+	require.NoError(t, err)
+
 	handler := &ResourcesCleanupHandler{
 		appFs:                 memFs,
-		pool:                  file.NewTestPool(t.TempDir()),
+		pool:                  file.NewTestPool(tempDir),
 		root:                  file.DefaultStorageRoot,
 		fetcher:               &ResourcesFetchMock{},
 		deleteFunc:            deleteFunc,
