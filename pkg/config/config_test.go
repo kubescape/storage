@@ -22,7 +22,7 @@ func TestLoadConfig(t *testing.T) {
 				DefaultNamespace:           "kubescape",
 				ExcludeJsonPaths:           []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
 				MaxApplicationProfileSize:  40000,
-				MaxNetworkNeighborhoodSize: 1000,
+				MaxNetworkNeighborhoodSize: 40000,
 				RateLimitTotal:             10,
 				ServerBindPort:             8443,
 			},
