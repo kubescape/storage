@@ -74,12 +74,11 @@ func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 
 func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) error {
 	_, _, kind, namespace, name := pathToKeys(path)
-	err := sqlitex.ExecuteTransient(conn,
-		`DELETE FROM metadata
+	err := sqlitex.Execute(conn,
+		`SELECT metadata FROM metadata
 				WHERE kind = :kind
 				  AND namespace = :namespace
-				  AND name = :name
-				RETURNING metadata`,
+				  AND name = :name`,
 		&sqlitex.ExecOptions{
 			Named: map[string]any{":kind": kind, ":namespace": namespace, ":name": name},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
