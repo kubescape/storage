@@ -1285,6 +1285,8 @@ message StackFrame {
   optional string fileID = 1;
 
   optional string lineno = 2;
+
+  optional int64 frameType = 3;
 }
 
 message Statement {

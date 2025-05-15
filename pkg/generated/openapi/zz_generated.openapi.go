@@ -5698,8 +5698,15 @@ func schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref common.Reference
 							Format:  "",
 						},
 					},
+					"frameType": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
 				},
-				Required: []string{"fileID", "lineno"},
+				Required: []string{"fileID", "lineno", "frameType"},
 			},
 		},
 	}

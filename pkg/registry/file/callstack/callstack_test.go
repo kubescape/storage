@@ -1156,13 +1156,13 @@ func TestUnifyIdentifiedCallStacksComplex2(t *testing.T) {
 			name: "Multiple branches at different levels",
 			stacks: []types.IdentifiedCallStack{
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "1"}, {"4", "1"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "1", 0}, {"4", "1", 0}},
 				}),
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "2"}, {"4", "2"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "2", 0}, {"4", "2", 0}},
 				}),
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "2"}, {"3", "3"}, {"4", "3"}},
+					{{"1", "1", 0}, {"2", "2", 0}, {"3", "3", 0}, {"4", "3", 0}},
 				}),
 			},
 			expectedSize: 1,
@@ -1179,13 +1179,13 @@ func TestUnifyIdentifiedCallStacksComplex2(t *testing.T) {
 			name: "Multiple call IDs with shared prefixes",
 			stacks: []types.IdentifiedCallStack{
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "1"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "1", 0}},
 				}),
 				buildCallStack("id2", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "2"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "2", 0}},
 				}),
 				buildCallStack("id2", []framePath{
-					{{"1", "1"}, {"2", "2"}, {"3", "3"}},
+					{{"1", "1", 0}, {"2", "2", 0}, {"3", "3", 0}},
 				}),
 			},
 			expectedSize: 2,
@@ -1212,10 +1212,10 @@ func TestUnifyIdentifiedCallStacksComplex2(t *testing.T) {
 			name: "Deep branches with reconvergence",
 			stacks: []types.IdentifiedCallStack{
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "1"}, {"4", "1"}, {"5", "1"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "1", 0}, {"4", "1", 0}, {"5", "1", 0}},
 				}),
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "2"}, {"4", "1"}, {"5", "1"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "2", 0}, {"4", "1", 0}, {"5", "1", 0}},
 				}),
 			},
 			expectedSize: 1,
@@ -1238,10 +1238,10 @@ func TestUnifyIdentifiedCallStacksComplex2(t *testing.T) {
 			name: "Multiple branches with empty frames",
 			stacks: []types.IdentifiedCallStack{
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"", ""}, {"3", "1"}},
+					{{"1", "1", 0}, {"", "", 0}, {"3", "1", 0}},
 				}),
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "2"}, {"3", "1"}},
+					{{"1", "1", 0}, {"2", "2", 0}, {"3", "1", 0}},
 				}),
 			},
 			expectedSize: 1,
@@ -1258,10 +1258,10 @@ func TestUnifyIdentifiedCallStacksComplex2(t *testing.T) {
 			name: "Cyclic patterns",
 			stacks: []types.IdentifiedCallStack{
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "1"}, {"2", "1"}, {"3", "1"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "1", 0}, {"2", "1", 0}, {"3", "1", 0}},
 				}),
 				buildCallStack("id1", []framePath{
-					{{"1", "1"}, {"2", "1"}, {"3", "2"}, {"2", "1"}, {"3", "1"}},
+					{{"1", "1", 0}, {"2", "1", 0}, {"3", "2", 0}, {"2", "1", 0}, {"3", "1", 0}},
 				}),
 			},
 			expectedSize: 1,
@@ -1328,31 +1328,31 @@ func TestUnifyCallStacksEdgeCases(t *testing.T) {
 				// First stack
 				buildCallStack("test1", []framePath{
 					{
-						{"1", "1"},
-						{"2", "1"},
-						{"3", "1"},
-						{"4", "1"},
-						{"5", "1"},
+						{"1", "1", 0},
+						{"2", "1", 0},
+						{"3", "1", 0},
+						{"4", "1", 0},
+						{"5", "1", 0},
 					},
 				}),
 				// Second stack with early divergence
 				buildCallStack("test1", []framePath{
 					{
-						{"1", "1"},
-						{"2", "2"}, // Diverges here
-						{"3", "2"},
-						{"4", "2"},
-						{"5", "2"},
+						{"1", "1", 0},
+						{"2", "2", 0}, // Diverges here
+						{"3", "2", 0},
+						{"4", "2", 0},
+						{"5", "2", 0},
 					},
 				}),
 				// Third stack that shares part of first path but diverges later
 				buildCallStack("test1", []framePath{
 					{
-						{"1", "1"},
-						{"2", "1"},
-						{"3", "1"},
-						{"4", "3"}, // Diverges later
-						{"5", "3"},
+						{"1", "1", 0},
+						{"2", "1", 0},
+						{"3", "1", 0},
+						{"4", "3", 0}, // Diverges later
+						{"5", "3", 0},
 					},
 				}),
 			},
@@ -1413,19 +1413,19 @@ func TestUnifyCallStacksEdgeCases(t *testing.T) {
 			stacks: []types.IdentifiedCallStack{
 				buildCallStack("test2", []framePath{
 					{
-						{"1", "1"},
-						{"2", "1"},
-						{"3", "1"},
-						{"0", "4012"},
+						{"1", "1", 0},
+						{"2", "1", 0},
+						{"3", "1", 0},
+						{"0", "4012", 0},
 					},
 				}),
 				buildCallStack("test2", []framePath{
 					{
-						{"1", "1"},
-						{"2", "1"},
-						{"3", "1"},
-						{"4", "1"},
-						{"5", "1"},
+						{"1", "1", 0},
+						{"2", "1", 0},
+						{"3", "1", 0},
+						{"4", "1", 0},
+						{"5", "1", 0},
 					},
 				}),
 			},
