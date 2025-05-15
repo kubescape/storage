@@ -291,8 +291,9 @@ type IdentifiedCallStack struct {
 }
 
 type StackFrame struct {
-	FileID string
-	Lineno string
+	FileID    string
+	Lineno    string
+	FrameType int64
 }
 
 type CallStackNode struct {

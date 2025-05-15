@@ -4911,6 +4911,7 @@ func Convert_softwarecomposition_SpecBase_To_v1beta1_SpecBase(in *softwarecompos
 func autoConvert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(in *StackFrame, out *softwarecomposition.StackFrame, s conversion.Scope) error {
 	out.FileID = in.FileID
 	out.Lineno = in.Lineno
+	out.FrameType = in.FrameType
 	return nil
 }
 
@@ -4922,6 +4923,7 @@ func Convert_v1beta1_StackFrame_To_softwarecomposition_StackFrame(in *StackFrame
 func autoConvert_softwarecomposition_StackFrame_To_v1beta1_StackFrame(in *softwarecomposition.StackFrame, out *StackFrame, s conversion.Scope) error {
 	out.FileID = in.FileID
 	out.Lineno = in.Lineno
+	out.FrameType = in.FrameType
 	return nil
 }
 
