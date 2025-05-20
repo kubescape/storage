@@ -363,7 +363,6 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 			}
 			_ = DeleteMetadata(conn, key, nil)
 			s.pool.Put(conn)
-			logger.L().Debug("Get - file not found, removed metadata", helpers.String("key", key))
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {

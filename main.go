@@ -24,6 +24,7 @@ import (
 
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
 	"github.com/go-logr/zapr"
+	"github.com/grafana/pyroscope-go"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/cleanup"
@@ -67,6 +68,25 @@ func main() {
 			clusterData.ClusterName,
 			url.URL{Host: otelHost})
 		defer logger.ShutdownOtel(ctx)
+	}
+
+	if pyroscopeServerSvc, present := os.LookupEnv("PYROSCOPE_SERVER_SVC"); present {
+		logger.L().Info("starting pyroscope profiler")
+
+		if os.Getenv("APPLICATION_NAME") == "" {
+			os.Setenv("APPLICATION_NAME", "node-agent")
+		}
+
+		_, err := pyroscope.Start(pyroscope.Config{
+			ApplicationName: os.Getenv("APPLICATION_NAME"),
+			ServerAddress:   pyroscopeServerSvc,
+			Logger:          pyroscope.StandardLogger,
+			Tags:            map[string]string{"app": "storage", "pod": os.Getenv("POD_NAME")},
+		})
+
+		if err != nil {
+			logger.L().Ctx(ctx).Error("error starting pyroscope", helpers.Error(err))
+		}
 	}
 
 	// setup storage components
