@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -16,10 +17,14 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 //go:embed testdata/expectedFilesToDelete.json
@@ -159,4 +164,50 @@ func unzipFile(f *zip.File, destination string, appFs afero.Fs) error {
 		return err
 	}
 	return nil
+}
+
+func BenchmarkCleanup(b *testing.B) {
+	memFs := afero.NewMemMapFs()
+	pool := file.NewTestPool(b.TempDir())
+
+	sch := scheme.Scheme
+	require.NoError(b, softwarecomposition.AddToScheme(sch))
+	s := file.NewStorageImpl(memFs, file.DefaultStorageRoot, pool, nil, sch)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	for i := 0; i < 40000; i++ {
+		key := fmt.Sprintf("/spdx.softwarecomposition.kubescape.io/applicationprofiles/default/test-%d", i)
+		obj := &softwarecomposition.ApplicationProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      key,
+				Namespace: "default",
+				Annotations: map[string]string{
+					helpersv1.WlidMetadataKey: "wlid://cluster-arn-aws-eks-eu-west-1-015253967648-cluster-ca-terraform-eks-dev-stage/namespace-ca-staging/cronjob-portal-mongodb-client-snapshot-stage",
+				},
+				Labels: map[string]string{
+					helpersv1.KindMetadataKey:            "CronJob",
+					helpersv1.ResourceVersionMetadataKey: strconv.Itoa(i),
+				},
+			},
+		}
+		err := s.Create(ctx, key, obj, nil, 0)
+		require.NoError(b, err)
+	}
+
+	deleteFunc := func(appFs afero.Fs, path string) {}
+	handler := &ResourcesCleanupHandler{
+		appFs:                 memFs,
+		pool:                  pool,
+		root:                  file.DefaultStorageRoot,
+		fetcher:               &ResourcesFetchMock{},
+		deleteFunc:            deleteFunc,
+		resourceToKindHandler: initResourceToKindHandler(false),
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		handler.cleanupTask(context.TODO())
+	}
+	b.ReportAllocs()
 }
