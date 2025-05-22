@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+	"k8s.io/utils/ptr"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
@@ -253,6 +254,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	logger.L().Info("Delete", helpers.String("key", key))
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -296,6 +298,10 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
 func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	logger.L().Info("Watch", helpers.String("key", key), helpers.String("opts", fmt.Sprintf("%+v", opts)))
+	//buf := make([]byte, 1<<16)
+	//n := goruntime.Stack(buf, true)
+	//logger.L().Info("Watch", helpers.String("key", key), helpers.String("opts", fmt.Sprintf("%+v", opts)), helpers.Interface("stack", string(buf[:n])))
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -311,6 +317,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+	logger.L().Info("Get", helpers.String("key", key), helpers.Interface("opts", opts))
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Get")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -409,6 +416,7 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	logger.L().Info("GetList", helpers.String("key", key), helpers.String("opts", fmt.Sprintf("%+v", opts)))
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -466,20 +474,30 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
 		}
 	}
-	// eventually set list accessor fields
-	if len(list) == int(opts.Predicate.Limit) {
-		listAccessor, err := meta.ListAccessor(listObj)
-		if err != nil {
-			return fmt.Errorf("list accessor: %w", err)
-		}
-		listAccessor.SetContinue(last)
-		//if rsp.RemainingItemCount > 0 {
-		//listAccessor.SetRemainingItemCount(&rsp.RemainingItemCount)
-		//}
-		//if rsp.ResourceVersion > 0 {
-		//listAccessor.SetResourceVersion(strconv.FormatInt(rsp.ResourceVersion, 10))
-		//}
+	if v.IsNil() {
+		// Ensure that we never return a nil Items pointer in the result for consistency.
+		logger.L().Info("GetList - list is nil, creating empty slice", helpers.String("key", key))
+		v.Set(reflect.MakeSlice(v.Type(), 0, 0))
 	}
+	// set list accessor fields
+	listAccessor, err := meta.ListAccessor(listObj)
+	if err != nil || listAccessor == nil {
+		return fmt.Errorf("list accessor: %w", err)
+	}
+	resourceVersion := opts.ResourceVersion
+	if resourceVersion == "" {
+		resourceVersion = "1" // TODO: check if this is correct
+	}
+	logger.L().Info("GetList setting resource version", helpers.String("key", key), helpers.String("resourceVersion", resourceVersion))
+	listAccessor.SetResourceVersion(resourceVersion)
+	if len(list) == int(opts.Predicate.Limit) { // we have filled our bucket
+		logger.L().Info("GetList setting continue", helpers.String("key", key), helpers.String("continue", last))
+		listAccessor.SetContinue(last)
+		// it is fine to leave remainingItemCount as nil https://github.com/kubernetes/apiserver/blob/7937de32ffff81ceddaa4c8723534af404cfff2d/pkg/storage/continue.go#L113
+	} else {
+		listAccessor.SetRemainingItemCount(ptr.To(int64(0)))
+	}
+	logger.L().Info("GetList returning", helpers.String("key", key), helpers.Interface("listObj", listObj))
 	return nil
 }
 

@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"time"
 
 	"github.com/didip/tollbooth/v7"
 	"github.com/kubescape/go-logger"
@@ -293,6 +294,10 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
 	}
 
+	// add logging middleware
+	//fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
+	//server.GenericAPIServer.Handler.FullHandlerChain = LogMiddleware(fullHandlerChain)
+
 	server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {
 		c.GenericConfig.SharedInformerFactory.Start(context.Done())
 		o.SharedInformerFactory.Start(context.Done())
@@ -300,6 +305,27 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 	})
 
 	return server.GenericAPIServer.PrepareRun().RunWithContext(ctx)
+}
+
+// LogMiddleware is an http.Handler that logs incoming requests.
+func LogMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		// Log information before the request is processed
+		logger.L().Info("RunWardleServer - incoming request", helpers.String("method", r.Method),
+			helpers.String("path", r.URL.Path),
+			helpers.String("remoteAddr", r.RemoteAddr))
+
+		// Call the next handler in the chain
+		next.ServeHTTP(w, r)
+
+		// Log information after the request has been processed
+		logger.L().Info("RunWardleServer - finished processing request", helpers.String("method", r.Method),
+			helpers.String("path", r.URL.Path),
+			helpers.String("remoteAddr", r.RemoteAddr),
+			helpers.String("duration", time.Since(start).String()))
+	})
 }
 
 func servePprof() {
