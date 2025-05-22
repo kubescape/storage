@@ -253,6 +253,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	logger.L().Info("Delete", helpers.String("key", key))
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -296,6 +297,10 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
 func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	logger.L().Info("Watch", helpers.String("key", key), helpers.String("opts", fmt.Sprintf("%+v", opts)))
+	//buf := make([]byte, 1<<16)
+	//n := goruntime.Stack(buf, true)
+	//logger.L().Info("Watch", helpers.String("key", key), helpers.String("opts", fmt.Sprintf("%+v", opts)), helpers.Interface("stack", string(buf[:n])))
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -311,6 +316,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+	logger.L().Info("Get", helpers.String("key", key), helpers.Interface("opts", opts))
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Get")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -409,6 +415,7 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	logger.L().Info("GetList", helpers.String("key", key), helpers.String("opts", fmt.Sprintf("%+v", opts)))
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -480,6 +487,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 		//listAccessor.SetResourceVersion(strconv.FormatInt(rsp.ResourceVersion, 10))
 		//}
 	}
+	logger.L().Info("GetList returning", helpers.String("key", key), helpers.Int("len", len(list)))
 	return nil
 }
 
