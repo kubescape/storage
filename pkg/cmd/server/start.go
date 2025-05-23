@@ -165,7 +165,7 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 	// - The minimum compatibility version specifies the minimum version that the component remains compatible with.
 	//
 	// Refer to KEP-4330 for more details: https://github.com/kubernetes/enhancements/blob/master/keps/sig-architecture/4330-compatibility-versions
-	defaultWardleVersion := "1.2"
+	defaultWardleVersion := "1.1"
 	// Register the "Wardle" component with the global component registry,
 	// associating it with its effective version and feature gate configuration.
 	// Will skip if the component has been registered, like in the integration test.
