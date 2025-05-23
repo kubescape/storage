@@ -193,7 +193,6 @@ func TestStorageImpl_Delete(t *testing.T) {
 		in3 *storage.Preconditions
 		in4 storage.ValidateObjectFunc
 		in5 runtime.Object
-		in6 storage.DeleteOptions
 	}
 	tests := []struct {
 		name    string
@@ -253,7 +252,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, nil)
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			if err := s.Delete(ctx, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5, tt.args.in6); (err != nil) != tt.wantErr {
+			if err := s.Delete(ctx, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.want != nil {

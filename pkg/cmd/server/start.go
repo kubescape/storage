@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
@@ -38,15 +37,11 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/component-base/featuregate"
-	utilversion "k8s.io/component-base/version"
 	netutils "k8s.io/utils/net"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
@@ -71,20 +66,6 @@ type WardleServerOptions struct {
 	WatchDispatcher *file.WatchDispatcher
 }
 
-func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
-	if ver.Major() != 1 {
-		return nil
-	}
-	kubeVer := utilversion.DefaultKubeEffectiveVersion().BinaryVersion()
-	// "1.2" maps to kubeVer
-	offset := int(ver.Minor()) - 2
-	mappedVer := kubeVer.OffsetMinor(offset)
-	if mappedVer.GreaterThan(kubeVer) {
-		return kubeVer
-	}
-	return mappedVer
-}
-
 // NewWardleServerOptions returns a new WardleServerOptions
 func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, cfg config.Config, watchDispatcher *file.WatchDispatcher) *WardleServerOptions {
 	o := &WardleServerOptions{
@@ -101,7 +82,6 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 		StorageConfig:   cfg,
 		WatchDispatcher: watchDispatcher,
 	}
-	o.RecommendedOptions.Admission = nil
 	o.RecommendedOptions.Etcd = nil
 
 	// Disable authorization since we are publishing an internal endpoint (that only answers the API server)
@@ -118,17 +98,11 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 
 // NewCommandStartWardleServer provides a CLI handler for 'start master' command
 // with a default WardleServerOptions.
-func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOptions, skipDefaultComponentGlobalsRegistrySet bool) *cobra.Command {
+func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan struct{}) *cobra.Command {
 	o := *defaults
 	cmd := &cobra.Command{
 		Short: "Launch a wardle API server",
 		Long:  "Launch a wardle API server",
-		PersistentPreRunE: func(*cobra.Command, []string) error {
-			if skipDefaultComponentGlobalsRegistrySet {
-				return nil
-			}
-			return featuregate.DefaultComponentGlobalsRegistry.Set()
-		},
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
 				logger.L().Error("config not completed", helpers.Error(err))
@@ -140,7 +114,7 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 				return err
 			}
 			logger.L().Debug("config validated")
-			if err := o.RunWardleServer(c.Context()); err != nil {
+			if err := o.RunWardleServer(stopCh); err != nil {
 				logger.L().Error("unable to run server validated", helpers.Error(err))
 				return err
 			}
@@ -148,50 +122,10 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 			return nil
 		},
 	}
-	cmd.SetContext(ctx)
 
 	flags := cmd.Flags()
 	o.RecommendedOptions.AddFlags(flags)
-
-	// The following lines demonstrate how to configure version compatibility and feature gates
-	// for the "Wardle" component, as an example of KEP-4330.
-
-	// Create an effective version object for the "Wardle" component.
-	// This initializes the binary version, the emulation version and the minimum compatibility version.
-	//
-	// Note:
-	// - The binary version represents the actual version of the running source code.
-	// - The emulation version is the version whose capabilities are being emulated by the binary.
-	// - The minimum compatibility version specifies the minimum version that the component remains compatible with.
-	//
-	// Refer to KEP-4330 for more details: https://github.com/kubernetes/enhancements/blob/master/keps/sig-architecture/4330-compatibility-versions
-	defaultWardleVersion := "1.2"
-	// Register the "Wardle" component with the global component registry,
-	// associating it with its effective version and feature gate configuration.
-	// Will skip if the component has been registered, like in the integration test.
-	_, wardleFeatureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
-		apiserver.WardleComponentName, utilversion.NewEffectiveVersion(defaultWardleVersion),
-		featuregate.NewVersionedFeatureGate(version.MustParse(defaultWardleVersion)))
-
-	// Add versioned feature specifications for the "BanFlunder" feature.
-	// These specifications, together with the effective version, determine if the feature is enabled.
-	utilruntime.Must(wardleFeatureGate.AddVersioned(map[featuregate.Feature]featuregate.VersionedSpecs{
-		"BanFlunder": {
-			{Version: version.MustParse("1.2"), Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-			{Version: version.MustParse("1.1"), Default: true, PreRelease: featuregate.Beta},
-			{Version: version.MustParse("1.0"), Default: false, PreRelease: featuregate.Alpha},
-		},
-	}))
-
-	// Register the default kube component if not already present in the global registry.
-	_, _ = featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(featuregate.DefaultKubeComponent,
-		utilversion.NewEffectiveVersion(utilversion.DefaultKubeBinaryVersion), utilfeature.DefaultMutableFeatureGate)
-
-	// Set the emulation version mapping from the "Wardle" component to the kube component.
-	// This ensures that the emulation version of the latter is determined by the emulation version of the former.
-	utilruntime.Must(featuregate.DefaultComponentGlobalsRegistry.SetEmulationVersionMapping(apiserver.WardleComponentName, featuregate.DefaultKubeComponent, WardleVersionToKubeVersion))
-
-	featuregate.DefaultComponentGlobalsRegistry.AddFlags(flags)
+	utilfeature.DefaultMutableFeatureGate.AddFlag(flags)
 
 	// replace built-in profiling with pprof on port 6060
 	err := flags.Set("profiling", "false")
@@ -213,7 +147,6 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 func (o WardleServerOptions) Validate(args []string) error {
 	errors := []error{}
 	errors = append(errors, o.RecommendedOptions.Validate()...)
-	errors = append(errors, featuregate.DefaultComponentGlobalsRegistry.Validate()...)
 	return utilerrors.NewAggregate(errors)
 }
 
@@ -250,9 +183,6 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	serverConfig.OpenAPIV3Config.Info.Title = "Wardle"
 	serverConfig.OpenAPIV3Config.Info.Version = "0.1"
 
-	serverConfig.FeatureGate = featuregate.DefaultComponentGlobalsRegistry.FeatureGateFor(featuregate.DefaultKubeComponent)
-	serverConfig.EffectiveVersion = featuregate.DefaultComponentGlobalsRegistry.EffectiveVersionFor(apiserver.WardleComponentName)
-
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, err
 	}
@@ -270,7 +200,7 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 }
 
 // RunWardleServer starts a new WardleServer given WardleServerOptions
-func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
+func (o WardleServerOptions) RunWardleServer(stopCh <-chan struct{}) error {
 	c, err := o.Config()
 	if err != nil {
 		return err
@@ -294,12 +224,12 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 	}
 
 	server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {
-		c.GenericConfig.SharedInformerFactory.Start(context.Done())
-		o.SharedInformerFactory.Start(context.Done())
+		c.GenericConfig.SharedInformerFactory.Start(context.StopCh)
+		o.SharedInformerFactory.Start(context.StopCh)
 		return nil
 	})
 
-	return server.GenericAPIServer.PrepareRun().RunWithContext(ctx)
+	return server.GenericAPIServer.PrepareRun().Run(stopCh)
 }
 
 func servePprof() {
