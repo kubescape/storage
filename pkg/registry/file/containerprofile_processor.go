@@ -106,7 +106,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 	if profile.Annotations[helpers.ReportSeriesIdMetadataKey] != "" {
 		// check size and completion for the corresponding container profile
 		name, _ := splitProfileName(profile.Name)
-		// load profile from disk if it exists
+		// load profile metadata if profile exists
 		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", profile.Namespace, name)
 		existingProfile := softwarecomposition.ContainerProfile{}
 		err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &existingProfile)
@@ -271,7 +271,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 					return nil, fmt.Errorf("failed to get ts profile: %w", err)
 				}
 				newData = true
-				time.Sleep(time.Second)
+				time.Sleep(100 * time.Millisecond)
 				mergeContainerProfileTS(&profile, &tsProfile)
 				// mark as processed
 				timeSeries[seriesID][k].HasData = false

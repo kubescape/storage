@@ -24,6 +24,7 @@ require (
 	github.com/kubescape/k8s-interface v0.0.196-0.20250605131454-ebc0f2a0390c
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
+	github.com/panjf2000/ants/v2 v2.11.3
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.12.0
 	github.com/spf13/cobra v1.9.1
