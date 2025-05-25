@@ -15,8 +15,8 @@ import (
 )
 
 // NewStrategy creates and returns a generatedNetworkPolicyStrategy instance
-func NewStrategy(typer runtime.ObjectTyper) generatedNetworkPolicyStrategy {
-	return generatedNetworkPolicyStrategy{typer, names.SimpleNameGenerator}
+func NewStrategy(typer runtime.ObjectTyper) GeneratedNetworkPolicyStrategy {
+	return GeneratedNetworkPolicyStrategy{typer, names.SimpleNameGenerator}
 }
 
 // GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a GeneratedNetworkPolicy
@@ -25,7 +25,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not a GeneratedNetworkPolicy")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 func MatchGeneratedNetworkPolicy(label labels.Selector, field fields.Selector) storage.SelectionPredicate {
@@ -41,46 +41,46 @@ func SelectableFields(obj *softwarecomposition.GeneratedNetworkPolicy) fields.Se
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 
-type generatedNetworkPolicyStrategy struct {
+type GeneratedNetworkPolicyStrategy struct {
 	runtime.ObjectTyper
 	names.NameGenerator
 }
 
-func (generatedNetworkPolicyStrategy) NamespaceScoped() bool {
+func (GeneratedNetworkPolicyStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (generatedNetworkPolicyStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (GeneratedNetworkPolicyStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (generatedNetworkPolicyStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (GeneratedNetworkPolicyStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
 }
 
-func (generatedNetworkPolicyStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (GeneratedNetworkPolicyStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (generatedNetworkPolicyStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (GeneratedNetworkPolicyStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
-func (generatedNetworkPolicyStrategy) AllowCreateOnUpdate() bool {
+func (GeneratedNetworkPolicyStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-func (generatedNetworkPolicyStrategy) AllowUnconditionalUpdate() bool {
+func (GeneratedNetworkPolicyStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (generatedNetworkPolicyStrategy) Canonicalize(obj runtime.Object) {
+func (GeneratedNetworkPolicyStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (generatedNetworkPolicyStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (GeneratedNetworkPolicyStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (generatedNetworkPolicyStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (GeneratedNetworkPolicyStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

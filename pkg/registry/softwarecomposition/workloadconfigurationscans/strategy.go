@@ -16,8 +16,8 @@ import (
 )
 
 // NewStrategy creates and returns a vulnManifestStrategy instance
-func NewStrategy(typer runtime.ObjectTyper) workloadConfigurationScanStrategy {
-	return workloadConfigurationScanStrategy{typer, names.SimpleNameGenerator}
+func NewStrategy(typer runtime.ObjectTyper) WorkloadConfigurationScanStrategy {
+	return WorkloadConfigurationScanStrategy{typer, names.SimpleNameGenerator}
 }
 
 // GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Flunder
@@ -26,7 +26,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not a WorkloadConfigurationScan")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 // MatchWorkloadConfigurationScan is the filter used by the generic etcd backend to watch events
@@ -44,46 +44,46 @@ func SelectableFields(obj *softwarecomposition.WorkloadConfigurationScan) fields
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 
-type workloadConfigurationScanStrategy struct {
+type WorkloadConfigurationScanStrategy struct {
 	runtime.ObjectTyper
 	names.NameGenerator
 }
 
-func (workloadConfigurationScanStrategy) NamespaceScoped() bool {
+func (WorkloadConfigurationScanStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (workloadConfigurationScanStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (WorkloadConfigurationScanStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (workloadConfigurationScanStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (WorkloadConfigurationScanStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
 }
 
-func (workloadConfigurationScanStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (WorkloadConfigurationScanStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (workloadConfigurationScanStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (WorkloadConfigurationScanStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
-func (workloadConfigurationScanStrategy) AllowCreateOnUpdate() bool {
+func (WorkloadConfigurationScanStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-func (workloadConfigurationScanStrategy) AllowUnconditionalUpdate() bool {
+func (WorkloadConfigurationScanStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (workloadConfigurationScanStrategy) Canonicalize(obj runtime.Object) {
+func (WorkloadConfigurationScanStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (workloadConfigurationScanStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (WorkloadConfigurationScanStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (workloadConfigurationScanStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (WorkloadConfigurationScanStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

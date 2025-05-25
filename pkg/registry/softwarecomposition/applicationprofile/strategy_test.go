@@ -93,7 +93,7 @@ func TestPrepareForUpdateAnnotations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := applicationProfileStrategy{}
+			s := ApplicationProfileStrategy{}
 
 			obj := &softwarecomposition.ApplicationProfile{ObjectMeta: metav1.ObjectMeta{Annotations: tt.newAnnotations}}
 			old := &softwarecomposition.ApplicationProfile{ObjectMeta: metav1.ObjectMeta{Annotations: tt.oldAnnotations}}
@@ -256,7 +256,7 @@ func TestPrepareForUpdateFullObj(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := applicationProfileStrategy{}
+			s := ApplicationProfileStrategy{}
 			s.PrepareForUpdate(context.TODO(), tt.new, tt.old)
 			assert.Equal(t, tt.expected, tt.new)
 		})
