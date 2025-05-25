@@ -34,6 +34,7 @@ import (
 	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
+	queuemanager "github.com/kubescape/storage/pkg/queuemanager"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -252,6 +253,13 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 
 	serverConfig.FeatureGate = featuregate.DefaultComponentGlobalsRegistry.FeatureGateFor(featuregate.DefaultKubeComponent)
 	serverConfig.EffectiveVersion = featuregate.DefaultComponentGlobalsRegistry.EffectiveVersionFor(apiserver.WardleComponentName)
+
+	serverConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) http.Handler {
+		handler := genericapiserver.DefaultBuildHandlerChain(apiHandler, c)
+		queueManager := queuemanager.NewQueueManager(&o.StorageConfig)
+		handler = queueManager.QueueHandler(handler)
+		return handler
+	}
 
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, err

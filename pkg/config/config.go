@@ -6,6 +6,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+type KindQueueConfig struct {
+	QueueLength   int `mapstructure:"queueLength"`
+	WorkerCount   int `mapstructure:"workerCount"`
+	MaxObjectSize int `mapstructure:"maxObjectSize"`
+}
+
 type Config struct {
 	CleanupInterval            time.Duration `mapstructure:"cleanupInterval"`
 	DefaultNamespace           string        `mapstructure:"defaultNamespace"`
@@ -19,6 +25,12 @@ type Config struct {
 	TlsClientCaFile            string        `mapstructure:"tlsClientCaFile"`
 	TlsServerCertFile          string        `mapstructure:"tlsServerCertFile"`
 	TlsServerKeyFile           string        `mapstructure:"tlsServerKeyFile"`
+
+	// New fields for per-kind queue/worker/object size config
+	KindQueues           map[string]KindQueueConfig `mapstructure:"kindQueues"`
+	DefaultQueueLength   int                        `mapstructure:"defaultQueueLength"`
+	DefaultWorkerCount   int                        `mapstructure:"defaultWorkerCount"`
+	DefaultMaxObjectSize int                        `mapstructure:"defaultMaxObjectSize"`
 }
 
 // LoadConfig reads configuration from file or environment variables.
@@ -33,6 +45,9 @@ func LoadConfig(path string) (Config, error) {
 	viper.SetDefault("maxNetworkNeighborhoodSize", 40000)
 	viper.SetDefault("rateLimitTotal", 10)
 	viper.SetDefault("serverBindPort", 8443)
+	viper.SetDefault("defaultQueueLength", 100)
+	viper.SetDefault("defaultWorkerCount", 2)
+	viper.SetDefault("defaultMaxObjectSize", 400000)
 
 	err := viper.ReadInConfig()
 	if err != nil {
