@@ -16,6 +16,7 @@ import (
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite"
 )
 
 const (
@@ -38,7 +39,11 @@ func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProces
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
-func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtime.Object) error {
+func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+	return nil
+}
+
+func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
@@ -55,8 +60,8 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 			sbomName, err := names.ImageInfoToSlug(container.ImageTag, container.ImageID)
 			if err == nil {
 				sbom := softwarecomposition.SBOMSyft{}
-				key := fmt.Sprintf("/spdx.softwarecomposition.kubescape.io/sbomsyft/%s/%s", a.defaultNamespace, sbomName)
-				if err := a.storageImpl.Get(ctx, key, storage.GetOptions{}, &sbom); err == nil {
+				key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
+				if err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &sbom); err == nil {
 					// fill sbomSet
 					sbomSet = mapset.NewSet[string]()
 					for _, f := range sbom.Spec.Syft.Files {
@@ -88,7 +93,7 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 
 	// check the size of the profile
 	if size > a.maxApplicationProfileSize {
-		return fmt.Errorf("application profile size exceeds the limit of %d: %w", a.maxApplicationProfileSize, TooLargeObjectError)
+		return fmt.Errorf("application profile size exceeds the limit of %d: %w", a.maxApplicationProfileSize, ObjectTooLargeError)
 	}
 
 	// make sure annotations are initialized
