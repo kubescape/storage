@@ -31,7 +31,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not a NetworkNeighborhood")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 // MatchNetworkNeighborhood is the filter used by the generic etcd backend to watch events
@@ -58,10 +58,10 @@ func (NetworkNeighborhoodStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (NetworkNeighborhoodStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (NetworkNeighborhoodStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (NetworkNeighborhoodStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (NetworkNeighborhoodStrategy) PrepareForUpdate(_ context.Context, obj, old runtime.Object) {
 	newAP := obj.(*softwarecomposition.NetworkNeighborhood)
 	oldAP := old.(*softwarecomposition.NetworkNeighborhood)
 
@@ -91,7 +91,7 @@ func (NetworkNeighborhoodStrategy) PrepareForUpdate(ctx context.Context, obj, ol
 	}
 }
 
-func (NetworkNeighborhoodStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (NetworkNeighborhoodStrategy) Validate(_ context.Context, obj runtime.Object) field.ErrorList {
 	ap := obj.(*softwarecomposition.NetworkNeighborhood)
 
 	allErrors := field.ErrorList{}
@@ -108,7 +108,7 @@ func (NetworkNeighborhoodStrategy) Validate(ctx context.Context, obj runtime.Obj
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (NetworkNeighborhoodStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (NetworkNeighborhoodStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
@@ -120,10 +120,10 @@ func (NetworkNeighborhoodStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (NetworkNeighborhoodStrategy) Canonicalize(obj runtime.Object) {
+func (NetworkNeighborhoodStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (NetworkNeighborhoodStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (NetworkNeighborhoodStrategy) ValidateUpdate(_ context.Context, obj, _ runtime.Object) field.ErrorList {
 	ap := obj.(*softwarecomposition.NetworkNeighborhood)
 
 	allErrors := field.ErrorList{}
@@ -140,6 +140,6 @@ func (NetworkNeighborhoodStrategy) ValidateUpdate(ctx context.Context, obj, old 
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (NetworkNeighborhoodStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (NetworkNeighborhoodStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

@@ -16,8 +16,8 @@ import (
 )
 
 // NewStrategy creates and returns a sbomSyftStrategy instance
-func NewStrategy(typer runtime.ObjectTyper) sbomSyftStrategy {
-	return sbomSyftStrategy{typer, names.SimpleNameGenerator}
+func NewStrategy(typer runtime.ObjectTyper) SbomSyftStrategy {
+	return SbomSyftStrategy{typer, names.SimpleNameGenerator}
 }
 
 // GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Flunder
@@ -26,7 +26,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not an SBOMSyftFiltered")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 // MatchWorkloadConfigurationScan is the filter used by the generic etcd backend to watch events
@@ -44,46 +44,46 @@ func SelectableFields(obj *softwarecomposition.SBOMSyftFiltered) fields.Set {
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 
-type sbomSyftStrategy struct {
+type SbomSyftStrategy struct {
 	runtime.ObjectTyper
 	names.NameGenerator
 }
 
-func (sbomSyftStrategy) NamespaceScoped() bool {
+func (SbomSyftStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (sbomSyftStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (SbomSyftStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (sbomSyftStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (SbomSyftStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
 }
 
-func (sbomSyftStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (SbomSyftStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (sbomSyftStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (SbomSyftStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
-func (sbomSyftStrategy) AllowCreateOnUpdate() bool {
+func (SbomSyftStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-func (sbomSyftStrategy) AllowUnconditionalUpdate() bool {
+func (SbomSyftStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (sbomSyftStrategy) Canonicalize(obj runtime.Object) {
+func (SbomSyftStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (sbomSyftStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (SbomSyftStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (sbomSyftStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (SbomSyftStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

@@ -16,8 +16,8 @@ import (
 )
 
 // NewStrategy creates and returns a configurationScanStrategy instance
-func NewStrategy(typer runtime.ObjectTyper) configurationScanStrategy {
-	return configurationScanStrategy{typer, names.SimpleNameGenerator}
+func NewStrategy(typer runtime.ObjectTyper) ConfigurationScanStrategy {
+	return ConfigurationScanStrategy{typer, names.SimpleNameGenerator}
 }
 
 // GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Flunder
@@ -26,7 +26,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not a ConfigurationScanSummary")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 // MatchConfigurationScanSummary is the filter used by the generic etcd backend to watch events
@@ -44,46 +44,46 @@ func SelectableFields(obj *softwarecomposition.ConfigurationScanSummary) fields.
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 
-type configurationScanStrategy struct {
+type ConfigurationScanStrategy struct {
 	runtime.ObjectTyper
 	names.NameGenerator
 }
 
-func (configurationScanStrategy) NamespaceScoped() bool {
+func (ConfigurationScanStrategy) NamespaceScoped() bool {
 	return false
 }
 
-func (configurationScanStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (ConfigurationScanStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (configurationScanStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (ConfigurationScanStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
 }
 
-func (configurationScanStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (ConfigurationScanStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (configurationScanStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (ConfigurationScanStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
-func (configurationScanStrategy) AllowCreateOnUpdate() bool {
+func (ConfigurationScanStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-func (configurationScanStrategy) AllowUnconditionalUpdate() bool {
+func (ConfigurationScanStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (configurationScanStrategy) Canonicalize(obj runtime.Object) {
+func (ConfigurationScanStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (configurationScanStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (ConfigurationScanStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (configurationScanStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (ConfigurationScanStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

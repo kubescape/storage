@@ -16,8 +16,8 @@ import (
 )
 
 // NewStrategy creates and returns a seccompProfileStrategy instance
-func NewStrategy(typer runtime.ObjectTyper) seccompProfileStrategy {
-	return seccompProfileStrategy{typer, names.SimpleNameGenerator}
+func NewStrategy(typer runtime.ObjectTyper) SeccompProfileStrategy {
+	return SeccompProfileStrategy{typer, names.SimpleNameGenerator}
 }
 
 // GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Flunder
@@ -26,7 +26,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not an SeccompProfile")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 // MatchWorkloadConfigurationScan is the filter used by the generic etcd backend to watch events
@@ -44,46 +44,46 @@ func SelectableFields(obj *softwarecomposition.SeccompProfile) fields.Set {
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 
-type seccompProfileStrategy struct {
+type SeccompProfileStrategy struct {
 	runtime.ObjectTyper
 	names.NameGenerator
 }
 
-func (seccompProfileStrategy) NamespaceScoped() bool {
+func (SeccompProfileStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (seccompProfileStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (SeccompProfileStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (seccompProfileStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (SeccompProfileStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
 }
 
-func (seccompProfileStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (SeccompProfileStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (seccompProfileStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (SeccompProfileStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
-func (seccompProfileStrategy) AllowCreateOnUpdate() bool {
+func (SeccompProfileStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-func (seccompProfileStrategy) AllowUnconditionalUpdate() bool {
+func (SeccompProfileStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (seccompProfileStrategy) Canonicalize(obj runtime.Object) {
+func (SeccompProfileStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (seccompProfileStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (SeccompProfileStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (seccompProfileStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (SeccompProfileStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

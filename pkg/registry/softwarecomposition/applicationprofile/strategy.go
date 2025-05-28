@@ -21,8 +21,8 @@ import (
 )
 
 // NewStrategy creates and returns a applicationProfileStrategy instance
-func NewStrategy(typer runtime.ObjectTyper) applicationProfileStrategy {
-	return applicationProfileStrategy{typer, names.SimpleNameGenerator}
+func NewStrategy(typer runtime.ObjectTyper) ApplicationProfileStrategy {
+	return ApplicationProfileStrategy{typer, names.SimpleNameGenerator}
 }
 
 // GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Flunder
@@ -31,7 +31,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not a Flunder")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 // MatchApplicationProfile is the filter used by the generic etcd backend to watch events
@@ -49,19 +49,19 @@ func SelectableFields(obj *softwarecomposition.ApplicationProfile) fields.Set {
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 
-type applicationProfileStrategy struct {
+type ApplicationProfileStrategy struct {
 	runtime.ObjectTyper
 	names.NameGenerator
 }
 
-func (applicationProfileStrategy) NamespaceScoped() bool {
+func (ApplicationProfileStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (applicationProfileStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (ApplicationProfileStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (applicationProfileStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (ApplicationProfileStrategy) PrepareForUpdate(_ context.Context, obj, old runtime.Object) {
 	newAP := obj.(*softwarecomposition.ApplicationProfile)
 	oldAP := old.(*softwarecomposition.ApplicationProfile)
 
@@ -91,7 +91,7 @@ func (applicationProfileStrategy) PrepareForUpdate(ctx context.Context, obj, old
 	}
 }
 
-func (applicationProfileStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (ApplicationProfileStrategy) Validate(_ context.Context, obj runtime.Object) field.ErrorList {
 	ap := obj.(*softwarecomposition.ApplicationProfile)
 
 	allErrors := field.ErrorList{}
@@ -108,22 +108,22 @@ func (applicationProfileStrategy) Validate(ctx context.Context, obj runtime.Obje
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (applicationProfileStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (ApplicationProfileStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
-func (applicationProfileStrategy) AllowCreateOnUpdate() bool {
+func (ApplicationProfileStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-func (applicationProfileStrategy) AllowUnconditionalUpdate() bool {
+func (ApplicationProfileStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (applicationProfileStrategy) Canonicalize(obj runtime.Object) {
+func (ApplicationProfileStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (applicationProfileStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (ApplicationProfileStrategy) ValidateUpdate(_ context.Context, obj, _ runtime.Object) field.ErrorList {
 	ap := obj.(*softwarecomposition.ApplicationProfile)
 
 	allErrors := field.ErrorList{}
@@ -140,6 +140,6 @@ func (applicationProfileStrategy) ValidateUpdate(ctx context.Context, obj, old r
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (applicationProfileStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (ApplicationProfileStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

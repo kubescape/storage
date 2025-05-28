@@ -17,7 +17,7 @@ func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) [
 
 	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range *endpoints {
-		AnalyzeURL(endpoint.Endpoint, analyzer)
+		_, _ = AnalyzeURL(endpoint.Endpoint, analyzer)
 	}
 
 	for _, endpoint := range *endpoints {
@@ -35,13 +35,13 @@ func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) [
 }
 
 func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEndpoints []*types.HTTPEndpoint) (*types.HTTPEndpoint, error) {
-	url, err := AnalyzeURL(endpoint.Endpoint, analyzer)
+	analyzeURL, err := AnalyzeURL(endpoint.Endpoint, analyzer)
 	if err != nil {
 		return nil, err
 	}
 
-	if url != endpoint.Endpoint {
-		endpoint.Endpoint = url
+	if analyzeURL != endpoint.Endpoint {
+		endpoint.Endpoint = analyzeURL
 
 		for i, e := range newEndpoints {
 			if getEndpointKey(e) == getEndpointKey(endpoint) {
@@ -52,7 +52,7 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 		}
 
 		dynamicEndpoint := types.HTTPEndpoint{
-			Endpoint:  url,
+			Endpoint:  analyzeURL,
 			Methods:   endpoint.Methods,
 			Internal:  endpoint.Internal,
 			Direction: endpoint.Direction,
