@@ -28,9 +28,9 @@ import (
 
 type SpdxV1beta1Interface interface {
 	RESTClient() rest.Interface
-	ApplicationActivitiesGetter
 	ApplicationProfilesGetter
 	ConfigurationScanSummariesGetter
+	ContainerProfilesGetter
 	GeneratedNetworkPoliciesGetter
 	KnownServersGetter
 	NetworkNeighborhoodsGetter
@@ -50,16 +50,16 @@ type SpdxV1beta1Client struct {
 	restClient rest.Interface
 }
 
-func (c *SpdxV1beta1Client) ApplicationActivities(namespace string) ApplicationActivityInterface {
-	return newApplicationActivities(c, namespace)
-}
-
 func (c *SpdxV1beta1Client) ApplicationProfiles(namespace string) ApplicationProfileInterface {
 	return newApplicationProfiles(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) ConfigurationScanSummaries(namespace string) ConfigurationScanSummaryInterface {
 	return newConfigurationScanSummaries(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) ContainerProfiles(namespace string) ContainerProfileInterface {
+	return newContainerProfiles(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) GeneratedNetworkPolicies(namespace string) GeneratedNetworkPolicyInterface {

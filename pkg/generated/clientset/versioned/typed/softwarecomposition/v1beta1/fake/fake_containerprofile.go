@@ -25,26 +25,26 @@ import (
 	gentype "k8s.io/client-go/gentype"
 )
 
-// fakeApplicationActivities implements ApplicationActivityInterface
-type fakeApplicationActivities struct {
-	*gentype.FakeClientWithListAndApply[*v1beta1.ApplicationActivity, *v1beta1.ApplicationActivityList, *softwarecompositionv1beta1.ApplicationActivityApplyConfiguration]
+// fakeContainerProfiles implements ContainerProfileInterface
+type fakeContainerProfiles struct {
+	*gentype.FakeClientWithListAndApply[*v1beta1.ContainerProfile, *v1beta1.ContainerProfileList, *softwarecompositionv1beta1.ContainerProfileApplyConfiguration]
 	Fake *FakeSpdxV1beta1
 }
 
-func newFakeApplicationActivities(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.ApplicationActivityInterface {
-	return &fakeApplicationActivities{
-		gentype.NewFakeClientWithListAndApply[*v1beta1.ApplicationActivity, *v1beta1.ApplicationActivityList, *softwarecompositionv1beta1.ApplicationActivityApplyConfiguration](
+func newFakeContainerProfiles(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.ContainerProfileInterface {
+	return &fakeContainerProfiles{
+		gentype.NewFakeClientWithListAndApply[*v1beta1.ContainerProfile, *v1beta1.ContainerProfileList, *softwarecompositionv1beta1.ContainerProfileApplyConfiguration](
 			fake.Fake,
 			namespace,
-			v1beta1.SchemeGroupVersion.WithResource("applicationactivities"),
-			v1beta1.SchemeGroupVersion.WithKind("ApplicationActivity"),
-			func() *v1beta1.ApplicationActivity { return &v1beta1.ApplicationActivity{} },
-			func() *v1beta1.ApplicationActivityList { return &v1beta1.ApplicationActivityList{} },
-			func(dst, src *v1beta1.ApplicationActivityList) { dst.ListMeta = src.ListMeta },
-			func(list *v1beta1.ApplicationActivityList) []*v1beta1.ApplicationActivity {
+			v1beta1.SchemeGroupVersion.WithResource("containerprofiles"),
+			v1beta1.SchemeGroupVersion.WithKind("ContainerProfile"),
+			func() *v1beta1.ContainerProfile { return &v1beta1.ContainerProfile{} },
+			func() *v1beta1.ContainerProfileList { return &v1beta1.ContainerProfileList{} },
+			func(dst, src *v1beta1.ContainerProfileList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.ContainerProfileList) []*v1beta1.ContainerProfile {
 				return gentype.ToPointerSlice(list.Items)
 			},
-			func(list *v1beta1.ApplicationActivityList, items []*v1beta1.ApplicationActivity) {
+			func(list *v1beta1.ContainerProfileList, items []*v1beta1.ContainerProfile) {
 				list.Items = gentype.FromPointerSlice(items)
 			},
 		),

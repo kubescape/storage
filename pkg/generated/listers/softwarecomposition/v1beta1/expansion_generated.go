@@ -18,14 +18,6 @@ limitations under the License.
 
 package v1beta1
 
-// ApplicationActivityListerExpansion allows custom methods to be added to
-// ApplicationActivityLister.
-type ApplicationActivityListerExpansion interface{}
-
-// ApplicationActivityNamespaceListerExpansion allows custom methods to be added to
-// ApplicationActivityNamespaceLister.
-type ApplicationActivityNamespaceListerExpansion interface{}
-
 // ApplicationProfileListerExpansion allows custom methods to be added to
 // ApplicationProfileLister.
 type ApplicationProfileListerExpansion interface{}
@@ -41,6 +33,14 @@ type ConfigurationScanSummaryListerExpansion interface{}
 // ConfigurationScanSummaryNamespaceListerExpansion allows custom methods to be added to
 // ConfigurationScanSummaryNamespaceLister.
 type ConfigurationScanSummaryNamespaceListerExpansion interface{}
+
+// ContainerProfileListerExpansion allows custom methods to be added to
+// ContainerProfileLister.
+type ContainerProfileListerExpansion interface{}
+
+// ContainerProfileNamespaceListerExpansion allows custom methods to be added to
+// ContainerProfileNamespaceLister.
+type ContainerProfileNamespaceListerExpansion interface{}
 
 // GeneratedNetworkPolicyListerExpansion allows custom methods to be added to
 // GeneratedNetworkPolicyLister.

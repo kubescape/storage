@@ -273,28 +273,51 @@ type ApplicationProfileList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type ApplicationActivity struct {
+type ContainerProfile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   ApplicationActivitySpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status ApplicationActivityStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	Spec   ContainerProfileSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status ContainerProfileStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
-type ApplicationActivitySpec struct {
-	Syscalls []string `json:"syscalls,omitempty" protobuf:"bytes,1,rep,name=syscalls"`
+type ContainerProfileSpec struct {
+	// WARNING report fields from ApplicationProfileContainer here
+	Architectures []string `json:"architectures" protobuf:"bytes,1,rep,name=architectures"`
+	Capabilities  []string `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
+	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
+	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
+	// +patchStrategy=merge
+	// +patchMergeKey=endpoint
+	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	ImageID   string         `json:"imageID" protobuf:"bytes,8,opt,name=imageID"`
+	ImageTag  string         `json:"imageTag" protobuf:"bytes,9,opt,name=imageTag"`
+	// +patchStrategy=merge
+	// +patchMergeKey=ruleId
+	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
+	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
+	// WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
+	metav1.LabelSelector `json:",inline" protobuf:"bytes,101,opt,name=labelSelector"`
+	Ingress              []NetworkNeighbor `json:"ingress" protobuf:"bytes,102,rep,name=ingress"`
+	Egress               []NetworkNeighbor `json:"egress" protobuf:"bytes,103,rep,name=egress"`
 }
 
-type ApplicationActivityStatus struct {
+type ContainerProfileStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type ApplicationActivityList struct {
+type ContainerProfileList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Items []ApplicationActivity `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Items []ContainerProfile `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 ///////////////////////////////////////////////////////////////////////////////

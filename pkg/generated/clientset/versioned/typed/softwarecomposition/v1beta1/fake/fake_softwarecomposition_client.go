@@ -28,16 +28,16 @@ type FakeSpdxV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeSpdxV1beta1) ApplicationActivities(namespace string) v1beta1.ApplicationActivityInterface {
-	return newFakeApplicationActivities(c, namespace)
-}
-
 func (c *FakeSpdxV1beta1) ApplicationProfiles(namespace string) v1beta1.ApplicationProfileInterface {
 	return newFakeApplicationProfiles(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.ConfigurationScanSummaryInterface {
 	return newFakeConfigurationScanSummaries(c, namespace)
+}
+
+func (c *FakeSpdxV1beta1) ContainerProfiles(namespace string) v1beta1.ContainerProfileInterface {
+	return newFakeContainerProfiles(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) GeneratedNetworkPolicies(namespace string) v1beta1.GeneratedNetworkPolicyInterface {

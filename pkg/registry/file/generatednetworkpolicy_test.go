@@ -158,7 +158,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Name:      "toto",
 						Namespace: "kubescape",
 						Annotations: map[string]string{
-							helpersv1.StatusMetadataKey: helpersv1.Ready,
+							helpersv1.StatusMetadataKey: helpersv1.Learning,
 						},
 						Labels: map[string]string{
 							helpersv1.KindMetadataKey: "Deployment",

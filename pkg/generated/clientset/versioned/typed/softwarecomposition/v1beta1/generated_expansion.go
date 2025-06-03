@@ -18,11 +18,11 @@ limitations under the License.
 
 package v1beta1
 
-type ApplicationActivityExpansion interface{}
-
 type ApplicationProfileExpansion interface{}
 
 type ConfigurationScanSummaryExpansion interface{}
+
+type ContainerProfileExpansion interface{}
 
 type GeneratedNetworkPolicyExpansion interface{}
 

@@ -34,7 +34,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
@@ -152,7 +152,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-multi",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
@@ -296,7 +296,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-known-servers",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
@@ -447,7 +447,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-known-servers",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
@@ -598,7 +598,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-dns",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
@@ -698,7 +698,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-multi-container",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
@@ -832,7 +832,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-multi-containers",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
@@ -989,7 +989,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:      "deployment-multi-containers",
 					Namespace: "kubescape",
 					Annotations: map[string]string{
-						helpersv1.StatusMetadataKey: helpersv1.Ready,
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
 						helpersv1.KindMetadataKey: "Deployment",
