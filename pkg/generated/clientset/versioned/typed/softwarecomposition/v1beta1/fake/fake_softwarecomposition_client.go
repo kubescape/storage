@@ -29,63 +29,63 @@ type FakeSpdxV1beta1 struct {
 }
 
 func (c *FakeSpdxV1beta1) ApplicationActivities(namespace string) v1beta1.ApplicationActivityInterface {
-	return &FakeApplicationActivities{c, namespace}
+	return newFakeApplicationActivities(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) ApplicationProfiles(namespace string) v1beta1.ApplicationProfileInterface {
-	return &FakeApplicationProfiles{c, namespace}
+	return newFakeApplicationProfiles(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.ConfigurationScanSummaryInterface {
-	return &FakeConfigurationScanSummaries{c, namespace}
+	return newFakeConfigurationScanSummaries(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) GeneratedNetworkPolicies(namespace string) v1beta1.GeneratedNetworkPolicyInterface {
-	return &FakeGeneratedNetworkPolicies{c, namespace}
+	return newFakeGeneratedNetworkPolicies(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) KnownServers(namespace string) v1beta1.KnownServerInterface {
-	return &FakeKnownServers{c, namespace}
+	return newFakeKnownServers(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) NetworkNeighborhoods(namespace string) v1beta1.NetworkNeighborhoodInterface {
-	return &FakeNetworkNeighborhoods{c, namespace}
+	return newFakeNetworkNeighborhoods(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) OpenVulnerabilityExchangeContainers(namespace string) v1beta1.OpenVulnerabilityExchangeContainerInterface {
-	return &FakeOpenVulnerabilityExchangeContainers{c, namespace}
+	return newFakeOpenVulnerabilityExchangeContainers(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) SBOMSyfts(namespace string) v1beta1.SBOMSyftInterface {
-	return &FakeSBOMSyfts{c, namespace}
+	return newFakeSBOMSyfts(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) SBOMSyftFiltereds(namespace string) v1beta1.SBOMSyftFilteredInterface {
-	return &FakeSBOMSyftFiltereds{c, namespace}
+	return newFakeSBOMSyftFiltereds(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) SeccompProfiles(namespace string) v1beta1.SeccompProfileInterface {
-	return &FakeSeccompProfiles{c, namespace}
+	return newFakeSeccompProfiles(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) VulnerabilityManifests(namespace string) v1beta1.VulnerabilityManifestInterface {
-	return &FakeVulnerabilityManifests{c, namespace}
+	return newFakeVulnerabilityManifests(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) VulnerabilityManifestSummaries(namespace string) v1beta1.VulnerabilityManifestSummaryInterface {
-	return &FakeVulnerabilityManifestSummaries{c, namespace}
+	return newFakeVulnerabilityManifestSummaries(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) VulnerabilitySummaries(namespace string) v1beta1.VulnerabilitySummaryInterface {
-	return &FakeVulnerabilitySummaries{c, namespace}
+	return newFakeVulnerabilitySummaries(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) WorkloadConfigurationScans(namespace string) v1beta1.WorkloadConfigurationScanInterface {
-	return &FakeWorkloadConfigurationScans{c, namespace}
+	return newFakeWorkloadConfigurationScans(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) WorkloadConfigurationScanSummaries(namespace string) v1beta1.WorkloadConfigurationScanSummaryInterface {
-	return &FakeWorkloadConfigurationScanSummaries{c, namespace}
+	return newFakeWorkloadConfigurationScanSummaries(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

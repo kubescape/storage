@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	apissoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // SeccompProfiles.
 type SeccompProfileInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.SeccompProfileLister
+	Lister() softwarecompositionv1beta1.SeccompProfileLister
 }
 
 type seccompProfileInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredSeccompProfileInformer(client versioned.Interface, namespace str
 				return client.SpdxV1beta1().SeccompProfiles(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&softwarecompositionv1beta1.SeccompProfile{},
+		&apissoftwarecompositionv1beta1.SeccompProfile{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *seccompProfileInformer) defaultInformer(client versioned.Interface, res
 }
 
 func (f *seccompProfileInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&softwarecompositionv1beta1.SeccompProfile{}, f.defaultInformer)
+	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.SeccompProfile{}, f.defaultInformer)
 }
 
-func (f *seccompProfileInformer) Lister() v1beta1.SeccompProfileLister {
-	return v1beta1.NewSeccompProfileLister(f.Informer().GetIndexer())
+func (f *seccompProfileInformer) Lister() softwarecompositionv1beta1.SeccompProfileLister {
+	return softwarecompositionv1beta1.NewSeccompProfileLister(f.Informer().GetIndexer())
 }

@@ -19,123 +19,35 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/softwarecomposition/v1beta1"
+	typedsoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeApplicationProfiles implements ApplicationProfileInterface
-type FakeApplicationProfiles struct {
+// fakeApplicationProfiles implements ApplicationProfileInterface
+type fakeApplicationProfiles struct {
+	*gentype.FakeClientWithListAndApply[*v1beta1.ApplicationProfile, *v1beta1.ApplicationProfileList, *softwarecompositionv1beta1.ApplicationProfileApplyConfiguration]
 	Fake *FakeSpdxV1beta1
-	ns   string
 }
 
-var applicationprofilesResource = v1beta1.SchemeGroupVersion.WithResource("applicationprofiles")
-
-var applicationprofilesKind = v1beta1.SchemeGroupVersion.WithKind("ApplicationProfile")
-
-// Get takes name of the applicationProfile, and returns the corresponding applicationProfile object, and an error if there is any.
-func (c *FakeApplicationProfiles) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.ApplicationProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(applicationprofilesResource, c.ns, name), &v1beta1.ApplicationProfile{})
-
-	if obj == nil {
-		return nil, err
+func newFakeApplicationProfiles(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.ApplicationProfileInterface {
+	return &fakeApplicationProfiles{
+		gentype.NewFakeClientWithListAndApply[*v1beta1.ApplicationProfile, *v1beta1.ApplicationProfileList, *softwarecompositionv1beta1.ApplicationProfileApplyConfiguration](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("applicationprofiles"),
+			v1beta1.SchemeGroupVersion.WithKind("ApplicationProfile"),
+			func() *v1beta1.ApplicationProfile { return &v1beta1.ApplicationProfile{} },
+			func() *v1beta1.ApplicationProfileList { return &v1beta1.ApplicationProfileList{} },
+			func(dst, src *v1beta1.ApplicationProfileList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.ApplicationProfileList) []*v1beta1.ApplicationProfile {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.ApplicationProfileList, items []*v1beta1.ApplicationProfile) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.ApplicationProfile), err
-}
-
-// List takes label and field selectors, and returns the list of ApplicationProfiles that match those selectors.
-func (c *FakeApplicationProfiles) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.ApplicationProfileList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(applicationprofilesResource, applicationprofilesKind, c.ns, opts), &v1beta1.ApplicationProfileList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.ApplicationProfileList{ListMeta: obj.(*v1beta1.ApplicationProfileList).ListMeta}
-	for _, item := range obj.(*v1beta1.ApplicationProfileList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested applicationProfiles.
-func (c *FakeApplicationProfiles) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(applicationprofilesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a applicationProfile and creates it.  Returns the server's representation of the applicationProfile, and an error, if there is any.
-func (c *FakeApplicationProfiles) Create(ctx context.Context, applicationProfile *v1beta1.ApplicationProfile, opts v1.CreateOptions) (result *v1beta1.ApplicationProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(applicationprofilesResource, c.ns, applicationProfile), &v1beta1.ApplicationProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationProfile), err
-}
-
-// Update takes the representation of a applicationProfile and updates it. Returns the server's representation of the applicationProfile, and an error, if there is any.
-func (c *FakeApplicationProfiles) Update(ctx context.Context, applicationProfile *v1beta1.ApplicationProfile, opts v1.UpdateOptions) (result *v1beta1.ApplicationProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(applicationprofilesResource, c.ns, applicationProfile), &v1beta1.ApplicationProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationProfile), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeApplicationProfiles) UpdateStatus(ctx context.Context, applicationProfile *v1beta1.ApplicationProfile, opts v1.UpdateOptions) (*v1beta1.ApplicationProfile, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(applicationprofilesResource, "status", c.ns, applicationProfile), &v1beta1.ApplicationProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationProfile), err
-}
-
-// Delete takes name of the applicationProfile and deletes it. Returns an error if one occurs.
-func (c *FakeApplicationProfiles) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(applicationprofilesResource, c.ns, name, opts), &v1beta1.ApplicationProfile{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeApplicationProfiles) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(applicationprofilesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.ApplicationProfileList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched applicationProfile.
-func (c *FakeApplicationProfiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ApplicationProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(applicationprofilesResource, c.ns, name, pt, data, subresources...), &v1beta1.ApplicationProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationProfile), err
 }

@@ -19,123 +19,35 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/softwarecomposition/v1beta1"
+	typedsoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeApplicationActivities implements ApplicationActivityInterface
-type FakeApplicationActivities struct {
+// fakeApplicationActivities implements ApplicationActivityInterface
+type fakeApplicationActivities struct {
+	*gentype.FakeClientWithListAndApply[*v1beta1.ApplicationActivity, *v1beta1.ApplicationActivityList, *softwarecompositionv1beta1.ApplicationActivityApplyConfiguration]
 	Fake *FakeSpdxV1beta1
-	ns   string
 }
 
-var applicationactivitiesResource = v1beta1.SchemeGroupVersion.WithResource("applicationactivities")
-
-var applicationactivitiesKind = v1beta1.SchemeGroupVersion.WithKind("ApplicationActivity")
-
-// Get takes name of the applicationActivity, and returns the corresponding applicationActivity object, and an error if there is any.
-func (c *FakeApplicationActivities) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.ApplicationActivity, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(applicationactivitiesResource, c.ns, name), &v1beta1.ApplicationActivity{})
-
-	if obj == nil {
-		return nil, err
+func newFakeApplicationActivities(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.ApplicationActivityInterface {
+	return &fakeApplicationActivities{
+		gentype.NewFakeClientWithListAndApply[*v1beta1.ApplicationActivity, *v1beta1.ApplicationActivityList, *softwarecompositionv1beta1.ApplicationActivityApplyConfiguration](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("applicationactivities"),
+			v1beta1.SchemeGroupVersion.WithKind("ApplicationActivity"),
+			func() *v1beta1.ApplicationActivity { return &v1beta1.ApplicationActivity{} },
+			func() *v1beta1.ApplicationActivityList { return &v1beta1.ApplicationActivityList{} },
+			func(dst, src *v1beta1.ApplicationActivityList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.ApplicationActivityList) []*v1beta1.ApplicationActivity {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.ApplicationActivityList, items []*v1beta1.ApplicationActivity) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.ApplicationActivity), err
-}
-
-// List takes label and field selectors, and returns the list of ApplicationActivities that match those selectors.
-func (c *FakeApplicationActivities) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.ApplicationActivityList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(applicationactivitiesResource, applicationactivitiesKind, c.ns, opts), &v1beta1.ApplicationActivityList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.ApplicationActivityList{ListMeta: obj.(*v1beta1.ApplicationActivityList).ListMeta}
-	for _, item := range obj.(*v1beta1.ApplicationActivityList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested applicationActivities.
-func (c *FakeApplicationActivities) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(applicationactivitiesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a applicationActivity and creates it.  Returns the server's representation of the applicationActivity, and an error, if there is any.
-func (c *FakeApplicationActivities) Create(ctx context.Context, applicationActivity *v1beta1.ApplicationActivity, opts v1.CreateOptions) (result *v1beta1.ApplicationActivity, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(applicationactivitiesResource, c.ns, applicationActivity), &v1beta1.ApplicationActivity{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationActivity), err
-}
-
-// Update takes the representation of a applicationActivity and updates it. Returns the server's representation of the applicationActivity, and an error, if there is any.
-func (c *FakeApplicationActivities) Update(ctx context.Context, applicationActivity *v1beta1.ApplicationActivity, opts v1.UpdateOptions) (result *v1beta1.ApplicationActivity, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(applicationactivitiesResource, c.ns, applicationActivity), &v1beta1.ApplicationActivity{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationActivity), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeApplicationActivities) UpdateStatus(ctx context.Context, applicationActivity *v1beta1.ApplicationActivity, opts v1.UpdateOptions) (*v1beta1.ApplicationActivity, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(applicationactivitiesResource, "status", c.ns, applicationActivity), &v1beta1.ApplicationActivity{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationActivity), err
-}
-
-// Delete takes name of the applicationActivity and deletes it. Returns an error if one occurs.
-func (c *FakeApplicationActivities) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(applicationactivitiesResource, c.ns, name, opts), &v1beta1.ApplicationActivity{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeApplicationActivities) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(applicationactivitiesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.ApplicationActivityList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched applicationActivity.
-func (c *FakeApplicationActivities) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ApplicationActivity, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(applicationactivitiesResource, c.ns, name, pt, data, subresources...), &v1beta1.ApplicationActivity{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ApplicationActivity), err
 }

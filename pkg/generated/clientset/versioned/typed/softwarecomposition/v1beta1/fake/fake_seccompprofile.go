@@ -19,123 +19,35 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/softwarecomposition/v1beta1"
+	typedsoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeSeccompProfiles implements SeccompProfileInterface
-type FakeSeccompProfiles struct {
+// fakeSeccompProfiles implements SeccompProfileInterface
+type fakeSeccompProfiles struct {
+	*gentype.FakeClientWithListAndApply[*v1beta1.SeccompProfile, *v1beta1.SeccompProfileList, *softwarecompositionv1beta1.SeccompProfileApplyConfiguration]
 	Fake *FakeSpdxV1beta1
-	ns   string
 }
 
-var seccompprofilesResource = v1beta1.SchemeGroupVersion.WithResource("seccompprofiles")
-
-var seccompprofilesKind = v1beta1.SchemeGroupVersion.WithKind("SeccompProfile")
-
-// Get takes name of the seccompProfile, and returns the corresponding seccompProfile object, and an error if there is any.
-func (c *FakeSeccompProfiles) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.SeccompProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(seccompprofilesResource, c.ns, name), &v1beta1.SeccompProfile{})
-
-	if obj == nil {
-		return nil, err
+func newFakeSeccompProfiles(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.SeccompProfileInterface {
+	return &fakeSeccompProfiles{
+		gentype.NewFakeClientWithListAndApply[*v1beta1.SeccompProfile, *v1beta1.SeccompProfileList, *softwarecompositionv1beta1.SeccompProfileApplyConfiguration](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("seccompprofiles"),
+			v1beta1.SchemeGroupVersion.WithKind("SeccompProfile"),
+			func() *v1beta1.SeccompProfile { return &v1beta1.SeccompProfile{} },
+			func() *v1beta1.SeccompProfileList { return &v1beta1.SeccompProfileList{} },
+			func(dst, src *v1beta1.SeccompProfileList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.SeccompProfileList) []*v1beta1.SeccompProfile {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.SeccompProfileList, items []*v1beta1.SeccompProfile) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.SeccompProfile), err
-}
-
-// List takes label and field selectors, and returns the list of SeccompProfiles that match those selectors.
-func (c *FakeSeccompProfiles) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.SeccompProfileList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(seccompprofilesResource, seccompprofilesKind, c.ns, opts), &v1beta1.SeccompProfileList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.SeccompProfileList{ListMeta: obj.(*v1beta1.SeccompProfileList).ListMeta}
-	for _, item := range obj.(*v1beta1.SeccompProfileList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested seccompProfiles.
-func (c *FakeSeccompProfiles) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(seccompprofilesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a seccompProfile and creates it.  Returns the server's representation of the seccompProfile, and an error, if there is any.
-func (c *FakeSeccompProfiles) Create(ctx context.Context, seccompProfile *v1beta1.SeccompProfile, opts v1.CreateOptions) (result *v1beta1.SeccompProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(seccompprofilesResource, c.ns, seccompProfile), &v1beta1.SeccompProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SeccompProfile), err
-}
-
-// Update takes the representation of a seccompProfile and updates it. Returns the server's representation of the seccompProfile, and an error, if there is any.
-func (c *FakeSeccompProfiles) Update(ctx context.Context, seccompProfile *v1beta1.SeccompProfile, opts v1.UpdateOptions) (result *v1beta1.SeccompProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(seccompprofilesResource, c.ns, seccompProfile), &v1beta1.SeccompProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SeccompProfile), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeSeccompProfiles) UpdateStatus(ctx context.Context, seccompProfile *v1beta1.SeccompProfile, opts v1.UpdateOptions) (*v1beta1.SeccompProfile, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(seccompprofilesResource, "status", c.ns, seccompProfile), &v1beta1.SeccompProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SeccompProfile), err
-}
-
-// Delete takes name of the seccompProfile and deletes it. Returns an error if one occurs.
-func (c *FakeSeccompProfiles) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(seccompprofilesResource, c.ns, name, opts), &v1beta1.SeccompProfile{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeSeccompProfiles) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(seccompprofilesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.SeccompProfileList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched seccompProfile.
-func (c *FakeSeccompProfiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.SeccompProfile, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(seccompprofilesResource, c.ns, name, pt, data, subresources...), &v1beta1.SeccompProfile{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SeccompProfile), err
 }

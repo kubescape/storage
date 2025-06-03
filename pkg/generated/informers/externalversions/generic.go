@@ -19,7 +19,7 @@ limitations under the License.
 package externalversions
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
