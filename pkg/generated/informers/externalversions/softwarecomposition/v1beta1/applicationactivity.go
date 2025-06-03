@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	apissoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ApplicationActivities.
 type ApplicationActivityInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.ApplicationActivityLister
+	Lister() softwarecompositionv1beta1.ApplicationActivityLister
 }
 
 type applicationActivityInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredApplicationActivityInformer(client versioned.Interface, namespac
 				return client.SpdxV1beta1().ApplicationActivities(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&softwarecompositionv1beta1.ApplicationActivity{},
+		&apissoftwarecompositionv1beta1.ApplicationActivity{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *applicationActivityInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *applicationActivityInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&softwarecompositionv1beta1.ApplicationActivity{}, f.defaultInformer)
+	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.ApplicationActivity{}, f.defaultInformer)
 }
 
-func (f *applicationActivityInformer) Lister() v1beta1.ApplicationActivityLister {
-	return v1beta1.NewApplicationActivityLister(f.Informer().GetIndexer())
+func (f *applicationActivityInformer) Lister() softwarecompositionv1beta1.ApplicationActivityLister {
+	return softwarecompositionv1beta1.NewApplicationActivityLister(f.Informer().GetIndexer())
 }

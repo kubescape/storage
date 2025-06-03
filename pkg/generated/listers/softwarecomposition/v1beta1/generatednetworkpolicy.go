@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // GeneratedNetworkPolicyLister helps list GeneratedNetworkPolicies.
@@ -30,7 +30,7 @@ import (
 type GeneratedNetworkPolicyLister interface {
 	// List lists all GeneratedNetworkPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.GeneratedNetworkPolicy, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.GeneratedNetworkPolicy, err error)
 	// GeneratedNetworkPolicies returns an object that can list and get GeneratedNetworkPolicies.
 	GeneratedNetworkPolicies(namespace string) GeneratedNetworkPolicyNamespaceLister
 	GeneratedNetworkPolicyListerExpansion
@@ -38,25 +38,17 @@ type GeneratedNetworkPolicyLister interface {
 
 // generatedNetworkPolicyLister implements the GeneratedNetworkPolicyLister interface.
 type generatedNetworkPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.GeneratedNetworkPolicy]
 }
 
 // NewGeneratedNetworkPolicyLister returns a new GeneratedNetworkPolicyLister.
 func NewGeneratedNetworkPolicyLister(indexer cache.Indexer) GeneratedNetworkPolicyLister {
-	return &generatedNetworkPolicyLister{indexer: indexer}
-}
-
-// List lists all GeneratedNetworkPolicies in the indexer.
-func (s *generatedNetworkPolicyLister) List(selector labels.Selector) (ret []*v1beta1.GeneratedNetworkPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.GeneratedNetworkPolicy))
-	})
-	return ret, err
+	return &generatedNetworkPolicyLister{listers.New[*softwarecompositionv1beta1.GeneratedNetworkPolicy](indexer, softwarecompositionv1beta1.Resource("generatednetworkpolicy"))}
 }
 
 // GeneratedNetworkPolicies returns an object that can list and get GeneratedNetworkPolicies.
 func (s *generatedNetworkPolicyLister) GeneratedNetworkPolicies(namespace string) GeneratedNetworkPolicyNamespaceLister {
-	return generatedNetworkPolicyNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return generatedNetworkPolicyNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.GeneratedNetworkPolicy](s.ResourceIndexer, namespace)}
 }
 
 // GeneratedNetworkPolicyNamespaceLister helps list and get GeneratedNetworkPolicies.
@@ -64,36 +56,15 @@ func (s *generatedNetworkPolicyLister) GeneratedNetworkPolicies(namespace string
 type GeneratedNetworkPolicyNamespaceLister interface {
 	// List lists all GeneratedNetworkPolicies in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.GeneratedNetworkPolicy, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.GeneratedNetworkPolicy, err error)
 	// Get retrieves the GeneratedNetworkPolicy from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.GeneratedNetworkPolicy, error)
+	Get(name string) (*softwarecompositionv1beta1.GeneratedNetworkPolicy, error)
 	GeneratedNetworkPolicyNamespaceListerExpansion
 }
 
 // generatedNetworkPolicyNamespaceLister implements the GeneratedNetworkPolicyNamespaceLister
 // interface.
 type generatedNetworkPolicyNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all GeneratedNetworkPolicies in the indexer for a given namespace.
-func (s generatedNetworkPolicyNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.GeneratedNetworkPolicy, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.GeneratedNetworkPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the GeneratedNetworkPolicy from the indexer for a given namespace and name.
-func (s generatedNetworkPolicyNamespaceLister) Get(name string) (*v1beta1.GeneratedNetworkPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("generatednetworkpolicy"), name)
-	}
-	return obj.(*v1beta1.GeneratedNetworkPolicy), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.GeneratedNetworkPolicy]
 }

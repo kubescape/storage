@@ -19,111 +19,35 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/softwarecomposition/v1beta1"
+	typedsoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeConfigurationScanSummaries implements ConfigurationScanSummaryInterface
-type FakeConfigurationScanSummaries struct {
+// fakeConfigurationScanSummaries implements ConfigurationScanSummaryInterface
+type fakeConfigurationScanSummaries struct {
+	*gentype.FakeClientWithListAndApply[*v1beta1.ConfigurationScanSummary, *v1beta1.ConfigurationScanSummaryList, *softwarecompositionv1beta1.ConfigurationScanSummaryApplyConfiguration]
 	Fake *FakeSpdxV1beta1
-	ns   string
 }
 
-var configurationscansummariesResource = v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries")
-
-var configurationscansummariesKind = v1beta1.SchemeGroupVersion.WithKind("ConfigurationScanSummary")
-
-// Get takes name of the configurationScanSummary, and returns the corresponding configurationScanSummary object, and an error if there is any.
-func (c *FakeConfigurationScanSummaries) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.ConfigurationScanSummary, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(configurationscansummariesResource, c.ns, name), &v1beta1.ConfigurationScanSummary{})
-
-	if obj == nil {
-		return nil, err
+func newFakeConfigurationScanSummaries(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.ConfigurationScanSummaryInterface {
+	return &fakeConfigurationScanSummaries{
+		gentype.NewFakeClientWithListAndApply[*v1beta1.ConfigurationScanSummary, *v1beta1.ConfigurationScanSummaryList, *softwarecompositionv1beta1.ConfigurationScanSummaryApplyConfiguration](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"),
+			v1beta1.SchemeGroupVersion.WithKind("ConfigurationScanSummary"),
+			func() *v1beta1.ConfigurationScanSummary { return &v1beta1.ConfigurationScanSummary{} },
+			func() *v1beta1.ConfigurationScanSummaryList { return &v1beta1.ConfigurationScanSummaryList{} },
+			func(dst, src *v1beta1.ConfigurationScanSummaryList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.ConfigurationScanSummaryList) []*v1beta1.ConfigurationScanSummary {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.ConfigurationScanSummaryList, items []*v1beta1.ConfigurationScanSummary) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.ConfigurationScanSummary), err
-}
-
-// List takes label and field selectors, and returns the list of ConfigurationScanSummaries that match those selectors.
-func (c *FakeConfigurationScanSummaries) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.ConfigurationScanSummaryList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(configurationscansummariesResource, configurationscansummariesKind, c.ns, opts), &v1beta1.ConfigurationScanSummaryList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.ConfigurationScanSummaryList{ListMeta: obj.(*v1beta1.ConfigurationScanSummaryList).ListMeta}
-	for _, item := range obj.(*v1beta1.ConfigurationScanSummaryList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested configurationScanSummaries.
-func (c *FakeConfigurationScanSummaries) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(configurationscansummariesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a configurationScanSummary and creates it.  Returns the server's representation of the configurationScanSummary, and an error, if there is any.
-func (c *FakeConfigurationScanSummaries) Create(ctx context.Context, configurationScanSummary *v1beta1.ConfigurationScanSummary, opts v1.CreateOptions) (result *v1beta1.ConfigurationScanSummary, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(configurationscansummariesResource, c.ns, configurationScanSummary), &v1beta1.ConfigurationScanSummary{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ConfigurationScanSummary), err
-}
-
-// Update takes the representation of a configurationScanSummary and updates it. Returns the server's representation of the configurationScanSummary, and an error, if there is any.
-func (c *FakeConfigurationScanSummaries) Update(ctx context.Context, configurationScanSummary *v1beta1.ConfigurationScanSummary, opts v1.UpdateOptions) (result *v1beta1.ConfigurationScanSummary, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(configurationscansummariesResource, c.ns, configurationScanSummary), &v1beta1.ConfigurationScanSummary{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ConfigurationScanSummary), err
-}
-
-// Delete takes name of the configurationScanSummary and deletes it. Returns an error if one occurs.
-func (c *FakeConfigurationScanSummaries) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(configurationscansummariesResource, c.ns, name, opts), &v1beta1.ConfigurationScanSummary{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeConfigurationScanSummaries) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(configurationscansummariesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.ConfigurationScanSummaryList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched configurationScanSummary.
-func (c *FakeConfigurationScanSummaries) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ConfigurationScanSummary, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(configurationscansummariesResource, c.ns, name, pt, data, subresources...), &v1beta1.ConfigurationScanSummary{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.ConfigurationScanSummary), err
 }

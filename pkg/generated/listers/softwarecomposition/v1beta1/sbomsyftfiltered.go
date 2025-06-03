@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // SBOMSyftFilteredLister helps list SBOMSyftFiltereds.
@@ -30,7 +30,7 @@ import (
 type SBOMSyftFilteredLister interface {
 	// List lists all SBOMSyftFiltereds in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.SBOMSyftFiltered, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.SBOMSyftFiltered, err error)
 	// SBOMSyftFiltereds returns an object that can list and get SBOMSyftFiltereds.
 	SBOMSyftFiltereds(namespace string) SBOMSyftFilteredNamespaceLister
 	SBOMSyftFilteredListerExpansion
@@ -38,25 +38,17 @@ type SBOMSyftFilteredLister interface {
 
 // sBOMSyftFilteredLister implements the SBOMSyftFilteredLister interface.
 type sBOMSyftFilteredLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.SBOMSyftFiltered]
 }
 
 // NewSBOMSyftFilteredLister returns a new SBOMSyftFilteredLister.
 func NewSBOMSyftFilteredLister(indexer cache.Indexer) SBOMSyftFilteredLister {
-	return &sBOMSyftFilteredLister{indexer: indexer}
-}
-
-// List lists all SBOMSyftFiltereds in the indexer.
-func (s *sBOMSyftFilteredLister) List(selector labels.Selector) (ret []*v1beta1.SBOMSyftFiltered, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.SBOMSyftFiltered))
-	})
-	return ret, err
+	return &sBOMSyftFilteredLister{listers.New[*softwarecompositionv1beta1.SBOMSyftFiltered](indexer, softwarecompositionv1beta1.Resource("sbomsyftfiltered"))}
 }
 
 // SBOMSyftFiltereds returns an object that can list and get SBOMSyftFiltereds.
 func (s *sBOMSyftFilteredLister) SBOMSyftFiltereds(namespace string) SBOMSyftFilteredNamespaceLister {
-	return sBOMSyftFilteredNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return sBOMSyftFilteredNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.SBOMSyftFiltered](s.ResourceIndexer, namespace)}
 }
 
 // SBOMSyftFilteredNamespaceLister helps list and get SBOMSyftFiltereds.
@@ -64,36 +56,15 @@ func (s *sBOMSyftFilteredLister) SBOMSyftFiltereds(namespace string) SBOMSyftFil
 type SBOMSyftFilteredNamespaceLister interface {
 	// List lists all SBOMSyftFiltereds in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.SBOMSyftFiltered, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.SBOMSyftFiltered, err error)
 	// Get retrieves the SBOMSyftFiltered from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.SBOMSyftFiltered, error)
+	Get(name string) (*softwarecompositionv1beta1.SBOMSyftFiltered, error)
 	SBOMSyftFilteredNamespaceListerExpansion
 }
 
 // sBOMSyftFilteredNamespaceLister implements the SBOMSyftFilteredNamespaceLister
 // interface.
 type sBOMSyftFilteredNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all SBOMSyftFiltereds in the indexer for a given namespace.
-func (s sBOMSyftFilteredNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.SBOMSyftFiltered, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.SBOMSyftFiltered))
-	})
-	return ret, err
-}
-
-// Get retrieves the SBOMSyftFiltered from the indexer for a given namespace and name.
-func (s sBOMSyftFilteredNamespaceLister) Get(name string) (*v1beta1.SBOMSyftFiltered, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("sbomsyftfiltered"), name)
-	}
-	return obj.(*v1beta1.SBOMSyftFiltered), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.SBOMSyftFiltered]
 }

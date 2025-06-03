@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // NetworkNeighborhoodLister helps list NetworkNeighborhoods.
@@ -30,7 +30,7 @@ import (
 type NetworkNeighborhoodLister interface {
 	// List lists all NetworkNeighborhoods in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.NetworkNeighborhood, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.NetworkNeighborhood, err error)
 	// NetworkNeighborhoods returns an object that can list and get NetworkNeighborhoods.
 	NetworkNeighborhoods(namespace string) NetworkNeighborhoodNamespaceLister
 	NetworkNeighborhoodListerExpansion
@@ -38,25 +38,17 @@ type NetworkNeighborhoodLister interface {
 
 // networkNeighborhoodLister implements the NetworkNeighborhoodLister interface.
 type networkNeighborhoodLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.NetworkNeighborhood]
 }
 
 // NewNetworkNeighborhoodLister returns a new NetworkNeighborhoodLister.
 func NewNetworkNeighborhoodLister(indexer cache.Indexer) NetworkNeighborhoodLister {
-	return &networkNeighborhoodLister{indexer: indexer}
-}
-
-// List lists all NetworkNeighborhoods in the indexer.
-func (s *networkNeighborhoodLister) List(selector labels.Selector) (ret []*v1beta1.NetworkNeighborhood, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.NetworkNeighborhood))
-	})
-	return ret, err
+	return &networkNeighborhoodLister{listers.New[*softwarecompositionv1beta1.NetworkNeighborhood](indexer, softwarecompositionv1beta1.Resource("networkneighborhood"))}
 }
 
 // NetworkNeighborhoods returns an object that can list and get NetworkNeighborhoods.
 func (s *networkNeighborhoodLister) NetworkNeighborhoods(namespace string) NetworkNeighborhoodNamespaceLister {
-	return networkNeighborhoodNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return networkNeighborhoodNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.NetworkNeighborhood](s.ResourceIndexer, namespace)}
 }
 
 // NetworkNeighborhoodNamespaceLister helps list and get NetworkNeighborhoods.
@@ -64,36 +56,15 @@ func (s *networkNeighborhoodLister) NetworkNeighborhoods(namespace string) Netwo
 type NetworkNeighborhoodNamespaceLister interface {
 	// List lists all NetworkNeighborhoods in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.NetworkNeighborhood, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.NetworkNeighborhood, err error)
 	// Get retrieves the NetworkNeighborhood from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.NetworkNeighborhood, error)
+	Get(name string) (*softwarecompositionv1beta1.NetworkNeighborhood, error)
 	NetworkNeighborhoodNamespaceListerExpansion
 }
 
 // networkNeighborhoodNamespaceLister implements the NetworkNeighborhoodNamespaceLister
 // interface.
 type networkNeighborhoodNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all NetworkNeighborhoods in the indexer for a given namespace.
-func (s networkNeighborhoodNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.NetworkNeighborhood, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.NetworkNeighborhood))
-	})
-	return ret, err
-}
-
-// Get retrieves the NetworkNeighborhood from the indexer for a given namespace and name.
-func (s networkNeighborhoodNamespaceLister) Get(name string) (*v1beta1.NetworkNeighborhood, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("networkneighborhood"), name)
-	}
-	return obj.(*v1beta1.NetworkNeighborhood), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.NetworkNeighborhood]
 }

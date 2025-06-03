@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // SBOMSyftLister helps list SBOMSyfts.
@@ -30,7 +30,7 @@ import (
 type SBOMSyftLister interface {
 	// List lists all SBOMSyfts in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.SBOMSyft, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.SBOMSyft, err error)
 	// SBOMSyfts returns an object that can list and get SBOMSyfts.
 	SBOMSyfts(namespace string) SBOMSyftNamespaceLister
 	SBOMSyftListerExpansion
@@ -38,25 +38,17 @@ type SBOMSyftLister interface {
 
 // sBOMSyftLister implements the SBOMSyftLister interface.
 type sBOMSyftLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.SBOMSyft]
 }
 
 // NewSBOMSyftLister returns a new SBOMSyftLister.
 func NewSBOMSyftLister(indexer cache.Indexer) SBOMSyftLister {
-	return &sBOMSyftLister{indexer: indexer}
-}
-
-// List lists all SBOMSyfts in the indexer.
-func (s *sBOMSyftLister) List(selector labels.Selector) (ret []*v1beta1.SBOMSyft, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.SBOMSyft))
-	})
-	return ret, err
+	return &sBOMSyftLister{listers.New[*softwarecompositionv1beta1.SBOMSyft](indexer, softwarecompositionv1beta1.Resource("sbomsyft"))}
 }
 
 // SBOMSyfts returns an object that can list and get SBOMSyfts.
 func (s *sBOMSyftLister) SBOMSyfts(namespace string) SBOMSyftNamespaceLister {
-	return sBOMSyftNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return sBOMSyftNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.SBOMSyft](s.ResourceIndexer, namespace)}
 }
 
 // SBOMSyftNamespaceLister helps list and get SBOMSyfts.
@@ -64,36 +56,15 @@ func (s *sBOMSyftLister) SBOMSyfts(namespace string) SBOMSyftNamespaceLister {
 type SBOMSyftNamespaceLister interface {
 	// List lists all SBOMSyfts in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.SBOMSyft, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.SBOMSyft, err error)
 	// Get retrieves the SBOMSyft from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.SBOMSyft, error)
+	Get(name string) (*softwarecompositionv1beta1.SBOMSyft, error)
 	SBOMSyftNamespaceListerExpansion
 }
 
 // sBOMSyftNamespaceLister implements the SBOMSyftNamespaceLister
 // interface.
 type sBOMSyftNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all SBOMSyfts in the indexer for a given namespace.
-func (s sBOMSyftNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.SBOMSyft, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.SBOMSyft))
-	})
-	return ret, err
-}
-
-// Get retrieves the SBOMSyft from the indexer for a given namespace and name.
-func (s sBOMSyftNamespaceLister) Get(name string) (*v1beta1.SBOMSyft, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("sbomsyft"), name)
-	}
-	return obj.(*v1beta1.SBOMSyft), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.SBOMSyft]
 }
