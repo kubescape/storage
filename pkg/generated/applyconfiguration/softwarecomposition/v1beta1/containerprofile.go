@@ -25,22 +25,22 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// ApplicationActivityApplyConfiguration represents a declarative configuration of the ApplicationActivity type for use
+// ContainerProfileApplyConfiguration represents a declarative configuration of the ContainerProfile type for use
 // with apply.
-type ApplicationActivityApplyConfiguration struct {
+type ContainerProfileApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *ApplicationActivitySpecApplyConfiguration            `json:"spec,omitempty"`
-	Status                           *softwarecompositionv1beta1.ApplicationActivityStatus `json:"status,omitempty"`
+	Spec                             *ContainerProfileSpecApplyConfiguration            `json:"spec,omitempty"`
+	Status                           *softwarecompositionv1beta1.ContainerProfileStatus `json:"status,omitempty"`
 }
 
-// ApplicationActivity constructs a declarative configuration of the ApplicationActivity type for use with
+// ContainerProfile constructs a declarative configuration of the ContainerProfile type for use with
 // apply.
-func ApplicationActivity(name, namespace string) *ApplicationActivityApplyConfiguration {
-	b := &ApplicationActivityApplyConfiguration{}
+func ContainerProfile(name, namespace string) *ContainerProfileApplyConfiguration {
+	b := &ContainerProfileApplyConfiguration{}
 	b.WithName(name)
 	b.WithNamespace(namespace)
-	b.WithKind("ApplicationActivity")
+	b.WithKind("ContainerProfile")
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
@@ -48,7 +48,7 @@ func ApplicationActivity(name, namespace string) *ApplicationActivityApplyConfig
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithKind(value string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithKind(value string) *ContainerProfileApplyConfiguration {
 	b.TypeMetaApplyConfiguration.Kind = &value
 	return b
 }
@@ -56,7 +56,7 @@ func (b *ApplicationActivityApplyConfiguration) WithKind(value string) *Applicat
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithAPIVersion(value string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithAPIVersion(value string) *ContainerProfileApplyConfiguration {
 	b.TypeMetaApplyConfiguration.APIVersion = &value
 	return b
 }
@@ -64,7 +64,7 @@ func (b *ApplicationActivityApplyConfiguration) WithAPIVersion(value string) *Ap
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithName(value string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithName(value string) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Name = &value
 	return b
@@ -73,7 +73,7 @@ func (b *ApplicationActivityApplyConfiguration) WithName(value string) *Applicat
 // WithGenerateName sets the GenerateName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GenerateName field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithGenerateName(value string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithGenerateName(value string) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.GenerateName = &value
 	return b
@@ -82,7 +82,7 @@ func (b *ApplicationActivityApplyConfiguration) WithGenerateName(value string) *
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithNamespace(value string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithNamespace(value string) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Namespace = &value
 	return b
@@ -91,7 +91,7 @@ func (b *ApplicationActivityApplyConfiguration) WithNamespace(value string) *App
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithUID(value types.UID) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithUID(value types.UID) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.UID = &value
 	return b
@@ -100,7 +100,7 @@ func (b *ApplicationActivityApplyConfiguration) WithUID(value types.UID) *Applic
 // WithResourceVersion sets the ResourceVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithResourceVersion(value string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithResourceVersion(value string) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.ResourceVersion = &value
 	return b
@@ -109,7 +109,7 @@ func (b *ApplicationActivityApplyConfiguration) WithResourceVersion(value string
 // WithGeneration sets the Generation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Generation field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithGeneration(value int64) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithGeneration(value int64) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Generation = &value
 	return b
@@ -118,7 +118,7 @@ func (b *ApplicationActivityApplyConfiguration) WithGeneration(value int64) *App
 // WithCreationTimestamp sets the CreationTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithCreationTimestamp(value metav1.Time) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithCreationTimestamp(value metav1.Time) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.CreationTimestamp = &value
 	return b
@@ -127,7 +127,7 @@ func (b *ApplicationActivityApplyConfiguration) WithCreationTimestamp(value meta
 // WithDeletionTimestamp sets the DeletionTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.DeletionTimestamp = &value
 	return b
@@ -136,7 +136,7 @@ func (b *ApplicationActivityApplyConfiguration) WithDeletionTimestamp(value meta
 // WithDeletionGracePeriodSeconds sets the DeletionGracePeriodSeconds field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.DeletionGracePeriodSeconds = &value
 	return b
@@ -146,7 +146,7 @@ func (b *ApplicationActivityApplyConfiguration) WithDeletionGracePeriodSeconds(v
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Labels field,
 // overwriting an existing map entries in Labels field with the same key.
-func (b *ApplicationActivityApplyConfiguration) WithLabels(entries map[string]string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithLabels(entries map[string]string) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.ObjectMetaApplyConfiguration.Labels == nil && len(entries) > 0 {
 		b.ObjectMetaApplyConfiguration.Labels = make(map[string]string, len(entries))
@@ -161,7 +161,7 @@ func (b *ApplicationActivityApplyConfiguration) WithLabels(entries map[string]st
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Annotations field,
 // overwriting an existing map entries in Annotations field with the same key.
-func (b *ApplicationActivityApplyConfiguration) WithAnnotations(entries map[string]string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithAnnotations(entries map[string]string) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.ObjectMetaApplyConfiguration.Annotations == nil && len(entries) > 0 {
 		b.ObjectMetaApplyConfiguration.Annotations = make(map[string]string, len(entries))
@@ -175,7 +175,7 @@ func (b *ApplicationActivityApplyConfiguration) WithAnnotations(entries map[stri
 // WithOwnerReferences adds the given value to the OwnerReferences field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the OwnerReferences field.
-func (b *ApplicationActivityApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		if values[i] == nil {
@@ -189,7 +189,7 @@ func (b *ApplicationActivityApplyConfiguration) WithOwnerReferences(values ...*v
 // WithFinalizers adds the given value to the Finalizers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Finalizers field.
-func (b *ApplicationActivityApplyConfiguration) WithFinalizers(values ...string) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithFinalizers(values ...string) *ContainerProfileApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		b.ObjectMetaApplyConfiguration.Finalizers = append(b.ObjectMetaApplyConfiguration.Finalizers, values[i])
@@ -197,7 +197,7 @@ func (b *ApplicationActivityApplyConfiguration) WithFinalizers(values ...string)
 	return b
 }
 
-func (b *ApplicationActivityApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
+func (b *ContainerProfileApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
 	}
@@ -206,7 +206,7 @@ func (b *ApplicationActivityApplyConfiguration) ensureObjectMetaApplyConfigurati
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithSpec(value *ApplicationActivitySpecApplyConfiguration) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithSpec(value *ContainerProfileSpecApplyConfiguration) *ContainerProfileApplyConfiguration {
 	b.Spec = value
 	return b
 }
@@ -214,13 +214,13 @@ func (b *ApplicationActivityApplyConfiguration) WithSpec(value *ApplicationActiv
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *ApplicationActivityApplyConfiguration) WithStatus(value softwarecompositionv1beta1.ApplicationActivityStatus) *ApplicationActivityApplyConfiguration {
+func (b *ContainerProfileApplyConfiguration) WithStatus(value softwarecompositionv1beta1.ContainerProfileStatus) *ContainerProfileApplyConfiguration {
 	b.Status = &value
 	return b
 }
 
 // GetName retrieves the value of the Name field in the declarative configuration.
-func (b *ApplicationActivityApplyConfiguration) GetName() *string {
+func (b *ContainerProfileApplyConfiguration) GetName() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
 	return b.ObjectMetaApplyConfiguration.Name
 }

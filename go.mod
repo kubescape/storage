@@ -21,7 +21,7 @@ require (
 	github.com/grafana/pyroscope-go v1.2.2
 	github.com/kinbiko/jsonassert v1.1.1
 	github.com/kubescape/go-logger v0.0.23
-	github.com/kubescape/k8s-interface v0.0.195
+	github.com/kubescape/k8s-interface v0.0.196-0.20250605131454-ebc0f2a0390c
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
@@ -43,6 +43,7 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
+	sigs.k8s.io/structured-merge-diff/v4 v4.5.0
 	zombiezen.com/go/sqlite v1.4.0
 )
 
@@ -218,6 +219,5 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 // indirect
 	sigs.k8s.io/controller-runtime v0.18.4 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )

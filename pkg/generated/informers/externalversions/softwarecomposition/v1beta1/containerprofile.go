@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ApplicationActivityInformer provides access to a shared informer and lister for
-// ApplicationActivities.
-type ApplicationActivityInformer interface {
+// ContainerProfileInformer provides access to a shared informer and lister for
+// ContainerProfiles.
+type ContainerProfileInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() softwarecompositionv1beta1.ApplicationActivityLister
+	Lister() softwarecompositionv1beta1.ContainerProfileLister
 }
 
-type applicationActivityInformer struct {
+type containerProfileInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewApplicationActivityInformer constructs a new informer for ApplicationActivity type.
+// NewContainerProfileInformer constructs a new informer for ContainerProfile type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewApplicationActivityInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredApplicationActivityInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewContainerProfileInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredContainerProfileInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredApplicationActivityInformer constructs a new informer for ApplicationActivity type.
+// NewFilteredContainerProfileInformer constructs a new informer for ContainerProfile type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredApplicationActivityInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredContainerProfileInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ApplicationActivities(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().ContainerProfiles(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ApplicationActivities(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().ContainerProfiles(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&apissoftwarecompositionv1beta1.ApplicationActivity{},
+		&apissoftwarecompositionv1beta1.ContainerProfile{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *applicationActivityInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredApplicationActivityInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *containerProfileInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredContainerProfileInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *applicationActivityInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.ApplicationActivity{}, f.defaultInformer)
+func (f *containerProfileInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.ContainerProfile{}, f.defaultInformer)
 }
 
-func (f *applicationActivityInformer) Lister() softwarecompositionv1beta1.ApplicationActivityLister {
-	return softwarecompositionv1beta1.NewApplicationActivityLister(f.Informer().GetIndexer())
+func (f *containerProfileInformer) Lister() softwarecompositionv1beta1.ContainerProfileLister {
+	return softwarecompositionv1beta1.NewContainerProfileLister(f.Informer().GetIndexer())
 }

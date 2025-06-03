@@ -34,10 +34,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithKind("Advisory"):
 		return &softwarecompositionv1beta1.AdvisoryApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("ApplicationActivity"):
-		return &softwarecompositionv1beta1.ApplicationActivityApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("ApplicationActivitySpec"):
-		return &softwarecompositionv1beta1.ApplicationActivitySpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ApplicationProfile"):
 		return &softwarecompositionv1beta1.ApplicationProfileApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ApplicationProfileContainer"):
@@ -60,6 +56,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.ConfigurationScanSummaryApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConfigurationScanSummarySpec"):
 		return &softwarecompositionv1beta1.ConfigurationScanSummarySpecApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfile"):
+		return &softwarecompositionv1beta1.ContainerProfileApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfileSpec"):
+		return &softwarecompositionv1beta1.ContainerProfileSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ControlSeverity"):
 		return &softwarecompositionv1beta1.ControlSeverityApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Coordinates"):

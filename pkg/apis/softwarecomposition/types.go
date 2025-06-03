@@ -320,28 +320,43 @@ type ApplicationProfileList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type ApplicationActivity struct {
+type ContainerProfile struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   ApplicationActivitySpec
-	Status ApplicationActivityStatus
+	Spec   ContainerProfileSpec
+	Status ContainerProfileStatus
 }
 
-type ApplicationActivitySpec struct {
-	Syscalls []string
+type ContainerProfileSpec struct {
+	// WARNING report fields from ApplicationProfileContainer here
+	Architectures        []string
+	Capabilities         []string
+	Execs                []ExecCalls
+	Opens                []OpenCalls
+	Syscalls             []string
+	SeccompProfile       SingleSeccompProfile
+	Endpoints            []HTTPEndpoint
+	ImageID              string
+	ImageTag             string
+	PolicyByRuleId       map[string]RulePolicy
+	IdentifiedCallStacks []IdentifiedCallStack
+	// WARNING report fields from NetworkNeighborhoodContainer here
+	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
+	Ingress              []NetworkNeighbor
+	Egress               []NetworkNeighbor
 }
 
-type ApplicationActivityStatus struct {
+type ContainerProfileStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type ApplicationActivityList struct {
+type ContainerProfileList struct {
 	metav1.TypeMeta
 	metav1.ListMeta
 
-	Items []ApplicationActivity
+	Items []ContainerProfile
 }
 
 ///////////////////////////////////////////////////////////////////////////////
