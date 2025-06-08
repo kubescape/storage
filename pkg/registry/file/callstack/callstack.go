@@ -83,7 +83,7 @@ func parsePath(path string) []types.StackFrame {
 // reconstructCallStack builds a CallStack from a trie
 func reconstructCallStack(t *trie.PathTrie) types.CallStack {
 	var allPaths [][]types.StackFrame
-	t.Walk(func(key string, value interface{}) error {
+	_ = t.Walk(func(key string, value interface{}) error {
 		if value == nil {
 			return nil
 		}
