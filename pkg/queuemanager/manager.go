@@ -1,7 +1,11 @@
 package queuemanager
 
 import (
+	"bytes"
 	"net/http"
+	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +44,21 @@ func NewQueueManager(cfg *config.Config) *QueueManager {
 	}
 }
 
+func GoID() int {
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	// Stack trace looks like: "goroutine 12345 ["
+	fields := bytes.Fields(buf[:n])
+	if len(fields) < 2 {
+		return -1
+	}
+	id, err := strconv.Atoi(string(fields[1]))
+	if err != nil {
+		return -1
+	}
+	return id
+}
+
 func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 	qm.mu.Lock()
 	defer qm.mu.Unlock()
@@ -68,22 +87,29 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 			pool:          pool,
 			maxObjectSize: maxObjectSize,
 		}
+		logger.L().Info("queue configuration", helpers.String("kind", kind), helpers.Int("queueLength", queueLen), helpers.Int("workerCount", workerCount), helpers.Int("maxObjectSize", maxObjectSize))
 		// Start a dispatcher goroutine for this kind
 		go func(q *kindQueue) {
 			for req := range q.queue {
-				req := req // capture loop variable
-				_ = q.pool.Submit(func() {
+				reqLocal := req // capture loop variable
+				err := q.pool.Submit(func() {
 					select {
-					case <-req.r.Context().Done():
+					case <-reqLocal.r.Context().Done():
 						// Client has gone away, do not process
-						close(req.done)
+						close(reqLocal.done)
 						return
 					default:
 						// Still active, process
-						req.next.ServeHTTP(req.w, req.r)
-						close(req.done)
+						reqLocal.next.ServeHTTP(reqLocal.w, reqLocal.r)
+						close(reqLocal.done)
+						return
 					}
 				})
+				if err != nil {
+					logger.L().Error("failed to submit to worker pool", helpers.Error(err), helpers.String("path", reqLocal.r.URL.Path), helpers.String("kind", kind), helpers.String("verb", reqLocal.r.Method), helpers.String("kind", kind))
+					// Optionally: handle the error, e.g., close(req.done) to unblock the waiting goroutine
+					close(reqLocal.done)
+				}
 			}
 		}(q)
 		qm.queues[kind] = q
@@ -93,18 +119,41 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 
 func extractKindAndVerb(r *http.Request) (kind, verb string) {
 	reqInfo, ok := request.RequestInfoFrom(r.Context())
-	if !ok {
-		return "unknown", r.Method
+	if ok {
+		return reqInfo.Resource, reqInfo.Verb
 	}
-	return reqInfo.Resource, reqInfo.Verb
+	// fallback:
+	return extractKindAndVerbFromPath(r)
+}
+
+func extractKindAndVerbFromPath(r *http.Request) (kind, verb string) {
+	// Example: /apis/spdx.softwarecomposition.kubescape.io/v1beta1/namespaces/foo/configurationscansummaries
+	//          /apis/spdx.softwarecomposition.kubescape.io/v1beta1/namespaces/default/applicationprofiles
+	path := r.URL.Path
+	if strings.HasPrefix(path, "/apis/spdx.softwarecomposition.kubescape.io/v1beta1/") {
+		parts := strings.Split(path[1:], "/")
+		// Look for "namespaces" in the path
+		for i, part := range parts {
+			if part == "namespaces" && i+2 < len(parts) {
+				// The kind is after the namespace name
+				return parts[i+2], r.Method
+			}
+		}
+		// If "namespaces" is not present, fallback to the current logic
+		if len(parts) >= 4 {
+			return parts[3], r.Method
+		}
+	}
+	return "unknown", r.Method
 }
 
 func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		kind, verb := extractKindAndVerb(r)
-		if verb == "watch" || kind == "unknown" {
-			// Skip queue for watch or unknown kind
-			// Watch requests should not take up queue workers - they are not designed to be memory intensive (taking only metadata)
+		if kind == "unknown" || r.URL.Query().Get("watch") == "true" || r.URL.Query().Get("list") == "true" || r.URL.Query().Get("follow") == "true" ||
+			strings.HasSuffix(r.URL.Path, "/portforward") || strings.HasSuffix(r.URL.Path, "/exec") {
+			// Skip queue for watch, list, follow, portforward, exec, or unknown kind
+			// These requests should not take up queue workers - they are not designed to be memory intensive (taking only metadata)
 			// Unknown cannot be assigned to a queue
 			next.ServeHTTP(w, r)
 			return
@@ -142,3 +191,28 @@ func (qm *QueueManager) logQueueFullThrottled(kind, verb string) {
 		qm.mu.Unlock()
 	}
 }
+
+// TimeoutLoggerMiddleware logs a warning if a request takes longer than 60 seconds to finish.
+func TimeoutLoggerMiddleware(next http.Handler, timeoutSeconds int) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("watch") == "true" || r.URL.Query().Get("list") == "true" || r.URL.Query().Get("follow") == "true" ||
+			strings.HasSuffix(r.URL.Path, "/portforward") || strings.HasSuffix(r.URL.Path, "/exec") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		done := make(chan struct{})
+		go func() {
+			select {
+			case <-done:
+				// Request finished in time
+			case <-time.After(time.Duration(timeoutSeconds) * time.Second):
+				logger.L().Warning("Request took longer than timeout", helpers.String("path", r.URL.Path), helpers.String("method", r.Method), helpers.String("query", r.URL.RawQuery), helpers.String("remote", r.RemoteAddr))
+			}
+		}()
+		next.ServeHTTP(w, r)
+		close(done)
+	})
+}
+
+// Example usage (wrap your main handler or router):
+// http.Handle("/", TimeoutLoggerMiddleware(qm.QueueHandler(yourHandler)))
