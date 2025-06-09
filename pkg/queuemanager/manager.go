@@ -1,10 +1,7 @@
 package queuemanager
 
 import (
-	"bytes"
 	"net/http"
-	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,21 +39,6 @@ func NewQueueManager(cfg *config.Config) *QueueManager {
 		cfg:              cfg,
 		lastQueueFullLog: make(map[string]time.Time),
 	}
-}
-
-func GoID() int {
-	var buf [64]byte
-	n := runtime.Stack(buf[:], false)
-	// Stack trace looks like: "goroutine 12345 ["
-	fields := bytes.Fields(buf[:n])
-	if len(fields) < 2 {
-		return -1
-	}
-	id, err := strconv.Atoi(string(fields[1]))
-	if err != nil {
-		return -1
-	}
-	return id
 }
 
 func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
@@ -107,7 +89,6 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 				})
 				if err != nil {
 					logger.L().Error("failed to submit to worker pool", helpers.Error(err), helpers.String("path", reqLocal.r.URL.Path), helpers.String("kind", kind), helpers.String("verb", reqLocal.r.Method), helpers.String("kind", kind))
-					// Optionally: handle the error, e.g., close(req.done) to unblock the waiting goroutine
 					close(reqLocal.done)
 				}
 			}
@@ -140,7 +121,7 @@ func extractKindAndVerbFromPath(r *http.Request) (kind, verb string) {
 			}
 		}
 		// If "namespaces" is not present, fallback to the current logic
-		if len(parts) >= 4 {
+		if len(parts) >= 4 && parts[3] != "" {
 			return parts[3], r.Method
 		}
 	}
@@ -192,7 +173,7 @@ func (qm *QueueManager) logQueueFullThrottled(kind, verb string) {
 	}
 }
 
-// TimeoutLoggerMiddleware logs a warning if a request takes longer than 60 seconds to finish.
+// TimeoutLoggerMiddleware logs a warning if a request takes longer than timeoutSeconds seconds to finish.
 func TimeoutLoggerMiddleware(next http.Handler, timeoutSeconds int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("watch") == "true" || r.URL.Query().Get("list") == "true" || r.URL.Query().Get("follow") == "true" ||

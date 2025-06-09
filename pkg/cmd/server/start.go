@@ -317,20 +317,22 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 		return nil
 	})
 
-	go func() {
-		for {
-			time.Sleep(5 * time.Minute)
-			currentStats := stats.GetStats(true)
-			for kind, verbs := range currentStats {
-				for verb, stats := range verbs {
-					logger.L().Info("stats", helpers.String("kind", kind),
-						helpers.String("verb", verb), helpers.Int("count", int(stats.Count)),
-						helpers.String("min", stats.Min.String()), helpers.String("max", stats.Max.String()),
-						helpers.String("avg", time.Duration(stats.Sum.Nanoseconds()/stats.Count).String()))
+	if o.StorageConfig.QueueProcessingStatsPrint {
+		go func() {
+			for {
+				time.Sleep(5 * time.Minute)
+				currentStats := stats.GetStats(true)
+				for kind, verbs := range currentStats {
+					for verb, stats := range verbs {
+						logger.L().Info("stats", helpers.String("kind", kind),
+							helpers.String("verb", verb), helpers.Int("count", int(stats.Count)),
+							helpers.String("min", stats.Min.String()), helpers.String("max", stats.Max.String()),
+							helpers.String("avg", time.Duration(stats.Sum.Nanoseconds()/stats.Count).String()))
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	return server.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }
