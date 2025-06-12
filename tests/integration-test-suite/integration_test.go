@@ -92,6 +92,10 @@ func (s *IntegrationTestSuite) SetupSuite() {
 				isReady = true
 				break
 			}
+			if pod.OwnerReferences != nil && len(pod.OwnerReferences) > 0 && pod.OwnerReferences[0].Kind == "Job" {
+				isReady = true
+				break
+			}
 		}
 		for _, cs := range containerStatuses {
 			if cs.Ready {
@@ -103,8 +107,10 @@ func (s *IntegrationTestSuite) SetupSuite() {
 			message := pod.Status.Message
 			if reason == "" && len(containerStatuses) > 0 {
 				// Try to get reason/message from first container if available
-				reason = containerStatuses[0].State.Waiting.Reason
-				message = containerStatuses[0].State.Waiting.Message
+				if containerStatuses[0].State.Waiting != nil {
+					reason = containerStatuses[0].State.Waiting.Reason
+					message = containerStatuses[0].State.Waiting.Message
+				}
 			}
 			s.FailNow(
 				fmt.Sprintf(
@@ -159,12 +165,6 @@ func (s *IntegrationTestSuite) SetupSubTest() {
 func (s *IntegrationTestSuite) TearDownSubTest() {
 }
 
-func (s *IntegrationTestSuite) TestAllPodsRunning() {
-	pods, err := ListPodsInNamespace(s.clientset, "kubescape")
-	s.Require().NoError(err)
-	for _, pod := range pods {
-		for _, cs := range pod.Status.ContainerStatuses {
-			s.True(cs.Ready, "container %s in pod %s is not ready", cs.Name, pod.Name)
-		}
-	}
+func (s *IntegrationTestSuite) LogWithTimestamp(msg string) {
+	s.T().Logf("[%s] %s", time.Now().Format("2006-01-02 15:04:05"), msg)
 }

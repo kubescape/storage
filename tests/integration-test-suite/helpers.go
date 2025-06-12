@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"testing"
+	"time"
 
 	spdxv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	spdxv1beta1client "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
@@ -116,4 +118,90 @@ func fetchNetworkNeighborProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta
 		return nil, err
 	}
 	return networkNeighborProfile, nil
+}
+
+// DeleteKubescapeStoragePod finds and deletes the first pod with label app=storage in the 'kubescape' namespace.
+func DeleteKubescapeStoragePod(t *testing.T, clientset *kubernetes.Clientset) string {
+	storagePods, err := clientset.CoreV1().Pods("kubescape").List(context.Background(), metav1.ListOptions{
+		LabelSelector: "app=storage",
+	})
+	if err != nil || len(storagePods.Items) == 0 {
+		t.Fatalf("Failed to find storage pod with app=storage label: %v", err)
+	}
+	podName := storagePods.Items[0].Name
+	err = clientset.CoreV1().Pods("kubescape").Delete(context.Background(), podName, metav1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Failed to delete storage pod %s: %v", podName, err)
+	}
+	t.Logf("Deleted storage pod: %s", podName)
+	return podName
+}
+
+// WaitForPodWithLabelReady waits for a pod with the given label in the given namespace to be ready.
+func WaitForPodWithLabelReady(t *testing.T, clientset *kubernetes.Clientset, namespace, labelSelector string) {
+	ctx := context.Background()
+	t.Logf("Waiting for pod with label '%s' in namespace '%s' to be ready", labelSelector, namespace)
+	deadline := time.Now().Add(10 * time.Minute)
+	for {
+		pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: labelSelector,
+		})
+		if err != nil {
+			t.Fatalf("Error listing pods: %v", err)
+		}
+		if len(pods.Items) > 0 {
+			pod := pods.Items[0]
+			isReady := false
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+					isReady = true
+					break
+				}
+			}
+			if isReady {
+				t.Log("Pod is ready")
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Timed out waiting for pod with label '%s' in namespace '%s' to be ready", labelSelector, namespace)
+		}
+		t.Log("Pod not ready yet, sleeping 10s...")
+		time.Sleep(10 * time.Second)
+	}
+}
+
+// DeleteNodeAgentPodOnSameNode finds the node where a given pod is running, then deletes the node-agent pod on that node in the 'kubescape' namespace.
+func DeleteNodeAgentPodOnSameNode(t *testing.T, clientset *kubernetes.Clientset, testNamespace, testPodLabelSelector string) string {
+	ctx := context.Background()
+	pods, err := clientset.CoreV1().Pods(testNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: testPodLabelSelector,
+	})
+	if err != nil || len(pods.Items) == 0 {
+		t.Fatalf("Failed to find test pod with label %s in namespace %s: %v", testPodLabelSelector, testNamespace, err)
+	}
+	testPod := pods.Items[0]
+	nodeName := testPod.Spec.NodeName
+	if nodeName == "" {
+		t.Fatalf("Test pod %s is not scheduled on any node", testPod.Name)
+	}
+
+	nodeAgentPods, err := clientset.CoreV1().Pods("kubescape").List(ctx, metav1.ListOptions{
+		LabelSelector: "app=node-agent",
+	})
+	if err != nil || len(nodeAgentPods.Items) == 0 {
+		t.Fatalf("Failed to find node-agent pods in kubescape namespace: %v", err)
+	}
+	for _, pod := range nodeAgentPods.Items {
+		if pod.Spec.NodeName == nodeName {
+			err := clientset.CoreV1().Pods("kubescape").Delete(ctx, pod.Name, metav1.DeleteOptions{})
+			if err != nil {
+				t.Fatalf("Failed to delete node-agent pod %s: %v", pod.Name, err)
+			}
+			t.Logf("Deleted node-agent pod: %s on node: %s", pod.Name, nodeName)
+			return pod.Name
+		}
+	}
+	t.Fatalf("No node-agent pod found on node %s", nodeName)
+	return ""
 }
