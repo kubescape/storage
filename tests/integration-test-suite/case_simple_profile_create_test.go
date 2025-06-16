@@ -12,13 +12,10 @@ import (
 )
 
 func (s *IntegrationTestSuite) TestSimpleProfileCreate() {
-	description := `TestSimpleProfileCreate: Deploys a test deployment with a 5-minute learning period and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after the learning period.
+	description := `TestSimpleProfileCreate: Deploys a test deployment with a 2-minute learning period and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after the learning period.
 Goal: Ensure that the profiling and learning period mechanism works as expected and that profiles are finalized correctly after the learning period.`
 	s.LogWithTimestamp(description)
 
-	// Deploy a test deployment with a learning period of 5 minutes and make sure we get a profile
-	// with a learning period of 5 minutes
-	s.LogWithTimestamp("Creating test deployment")
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "simple-test-deployment",
@@ -35,7 +32,7 @@ Goal: Ensure that the profiling and learning period mechanism works as expected 
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "simple-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "5m",
+						containerwatcher.MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -55,19 +52,16 @@ Goal: Ensure that the profiling and learning period mechanism works as expected 
 	s.LogWithTimestamp("Waiting for pod to be ready")
 	WaitForPodWithLabelReady(s.T(), s.clientset, s.testNamespace, "app=simple-test-deployment")
 
-	s.LogWithTimestamp("Waiting 6 minutes for learning period")
-	// Wait 6 minutes after pod is ready
-	time.Sleep(6 * time.Minute)
+	s.LogWithTimestamp("Waiting 3 minutes for learning period")
+	time.Sleep(3 * time.Minute)
 
 	s.LogWithTimestamp("Fetching application profile and network neighbor profile")
-	// Get the application profile and network neighbor profile
 	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "simple-test-deployment")
 	s.Require().NoError(err)
 	networkNeighborProfile, err := fetchNetworkNeighborProfile(s.ksObjectConnection, s.testNamespace, "deployment", "simple-test-deployment")
 	s.Require().NoError(err)
 
 	s.LogWithTimestamp("Verifying profiles are complete")
-	// Verify profile is complete/completed
 	s.Require().Equal("complete", applicationProfile.Annotations["kubescape.io/completion"])
 	s.Require().Equal("completed", applicationProfile.Annotations["kubescape.io/status"])
 	s.Require().Equal("complete", networkNeighborProfile.Annotations["kubescape.io/completion"])

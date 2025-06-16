@@ -12,7 +12,7 @@ import (
 )
 
 func (s *IntegrationTestSuite) TestCronJobProfileCreate() {
-	description := `TestCronJobProfileCreate: Deploys a CronJob with a 5-minute learning period, waits for the job pod to be ready, and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after the learning period.\nGoal: Ensure that the profiling and learning period mechanism works as expected for CronJobs and that profiles are finalized correctly after the learning period.`
+	description := `TestCronJobProfileCreate: Deploys a CronJob with a 2-minute learning period, waits for the job pod to be ready, and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after the learning period.\nGoal: Ensure that the profiling and learning period mechanism works as expected for CronJobs and that profiles are finalized correctly after the learning period.`
 	s.LogWithTimestamp(description)
 
 	cronJob := &batchv1.CronJob{
@@ -29,7 +29,7 @@ func (s *IntegrationTestSuite) TestCronJobProfileCreate() {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"app":                                 "test-cronjob-profile",
-								containerwatcher.MaxSniffingTimeLabel: "5m",
+								containerwatcher.MaxSniffingTimeLabel: "2m",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -50,20 +50,19 @@ func (s *IntegrationTestSuite) TestCronJobProfileCreate() {
 	_, err := s.clientset.BatchV1().CronJobs(s.testNamespace).Create(context.Background(), cronJob, metav1.CreateOptions{})
 	s.Require().NoError(err)
 
-	s.LogWithTimestamp("Waiting for CronJob pod to be ready")
-	// Wait for a pod with the label to be ready (should be created by the CronJob)
+	s.LogWithTimestamp("Waiting for pod to be ready")
 	WaitForPodWithLabelReady(s.T(), s.clientset, s.testNamespace, "app=test-cronjob-profile")
 
-	s.LogWithTimestamp("Waiting 6 minutes for learning period")
-	time.Sleep(6 * time.Minute)
+	s.LogWithTimestamp("Waiting 3 minutes for learning period")
+	time.Sleep(3 * time.Minute)
 
-	s.LogWithTimestamp("Fetching application profile and network neighbor profile for CronJob")
+	s.LogWithTimestamp("Fetching application profile and network neighbor profile")
 	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "cronjob", "test-cronjob-profile")
 	s.Require().NoError(err)
 	networkNeighborProfile, err := fetchNetworkNeighborProfile(s.ksObjectConnection, s.testNamespace, "cronjob", "test-cronjob-profile")
 	s.Require().NoError(err)
 
-	s.LogWithTimestamp("Verifying profiles are complete for CronJob")
+	s.LogWithTimestamp("Verifying profiles are complete")
 	s.Require().Equal("complete", applicationProfile.Annotations["kubescape.io/completion"])
 	s.Require().Equal("completed", applicationProfile.Annotations["kubescape.io/status"])
 	s.Require().Equal("complete", networkNeighborProfile.Annotations["kubescape.io/completion"])

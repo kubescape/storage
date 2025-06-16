@@ -12,7 +12,7 @@ import (
 )
 
 func (s *IntegrationTestSuite) TestJobProfileCreate() {
-	description := `TestJobProfileCreate: Deploys a Job with a 5-minute learning period, waits for the job pod to be ready, and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after the learning period.\nGoal: Ensure that the profiling and learning period mechanism works as expected for Jobs and that profiles are finalized correctly after the learning period.`
+	description := `TestJobProfileCreate: Deploys a Job with a 2-minute learning period, waits for the job pod to be ready, and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after the learning period.\nGoal: Ensure that the profiling and learning period mechanism works as expected for Jobs and that profiles are finalized correctly after the learning period.`
 	s.LogWithTimestamp(description)
 
 	job := &batchv1.Job{
@@ -25,7 +25,7 @@ func (s *IntegrationTestSuite) TestJobProfileCreate() {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "test-job-profile",
-						containerwatcher.MaxSniffingTimeLabel: "5m",
+						containerwatcher.MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -44,19 +44,19 @@ func (s *IntegrationTestSuite) TestJobProfileCreate() {
 	_, err := s.clientset.BatchV1().Jobs(s.testNamespace).Create(context.Background(), job, metav1.CreateOptions{})
 	s.Require().NoError(err)
 
-	s.LogWithTimestamp("Waiting for Job pod to be ready")
+	s.LogWithTimestamp("Waiting for pod to be ready")
 	WaitForPodWithLabelReady(s.T(), s.clientset, s.testNamespace, "app=test-job-profile")
 
-	s.LogWithTimestamp("Waiting 6 minutes for learning period")
-	time.Sleep(6 * time.Minute)
+	s.LogWithTimestamp("Waiting 3 minutes for learning period")
+	time.Sleep(3 * time.Minute)
 
-	s.LogWithTimestamp("Fetching application profile and network neighbor profile for Job")
+	s.LogWithTimestamp("Fetching application profile and network neighbor profile")
 	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "job", "test-job-profile")
 	s.Require().NoError(err)
 	networkNeighborProfile, err := fetchNetworkNeighborProfile(s.ksObjectConnection, s.testNamespace, "job", "test-job-profile")
 	s.Require().NoError(err)
 
-	s.LogWithTimestamp("Verifying profiles are complete for Job")
+	s.LogWithTimestamp("Verifying profiles are complete")
 	s.Require().Equal("complete", applicationProfile.Annotations["kubescape.io/completion"])
 	s.Require().Equal("completed", applicationProfile.Annotations["kubescape.io/status"])
 	s.Require().Equal("complete", networkNeighborProfile.Annotations["kubescape.io/completion"])

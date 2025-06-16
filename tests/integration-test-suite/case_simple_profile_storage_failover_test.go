@@ -33,7 +33,7 @@ Goal: Ensure that the system can recover from a storage pod failover and still p
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "failover-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "10m",
+						containerwatcher.MaxSniffingTimeLabel: "4m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -53,14 +53,14 @@ Goal: Ensure that the system can recover from a storage pod failover and still p
 	s.LogWithTimestamp("Waiting for pod to be ready")
 	WaitForPodWithLabelReady(s.T(), s.clientset, s.testNamespace, "app=failover-test-deployment")
 
-	s.LogWithTimestamp("Waiting 5 minutes before killing storage pod")
-	time.Sleep(5 * time.Minute)
+	s.LogWithTimestamp("Waiting 2 minutes before killing storage pod")
+	time.Sleep(2 * time.Minute)
 
 	s.LogWithTimestamp("Killing kubescape storage pod for failover test")
 	DeleteKubescapeStoragePod(s.T(), s.clientset)
 
-	s.LogWithTimestamp("Waiting 6 more minutes for learning period to complete after failover")
-	time.Sleep(6 * time.Minute)
+	s.LogWithTimestamp("Waiting 3 more minutes for learning period to complete after failover")
+	time.Sleep(3 * time.Minute)
 
 	s.LogWithTimestamp("Fetching application profile and network neighbor profile after failover")
 	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "failover-test-deployment")

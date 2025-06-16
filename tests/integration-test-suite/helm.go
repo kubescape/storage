@@ -12,9 +12,16 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 	repoName := "kubescape"
 	repoURL := "https://kubescape.github.io/helm-charts/"
 
+	// Check if release exists
+	cmd := exec.Command("helm", "status", releaseName, "-n", "kubescape")
+	if err := cmd.Run(); err == nil && !updateIfPresent {
+		log.Printf("Kubescape helm release already exists - not updating since updateIfPresent=false\n")
+		return nil
+	}
+
 	// Add the kubescape repo (idempotent)
 	log.Printf("Adding kubescape helm repo if not present...")
-	cmd := exec.Command("helm", "repo", "add", repoName, repoURL)
+	cmd = exec.Command("helm", "repo", "add", repoName, repoURL)
 	_ = cmd.Run() // ignore error if already exists
 
 	// Update helm repos
@@ -22,13 +29,6 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 	cmd = exec.Command("helm", "repo", "update")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("helm repo update failed: %v\n%s", err, string(out))
-	}
-
-	// Check if release exists
-	cmd = exec.Command("helm", "status", releaseName, "-n", "kubescape")
-	if err := cmd.Run(); err == nil && !updateIfPresent {
-		log.Printf("Kubescape helm release already exists - not updating since updateIfPresent=false\n")
-		return nil
 	}
 
 	// Get current cluster name from kubectl config
@@ -49,6 +49,8 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 		"--set", "capabilities.continuousScan=enable",
 		"--set", "capabilities.runtimeDetection=enable",
 		"--set", "alertCRD.installDefault=true",
+		"--set", "nodeAgent.config.learningPeriod=30s",
+		"--set", "nodeAgent.config.updatePeriod=1m",
 		"--wait",
 		"--timeout", "5m0s",
 	}

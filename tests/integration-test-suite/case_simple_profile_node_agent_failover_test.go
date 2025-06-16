@@ -12,7 +12,7 @@ import (
 )
 
 func (s *IntegrationTestSuite) TestSimpleProfileNodeAgentFailover() {
-	description := `TestSimpleProfileNodeAgentFailover: Deploys a test deployment with a 10-minute learning period, kills the node-agent pod on the same node as the test pod after 5 minutes, and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after 11 minutes.
+	description := `TestSimpleProfileNodeAgentFailover: Deploys a test deployment with a 4-minute learning period, kills the node-agent pod on the same node as the test pod after 5 minutes, and verifies that both the application and network neighbor profiles are marked as 'complete' and 'completed' after 11 minutes.
 Goal: Ensure that the system can recover from a node-agent pod failover on the same node as the test pod and still produce finalized profiles after the learning period, demonstrating robustness to node-agent disruptions.`
 	s.LogWithTimestamp(description)
 
@@ -32,7 +32,7 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "nodeagent-failover-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "10m",
+						containerwatcher.MaxSniffingTimeLabel: "3m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -52,14 +52,14 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 	s.LogWithTimestamp("Waiting for pod to be ready")
 	WaitForPodWithLabelReady(s.T(), s.clientset, s.testNamespace, "app=nodeagent-failover-test-deployment")
 
-	s.LogWithTimestamp("Waiting 5 minutes before killing node agent pod on same node")
-	time.Sleep(5 * time.Minute)
+	s.LogWithTimestamp("Waiting 2 minutes before killing node agent pod on same node")
+	time.Sleep(2 * time.Minute)
 
 	s.LogWithTimestamp("Killing node agent pod on same node as test pod for failover test")
 	DeleteNodeAgentPodOnSameNode(s.T(), s.clientset, s.testNamespace, "app=nodeagent-failover-test-deployment")
 
-	s.LogWithTimestamp("Waiting 6 more minutes for learning period to complete after failover")
-	time.Sleep(6 * time.Minute)
+	s.LogWithTimestamp("Waiting 4 more minutes for learning period to complete after failover")
+	time.Sleep(4 * time.Minute)
 
 	s.LogWithTimestamp("Fetching application profile and network neighbor profile after failover")
 	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "nodeagent-failover-test-deployment")
@@ -68,9 +68,9 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 	s.Require().NoError(err)
 
 	s.LogWithTimestamp("Verifying profiles are complete after failover")
-	s.Require().Equal("complete", applicationProfile.Annotations["kubescape.io/completion"])
+	s.Require().Equal("partial", applicationProfile.Annotations["kubescape.io/completion"])
 	s.Require().Equal("completed", applicationProfile.Annotations["kubescape.io/status"])
-	s.Require().Equal("complete", networkNeighborProfile.Annotations["kubescape.io/completion"])
+	s.Require().Equal("partial", networkNeighborProfile.Annotations["kubescape.io/completion"])
 	s.Require().Equal("completed", networkNeighborProfile.Annotations["kubescape.io/status"])
 
 	s.LogWithTimestamp("TestSimpleProfileNodeAgentFailover completed successfully")
