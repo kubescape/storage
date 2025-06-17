@@ -56,17 +56,9 @@ func (s *IntegrationTestSuite) TestCronJobProfileCreate() {
 	s.LogWithTimestamp("Waiting 3 minutes for learning period")
 	time.Sleep(3 * time.Minute)
 
-	s.LogWithTimestamp("Fetching application profile and network neighbor profile")
-	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "cronjob", "test-cronjob-profile")
-	s.Require().NoError(err)
-	networkNeighborProfile, err := fetchNetworkNeighborProfile(s.ksObjectConnection, s.testNamespace, "cronjob", "test-cronjob-profile")
-	s.Require().NoError(err)
-
 	s.LogWithTimestamp("Verifying profiles are complete")
-	s.Require().Equal("complete", applicationProfile.Annotations["kubescape.io/completion"])
-	s.Require().Equal("completed", applicationProfile.Annotations["kubescape.io/status"])
-	s.Require().Equal("complete", networkNeighborProfile.Annotations["kubescape.io/completion"])
-	s.Require().Equal("completed", networkNeighborProfile.Annotations["kubescape.io/status"])
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "cronjob", "test-cronjob-profile")
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "cronjob", "test-cronjob-profile")
 
 	s.LogWithTimestamp("TestCronJobProfileCreate completed successfully")
 }

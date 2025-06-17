@@ -61,17 +61,9 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 	s.LogWithTimestamp("Waiting 4 more minutes for learning period to complete after failover")
 	time.Sleep(4 * time.Minute)
 
-	s.LogWithTimestamp("Fetching application profile and network neighbor profile after failover")
-	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "nodeagent-failover-test-deployment")
-	s.Require().NoError(err)
-	networkNeighborProfile, err := fetchNetworkNeighborProfile(s.ksObjectConnection, s.testNamespace, "deployment", "nodeagent-failover-test-deployment")
-	s.Require().NoError(err)
-
 	s.LogWithTimestamp("Verifying profiles are complete after failover")
-	s.Require().Equal("partial", applicationProfile.Annotations["kubescape.io/completion"])
-	s.Require().Equal("completed", applicationProfile.Annotations["kubescape.io/status"])
-	s.Require().Equal("partial", networkNeighborProfile.Annotations["kubescape.io/completion"])
-	s.Require().Equal("completed", networkNeighborProfile.Annotations["kubescape.io/status"])
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "partial", s.testNamespace, "deployment", "nodeagent-failover-test-deployment")
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "partial", s.testNamespace, "deployment", "nodeagent-failover-test-deployment")
 
 	s.LogWithTimestamp("TestSimpleProfileNodeAgentFailover completed successfully")
 }

@@ -205,3 +205,68 @@ func DeleteNodeAgentPodOnSameNode(t *testing.T, clientset *kubernetes.Clientset,
 	t.Fatalf("No node-agent pod found on node %s", nodeName)
 	return ""
 }
+
+func verifyApplicationProfileCompleted(t *testing.T, ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, expectedCompletness, testNamespace, relatedKind, relatedName string) {
+	applicationProfile, err := fetchApplicationProfile(ksObjectConnection, testNamespace, relatedKind, relatedName)
+	if err != nil {
+		t.Fatalf("Failed to fetch application profile: %v", err)
+	}
+	if applicationProfile.Annotations["kubescape.io/status"] != "completed" {
+		t.Fatalf("Application profile %s %s is not completed", relatedKind, relatedName)
+	}
+	if applicationProfile.Annotations["kubescape.io/completion"] != expectedCompletness {
+		t.Fatalf("Application profile %s %s is not %s", relatedKind, relatedName, expectedCompletness)
+	}
+	// Check that there are contents in the profile
+	if len(applicationProfile.Spec.Containers) == 0 {
+		t.Fatalf("Application profile %s %s has no containers", relatedKind, relatedName)
+	}
+	// Check exec, open, syscall
+	execCount := 0
+	openCount := 0
+	syscallCount := 0
+	for _, container := range applicationProfile.Spec.Containers {
+		execCount += len(container.Execs)
+		openCount += len(container.Opens)
+		syscallCount += len(container.Syscalls)
+	}
+	if execCount == 0 {
+		t.Fatalf("Application profile %s %s has no execs", relatedKind, relatedName)
+	}
+	if openCount == 0 {
+		t.Fatalf("Application profile %s %s has no opens", relatedKind, relatedName)
+	}
+	if syscallCount == 0 {
+		t.Fatalf("Application profile %s %s has no syscalls", relatedKind, relatedName)
+	}
+}
+
+func verifyNetworkNeighborProfileCompleted(t *testing.T, ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, expectEgress, expectIngress bool, expectedCompletness, testNamespace, relatedKind, relatedName string) {
+	networkNeighborProfile, err := fetchNetworkNeighborProfile(ksObjectConnection, testNamespace, relatedKind, relatedName)
+	if err != nil {
+		t.Fatalf("Failed to fetch network neighbor profile: %v", err)
+	}
+	if networkNeighborProfile.Annotations["kubescape.io/status"] != "completed" {
+		t.Fatalf("Network neighbor profile %s %s is not completed", relatedKind, relatedName)
+	}
+	if networkNeighborProfile.Annotations["kubescape.io/completion"] != expectedCompletness {
+		t.Fatalf("Network neighbor profile %s %s is not %s", relatedKind, relatedName, expectedCompletness)
+	}
+	// Check that there are contents in the profile
+	if len(networkNeighborProfile.Spec.Containers) == 0 {
+		t.Fatalf("Network neighbor profile %s %s has no neighbors", relatedKind, relatedName)
+	}
+
+	egressCount := 0
+	ingressCount := 0
+	for _, container := range networkNeighborProfile.Spec.Containers {
+		egressCount += len(container.Egress)
+		ingressCount += len(container.Ingress)
+	}
+	if expectEgress && egressCount == 0 {
+		t.Fatalf("Network neighbor profile %s %s has no egress", relatedKind, relatedName)
+	}
+	if expectIngress && ingressCount == 0 {
+		t.Fatalf("Network neighbor profile %s %s has no ingress", relatedKind, relatedName)
+	}
+}

@@ -62,17 +62,9 @@ Goal: Ensure that the system can recover from a storage pod failover and still p
 	s.LogWithTimestamp("Waiting 3 more minutes for learning period to complete after failover")
 	time.Sleep(3 * time.Minute)
 
-	s.LogWithTimestamp("Fetching application profile and network neighbor profile after failover")
-	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "failover-test-deployment")
-	s.Require().NoError(err)
-	networkNeighborProfile, err := fetchNetworkNeighborProfile(s.ksObjectConnection, s.testNamespace, "deployment", "failover-test-deployment")
-	s.Require().NoError(err)
-
 	s.LogWithTimestamp("Verifying profiles are complete after failover")
-	s.Require().Equal("complete", applicationProfile.Annotations["kubescape.io/completion"])
-	s.Require().Equal("completed", applicationProfile.Annotations["kubescape.io/status"])
-	s.Require().Equal("complete", networkNeighborProfile.Annotations["kubescape.io/completion"])
-	s.Require().Equal("completed", networkNeighborProfile.Annotations["kubescape.io/status"])
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "failover-test-deployment")
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "failover-test-deployment")
 
 	s.LogWithTimestamp("TestSimpleProfileStorageFailover completed successfully")
 }
