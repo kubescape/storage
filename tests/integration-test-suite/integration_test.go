@@ -133,7 +133,7 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 // SetupTest runs before every test in the suite
 func (s *IntegrationTestSuite) SetupTest() {
 	// Create a unique namespace for each test
-	nsName := fmt.Sprintf("test-ns-%d", time.Now().UnixNano())
+	nsName := fmt.Sprintf("test-ns-%d-%d", time.Now().UnixNano(), os.Getpid())
 	s.testNamespace = nsName
 	clientset, err := GetKubeClient()
 	s.Require().NoError(err)
