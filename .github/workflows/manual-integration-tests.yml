@@ -67,6 +67,10 @@ jobs:
             $EXTRA_SET_ARGS \
             --wait
 
+      - name: Verify all Pods are running
+        run: |
+          kubectl wait --for=condition=ready pod --all -n kubescape --timeout=10m
+
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
 
@@ -76,9 +80,8 @@ jobs:
           NON_FAILOVER_TESTS="TestSimpleProfileCreate TestJobProfileCreate TestCronJobProfileCreate TestInitContainerProfileCreate TestSidecarProfileCreate TestInitSidecarProfileCreate TestCrashLoopProfileIncomplete TestCrashLoopAndStableProfileIncomplete TestStatefulSetProfileCleanup"
           for test in $NON_FAILOVER_TESTS; do
             echo "Running $test"
-            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./... &
+            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
           done
-          wait
 
       - name: Run failover tests sequentially
         run: |
