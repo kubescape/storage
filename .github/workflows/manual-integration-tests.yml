@@ -167,7 +167,7 @@ jobs:
       - name: Run failover tests sequentially
         run: |
           cd tests/integration-test-suite
-          for test in ${{ needs.list-tests.outputs.failover_tests }}; do
+          for test in $(echo "${{ needs.list-tests.outputs.failover_tests }}" | tr -cd '\11\12\15\40-\176' | tr '\n' ' '); do
             echo "Running $test"
             gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
           done
