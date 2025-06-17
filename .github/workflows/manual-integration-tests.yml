@@ -58,6 +58,8 @@ jobs:
               EXTRA_SET_ARGS="$EXTRA_SET_ARGS --set $arg"
             done
           fi
+          echo "Installing Kubescape with Helm"
+          echo "extra set args: $EXTRA_SET_ARGS"
           helm upgrade --install kubescape kubescape/kubescape-operator \
             -n kubescape --create-namespace \
             --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
