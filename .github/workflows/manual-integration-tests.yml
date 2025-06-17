@@ -1,0 +1,205 @@
+name: Manual Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run tests on'
+        required: true
+        default: 'main'
+      node_agent_image:
+        description: 'Node Agent image (e.g. quay.io/kubescape/node-agent:latest)'
+        required: true
+        default: 'quay.io/kubescape/node-agent:latest'
+      storage_image:
+        description: 'Storage image (e.g. quay.io/kubescape/storage:latest)'
+        required: true
+        default: 'quay.io/kubescape/storage:latest'
+      extra_helm_set_args:
+        description: 'Extra Helm --set arguments (comma-separated, e.g. foo=bar,bar=baz)'
+        required: false
+        default: ''
+
+jobs:
+  list-tests:
+    runs-on: ubuntu-latest
+    outputs:
+      all_tests: ${{ steps.list.outputs.all_tests }}
+      failover_tests: ${{ steps.list.outputs.failover_tests }}
+      non_failover_tests: ${{ steps.list.outputs.non_failover_tests }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: List all test cases
+        id: list
+        run: |
+          ALL_TESTS=$(grep -ho 'func (s \*IntegrationTestSuite) Test[^(]*' tests/integration-test-suite/*.go | sed 's/func (s \*IntegrationTestSuite) //' | sort)
+          echo "All test cases:"
+          echo "$ALL_TESTS"
+          echo "all_tests<<EOF" >> $GITHUB_OUTPUT
+          echo "$ALL_TESTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          FAILOVER_TESTS=$(echo "$ALL_TESTS" | grep -i failover)
+          echo "Failover tests:"
+          echo "$FAILOVER_TESTS"
+          echo "failover_tests<<EOF" >> $GITHUB_OUTPUT
+          echo "$FAILOVER_TESTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          NON_FAILOVER_TESTS=$(comm -23 <(echo "$ALL_TESTS") <(echo "$FAILOVER_TESTS"))
+          echo "Non-failover tests:"
+          echo "$NON_FAILOVER_TESTS"
+          echo "non_failover_tests<<EOF" >> $GITHUB_OUTPUT
+          echo "$NON_FAILOVER_TESTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  setup:
+    needs: list-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Set up kind cluster
+        uses: helm/kind-action@v1.8.0
+        with:
+          version: v0.22.0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Install Kubescape via Helm
+        run: |
+          helm repo add kubescape https://kubescape.github.io/helm-charts/
+          helm repo update
+
+          EXTRA_SET_ARGS=""
+          if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
+            IFS=',' read -ra ADDR <<< "${{ github.event.inputs.extra_helm_set_args }}"
+            for arg in "${ADDR[@]}"; do
+              EXTRA_SET_ARGS="$EXTRA_SET_ARGS --set $arg"
+            done
+          fi
+
+          helm upgrade --install kubescape kubescape/kubescape-operator \
+            -n kubescape --create-namespace \
+            --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
+            --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
+            --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
+            --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
+            $EXTRA_SET_ARGS \
+            --wait
+
+      - name: Upload workspace for test jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace
+          path: .
+
+  non-failover-tests:
+    needs: [list-tests, setup]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test_name: ${{ fromJson(needs.list-tests.outputs.non_failover_tests) }}
+      fail-fast: false
+    steps:
+      - name: Download workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace
+          path: .
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run non-failover test
+        run: |
+          cd tests/integration-test-suite
+          gotestsum --junitfile "junit-${{ matrix.test_name }}.xml" -- -v -run "IntegrationTestSuite/${{ matrix.test_name }}$" ./...
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: tests/integration-test-suite/junit-*.xml
+
+  failover-tests:
+    needs: [list-tests, setup]
+    runs-on: ubuntu-latest
+    if: needs.list-tests.outputs.failover_tests != ''
+    steps:
+      - name: Download workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace
+          path: .
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run failover tests sequentially
+        run: |
+          cd tests/integration-test-suite
+          for test in ${{ needs.list-tests.outputs.failover_tests }}; do
+            echo "Running $test"
+            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
+          done
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: tests/integration-test-suite/junit-*.xml
+
+  publish-summary:
+    needs: [non-failover-tests, failover-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: junit-results
+          path: junit-results
+
+      - name: Print test summary
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Name | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          for file in junit-results/*.xml; do
+            testname=$(basename "$file" .xml)
+            result=$(grep -o 'testsuite.*failures="[^"]*"' "$file" | head -1)
+            if [[ $result =~ failures="0" ]]; then
+              status="✅ PASS"
+            else
+              status="❌ FAIL"
+            fi
+            echo "| $testname | $status |" >> $GITHUB_STEP_SUMMARY
+          done
