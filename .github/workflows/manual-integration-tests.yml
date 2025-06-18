@@ -92,21 +92,56 @@ jobs:
 
       - name: Run non-failover tests in parallel
         run: |
+          set +e
           cd tests/integration-test-suite
           NON_FAILOVER_TESTS="TestSimpleProfileCreate TestJobProfileCreate TestCronJobProfileCreate TestInitContainerProfileCreate TestSidecarProfileCreate TestInitSidecarProfileCreate TestCrashLoopProfileIncomplete TestCrashLoopAndStableProfileIncomplete TestStatefulSetProfileCleanup"
+          declare -A pids
+          declare -A results
           for test in $NON_FAILOVER_TESTS; do
             echo "Running $test"
-            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
+            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./... 2>&1 | tee "log-$test.txt" &
+            pids[$test]=$!
           done
+          for test in $NON_FAILOVER_TESTS; do
+            wait ${pids[$test]}
+            results[$test]=$?
+          done
+          for test in $NON_FAILOVER_TESTS; do
+            echo "===== LOG FOR $test ====="
+            cat "log-$test.txt"
+          done
+          failed=0
+          for test in $NON_FAILOVER_TESTS; do
+            if [ "${results[$test]}" != "0" ]; then
+              echo "Test $test failed"
+              failed=1
+            fi
+          done
+          exit $failed
 
       - name: Run failover tests sequentially
         run: |
+          set +e
           cd tests/integration-test-suite
           FAILOVER_TESTS="TestSimpleProfileStorageFailover TestSimpleProfileNodeAgentFailover TestLongStorageFailover"
+          declare -A results
           for test in $FAILOVER_TESTS; do
             echo "Running $test"
-            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
+            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./... 2>&1 | tee "log-$test.txt"
+            results[$test]=$?
           done
+          for test in $FAILOVER_TESTS; do
+            echo "===== LOG FOR $test ====="
+            cat "log-$test.txt"
+          done
+          failed=0
+          for test in $FAILOVER_TESTS; do
+            if [ "${results[$test]}" != "0" ]; then
+              echo "Test $test failed"
+              failed=1
+            fi
+          done
+          exit $failed
 
       - name: Print test summary
         run: |
