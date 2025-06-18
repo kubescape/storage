@@ -94,11 +94,13 @@ jobs:
         run: |
           cd tests/integration-test-suite
           ./run-non-failover-tests.sh
+        continue-on-error: true
 
       - name: Run failover tests sequentially
         run: |
           cd tests/integration-test-suite
           ./run-failover-tests.sh
+        continue-on-error: true
 
       - name: Print test summary
         run: |
@@ -115,3 +117,21 @@ jobs:
             fi
             echo "| $testname | $status |" >> $GITHUB_STEP_SUMMARY
           done
+
+      - name: Upload JUnit test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: tests/integration-test-suite/junit-*.xml
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          junit_files: tests/integration-test-suite/junit-*.xml
+
+      - name: Fail job if any test failed
+        run: |
+          if grep -q 'failures="[1-9]' tests/integration-test-suite/junit-*.xml || grep -q 'errors="[1-9]' tests/integration-test-suite/junit-*.xml; then
+            echo "Some tests failed"
+            exit 1
+          fi
