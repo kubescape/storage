@@ -47,6 +47,7 @@ The profile should be complete after the learning period finishes and include bo
 								RunAsNonRoot: &[]bool{true}[0],
 								RunAsUser:    &[]int64{1000}[0],
 							},
+							RestartPolicy: corev1.ContainerRestartPolicyAlways,
 						},
 					},
 					Containers: []corev1.Container{
