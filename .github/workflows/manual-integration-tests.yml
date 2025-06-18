@@ -59,7 +59,14 @@ jobs:
             done
           fi
           echo "Installing Kubescape with Helm"
-          echo "extra set args: $EXTRA_SET_ARGS"
+          echo helm upgrade --install kubescape kubescape/kubescape-operator \
+            -n kubescape --create-namespace \
+            --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
+            --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
+            --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
+            --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
+            $EXTRA_SET_ARGS \
+            --wait
           helm upgrade --install kubescape kubescape/kubescape-operator \
             -n kubescape --create-namespace \
             --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
@@ -71,6 +78,7 @@ jobs:
 
       - name: Verify all Pods are running
         run: |
+          kubectl logs -n kubescape -l app=node-agent
           kubectl wait --for=condition=ready pod --all -n kubescape --timeout=10m
 
       - name: Install gotestsum
