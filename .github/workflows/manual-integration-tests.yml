@@ -110,7 +110,7 @@ jobs:
           for file in tests/integration-test-suite/junit-*.xml; do
             testname=$(basename "$file" .xml)
             result=$(grep -o 'testsuite.*failures="[^"]*"' "$file" | head -1)
-            if [[ $result =~ failures="0" ]]; then
+            if [[ "$result" == *'failures="0"'* ]]; then
               status="✅ PASS"
             else
               status="❌ FAIL"
