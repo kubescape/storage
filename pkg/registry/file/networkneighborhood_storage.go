@@ -53,7 +53,7 @@ func (a NetworkNeighborhoodStorage) Get(ctx context.Context, key string, opts st
 	if len(nn.Parts) > 0 {
 		matchLabels := make(map[string]string)
 		var matchExpressions []metav1.LabelSelectorRequirement
-		for _, cpKey := range nn.Parts {
+		for cpKey := range nn.Parts {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
 				return fmt.Errorf("get cp object: %w", err)

@@ -52,7 +52,7 @@ func (a ApplicationProfileStorage) Get(ctx context.Context, key string, opts sto
 	if len(ap.Parts) > 0 {
 		var architectures []string
 		var size int
-		for _, cpKey := range ap.Parts {
+		for cpKey := range ap.Parts {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
 				return fmt.Errorf("get cp object: %w", err)
