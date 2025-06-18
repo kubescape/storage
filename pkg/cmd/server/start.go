@@ -44,9 +44,11 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/apiserver/pkg/util/compatibility"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	basecompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/component-base/featuregate"
-	utilversion "k8s.io/component-base/version"
+	baseversion "k8s.io/component-base/version"
 	netutils "k8s.io/utils/net"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
@@ -58,6 +60,8 @@ const (
 // WardleServerOptions contains state for master/api server
 type WardleServerOptions struct {
 	RecommendedOptions *genericoptions.RecommendedOptions
+	// ComponentGlobalsRegistry is the registry where the effective versions and feature gates for all components are stored.
+	ComponentGlobalsRegistry basecompatibility.ComponentGlobalsRegistry
 
 	SharedInformerFactory informers.SharedInformerFactory
 	StdOut                io.Writer
@@ -75,7 +79,7 @@ func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
 	if ver.Major() != 1 {
 		return nil
 	}
-	kubeVer := utilversion.DefaultKubeEffectiveVersion().BinaryVersion()
+	kubeVer := version.MustParse(baseversion.DefaultKubeBinaryVersion)
 	// "1.2" maps to kubeVer
 	offset := int(ver.Minor()) - 2
 	mappedVer := kubeVer.OffsetMinor(offset)
@@ -92,6 +96,7 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 			defaultEtcdPathPrefix,
 			apiserver.Codecs.LegacyCodec(v1beta1.SchemeGroupVersion),
 		),
+		ComponentGlobalsRegistry: compatibility.DefaultComponentGlobalsRegistry,
 
 		StdOut: out,
 		StdErr: errOut,
@@ -127,7 +132,7 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 			if skipDefaultComponentGlobalsRegistrySet {
 				return nil
 			}
-			return featuregate.DefaultComponentGlobalsRegistry.Set()
+			return defaults.ComponentGlobalsRegistry.Set()
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
@@ -169,29 +174,29 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 	// Register the "Wardle" component with the global component registry,
 	// associating it with its effective version and feature gate configuration.
 	// Will skip if the component has been registered, like in the integration test.
-	_, wardleFeatureGate := featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(
-		apiserver.WardleComponentName, utilversion.NewEffectiveVersion(defaultWardleVersion),
+	_, wardleFeatureGate := defaults.ComponentGlobalsRegistry.ComponentGlobalsOrRegister(
+		apiserver.WardleComponentName, basecompatibility.NewEffectiveVersionFromString(defaultWardleVersion, "", ""),
 		featuregate.NewVersionedFeatureGate(version.MustParse(defaultWardleVersion)))
 
 	// Add versioned feature specifications for the "BanFlunder" feature.
 	// These specifications, together with the effective version, determine if the feature is enabled.
 	utilruntime.Must(wardleFeatureGate.AddVersioned(map[featuregate.Feature]featuregate.VersionedSpecs{
 		"BanFlunder": {
-			{Version: version.MustParse("1.2"), Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-			{Version: version.MustParse("1.1"), Default: true, PreRelease: featuregate.Beta},
 			{Version: version.MustParse("1.0"), Default: false, PreRelease: featuregate.Alpha},
+			{Version: version.MustParse("1.1"), Default: true, PreRelease: featuregate.Beta},
+			{Version: version.MustParse("1.2"), Default: true, PreRelease: featuregate.GA, LockToDefault: true},
 		},
 	}))
 
 	// Register the default kube component if not already present in the global registry.
-	_, _ = featuregate.DefaultComponentGlobalsRegistry.ComponentGlobalsOrRegister(featuregate.DefaultKubeComponent,
-		utilversion.NewEffectiveVersion(utilversion.DefaultKubeBinaryVersion), utilfeature.DefaultMutableFeatureGate)
+	_, _ = defaults.ComponentGlobalsRegistry.ComponentGlobalsOrRegister(basecompatibility.DefaultKubeComponent,
+		basecompatibility.NewEffectiveVersionFromString(baseversion.DefaultKubeBinaryVersion, "", ""), utilfeature.DefaultMutableFeatureGate)
 
 	// Set the emulation version mapping from the "Wardle" component to the kube component.
 	// This ensures that the emulation version of the latter is determined by the emulation version of the former.
-	utilruntime.Must(featuregate.DefaultComponentGlobalsRegistry.SetEmulationVersionMapping(apiserver.WardleComponentName, featuregate.DefaultKubeComponent, WardleVersionToKubeVersion))
+	utilruntime.Must(defaults.ComponentGlobalsRegistry.SetEmulationVersionMapping(apiserver.WardleComponentName, basecompatibility.DefaultKubeComponent, WardleVersionToKubeVersion))
 
-	featuregate.DefaultComponentGlobalsRegistry.AddFlags(flags)
+	defaults.ComponentGlobalsRegistry.AddFlags(flags)
 
 	// replace built-in profiling with pprof on port 6060
 	err := flags.Set("profiling", "false")
@@ -213,7 +218,7 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 func (o WardleServerOptions) Validate(args []string) error {
 	errors := []error{}
 	errors = append(errors, o.RecommendedOptions.Validate()...)
-	errors = append(errors, featuregate.DefaultComponentGlobalsRegistry.Validate()...)
+	errors = append(errors, o.ComponentGlobalsRegistry.Validate()...)
 	return utilerrors.NewAggregate(errors)
 }
 
@@ -250,8 +255,8 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	serverConfig.OpenAPIV3Config.Info.Title = "Wardle"
 	serverConfig.OpenAPIV3Config.Info.Version = "0.1"
 
-	serverConfig.FeatureGate = featuregate.DefaultComponentGlobalsRegistry.FeatureGateFor(featuregate.DefaultKubeComponent)
-	serverConfig.EffectiveVersion = featuregate.DefaultComponentGlobalsRegistry.EffectiveVersionFor(apiserver.WardleComponentName)
+	serverConfig.FeatureGate = o.ComponentGlobalsRegistry.FeatureGateFor(basecompatibility.DefaultKubeComponent)
+	serverConfig.EffectiveVersion = o.ComponentGlobalsRegistry.EffectiveVersionFor(apiserver.WardleComponentName)
 
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, err

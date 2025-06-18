@@ -36,7 +36,9 @@ type NetworkNeighborhood struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec NetworkNeighborhoodSpec
+	// +k8s:conversion-gen=false
+	Parts map[string]string
+	Spec  NetworkNeighborhoodSpec
 }
 
 type NetworkNeighborhoodSpec struct {
