@@ -153,6 +153,22 @@ func (s *IntegrationTestSuite) SetupTest() {
 func (s *IntegrationTestSuite) TearDownTest() {
 	clientset, err := GetKubeClient()
 	s.Require().NoError(err)
+	// Force delete all pods in the test namespace
+	pods, err := clientset.CoreV1().Pods(s.testNamespace).List(context.Background(), metav1.ListOptions{})
+	s.Require().NoError(err)
+
+	gracePeriod := int64(0)
+	deleteOptions := metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+	}
+
+	for _, pod := range pods.Items {
+		err = clientset.CoreV1().Pods(s.testNamespace).Delete(context.Background(), pod.Name, deleteOptions)
+		if err != nil {
+			s.T().Logf("Warning: Failed to delete pod %s: %v", pod.Name, err)
+		}
+	}
+
 	err = clientset.CoreV1().Namespaces().Delete(context.Background(), s.testNamespace, metav1.DeleteOptions{})
 	s.Require().NoError(err)
 }
