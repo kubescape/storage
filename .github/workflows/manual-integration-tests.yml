@@ -7,6 +7,10 @@ on:
         description: 'Branch to run tests on'
         required: true
         default: 'main'
+      branch_helm_chart:
+        description: 'Helm branch to run tests on'
+        required: true
+        default: 'main'
       node_agent_image:
         description: 'Node Agent image (e.g. quay.io/kubescape/node-agent:latest)'
         required: true
@@ -21,44 +25,7 @@ on:
         default: ''
 
 jobs:
-  list-tests:
-    runs-on: ubuntu-latest
-    outputs:
-      all_tests: ${{ steps.list.outputs.all_tests }}
-      failover_tests: ${{ steps.list.outputs.failover_tests }}
-      non_failover_tests: ${{ steps.list.outputs.non_failover_tests }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch }}
-
-      - name: List all test cases
-        id: list
-        run: |
-          ALL_TESTS=$(grep -ho 'func (s \*IntegrationTestSuite) Test[^(]*' tests/integration-test-suite/*.go | sed 's/func (s \*IntegrationTestSuite) //' | sort)
-          echo "All test cases:"
-          echo "$ALL_TESTS"
-          echo "all_tests<<EOF" >> $GITHUB_OUTPUT
-          echo "$ALL_TESTS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          FAILOVER_TESTS=$(echo "$ALL_TESTS" | grep -i failover)
-          echo "Failover tests:"
-          echo "$FAILOVER_TESTS"
-          echo "failover_tests<<EOF" >> $GITHUB_OUTPUT
-          echo "$FAILOVER_TESTS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          NON_FAILOVER_TESTS=$(comm -23 <(echo "$ALL_TESTS") <(echo "$FAILOVER_TESTS"))
-          echo "Non-failover tests:"
-          echo "$NON_FAILOVER_TESTS"
-          echo "non_failover_tests<<EOF" >> $GITHUB_OUTPUT
-          echo "$NON_FAILOVER_TESTS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-  setup:
-    needs: list-tests
+  integration-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -86,9 +53,6 @@ jobs:
 
       - name: Install Kubescape via Helm
         run: |
-          helm repo add kubescape https://kubescape.github.io/helm-charts/
-          helm repo update
-
           EXTRA_SET_ARGS=""
           if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
             IFS=',' read -ra ADDR <<< "${{ github.event.inputs.extra_helm_set_args }}"
@@ -96,8 +60,20 @@ jobs:
               EXTRA_SET_ARGS="$EXTRA_SET_ARGS --set $arg"
             done
           fi
-
-          helm upgrade --install kubescape kubescape/kubescape-operator \
+          git clone https://github.com/kubescape/helm-charts.git
+          pushd helm-charts
+          git checkout ${{ github.event.inputs.branch_helm_chart }}
+          popd
+          echo "Installing Kubescape with Helm"
+          echo helm upgrade --install kubescape charts/kubescape-operator \
+            -n kubescape --create-namespace \
+            --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
+            --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
+            --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
+            --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
+            $EXTRA_SET_ARGS \
+            --wait
+          helm upgrade --install kubescape charts/kubescape-operator \
             -n kubescape --create-namespace \
             --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
             --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
@@ -106,94 +82,38 @@ jobs:
             $EXTRA_SET_ARGS \
             --wait
 
-      - name: Upload workspace for test jobs
-        uses: actions/upload-artifact@v4
-        with:
-          name: workspace
-          path: .
-
-  non-failover-tests:
-    needs: [list-tests, setup]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        test_name: ${{ fromJson(needs.list-tests.outputs.non_failover_tests) }}
-      fail-fast: false
-    steps:
-      - name: Download workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace
-          path: .
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
+      - name: Verify all Pods are running
+        run: |
+          kubectl logs -n kubescape -l app=node-agent
+          kubectl wait --for=condition=ready pod --all -n kubescape --timeout=10m
 
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
 
-      - name: Run non-failover test
+      - name: Run non-failover tests in parallel
         run: |
           cd tests/integration-test-suite
-          gotestsum --junitfile "junit-${{ matrix.test_name }}.xml" -- -v -run "IntegrationTestSuite/${{ matrix.test_name }}$" ./...
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-results
-          path: tests/integration-test-suite/junit-*.xml
-
-  failover-tests:
-    needs: [list-tests, setup]
-    runs-on: ubuntu-latest
-    if: needs.list-tests.outputs.failover_tests != ''
-    steps:
-      - name: Download workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace
-          path: .
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
-
-      - name: Install gotestsum
-        run: go install gotest.tools/gotestsum@latest
-
-      - name: Run failover tests sequentially
-        run: |
-          cd tests/integration-test-suite
-          for test in ${{ needs.list-tests.outputs.failover_tests }}; do
+          NON_FAILOVER_TESTS="TestSimpleProfileCreate TestJobProfileCreate TestCronJobProfileCreate TestInitContainerProfileCreate TestSidecarProfileCreate TestInitSidecarProfileCreate TestCrashLoopProfileIncomplete TestCrashLoopAndStableProfileIncomplete TestStatefulSetProfileCleanup"
+          for test in $NON_FAILOVER_TESTS; do
             echo "Running $test"
             gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
           done
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-results
-          path: tests/integration-test-suite/junit-*.xml
-
-  publish-summary:
-    needs: [non-failover-tests, failover-tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download test results
-        uses: actions/download-artifact@v4
-        with:
-          name: junit-results
-          path: junit-results
+      - name: Run failover tests sequentially
+        run: |
+          cd tests/integration-test-suite
+          FAILOVER_TESTS="TestSimpleProfileStorageFailover TestSimpleProfileNodeAgentFailover TestLongStorageFailover"
+          for test in $FAILOVER_TESTS; do
+            echo "Running $test"
+            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
+          done
 
       - name: Print test summary
         run: |
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           echo "| Test Name | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          for file in junit-results/*.xml; do
+          for file in tests/integration-test-suite/junit-*.xml; do
             testname=$(basename "$file" .xml)
             result=$(grep -o 'testsuite.*failures="[^"]*"' "$file" | head -1)
             if [[ $result =~ failures="0" ]]; then
