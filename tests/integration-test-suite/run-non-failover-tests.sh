@@ -12,7 +12,7 @@ declare -A results
 # Run tests in parallel
 for test in $NON_FAILOVER_TESTS; do
     echo "Running $test"
-    gotestsum --junitfile "junit-$test.xml" -- -timeout 30m -v -run "IntegrationTestSuite/$test$" ./... 2>&1 | tee "log-$test.txt" &
+    gotestsum --format standard-verbose --junitfile "junit-$test.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/$test$" ./... 2>&1 | tee "log-$test.txt" &
     pids[$test]=$!
 done
 
@@ -20,6 +20,7 @@ done
 for test in $NON_FAILOVER_TESTS; do
     wait ${pids[$test]}
     results[$test]=$?
+    echo "Test $test completed with status ${results[$test]}"
 done
 
 # Print all test logs

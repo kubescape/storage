@@ -11,7 +11,7 @@ declare -A results
 # Run tests sequentially
 for test in $FAILOVER_TESTS; do
     echo "Running $test"
-    gotestsum --junitfile "junit-$test.xml" -- -timeout 30m -v -run "IntegrationTestSuite/$test$" ./... 2>&1 | tee "log-$test.txt"
+    gotestsum --format standard-verbose --junitfile "junit-$test.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/$test$" ./... 2>&1 | tee "log-$test.txt"
     results[$test]=$?
 done
 
@@ -19,6 +19,7 @@ done
 for test in $FAILOVER_TESTS; do
     echo "===== LOG FOR $test ====="
     cat "log-$test.txt"
+    echo "Test $test completed with status ${results[$test]}"
 done
 
 # Check for failures
