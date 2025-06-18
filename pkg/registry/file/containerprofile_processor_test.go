@@ -2,17 +2,18 @@ package file
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
@@ -32,7 +33,7 @@ func TestConsolidateData(t *testing.T) {
 	processor := ContainerProfileProcessor{
 		defaultNamespace:        "",
 		interval:                0,
-		maxContainerProfileSize: 10,
+		maxContainerProfileSize: 40000,
 		pool:                    pool,
 	}
 	s := &StorageImpl{
@@ -50,110 +51,43 @@ func TestConsolidateData(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/default/job-test-curl-cronjob-manual-tbd-curl-tester-9e3c-219c-1748847136", &softwarecomposition.ContainerProfile{
-		ObjectMeta: v1.ObjectMeta{
-			Annotations: map[string]string{
-				helpers.CompletionMetadataKey:      helpers.Full,
-				helpers.ContainerTypeMetadataKey:   "containers",
-				helpers.InstanceIDMetadataKey:      "apiVersion-batch/v1/namespace-default/kind-Job/name-test-curl-cronjob-manual-tbd/containerName-curl-tester",
-				helpers.ReportSeriesIdMetadataKey:  "f8a191ee-cfcb-4082-9f23-4f3759b45a0f",
-				helpers.ReportTimestampMetadataKey: "2025-06-02T06:52:16Z",
-				helpers.StatusMetadataKey:          helpers.Learning,
-				helpers.WlidMetadataKey:            "wlid://cluster-kind-kind/namespace-default/cronjob-test-curl-cronjob",
-			},
-			Labels: map[string]string{
-				helpers.ApiGroupMetadataKey:      "batch",
-				helpers.ApiVersionMetadataKey:    "v1",
-				helpers.ContainerNameMetadataKey: "curl-tester",
-				helpers.KindMetadataKey:          "CronJob",
-				helpers.NameMetadataKey:          "test-curl-cronjob",
-				helpers.NamespaceMetadataKey:     "default",
-			},
-			Name:      "job-test-curl-cronjob-manual-tbd-curl-tester-9e3c-219c-1748847136",
-			Namespace: "default",
-		},
-		Spec: softwarecomposition.ContainerProfileSpec{
-			Architectures: []string{"amd64"},
-			Execs: []softwarecomposition.ExecCalls{
-				{Path: "/usr/bin/basename"},
-				{Path: "/usr/bin/readlink"},
-			},
-			Opens: []softwarecomposition.OpenCalls{
-				{Path: "/var/lib/dpkg"},
-				{Path: "/var/log/dpkg.log"},
-			},
-		},
-	}, nil, 0)
-	require.NoError(t, err)
-
-	err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/default/job-test-curl-cronjob-manual-tbd-curl-tester-9e3c-219c-1748847175", &softwarecomposition.ContainerProfile{
-		ObjectMeta: v1.ObjectMeta{
-			Annotations: map[string]string{
-				helpers.CompletionMetadataKey:              helpers.Full,
-				helpers.ContainerTypeMetadataKey:           "containers",
-				helpers.InstanceIDMetadataKey:              "apiVersion-batch/v1/namespace-default/kind-Job/name-test-curl-cronjob-manual-tbd/containerName-curl-tester",
-				helpers.PreviousReportTimestampMetadataKey: "2025-06-02T06:52:16Z",
-				helpers.ReportSeriesIdMetadataKey:          "f8a191ee-cfcb-4082-9f23-4f3759b45a0f",
-				helpers.ReportTimestampMetadataKey:         "2025-06-02T06:52:55Z",
-				helpers.StatusMetadataKey:                  helpers.Learning,
-				helpers.WlidMetadataKey:                    "wlid://cluster-kind-kind/namespace-default/cronjob-test-curl-cronjob",
-			},
-			Labels: map[string]string{
-				helpers.ApiGroupMetadataKey:      "batch",
-				helpers.ApiVersionMetadataKey:    "v1",
-				helpers.ContainerNameMetadataKey: "curl-tester",
-				helpers.KindMetadataKey:          "CronJob",
-				helpers.NameMetadataKey:          "test-curl-cronjob",
-				helpers.NamespaceMetadataKey:     "default",
-			},
-			Name:      "job-test-curl-cronjob-manual-tbd-curl-tester-9e3c-219c-1748847175",
-			Namespace: "default",
-		},
-		Spec: softwarecomposition.ContainerProfileSpec{
-			Architectures: []string{"amd64"},
-			Execs: []softwarecomposition.ExecCalls{
-				{Path: "/usr/bin/date"},
-			},
-			Opens: []softwarecomposition.OpenCalls{
-				{Path: "/etc/ld.so.cache"},
-				{Path: "/usr/lib/x86_64-linux-gnu/libc.so.6"},
-			},
-			LabelSelector: v1.LabelSelector{
-				MatchLabels: map[string]string{"app": "wikijs"},
-			},
-		},
-	}, nil, 0)
-	require.NoError(t, err)
-
-	keys, err := ListTimeSeriesKeys(conn)
-	assert.NoError(t, err)
-	assert.Len(t, keys, 2)
-
-	for _, key := range keys {
-		containers, err := ListTimeSeriesContainers(conn, key)
-		assert.NoError(t, err)
-		assert.Len(t, containers, 1)
+	create := func(f string) {
+		content, err := os.ReadFile(f)
+		require.NoError(t, err)
+		var profile softwarecomposition.ContainerProfile
+		err = json.Unmarshal(content, &profile)
+		require.NoError(t, err)
+		err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0)
+		require.NoError(t, err)
 	}
 
+	create("testdata/p1.json")
+	create("testdata/p2.json")
+	create("testdata/p3.json")
+	create("testdata/p4.json")
+	err = processor.consolidateTimeSeries()
+	assert.NoError(t, err)
+	create("testdata/p5.json")
+	create("testdata/p6.json")
+	create("testdata/p7.json")
+	err = processor.consolidateTimeSeries()
+	assert.NoError(t, err)
+	create("testdata/p8.json")
+	create("testdata/p9.json")
+	err = processor.consolidateTimeSeries()
+	assert.NoError(t, err)
+	create("testdata/p10.json")
+	create("testdata/p11.json")
+	create("testdata/p12.json")
 	err = processor.consolidateTimeSeries()
 	assert.NoError(t, err)
 
-	profile := softwarecomposition.ContainerProfile{}
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/default/job-test-curl-cronjob-manual-tbd-curl-tester-9e3c-219c"
+	profile := softwarecomposition.NetworkNeighborhood{}
+	key := "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &profile)
 	assert.NoError(t, err)
-	assert.Equal(t, "wikijs", profile.Spec.LabelSelector.MatchLabels["app"])
-
-	apProcessor := ApplicationProfileProcessor{
-		defaultNamespace:          "",
-		maxApplicationProfileSize: 10,
-		storageImpl:               s,
-	}
-	apStorage := NewApplicationProfileStorage(NewStorageImplWithCollector(s.appFs, s.root, s.pool, s.watchDispatcher, s.scheme, &apProcessor))
-	applicationprofile := softwarecomposition.ApplicationProfile{}
-	apKey := "/spdx.softwarecomposition.kubescape.io/applicationprofiles/default/job-test-curl-cronjob-manual-tbd"
-	err = apStorage.Get(ctx, apKey, storage.GetOptions{}, &applicationprofile)
-	assert.NoError(t, err)
+	assert.Equal(t, helpersv1.Full, profile.Annotations[helpersv1.CompletionMetadataKey])
+	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
 
 	// Clean up
 	pool.Put(conn)

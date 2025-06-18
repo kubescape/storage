@@ -1,0 +1,802 @@
+{
+  "name": "replicaset-multiple-containers-deployment-d4b8dd5fd-nginx-42c9-63c3-9f927ff99eaf426c97900dbc472a536d",
+  "namespace": "node-agent-test-hjjz",
+  "uid": "2f1c676f-2025-4d3f-a1aa-68941a1fc291",
+  "creationTimestamp": "2025-06-24T10:34:50Z",
+  "labels": {
+    "kubescape.io/instance-template-hash": "d4b8dd5fd",
+    "kubescape.io/workload-api-group": "apps",
+    "kubescape.io/workload-api-version": "v1",
+    "kubescape.io/workload-container-name": "nginx",
+    "kubescape.io/workload-kind": "Deployment",
+    "kubescape.io/workload-name": "multiple-containers-deployment",
+    "kubescape.io/workload-namespace": "node-agent-test-hjjz",
+    "kubescape.io/workload-resource-version": "1448"
+  },
+  "annotations": {
+    "kubescape.io/completion": "complete",
+    "kubescape.io/instance-id": "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd/containerName-nginx",
+    "kubescape.io/previous-report-timestamp": "0001-01-01 00:00:00 +0000 UTC",
+    "kubescape.io/report-series-id": "23f818ef-cd9d-43a9-b359-85ad2743dbaf",
+    "kubescape.io/report-timestamp": "2025-06-24 10:34:50.421245085 +0000 UTC m=+287.879157910",
+    "kubescape.io/status": "ready",
+    "kubescape.io/wlid": "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
+    "kubescape.io/workload-container-type": "containers"
+  },
+  "Spec": {
+    "Architectures": [
+      "amd64"
+    ],
+    "Capabilities": [
+      "CHOWN",
+      "NET_BIND_SERVICE",
+      "SETGID",
+      "SETPCAP",
+      "SETUID",
+      "SYS_ADMIN"
+    ],
+    "Execs": [
+      {
+        "Path": "/docker-entrypoint.sh",
+        "Args": [
+          "/docker-entrypoint.sh",
+          "nginx",
+          "-g",
+          "daemon off;"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/basename",
+        "Args": [
+          "/usr/bin/basename",
+          "/docker-entrypoint.d/10-listen-on-ipv6-by-default.sh"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/touch",
+        "Args": [
+          "/usr/bin/touch",
+          "/etc/nginx/conf.d/default.conf"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/grep",
+        "Args": [
+          "/usr/bin/grep",
+          "etc/nginx/conf.d/default.conf"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/grep",
+        "Args": [
+          "/usr/bin/grep",
+          "-q",
+          "listen  \\[::]\\:80;",
+          "/etc/nginx/conf.d/default.conf"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/docker-entrypoint.d/20-envsubst-on-templates.sh",
+        "Args": [
+          "/docker-entrypoint.d/20-envsubst-on-templates.sh"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/awk",
+        "Args": [
+          "/usr/bin/awk",
+          "END { for (name in ENVIRON) { print ( name ~ // ) ? name : \"\" } }"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/docker-entrypoint.d/30-tune-worker-processes.sh",
+        "Args": [
+          "/docker-entrypoint.d/30-tune-worker-processes.sh"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/basename",
+        "Args": [
+          "/usr/bin/basename",
+          "/docker-entrypoint.d/30-tune-worker-processes.sh"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/sbin/nginx",
+        "Args": [
+          "/usr/sbin/nginx",
+          "-g",
+          "daemon off;"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/find",
+        "Args": [
+          "/usr/bin/find",
+          "/docker-entrypoint.d/",
+          "-follow",
+          "-type",
+          "f",
+          "-print"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/docker-entrypoint.d/10-listen-on-ipv6-by-default.sh",
+        "Args": [
+          "/docker-entrypoint.d/10-listen-on-ipv6-by-default.sh"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/sort",
+        "Args": [
+          "/usr/bin/sort",
+          "-V"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/curl",
+        "Args": [
+          "/usr/bin/curl",
+          "google.com",
+          "-m",
+          "5"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/find",
+        "Args": [
+          "/usr/bin/find",
+          "/docker-entrypoint.d/",
+          "-mindepth",
+          "1",
+          "-maxdepth",
+          "1",
+          "-type",
+          "f",
+          "-print",
+          "-quit"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/basename",
+        "Args": [
+          "/usr/bin/basename",
+          "/docker-entrypoint.d/20-envsubst-on-templates.sh"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/sed",
+        "Args": [
+          "/usr/bin/sed",
+          "-i",
+          "-E",
+          "s,listen       80;,listen       80;\\n    listen  [::]:80;,",
+          "/etc/nginx/conf.d/default.conf"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/dpkg-query",
+        "Args": [
+          "/usr/bin/dpkg-query",
+          "--show",
+          "--showformat=${Conffiles}\\n",
+          "nginx"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/md5sum",
+        "Args": [
+          "/usr/bin/md5sum",
+          "-c",
+          "-"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/cut",
+        "Args": [
+          "/usr/bin/cut",
+          "-d ",
+          "-f",
+          "3"
+        ],
+        "Envs": null
+      }
+    ],
+    "Opens": [
+      {
+        "Path": "/proc/sys/kernel/ngroups_max",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/var/lib/dpkg/triggers/File",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/nginx/mime.types",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/run/nginx.pid",
+        "Flags": [
+          "O_RDWR",
+          "O_CREAT",
+          "O_TRUNC"
+        ]
+      },
+      {
+        "Path": "/docker-entrypoint.sh",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/nginx/conf.d/default.conf",
+        "Flags": [
+          "O_CREAT",
+          "O_NOCTTY",
+          "O_NONBLOCK",
+          "O_RDONLY",
+          "O_WRONLY"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/maps",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libmd.so.0.0.5",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/var/lib/dpkg/status",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/docker-entrypoint.d/15-local-resolvers.envsh",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/nginx/nginx.conf",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/nginx/conf.d",
+        "Flags": [
+          "O_NONBLOCK",
+          "O_DIRECTORY",
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/ld.so.cache",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/os-release",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libacl.so.1.1.2301",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libssl.so.3",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/group",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/dev/null",
+        "Flags": [
+          "O_WRONLY",
+          "O_CREAT",
+          "O_TRUNC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.11.2",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/docker-entrypoint.d",
+        "Flags": [
+          "O_NOCTTY",
+          "O_NONBLOCK",
+          "O_DIRECTORY",
+          "O_NOFOLLOW",
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/var/lib/dpkg/updates",
+        "Flags": [
+          "O_RDONLY",
+          "O_NONBLOCK",
+          "O_DIRECTORY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/sys/devices/system/cpu/online",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/docker-entrypoint.d/20-envsubst-on-templates.sh",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libz.so.1.2.13",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/nginx/conf.d/sedeSzu0N",
+        "Flags": [
+          "O_CREAT",
+          "O_EXCL",
+          "O_RDWR"
+        ]
+      },
+      {
+        "Path": "/usr/share/zoneinfo/Etc/UTC",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/nsswitch.conf",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/proc/filesystems",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/docker-entrypoint.d/10-listen-on-ipv6-by-default.sh",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/var/lib/dpkg/triggers/Unincorp",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/passwd",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/docker-entrypoint.d/30-tune-worker-processes.sh",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/libcrypt.so.1.1.0",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/ssl/openssl.cnf",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      }
+    ],
+    "Syscalls": [
+      "io_setup",
+      "chown",
+      "getpeername",
+      "sched_getaffinity",
+      "recvfrom",
+      "rseq",
+      "set_robust_list",
+      "sendmsg",
+      "dup2",
+      "mkdir",
+      "setuid",
+      "unshare",
+      "pipe",
+      "madvise",
+      "umask",
+      "fsetxattr",
+      "readlinkat",
+      "execve",
+      "clone",
+      "rt_sigsuspend",
+      "set_tid_address",
+      "socket",
+      "ioctl",
+      "futex",
+      "exit_group",
+      "sysinfo",
+      "getrlimit",
+      "sigaltstack",
+      "capget",
+      "mprotect",
+      "chdir",
+      "exit",
+      "dup",
+      "prctl",
+      "listen",
+      "epoll_ctl",
+      "getsockname",
+      "keyctl",
+      "sendto",
+      "prlimit64",
+      "eventfd2",
+      "getsockopt",
+      "getuid",
+      "read",
+      "lstat",
+      "fcntl",
+      "capset",
+      "utimensat",
+      "gettid",
+      "poll",
+      "lseek",
+      "fadvise64",
+      "faccessat2",
+      "stat",
+      "setgid",
+      "epoll_wait",
+      "setsid",
+      "fchdir",
+      "getpgrp",
+      "fgetxattr",
+      "uname",
+      "brk",
+      "close",
+      "write",
+      "getdents64",
+      "setns",
+      "dup3",
+      "openat",
+      "nanosleep",
+      "munmap",
+      "fstatfs",
+      "fstat",
+      "access",
+      "getpid",
+      "getgid",
+      "readlink",
+      "setsockopt",
+      "epoll_pwait",
+      "pipe2",
+      "rt_sigreturn",
+      "clone3",
+      "fchown",
+      "mount",
+      "geteuid",
+      "epoll_create",
+      "getppid",
+      "newfstatat",
+      "bind",
+      "rt_sigprocmask",
+      "recvmsg",
+      "setgroups",
+      "sendmmsg",
+      "socketpair",
+      "connect",
+      "pwrite64",
+      "sched_yield",
+      "getrandom",
+      "vfork",
+      "rename",
+      "epoll_create1",
+      "mmap",
+      "statfs",
+      "rt_sigaction",
+      "wait4",
+      "getegid",
+      "pread64",
+      "arch_prctl",
+      "getcwd"
+    ],
+    "SeccompProfile": {
+      "Name": "",
+      "Path": "",
+      "Spec": {
+        "Disabled": false,
+        "BaseProfileName": "",
+        "DefaultAction": "",
+        "Architectures": null,
+        "ListenerPath": "",
+        "ListenerMetadata": "",
+        "Syscalls": null,
+        "Flags": null
+      }
+    },
+    "Endpoints": null,
+    "ImageID": "docker.io/library/nginx@sha256:a484819eb60211f5299034ac80f6a681b06f89e65866ce91f356ed7c72af059c",
+    "ImageTag": "docker.io/library/nginx:1.25.5",
+    "PolicyByRuleId": {
+      "R0001": {
+        "AllowedProcesses": [
+          "docker-entrypoi",
+          "find",
+          "10-listen-on-ip",
+          "sort",
+          "basename",
+          "touch",
+          "grep",
+          "dpkg-query",
+          "md5sum",
+          "cut",
+          "20-envsubst-on-",
+          "awk",
+          "30-tune-worker-",
+          "sed",
+          "nginx",
+          "curl"
+        ],
+        "AllowedContainer": false
+      },
+      "R0002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1000": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1001": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1012": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1015": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1030": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      }
+    },
+    "IdentifiedCallStacks": null,
+    "matchLabels": {
+      "app": "multiple-containers-app"
+    },
+    "Ingress": null,
+    "Egress": [
+      {
+        "Identifier": "e5e8ca3d76f701a19b7478fdc1c8c24ccc6cef9902b52c8c7e015439e2a1ddf3",
+        "Type": "internal",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "UDP-53",
+            "Protocol": "UDP",
+            "Port": 53
+          }
+        ],
+        "PodSelector": {
+          "matchLabels": {
+            "k8s-app": "kube-dns"
+          }
+        },
+        "NamespaceSelector": {
+          "matchLabels": {
+            "kubernetes.io/metadata.name": "kube-system"
+          }
+        },
+        "IPAddress": ""
+      },
+      {
+        "Identifier": "da587ada73393e1d7d80e1e1992b8693edf62f32af64acc82525120b611c0a01",
+        "Type": "external",
+        "DNS": "google.com.",
+        "DNSNames": [
+          "google.com."
+        ],
+        "Ports": [
+          {
+            "Name": "TCP-80",
+            "Protocol": "TCP",
+            "Port": 80
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "142.250.189.238"
+      }
+    ]
+  },
+  "Status": {}
+}

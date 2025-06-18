@@ -237,6 +237,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 		// delete processed time series profiles
 		for _, tsKey := range processed {
 			err := a.storageImpl.DeleteWithConn(ctx, conn, tsKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
+			// FIXME maybe try to delete others before exit?
 			if err != nil {
 				return fmt.Errorf("failed to delete processed time series profile: %w", err)
 			}
@@ -250,10 +251,12 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 	creationTimestamp := metav1.Now()
 	var newData bool
 	for seriesID := range timeSeries {
-		// TODO implement cleanup of older time series data
-		// TODO it seems we're saving CP, AP and NN even when there's no new data
+		var deleteTimeSeries []string
+		// TODO implement cleanup of older (>24h) time series data
+		// TODO implement cleanup of other time series data for a completed profile
 		// merge time series data for each container
 		for k, ts := range timeSeries[seriesID] {
+			deleteTimeSeries = append(deleteTimeSeries, ts.TsSuffix)
 			if ts.HasData {
 				// load TS profile from disk
 				tsKey := key + "-" + ts.TsSuffix
@@ -270,7 +273,6 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 				newData = true
 				time.Sleep(time.Second)
 				mergeContainerProfileTS(&profile, &tsProfile)
-				logger.L().Info("toto", loggerhelpers.Interface("labelselector", profile.Spec.LabelSelector))
 				// mark as processed
 				timeSeries[seriesID][k].HasData = false
 				processed = append(processed, tsKey)
@@ -295,10 +297,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		// compute status and completion
 		// an aggregated series is complete only if it has one element, no previous report timestamp and is completed
 		if len(newTimeSeries) == 1 && isZeroTime(newTimeSeries[0].PreviousReportTimestamp) && newTimeSeries[0].Status == helpers.Completed {
-			newData = true // FIXME I don't think it's needed here
-			profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
-			// do not override completed full
-			if profile.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
+			if profile.Annotations[helpers.StatusMetadataKey] == helpers.Completed && profile.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+				// do not override completed full
+			} else {
+				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
 				profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
 			}
 			// remove the time series
@@ -308,7 +310,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 			profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
 		}
 		// write the consolidated time series data back to the database
-		err := ReplaceTimeSeriesContainerEntries(conn, key, seriesID, newTimeSeries)
+		err := ReplaceTimeSeriesContainerEntries(conn, key, seriesID, deleteTimeSeries, newTimeSeries)
 		if err != nil {
 			return nil, fmt.Errorf("failed to replace consolidated time series data: %w", err)
 		}
@@ -359,7 +361,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		if ap.CreationTimestamp.IsZero() {
 			ap.CreationTimestamp = creationTimestamp
 		}
-		ap.Parts = DeflateSortString(append(ap.Parts, key))
+		if ap.Parts == nil {
+			ap.Parts = map[string]string{}
+		}
+		ap.Parts[key] = "" // checksum will be updated by getAggregatedData
 		status, completion, checksum := a.getAggregatedData(ctx, conn, ap.Parts)
 		apChecksum = checksum
 		ap.Annotations = map[string]string{
@@ -390,8 +395,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		if nn.CreationTimestamp.IsZero() {
 			nn.CreationTimestamp = creationTimestamp
 		}
-		nn.Parts = DeflateSortString(append(nn.Parts, key))
-		// TODO store CP checksums in Parts to make sure AP is saved when one changes
+		if nn.Parts == nil {
+			nn.Parts = map[string]string{}
+		}
+		nn.Parts[key] = "" // checksum will be updated by getAggregatedData
 		status, completion, checksum := a.getAggregatedData(ctx, conn, nn.Parts)
 		nnChecksum = checksum
 		nn.Annotations = map[string]string{
@@ -415,16 +422,17 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 // A profile status is completed only if all its main containers are completed.
 // A profile completion is full only if all its init/main containers are full.
 // A profile sync checksum is the checksum of all container checksums.
-func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn *sqlite.Conn, keys []string) (string, string, string) {
+func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn *sqlite.Conn, parts map[string]string) (string, string, string) {
 	mainContainers := 0
 	completed := 0
 	full := 0
 	status := helpers.Learning
 	completion := helpers.Partial
 	hasher := sha256.New()
-	for _, key := range keys {
+	for key := range parts {
 		profile := softwarecomposition.ContainerProfile{}
-		err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &profile)
+		// checksum is only present in get metadata
+		err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile)
 		if err != nil {
 			logger.L().Info("getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 			continue
@@ -439,15 +447,21 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 		if profile.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
 			full++
 		}
-		hasher.Write([]byte(profile.Annotations[helpers.SyncChecksumMetadataKey])) // profile.Parts is sorted so the checksum is consistent
+		checksum := profile.Annotations[helpers.SyncChecksumMetadataKey]
+		parts[key] = checksum
+		hasher.Write([]byte(checksum)) // profile.Parts is sorted so the checksum is consistent
 	}
-	if completed == mainContainers {
+	if completed == mainContainers && mainContainers > 0 {
 		status = helpers.Completed
 	}
-	if full == len(keys) {
+	if full == len(parts) {
 		completion = helpers.Full
 	}
-	return status, completion, hex.EncodeToString(hasher.Sum(nil))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	logger.L().Debug("getAggregatedData - returning",
+		loggerhelpers.Int("mainContainers", mainContainers), loggerhelpers.Int("completed", completed), loggerhelpers.Int("full", full),
+		loggerhelpers.String("status", status), loggerhelpers.String("completion", completion), loggerhelpers.String("hash", hash))
+	return status, completion, hash
 }
 
 func deflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string]) softwarecomposition.ContainerProfileSpec {

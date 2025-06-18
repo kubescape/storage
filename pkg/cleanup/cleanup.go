@@ -43,10 +43,10 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
 		// configurationscansummaries is virtual
 		// vulnerabilitysummaries is virtual
-		"applicationactivities":       {deleteDeprecated},
-		"applicationprofiles":         {deleteByTemplateHashOrWlid},
-		"applicationprofilesummaries": {deleteDeprecated},
-		// TODO add containerprofiles
+		"applicationactivities":               {deleteDeprecated},
+		"applicationprofiles":                 {deleteByTemplateHashOrWlid},
+		"applicationprofilesummaries":         {deleteDeprecated},
+		"containerprofiles":                   {deleteByTemplateHashOrWlid},
 		"networkneighborses":                  {deleteDeprecated},
 		"networkneighborhoods":                {deleteByTemplateHashOrWlid},
 		"openvulnerabilityexchangecontainers": {deleteByImageId},

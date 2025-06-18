@@ -315,29 +315,35 @@ func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, ts
 	return nil
 }
 
-func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, newProfiles []TimeSeriesContainers) error {
+func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, deleteTimeSeries []string, newTimeSeries []TimeSeriesContainers) error {
 	_, _, kind, namespace, name := pathToKeys(path)
 	// FIXME we can probably optimize this, rather than deleting everything to add it back
 	// delete old profiles
+	tsSuffixes, err := json.Marshal(deleteTimeSeries)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tsSuffixes: %w", err)
+	}
 	logger.L().Debug("deleting old TS profiles",
 		loggerhelpers.String("kind", kind),
 		loggerhelpers.String("namespace", namespace),
 		loggerhelpers.String("name", name),
-		loggerhelpers.String("seriesID", seriesID))
-	err := sqlitex.Execute(conn,
+		loggerhelpers.String("seriesID", seriesID),
+		loggerhelpers.String("tsSuffixes", string(tsSuffixes)))
+	err = sqlitex.Execute(conn,
 		`DELETE FROM time_series
 				WHERE kind = ?
 					AND namespace = ?
 					AND name = ?
-					AND seriesID = ?`,
+					AND seriesID = ?
+					AND tsSuffix IN (SELECT value FROM json_each(?))`,
 		&sqlitex.ExecOptions{
-			Args: []any{kind, namespace, name, seriesID},
+			Args: []any{kind, namespace, name, seriesID, string(tsSuffixes)},
 		})
 	if err != nil {
 		return fmt.Errorf("delete time series entries: %w", err)
 	}
 	// insert new profiles
-	for _, profile := range newProfiles {
+	for _, profile := range newTimeSeries {
 		err := WriteTimeSeriesEntry(conn, kind, namespace, name, seriesID, profile.TsSuffix, profile.ReportTimestamp, profile.Status, profile.Completion, profile.PreviousReportTimestamp, profile.HasData)
 		if err != nil {
 			return fmt.Errorf("insert profile: %w", err)

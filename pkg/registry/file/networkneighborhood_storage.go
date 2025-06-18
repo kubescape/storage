@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubescape/go-logger"
+	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/utils"
@@ -34,7 +36,6 @@ func (a NetworkNeighborhoodStorage) Create(ctx context.Context, key string, obj,
 }
 
 func (a NetworkNeighborhoodStorage) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
-	// ContainerProfiles are deleted with the corresponding ApplicationProfile
 	return a.realStore.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
 }
 
@@ -53,10 +54,11 @@ func (a NetworkNeighborhoodStorage) Get(ctx context.Context, key string, opts st
 	if len(nn.Parts) > 0 {
 		matchLabels := make(map[string]string)
 		var matchExpressions []metav1.LabelSelectorRequirement
-		for _, cpKey := range nn.Parts {
+		for cpKey := range nn.Parts {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
-				return fmt.Errorf("get cp object: %w", err)
+				logger.L().Warning("NetworkNeighborhoodStorage.Get - get cp object", loggerhelpers.Error(err))
+				return nil
 			}
 			matchLabels = utils.MergeMaps(matchLabels, cp.Spec.MatchLabels)
 			matchExpressions = append(matchExpressions, cp.Spec.MatchExpressions...)

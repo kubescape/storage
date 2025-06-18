@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kubescape/go-logger"
+	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,7 +35,6 @@ func (a ApplicationProfileStorage) Create(ctx context.Context, key string, obj, 
 }
 
 func (a ApplicationProfileStorage) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
-	// TODO delete all ContainerProfile keys
 	return a.realStore.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
 }
 
@@ -52,10 +53,11 @@ func (a ApplicationProfileStorage) Get(ctx context.Context, key string, opts sto
 	if len(ap.Parts) > 0 {
 		var architectures []string
 		var size int
-		for _, cpKey := range ap.Parts {
+		for cpKey := range ap.Parts {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
-				return fmt.Errorf("get cp object: %w", err)
+				logger.L().Warning("ApplicationProfileStorage.Get - get cp object", loggerhelpers.Error(err))
+				return nil
 			}
 			architectures = append(architectures, cp.Spec.Architectures...)
 			if i, err := strconv.Atoi(cp.Annotations[helpersv1.ResourceSizeMetadataKey]); err == nil {
