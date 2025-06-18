@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ConfigurationScanSummaryLister helps list ConfigurationScanSummaries.
@@ -30,7 +30,7 @@ import (
 type ConfigurationScanSummaryLister interface {
 	// List lists all ConfigurationScanSummaries in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.ConfigurationScanSummary, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.ConfigurationScanSummary, err error)
 	// ConfigurationScanSummaries returns an object that can list and get ConfigurationScanSummaries.
 	ConfigurationScanSummaries(namespace string) ConfigurationScanSummaryNamespaceLister
 	ConfigurationScanSummaryListerExpansion
@@ -38,25 +38,17 @@ type ConfigurationScanSummaryLister interface {
 
 // configurationScanSummaryLister implements the ConfigurationScanSummaryLister interface.
 type configurationScanSummaryLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.ConfigurationScanSummary]
 }
 
 // NewConfigurationScanSummaryLister returns a new ConfigurationScanSummaryLister.
 func NewConfigurationScanSummaryLister(indexer cache.Indexer) ConfigurationScanSummaryLister {
-	return &configurationScanSummaryLister{indexer: indexer}
-}
-
-// List lists all ConfigurationScanSummaries in the indexer.
-func (s *configurationScanSummaryLister) List(selector labels.Selector) (ret []*v1beta1.ConfigurationScanSummary, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.ConfigurationScanSummary))
-	})
-	return ret, err
+	return &configurationScanSummaryLister{listers.New[*softwarecompositionv1beta1.ConfigurationScanSummary](indexer, softwarecompositionv1beta1.Resource("configurationscansummary"))}
 }
 
 // ConfigurationScanSummaries returns an object that can list and get ConfigurationScanSummaries.
 func (s *configurationScanSummaryLister) ConfigurationScanSummaries(namespace string) ConfigurationScanSummaryNamespaceLister {
-	return configurationScanSummaryNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return configurationScanSummaryNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.ConfigurationScanSummary](s.ResourceIndexer, namespace)}
 }
 
 // ConfigurationScanSummaryNamespaceLister helps list and get ConfigurationScanSummaries.
@@ -64,36 +56,15 @@ func (s *configurationScanSummaryLister) ConfigurationScanSummaries(namespace st
 type ConfigurationScanSummaryNamespaceLister interface {
 	// List lists all ConfigurationScanSummaries in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.ConfigurationScanSummary, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.ConfigurationScanSummary, err error)
 	// Get retrieves the ConfigurationScanSummary from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.ConfigurationScanSummary, error)
+	Get(name string) (*softwarecompositionv1beta1.ConfigurationScanSummary, error)
 	ConfigurationScanSummaryNamespaceListerExpansion
 }
 
 // configurationScanSummaryNamespaceLister implements the ConfigurationScanSummaryNamespaceLister
 // interface.
 type configurationScanSummaryNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ConfigurationScanSummaries in the indexer for a given namespace.
-func (s configurationScanSummaryNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.ConfigurationScanSummary, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.ConfigurationScanSummary))
-	})
-	return ret, err
-}
-
-// Get retrieves the ConfigurationScanSummary from the indexer for a given namespace and name.
-func (s configurationScanSummaryNamespaceLister) Get(name string) (*v1beta1.ConfigurationScanSummary, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("configurationscansummary"), name)
-	}
-	return obj.(*v1beta1.ConfigurationScanSummary), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.ConfigurationScanSummary]
 }

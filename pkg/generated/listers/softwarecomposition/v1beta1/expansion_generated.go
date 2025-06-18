@@ -18,14 +18,6 @@ limitations under the License.
 
 package v1beta1
 
-// ApplicationActivityListerExpansion allows custom methods to be added to
-// ApplicationActivityLister.
-type ApplicationActivityListerExpansion interface{}
-
-// ApplicationActivityNamespaceListerExpansion allows custom methods to be added to
-// ApplicationActivityNamespaceLister.
-type ApplicationActivityNamespaceListerExpansion interface{}
-
 // ApplicationProfileListerExpansion allows custom methods to be added to
 // ApplicationProfileLister.
 type ApplicationProfileListerExpansion interface{}
@@ -42,6 +34,14 @@ type ConfigurationScanSummaryListerExpansion interface{}
 // ConfigurationScanSummaryNamespaceLister.
 type ConfigurationScanSummaryNamespaceListerExpansion interface{}
 
+// ContainerProfileListerExpansion allows custom methods to be added to
+// ContainerProfileLister.
+type ContainerProfileListerExpansion interface{}
+
+// ContainerProfileNamespaceListerExpansion allows custom methods to be added to
+// ContainerProfileNamespaceLister.
+type ContainerProfileNamespaceListerExpansion interface{}
+
 // GeneratedNetworkPolicyListerExpansion allows custom methods to be added to
 // GeneratedNetworkPolicyLister.
 type GeneratedNetworkPolicyListerExpansion interface{}
@@ -49,14 +49,6 @@ type GeneratedNetworkPolicyListerExpansion interface{}
 // GeneratedNetworkPolicyNamespaceListerExpansion allows custom methods to be added to
 // GeneratedNetworkPolicyNamespaceLister.
 type GeneratedNetworkPolicyNamespaceListerExpansion interface{}
-
-// HTTPEndpointListerExpansion allows custom methods to be added to
-// HTTPEndpointLister.
-type HTTPEndpointListerExpansion interface{}
-
-// HTTPEndpointNamespaceListerExpansion allows custom methods to be added to
-// HTTPEndpointNamespaceLister.
-type HTTPEndpointNamespaceListerExpansion interface{}
 
 // KnownServerListerExpansion allows custom methods to be added to
 // KnownServerLister.

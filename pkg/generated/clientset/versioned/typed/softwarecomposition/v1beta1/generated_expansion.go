@@ -18,15 +18,13 @@ limitations under the License.
 
 package v1beta1
 
-type ApplicationActivityExpansion interface{}
-
 type ApplicationProfileExpansion interface{}
 
 type ConfigurationScanSummaryExpansion interface{}
 
-type GeneratedNetworkPolicyExpansion interface{}
+type ContainerProfileExpansion interface{}
 
-type HTTPEndpointExpansion interface{}
+type GeneratedNetworkPolicyExpansion interface{}
 
 type KnownServerExpansion interface{}
 

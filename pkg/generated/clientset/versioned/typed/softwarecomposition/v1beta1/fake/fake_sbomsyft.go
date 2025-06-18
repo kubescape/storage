@@ -19,123 +19,33 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/softwarecomposition/v1beta1"
+	typedsoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeSBOMSyfts implements SBOMSyftInterface
-type FakeSBOMSyfts struct {
+// fakeSBOMSyfts implements SBOMSyftInterface
+type fakeSBOMSyfts struct {
+	*gentype.FakeClientWithListAndApply[*v1beta1.SBOMSyft, *v1beta1.SBOMSyftList, *softwarecompositionv1beta1.SBOMSyftApplyConfiguration]
 	Fake *FakeSpdxV1beta1
-	ns   string
 }
 
-var sbomsyftsResource = v1beta1.SchemeGroupVersion.WithResource("sbomsyfts")
-
-var sbomsyftsKind = v1beta1.SchemeGroupVersion.WithKind("SBOMSyft")
-
-// Get takes name of the sBOMSyft, and returns the corresponding sBOMSyft object, and an error if there is any.
-func (c *FakeSBOMSyfts) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.SBOMSyft, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(sbomsyftsResource, c.ns, name), &v1beta1.SBOMSyft{})
-
-	if obj == nil {
-		return nil, err
+func newFakeSBOMSyfts(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.SBOMSyftInterface {
+	return &fakeSBOMSyfts{
+		gentype.NewFakeClientWithListAndApply[*v1beta1.SBOMSyft, *v1beta1.SBOMSyftList, *softwarecompositionv1beta1.SBOMSyftApplyConfiguration](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("sbomsyfts"),
+			v1beta1.SchemeGroupVersion.WithKind("SBOMSyft"),
+			func() *v1beta1.SBOMSyft { return &v1beta1.SBOMSyft{} },
+			func() *v1beta1.SBOMSyftList { return &v1beta1.SBOMSyftList{} },
+			func(dst, src *v1beta1.SBOMSyftList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.SBOMSyftList) []*v1beta1.SBOMSyft { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1beta1.SBOMSyftList, items []*v1beta1.SBOMSyft) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.SBOMSyft), err
-}
-
-// List takes label and field selectors, and returns the list of SBOMSyfts that match those selectors.
-func (c *FakeSBOMSyfts) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.SBOMSyftList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(sbomsyftsResource, sbomsyftsKind, c.ns, opts), &v1beta1.SBOMSyftList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.SBOMSyftList{ListMeta: obj.(*v1beta1.SBOMSyftList).ListMeta}
-	for _, item := range obj.(*v1beta1.SBOMSyftList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested sBOMSyfts.
-func (c *FakeSBOMSyfts) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(sbomsyftsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a sBOMSyft and creates it.  Returns the server's representation of the sBOMSyft, and an error, if there is any.
-func (c *FakeSBOMSyfts) Create(ctx context.Context, sBOMSyft *v1beta1.SBOMSyft, opts v1.CreateOptions) (result *v1beta1.SBOMSyft, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(sbomsyftsResource, c.ns, sBOMSyft), &v1beta1.SBOMSyft{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SBOMSyft), err
-}
-
-// Update takes the representation of a sBOMSyft and updates it. Returns the server's representation of the sBOMSyft, and an error, if there is any.
-func (c *FakeSBOMSyfts) Update(ctx context.Context, sBOMSyft *v1beta1.SBOMSyft, opts v1.UpdateOptions) (result *v1beta1.SBOMSyft, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(sbomsyftsResource, c.ns, sBOMSyft), &v1beta1.SBOMSyft{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SBOMSyft), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeSBOMSyfts) UpdateStatus(ctx context.Context, sBOMSyft *v1beta1.SBOMSyft, opts v1.UpdateOptions) (*v1beta1.SBOMSyft, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(sbomsyftsResource, "status", c.ns, sBOMSyft), &v1beta1.SBOMSyft{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SBOMSyft), err
-}
-
-// Delete takes name of the sBOMSyft and deletes it. Returns an error if one occurs.
-func (c *FakeSBOMSyfts) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(sbomsyftsResource, c.ns, name, opts), &v1beta1.SBOMSyft{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeSBOMSyfts) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(sbomsyftsResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.SBOMSyftList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched sBOMSyft.
-func (c *FakeSBOMSyfts) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.SBOMSyft, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(sbomsyftsResource, c.ns, name, pt, data, subresources...), &v1beta1.SBOMSyft{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.SBOMSyft), err
 }

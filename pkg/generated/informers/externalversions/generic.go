@@ -19,7 +19,7 @@ limitations under the License.
 package externalversions
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,12 +53,12 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
-	case v1beta1.SchemeGroupVersion.WithResource("applicationactivities"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationActivities().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("applicationprofiles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationProfiles().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ConfigurationScanSummaries().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("containerprofiles"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ContainerProfiles().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("generatednetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().GeneratedNetworkPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("knownservers"):

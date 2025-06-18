@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // SeccompProfileLister helps list SeccompProfiles.
@@ -30,7 +30,7 @@ import (
 type SeccompProfileLister interface {
 	// List lists all SeccompProfiles in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.SeccompProfile, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.SeccompProfile, err error)
 	// SeccompProfiles returns an object that can list and get SeccompProfiles.
 	SeccompProfiles(namespace string) SeccompProfileNamespaceLister
 	SeccompProfileListerExpansion
@@ -38,25 +38,17 @@ type SeccompProfileLister interface {
 
 // seccompProfileLister implements the SeccompProfileLister interface.
 type seccompProfileLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.SeccompProfile]
 }
 
 // NewSeccompProfileLister returns a new SeccompProfileLister.
 func NewSeccompProfileLister(indexer cache.Indexer) SeccompProfileLister {
-	return &seccompProfileLister{indexer: indexer}
-}
-
-// List lists all SeccompProfiles in the indexer.
-func (s *seccompProfileLister) List(selector labels.Selector) (ret []*v1beta1.SeccompProfile, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.SeccompProfile))
-	})
-	return ret, err
+	return &seccompProfileLister{listers.New[*softwarecompositionv1beta1.SeccompProfile](indexer, softwarecompositionv1beta1.Resource("seccompprofile"))}
 }
 
 // SeccompProfiles returns an object that can list and get SeccompProfiles.
 func (s *seccompProfileLister) SeccompProfiles(namespace string) SeccompProfileNamespaceLister {
-	return seccompProfileNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return seccompProfileNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.SeccompProfile](s.ResourceIndexer, namespace)}
 }
 
 // SeccompProfileNamespaceLister helps list and get SeccompProfiles.
@@ -64,36 +56,15 @@ func (s *seccompProfileLister) SeccompProfiles(namespace string) SeccompProfileN
 type SeccompProfileNamespaceLister interface {
 	// List lists all SeccompProfiles in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.SeccompProfile, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.SeccompProfile, err error)
 	// Get retrieves the SeccompProfile from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.SeccompProfile, error)
+	Get(name string) (*softwarecompositionv1beta1.SeccompProfile, error)
 	SeccompProfileNamespaceListerExpansion
 }
 
 // seccompProfileNamespaceLister implements the SeccompProfileNamespaceLister
 // interface.
 type seccompProfileNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all SeccompProfiles in the indexer for a given namespace.
-func (s seccompProfileNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.SeccompProfile, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.SeccompProfile))
-	})
-	return ret, err
-}
-
-// Get retrieves the SeccompProfile from the indexer for a given namespace and name.
-func (s seccompProfileNamespaceLister) Get(name string) (*v1beta1.SeccompProfile, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("seccompprofile"), name)
-	}
-	return obj.(*v1beta1.SeccompProfile), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.SeccompProfile]
 }

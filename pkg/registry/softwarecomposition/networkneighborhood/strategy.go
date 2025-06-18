@@ -76,12 +76,12 @@ func (NetworkNeighborhoodStrategy) PrepareForUpdate(_ context.Context, obj, old 
 
 	// completion status cannot be transitioned from 'complete' -> 'partial'
 	// in such case, we reject status updates
-	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Complete && newAP.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
+	if oldAP.Annotations[helpers.CompletionMetadataKey] == helpers.Full && newAP.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
 		logger.L().Debug("network neighborhood completion status cannot be transitioned from 'complete' to 'partial', rejecting status updates",
 			logHelpers.String("name", oldAP.Name),
 			logHelpers.String("namespace", oldAP.Namespace))
 
-		newAP.Annotations[helpers.CompletionMetadataKey] = helpers.Complete
+		newAP.Annotations[helpers.CompletionMetadataKey] = helpers.Full
 
 		if v, ok := oldAP.Annotations[helpers.StatusMetadataKey]; ok {
 			newAP.Annotations[helpers.StatusMetadataKey] = v

@@ -126,7 +126,7 @@ directory. To make code generation, you need to make them executable:
 chmod +x vendor/k8s.io/code-generator/*.sh
 ```
 
-Now you’re all set to generate the code for changed types. Do this with:
+Now you’re all set to generate the code for changed types. Do this with (eventually setting UPDATE_API_KNOWN_VIOLATIONS=true):
 
 ```
 hack/update-codegen.sh

@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // WorkloadConfigurationScanSummaryLister helps list WorkloadConfigurationScanSummaries.
@@ -30,7 +30,7 @@ import (
 type WorkloadConfigurationScanSummaryLister interface {
 	// List lists all WorkloadConfigurationScanSummaries in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScanSummary, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.WorkloadConfigurationScanSummary, err error)
 	// WorkloadConfigurationScanSummaries returns an object that can list and get WorkloadConfigurationScanSummaries.
 	WorkloadConfigurationScanSummaries(namespace string) WorkloadConfigurationScanSummaryNamespaceLister
 	WorkloadConfigurationScanSummaryListerExpansion
@@ -38,25 +38,17 @@ type WorkloadConfigurationScanSummaryLister interface {
 
 // workloadConfigurationScanSummaryLister implements the WorkloadConfigurationScanSummaryLister interface.
 type workloadConfigurationScanSummaryLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.WorkloadConfigurationScanSummary]
 }
 
 // NewWorkloadConfigurationScanSummaryLister returns a new WorkloadConfigurationScanSummaryLister.
 func NewWorkloadConfigurationScanSummaryLister(indexer cache.Indexer) WorkloadConfigurationScanSummaryLister {
-	return &workloadConfigurationScanSummaryLister{indexer: indexer}
-}
-
-// List lists all WorkloadConfigurationScanSummaries in the indexer.
-func (s *workloadConfigurationScanSummaryLister) List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScanSummary, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.WorkloadConfigurationScanSummary))
-	})
-	return ret, err
+	return &workloadConfigurationScanSummaryLister{listers.New[*softwarecompositionv1beta1.WorkloadConfigurationScanSummary](indexer, softwarecompositionv1beta1.Resource("workloadconfigurationscansummary"))}
 }
 
 // WorkloadConfigurationScanSummaries returns an object that can list and get WorkloadConfigurationScanSummaries.
 func (s *workloadConfigurationScanSummaryLister) WorkloadConfigurationScanSummaries(namespace string) WorkloadConfigurationScanSummaryNamespaceLister {
-	return workloadConfigurationScanSummaryNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return workloadConfigurationScanSummaryNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.WorkloadConfigurationScanSummary](s.ResourceIndexer, namespace)}
 }
 
 // WorkloadConfigurationScanSummaryNamespaceLister helps list and get WorkloadConfigurationScanSummaries.
@@ -64,36 +56,15 @@ func (s *workloadConfigurationScanSummaryLister) WorkloadConfigurationScanSummar
 type WorkloadConfigurationScanSummaryNamespaceLister interface {
 	// List lists all WorkloadConfigurationScanSummaries in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScanSummary, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.WorkloadConfigurationScanSummary, err error)
 	// Get retrieves the WorkloadConfigurationScanSummary from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.WorkloadConfigurationScanSummary, error)
+	Get(name string) (*softwarecompositionv1beta1.WorkloadConfigurationScanSummary, error)
 	WorkloadConfigurationScanSummaryNamespaceListerExpansion
 }
 
 // workloadConfigurationScanSummaryNamespaceLister implements the WorkloadConfigurationScanSummaryNamespaceLister
 // interface.
 type workloadConfigurationScanSummaryNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all WorkloadConfigurationScanSummaries in the indexer for a given namespace.
-func (s workloadConfigurationScanSummaryNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScanSummary, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.WorkloadConfigurationScanSummary))
-	})
-	return ret, err
-}
-
-// Get retrieves the WorkloadConfigurationScanSummary from the indexer for a given namespace and name.
-func (s workloadConfigurationScanSummaryNamespaceLister) Get(name string) (*v1beta1.WorkloadConfigurationScanSummary, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("workloadconfigurationscansummary"), name)
-	}
-	return obj.(*v1beta1.WorkloadConfigurationScanSummary), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.WorkloadConfigurationScanSummary]
 }
