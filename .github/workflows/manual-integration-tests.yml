@@ -7,6 +7,10 @@ on:
         description: 'Branch to run tests on'
         required: true
         default: 'main'
+      branch_helm_chart:
+        description: 'Helm branch to run tests on'
+        required: true
+        default: 'main'
       node_agent_image:
         description: 'Node Agent image (e.g. quay.io/kubescape/node-agent:latest)'
         required: true
@@ -49,8 +53,6 @@ jobs:
 
       - name: Install Kubescape via Helm
         run: |
-          helm repo add kubescape https://kubescape.github.io/helm-charts/
-          helm repo update
           EXTRA_SET_ARGS=""
           if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
             IFS=',' read -ra ADDR <<< "${{ github.event.inputs.extra_helm_set_args }}"
@@ -58,8 +60,12 @@ jobs:
               EXTRA_SET_ARGS="$EXTRA_SET_ARGS --set $arg"
             done
           fi
+          git clone https://github.com/kubescape/helm-charts.git
+          pushd helm-charts
+          git checkout ${{ github.event.inputs.branch_helm_chart }}
+          popd
           echo "Installing Kubescape with Helm"
-          echo helm upgrade --install kubescape kubescape/kubescape-operator \
+          echo helm upgrade --install kubescape charts/kubescape-operator \
             -n kubescape --create-namespace \
             --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
             --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
@@ -67,7 +73,7 @@ jobs:
             --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
             $EXTRA_SET_ARGS \
             --wait
-          helm upgrade --install kubescape kubescape/kubescape-operator \
+          helm upgrade --install kubescape charts/kubescape-operator \
             -n kubescape --create-namespace \
             --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
             --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
