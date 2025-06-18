@@ -61,6 +61,8 @@ jobs:
           git clone https://github.com/kubescape/helm-charts.git
           pushd helm-charts
           git checkout ${{ github.event.inputs.branch_helm_chart }}
+          echo "Building Helm dependencies"
+          helm dependency build charts/kubescape-operator
           echo "Installing Kubescape with Helm"
           echo helm upgrade --install kubescape charts/kubescape-operator \
             -n kubescape --create-namespace \
