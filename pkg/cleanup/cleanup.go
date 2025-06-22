@@ -53,7 +53,7 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 		// configurationscansummaries is virtual
 		// vulnerabilitysummaries is virtual
 		"applicationactivities":               {deleteDeprecated},
-		"applicationprofiles":                 {deleteByTemplateHashOrWlid},
+		"applicationprofiles":                 {keep},
 		"applicationprofilesummaries":         {deleteDeprecated},
 		"networkneighborses":                  {deleteDeprecated},
 		"networkneighborhoods":                {deleteByTemplateHashOrWlid},
@@ -96,106 +96,7 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 
 func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 	for {
-		logger.L().Info("started cleanup task", helpers.String("interval", h.interval.String()))
-		var err error
-		h.resources, err = h.fetcher.FetchResources()
-		if err != nil {
-			logger.L().Error("cleanup task error. sleeping...", helpers.Error(err))
-			time.Sleep(h.interval)
-			continue
-		}
-
-		for resourceKind, handlers := range h.resourceToKindHandler {
-			v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
-			exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
-			if !exists {
-				continue
-			}
-			// TEMPORARY CODE
-			// map for cronjob related resources
-			cronjobResources := make(map[string][]PathVersion)
-			err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil // we might encounter already deleted files from readMetadata when migrating to SQLite
-				}
-
-				// skip directories
-				if info.IsDir() {
-					return nil
-				}
-
-				if size := info.Size(); size > MinSizeToReport {
-					logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
-				}
-
-				// skip files that are not payload files
-				if !file.IsPayloadFile(path) {
-					return nil
-				}
-
-				metadata, err := h.readMetadata(path)
-				if err != nil {
-					logger.L().Error("load metadata error", helpers.Error(err))
-					return nil
-				}
-
-				// either run single handler, or perform OR operation on multiple handlers
-				var toDelete bool
-				if len(handlers) == 1 {
-					toDelete = handlers[0](resourceKind, path, metadata, h.resources)
-				} else {
-					toDelete = or(handlers, resourceKind, path, metadata, h.resources)
-				}
-
-				if toDelete {
-					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
-					h.deleteFunc(h.appFs, path)
-
-					metaOut := h.deleteMetadata(path)
-					if h.watchDispatcher != nil {
-						key := path[len(h.root) : len(path)-len(file.GobExt)]
-						h.watchDispatcher.Deleted(key, metaOut)
-					}
-				} else if relatedKind, ok := metadata.Labels[helpersv1.KindMetadataKey]; ok && relatedKind == "CronJob" {
-					// TEMPORARY CODE
-					// special case for CronJobs related resources missing template hash
-					key := metadata.Labels[helpersv1.NamespaceMetadataKey] + "/" + metadata.Labels[helpersv1.NameMetadataKey]
-					if cronjobResources[key] == nil {
-						cronjobResources[key] = []PathVersion{}
-					}
-					version, err := strconv.Atoi(metadata.Labels[helpersv1.ResourceVersionMetadataKey])
-					if err != nil {
-						return nil
-					}
-					cronjobResources[key] = append(cronjobResources[key], PathVersion{Path: path, Version: version})
-				}
-				return nil
-			})
-			if err != nil {
-				logger.L().Error("cleanup task error", helpers.Error(err))
-			}
-			// TEMPORARY CODE
-			// delete cronjob related resources
-			for _, pathVersions := range cronjobResources {
-				if len(pathVersions) < 2 {
-					continue
-				}
-				// keep the latest version
-				slices.SortFunc(pathVersions, func(a, b PathVersion) int {
-					return cmp.Compare(b.Version, a.Version) // sort descending
-				})
-				// delete all but the latest version
-				for _, pathVersion := range pathVersions[1:] {
-					logger.L().Debug("deleting cronjob related resource", helpers.String("path", pathVersion.Path))
-					h.deleteFunc(h.appFs, pathVersion.Path)
-					metaOut := h.deleteMetadata(pathVersion.Path)
-					if h.watchDispatcher != nil {
-						key := pathVersion.Path[len(h.root) : len(pathVersion.Path)-len(file.GobExt)]
-						h.watchDispatcher.Deleted(key, metaOut)
-					}
-				}
-			}
-		}
+		h.cleanupTask(ctx)
 
 		if h.interval == 0 {
 			break
@@ -204,6 +105,110 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 		logger.L().Info("finished cleanup task. sleeping...")
 		time.Sleep(h.interval)
 	}
+}
+
+func (h *ResourcesCleanupHandler) cleanupTask(ctx context.Context) {
+	logger.L().Info("started cleanup task", helpers.String("interval", h.interval.String()))
+	var err error
+	h.resources, err = h.fetcher.FetchResources()
+	if err != nil {
+		logger.L().Error("cleanup task error. sleeping...", helpers.Error(err))
+		time.Sleep(h.interval)
+		return
+	}
+
+	for resourceKind, handlers := range h.resourceToKindHandler {
+		v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
+		exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
+		if !exists {
+			continue
+		}
+		// TEMPORARY CODE
+		// map for cronjob related resources
+		cronjobResources := make(map[string][]PathVersion)
+		err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil // we might encounter already deleted files from readMetadata when migrating to SQLite
+			}
+
+			// skip directories
+			if info.IsDir() {
+				return nil
+			}
+
+			if size := info.Size(); size > MinSizeToReport {
+				logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
+			}
+
+			// skip files that are not payload files
+			if !file.IsPayloadFile(path) {
+				return nil
+			}
+
+			metadata, err := h.readMetadata(path)
+			if err != nil {
+				logger.L().Error("load metadata error", helpers.Error(err))
+				return nil
+			}
+
+			// either run single handler, or perform OR operation on multiple handlers
+			var toDelete bool
+			if len(handlers) == 1 {
+				toDelete = handlers[0](resourceKind, path, metadata, h.resources)
+			} else {
+				toDelete = or(handlers, resourceKind, path, metadata, h.resources)
+			}
+
+			if toDelete {
+				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
+				h.deleteFunc(h.appFs, path)
+
+				metaOut := h.deleteMetadata(path)
+				if h.watchDispatcher != nil {
+					key := path[len(h.root) : len(path)-len(file.GobExt)]
+					h.watchDispatcher.Deleted(key, metaOut)
+				}
+			} else if relatedKind, ok := metadata.Labels[helpersv1.KindMetadataKey]; ok && relatedKind == "CronJob" {
+				// TEMPORARY CODE
+				// special case for CronJobs related resources missing template hash
+				key := metadata.Labels[helpersv1.NamespaceMetadataKey] + "/" + metadata.Labels[helpersv1.NameMetadataKey]
+				if cronjobResources[key] == nil {
+					cronjobResources[key] = []PathVersion{}
+				}
+				version, err := strconv.Atoi(metadata.Labels[helpersv1.ResourceVersionMetadataKey])
+				if err != nil {
+					return nil
+				}
+				cronjobResources[key] = append(cronjobResources[key], PathVersion{Path: path, Version: version})
+			}
+			return nil
+		})
+		if err != nil {
+			logger.L().Error("cleanup task error", helpers.Error(err))
+		}
+		// TEMPORARY CODE
+		// delete cronjob related resources
+		for _, pathVersions := range cronjobResources {
+			if len(pathVersions) < 2 {
+				continue
+			}
+			// keep the latest version
+			slices.SortFunc(pathVersions, func(a, b PathVersion) int {
+				return cmp.Compare(b.Version, a.Version) // sort descending
+			})
+			// delete all but the latest version
+			for _, pathVersion := range pathVersions[1:] {
+				logger.L().Debug("deleting cronjob related resource", helpers.String("path", pathVersion.Path))
+				h.deleteFunc(h.appFs, pathVersion.Path)
+				metaOut := h.deleteMetadata(pathVersion.Path)
+				if h.watchDispatcher != nil {
+					key := pathVersion.Path[len(h.root) : len(pathVersion.Path)-len(file.GobExt)]
+					h.watchDispatcher.Deleted(key, metaOut)
+				}
+			}
+		}
+	}
+
 }
 
 func or(funcs []TypeCleanupHandlerFunc, kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
@@ -224,6 +229,10 @@ func deleteFile(appFs afero.Fs, path string) {
 // delete deprecated resources
 func deleteDeprecated(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool {
 	return true
+}
+
+func keep(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool {
+	return false
 }
 
 func deleteByInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
