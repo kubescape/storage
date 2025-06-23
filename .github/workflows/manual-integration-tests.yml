@@ -117,6 +117,19 @@ jobs:
             fi
             echo "| $testname | $status |" >> $GITHUB_STEP_SUMMARY
           done
+      - name: Save Kubescape logs
+        run: |
+          mkdir -p kubescape-logs
+          for pod in $(kubectl get pods -n kubescape -o jsonpath='{.items[*].metadata.name}'); do
+            echo "Saving logs for pod: $pod"
+            kubectl logs -n kubescape $pod --all-containers > "kubescape-logs/$pod.log" || true
+          done
+
+      - name: Upload Kubescape logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubescape-logs
+          path: kubescape-logs/
 
       - name: Upload JUnit test results
         uses: actions/upload-artifact@v4

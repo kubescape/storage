@@ -83,11 +83,13 @@ The profile should be complete after the learning period finishes and include bo
 	// Verify both containers are in the profile
 	s.LogWithTimestamp("Verifying both containers are in the profile")
 	nginxFound := false
-	sidecarFound := false
 	for _, container := range applicationProfile.Spec.Containers {
 		if container.Name == "nginx" {
 			nginxFound = true
 		}
+	}
+	sidecarFound := false
+	for _, container := range applicationProfile.Spec.InitContainers {
 		if container.Name == "sidecar" {
 			sidecarFound = true
 		}
