@@ -67,6 +67,8 @@ Goal: Ensure that the system can recover from a long storage failover and still 
 	time.Sleep(10 * time.Minute)
 
 	s.LogWithTimestamp("Scaling storage deployment back to 1 replica")
+	storageDep, err = s.clientset.AppsV1().Deployments("kubescape").Get(context.Background(), "storage", metav1.GetOptions{})
+	s.Require().NoError(err)
 	one := int32(1)
 	storageDep.Spec.Replicas = &one
 	_, err = s.clientset.AppsV1().Deployments("kubescape").Update(context.Background(), storageDep, metav1.UpdateOptions{})

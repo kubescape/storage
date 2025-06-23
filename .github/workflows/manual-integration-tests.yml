@@ -42,9 +42,7 @@ jobs:
         run: go mod download
 
       - name: Set up kind cluster
-        uses: helm/kind-action@v1.8.0
-        with:
-          version: v0.22.0
+        uses: helm/kind-action@v1
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -63,7 +61,8 @@ jobs:
           git clone https://github.com/kubescape/helm-charts.git
           pushd helm-charts
           git checkout ${{ github.event.inputs.branch_helm_chart }}
-          popd
+          echo "Building Helm dependencies"
+          helm dependency build charts/kubescape-operator
           echo "Installing Kubescape with Helm"
           echo helm upgrade --install kubescape charts/kubescape-operator \
             -n kubescape --create-namespace \
@@ -81,6 +80,7 @@ jobs:
             --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
             $EXTRA_SET_ARGS \
             --wait
+          popd
 
       - name: Verify all Pods are running
         run: |
@@ -93,20 +93,14 @@ jobs:
       - name: Run non-failover tests in parallel
         run: |
           cd tests/integration-test-suite
-          NON_FAILOVER_TESTS="TestSimpleProfileCreate TestJobProfileCreate TestCronJobProfileCreate TestInitContainerProfileCreate TestSidecarProfileCreate TestInitSidecarProfileCreate TestCrashLoopProfileIncomplete TestCrashLoopAndStableProfileIncomplete TestStatefulSetProfileCleanup"
-          for test in $NON_FAILOVER_TESTS; do
-            echo "Running $test"
-            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
-          done
+          ./run-non-failover-tests.sh
+        continue-on-error: true
 
       - name: Run failover tests sequentially
         run: |
           cd tests/integration-test-suite
-          FAILOVER_TESTS="TestSimpleProfileStorageFailover TestSimpleProfileNodeAgentFailover TestLongStorageFailover"
-          for test in $FAILOVER_TESTS; do
-            echo "Running $test"
-            gotestsum --junitfile "junit-$test.xml" -- -v -run "IntegrationTestSuite/$test$" ./...
-          done
+          ./run-failover-tests.sh
+        continue-on-error: true
 
       - name: Print test summary
         run: |
@@ -116,10 +110,28 @@ jobs:
           for file in tests/integration-test-suite/junit-*.xml; do
             testname=$(basename "$file" .xml)
             result=$(grep -o 'testsuite.*failures="[^"]*"' "$file" | head -1)
-            if [[ $result =~ failures="0" ]]; then
+            if [[ "$result" == *'failures="0"'* ]]; then
               status="✅ PASS"
             else
               status="❌ FAIL"
             fi
             echo "| $testname | $status |" >> $GITHUB_STEP_SUMMARY
           done
+
+      - name: Upload JUnit test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: tests/integration-test-suite/junit-*.xml
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          junit_files: tests/integration-test-suite/junit-*.xml
+
+      - name: Fail job if any test failed
+        run: |
+          if grep -q 'failures="[1-9]' tests/integration-test-suite/junit-*.xml || grep -q 'errors="[1-9]' tests/integration-test-suite/junit-*.xml; then
+            echo "Some tests failed"
+            exit 1
+          fi

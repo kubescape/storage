@@ -48,7 +48,6 @@ Goal: Verify that the application profile is created and completed, and is delet
 							Command: []string{"/bin/sh", "-c", fmt.Sprintf("sleep %d", int(runPeriod.Seconds()))},
 						},
 					},
-					RestartPolicy: corev1.RestartPolicyNever,
 				},
 			},
 		},

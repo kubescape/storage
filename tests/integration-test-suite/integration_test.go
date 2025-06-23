@@ -153,6 +153,55 @@ func (s *IntegrationTestSuite) SetupTest() {
 func (s *IntegrationTestSuite) TearDownTest() {
 	clientset, err := GetKubeClient()
 	s.Require().NoError(err)
+
+	gracePeriod := int64(0)
+	propagationPolicy := metav1.DeletePropagationForeground
+	deleteOptions := metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+		PropagationPolicy:  &propagationPolicy,
+	}
+
+	// Delete Deployments
+	err = clientset.AppsV1().Deployments(s.testNamespace).DeleteCollection(context.Background(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		s.T().Logf("Warning: Failed to delete deployments: %v", err)
+	}
+
+	// Delete StatefulSets
+	err = clientset.AppsV1().StatefulSets(s.testNamespace).DeleteCollection(context.Background(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		s.T().Logf("Warning: Failed to delete statefulsets: %v", err)
+	}
+
+	// Delete DaemonSets
+	err = clientset.AppsV1().DaemonSets(s.testNamespace).DeleteCollection(context.Background(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		s.T().Logf("Warning: Failed to delete daemonsets: %v", err)
+	}
+
+	// Delete Jobs
+	err = clientset.BatchV1().Jobs(s.testNamespace).DeleteCollection(context.Background(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		s.T().Logf("Warning: Failed to delete jobs: %v", err)
+	}
+
+	// Delete CronJobs
+	err = clientset.BatchV1().CronJobs(s.testNamespace).DeleteCollection(context.Background(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		s.T().Logf("Warning: Failed to delete cronjobs: %v", err)
+	}
+
+	// Delete Pods
+	pods, err := clientset.CoreV1().Pods(s.testNamespace).List(context.Background(), metav1.ListOptions{})
+	s.Require().NoError(err)
+	for _, pod := range pods.Items {
+		err = clientset.CoreV1().Pods(s.testNamespace).Delete(context.Background(), pod.Name, deleteOptions)
+		if err != nil {
+			s.T().Logf("Warning: Failed to delete pod %s: %v", pod.Name, err)
+		}
+	}
+
+	// Finally delete the namespace
 	err = clientset.CoreV1().Namespaces().Delete(context.Background(), s.testNamespace, metav1.DeleteOptions{})
 	s.Require().NoError(err)
 }

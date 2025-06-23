@@ -17,6 +17,8 @@ Goal: Verify that the application profile handles the modern K8s sidecar pattern
 The profile should be complete after the learning period finishes and include both the main container and the sidecar container.`
 	s.LogWithTimestamp(description)
 
+	deplRestartPolicy := corev1.ContainerRestartPolicyAlways
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "init-sidecar-test-deployment",
@@ -47,6 +49,7 @@ The profile should be complete after the learning period finishes and include bo
 								RunAsNonRoot: &[]bool{true}[0],
 								RunAsUser:    &[]int64{1000}[0],
 							},
+							RestartPolicy: &deplRestartPolicy,
 						},
 					},
 					Containers: []corev1.Container{

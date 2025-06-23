@@ -60,8 +60,8 @@ The profile should be ready when both containers are running and complete after 
 	s.LogWithTimestamp("Waiting for pod to be ready (both containers should be running)")
 	WaitForPodWithLabelReady(s.T(), s.clientset, s.testNamespace, "app=sidecar-test-deployment")
 
-	s.LogWithTimestamp("Waiting 30 seconds for sidecar container to complete while main container keeps running")
-	time.Sleep(30 * time.Second)
+	s.LogWithTimestamp("Waiting 90 seconds for sidecar container to complete while main container keeps running")
+	time.Sleep(90 * time.Second)
 
 	// Verify that profile exists and is in learning state
 	s.LogWithTimestamp("Verifying profile exists and is in ready state")
