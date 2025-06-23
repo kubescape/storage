@@ -76,7 +76,7 @@ The profile should be complete after the main container's learning period finish
 	// Verify init container is in the profile
 	s.LogWithTimestamp("Verifying init container is in the profile")
 	initContainerFound := false
-	for _, container := range applicationProfile.Spec.Containers {
+	for _, container := range applicationProfile.Spec.InitContainers {
 		if container.Name == "init-sleep" {
 			initContainerFound = true
 			break
