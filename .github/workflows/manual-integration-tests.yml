@@ -78,6 +78,9 @@ jobs:
             --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
             --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
             --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
+            --set nodeAgent.config.learningPeriod=30s \
+            --set nodeAgent.config.updatePeriod=1m \
+            --set storage.cleanupInterval=1m \
             $EXTRA_SET_ARGS \
             --wait
           popd
