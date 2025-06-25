@@ -64,14 +64,7 @@ jobs:
           echo "Building Helm dependencies"
           helm dependency build charts/kubescape-operator
           echo "Installing Kubescape with Helm"
-          echo helm upgrade --install kubescape charts/kubescape-operator \
-            -n kubescape --create-namespace \
-            --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
-            --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
-            --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
-            --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
-            $EXTRA_SET_ARGS \
-            --wait
+          set -x
           helm upgrade --install kubescape charts/kubescape-operator \
             -n kubescape --create-namespace \
             --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
@@ -99,12 +92,6 @@ jobs:
           ./run-non-failover-tests.sh
         continue-on-error: true
 
-      - name: Run failover tests sequentially
-        run: |
-          cd tests/integration-test-suite
-          ./run-failover-tests.sh
-        continue-on-error: true
-
       - name: Print test summary
         run: |
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
@@ -120,6 +107,126 @@ jobs:
             fi
             echo "| $testname | $status |" >> $GITHUB_STEP_SUMMARY
           done
+      - name: Save Kubescape logs
+        run: |
+          mkdir -p kubescape-logs
+          for pod in $(kubectl get pods -n kubescape -o jsonpath='{.items[*].metadata.name}'); do
+            echo "Saving logs for pod: $pod"
+            kubectl logs -n kubescape $pod --all-containers > "kubescape-logs/$pod.log" || true
+          done
+
+      - name: Upload Kubescape logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubescape-logs
+          path: kubescape-logs/
+
+      - name: Upload JUnit test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: tests/integration-test-suite/junit-*.xml
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          junit_files: tests/integration-test-suite/junit-*.xml
+
+      - name: Fail job if any test failed
+        run: |
+          if grep -q 'failures="[1-9]' tests/integration-test-suite/junit-*.xml || grep -q 'errors="[1-9]' tests/integration-test-suite/junit-*.xml; then
+            echo "Some tests failed"
+            exit 1
+          fi
+
+  failover-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test_name:
+          - TestSimpleProfileStorageFailover
+          - TestSimpleProfileNodeAgentFailover
+          - TestLongStorageFailover
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Set up kind cluster
+        uses: helm/kind-action@v1
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Install Kubescape via Helm
+        run: |
+          EXTRA_SET_ARGS=""
+          if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
+            IFS=',' read -ra ADDR <<< "${{ github.event.inputs.extra_helm_set_args }}"
+            for arg in "${ADDR[@]}"; do
+              EXTRA_SET_ARGS="$EXTRA_SET_ARGS --set $arg"
+            done
+          fi
+          git clone https://github.com/kubescape/helm-charts.git
+          pushd helm-charts
+          git checkout ${{ github.event.inputs.branch_helm_chart }}
+          echo "Building Helm dependencies"
+          helm dependency build charts/kubescape-operator
+          echo "Installing Kubescape with Helm"
+          set -x
+          helm upgrade --install kubescape charts/kubescape-operator \
+            -n kubescape --create-namespace \
+            --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
+            --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
+            --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
+            --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
+            --set nodeAgent.config.learningPeriod=30s \
+            --set nodeAgent.config.updatePeriod=1m \
+            --set storage.cleanupInterval=1m \
+            $EXTRA_SET_ARGS \
+            --wait
+          popd
+
+      - name: Verify all Pods are running
+        run: |
+          kubectl logs -n kubescape -l app=node-agent
+          kubectl wait --for=condition=ready pod --all -n kubescape --timeout=10m
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run failover test
+        run: |
+          cd tests/integration-test-suite
+          gotestsum --format standard-verbose --junitfile "junit-${{ matrix.test_name }}.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/${{ matrix.test_name }}$" ./...
+
+      - name: Print test summary
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Name | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          for file in tests/integration-test-suite/junit-*.xml; do
+            testname=$(basename "$file" .xml)
+            result=$(grep -o 'testsuite.*failures="[^\"]*"' "$file" | head -1)
+            if [[ "$result" == *'failures="0"'* ]]; then
+              status="✅ PASS"
+            else
+              status="❌ FAIL"
+            fi
+            echo "| $testname | $status |" >> $GITHUB_STEP_SUMMARY
+          done
+
       - name: Save Kubescape logs
         run: |
           mkdir -p kubescape-logs

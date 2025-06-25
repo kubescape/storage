@@ -4,7 +4,32 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strings"
+
+	"gopkg.in/yaml.v2"
 )
+
+func flattenHelmGetValuesOutput(prefix string, m map[string]interface{}, result *[]string) {
+	for k, v := range m {
+		key := k
+		if prefix != "" {
+			key = prefix + "." + k
+		}
+		switch val := v.(type) {
+		case map[interface{}]interface{}:
+			// Convert map[interface{}]interface{} to map[string]interface{}
+			strMap := make(map[string]interface{})
+			for mk, mv := range val {
+				strMap[fmt.Sprintf("%v", mk)] = mv
+			}
+			flattenHelmGetValuesOutput(key, strMap, result)
+		case map[string]interface{}:
+			flattenHelmGetValuesOutput(key, val, result)
+		default:
+			*result = append(*result, fmt.Sprintf("%s=%v", key, v))
+		}
+	}
+}
 
 func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string) error {
 	releaseName := "kubescape"
@@ -12,10 +37,53 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 	repoName := "kubescape"
 	repoURL := "https://kubescape.github.io/helm-charts/"
 
+	// These values must be set so the test will work
+	expectedHelmSetArgs := []string{
+		"capabilities.runtimeDetection=enable",
+		"alertCRD.installDefault=true",
+		"nodeAgent.config.learningPeriod=30s",
+		"nodeAgent.config.updatePeriod=1m",
+		"storage.cleanupInterval=1m",
+	}
+
 	// Check if release exists
 	cmd := exec.Command("helm", "status", releaseName, "-n", "kubescape")
 	if err := cmd.Run(); err == nil && !updateIfPresent {
 		log.Printf("Kubescape helm release already exists - not updating since updateIfPresent=false\n")
+		// Verify the right helm parameters are set
+		cmd = exec.Command("helm", "get", "values", releaseName, "-n", "kubescape")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to get helm values: %v\n%s", err, string(out))
+		}
+		// Discard the first line of the output
+		lines := strings.Split(string(out), "\n")
+		if len(lines) > 1 {
+			out = []byte(strings.Join(lines[1:], "\n"))
+		}
+		// Convert the string from YAML to a map
+		var m map[string]interface{}
+		err = yaml.Unmarshal(out, &m)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal helm values: %v\n%s", err, string(out))
+		}
+		// Flatten the output
+		var result []string
+		flattenHelmGetValuesOutput("", m, &result)
+		// Make sure all expected values are present
+		for _, expected := range expectedHelmSetArgs {
+			found := false
+			for _, actual := range result {
+				if actual == expected {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Printf("WARNING: expected helm value %s not found in current installation - test may fail", expected)
+			}
+		}
+
 		return nil
 	}
 
@@ -46,7 +114,6 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 		"upgrade", "--install", releaseName, chartName,
 		"-n", "kubescape", "--create-namespace",
 		"--set", fmt.Sprintf("clusterName=%s", clusterName),
-		"--set", "capabilities.continuousScan=enable",
 		"--set", "capabilities.runtimeDetection=enable",
 		"--set", "alertCRD.installDefault=true",
 		"--set", "nodeAgent.config.learningPeriod=30s",
