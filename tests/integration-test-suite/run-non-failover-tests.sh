@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set +e
+set +ex
 
 # List of non-failover tests to run in parallel
 NON_FAILOVER_TESTS="TestSimpleProfileCreate TestJobProfileCreate TestCronJobProfileCreate TestInitContainerProfileCreate TestSidecarProfileCreate TestInitSidecarProfileCreate TestCrashLoopProfileIncomplete TestCrashLoopAndStableProfileIncomplete TestStatefulSetProfileCleanup"

@@ -89,7 +89,9 @@ jobs:
       - name: Run non-failover tests in parallel
         run: |
           cd tests/integration-test-suite
+          echo "Running non-failover tests"
           ./run-non-failover-tests.sh
+          echo "Non-failover tests completed"
         continue-on-error: true
 
       - name: Print test summary
@@ -142,6 +144,7 @@ jobs:
   failover-tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         test_name:
           - TestSimpleProfileStorageFailover
