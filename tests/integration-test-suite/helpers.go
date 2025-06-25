@@ -67,24 +67,20 @@ func ListPodsInNamespace(clientset *kubernetes.Clientset, namespace string) ([]*
 }
 
 func fetchApplicationProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, namespace string, relatedKind string, relatedName string) (*spdxv1beta1.ApplicationProfile, error) {
-	applicationProfileList, err := ksObjectConnection.ApplicationProfiles(namespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("kubescape.io/workload-name=%s", relatedName),
-	})
+	applicationProfileList, err := ksObjectConnection.ApplicationProfiles(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if len(applicationProfileList.Items) == 0 {
-		return nil, fmt.Errorf("no application profile found for %s %s", relatedKind, relatedName)
-	}
 	var matchingProfile *spdxv1beta1.ApplicationProfile
 	for _, profile := range applicationProfileList.Items {
-		if strings.EqualFold(profile.Labels["kubescape.io/workload-kind"], relatedKind) {
+		if strings.EqualFold(profile.Labels["kubescape.io/workload-name"], relatedName) &&
+			strings.EqualFold(profile.Labels["kubescape.io/workload-kind"], relatedKind) {
 			matchingProfile = &profile
 			break
 		}
 	}
 	if matchingProfile == nil {
-		return nil, fmt.Errorf("no application profile found for %s %s with matching kind", relatedKind, relatedName)
+		return nil, fmt.Errorf("no application profile found for %s %s", relatedKind, relatedName)
 	}
 	applicationProfile, err := ksObjectConnection.ApplicationProfiles(namespace).Get(context.Background(), matchingProfile.Name, metav1.GetOptions{})
 	if err != nil {
@@ -94,24 +90,20 @@ func fetchApplicationProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta1Int
 }
 
 func fetchNetworkNeighborProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, namespace string, relatedKind string, relatedName string) (*spdxv1beta1.NetworkNeighborhood, error) {
-	networkNeighborProfileList, err := ksObjectConnection.NetworkNeighborhoods(namespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("kubescape.io/workload-name=%s", relatedName),
-	})
+	networkNeighborProfileList, err := ksObjectConnection.NetworkNeighborhoods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if len(networkNeighborProfileList.Items) == 0 {
-		return nil, fmt.Errorf("no network neighbor profile found for %s %s", relatedKind, relatedName)
-	}
 	var matchingProfile *spdxv1beta1.NetworkNeighborhood
 	for _, profile := range networkNeighborProfileList.Items {
-		if strings.EqualFold(profile.Labels["kubescape.io/workload-kind"], relatedKind) {
+		if strings.EqualFold(profile.Labels["kubescape.io/workload-name"], relatedName) &&
+			strings.EqualFold(profile.Labels["kubescape.io/workload-kind"], relatedKind) {
 			matchingProfile = &profile
 			break
 		}
 	}
 	if matchingProfile == nil {
-		return nil, fmt.Errorf("no network neighbor profile found for %s %s with matching kind", relatedKind, relatedName)
+		return nil, fmt.Errorf("no network neighbor profile found for %s %s", relatedKind, relatedName)
 	}
 	networkNeighborProfile, err := ksObjectConnection.NetworkNeighborhoods(namespace).Get(context.Background(), matchingProfile.Name, metav1.GetOptions{})
 	if err != nil {

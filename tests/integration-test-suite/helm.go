@@ -51,6 +51,7 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 		"--set", "alertCRD.installDefault=true",
 		"--set", "nodeAgent.config.learningPeriod=30s",
 		"--set", "nodeAgent.config.updatePeriod=1m",
+		"--set", "storage.cleanupInterval=1m",
 		"--wait",
 		"--timeout", "5m0s",
 	}
