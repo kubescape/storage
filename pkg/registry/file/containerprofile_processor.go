@@ -104,6 +104,8 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 
 	// detect TS profiles
 	if profile.Annotations[helpers.ReportSeriesIdMetadataKey] != "" {
+		// FIXME attempt to slow down data ingestion
+		time.Sleep(time.Second)
 		// check size and completion for the corresponding container profile
 		name, _ := splitProfileName(profile.Name)
 		// load profile metadata if profile exists
@@ -271,7 +273,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 					return nil, fmt.Errorf("failed to get ts profile: %w", err)
 				}
 				newData = true
-				time.Sleep(100 * time.Millisecond)
+				// yolo, no sleep!
 				mergeContainerProfileTS(&profile, &tsProfile)
 				// mark as processed
 				timeSeries[seriesID][k].HasData = false

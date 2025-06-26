@@ -35,7 +35,6 @@ import (
 	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
-	queuemanager "github.com/kubescape/storage/pkg/queuemanager"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/statscollector"
 	"github.com/spf13/afero"
@@ -263,18 +262,18 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	serverConfig.FeatureGate = o.ComponentGlobalsRegistry.FeatureGateFor(basecompatibility.DefaultKubeComponent)
 	serverConfig.EffectiveVersion = o.ComponentGlobalsRegistry.EffectiveVersionFor(apiserver.WardleComponentName)
 
-	serverConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) http.Handler {
-		handler := genericapiserver.DefaultBuildHandlerChain(apiHandler, c) // Default handler chain
-		if o.StorageConfig.QueueProcessingStatsPrint {
-			handler = stats.Handler(handler) // Attach stats collector
-		}
-		if o.StorageConfig.QueueTimeoutPrint {
-			handler = queuemanager.TimeoutLoggerMiddleware(handler, o.StorageConfig.QueueTimeout) // Attach timeout logger
-		}
-		queueManager := queuemanager.NewQueueManager(&o.StorageConfig) // Attach queue manager
-		handler = queueManager.QueueHandler(handler)                   // Attach queue manager
-		return handler
-	}
+	//serverConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) http.Handler {
+	//	handler := genericapiserver.DefaultBuildHandlerChain(apiHandler, c) // Default handler chain
+	//	if o.StorageConfig.QueueProcessingStatsPrint {
+	//		handler = stats.Handler(handler) // Attach stats collector
+	//	}
+	//	if o.StorageConfig.QueueTimeoutPrint {
+	//		handler = queuemanager.TimeoutLoggerMiddleware(handler, o.StorageConfig.QueueTimeout) // Attach timeout logger
+	//	}
+	//	queueManager := queuemanager.NewQueueManager(&o.StorageConfig) // Attach queue manager
+	//	handler = queueManager.QueueHandler(handler)                   // Attach queue manager
+	//	return handler
+	//}
 
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, err
