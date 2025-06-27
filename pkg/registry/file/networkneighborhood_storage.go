@@ -51,10 +51,10 @@ func (a NetworkNeighborhoodStorage) Get(ctx context.Context, key string, opts st
 	if !ok {
 		return fmt.Errorf("object is not an NetworkNeighborhood")
 	}
-	if len(nn.Parts) > 0 {
+	if nn.Parts.Len() > 0 {
 		matchLabels := make(map[string]string)
 		var matchExpressions []metav1.LabelSelectorRequirement
-		for cpKey := range nn.Parts {
+		for _, cpKey := range nn.Parts.Keys() {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
 				logger.L().Warning("NetworkNeighborhoodStorage.Get - get cp object", loggerhelpers.Error(err))

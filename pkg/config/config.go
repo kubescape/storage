@@ -63,9 +63,9 @@ func LoadConfig(path string) (Config, error) {
 			MaxObjectSize: 20000000,
 		},
 		"containerprofiles": {
-			QueueLength:   50,
+			QueueLength:   5,
 			WorkerCount:   1,
-			MaxObjectSize: 2500000,
+			MaxObjectSize: 2,
 		},
 		"networkneighborhoods": {
 			QueueLength:   50,

@@ -50,10 +50,10 @@ func (a ApplicationProfileStorage) Get(ctx context.Context, key string, opts sto
 	if !ok {
 		return fmt.Errorf("object is not an ApplicationProfile")
 	}
-	if len(ap.Parts) > 0 {
+	if ap.Parts.Len() > 0 {
 		var architectures []string
 		var size int
-		for cpKey := range ap.Parts {
+		for _, cpKey := range ap.Parts.Keys() {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
 				logger.L().Warning("ApplicationProfileStorage.Get - get cp object", loggerhelpers.Error(err))

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/goradd/maps"
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	instanceidhandlerv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1"
@@ -363,11 +364,8 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		if ap.CreationTimestamp.IsZero() {
 			ap.CreationTimestamp = creationTimestamp
 		}
-		if ap.Parts == nil {
-			ap.Parts = map[string]string{}
-		}
-		ap.Parts[key] = "" // checksum will be updated by getAggregatedData
-		status, completion, checksum := a.getAggregatedData(ctx, conn, ap.Parts)
+		ap.Parts.Set(key, "") // checksum will be updated by getAggregatedData
+		status, completion, checksum := a.getAggregatedData(ctx, conn, &ap.Parts)
 		apChecksum = checksum
 		ap.Annotations = map[string]string{
 			helpers.CompletionMetadataKey: completion,
@@ -397,11 +395,8 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		if nn.CreationTimestamp.IsZero() {
 			nn.CreationTimestamp = creationTimestamp
 		}
-		if nn.Parts == nil {
-			nn.Parts = map[string]string{}
-		}
-		nn.Parts[key] = "" // checksum will be updated by getAggregatedData
-		status, completion, checksum := a.getAggregatedData(ctx, conn, nn.Parts)
+		nn.Parts.Set(key, "") // checksum will be updated by getAggregatedData
+		status, completion, checksum := a.getAggregatedData(ctx, conn, &nn.Parts)
 		nnChecksum = checksum
 		nn.Annotations = map[string]string{
 			helpers.CompletionMetadataKey: completion,
@@ -424,14 +419,14 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 // A profile status is completed only if all its main containers are completed.
 // A profile completion is full only if all its init/main containers are full.
 // A profile sync checksum is the checksum of all container checksums.
-func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn *sqlite.Conn, parts map[string]string) (string, string, string) {
+func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn *sqlite.Conn, parts *maps.SafeMap[string, string]) (string, string, string) {
 	mainContainers := 0
 	completed := 0
 	full := 0
 	status := helpers.Learning
 	completion := helpers.Partial
 	hasher := sha256.New()
-	for key := range parts {
+	for _, key := range parts.Keys() {
 		profile := softwarecomposition.ContainerProfile{}
 		// checksum is only present in get metadata
 		err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile)
@@ -450,13 +445,13 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 			full++
 		}
 		checksum := profile.Annotations[helpers.SyncChecksumMetadataKey]
-		parts[key] = checksum
+		parts.Set(key, checksum)
 		hasher.Write([]byte(checksum)) // profile.Parts is sorted so the checksum is consistent
 	}
 	if completed == mainContainers && mainContainers > 0 {
 		status = helpers.Completed
 	}
-	if full == len(parts) {
+	if full == parts.Len() {
 		completion = helpers.Full
 	}
 	hash := hex.EncodeToString(hasher.Sum(nil))

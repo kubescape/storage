@@ -1,4 +1,6 @@
 {
+  "apiVersion": "spdx.softwarecomposition.kubescape.io/v1beta1",
+  "kind": "ContainerProfile",
   "name": "replicaset-coredns-5d78c9869d-coredns-185f-129c-c68b821c86194262b389d919d1355ee6",
   "namespace": "kube-system",
   "uid": "2f5f723e-a6ef-4e2b-a501-349bf7d19004",

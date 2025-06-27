@@ -3,6 +3,7 @@ package softwarecomposition
 import (
 	"net"
 
+	"github.com/goradd/maps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,7 +38,7 @@ type NetworkNeighborhood struct {
 	metav1.ObjectMeta
 
 	// +k8s:conversion-gen=false
-	Parts map[string]string
+	Parts maps.SafeMap[string, string]
 	Spec  NetworkNeighborhoodSpec
 }
 
