@@ -1,0 +1,940 @@
+{
+  "name": "replicaset-multiple-containers-deployment-d4b8dd5fd-server-5cad-76b6-a5eec2f06d6e45e8ae5fec44b62ba0e2",
+  "namespace": "node-agent-test-hjjz",
+  "uid": "63abbc72-9ef8-4e22-bb32-7aedeed1763d",
+  "creationTimestamp": "2025-06-24T10:34:49Z",
+  "labels": {
+    "kubescape.io/instance-template-hash": "d4b8dd5fd",
+    "kubescape.io/workload-api-group": "apps",
+    "kubescape.io/workload-api-version": "v1",
+    "kubescape.io/workload-container-name": "server",
+    "kubescape.io/workload-kind": "Deployment",
+    "kubescape.io/workload-name": "multiple-containers-deployment",
+    "kubescape.io/workload-namespace": "node-agent-test-hjjz",
+    "kubescape.io/workload-resource-version": "1448"
+  },
+  "annotations": {
+    "kubescape.io/completion": "complete",
+    "kubescape.io/instance-id": "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd/containerName-server",
+    "kubescape.io/previous-report-timestamp": "0001-01-01 00:00:00 +0000 UTC",
+    "kubescape.io/report-series-id": "4df45461-2634-4e87-b67c-c0b9a6b7fe1c",
+    "kubescape.io/report-timestamp": "2025-06-24 10:34:49.777702792 +0000 UTC m=+287.235615616",
+    "kubescape.io/status": "ready",
+    "kubescape.io/wlid": "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
+    "kubescape.io/workload-container-type": "containers"
+  },
+  "Spec": {
+    "Architectures": [
+      "amd64"
+    ],
+    "Capabilities": [
+      "NET_ADMIN",
+      "SETGID",
+      "SETPCAP",
+      "SETUID",
+      "SYS_ADMIN"
+    ],
+    "Execs": [
+      {
+        "Path": "/usr/bin/basename",
+        "Args": [
+          "/usr/bin/basename",
+          "/app/build/install/hipstershop/bin/AdService"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/bin/uname",
+        "Args": [
+          "/bin/uname"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/local/openjdk-8/bin/java",
+        "Args": [
+          "/usr/local/openjdk-8/bin/java",
+          "-Dlog4j2.contextDataInjector=io.opencensus.contrib.logcorrelation.log4j2.OpenCensusTraceContextDataInjector",
+          "-agentpath:/opt/cprof/profiler_java_agent.so=-cprof_service=adservice,-cprof_service_version=1.0.0",
+          "-classpath",
+          "/app/build/install/hipstershop/lib/hipstershop-0.1.0-SNAPSHOT.jar:/app/build/install/hipstershop/lib/grpc-services-1.32.1.jar:/app/build/install/hipstershop/lib/opencensus-exporter-stats-stackdriver-0.27.0.jar:/app/build/install/hipstershop/lib/google-clo",
+          "hipstershop.AdService"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/bin/grpc_health_probe",
+        "Args": [
+          "/bin/grpc_health_probe",
+          "-addr=:9555"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/app/build/install/hipstershop/bin/AdService",
+        "Args": [
+          "/app/build/install/hipstershop/bin/AdService"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/bin/sh",
+        "Args": [
+          "/bin/sh",
+          "/app/build/install/hipstershop/bin/AdService"
+        ],
+        "Envs": null
+      },
+      {
+        "Path": "/usr/bin/dirname",
+        "Args": [
+          "/usr/bin/dirname",
+          "/app/build/install/hipstershop/bin/AdService"
+        ],
+        "Envs": null
+      }
+    ],
+    "Opens": [
+      {
+        "Path": "/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/lib/x86_64-linux-gnu/libnss_files-2.31.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/tmp/hsperfdata_root",
+        "Flags": [
+          "O_RDONLY",
+          "O_NOFOLLOW",
+          "O_NONBLOCK",
+          "O_DIRECTORY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_MONETARY",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_CTYPE",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/lib/x86_64-linux-gnu/libdl-2.31.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/proto-google-common-protos-1.18.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-impl-core-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/sys/devices/system/cpu/online",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/resolv.conf",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_ADDRESS",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_NAME",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/amd64/jvm.cfg",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/lib/x86_64-linux-gnu/libm-2.31.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/opt/cprof/profiler_java_agent.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/tmp/hsperfdata_root/1",
+        "Flags": [
+          "O_RDWR",
+          "O_CREAT",
+          "O_NOFOLLOW"
+        ]
+      },
+      {
+        "Path": "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/lib/x86_64-linux-gnu/libpthread-2.31.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/grpc-alts-1.21.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-exporter-trace-logging-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/ld.so.cache",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/maps",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/amd64/libnet.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/proto-google-cloud-trace-v1-0.65.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_MEASUREMENT",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_TELEPHONE",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_TIME",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-impl-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/amd64/libjava.so",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/nsswitch.conf",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/rt.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/sys/devices/virtual/dmi/id/product_name",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-exporter-stats-stackdriver-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/grpc-protobuf-1.32.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-exporter-trace-jaeger-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-contrib-log-correlation-log4j2-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_IDENTIFICATION",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/lib/x86_64-linux-gnu/librt-2.31.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/tmp/cprof.multiple-containers-deployment-d4b8dd5fd-kt8dp.root.log.INFO.20250624-103349.1",
+        "Flags": [
+          "O_CREAT",
+          "O_EXCL",
+          "O_WRONLY"
+        ]
+      },
+      {
+        "Path": "/app",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/google-cloud-monitoring-1.82.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/google-cloud-trace-0.100.0-beta.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/proto-google-cloud-trace-v2-0.65.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-contrib-exemplar-util-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_MESSAGES",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_MESSAGES/SYS_LC_MESSAGES",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/sys/devices/system/cpu",
+        "Flags": [
+          "O_RDONLY",
+          "O_NONBLOCK",
+          "O_DIRECTORY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/mountinfo",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-contrib-resource-util-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-exporter-metrics-util-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/bin/AdService",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/amd64/server/libjvm.so",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/hipstershop-0.1.0-SNAPSHOT.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/hosts",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_COLLATE",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/ext/meta-index",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-exporter-trace-stackdriver-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/gax-grpc-1.47.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/grpc-grpclb-1.21.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/proto-google-iam-v1-0.12.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/dev/null",
+        "Flags": [
+          "O_WRONLY",
+          "O_CREAT",
+          "O_TRUNC"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/amd64/libverify.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/lib/x86_64-linux-gnu/libz.so.1.2.11",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/ext",
+        "Flags": [
+          "O_DIRECTORY",
+          "O_CLOEXEC",
+          "O_RDONLY",
+          "O_NONBLOCK"
+        ]
+      },
+      {
+        "Path": "/tmp/cprof.multiple-containers-deployment-d4b8dd5fd-kt8dp.root.log.ERROR.20250624-103349.1",
+        "Flags": [
+          "O_WRONLY",
+          "O_CREAT",
+          "O_EXCL"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/jfr.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/google-cloud-core-1.82.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-contrib-grpc-util-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/lib/x86_64-linux-gnu/libc-2.31.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_NUMERIC",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/amd64/libzip.so",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/tmp/cprof.multiple-containers-deployment-d4b8dd5fd-kt8dp.root.log.WARNING.20250624-103349.1",
+        "Flags": [
+          "O_WRONLY",
+          "O_CREAT",
+          "O_EXCL"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/grpc-services-1.32.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/google-cloud-core-grpc-1.82.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-contrib-grpc-metrics-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-exporter-trace-util-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/lib/amd64/jli/libjli.so",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/share/zoneinfo/Etc/UTC",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/meta-index",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/local/openjdk-8/jre/lib/amd64/libnio.so",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/proto-google-cloud-monitoring-v3-1.64.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/opencensus-api-0.27.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/etc/passwd",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/usr/lib/locale/C.UTF-8/LC_PAPER",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      }
+    ],
+    "Syscalls": [
+      "stat",
+      "sched_getaffinity",
+      "dup",
+      "bind",
+      "getpid",
+      "sigaltstack",
+      "ioctl",
+      "newfstatat",
+      "sendto",
+      "faccessat2",
+      "prctl",
+      "futex",
+      "getegid",
+      "gettid",
+      "execve",
+      "sysinfo",
+      "capget",
+      "setgroups",
+      "close",
+      "dup2",
+      "readlink",
+      "write",
+      "rt_sigaction",
+      "capset",
+      "clone",
+      "pread64",
+      "uname",
+      "setuid",
+      "setns",
+      "brk",
+      "arch_prctl",
+      "lseek",
+      "faccessat",
+      "pipe",
+      "sendmmsg",
+      "unshare",
+      "set_tid_address",
+      "wait4",
+      "access",
+      "mmap",
+      "prlimit64",
+      "writev",
+      "epoll_pwait",
+      "getpeername",
+      "fcntl",
+      "epoll_create1",
+      "unlink",
+      "fadvise64",
+      "ftruncate",
+      "read",
+      "fstatfs",
+      "sched_yield",
+      "nanosleep",
+      "fstat",
+      "poll",
+      "geteuid",
+      "exit",
+      "fchdir",
+      "getsockname",
+      "setgid",
+      "setsockopt",
+      "listen",
+      "rt_sigprocmask",
+      "epoll_wait",
+      "tgkill",
+      "timerfd_create",
+      "pipe2",
+      "getgid",
+      "eventfd2",
+      "connect",
+      "readlinkat",
+      "chdir",
+      "socket",
+      "mount",
+      "keyctl",
+      "set_robust_list",
+      "shutdown",
+      "munmap",
+      "exit_group",
+      "epoll_ctl",
+      "socketpair",
+      "lstat",
+      "getsockopt",
+      "accept4",
+      "statfs",
+      "rt_sigreturn",
+      "timerfd_settime",
+      "getppid",
+      "mprotect",
+      "symlink",
+      "clock_getres",
+      "getcwd",
+      "getuid",
+      "getdents64",
+      "mkdir",
+      "setsid",
+      "madvise",
+      "recvfrom",
+      "getpgrp",
+      "getrlimit",
+      "openat"
+    ],
+    "SeccompProfile": {
+      "Name": "",
+      "Path": "",
+      "Spec": {
+        "Disabled": false,
+        "BaseProfileName": "",
+        "DefaultAction": "",
+        "Architectures": null,
+        "ListenerPath": "",
+        "ListenerMetadata": "",
+        "Syscalls": null,
+        "Flags": null
+      }
+    },
+    "Endpoints": null,
+    "ImageID": "gcr.io/google-samples/microservices-demo/adservice@sha256:37b48b077af9130a6bd3b2fcb6d473e89eafc488262256f38fd663e890133af8",
+    "ImageTag": "gcr.io/google-samples/microservices-demo/adservice:v0.3.4",
+    "PolicyByRuleId": {
+      "R0001": {
+        "AllowedProcesses": [
+          "AdService",
+          "sh",
+          "dirname",
+          "basename",
+          "uname",
+          "java",
+          "grpc_health_pro"
+        ],
+        "AllowedContainer": false
+      },
+      "R0002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1000": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1001": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1012": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1015": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1030": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      }
+    },
+    "IdentifiedCallStacks": null,
+    "matchLabels": {
+      "app": "multiple-containers-app"
+    },
+    "Ingress": null,
+    "Egress": [
+      {
+        "Identifier": "5bca24c2b9628bbc0dff00fd5645b9483e04c9e505cbd482aa966f8796a3bc28",
+        "Type": "external",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "TCP-80",
+            "Protocol": "TCP",
+            "Port": 80
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "169.254.169.254"
+      },
+      {
+        "Identifier": "e5e8ca3d76f701a19b7478fdc1c8c24ccc6cef9902b52c8c7e015439e2a1ddf3",
+        "Type": "internal",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "UDP-53",
+            "Protocol": "UDP",
+            "Port": 53
+          }
+        ],
+        "PodSelector": {
+          "matchLabels": {
+            "k8s-app": "kube-dns"
+          }
+        },
+        "NamespaceSelector": {
+          "matchLabels": {
+            "kubernetes.io/metadata.name": "kube-system"
+          }
+        },
+        "IPAddress": ""
+      }
+    ]
+  },
+  "Status": {}
+}

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/goradd/maps"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -214,6 +215,8 @@ type ApplicationProfile struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
+	// +k8s:conversion-gen=false
+	Parts  maps.SafeMap[string, string]
 	Spec   ApplicationProfileSpec
 	Status ApplicationProfileStatus
 }

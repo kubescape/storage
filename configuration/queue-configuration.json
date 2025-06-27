@@ -1,0 +1,37 @@
+{
+    "defaultQueueLength": 100,
+    "defaultWorkerCount": 2,
+    "defaultMaxObjectSize": 20000,
+    "kindQueues": {
+      "applicationprofiles": {
+        "queueLength": 50,
+        "workerCount": 2,
+        "maxObjectSize": 20000000
+      },
+      "networkneighborhoods": {
+        "queueLength": 50,
+        "workerCount": 2,
+        "maxObjectSize": 10000000
+      },
+      "openvulnerabilityexchangecontainers": {
+        "queueLength": 50,
+        "workerCount": 2,
+        "maxObjectSize": 500000
+      },
+      "sbomsyftfiltereds": {
+        "queueLength": 50,
+        "workerCount": 2,
+        "maxObjectSize": 20000000
+      },
+      "sbomsyfts": {
+        "queueLength": 50,
+        "workerCount": 1,
+        "maxObjectSize": 100000000
+      },
+      "vulnerabilitymanifests": {
+        "queueLength": 50,
+        "workerCount": 2,
+        "maxObjectSize": 10000000
+      }
+    }
+  }

@@ -50,6 +50,7 @@ func (in *ApplicationProfile) DeepCopyInto(out *ApplicationProfile) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Parts.Copy(&in.Parts)
 	in.Spec.DeepCopyInto(&out.Spec)
 	out.Status = in.Status
 	return
@@ -1981,6 +1982,7 @@ func (in *NetworkNeighborhood) DeepCopyInto(out *NetworkNeighborhood) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Parts.Copy(&in.Parts)
 	in.Spec.DeepCopyInto(&out.Spec)
 	return
 }

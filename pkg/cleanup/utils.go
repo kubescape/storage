@@ -2,7 +2,6 @@ package cleanup
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -21,6 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"zombiezen.com/go/sqlite"
 )
 
 // PartialObjectMetadata is a generic representation of any object with ObjectMeta. It allows clients
@@ -56,16 +56,10 @@ func NewKubernetesClient() (dynamic.Interface, discovery.DiscoveryInterface, err
 	return dynClient, disco, nil
 }
 
-func (h *ResourcesCleanupHandler) deleteMetadata(path string) runtime.Object {
+func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) runtime.Object {
 	key := payloadPathToKey(path)
 	metaOut := &PartialObjectMetadata{}
-	conn, err := h.pool.Take(context.Background())
-	if err != nil {
-		logger.L().Error("failed to take connection", helpers.Error(err))
-		return nil
-	}
-	err = file.DeleteMetadata(conn, key, metaOut)
-	h.pool.Put(conn)
+	err := file.DeleteMetadata(conn, key, metaOut)
 	if err != nil {
 		logger.L().Error("failed to delete metadata", helpers.Error(err))
 	}
@@ -140,14 +134,9 @@ func payloadPathToKey(path string) string {
 	return path[len(file.DefaultStorageRoot) : len(path)-len(file.GobExt)]
 }
 
-func (h *ResourcesCleanupHandler) readMetadata(payloadFilePath string) (*metav1.ObjectMeta, error) {
+func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePath string) (*metav1.ObjectMeta, error) {
 	key := payloadPathToKey(payloadFilePath)
-	conn, err := h.pool.Take(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to take connection: %w", err)
-	}
 	metadataJSON, err := file.ReadMetadata(conn, key)
-	h.pool.Put(conn)
 	if err == nil {
 		metadata, err := loadMetadata(metadataJSON)
 		if err == nil {
