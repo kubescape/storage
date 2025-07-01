@@ -25,6 +25,42 @@ func TestLoadConfig(t *testing.T) {
 				MaxNetworkNeighborhoodSize: 40000,
 				RateLimitTotal:             10,
 				ServerBindPort:             8443,
+				KindQueues: map[string]KindQueueConfig{
+					"applicationprofiles": {
+						QueueLength:   50,
+						WorkerCount:   1,
+						MaxObjectSize: 20000000,
+					},
+					"networkneighborhoods": {
+						QueueLength:   50,
+						WorkerCount:   1,
+						MaxObjectSize: 10000000,
+					},
+					"openvulnerabilityexchangecontainers": {
+						QueueLength:   50,
+						WorkerCount:   1,
+						MaxObjectSize: 500000,
+					},
+					"sbomsyftfiltereds": {
+						QueueLength:   50,
+						WorkerCount:   1,
+						MaxObjectSize: 20000000,
+					},
+					"sbomsyfts": {
+						QueueLength:   50,
+						WorkerCount:   1,
+						MaxObjectSize: 100000000,
+					},
+					"vulnerabilitymanifests": {
+						QueueLength:   50,
+						WorkerCount:   1,
+						MaxObjectSize: 10000000,
+					},
+				},
+				DefaultQueueLength:   100,
+				DefaultWorkerCount:   2,
+				DefaultMaxObjectSize: 400000,
+				QueueTimeout:         60,
 			},
 			wantErr: false,
 		},
