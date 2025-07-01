@@ -31,8 +31,7 @@ func TestConsolidateData(t *testing.T) {
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	processor := ContainerProfileProcessor{
-		defaultNamespace:        "",
-		interval:                0,
+		deleteThreshold:         240 * time.Hour,
 		maxContainerProfileSize: 40000,
 		pool:                    pool,
 	}

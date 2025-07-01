@@ -19,6 +19,7 @@ type Config struct {
 	ExcludeJsonPaths           []string      `mapstructure:"excludeJsonPaths"`
 	MaxApplicationProfileSize  int           `mapstructure:"maxApplicationProfileSize"`
 	MaxNetworkNeighborhoodSize int           `mapstructure:"maxNetworkNeighborhoodSize"`
+	MaxSniffingTime            time.Duration `mapstructure:"maxSniffingTimePerContainer"`
 	RateLimitPerClient         float64       `mapstructure:"rateLimitPerClient"`
 	RateLimitTotal             int           `mapstructure:"rateLimitTotal"`
 	ServerBindPort             int           `mapstructure:"serverBindPort"`

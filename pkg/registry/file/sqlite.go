@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
@@ -94,6 +95,7 @@ func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 	return count, nil
 }
 
+// DeleteMetadata deletes metadata for the given path and unmarshals the deleted metadata into the provided runtime.Object.
 func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) error {
 	_, _, kind, namespace, name := pathToKeys(path)
 	err := sqlitex.Execute(conn,
@@ -186,6 +188,43 @@ type TimeSeriesContainers struct {
 	TsSuffix                string
 }
 
+// CleanOlderTimeSeries cleans up time series containers which are older than d.
+func CleanOlderTimeSeries(conn *sqlite.Conn, d time.Duration) error {
+	threshold := time.Now().Add(-d).String()
+	err := sqlitex.Execute(conn,
+		`DELETE FROM time_series WHERE reportTimestamp < ?`,
+		&sqlitex.ExecOptions{
+			Args: []any{threshold},
+		})
+	if err != nil {
+		return fmt.Errorf("failed to cleanup time series: %w", err)
+	}
+	return nil
+}
+
+// DeleteTimeSeriesContainerEntries deletes all time series entries for a completed container.
+func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
+	_, _, kind, namespace, name := pathToKeys(path)
+	err := sqlitex.Execute(conn,
+		`DELETE FROM time_series
+					WHERE kind = ?
+						AND namespace = ?
+						AND name = ?`,
+		&sqlitex.ExecOptions{
+			Args: []any{kind, namespace, name},
+		})
+	if err != nil {
+		return fmt.Errorf("delete all time series entries: %w", err)
+	}
+	logger.L().Debug("deleted all TS profiles for completed container",
+		loggerhelpers.String("kind", kind),
+		loggerhelpers.String("namespace", namespace),
+		loggerhelpers.String("name", name),
+		loggerhelpers.Int("rows", conn.Changes()))
+	return nil
+}
+
+// ListTimeSeriesContainers retrieves time series containers for a given path.
 func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]TimeSeriesContainers, error) {
 	containers := make(map[string][]TimeSeriesContainers)
 	_, _, kind, namespace, name := pathToKeys(path)
@@ -228,6 +267,7 @@ func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]Time
 	return containers, nil
 }
 
+// ListTimeSeriesKeys retrieves all time series keys that have data.
 func ListTimeSeriesKeys(conn *sqlite.Conn) ([]string, error) {
 	var keys []string
 	err := sqlitex.Execute(conn,
@@ -249,6 +289,7 @@ func ListTimeSeriesKeys(conn *sqlite.Conn) ([]string, error) {
 	return keys, nil
 }
 
+// ReadMetadata reads metadata for the given path and returns it as a byte slice.
 func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
 	_, _, kind, namespace, name := pathToKeys(path)
 	var metadataJSON string
@@ -281,6 +322,7 @@ func writeMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) erro
 	return WriteJSON(conn, path, metadataJSON)
 }
 
+// WriteJSON writes the given JSON metadata to the database for the specified path.
 func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
 	_, _, kind, namespace, name := pathToKeys(path)
 	err := sqlitex.Execute(conn,
@@ -295,13 +337,8 @@ func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
 	return nil
 }
 
+// WriteTimeSeriesEntry writes a time series entry to the database.
 func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error {
-	logger.L().Debug("inserting TS profile",
-		loggerhelpers.String("kind", kind),
-		loggerhelpers.String("namespace", namespace),
-		loggerhelpers.String("name", name),
-		loggerhelpers.String("seriesID", seriesID),
-		loggerhelpers.String("tsSuffix", tsSuffix))
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO time_series
     			(kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData) 
@@ -312,9 +349,16 @@ func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, ts
 	if err != nil {
 		return fmt.Errorf("insert time series entry: %w", err)
 	}
+	logger.L().Debug("inserted TS profile",
+		loggerhelpers.String("kind", kind),
+		loggerhelpers.String("namespace", namespace),
+		loggerhelpers.String("name", name),
+		loggerhelpers.String("seriesID", seriesID),
+		loggerhelpers.String("tsSuffix", tsSuffix))
 	return nil
 }
 
+// ReplaceTimeSeriesContainerEntries replaces time series entries for a given path and seriesID.
 func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, deleteTimeSeries []string, newTimeSeries []TimeSeriesContainers) error {
 	_, _, kind, namespace, name := pathToKeys(path)
 	// FIXME we can probably optimize this, rather than deleting everything to add it back
@@ -323,12 +367,6 @@ func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string,
 	if err != nil {
 		return fmt.Errorf("failed to marshal tsSuffixes: %w", err)
 	}
-	logger.L().Debug("deleting old TS profiles",
-		loggerhelpers.String("kind", kind),
-		loggerhelpers.String("namespace", namespace),
-		loggerhelpers.String("name", name),
-		loggerhelpers.String("seriesID", seriesID),
-		loggerhelpers.String("tsSuffixes", string(tsSuffixes)))
 	err = sqlitex.Execute(conn,
 		`DELETE FROM time_series
 				WHERE kind = ?
@@ -342,6 +380,12 @@ func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string,
 	if err != nil {
 		return fmt.Errorf("delete time series entries: %w", err)
 	}
+	logger.L().Debug("deleted old TS profiles",
+		loggerhelpers.String("kind", kind),
+		loggerhelpers.String("namespace", namespace),
+		loggerhelpers.String("name", name),
+		loggerhelpers.String("seriesID", seriesID),
+		loggerhelpers.String("tsSuffixes", string(tsSuffixes)))
 	// insert new profiles
 	for _, profile := range newTimeSeries {
 		err := WriteTimeSeriesEntry(conn, kind, namespace, name, seriesID, profile.TsSuffix, profile.ReportTimestamp, profile.Status, profile.Completion, profile.PreviousReportTimestamp, profile.HasData)

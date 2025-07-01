@@ -30,6 +30,7 @@ import (
 
 type ContainerProfileProcessor struct {
 	defaultNamespace        string
+	deleteThreshold         time.Duration
 	interval                time.Duration
 	maxContainerProfileSize int
 	pool                    *sqlitemigration.Pool
@@ -39,6 +40,7 @@ type ContainerProfileProcessor struct {
 func NewContainerProfileProcessor(cfg config.Config, conn *sqlitemigration.Pool) *ContainerProfileProcessor {
 	return &ContainerProfileProcessor{
 		defaultNamespace:        cfg.DefaultNamespace,
+		deleteThreshold:         2 * cfg.MaxSniffingTime,
 		interval:                30 * time.Second,
 		pool:                    conn,
 		maxContainerProfileSize: cfg.MaxApplicationProfileSize,
@@ -198,7 +200,14 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 		return fmt.Errorf("failed to take connection: %w", err)
 	}
 	defer a.pool.Put(conn)
-	// list all time series keys
+	// clean up older time series
+	if a.deleteThreshold > 0 {
+		err = CleanOlderTimeSeries(conn, a.deleteThreshold)
+		if err != nil {
+			return fmt.Errorf("failed to clean up time series: %w", err)
+		}
+	}
+	// list all time series keys with data
 	keys, err := ListTimeSeriesKeys(conn)
 	if err != nil {
 		return fmt.Errorf("failed to list time series keys: %w", err)
@@ -253,8 +262,6 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 	var newData bool
 	for seriesID := range timeSeries {
 		var deleteTimeSeries []string
-		// TODO implement cleanup of older (>24h) time series data
-		// TODO implement cleanup of other time series data for a completed profile
 		// merge time series data for each container
 		for k, ts := range timeSeries[seriesID] {
 			deleteTimeSeries = append(deleteTimeSeries, ts.TsSuffix)
@@ -296,18 +303,31 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		}
 		// compute status and completion
 		// an aggregated series is complete only if it has one element, no previous report timestamp and is completed
+		var completed bool
 		if len(newTimeSeries) == 1 && isZeroTime(newTimeSeries[0].PreviousReportTimestamp) && newTimeSeries[0].Status == helpers.Completed {
 			if profile.Annotations[helpers.StatusMetadataKey] == helpers.Completed && profile.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
 				// do not override completed full
 			} else {
 				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
 				profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
+				completed = true
 			}
-			// remove the time series
+			// do not save this time series as it is already consolidated
 			newTimeSeries = newTimeSeries[:0]
 		} else if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed {
 			profile.Annotations[helpers.StatusMetadataKey] = helpers.Learning
 			profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
+		}
+		// abort processing if the profile is completed
+		if completed {
+			logger.L().Info("profile is completed, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
+			// remove the time series data
+			err := DeleteTimeSeriesContainerEntries(conn, key)
+			if err != nil {
+				return nil, fmt.Errorf("failed to delete time series data: %w", err)
+			}
+			// regular cleanup will remove the time series data if it cannot find the metadata in SQLite
+			break
 		}
 		// write the consolidated time series data back to the database
 		err := ReplaceTimeSeriesContainerEntries(conn, key, seriesID, deleteTimeSeries, newTimeSeries)

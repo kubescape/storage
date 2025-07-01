@@ -760,7 +760,6 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// save to disk and fill into metaOut
-		logger.L().Info("GuaranteedUpdate - saving object", helpers.String("key", key))
 		if err := s.saveObject(conn, key, ret, metaOut, checksum); err != nil {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
