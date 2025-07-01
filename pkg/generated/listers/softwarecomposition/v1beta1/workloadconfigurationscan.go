@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // WorkloadConfigurationScanLister helps list WorkloadConfigurationScans.
@@ -30,7 +30,7 @@ import (
 type WorkloadConfigurationScanLister interface {
 	// List lists all WorkloadConfigurationScans in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScan, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.WorkloadConfigurationScan, err error)
 	// WorkloadConfigurationScans returns an object that can list and get WorkloadConfigurationScans.
 	WorkloadConfigurationScans(namespace string) WorkloadConfigurationScanNamespaceLister
 	WorkloadConfigurationScanListerExpansion
@@ -38,25 +38,17 @@ type WorkloadConfigurationScanLister interface {
 
 // workloadConfigurationScanLister implements the WorkloadConfigurationScanLister interface.
 type workloadConfigurationScanLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.WorkloadConfigurationScan]
 }
 
 // NewWorkloadConfigurationScanLister returns a new WorkloadConfigurationScanLister.
 func NewWorkloadConfigurationScanLister(indexer cache.Indexer) WorkloadConfigurationScanLister {
-	return &workloadConfigurationScanLister{indexer: indexer}
-}
-
-// List lists all WorkloadConfigurationScans in the indexer.
-func (s *workloadConfigurationScanLister) List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScan, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.WorkloadConfigurationScan))
-	})
-	return ret, err
+	return &workloadConfigurationScanLister{listers.New[*softwarecompositionv1beta1.WorkloadConfigurationScan](indexer, softwarecompositionv1beta1.Resource("workloadconfigurationscan"))}
 }
 
 // WorkloadConfigurationScans returns an object that can list and get WorkloadConfigurationScans.
 func (s *workloadConfigurationScanLister) WorkloadConfigurationScans(namespace string) WorkloadConfigurationScanNamespaceLister {
-	return workloadConfigurationScanNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return workloadConfigurationScanNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.WorkloadConfigurationScan](s.ResourceIndexer, namespace)}
 }
 
 // WorkloadConfigurationScanNamespaceLister helps list and get WorkloadConfigurationScans.
@@ -64,36 +56,15 @@ func (s *workloadConfigurationScanLister) WorkloadConfigurationScans(namespace s
 type WorkloadConfigurationScanNamespaceLister interface {
 	// List lists all WorkloadConfigurationScans in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScan, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.WorkloadConfigurationScan, err error)
 	// Get retrieves the WorkloadConfigurationScan from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.WorkloadConfigurationScan, error)
+	Get(name string) (*softwarecompositionv1beta1.WorkloadConfigurationScan, error)
 	WorkloadConfigurationScanNamespaceListerExpansion
 }
 
 // workloadConfigurationScanNamespaceLister implements the WorkloadConfigurationScanNamespaceLister
 // interface.
 type workloadConfigurationScanNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all WorkloadConfigurationScans in the indexer for a given namespace.
-func (s workloadConfigurationScanNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.WorkloadConfigurationScan, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.WorkloadConfigurationScan))
-	})
-	return ret, err
-}
-
-// Get retrieves the WorkloadConfigurationScan from the indexer for a given namespace and name.
-func (s workloadConfigurationScanNamespaceLister) Get(name string) (*v1beta1.WorkloadConfigurationScan, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("workloadconfigurationscan"), name)
-	}
-	return obj.(*v1beta1.WorkloadConfigurationScan), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.WorkloadConfigurationScan]
 }

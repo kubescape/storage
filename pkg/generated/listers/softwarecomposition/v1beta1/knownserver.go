@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // KnownServerLister helps list KnownServers.
@@ -30,7 +30,7 @@ import (
 type KnownServerLister interface {
 	// List lists all KnownServers in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.KnownServer, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.KnownServer, err error)
 	// KnownServers returns an object that can list and get KnownServers.
 	KnownServers(namespace string) KnownServerNamespaceLister
 	KnownServerListerExpansion
@@ -38,25 +38,17 @@ type KnownServerLister interface {
 
 // knownServerLister implements the KnownServerLister interface.
 type knownServerLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.KnownServer]
 }
 
 // NewKnownServerLister returns a new KnownServerLister.
 func NewKnownServerLister(indexer cache.Indexer) KnownServerLister {
-	return &knownServerLister{indexer: indexer}
-}
-
-// List lists all KnownServers in the indexer.
-func (s *knownServerLister) List(selector labels.Selector) (ret []*v1beta1.KnownServer, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.KnownServer))
-	})
-	return ret, err
+	return &knownServerLister{listers.New[*softwarecompositionv1beta1.KnownServer](indexer, softwarecompositionv1beta1.Resource("knownserver"))}
 }
 
 // KnownServers returns an object that can list and get KnownServers.
 func (s *knownServerLister) KnownServers(namespace string) KnownServerNamespaceLister {
-	return knownServerNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return knownServerNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.KnownServer](s.ResourceIndexer, namespace)}
 }
 
 // KnownServerNamespaceLister helps list and get KnownServers.
@@ -64,36 +56,15 @@ func (s *knownServerLister) KnownServers(namespace string) KnownServerNamespaceL
 type KnownServerNamespaceLister interface {
 	// List lists all KnownServers in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.KnownServer, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.KnownServer, err error)
 	// Get retrieves the KnownServer from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.KnownServer, error)
+	Get(name string) (*softwarecompositionv1beta1.KnownServer, error)
 	KnownServerNamespaceListerExpansion
 }
 
 // knownServerNamespaceLister implements the KnownServerNamespaceLister
 // interface.
 type knownServerNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all KnownServers in the indexer for a given namespace.
-func (s knownServerNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.KnownServer, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.KnownServer))
-	})
-	return ret, err
-}
-
-// Get retrieves the KnownServer from the indexer for a given namespace and name.
-func (s knownServerNamespaceLister) Get(name string) (*v1beta1.KnownServer, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("knownserver"), name)
-	}
-	return obj.(*v1beta1.KnownServer), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.KnownServer]
 }

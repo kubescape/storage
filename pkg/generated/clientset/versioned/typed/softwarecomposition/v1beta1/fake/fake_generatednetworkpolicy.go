@@ -19,111 +19,35 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/softwarecomposition/v1beta1"
+	typedsoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeGeneratedNetworkPolicies implements GeneratedNetworkPolicyInterface
-type FakeGeneratedNetworkPolicies struct {
+// fakeGeneratedNetworkPolicies implements GeneratedNetworkPolicyInterface
+type fakeGeneratedNetworkPolicies struct {
+	*gentype.FakeClientWithListAndApply[*v1beta1.GeneratedNetworkPolicy, *v1beta1.GeneratedNetworkPolicyList, *softwarecompositionv1beta1.GeneratedNetworkPolicyApplyConfiguration]
 	Fake *FakeSpdxV1beta1
-	ns   string
 }
 
-var generatednetworkpoliciesResource = v1beta1.SchemeGroupVersion.WithResource("generatednetworkpolicies")
-
-var generatednetworkpoliciesKind = v1beta1.SchemeGroupVersion.WithKind("GeneratedNetworkPolicy")
-
-// Get takes name of the generatedNetworkPolicy, and returns the corresponding generatedNetworkPolicy object, and an error if there is any.
-func (c *FakeGeneratedNetworkPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.GeneratedNetworkPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(generatednetworkpoliciesResource, c.ns, name), &v1beta1.GeneratedNetworkPolicy{})
-
-	if obj == nil {
-		return nil, err
+func newFakeGeneratedNetworkPolicies(fake *FakeSpdxV1beta1, namespace string) typedsoftwarecompositionv1beta1.GeneratedNetworkPolicyInterface {
+	return &fakeGeneratedNetworkPolicies{
+		gentype.NewFakeClientWithListAndApply[*v1beta1.GeneratedNetworkPolicy, *v1beta1.GeneratedNetworkPolicyList, *softwarecompositionv1beta1.GeneratedNetworkPolicyApplyConfiguration](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("generatednetworkpolicies"),
+			v1beta1.SchemeGroupVersion.WithKind("GeneratedNetworkPolicy"),
+			func() *v1beta1.GeneratedNetworkPolicy { return &v1beta1.GeneratedNetworkPolicy{} },
+			func() *v1beta1.GeneratedNetworkPolicyList { return &v1beta1.GeneratedNetworkPolicyList{} },
+			func(dst, src *v1beta1.GeneratedNetworkPolicyList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.GeneratedNetworkPolicyList) []*v1beta1.GeneratedNetworkPolicy {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.GeneratedNetworkPolicyList, items []*v1beta1.GeneratedNetworkPolicy) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.GeneratedNetworkPolicy), err
-}
-
-// List takes label and field selectors, and returns the list of GeneratedNetworkPolicies that match those selectors.
-func (c *FakeGeneratedNetworkPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.GeneratedNetworkPolicyList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(generatednetworkpoliciesResource, generatednetworkpoliciesKind, c.ns, opts), &v1beta1.GeneratedNetworkPolicyList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.GeneratedNetworkPolicyList{ListMeta: obj.(*v1beta1.GeneratedNetworkPolicyList).ListMeta}
-	for _, item := range obj.(*v1beta1.GeneratedNetworkPolicyList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested generatedNetworkPolicies.
-func (c *FakeGeneratedNetworkPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(generatednetworkpoliciesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a generatedNetworkPolicy and creates it.  Returns the server's representation of the generatedNetworkPolicy, and an error, if there is any.
-func (c *FakeGeneratedNetworkPolicies) Create(ctx context.Context, generatedNetworkPolicy *v1beta1.GeneratedNetworkPolicy, opts v1.CreateOptions) (result *v1beta1.GeneratedNetworkPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(generatednetworkpoliciesResource, c.ns, generatedNetworkPolicy), &v1beta1.GeneratedNetworkPolicy{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.GeneratedNetworkPolicy), err
-}
-
-// Update takes the representation of a generatedNetworkPolicy and updates it. Returns the server's representation of the generatedNetworkPolicy, and an error, if there is any.
-func (c *FakeGeneratedNetworkPolicies) Update(ctx context.Context, generatedNetworkPolicy *v1beta1.GeneratedNetworkPolicy, opts v1.UpdateOptions) (result *v1beta1.GeneratedNetworkPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(generatednetworkpoliciesResource, c.ns, generatedNetworkPolicy), &v1beta1.GeneratedNetworkPolicy{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.GeneratedNetworkPolicy), err
-}
-
-// Delete takes name of the generatedNetworkPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeGeneratedNetworkPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(generatednetworkpoliciesResource, c.ns, name, opts), &v1beta1.GeneratedNetworkPolicy{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeGeneratedNetworkPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(generatednetworkpoliciesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.GeneratedNetworkPolicyList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched generatedNetworkPolicy.
-func (c *FakeGeneratedNetworkPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.GeneratedNetworkPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(generatednetworkpoliciesResource, c.ns, name, pt, data, subresources...), &v1beta1.GeneratedNetworkPolicy{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1beta1.GeneratedNetworkPolicy), err
 }

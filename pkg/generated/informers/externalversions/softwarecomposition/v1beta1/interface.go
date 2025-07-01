@@ -24,12 +24,12 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ApplicationActivities returns a ApplicationActivityInformer.
-	ApplicationActivities() ApplicationActivityInformer
 	// ApplicationProfiles returns a ApplicationProfileInformer.
 	ApplicationProfiles() ApplicationProfileInformer
 	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
+	// ContainerProfiles returns a ContainerProfileInformer.
+	ContainerProfiles() ContainerProfileInformer
 	// GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
 	GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer
 	// KnownServers returns a KnownServerInformer.
@@ -67,11 +67,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ApplicationActivities returns a ApplicationActivityInformer.
-func (v *version) ApplicationActivities() ApplicationActivityInformer {
-	return &applicationActivityInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
 // ApplicationProfiles returns a ApplicationProfileInformer.
 func (v *version) ApplicationProfiles() ApplicationProfileInformer {
 	return &applicationProfileInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -80,6 +75,11 @@ func (v *version) ApplicationProfiles() ApplicationProfileInformer {
 // ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 func (v *version) ConfigurationScanSummaries() ConfigurationScanSummaryInformer {
 	return &configurationScanSummaryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ContainerProfiles returns a ContainerProfileInformer.
+func (v *version) ContainerProfiles() ContainerProfileInformer {
+	return &containerProfileInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // GeneratedNetworkPolicies returns a GeneratedNetworkPolicyInformer.
