@@ -25,12 +25,20 @@ const (
 type GeneratedNetworkPolicyStorage struct {
 	immutableStorage
 	realStore StorageQuerier
+	nnStore   storage.Interface
 }
 
 var _ storage.Interface = &GeneratedNetworkPolicyStorage{}
 
-func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier) storage.Interface {
-	return &GeneratedNetworkPolicyStorage{realStore: realStore}
+func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier, nnStore storage.Interface) storage.Interface {
+	return &GeneratedNetworkPolicyStorage{
+		nnStore:   nnStore,
+		realStore: realStore,
+	}
+}
+
+func (s *GeneratedNetworkPolicyStorage) GetCurrentResourceVersion(_ context.Context) (uint64, error) {
+	return 0, nil
 }
 
 // Get generates and returns a single GeneratedNetworkPolicy object
@@ -39,14 +47,14 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 
-	logger.L().Ctx(ctx).Debug("GeneratedNetworkPolicyStorage.Get", helpers.String("key", key))
+	logger.L().Debug("GeneratedNetworkPolicyStorage.Get", helpers.String("key", key))
 
 	// retrieve network neighbor with the same name
 	networkNeighborhoodObjPtr := &softwarecomposition.NetworkNeighborhood{}
 
 	key = replaceKeyForKind(key, networkNeighborhoodResource)
 
-	if err := s.realStore.Get(ctx, key, opts, networkNeighborhoodObjPtr); err != nil {
+	if err := s.nnStore.Get(ctx, key, opts, networkNeighborhoodObjPtr); err != nil {
 		return err
 	}
 

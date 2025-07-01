@@ -5,11 +5,14 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"zombiezen.com/go/sqlite"
 )
 
 type Processor interface {
-	PreSave(ctx context.Context, object runtime.Object) error
+	AfterCreate(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error
+	PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error
 	SetStorage(storageImpl *StorageImpl)
 }
 
@@ -18,7 +21,11 @@ type DefaultProcessor struct {
 
 var _ Processor = (*DefaultProcessor)(nil)
 
-func (d DefaultProcessor) PreSave(_ context.Context, _ runtime.Object) error {
+func (d DefaultProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+	return nil
+}
+
+func (d DefaultProcessor) PreSave(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
 	return nil
 }
 
@@ -41,11 +48,23 @@ func DeflateStringer[T Stringer](in []T) []T {
 	return out
 }
 
+func DeflateLabelSelectorRequirement(in []metav1.LabelSelectorRequirement) []metav1.LabelSelectorRequirement {
+	out := make([]metav1.LabelSelectorRequirement, 0)
+	set := mapset.NewThreadUnsafeSet[string]()
+	for _, item := range in {
+		if set.Contains(item.String()) {
+			continue
+		}
+		set.Add(item.String())
+		out = append(out, item)
+	}
+	return out
+}
+
 func DeflateRulePolicies(in map[string]softwarecomposition.RulePolicy) map[string]softwarecomposition.RulePolicy {
 	if in == nil {
 		return nil
 	}
-
 	for key, item := range in {
 		item.AllowedProcesses = DeflateSortString(item.AllowedProcesses)
 		in[key] = item

@@ -142,6 +142,9 @@ func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 		q := qm.getOrCreateQueue(kind)
 		// Enforce max object size if applicable (Content-Length header)
 		if q.maxObjectSize > 0 && r.ContentLength > int64(q.maxObjectSize) {
+			logger.L().Warning("request entity too large", helpers.String("path", r.URL.Path),
+				helpers.String("kind", kind), helpers.String("verb", verb),
+				helpers.Int("contentLength", int(r.ContentLength)), helpers.Int("maxObjectSize", q.maxObjectSize))
 			http.Error(w, "Request entity too large", http.StatusRequestEntityTooLarge)
 			return
 		}

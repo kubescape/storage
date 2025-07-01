@@ -33,6 +33,10 @@ func NewConfigurationScanSummaryStorage(realStore StorageQuerier) storage.Interf
 	return &ConfigurationScanSummaryStorage{realStore: realStore}
 }
 
+func (s *ConfigurationScanSummaryStorage) GetCurrentResourceVersion(_ context.Context) (uint64, error) {
+	return 0, nil
+}
+
 // Get generates and returns a single ConfigurationScanSummary object for a namespace
 func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, _ storage.GetOptions, objPtr runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "ConfigurationScanSummaryStorage.Get")

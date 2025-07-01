@@ -31,6 +31,11 @@ func TestLoadConfig(t *testing.T) {
 						WorkerCount:   1,
 						MaxObjectSize: 20000000,
 					},
+					"containerprofiles": {
+						QueueLength:   50,
+						WorkerCount:   1,
+						MaxObjectSize: 2500000,
+					},
 					"networkneighborhoods": {
 						QueueLength:   50,
 						WorkerCount:   1,
