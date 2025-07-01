@@ -77,7 +77,7 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 		{
 			name: "Watch should return new watch objects for the same key for every invocation",
 			args: args{
-				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape",
+				key: "/spdx.softwarecomposition.kubescape.io/sbomsyfts",
 			},
 		},
 	}
@@ -99,8 +99,8 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 
 func TestFilesystemStorageWatchPublishing(t *testing.T) {
 	var (
-		keyN = "/spdx.softwarecomposition.kubescape.io/sbomsyfts/not-kubescape"
-		keyK = "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape"
+		keyN = "/spdx.softwarecomposition.kubescape.io/sbomsyfts"
+		keyK = "/spdx.softwarecomposition.kubescape.io/sbomsyfts"
 		obj  = &v1beta1.SBOMSyft{ObjectMeta: v1.ObjectMeta{
 			Name:            "some-sbom",
 			ResourceVersion: "1",
@@ -283,7 +283,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 		{
 			name: "Successful GuaranteedUpdate should produce a matching Modified event",
 			inputWatchesByKey: map[string]int{
-				"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape": 1,
+				"/spdx.softwarecomposition.kubescape.io/sbomsyfts": 1,
 			},
 			args: args{
 				key:            "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
@@ -293,7 +293,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 				},
 			},
 			expectedEvents: map[string][]watch.Event{
-				"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape": {
+				"/spdx.softwarecomposition.kubescape.io/sbomsyfts": {
 					{
 						Type:   watch.Modified,
 						Object: toto,

@@ -319,6 +319,11 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+	_, _, _, namespace, _ := pathToKeys(key)
+	if namespace != "" {
+		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
+		return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+	}
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
 	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
 	s.watchDispatcher.Register(key, nw)
