@@ -1,4 +1,4 @@
-package cleanup
+package file
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -36,19 +35,19 @@ type ResourcesCleanupHandler struct {
 	fetcher               ResourcesFetcher
 	deleteFunc            TypeDeleteFunc
 	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
-	watchDispatcher       *file.WatchDispatcher
+	watchDispatcher       *WatchDispatcher
 }
 
 func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {
 	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
-		// configurationscansummaries is virtual
-		// vulnerabilitysummaries is virtual
+		// applicationprofiles are handled by containerprofile_processor
+		// configurationscansummaries are virtual
+		// containerprofiles are handled by containerprofile_processor
+		// networkneighborhoods are handled by containerprofile_processor
+		// vulnerabilitysummaries are virtual
 		"applicationactivities":               {deleteDeprecated},
-		"applicationprofiles":                 {deleteByTemplateHashOrWlid},
 		"applicationprofilesummaries":         {deleteDeprecated},
-		"containerprofiles":                   {deleteByTemplateHashOrWlid},
 		"networkneighborses":                  {deleteDeprecated},
-		"networkneighborhoods":                {deleteByTemplateHashOrWlid},
 		"openvulnerabilityexchangecontainers": {deleteByImageId},
 		"sbomspdxv2p3filtereds":               {deleteDeprecated},
 		"sbomspdxv2p3filtered":                {deleteDeprecated},
@@ -72,7 +71,7 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 	return resourceKindToHandler
 }
 
-func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *file.WatchDispatcher, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
+func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
 
 	return &ResourcesCleanupHandler{
 		appFs:                 appFs,
@@ -86,79 +85,15 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 	}
 }
 
-func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
+func (h *ResourcesCleanupHandler) RunCleanupTask(ctx context.Context) {
 	for {
-		logger.L().Info("started cleanup task", helpers.String("interval", h.interval.String()))
-		var err error
-		h.resources, err = h.fetcher.FetchResources()
+		logger.L().Info("starting cleanup task", helpers.String("interval", h.interval.String()))
+		err := h.CleanupTask(ctx, h.resourceToKindHandler)
 		if err != nil {
-			logger.L().Error("cleanup task error. sleeping...", helpers.Error(err))
+			logger.L().Error("cleanup task error", helpers.Error(err))
 			time.Sleep(h.interval)
 			continue
 		}
-
-		conn, err := h.pool.Take(context.Background())
-		if err != nil {
-			logger.L().Error("failed to take connection", helpers.Error(err))
-			time.Sleep(h.interval)
-			continue
-		}
-		for resourceKind, handlers := range h.resourceToKindHandler {
-			v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
-			exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
-			if !exists {
-				continue
-			}
-			err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil // we might encounter already deleted files from readMetadata when migrating to SQLite
-				}
-
-				// skip directories
-				if info.IsDir() {
-					return nil
-				}
-
-				if size := info.Size(); size > MinSizeToReport {
-					logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
-				}
-
-				// skip files that are not payload files
-				if !file.IsPayloadFile(path) {
-					return nil
-				}
-
-				metadata, err := h.readMetadata(conn, path)
-				if err != nil {
-					logger.L().Error("load metadata error", helpers.Error(err))
-					return nil
-				}
-
-				// either run single handler, or perform OR operation on multiple handlers
-				var toDelete bool
-				if len(handlers) == 1 {
-					toDelete = handlers[0](resourceKind, path, metadata, h.resources)
-				} else {
-					toDelete = or(handlers, resourceKind, path, metadata, h.resources)
-				}
-
-				if toDelete {
-					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
-					h.deleteFunc(h.appFs, path)
-
-					metaOut := h.deleteMetadata(conn, path)
-					if h.watchDispatcher != nil {
-						key := path[len(h.root) : len(path)-len(file.GobExt)]
-						h.watchDispatcher.Deleted(key, metaOut)
-					}
-				}
-				return nil
-			})
-			if err != nil {
-				logger.L().Error("cleanup task error", helpers.Error(err))
-			}
-		}
-		h.pool.Put(conn)
 
 		if h.interval == 0 {
 			break
@@ -167,6 +102,75 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 		logger.L().Info("finished cleanup task. sleeping...")
 		time.Sleep(h.interval)
 	}
+}
+
+func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKindHandler map[string][]TypeCleanupHandlerFunc) error {
+	var err error
+	h.resources, err = h.fetcher.FetchResources()
+	if err != nil {
+		return fmt.Errorf("failed to fetch resources: %w", err)
+	}
+	conn, err := h.pool.Take(context.Background())
+	defer h.pool.Put(conn)
+	if err != nil {
+		return fmt.Errorf("failed to take connection: %w", err)
+	}
+	for resourceKind, handlers := range resourceToKindHandler {
+		v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
+		exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
+		if !exists {
+			continue
+		}
+		err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil // we might encounter already deleted files from readMetadata when migrating to SQLite
+			}
+
+			// skip directories
+			if info.IsDir() {
+				return nil
+			}
+
+			if size := info.Size(); size > MinSizeToReport {
+				logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
+			}
+
+			// skip files that are not payload files
+			if !IsPayloadFile(path) {
+				return nil
+			}
+
+			metadata, err := h.readMetadata(conn, path)
+			if err != nil {
+				logger.L().Error("load metadata error", helpers.Error(err))
+				return nil
+			}
+
+			// either run single handler, or perform OR operation on multiple handlers
+			var toDelete bool
+			if len(handlers) == 1 {
+				toDelete = handlers[0](resourceKind, path, metadata, h.resources)
+			} else {
+				toDelete = or(handlers, resourceKind, path, metadata, h.resources)
+			}
+
+			if toDelete {
+				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
+				h.deleteFunc(h.appFs, path)
+
+				metaOut := h.deleteMetadata(conn, path)
+				if h.watchDispatcher != nil {
+					key := path[len(h.root) : len(path)-len(GobExt)]
+					h.watchDispatcher.Deleted(key, metaOut)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to walk %s: %w", v1beta1ApiVersionPath, err)
+		}
+	}
+	return nil
 }
 
 func or(funcs []TypeCleanupHandlerFunc, kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {

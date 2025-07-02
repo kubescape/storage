@@ -29,16 +29,21 @@ import (
 )
 
 type ContainerProfileProcessor struct {
+	cleanupHandler          *ResourcesCleanupHandler
+	cleanupInterval         time.Duration
 	defaultNamespace        string
 	deleteThreshold         time.Duration
 	interval                time.Duration
+	lastCleanup             time.Time
 	maxContainerProfileSize int
 	pool                    *sqlitemigration.Pool
 	storageImpl             *StorageImpl
 }
 
-func NewContainerProfileProcessor(cfg config.Config, conn *sqlitemigration.Pool) *ContainerProfileProcessor {
+func NewContainerProfileProcessor(cfg config.Config, conn *sqlitemigration.Pool, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
 	return &ContainerProfileProcessor{
+		cleanupHandler:          cleanupHandler,
+		cleanupInterval:         cfg.CleanupInterval,
 		defaultNamespace:        cfg.DefaultNamespace,
 		deleteThreshold:         2 * cfg.MaxSniffingTime,
 		interval:                30 * time.Second,
@@ -72,7 +77,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, conn *sqlit
 	// add sequence info to SQLite
 	err := WriteTimeSeriesEntry(conn, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("failed to write time series data for container profile",
+		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.AfterCreate - failed to write time series data for container profile",
 			loggerhelpers.Error(err),
 			loggerhelpers.String("name", profile.Name),
 			loggerhelpers.String("namespace", namespace),
@@ -84,7 +89,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, conn *sqlit
 			loggerhelpers.String("status", status))
 		return fmt.Errorf("write time series data: %w", err)
 	}
-	logger.L().Debug("TS container profile registered",
+	logger.L().Debug("ContainerProfileProcessor.AfterCreate - TS container profile registered",
 		loggerhelpers.String("name", profile.Name),
 		loggerhelpers.String("namespace", namespace),
 		loggerhelpers.String("completion", completion),
@@ -143,10 +148,10 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 				sbomSet.Add(f.Location.RealPath)
 			}
 		} else {
-			logger.L().Debug("failed to get sbom", loggerhelpers.Error(err), loggerhelpers.String("key", key))
+			logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 		}
 	} else {
-		logger.L().Debug("failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
+		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
 	}
 	profile.Spec = deflateContainerProfileSpec(profile.Spec, sbomSet)
 	size += len(profile.Spec.Execs)
@@ -175,21 +180,49 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 func (a *ContainerProfileProcessor) SetStorage(storageImpl *StorageImpl) {
 	a.storageImpl = storageImpl
 	if a.interval > 0 {
-		go a.startConsolidationTask()
+		go a.runMaintenanceTasks()
 	}
 }
 
-func (a *ContainerProfileProcessor) startConsolidationTask() {
+func (a *ContainerProfileProcessor) runMaintenanceTasks() {
 	for {
-		logger.L().Debug("started consolidation task", loggerhelpers.String("interval", a.interval.String()))
-		err := a.consolidateTimeSeries()
+		// cleanup
+		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting cleanup task", loggerhelpers.String("interval", a.interval.String()))
+		err := a.cleanup()
 		if err != nil {
-			logger.L().Error("failed to complete consolidation task", loggerhelpers.Error(err))
+			logger.L().Error("ContainerProfileProcessor.runMaintenanceTasks - failed to complete cleanup task", loggerhelpers.Error(err))
 		} else {
-			logger.L().Debug("consolidation task completed successfully")
+			logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - cleanup task completed successfully")
 		}
+		// consolidation
+		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting consolidation task", loggerhelpers.String("interval", a.interval.String()))
+		err = a.consolidateTimeSeries()
+		if err != nil {
+			logger.L().Error("ContainerProfileProcessor.runMaintenanceTasks - failed to complete consolidation task", loggerhelpers.Error(err))
+		} else {
+			logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - consolidation task completed successfully")
+		}
+		// sleep
 		time.Sleep(a.interval)
 	}
+}
+
+func (a *ContainerProfileProcessor) cleanup() error {
+	if a.cleanupInterval == 0 && !a.lastCleanup.IsZero() {
+		// no cleanup interval set, we run cleanup only once
+		return nil
+	}
+	if time.Since(a.lastCleanup) < a.cleanupInterval {
+		// cleanup interval not reached yet
+		return nil
+	}
+	a.lastCleanup = time.Now()
+	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
+		"applicationprofiles":  {deleteByTemplateHashOrWlid},
+		"containerprofiles":    {deleteByTemplateHashOrWlid},
+		"networkneighborhoods": {deleteByTemplateHashOrWlid},
+	}
+	return a.cleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
 
 func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
@@ -214,7 +247,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 	}
 	// consolidate data for each key
 	for _, key := range keys {
-		logger.L().Debug("consolidating data for key", loggerhelpers.String("key", key))
+		logger.L().Debug("ContainerProfileProcessor.consolidateTimeSeries - consolidating data for key", loggerhelpers.String("key", key))
 		// list all containers for the key
 		timeSeries, err := ListTimeSeriesContainers(conn, key)
 		if err != nil {
@@ -269,7 +302,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 				// load TS profile from disk
 				tsKey := key + "-" + ts.TsSuffix
 				tsProfile := softwarecomposition.ContainerProfile{}
-				logger.L().Debug("loading TS profile", loggerhelpers.String("key", tsKey))
+				logger.L().Debug("ContainerProfileProcessor.updateProfile - loading TS profile", loggerhelpers.String("key", tsKey))
 				err := a.storageImpl.GetWithConn(ctx, conn, tsKey, storage.GetOptions{}, &tsProfile)
 				switch {
 				case storage.IsNotFound(err):
@@ -320,7 +353,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		}
 		// abort processing if the profile is completed
 		if completed {
-			logger.L().Info("profile is completed, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
+			logger.L().Info("ContainerProfileProcessor.updateProfile - profile is completed, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
 			// remove the time series data
 			err := DeleteTimeSeriesContainerEntries(conn, key)
 			if err != nil {
@@ -337,12 +370,12 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 	}
 	// check if it's worth saving
 	if !newData {
-		logger.L().Debug("no new data, skip saving profile", loggerhelpers.String("key", key))
+		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, skip saving profile", loggerhelpers.String("key", key))
 		return processed, nil
 	}
 	// verify we have a valid profile before writing it to disk
 	if _, ok := profile.Annotations[helpers.InstanceIDMetadataKey]; !ok {
-		logger.L().Debug("skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
+		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
 		return processed, nil
 	}
 	// update creation timestamp
@@ -457,7 +490,7 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 		// checksum is only present in get metadata
 		err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile)
 		if err != nil {
-			logger.L().Debug("getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
+			logger.L().Debug("ContainerProfileProcessor.getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 			continue
 		}
 		// only main containers are considered for aggregated status
@@ -481,7 +514,7 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 		completion = helpers.Full
 	}
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	logger.L().Debug("getAggregatedData - returning",
+	logger.L().Debug("ContainerProfileProcessor.getAggregatedData - returning",
 		loggerhelpers.Int("mainContainers", mainContainers), loggerhelpers.Int("completed", completed), loggerhelpers.Int("full", full),
 		loggerhelpers.String("status", status), loggerhelpers.String("completion", completion), loggerhelpers.String("hash", hash))
 	return status, completion, hash
@@ -490,7 +523,7 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 func deflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string]) softwarecomposition.ContainerProfileSpec {
 	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
 	if err != nil {
-		logger.L().Debug("falling back to DeflateStringer for opens", loggerhelpers.Error(err))
+		logger.L().Debug("ContainerProfileProcessor.deflateContainerProfileSpec - falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
 	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))

@@ -81,16 +81,16 @@ func TestConsolidateData(t *testing.T) {
 	err = processor.consolidateTimeSeries()
 	assert.NoError(t, err)
 
-	profile := softwarecomposition.NetworkNeighborhood{}
-	key := "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
-	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &profile)
+	applicationProfile := softwarecomposition.ApplicationProfile{}
+	key := "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
+	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &applicationProfile)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]string{
 		helpersv1.CompletionMetadataKey: helpersv1.Full,
 		helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd",
 		helpersv1.StatusMetadataKey:     helpersv1.Completed,
 		helpersv1.WlidMetadataKey:       "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
-	}, profile.Annotations)
+	}, applicationProfile.Annotations)
 	assert.Equal(t, map[string]string{
 		helpersv1.TemplateHashKey:            "d4b8dd5fd",
 		helpersv1.ApiGroupMetadataKey:        "apps",
@@ -99,7 +99,13 @@ func TestConsolidateData(t *testing.T) {
 		helpersv1.NameMetadataKey:            "multiple-containers-deployment",
 		helpersv1.NamespaceMetadataKey:       "node-agent-test-hjjz",
 		helpersv1.ResourceVersionMetadataKey: "1448",
-	}, profile.Labels)
+	}, applicationProfile.Labels)
+
+	containerProfile := softwarecomposition.ContainerProfile{}
+	key = "/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
+	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &containerProfile)
+	assert.NoError(t, err)
+	assert.Equal(t, softwarecomposition.CallID("test-call-id"), containerProfile.Spec.IdentifiedCallStacks[0].CallID)
 
 	// Clean up
 	pool.Put(conn)

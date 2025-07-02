@@ -27,7 +27,6 @@ import (
 	"github.com/grafana/pyroscope-go"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"github.com/kubescape/storage/pkg/cleanup"
 	"github.com/kubescape/storage/pkg/cmd/server"
 	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry/file"
@@ -96,22 +95,22 @@ func main() {
 	// setup watcher
 	watchDispatcher := file.NewWatchDispatcher()
 
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher)
-	cmd := server.NewCommandStartWardleServer(ctx, options, false)
-
 	// cleanup task
-	client, disco, err := cleanup.NewKubernetesClient()
-	kubernetesAPI := cleanup.NewKubernetesAPI(cfg, client, disco)
+	client, disco, err := file.NewKubernetesClient()
+	kubernetesAPI := file.NewKubernetesAPI(cfg, client, disco)
 	if err != nil {
 		panic(err.Error())
 	}
 
 	relevancyEnabled := clusterData.RelevantImageVulnerabilitiesEnabled != nil && *clusterData.RelevantImageVulnerabilitiesEnabled
 
-	cleanupHandler := cleanup.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, cfg.CleanupInterval, kubernetesAPI, relevancyEnabled)
-	go cleanupHandler.StartCleanupTask(ctx)
+	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, cfg.CleanupInterval, kubernetesAPI, relevancyEnabled)
+	go cleanupHandler.RunCleanupTask(ctx)
 
-	logger.L().Info("APIServer started")
+	// start the server
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, nil)
+	cmd := server.NewCommandStartWardleServer(ctx, options, false)
+	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)
 	os.Exit(code)
 }

@@ -192,7 +192,21 @@
     "ImageID": "sha256:ead0a4a53df89fd173874b46093b6e62d8c72967bbf606d672c9e8c9b601a4fc",
     "ImageTag": "registry.k8s.io/coredns/coredns:v1.10.1",
     "PolicyByRuleId": null,
-    "IdentifiedCallStacks": null,
+    "IdentifiedCallStacks": [
+      {
+        "CallID": "test-call-id",
+        "CallStack": {
+          "Root": {
+            "Children": null,
+            "Frame": {
+              "FileID": "",
+              "Lineno": "",
+              "FrameType": 0
+            }
+          }
+        }
+      }
+    ],
     "matchLabels": {
       "k8s-app": "kube-dns"
     },

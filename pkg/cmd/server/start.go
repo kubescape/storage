@@ -74,6 +74,7 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
+	CleanupHandler  *file.ResourcesCleanupHandler
 	OsFs            afero.Fs
 	Pool            *sqlitemigration.Pool
 	StorageConfig   config.Config
@@ -95,7 +96,7 @@ func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
 }
 
 // NewWardleServerOptions returns a new WardleServerOptions
-func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, cfg config.Config, watchDispatcher *file.WatchDispatcher) *WardleServerOptions {
+func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, cfg config.Config, watchDispatcher *file.WatchDispatcher, cleanupHandler *file.ResourcesCleanupHandler) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
@@ -106,6 +107,7 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 		StdOut: out,
 		StdErr: errOut,
 
+		CleanupHandler:  cleanupHandler,
 		OsFs:            osFs,
 		Pool:            pool,
 		StorageConfig:   cfg,
@@ -296,9 +298,10 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	c := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
-			StorageConfig:   o.StorageConfig,
+			CleanupHandler:  o.CleanupHandler,
 			OsFs:            o.OsFs,
 			Pool:            o.Pool,
+			StorageConfig:   o.StorageConfig,
 			WatchDispatcher: o.WatchDispatcher,
 		},
 	}

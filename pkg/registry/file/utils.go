@@ -1,4 +1,4 @@
-package cleanup
+package file
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	helpers2 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
-	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +58,7 @@ func NewKubernetesClient() (dynamic.Interface, discovery.DiscoveryInterface, err
 func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) runtime.Object {
 	key := payloadPathToKey(path)
 	metaOut := &PartialObjectMetadata{}
-	err := file.DeleteMetadata(conn, key, metaOut)
+	err := DeleteMetadata(conn, key, metaOut)
 	if err != nil {
 		logger.L().Error("failed to delete metadata", helpers.Error(err))
 	}
@@ -131,12 +130,12 @@ func loadMetadata(metadataJSON []byte) (*metav1.ObjectMeta, error) {
 }
 
 func payloadPathToKey(path string) string {
-	return path[len(file.DefaultStorageRoot) : len(path)-len(file.GobExt)]
+	return path[len(DefaultStorageRoot) : len(path)-len(GobExt)]
 }
 
 func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePath string) (*metav1.ObjectMeta, error) {
 	key := payloadPathToKey(payloadFilePath)
-	metadataJSON, err := file.ReadMetadata(conn, key)
+	metadataJSON, err := ReadMetadata(conn, key)
 	if err == nil {
 		metadata, err := loadMetadata(metadataJSON)
 		if err == nil {
@@ -145,7 +144,7 @@ func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePat
 	}
 	// end of happy path - migration starts here
 	// try to find old metadata file
-	metadataFilePath := payloadFilePath[:len(payloadFilePath)-len(file.GobExt)] + file.MetadataExt
+	metadataFilePath := payloadFilePath[:len(payloadFilePath)-len(GobExt)] + MetadataExt
 	metadataJSON, err = afero.ReadFile(h.appFs, metadataFilePath)
 	if err != nil {
 		// no metadata in SQLite nor on disk, delete payload file
@@ -153,7 +152,7 @@ func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePat
 		return nil, fmt.Errorf("failed to read metadata file: %w", err)
 	}
 	// write to SQLite
-	err = file.WriteJSON(conn, key, metadataJSON)
+	err = WriteJSON(conn, key, metadataJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate metadata to SQLite: %w", err)
 	}

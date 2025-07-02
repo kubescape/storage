@@ -1,4 +1,4 @@
-package cleanup
+package file
 
 import (
 	"archive/zip"
@@ -16,7 +16,6 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
-	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,13 +57,19 @@ func TestCleanupTask(t *testing.T) {
 
 	handler := &ResourcesCleanupHandler{
 		appFs:                 memFs,
-		pool:                  file.NewTestPool(tempDir),
-		root:                  file.DefaultStorageRoot,
+		pool:                  NewTestPool(tempDir),
+		root:                  DefaultStorageRoot,
 		fetcher:               &ResourcesFetchMock{},
 		deleteFunc:            deleteFunc,
 		resourceToKindHandler: initResourceToKindHandler(false),
 	}
-	handler.StartCleanupTask(context.TODO())
+	handler.CleanupTask(context.TODO(), handler.resourceToKindHandler)
+
+	containerProfileProcessor := ContainerProfileProcessor{
+		cleanupHandler: handler,
+	}
+	err = containerProfileProcessor.cleanup()
+	require.NoError(t, err)
 
 	var expectedFilesToDelete []string
 	require.NoError(t, json.Unmarshal(expectedFilesToDeleteBytes, &expectedFilesToDelete))
@@ -117,7 +122,7 @@ func unzipSource(source string, appFs afero.Fs) error {
 	defer reader.Close()
 
 	for _, f := range reader.File {
-		err := unzipFile(f, file.DefaultStorageRoot, appFs)
+		err := unzipFile(f, DefaultStorageRoot, appFs)
 		if err != nil {
 			return err
 		}
