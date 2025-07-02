@@ -7,6 +7,9 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/config"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/pager"
 
 	"k8s.io/client-go/discovery"
 
@@ -90,11 +93,10 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 			return fmt.Errorf("failed to get group version resource for %s: %w", resource, err)
 		}
 
-		workloads, err := h.client.Resource(gvr).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to list %s: %w", gvr, err)
-		}
-		for _, workload := range workloads.Items {
+		err = pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+			return h.client.Resource(gvr).List(ctx, opts)
+		}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
+			workload := obj.(*unstructured.Unstructured)
 			// we don't care about the cluster name, so we remove it to avoid corner cases
 			wlid := wlidPkg.GetK8sWLID("", workload.GetNamespace(), workload.GetKind(), workload.GetName())
 			wlid = wlidWithoutClusterName(wlid)
@@ -103,7 +105,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 
 			c, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "containers")...)
 			if !ok {
-				continue
+				return nil
 			}
 			containers := c.([]interface{})
 			for _, container := range containers {
@@ -118,7 +120,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 
 			initC, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "initContainers")...)
 			if !ok {
-				continue
+				return nil
 			}
 			initContainers := initC.([]interface{})
 			for _, container := range initContainers {
@@ -133,7 +135,7 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 
 			ephemeralC, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "ephemeralContainers")...)
 			if !ok {
-				continue
+				return nil
 			}
 			ephemeralContainers := ephemeralC.([]interface{})
 			for _, container := range ephemeralContainers {
@@ -145,19 +147,20 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 				nameStr := name.(string)
 				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
 			}
-
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list %s: %w", gvr, err)
 		}
 	}
 	return nil
 }
 
 func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromPods(resourceMaps *ResourceMaps) error {
-	pods, err := h.client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list pods: %w", err)
-	}
-
-	for _, p := range pods.Items {
+	if err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+		return h.client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(ctx, metav1.ListOptions{})
+	}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
+		p := obj.(*unstructured.Unstructured)
 		pod := workloadinterface.NewWorkloadObj(p.Object)
 
 		instanceIds, err := instanceidhandler.GenerateInstanceID(pod, h.cfg.ExcludeJsonPaths)
@@ -171,7 +174,7 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromPods(resourceM
 
 		s, ok := workloadinterface.InspectMap(p.Object, "status", "containerStatuses")
 		if !ok {
-			continue
+			return nil
 		}
 		containerStatuses := s.([]interface{})
 		for _, cs := range containerStatuses {
@@ -185,7 +188,7 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromPods(resourceM
 
 		initC, ok := workloadinterface.InspectMap(p.Object, "status", "initContainerStatuses")
 		if !ok {
-			continue
+			return nil
 		}
 		initContainers := initC.([]interface{})
 		for _, cs := range initContainers {
@@ -199,7 +202,7 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromPods(resourceM
 
 		ephemeralC, ok := workloadinterface.InspectMap(p.Object, "status", "ephemeralContainerStatuses")
 		if !ok {
-			continue
+			return nil
 		}
 		ephemeralContainers := ephemeralC.([]interface{})
 		for _, cs := range ephemeralContainers {
@@ -210,6 +213,9 @@ func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromPods(resourceM
 			imageIdStr := containerImageId.(string)
 			resourceMaps.RunningContainerImageIds.Add(imageIdStr)
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }
