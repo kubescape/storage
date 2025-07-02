@@ -108,7 +108,7 @@ func main() {
 	go cleanupHandler.RunCleanupTask(ctx)
 
 	// start the server
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, nil)
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, cleanupHandler)
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)

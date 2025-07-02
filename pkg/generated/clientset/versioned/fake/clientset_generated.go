@@ -110,11 +110,11 @@ func NewClientset(objects ...runtime.Object) *Clientset {
 		}
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
-		w, err := o.Watch(gvr, ns, opts)
+		watch, err := o.Watch(gvr, ns, opts)
 		if err != nil {
 			return false, nil, err
 		}
-		return true, w, nil
+		return true, watch, nil
 	})
 
 	return cs

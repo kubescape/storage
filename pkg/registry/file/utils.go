@@ -109,7 +109,11 @@ func loadMetadata(metadataJSON []byte) (*metav1.ObjectMeta, error) {
 			if bytes.EqualFold(key, []byte(`"namespace"`)) {
 				data.Namespace = unquote(value)
 			}
-			// record parent for level 3
+			// read schema version
+			if bytes.EqualFold(key, []byte(`"schemaVersion"`)) {
+				data.Annotations["schemaVersion"] = unquote(value)
+			}
+			// record parent for level 2
 			parent = unquote(key)
 		case 2:
 			// read annotations

@@ -218,9 +218,9 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	}
 	a.lastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
-		"applicationprofiles":  {deleteByTemplateHashOrWlid},
-		"containerprofiles":    {deleteByTemplateHashOrWlid},
-		"networkneighborhoods": {deleteByTemplateHashOrWlid},
+		"applicationprofiles":  {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
+		"containerprofiles":    {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
+		"networkneighborhoods": {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
 	}
 	return a.cleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }

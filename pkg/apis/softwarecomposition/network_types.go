@@ -38,7 +38,9 @@ type NetworkNeighborhood struct {
 
 	// +k8s:conversion-gen=false
 	Parts map[string]string
-	Spec  NetworkNeighborhoodSpec
+	// +k8s:conversion-gen=false
+	SchemaVersion int64
+	Spec          NetworkNeighborhoodSpec
 }
 
 type NetworkNeighborhoodSpec struct {

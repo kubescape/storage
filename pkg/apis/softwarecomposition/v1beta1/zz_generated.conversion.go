@@ -1745,6 +1745,7 @@ func Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfil
 func autoConvert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(in *softwarecomposition.ApplicationProfile, out *ApplicationProfile, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
 	// INFO: in.Parts opted out of conversion generation
+	// INFO: in.SchemaVersion opted out of conversion generation
 	if err := Convert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}
@@ -3705,6 +3706,7 @@ func Convert_v1beta1_NetworkNeighborhood_To_softwarecomposition_NetworkNeighborh
 func autoConvert_softwarecomposition_NetworkNeighborhood_To_v1beta1_NetworkNeighborhood(in *softwarecomposition.NetworkNeighborhood, out *NetworkNeighborhood, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
 	// INFO: in.Parts opted out of conversion generation
+	// INFO: in.SchemaVersion opted out of conversion generation
 	if err := Convert_softwarecomposition_NetworkNeighborhoodSpec_To_v1beta1_NetworkNeighborhoodSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}

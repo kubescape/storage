@@ -42,6 +42,7 @@ const (
 	DefaultStorageRoot       = "/data"
 	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 	operationNotSupportedMsg = "operation not supported"
+	SchemaVersion            = int64(1)
 )
 
 var (
@@ -116,15 +117,16 @@ func (s *StorageImpl) Versioner() storage.Versioner {
 	return s.versioner
 }
 
-func extractMetadata(obj runtime.Object) runtime.Object {
+func extractFields(obj runtime.Object, fields []string) runtime.Object {
 	val := reflect.ValueOf(obj).Elem()
-	metadata := val.FieldByName("ObjectMeta")
-	if metadata.IsValid() {
-		ret := reflect.New(val.Type()).Interface().(runtime.Object)
-		reflect.ValueOf(ret).Elem().FieldByName("ObjectMeta").Set(metadata)
-		return ret
+	ret := reflect.New(val.Type()).Interface().(runtime.Object)
+	for _, name := range fields {
+		field := val.FieldByName(name)
+		if field.IsValid() {
+			reflect.ValueOf(ret).Elem().FieldByName(name).Set(field)
+		}
 	}
-	return nil
+	return ret
 }
 
 // makePayloadPath returns a path for the payload file
@@ -175,7 +177,7 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 		return fmt.Errorf("encode payload: %w", err)
 	}
 	// extract metadata
-	metadata := extractMetadata(obj)
+	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
 	// calculate checksum
 	if checksum == "" {
 		checksum, err = s.CalculateChecksum(obj)

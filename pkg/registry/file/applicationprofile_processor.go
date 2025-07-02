@@ -49,6 +49,9 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.
 		return fmt.Errorf("given object is not an ApplicationProfile")
 	}
 
+	// set schema version
+	profile.SchemaVersion = SchemaVersion
+
 	// size is the sum of all fields in all containers
 	var size int
 

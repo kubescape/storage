@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.23-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS builder
 
 ENV GO111MODULE=on CGO_ENABLED=0
 WORKDIR /work
@@ -17,4 +17,4 @@ COPY --from=builder /out/storage /usr/bin/storage
 ARG image_version
 ENV RELEASE=$image_version
 
-ENTRYPOINT ["/usr/bin/dlv", "--listen=:40000", "--headless=true","--accept-multiclient", "--continue", "--api-version=2", "--log", "exec", "/usr/bin/storage"]
+ENTRYPOINT ["/usr/bin/dlv", "--listen=:40000", "--headless=true","--accept-multiclient", "--api-version=2", "--log", "exec", "/usr/bin/storage"]

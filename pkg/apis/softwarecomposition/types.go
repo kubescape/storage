@@ -215,9 +215,11 @@ type ApplicationProfile struct {
 	metav1.ObjectMeta
 
 	// +k8s:conversion-gen=false
-	Parts  map[string]string
-	Spec   ApplicationProfileSpec
-	Status ApplicationProfileStatus
+	Parts map[string]string
+	// +k8s:conversion-gen=false
+	SchemaVersion int64
+	Spec          ApplicationProfileSpec
+	Status        ApplicationProfileStatus
 }
 
 type ApplicationProfileSpec struct {

@@ -35,6 +35,9 @@ func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, _ *sqlite.Conn,
 		return fmt.Errorf("given object is not an NetworkNeighborhood")
 	}
 
+	// set schema version
+	profile.SchemaVersion = SchemaVersion
+
 	// size is the sum of all ingress/egress in all containers
 	var size int
 

@@ -265,3 +265,15 @@ func deleteMissingWlidAnnotation(_, _ string, metadata *metav1.ObjectMeta, _ Res
 	_, ok := metadata.Annotations[helpersv1.WlidMetadataKey]
 	return !ok
 }
+
+// deleteWrongSchemaVersion deletes resources that have missing or unexpected schema version
+func deleteWrongSchemaVersion(_, _ string, metadata *metav1.ObjectMeta, _ ResourceMaps) bool {
+	// schema version is transferred via annotations by loadMetadata
+	v, ok := metadata.Annotations["schemaVersion"]
+	if ok && v == fmt.Sprintf("%d", SchemaVersion) {
+		logger.L().Debug("keeping resource with correct schema version", helpers.String("name", metadata.Name), helpers.String("namespace", metadata.Namespace), helpers.String("schemaVersion", v))
+		return false
+	}
+	logger.L().Debug("deleting resource with wrong schema version", helpers.String("name", metadata.Name), helpers.String("namespace", metadata.Namespace), helpers.String("schemaVersion", v))
+	return true
+}

@@ -44,7 +44,7 @@ func (a ApplicationProfileStorage) Watch(ctx context.Context, key string, opts s
 
 func (a ApplicationProfileStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	if err := a.realStore.Get(ctx, key, opts, objPtr); err != nil {
-		return fmt.Errorf("get ap object: %w", err)
+		return err
 	}
 	ap, ok := objPtr.(*softwarecomposition.ApplicationProfile)
 	if !ok {
