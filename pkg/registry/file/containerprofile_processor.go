@@ -219,7 +219,7 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	a.lastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
 		"applicationprofiles":  {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
-		"containerprofiles":    {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
+		"containerprofiles":    {deleteByTemplateHashOrWlid},
 		"networkneighborhoods": {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
 	}
 	return a.cleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
@@ -415,6 +415,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		if ap.CreationTimestamp.IsZero() {
 			ap.CreationTimestamp = creationTimestamp
 		}
+		ap.SchemaVersion = SchemaVersion
 		if ap.Parts == nil {
 			ap.Parts = map[string]string{}
 		}
@@ -450,6 +451,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		if nn.CreationTimestamp.IsZero() {
 			nn.CreationTimestamp = creationTimestamp
 		}
+		nn.SchemaVersion = SchemaVersion
 		if nn.Parts == nil {
 			nn.Parts = map[string]string{}
 		}
