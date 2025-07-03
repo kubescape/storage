@@ -75,6 +75,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 						helpers.ResourceSizeMetadataKey: "7",
 					},
 				},
+				SchemaVersion: 1,
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
 					EphemeralContainers: []softwarecomposition.NetworkNeighborhoodContainer{
 						{

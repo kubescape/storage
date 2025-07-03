@@ -86,6 +86,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 						helpers.ResourceSizeMetadataKey: "7",
 					},
 				},
+				SchemaVersion: 1,
 				Spec: softwarecomposition.ApplicationProfileSpec{
 					Architectures: []string{"amd64", "arm64"},
 					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
