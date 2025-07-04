@@ -185,7 +185,7 @@ func (a *ContainerProfileProcessor) SetStorage(storageImpl *StorageImpl) {
 func (a *ContainerProfileProcessor) runMaintenanceTasks() {
 	for {
 		// cleanup
-		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting cleanup task", loggerhelpers.String("interval", a.interval.String()))
+		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting cleanup task")
 		err := a.cleanup()
 		if err != nil {
 			logger.L().Error("ContainerProfileProcessor.runMaintenanceTasks - failed to complete cleanup task", loggerhelpers.Error(err))

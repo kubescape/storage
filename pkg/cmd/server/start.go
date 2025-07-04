@@ -273,21 +273,10 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 		if o.StorageConfig.QueueTimeoutPrint {
 			handler = queuemanager.TimeoutLoggerMiddleware(handler, o.StorageConfig.QueueTimeout) // Attach timeout logger
 		}
-		queueManager := queuemanager.NewQueueManager(&o.StorageConfig) // Attach queue manager
-		handler = queueManager.QueueHandler(handler)                   // Attach queue manager
-		return handler
-	}
-
-	serverConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) http.Handler {
-		handler := genericapiserver.DefaultBuildHandlerChain(apiHandler, c) // Default handler chain
-		if o.StorageConfig.QueueProcessingStatsPrint {
-			handler = stats.Handler(handler) // Attach stats collector
+		if o.StorageConfig.QueueManagerEnabled {
+			queueManager := queuemanager.NewQueueManager(&o.StorageConfig) // Attach queue manager
+			handler = queueManager.QueueHandler(handler)                   // Attach queue manager
 		}
-		if o.StorageConfig.QueueTimeoutPrint {
-			handler = queuemanager.TimeoutLoggerMiddleware(handler, o.StorageConfig.QueueTimeout) // Attach timeout logger
-		}
-		queueManager := queuemanager.NewQueueManager(&o.StorageConfig) // Attach queue manager
-		handler = queueManager.QueueHandler(handler)                   // Attach queue manager
 		return handler
 	}
 

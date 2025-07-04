@@ -34,6 +34,7 @@ type Config struct {
 	DefaultMaxObjectSize int                        `mapstructure:"defaultMaxObjectSize"`
 
 	// Debugging
+	QueueManagerEnabled       bool `mapstructure:"queueManagerEnabled"`
 	QueueTimeoutPrint         bool `mapstructure:"queueTimeoutPrint"`
 	QueueTimeout              int  `mapstructure:"queueTimeout"`
 	QueueProcessingStatsPrint bool `mapstructure:"queueProcessingStatsPrint"`
@@ -54,6 +55,7 @@ func LoadConfig(path string) (Config, error) {
 	viper.SetDefault("defaultQueueLength", 100)
 	viper.SetDefault("defaultWorkerCount", 2)
 	viper.SetDefault("defaultMaxObjectSize", 400000)
+	viper.SetDefault("queueManagerEnabled", false)
 	viper.SetDefault("queueTimeoutPrint", false)
 	viper.SetDefault("queueTimeout", 60)
 	viper.SetDefault("queueProcessingStatsPrint", false)
