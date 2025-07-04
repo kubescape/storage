@@ -1,0 +1,298 @@
+{
+  "name": "replicaset-coredns-5d78c9869d-coredns-185f-129c-9a1d30fbd15f44849ef016dfb03ef7e1",
+  "namespace": "kube-system",
+  "uid": "53c961a3-d2eb-464a-a4a6-5cd401bfeadc",
+  "creationTimestamp": "2025-06-24T10:29:46Z",
+  "labels": {
+    "kubescape.io/instance-template-hash": "5d78c9869d",
+    "kubescape.io/workload-api-group": "apps",
+    "kubescape.io/workload-api-version": "v1",
+    "kubescape.io/workload-container-name": "coredns",
+    "kubescape.io/workload-kind": "Deployment",
+    "kubescape.io/workload-name": "coredns",
+    "kubescape.io/workload-namespace": "kube-system",
+    "kubescape.io/workload-resource-version": "523"
+  },
+  "annotations": {
+    "kubescape.io/completion": "partial",
+    "kubescape.io/instance-id": "apiVersion-apps/v1/namespace-kube-system/kind-ReplicaSet/name-coredns-5d78c9869d/containerName-coredns",
+    "kubescape.io/previous-report-timestamp": "0001-01-01 00:00:00 +0000 UTC",
+    "kubescape.io/report-series-id": "aa89e566-3e00-44e1-a8ad-3f625610b344",
+    "kubescape.io/report-timestamp": "2025-06-24 10:29:46.930762872 +0000 UTC m=+67.096844812",
+    "kubescape.io/status": "ready",
+    "kubescape.io/wlid": "wlid://cluster-kind-kind/namespace-kube-system/deployment-coredns",
+    "kubescape.io/workload-container-type": "containers"
+  },
+  "Spec": {
+    "Architectures": [
+      "amd64"
+    ],
+    "Capabilities": null,
+    "Execs": null,
+    "Opens": [
+      {
+        "Path": "/proc/⋯/stat",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/limits",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/coredns/..2025_06_24_10_28_00.3214647402/Corefile",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/stat",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/fd",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      }
+    ],
+    "Syscalls": [
+      "newfstatat",
+      "getpeername",
+      "epoll_ctl",
+      "gettid",
+      "sigaltstack",
+      "rt_sigreturn",
+      "futex",
+      "fcntl",
+      "getdents64",
+      "rt_sigprocmask",
+      "getsockname",
+      "close",
+      "fstat",
+      "socket",
+      "write",
+      "sched_yield",
+      "recvmsg",
+      "setsockopt",
+      "read",
+      "connect",
+      "getrandom",
+      "tgkill",
+      "openat",
+      "getpid",
+      "getsockopt",
+      "sendmsg",
+      "clone",
+      "nanosleep",
+      "accept4",
+      "epoll_pwait"
+    ],
+    "SeccompProfile": {
+      "Name": "",
+      "Path": "",
+      "Spec": {
+        "Disabled": false,
+        "BaseProfileName": "",
+        "DefaultAction": "",
+        "Architectures": null,
+        "ListenerPath": "",
+        "ListenerMetadata": "",
+        "Syscalls": null,
+        "Flags": null
+      }
+    },
+    "Endpoints": [
+      {
+        "Endpoint": ":8080/health",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "outbound",
+        "Headers": {
+          "Accept-Encoding": [
+            "gzip"
+          ],
+          "Host": [
+            ":8080"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":8080/health",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Accept-Encoding": [
+            "gzip"
+          ],
+          "Host": [
+            ":8080"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":8181/ready",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Connection": [
+            "close"
+          ],
+          "Host": [
+            "10.244.0.2:8181"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":8080/health",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Connection": [
+            "close"
+          ],
+          "Host": [
+            "10.244.0.2:8080"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":9153/metrics",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Accept-Encoding": [
+            "gzip"
+          ],
+          "Host": [
+            "10.244.0.2:9153"
+          ]
+        }
+      }
+    ],
+    "ImageID": "sha256:ead0a4a53df89fd173874b46093b6e62d8c72967bbf606d672c9e8c9b601a4fc",
+    "ImageTag": "registry.k8s.io/coredns/coredns:v1.10.1",
+    "PolicyByRuleId": null,
+    "IdentifiedCallStacks": null,
+    "matchLabels": {
+      "k8s-app": "kube-dns"
+    },
+    "Ingress": [
+      {
+        "Identifier": "8a255c76f53414e4c7f65d0683bb4bfa891acbbc4ddaf939e8988979213bfe87",
+        "Type": "internal",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "UDP-53",
+            "Protocol": "UDP",
+            "Port": 53
+          }
+        ],
+        "PodSelector": {
+          "matchLabels": {
+            "app": "multiple-containers-app"
+          }
+        },
+        "NamespaceSelector": {
+          "matchLabels": {
+            "kubernetes.io/metadata.name": "node-agent-test-hjjz"
+          }
+        },
+        "IPAddress": ""
+      },
+      {
+        "Identifier": "336a2ae983dc6ed68fc44228eaaf0c50d2d104f4c5d66b49bfe7905e170eb0ab",
+        "Type": "external",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "TCP-8181",
+            "Protocol": "TCP",
+            "Port": 8181
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "10.244.0.1"
+      },
+      {
+        "Identifier": "336a2ae983dc6ed68fc44228eaaf0c50d2d104f4c5d66b49bfe7905e170eb0ab",
+        "Type": "external",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "TCP-8080",
+            "Protocol": "TCP",
+            "Port": 8080
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "10.244.0.1"
+      },
+      {
+        "Identifier": "82b5cf8497023f9dc0ba336ecc3e6758485fdda701424f1cab05dd5d79f9e89f",
+        "Type": "external",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "UDP-53",
+            "Protocol": "UDP",
+            "Port": 53
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "10.244.0.13"
+      }
+    ],
+    "Egress": [
+      {
+        "Identifier": "ddc021c75fe61c096fefce4d90e2ca3c78adb17e41093274bea69e7f16b0438d",
+        "Type": "external",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "UDP-53",
+            "Protocol": "UDP",
+            "Port": 53
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "172.18.0.1"
+      }
+    ]
+  },
+  "Status": {}
+}

@@ -62,13 +62,25 @@ func NewFilteredConfigurationScanSummaryInformer(client versioned.Interface, nam
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).Watch(ctx, options)
 			},
 		},
 		&apissoftwarecompositionv1beta1.ConfigurationScanSummary{},

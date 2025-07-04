@@ -75,6 +75,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 						helpers.ResourceSizeMetadataKey: "7",
 					},
 				},
+				SchemaVersion: 1,
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
 					EphemeralContainers: []softwarecomposition.NetworkNeighborhoodContainer{
 						{
@@ -124,7 +125,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := NewNetworkNeighborhoodProcessor(config.Config{MaxNetworkNeighborhoodSize: tt.maxNetworkNeighborhoodSize})
-			tt.wantErr(t, a.PreSave(context.TODO(), tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
+			tt.wantErr(t, a.PreSave(context.TODO(), nil, tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
 			assert.Equal(t, tt.want, tt.object)
 		})
 	}

@@ -1,0 +1,60 @@
+{
+  "name": "replicaset-multiple-containers-deployment-d4b8dd5fd-nginx-42c9-63c3-c9f6095d75bd482ea75300eb759d725e",
+  "namespace": "node-agent-test-hjjz",
+  "uid": "c3c81a86-d2bd-4453-a208-303d0fe112aa",
+  "creationTimestamp": "2025-06-24T10:35:50Z",
+  "labels": {
+    "kubescape.io/instance-template-hash": "d4b8dd5fd",
+    "kubescape.io/workload-api-group": "apps",
+    "kubescape.io/workload-api-version": "v1",
+    "kubescape.io/workload-container-name": "nginx",
+    "kubescape.io/workload-kind": "Deployment",
+    "kubescape.io/workload-name": "multiple-containers-deployment",
+    "kubescape.io/workload-namespace": "node-agent-test-hjjz",
+    "kubescape.io/workload-resource-version": "1448"
+  },
+  "annotations": {
+    "kubescape.io/completion": "complete",
+    "kubescape.io/instance-id": "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd/containerName-nginx",
+    "kubescape.io/previous-report-timestamp": "2025-06-24 10:34:50.421245085 +0000 UTC m=+287.879157910",
+    "kubescape.io/report-series-id": "23f818ef-cd9d-43a9-b359-85ad2743dbaf",
+    "kubescape.io/report-timestamp": "2025-06-24 10:35:50.421543323 +0000 UTC m=+347.879456137",
+    "kubescape.io/status": "completed",
+    "kubescape.io/wlid": "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
+    "kubescape.io/workload-container-type": "containers"
+  },
+  "Spec": {
+    "Architectures": [
+      "amd64"
+    ],
+    "Capabilities": null,
+    "Execs": null,
+    "Opens": null,
+    "Syscalls": null,
+    "SeccompProfile": {
+      "Name": "",
+      "Path": "",
+      "Spec": {
+        "Disabled": false,
+        "BaseProfileName": "",
+        "DefaultAction": "",
+        "Architectures": null,
+        "ListenerPath": "",
+        "ListenerMetadata": "",
+        "Syscalls": null,
+        "Flags": null
+      }
+    },
+    "Endpoints": null,
+    "ImageID": "docker.io/library/nginx@sha256:a484819eb60211f5299034ac80f6a681b06f89e65866ce91f356ed7c72af059c",
+    "ImageTag": "docker.io/library/nginx:1.25.5",
+    "PolicyByRuleId": null,
+    "IdentifiedCallStacks": null,
+    "matchLabels": {
+      "app": "multiple-containers-app"
+    },
+    "Ingress": null,
+    "Egress": null
+  },
+  "Status": {}
+}

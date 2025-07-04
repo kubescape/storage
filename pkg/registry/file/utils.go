@@ -1,8 +1,7 @@
-package cleanup
+package file
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -11,7 +10,6 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	helpers2 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
-	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"zombiezen.com/go/sqlite"
 )
 
 // PartialObjectMetadata is a generic representation of any object with ObjectMeta. It allows clients
@@ -56,16 +55,10 @@ func NewKubernetesClient() (dynamic.Interface, discovery.DiscoveryInterface, err
 	return dynClient, disco, nil
 }
 
-func (h *ResourcesCleanupHandler) deleteMetadata(path string) runtime.Object {
+func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) runtime.Object {
 	key := payloadPathToKey(path)
 	metaOut := &PartialObjectMetadata{}
-	conn, err := h.pool.Take(context.Background())
-	if err != nil {
-		logger.L().Error("failed to take connection", helpers.Error(err))
-		return nil
-	}
-	err = file.DeleteMetadata(conn, key, metaOut)
-	h.pool.Put(conn)
+	err := DeleteMetadata(conn, key, metaOut)
 	if err != nil {
 		logger.L().Error("failed to delete metadata", helpers.Error(err))
 	}
@@ -116,7 +109,11 @@ func loadMetadata(metadataJSON []byte) (*metav1.ObjectMeta, error) {
 			if bytes.EqualFold(key, []byte(`"namespace"`)) {
 				data.Namespace = unquote(value)
 			}
-			// record parent for level 3
+			// read schema version
+			if bytes.EqualFold(key, []byte(`"schemaVersion"`)) {
+				data.Annotations["schemaVersion"] = unquote(value)
+			}
+			// record parent for level 2
 			parent = unquote(key)
 		case 2:
 			// read annotations
@@ -137,17 +134,12 @@ func loadMetadata(metadataJSON []byte) (*metav1.ObjectMeta, error) {
 }
 
 func payloadPathToKey(path string) string {
-	return path[len(file.DefaultStorageRoot) : len(path)-len(file.GobExt)]
+	return path[len(DefaultStorageRoot) : len(path)-len(GobExt)]
 }
 
-func (h *ResourcesCleanupHandler) readMetadata(payloadFilePath string) (*metav1.ObjectMeta, error) {
+func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePath string) (*metav1.ObjectMeta, error) {
 	key := payloadPathToKey(payloadFilePath)
-	conn, err := h.pool.Take(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to take connection: %w", err)
-	}
-	metadataJSON, err := file.ReadMetadata(conn, key)
-	h.pool.Put(conn)
+	metadataJSON, err := ReadMetadata(conn, key)
 	if err == nil {
 		metadata, err := loadMetadata(metadataJSON)
 		if err == nil {
@@ -156,7 +148,7 @@ func (h *ResourcesCleanupHandler) readMetadata(payloadFilePath string) (*metav1.
 	}
 	// end of happy path - migration starts here
 	// try to find old metadata file
-	metadataFilePath := payloadFilePath[:len(payloadFilePath)-len(file.GobExt)] + file.MetadataExt
+	metadataFilePath := payloadFilePath[:len(payloadFilePath)-len(GobExt)] + MetadataExt
 	metadataJSON, err = afero.ReadFile(h.appFs, metadataFilePath)
 	if err != nil {
 		// no metadata in SQLite nor on disk, delete payload file
@@ -164,7 +156,7 @@ func (h *ResourcesCleanupHandler) readMetadata(payloadFilePath string) (*metav1.
 		return nil, fmt.Errorf("failed to read metadata file: %w", err)
 	}
 	// write to SQLite
-	err = file.WriteJSON(conn, key, metadataJSON)
+	err = WriteJSON(conn, key, metadataJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate metadata to SQLite: %w", err)
 	}
