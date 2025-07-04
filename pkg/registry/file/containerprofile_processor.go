@@ -110,8 +110,6 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 
 	// detect TS profiles
 	if profile.Annotations[helpers.ReportSeriesIdMetadataKey] != "" {
-		// FIXME attempt to slow down data ingestion
-		time.Sleep(time.Second)
 		// check size and completion for the corresponding container profile
 		name, _ := splitProfileName(profile.Name)
 		// load profile metadata if profile exists

@@ -28,17 +28,17 @@ func TestLoadConfig(t *testing.T) {
 				KindQueues: map[string]KindQueueConfig{
 					"applicationprofiles": {
 						QueueLength:   50,
-						WorkerCount:   1,
+						WorkerCount:   100,
 						MaxObjectSize: 20000000,
 					},
 					"containerprofiles": {
 						QueueLength:   50,
-						WorkerCount:   1,
+						WorkerCount:   100,
 						MaxObjectSize: 2500000,
 					},
 					"networkneighborhoods": {
 						QueueLength:   50,
-						WorkerCount:   1,
+						WorkerCount:   100,
 						MaxObjectSize: 10000000,
 					},
 					"openvulnerabilityexchangecontainers": {
