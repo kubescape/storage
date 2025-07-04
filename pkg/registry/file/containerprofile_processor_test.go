@@ -31,7 +31,7 @@ func TestConsolidateData(t *testing.T) {
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	processor := ContainerProfileProcessor{
-		deleteThreshold:         240 * time.Hour,
+		deleteThreshold:         0, // disable deletion
 		maxContainerProfileSize: 40000,
 		pool:                    pool,
 	}
