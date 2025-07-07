@@ -163,6 +163,29 @@ func WaitForPodWithLabelReady(t *testing.T, clientset *kubernetes.Clientset, nam
 	}
 }
 
+func WaitForPodWithLabelDeleted(t *testing.T, clientset *kubernetes.Clientset, namespace, labelSelector string) {
+	ctx := context.Background()
+	t.Logf("Waiting for pod with label '%s' in namespace '%s' to be deleted", labelSelector, namespace)
+	deadline := time.Now().Add(10 * time.Minute)
+	for {
+		pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: labelSelector,
+		})
+		if err != nil {
+			t.Fatalf("Error listing pods: %v", err)
+		}
+		if len(pods.Items) == 0 {
+			t.Log("Pod is deleted")
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Timed out waiting for pod with label '%s' in namespace '%s' to be deleted", labelSelector, namespace)
+		}
+		t.Log("Pod not deleted yet, sleeping 10s...")
+		time.Sleep(10 * time.Second)
+	}
+}
+
 // DeleteNodeAgentPodOnSameNode finds the node where a given pod is running, then deletes the node-agent pod on that node in the 'kubescape' namespace.
 func DeleteNodeAgentPodOnSameNode(t *testing.T, clientset *kubernetes.Clientset, testNamespace, testPodLabelSelector string) string {
 	ctx := context.Background()
