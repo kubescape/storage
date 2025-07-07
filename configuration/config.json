@@ -5,20 +5,21 @@
   "defaultQueueLength": 100,
   "defaultWorkerCount": 2,
   "defaultMaxObjectSize": 400000,
+  "queueManagerEnabled": true,
   "kindQueues": {
     "applicationprofiles": {
       "queueLength": 50,
-      "workerCount": 100,
+      "workerCount": 2,
       "maxObjectSize": 20000000
     },
     "containerprofiles": {
       "queueLength": 50,
-      "workerCount": 100,
+      "workerCount": 2,
       "maxObjectSize": 2500000
     },
     "networkneighborhoods": {
       "queueLength": 50,
-      "workerCount": 100,
+      "workerCount": 2,
       "maxObjectSize": 10000000
     },
     "openvulnerabilityexchangecontainers": {

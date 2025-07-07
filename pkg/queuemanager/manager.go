@@ -8,6 +8,7 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/config"
 	"github.com/panjf2000/ants/v2"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -128,12 +129,44 @@ func extractKindAndVerbFromPath(r *http.Request) (kind, verb string) {
 	return "unknown", r.Method
 }
 
+func shouldSkipQueue(r *http.Request) bool {
+	// FIXME find a way to limit the number of watches in parallel
+	// watch requests cannot be queued, as they are long-lived and can block the queue
+	if r.URL.Query().Get("watch") == "true" {
+		logger.L().Info("QueueHandler - skipping queue for watch request", helpers.String("query", r.URL.String()))
+		return true
+	}
+	// check resourceVersion first
+	resourceVersion := r.URL.Query().Get("resourceVersion")
+	switch resourceVersion {
+	case softwarecomposition.ResourceVersionMetadata:
+		// Metadata requests do not require queuing
+		logger.L().Info("QueueHandler - skipping queue for metadata request", helpers.String("query", r.URL.String()))
+		return true
+	case softwarecomposition.ResourceVersionFullSpec:
+		// Full spec requests always require queuing
+		logger.L().Info("QueueHandler - enqueuing full spec request", helpers.String("query", r.URL.String()))
+		return false
+	}
+	// skip if it's a watch, list, or follow request
+	if r.URL.Query().Get("list") == "true" || r.URL.Query().Get("follow") == "true" {
+		logger.L().Info("QueueHandler - skipping queue for list/follow request", helpers.String("query", r.URL.String()))
+		return true
+	}
+	// skip if it's a portforward or exec request
+	if strings.HasSuffix(r.URL.Path, "/portforward") || strings.HasSuffix(r.URL.Path, "/exec") {
+		logger.L().Info("QueueHandler - skipping queue for portforward/exec request", helpers.String("query", r.URL.String()))
+		return true
+	}
+	logger.L().Info("QueueHandler - enqueuing other request", helpers.String("query", r.URL.String()))
+	return false
+}
+
 func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		kind, verb := extractKindAndVerb(r)
-		if kind == "unknown" || r.URL.Query().Get("watch") == "true" || r.URL.Query().Get("list") == "true" || r.URL.Query().Get("follow") == "true" ||
-			strings.HasSuffix(r.URL.Path, "/portforward") || strings.HasSuffix(r.URL.Path, "/exec") {
-			// Skip queue for watch, list, follow, portforward, exec, or unknown kind
+		if kind == "unknown" ||
+			shouldSkipQueue(r) {
 			// These requests should not take up queue workers - they are not designed to be memory intensive (taking only metadata)
 			// Unknown cannot be assigned to a queue
 			next.ServeHTTP(w, r)
