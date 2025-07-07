@@ -225,7 +225,7 @@ func (a *ContainerProfileProcessor) cleanup() error {
 
 func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer cancel() // FIXME should we add a timeout here?
 	conn, err := a.pool.Take(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to take connection: %w", err)
@@ -277,7 +277,8 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 		}
 		// delete processed time series profiles
 		for _, tsKey := range processed {
-			err := a.storageImpl.DeleteWithConn(ctx, conn, tsKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
+			// no locking needed for TS profiles
+			err := a.storageImpl.delete(ctx, conn, tsKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
 			// FIXME maybe try to delete others before exit?
 			if err != nil {
 				return fmt.Errorf("failed to delete processed time series profile: %w", err)
@@ -301,7 +302,8 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 				tsKey := key + "-" + ts.TsSuffix
 				tsProfile := softwarecomposition.ContainerProfile{}
 				logger.L().Debug("ContainerProfileProcessor.updateProfile - loading TS profile", loggerhelpers.String("key", tsKey))
-				err := a.storageImpl.GetWithConn(ctx, conn, tsKey, storage.GetOptions{}, &tsProfile)
+				// no locking needed for TS profiles
+				err := a.storageImpl.get(ctx, conn, tsKey, storage.GetOptions{}, &tsProfile)
 				switch {
 				case storage.IsNotFound(err):
 					timeSeries[seriesID][k].HasData = false

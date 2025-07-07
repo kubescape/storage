@@ -295,9 +295,13 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	if lockDuration > time.Second {
 		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
+	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+}
+
+func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	p := filepath.Join(s.root, key)
 	// delete metadata in SQLite
-	err = DeleteMetadata(conn, key, metaOut)
+	err := DeleteMetadata(conn, key, metaOut)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
 	}
