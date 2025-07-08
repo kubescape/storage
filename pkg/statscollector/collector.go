@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kubescape/go-logger"
-	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
@@ -59,7 +57,6 @@ func (sc *StatsCollector) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		kind, verb := extractKindAndVerb(r)
 		start := time.Now()
-		logger.L().Info("Handling request", loggerhelpers.String("kind", kind), loggerhelpers.String("verb", verb), loggerhelpers.String("path", r.URL.Path))
 		next.ServeHTTP(w, r)
 		elapsed := time.Since(start)
 

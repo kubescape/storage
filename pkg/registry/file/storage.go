@@ -327,6 +327,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	defer span.End()
 	_, _, _, namespace, _ := pathToKeys(key)
 	if namespace != "" {
+		// FIXME find an alternative to fix NS deletion
 		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
 		return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
 	}

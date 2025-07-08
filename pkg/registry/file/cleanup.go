@@ -271,7 +271,6 @@ func deleteWrongSchemaVersion(_, _ string, metadata *metav1.ObjectMeta, _ Resour
 	// schema version is transferred via annotations by loadMetadata
 	v, ok := metadata.Annotations["schemaVersion"]
 	if ok && v == fmt.Sprintf("%d", SchemaVersion) {
-		logger.L().Debug("keeping resource with correct schema version", helpers.String("name", metadata.Name), helpers.String("namespace", metadata.Namespace), helpers.String("schemaVersion", v))
 		return false
 	}
 	logger.L().Debug("deleting resource with wrong schema version", helpers.String("name", metadata.Name), helpers.String("namespace", metadata.Namespace), helpers.String("schemaVersion", v))

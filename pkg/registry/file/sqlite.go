@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kubescape/go-logger"
-	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	"k8s.io/apimachinery/pkg/runtime"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -216,11 +214,6 @@ func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 	if err != nil {
 		return fmt.Errorf("delete all time series entries: %w", err)
 	}
-	logger.L().Debug("deleted all TS profiles for completed container",
-		loggerhelpers.String("kind", kind),
-		loggerhelpers.String("namespace", namespace),
-		loggerhelpers.String("name", name),
-		loggerhelpers.Int("rows", conn.Changes()))
 	return nil
 }
 
@@ -349,12 +342,6 @@ func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, ts
 	if err != nil {
 		return fmt.Errorf("insert time series entry: %w", err)
 	}
-	logger.L().Debug("inserted TS profile",
-		loggerhelpers.String("kind", kind),
-		loggerhelpers.String("namespace", namespace),
-		loggerhelpers.String("name", name),
-		loggerhelpers.String("seriesID", seriesID),
-		loggerhelpers.String("tsSuffix", tsSuffix))
 	return nil
 }
 
@@ -380,12 +367,6 @@ func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string,
 	if err != nil {
 		return fmt.Errorf("delete time series entries: %w", err)
 	}
-	logger.L().Debug("deleted old TS profiles",
-		loggerhelpers.String("kind", kind),
-		loggerhelpers.String("namespace", namespace),
-		loggerhelpers.String("name", name),
-		loggerhelpers.String("seriesID", seriesID),
-		loggerhelpers.String("tsSuffixes", string(tsSuffixes)))
 	// insert new profiles
 	for _, profile := range newTimeSeries {
 		err := WriteTimeSeriesEntry(conn, kind, namespace, name, seriesID, profile.TsSuffix, profile.ReportTimestamp, profile.Status, profile.Completion, profile.PreviousReportTimestamp, profile.HasData)

@@ -70,7 +70,7 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 			pool:          pool,
 			maxObjectSize: maxObjectSize,
 		}
-		logger.L().Info("queue configuration", helpers.String("kind", kind), helpers.Int("queueLength", queueLen), helpers.Int("workerCount", workerCount), helpers.Int("maxObjectSize", maxObjectSize))
+		logger.L().Info("QueueManager - queue configuration", helpers.String("kind", kind), helpers.Int("queueLength", queueLen), helpers.Int("workerCount", workerCount), helpers.Int("maxObjectSize", maxObjectSize))
 		// Start a dispatcher goroutine for this kind
 		go func(q *kindQueue) {
 			for req := range q.queue {
@@ -89,7 +89,7 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 					}
 				})
 				if err != nil {
-					logger.L().Error("failed to submit to worker pool", helpers.Error(err), helpers.String("path", reqLocal.r.URL.Path), helpers.String("kind", kind), helpers.String("verb", reqLocal.r.Method), helpers.String("kind", kind))
+					logger.L().Error("QueueManager - failed to submit to worker pool", helpers.Error(err), helpers.String("path", reqLocal.r.URL.Path), helpers.String("kind", kind), helpers.String("verb", reqLocal.r.Method), helpers.String("kind", kind))
 					close(reqLocal.done)
 				}
 			}
@@ -133,7 +133,6 @@ func shouldSkipQueue(r *http.Request) bool {
 	// FIXME find a way to limit the number of watches in parallel
 	// watch requests cannot be queued, as they are long-lived and can block the queue
 	if r.URL.Query().Get("watch") == "true" {
-		logger.L().Info("QueueHandler - skipping queue for watch request", helpers.String("query", r.URL.String()))
 		return true
 	}
 	// check resourceVersion first
@@ -141,24 +140,19 @@ func shouldSkipQueue(r *http.Request) bool {
 	switch resourceVersion {
 	case softwarecomposition.ResourceVersionMetadata:
 		// Metadata requests do not require queuing
-		logger.L().Info("QueueHandler - skipping queue for metadata request", helpers.String("query", r.URL.String()))
 		return true
 	case softwarecomposition.ResourceVersionFullSpec:
 		// Full spec requests always require queuing
-		logger.L().Info("QueueHandler - enqueuing full spec request", helpers.String("query", r.URL.String()))
 		return false
 	}
 	// skip if it's a watch, list, or follow request
 	if r.URL.Query().Get("list") == "true" || r.URL.Query().Get("follow") == "true" {
-		logger.L().Info("QueueHandler - skipping queue for list/follow request", helpers.String("query", r.URL.String()))
 		return true
 	}
 	// skip if it's a portforward or exec request
 	if strings.HasSuffix(r.URL.Path, "/portforward") || strings.HasSuffix(r.URL.Path, "/exec") {
-		logger.L().Info("QueueHandler - skipping queue for portforward/exec request", helpers.String("query", r.URL.String()))
 		return true
 	}
-	logger.L().Info("QueueHandler - enqueuing other request", helpers.String("query", r.URL.String()))
 	return false
 }
 
@@ -175,7 +169,7 @@ func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 		q := qm.getOrCreateQueue(kind)
 		// Enforce max object size if applicable (Content-Length header)
 		if q.maxObjectSize > 0 && r.ContentLength > int64(q.maxObjectSize) {
-			logger.L().Warning("request entity too large", helpers.String("path", r.URL.Path),
+			logger.L().Warning("QueueManager - request entity too large", helpers.String("path", r.URL.Path),
 				helpers.String("kind", kind), helpers.String("verb", verb),
 				helpers.Int("contentLength", int(r.ContentLength)), helpers.Int("maxObjectSize", q.maxObjectSize))
 			http.Error(w, "Request entity too large", http.StatusRequestEntityTooLarge)
@@ -202,7 +196,7 @@ func (qm *QueueManager) logQueueFullThrottled(kind, verb string) {
 	lastLog, ok := qm.lastQueueFullLog[kind]
 	qm.mu.Unlock()
 	if !ok || time.Since(lastLog) > 1*time.Minute {
-		logger.L().Warning("queue full for resource", helpers.String("kind", kind), helpers.String("verb", verb), helpers.String("queue", "default"))
+		logger.L().Debug("QueueManager - queue full for resource", helpers.String("kind", kind), helpers.String("verb", verb), helpers.String("queue", "default"))
 		qm.mu.Lock()
 		qm.lastQueueFullLog[kind] = time.Now()
 		qm.mu.Unlock()
@@ -223,7 +217,7 @@ func TimeoutLoggerMiddleware(next http.Handler, timeoutSeconds int) http.Handler
 			case <-done:
 				// Request finished in time
 			case <-time.After(time.Duration(timeoutSeconds) * time.Second):
-				logger.L().Warning("Request took longer than timeout", helpers.String("path", r.URL.Path), helpers.String("method", r.Method), helpers.String("query", r.URL.RawQuery), helpers.String("remote", r.RemoteAddr))
+				logger.L().Warning("QueueManager - request took longer than timeout", helpers.String("path", r.URL.Path), helpers.String("method", r.Method), helpers.String("query", r.URL.RawQuery), helpers.String("remote", r.RemoteAddr))
 			}
 		}()
 		next.ServeHTTP(w, r)

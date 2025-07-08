@@ -89,15 +89,6 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, conn *sqlit
 			loggerhelpers.String("status", status))
 		return fmt.Errorf("write time series data: %w", err)
 	}
-	logger.L().Debug("ContainerProfileProcessor.AfterCreate - TS container profile registered",
-		loggerhelpers.String("name", profile.Name),
-		loggerhelpers.String("namespace", namespace),
-		loggerhelpers.String("completion", completion),
-		loggerhelpers.String("seriesID", seriesID),
-		loggerhelpers.String("tsSuffix", tsSuffix),
-		loggerhelpers.Interface("previousReportTimestamp", previousReportTimestamp),
-		loggerhelpers.Interface("reportTimestamp", reportTimestamp),
-		loggerhelpers.String("status", status))
 	return nil
 }
 
@@ -301,7 +292,6 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 				// load TS profile from disk
 				tsKey := key + "-" + ts.TsSuffix
 				tsProfile := softwarecomposition.ContainerProfile{}
-				logger.L().Debug("ContainerProfileProcessor.updateProfile - loading TS profile", loggerhelpers.String("key", tsKey))
 				// no locking needed for TS profiles
 				err := a.storageImpl.get(ctx, conn, tsKey, storage.GetOptions{}, &tsProfile)
 				switch {

@@ -56,7 +56,7 @@ func (a ApplicationProfileStorage) Get(ctx context.Context, key string, opts sto
 		for cpKey := range ap.Parts {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
-				logger.L().Warning("ApplicationProfileStorage.Get - get cp object", loggerhelpers.Error(err))
+				logger.L().Debug("ApplicationProfileStorage.Get - get cp object", loggerhelpers.Error(err))
 				return nil
 			}
 			architectures = append(architectures, cp.Spec.Architectures...)
