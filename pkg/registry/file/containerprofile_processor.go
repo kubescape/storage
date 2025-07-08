@@ -94,7 +94,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, conn *sqlit
 
 func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ContainerProfile)
-	if !ok {
+	if !ok || profile.Name == "" {
 		// do not return an error as we might call this on AP and NN as part of the updateProfile() flow below
 		return nil
 	}
@@ -410,7 +410,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 			ap.Parts = map[string]string{}
 		}
 		ap.Parts[key] = "" // checksum will be updated by getAggregatedData
-		status, completion, checksum := a.getAggregatedData(ctx, conn, ap.Parts)
+		status, completion, checksum := a.getAggregatedData(ctx, conn, key, ap.Parts)
 		apChecksum = checksum
 		ap.Annotations = map[string]string{
 			helpers.CompletionMetadataKey: completion,
@@ -446,7 +446,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 			nn.Parts = map[string]string{}
 		}
 		nn.Parts[key] = "" // checksum will be updated by getAggregatedData
-		status, completion, checksum := a.getAggregatedData(ctx, conn, nn.Parts)
+		status, completion, checksum := a.getAggregatedData(ctx, conn, key, nn.Parts)
 		nnChecksum = checksum
 		nn.Annotations = map[string]string{
 			helpers.CompletionMetadataKey: completion,
@@ -470,10 +470,11 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 // A profile status is completed only if all its main containers are completed.
 // A profile completion is full only if all its init/main containers are full.
 // A profile sync checksum is the checksum of all container checksums.
-func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn *sqlite.Conn, parts map[string]string) (string, string, string) {
+func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn *sqlite.Conn, key string, parts map[string]string) (string, string, string) {
 	mainContainers := 0
 	completed := 0
 	full := 0
+	var tooLarge bool
 	status := helpers.Learning
 	completion := helpers.Partial
 	hasher := sha256.New()
@@ -495,18 +496,23 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 		if profile.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
 			full++
 		}
+		if profile.Annotations[helpers.StatusMetadataKey] == helpers.TooLarge {
+			tooLarge = true
+		}
 		checksum := profile.Annotations[helpers.SyncChecksumMetadataKey]
 		parts[key] = checksum
 		hasher.Write([]byte(checksum)) // profile.Parts is sorted so the checksum is consistent
 	}
 	if completed == mainContainers && mainContainers > 0 {
 		status = helpers.Completed
+	} else if tooLarge {
+		status = helpers.TooLarge
 	}
 	if full == len(parts) {
 		completion = helpers.Full
 	}
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	logger.L().Debug("ContainerProfileProcessor.getAggregatedData - returning",
+	logger.L().Debug("ContainerProfileProcessor.getAggregatedData - returning", loggerhelpers.String("key", key),
 		loggerhelpers.Int("mainContainers", mainContainers), loggerhelpers.Int("completed", completed), loggerhelpers.Int("full", full),
 		loggerhelpers.String("status", status), loggerhelpers.String("completion", completion), loggerhelpers.String("hash", hash))
 	return status, completion, hash
