@@ -75,7 +75,7 @@ func (a NetworkNeighborhoodStorage) Get(ctx context.Context, key string, opts st
 			case "ephemeralContainers":
 				nn.Spec.EphemeralContainers = append(nn.Spec.EphemeralContainers, container)
 			default:
-				return fmt.Errorf("unknown container type: %s", nn.Annotations[helpersv1.ContainerTypeMetadataKey])
+				return fmt.Errorf("unknown container type: %s", cp.Annotations[helpersv1.ContainerTypeMetadataKey])
 			}
 		}
 		nn.Spec.MatchLabels = matchLabels

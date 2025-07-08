@@ -84,7 +84,7 @@ func (a ApplicationProfileStorage) Get(ctx context.Context, key string, opts sto
 			case "ephemeralContainers":
 				ap.Spec.EphemeralContainers = append(ap.Spec.EphemeralContainers, container)
 			default:
-				return fmt.Errorf("unknown container type: %s", ap.Annotations[helpersv1.ContainerTypeMetadataKey])
+				return fmt.Errorf("unknown container type: %s", cp.Annotations[helpersv1.ContainerTypeMetadataKey])
 			}
 		}
 		ap.Spec.Architectures = DeflateSortString(architectures)
