@@ -246,6 +246,7 @@ func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resource
 }
 
 func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
+	// FIXME this deletes objects if the deployment is scaled down to 0 replicas
 	wlReplica, wlReplicaFound := metadata.Labels[helpersv1.TemplateHashKey] // replica
 	if wlReplicaFound && wlReplica != "" {
 		return !resourceMaps.RunningTemplateHash.Contains(wlReplica)
