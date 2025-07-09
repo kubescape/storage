@@ -1,0 +1,218 @@
+{
+  "name": "replicaset-multiple-containers-deployment-d4b8dd5fd-server-5cad-76b6-9636b7285bf94f88a6f22c9eb3dcdbf2",
+  "namespace": "node-agent-test-hjjz",
+  "uid": "ee280bb7-d58f-4611-aaac-9e505985f858",
+  "creationTimestamp": "2025-06-24T10:35:19Z",
+  "labels": {
+    "kubescape.io/instance-template-hash": "d4b8dd5fd",
+    "kubescape.io/workload-api-group": "apps",
+    "kubescape.io/workload-api-version": "v1",
+    "kubescape.io/workload-container-name": "server",
+    "kubescape.io/workload-kind": "Deployment",
+    "kubescape.io/workload-name": "multiple-containers-deployment",
+    "kubescape.io/workload-namespace": "node-agent-test-hjjz",
+    "kubescape.io/workload-resource-version": "1448"
+  },
+  "annotations": {
+    "kubescape.io/completion": "complete",
+    "kubescape.io/instance-id": "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd/containerName-server",
+    "kubescape.io/previous-report-timestamp": "2025-06-24 10:34:49.777702792 +0000 UTC m=+287.235615616",
+    "kubescape.io/report-series-id": "4df45461-2634-4e87-b67c-c0b9a6b7fe1c",
+    "kubescape.io/report-timestamp": "2025-06-24 10:35:19.778668122 +0000 UTC m=+317.236580946",
+    "kubescape.io/status": "ready",
+    "kubescape.io/wlid": "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
+    "kubescape.io/workload-container-type": "containers"
+  },
+  "Spec": {
+    "Architectures": [
+      "amd64"
+    ],
+    "Capabilities": [
+      "SETGID",
+      "SETPCAP",
+      "SETUID",
+      "SYS_ADMIN"
+    ],
+    "Execs": [
+      {
+        "Path": "/bin/grpc_health_probe",
+        "Args": [
+          "/bin/grpc_health_probe",
+          "-addr=:9555"
+        ],
+        "Envs": null
+      }
+    ],
+    "Opens": [
+      {
+        "Path": "/app/build/install/hipstershop/lib/gax-1.47.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/grpc-stub-1.32.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/grpc-netty-1.32.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/log4j-core-2.16.0.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/jackson-annotations-2.12.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/app/build/install/hipstershop/lib/jackson-databind-2.12.1.jar",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      }
+    ],
+    "Syscalls": null,
+    "SeccompProfile": {
+      "Name": "",
+      "Path": "",
+      "Spec": {
+        "Disabled": false,
+        "BaseProfileName": "",
+        "DefaultAction": "",
+        "Architectures": null,
+        "ListenerPath": "",
+        "ListenerMetadata": "",
+        "Syscalls": null,
+        "Flags": null
+      }
+    },
+    "Endpoints": null,
+    "ImageID": "gcr.io/google-samples/microservices-demo/adservice@sha256:37b48b077af9130a6bd3b2fcb6d473e89eafc488262256f38fd663e890133af8",
+    "ImageTag": "gcr.io/google-samples/microservices-demo/adservice:v0.3.4",
+    "PolicyByRuleId": {
+      "R0001": {
+        "AllowedProcesses": [
+          "grpc_health_pro"
+        ],
+        "AllowedContainer": false
+      },
+      "R0002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1000": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1001": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1012": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1015": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1030": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      }
+    },
+    "IdentifiedCallStacks": null,
+    "matchLabels": {
+      "app": "multiple-containers-app"
+    },
+    "Ingress": null,
+    "Egress": null
+  },
+  "Status": {}
+}

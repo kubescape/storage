@@ -1,13 +1,10 @@
-package cleanup
+package file
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +13,6 @@ import (
 	"github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -39,24 +35,19 @@ type ResourcesCleanupHandler struct {
 	fetcher               ResourcesFetcher
 	deleteFunc            TypeDeleteFunc
 	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
-	watchDispatcher       *file.WatchDispatcher
-}
-
-// TEMPORARY CODE
-type PathVersion struct {
-	Path    string
-	Version int
+	watchDispatcher       *WatchDispatcher
 }
 
 func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {
 	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
-		// configurationscansummaries is virtual
-		// vulnerabilitysummaries is virtual
+		// applicationprofiles are handled by containerprofile_processor
+		// configurationscansummaries are virtual
+		// containerprofiles are handled by containerprofile_processor
+		// networkneighborhoods are handled by containerprofile_processor
+		// vulnerabilitysummaries are virtual
 		"applicationactivities":               {deleteDeprecated},
-		"applicationprofiles":                 {deleteByTemplateHashOrWlid},
 		"applicationprofilesummaries":         {deleteDeprecated},
 		"networkneighborses":                  {deleteDeprecated},
-		"networkneighborhoods":                {deleteByTemplateHashOrWlid},
 		"openvulnerabilityexchangecontainers": {deleteByImageId},
 		"sbomspdxv2p3filtereds":               {deleteDeprecated},
 		"sbomspdxv2p3filtered":                {deleteDeprecated},
@@ -80,7 +71,7 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 	return resourceKindToHandler
 }
 
-func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *file.WatchDispatcher, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
+func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, interval time.Duration, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
 
 	return &ResourcesCleanupHandler{
 		appFs:                 appFs,
@@ -94,107 +85,14 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 	}
 }
 
-func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
+func (h *ResourcesCleanupHandler) RunCleanupTask(ctx context.Context) {
 	for {
-		logger.L().Info("started cleanup task", helpers.String("interval", h.interval.String()))
-		var err error
-		h.resources, err = h.fetcher.FetchResources()
+		logger.L().Info("starting cleanup task", helpers.String("interval", h.interval.String()))
+		err := h.CleanupTask(ctx, h.resourceToKindHandler)
 		if err != nil {
-			logger.L().Error("cleanup task error. sleeping...", helpers.Error(err))
+			logger.L().Error("cleanup task error", helpers.Error(err))
 			time.Sleep(h.interval)
 			continue
-		}
-
-		for resourceKind, handlers := range h.resourceToKindHandler {
-			v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
-			exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
-			if !exists {
-				continue
-			}
-			// TEMPORARY CODE
-			// map for cronjob related resources
-			cronjobResources := make(map[string][]PathVersion)
-			err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil // we might encounter already deleted files from readMetadata when migrating to SQLite
-				}
-
-				// skip directories
-				if info.IsDir() {
-					return nil
-				}
-
-				if size := info.Size(); size > MinSizeToReport {
-					logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
-				}
-
-				// skip files that are not payload files
-				if !file.IsPayloadFile(path) {
-					return nil
-				}
-
-				metadata, err := h.readMetadata(path)
-				if err != nil {
-					logger.L().Error("load metadata error", helpers.Error(err))
-					return nil
-				}
-
-				// either run single handler, or perform OR operation on multiple handlers
-				var toDelete bool
-				if len(handlers) == 1 {
-					toDelete = handlers[0](resourceKind, path, metadata, h.resources)
-				} else {
-					toDelete = or(handlers, resourceKind, path, metadata, h.resources)
-				}
-
-				if toDelete {
-					logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
-					h.deleteFunc(h.appFs, path)
-
-					metaOut := h.deleteMetadata(path)
-					if h.watchDispatcher != nil {
-						key := path[len(h.root) : len(path)-len(file.GobExt)]
-						h.watchDispatcher.Deleted(key, metaOut)
-					}
-				} else if relatedKind, ok := metadata.Labels[helpersv1.KindMetadataKey]; ok && relatedKind == "CronJob" {
-					// TEMPORARY CODE
-					// special case for CronJobs related resources missing template hash
-					key := metadata.Labels[helpersv1.NamespaceMetadataKey] + "/" + metadata.Labels[helpersv1.NameMetadataKey]
-					if cronjobResources[key] == nil {
-						cronjobResources[key] = []PathVersion{}
-					}
-					version, err := strconv.Atoi(metadata.Labels[helpersv1.ResourceVersionMetadataKey])
-					if err != nil {
-						return nil
-					}
-					cronjobResources[key] = append(cronjobResources[key], PathVersion{Path: path, Version: version})
-				}
-				return nil
-			})
-			if err != nil {
-				logger.L().Error("cleanup task error", helpers.Error(err))
-			}
-			// TEMPORARY CODE
-			// delete cronjob related resources
-			for _, pathVersions := range cronjobResources {
-				if len(pathVersions) < 2 {
-					continue
-				}
-				// keep the latest version
-				slices.SortFunc(pathVersions, func(a, b PathVersion) int {
-					return cmp.Compare(b.Version, a.Version) // sort descending
-				})
-				// delete all but the latest version
-				for _, pathVersion := range pathVersions[1:] {
-					logger.L().Debug("deleting cronjob related resource", helpers.String("path", pathVersion.Path))
-					h.deleteFunc(h.appFs, pathVersion.Path)
-					metaOut := h.deleteMetadata(pathVersion.Path)
-					if h.watchDispatcher != nil {
-						key := pathVersion.Path[len(h.root) : len(pathVersion.Path)-len(file.GobExt)]
-						h.watchDispatcher.Deleted(key, metaOut)
-					}
-				}
-			}
 		}
 
 		if h.interval == 0 {
@@ -204,6 +102,75 @@ func (h *ResourcesCleanupHandler) StartCleanupTask(ctx context.Context) {
 		logger.L().Info("finished cleanup task. sleeping...")
 		time.Sleep(h.interval)
 	}
+}
+
+func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKindHandler map[string][]TypeCleanupHandlerFunc) error {
+	var err error
+	h.resources, err = h.fetcher.FetchResources()
+	if err != nil {
+		return fmt.Errorf("failed to fetch resources: %w", err)
+	}
+	conn, err := h.pool.Take(context.Background())
+	defer h.pool.Put(conn)
+	if err != nil {
+		return fmt.Errorf("failed to take connection: %w", err)
+	}
+	for resourceKind, handlers := range resourceToKindHandler {
+		v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind)
+		exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
+		if !exists {
+			continue
+		}
+		err := afero.Walk(h.appFs, v1beta1ApiVersionPath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil // we might encounter already deleted files from readMetadata when migrating to SQLite
+			}
+
+			// skip directories
+			if info.IsDir() {
+				return nil
+			}
+
+			if size := info.Size(); size > MinSizeToReport {
+				logger.L().Ctx(ctx).Warning("large file detected, you may want to truncate it", helpers.String("path", path), helpers.String("size", fmt.Sprintf("%d bytes", size)))
+			}
+
+			// skip files that are not payload files
+			if !IsPayloadFile(path) {
+				return nil
+			}
+
+			metadata, err := h.readMetadata(conn, path)
+			if err != nil {
+				logger.L().Error("load metadata error", helpers.Error(err))
+				return nil
+			}
+
+			// either run single handler, or perform OR operation on multiple handlers
+			var toDelete bool
+			if len(handlers) == 1 {
+				toDelete = handlers[0](resourceKind, path, metadata, h.resources)
+			} else {
+				toDelete = or(handlers, resourceKind, path, metadata, h.resources)
+			}
+
+			if toDelete {
+				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
+				h.deleteFunc(h.appFs, path)
+
+				metaOut := h.deleteMetadata(conn, path)
+				if h.watchDispatcher != nil {
+					key := path[len(h.root) : len(path)-len(GobExt)]
+					h.watchDispatcher.Deleted(key, metaOut)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to walk %s: %w", v1beta1ApiVersionPath, err)
+		}
+	}
+	return nil
 }
 
 func or(funcs []TypeCleanupHandlerFunc, kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
@@ -297,4 +264,15 @@ func deleteMissingInstanceIdAnnotation(_, _ string, metadata *metav1.ObjectMeta,
 func deleteMissingWlidAnnotation(_, _ string, metadata *metav1.ObjectMeta, _ ResourceMaps) bool {
 	_, ok := metadata.Annotations[helpersv1.WlidMetadataKey]
 	return !ok
+}
+
+// deleteWrongSchemaVersion deletes resources that have missing or unexpected schema version
+func deleteWrongSchemaVersion(_, _ string, metadata *metav1.ObjectMeta, _ ResourceMaps) bool {
+	// schema version is transferred via annotations by loadMetadata
+	v, ok := metadata.Annotations["schemaVersion"]
+	if ok && v == fmt.Sprintf("%d", SchemaVersion) {
+		return false
+	}
+	logger.L().Debug("deleting resource with wrong schema version", helpers.String("name", metadata.Name), helpers.String("namespace", metadata.Namespace), helpers.String("schemaVersion", v))
+	return true
 }

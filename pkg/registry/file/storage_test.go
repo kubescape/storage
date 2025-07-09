@@ -579,7 +579,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				},
 				cachedExistingObject: toto.DeepCopyObject(),
 			},
-			wantNotFound: true, // no change, not found because we don't call writeFiles
+			wantNotFound: true, // no change, not found because we don't call saveObject
 		},
 		{
 			name: "test with failing precondition",
@@ -674,7 +674,9 @@ func BenchmarkWriteFiles(b *testing.B) {
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
 	}(pool)
-	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, nil).(*StorageImpl)
+	sch := scheme.Scheme
+	require.NoError(b, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
 	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
 	obj := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
@@ -687,9 +689,11 @@ func BenchmarkWriteFiles(b *testing.B) {
 		},
 	}
 	metaOut := &v1beta1.SBOMSyft{}
+	conn, _ := s.pool.Take(context.Background())
 	for i := 0; i < b.N; i++ {
-		_ = s.writeFiles(key, obj, metaOut)
+		_ = s.saveObject(conn, key, obj, metaOut, "")
 	}
+	s.pool.Put(conn)
 	b.ReportAllocs()
 }
 

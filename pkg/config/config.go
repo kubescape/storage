@@ -19,6 +19,7 @@ type Config struct {
 	ExcludeJsonPaths           []string      `mapstructure:"excludeJsonPaths"`
 	MaxApplicationProfileSize  int           `mapstructure:"maxApplicationProfileSize"`
 	MaxNetworkNeighborhoodSize int           `mapstructure:"maxNetworkNeighborhoodSize"`
+	MaxSniffingTime            time.Duration `mapstructure:"maxSniffingTimePerContainer"`
 	RateLimitPerClient         float64       `mapstructure:"rateLimitPerClient"`
 	RateLimitTotal             int           `mapstructure:"rateLimitTotal"`
 	ServerBindPort             int           `mapstructure:"serverBindPort"`
@@ -33,6 +34,7 @@ type Config struct {
 	DefaultMaxObjectSize int                        `mapstructure:"defaultMaxObjectSize"`
 
 	// Debugging
+	QueueManagerEnabled       bool `mapstructure:"queueManagerEnabled"`
 	QueueTimeoutPrint         bool `mapstructure:"queueTimeoutPrint"`
 	QueueTimeout              int  `mapstructure:"queueTimeout"`
 	QueueProcessingStatsPrint bool `mapstructure:"queueProcessingStatsPrint"`
@@ -53,6 +55,7 @@ func LoadConfig(path string) (Config, error) {
 	viper.SetDefault("defaultQueueLength", 100)
 	viper.SetDefault("defaultWorkerCount", 2)
 	viper.SetDefault("defaultMaxObjectSize", 400000)
+	viper.SetDefault("queueManagerEnabled", false)
 	viper.SetDefault("queueTimeoutPrint", false)
 	viper.SetDefault("queueTimeout", 60)
 	viper.SetDefault("queueProcessingStatsPrint", false)
@@ -61,6 +64,11 @@ func LoadConfig(path string) (Config, error) {
 			QueueLength:   50,
 			WorkerCount:   1,
 			MaxObjectSize: 20000000,
+		},
+		"containerprofiles": {
+			QueueLength:   50,
+			WorkerCount:   1,
+			MaxObjectSize: 2500000,
 		},
 		"networkneighborhoods": {
 			QueueLength:   50,
