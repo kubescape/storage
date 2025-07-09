@@ -1,0 +1,305 @@
+{
+  "name": "replicaset-coredns-5d78c9869d-coredns-185f-129c-c68b821c86194262b389d919d1355ee6",
+  "namespace": "kube-system",
+  "uid": "2f5f723e-a6ef-4e2b-a501-349bf7d19004",
+  "creationTimestamp": "2025-06-24T10:29:46Z",
+  "labels": {
+    "kubescape.io/instance-template-hash": "5d78c9869d",
+    "kubescape.io/workload-api-group": "apps",
+    "kubescape.io/workload-api-version": "v1",
+    "kubescape.io/workload-container-name": "coredns",
+    "kubescape.io/workload-kind": "Deployment",
+    "kubescape.io/workload-name": "coredns",
+    "kubescape.io/workload-namespace": "kube-system",
+    "kubescape.io/workload-resource-version": "523"
+  },
+  "annotations": {
+    "kubescape.io/completion": "partial",
+    "kubescape.io/instance-id": "apiVersion-apps/v1/namespace-kube-system/kind-ReplicaSet/name-coredns-5d78c9869d/containerName-coredns",
+    "kubescape.io/previous-report-timestamp": "0001-01-01 00:00:00 +0000 UTC",
+    "kubescape.io/report-series-id": "4580f9fc-7563-41d8-bb60-e2eeca72f495",
+    "kubescape.io/report-timestamp": "2025-06-24 10:29:46.810421941 +0000 UTC m=+66.976503851",
+    "kubescape.io/status": "ready",
+    "kubescape.io/wlid": "wlid://cluster-kind-kind/namespace-kube-system/deployment-coredns",
+    "kubescape.io/workload-container-type": "containers"
+  },
+  "Spec": {
+    "Architectures": [
+      "amd64"
+    ],
+    "Capabilities": null,
+    "Execs": null,
+    "Opens": [
+      {
+        "Path": "/proc/stat",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/fd",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/coredns/..2025_06_24_10_28_00.1936584358/Corefile",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/limits",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/stat",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      }
+    ],
+    "Syscalls": [
+      "getpid",
+      "recvmsg",
+      "openat",
+      "socket",
+      "getdents64",
+      "getsockopt",
+      "futex",
+      "newfstatat",
+      "rt_sigreturn",
+      "getpeername",
+      "getsockname",
+      "write",
+      "epoll_ctl",
+      "epoll_pwait",
+      "tgkill",
+      "sendmsg",
+      "accept4",
+      "close",
+      "connect",
+      "read",
+      "sched_yield",
+      "nanosleep",
+      "setsockopt",
+      "fcntl",
+      "fstat"
+    ],
+    "SeccompProfile": {
+      "Name": "",
+      "Path": "",
+      "Spec": {
+        "Disabled": false,
+        "BaseProfileName": "",
+        "DefaultAction": "",
+        "Architectures": null,
+        "ListenerPath": "",
+        "ListenerMetadata": "",
+        "Syscalls": null,
+        "Flags": null
+      }
+    },
+    "Endpoints": [
+      {
+        "Endpoint": ":8080/health",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Accept-Encoding": [
+            "gzip"
+          ],
+          "Host": [
+            ":8080"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":8080/health",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "outbound",
+        "Headers": {
+          "Accept-Encoding": [
+            "gzip"
+          ],
+          "Host": [
+            ":8080"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":8181/ready",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Connection": [
+            "close"
+          ],
+          "Host": [
+            "10.244.0.3:8181"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":8080/health",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Connection": [
+            "close"
+          ],
+          "Host": [
+            "10.244.0.3:8080"
+          ]
+        }
+      },
+      {
+        "Endpoint": ":9153/metrics",
+        "Methods": [
+          "GET"
+        ],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {
+          "Accept-Encoding": [
+            "gzip"
+          ],
+          "Host": [
+            "10.244.0.3:9153"
+          ]
+        }
+      }
+    ],
+    "ImageID": "sha256:ead0a4a53df89fd173874b46093b6e62d8c72967bbf606d672c9e8c9b601a4fc",
+    "ImageTag": "registry.k8s.io/coredns/coredns:v1.10.1",
+    "PolicyByRuleId": null,
+    "IdentifiedCallStacks": [
+      {
+        "CallID": "test-call-id",
+        "CallStack": {
+          "Root": {
+            "Children": null,
+            "Frame": {
+              "FileID": "",
+              "Lineno": "",
+              "FrameType": 0
+            }
+          }
+        }
+      }
+    ],
+    "matchLabels": {
+      "k8s-app": "kube-dns"
+    },
+    "Ingress": [
+      {
+        "Identifier": "336a2ae983dc6ed68fc44228eaaf0c50d2d104f4c5d66b49bfe7905e170eb0ab",
+        "Type": "external",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "TCP-8181",
+            "Protocol": "TCP",
+            "Port": 8181
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "10.244.0.1"
+      },
+      {
+        "Identifier": "d4b6894566e457344d98dfc83bcb0430426c3e4436c0dec591758854d1721b0f",
+        "Type": "internal",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "TCP-9153",
+            "Protocol": "TCP",
+            "Port": 9153
+          }
+        ],
+        "PodSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/instance": "prometheus-kube-prometheus-prometheus",
+            "app.kubernetes.io/managed-by": "prometheus-operator",
+            "app.kubernetes.io/name": "prometheus",
+            "app.kubernetes.io/version": "3.4.1",
+            "operator.prometheus.io/name": "prometheus-kube-prometheus-prometheus",
+            "operator.prometheus.io/shard": "0",
+            "prometheus": "prometheus-kube-prometheus-prometheus",
+            "statefulset.kubernetes.io/pod-name": "prometheus-prometheus-kube-prometheus-prometheus-0"
+          }
+        },
+        "NamespaceSelector": {
+          "matchLabels": {
+            "kubernetes.io/metadata.name": "monitoring"
+          }
+        },
+        "IPAddress": ""
+      },
+      {
+        "Identifier": "336a2ae983dc6ed68fc44228eaaf0c50d2d104f4c5d66b49bfe7905e170eb0ab",
+        "Type": "external",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "TCP-8080",
+            "Protocol": "TCP",
+            "Port": 8080
+          }
+        ],
+        "PodSelector": null,
+        "NamespaceSelector": null,
+        "IPAddress": "10.244.0.1"
+      },
+      {
+        "Identifier": "8a255c76f53414e4c7f65d0683bb4bfa891acbbc4ddaf939e8988979213bfe87",
+        "Type": "internal",
+        "DNS": "",
+        "DNSNames": null,
+        "Ports": [
+          {
+            "Name": "UDP-53",
+            "Protocol": "UDP",
+            "Port": 53
+          }
+        ],
+        "PodSelector": {
+          "matchLabels": {
+            "app": "multiple-containers-app"
+          }
+        },
+        "NamespaceSelector": {
+          "matchLabels": {
+            "kubernetes.io/metadata.name": "node-agent-test-hjjz"
+          }
+        },
+        "IPAddress": ""
+      }
+    ],
+    "Egress": null
+  },
+  "Status": {}
+}

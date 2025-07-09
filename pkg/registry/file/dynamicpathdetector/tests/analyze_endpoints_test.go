@@ -138,7 +138,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			for i := range result {
 				assert.Equal(t, tt.expected[i].Endpoint, result[i].Endpoint)
 				assert.Equal(t, tt.expected[i].Methods, result[i].Methods)
-				ja.Assertf(string(result[i].Headers), string(tt.expected[i].Headers))
+				ja.Assert(string(result[i].Headers), string(tt.expected[i].Headers))
 			}
 		})
 	}

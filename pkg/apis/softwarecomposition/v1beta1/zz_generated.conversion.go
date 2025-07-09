@@ -1744,6 +1744,8 @@ func Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfil
 
 func autoConvert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(in *softwarecomposition.ApplicationProfile, out *ApplicationProfile, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
+	// INFO: in.Parts opted out of conversion generation
+	// INFO: in.SchemaVersion opted out of conversion generation
 	if err := Convert_softwarecomposition_ApplicationProfileSpec_To_v1beta1_ApplicationProfileSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}
@@ -1804,7 +1806,17 @@ func Convert_softwarecomposition_ApplicationProfileContainer_To_v1beta1_Applicat
 
 func autoConvert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationProfileList(in *ApplicationProfileList, out *softwarecomposition.ApplicationProfileList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]softwarecomposition.ApplicationProfile)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]softwarecomposition.ApplicationProfile, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_ApplicationProfile_To_softwarecomposition_ApplicationProfile(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -1815,7 +1827,17 @@ func Convert_v1beta1_ApplicationProfileList_To_softwarecomposition_ApplicationPr
 
 func autoConvert_softwarecomposition_ApplicationProfileList_To_v1beta1_ApplicationProfileList(in *softwarecomposition.ApplicationProfileList, out *ApplicationProfileList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]ApplicationProfile)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]ApplicationProfile, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_ApplicationProfile_To_v1beta1_ApplicationProfile(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -3683,6 +3705,8 @@ func Convert_v1beta1_NetworkNeighborhood_To_softwarecomposition_NetworkNeighborh
 
 func autoConvert_softwarecomposition_NetworkNeighborhood_To_v1beta1_NetworkNeighborhood(in *softwarecomposition.NetworkNeighborhood, out *NetworkNeighborhood, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
+	// INFO: in.Parts opted out of conversion generation
+	// INFO: in.SchemaVersion opted out of conversion generation
 	if err := Convert_softwarecomposition_NetworkNeighborhoodSpec_To_v1beta1_NetworkNeighborhoodSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}
@@ -3720,7 +3744,17 @@ func Convert_softwarecomposition_NetworkNeighborhoodContainer_To_v1beta1_Network
 
 func autoConvert_v1beta1_NetworkNeighborhoodList_To_softwarecomposition_NetworkNeighborhoodList(in *NetworkNeighborhoodList, out *softwarecomposition.NetworkNeighborhoodList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]softwarecomposition.NetworkNeighborhood)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]softwarecomposition.NetworkNeighborhood, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_NetworkNeighborhood_To_softwarecomposition_NetworkNeighborhood(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -3731,7 +3765,17 @@ func Convert_v1beta1_NetworkNeighborhoodList_To_softwarecomposition_NetworkNeigh
 
 func autoConvert_softwarecomposition_NetworkNeighborhoodList_To_v1beta1_NetworkNeighborhoodList(in *softwarecomposition.NetworkNeighborhoodList, out *NetworkNeighborhoodList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]NetworkNeighborhood)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]NetworkNeighborhood, len(*in))
+		for i := range *in {
+			if err := Convert_softwarecomposition_NetworkNeighborhood_To_v1beta1_NetworkNeighborhood(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 

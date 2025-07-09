@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
@@ -41,10 +42,12 @@ const (
 	DefaultStorageRoot       = "/data"
 	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 	operationNotSupportedMsg = "operation not supported"
+	SchemaVersion            = int64(1)
 )
 
 var (
-	TooLargeObjectError = errors.New("object is too large")
+	ObjectCompletedError = errors.New("object is completed")
+	ObjectTooLargeError  = errors.New("object is too large")
 )
 
 type objState struct {
@@ -101,6 +104,10 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 	return storageImpl
 }
 
+func (s *StorageImpl) GetCurrentResourceVersion(_ context.Context) (uint64, error) {
+	return 0, nil
+}
+
 func (s *StorageImpl) ReadinessCheck() error {
 	return nil
 }
@@ -110,15 +117,16 @@ func (s *StorageImpl) Versioner() storage.Versioner {
 	return s.versioner
 }
 
-func extractMetadata(obj runtime.Object) runtime.Object {
+func extractFields(obj runtime.Object, fields []string) runtime.Object {
 	val := reflect.ValueOf(obj).Elem()
-	metadata := val.FieldByName("ObjectMeta")
-	if metadata.IsValid() {
-		ret := reflect.New(val.Type()).Interface().(runtime.Object)
-		reflect.ValueOf(ret).Elem().FieldByName("ObjectMeta").Set(metadata)
-		return ret
+	ret := reflect.New(val.Type()).Interface().(runtime.Object)
+	for _, name := range fields {
+		field := val.FieldByName(name)
+		if field.IsValid() {
+			reflect.ValueOf(ret).Elem().FieldByName(name).Set(field)
+		}
 	}
-	return nil
+	return ret
 }
 
 // makePayloadPath returns a path for the payload file
@@ -136,7 +144,7 @@ func (s *StorageImpl) keyFromPath(path string) string {
 	return strings.TrimPrefix(strings.TrimSuffix(path, extension), s.root)
 }
 
-func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime.Object) error {
+func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string) error {
 	// increment resourceVersion
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
 		if err := s.versioner.UpdateObject(obj, version+1); err != nil {
@@ -169,11 +177,13 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 		return fmt.Errorf("encode payload: %w", err)
 	}
 	// extract metadata
-	metadata := extractMetadata(obj)
+	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
 	// calculate checksum
-	checksum, err := s.CalculateChecksum(obj)
-	if err != nil {
-		return fmt.Errorf("calculate checksum: %w", err)
+	if checksum == "" {
+		checksum, err = s.CalculateChecksum(obj)
+		if err != nil {
+			return fmt.Errorf("calculate checksum: %w", err)
+		}
 	}
 	// add checksum to metadata
 	if anno := metadata.(metav1.Object).GetAnnotations(); anno == nil {
@@ -182,12 +192,7 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 		anno[helpersv1.SyncChecksumMetadataKey] = checksum
 	}
 	// store metadata in SQLite
-	conn, err := s.pool.Take(context.Background())
-	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
-	}
 	err = writeMetadata(conn, key, metadata)
-	s.pool.Put(conn)
 	if err != nil {
 		return fmt.Errorf("write metadata: %w", err)
 	}
@@ -208,6 +213,15 @@ func (s *StorageImpl) writeFiles(key string, obj runtime.Object, metaOut runtime
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return fmt.Errorf("take connection: %w", err)
+	}
+	defer s.pool.Put(conn)
+	return s.CreateWithConn(ctx, conn, key, obj, metaOut, 0)
+}
+
+func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key string, obj, metaOut runtime.Object, _ uint64) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Create")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -234,13 +248,17 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 		return errors.New(msg)
 	}
 	// call processor on object to be saved
-	if err := s.processor.PreSave(ctx, obj); err != nil && !errors.Is(err, TooLargeObjectError) {
-		return fmt.Errorf("processor.PreSave: %w", err)
-	}
-	// write files
-	if err := s.writeFiles(key, obj, metaOut); err != nil {
-		logger.L().Ctx(ctx).Error("Create - write files failed", helpers.Error(err), helpers.String("key", key))
+	if err := s.processor.PreSave(ctx, conn, obj); err != nil {
 		return err
+	}
+	// save object
+	if err := s.saveObject(conn, key, obj, metaOut, ""); err != nil {
+		logger.L().Ctx(ctx).Error("Create - save object failed", helpers.Error(err), helpers.String("key", key))
+		return err
+	}
+	// call processor on saved object
+	if err := s.processor.AfterCreate(ctx, conn, obj); err != nil {
+		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
 	// publish event to watchers
 	s.watchDispatcher.Added(key, metaOut, obj)
@@ -253,6 +271,15 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return fmt.Errorf("take connection: %w", err)
+	}
+	defer s.pool.Put(conn)
+	return s.DeleteWithConn(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+}
+
+func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -268,14 +295,13 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	if lockDuration > time.Second {
 		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
+	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+}
+
+func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	p := filepath.Join(s.root, key)
 	// delete metadata in SQLite
-	conn, err := s.pool.Take(context.Background())
-	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
-	}
-	err = DeleteMetadata(conn, key, metaOut)
-	s.pool.Put(conn)
+	err := DeleteMetadata(conn, key, metaOut)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
 	}
@@ -299,6 +325,12 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+	_, _, _, namespace, _ := pathToKeys(key)
+	if namespace != "" {
+		// FIXME find an alternative to fix NS deletion
+		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
+		return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+	}
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
 	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
 	s.watchDispatcher.Register(key, nw)
@@ -311,6 +343,15 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return fmt.Errorf("take connection: %w", err)
+	}
+	defer s.pool.Put(conn)
+	return s.GetWithConn(ctx, conn, key, opts, objPtr)
+}
+
+func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Get")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -326,20 +367,15 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	if lockDuration > time.Second {
 		logger.L().Debug("Get", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
-	return s.get(ctx, key, opts, objPtr)
+	return s.get(ctx, conn, key, opts, objPtr)
 }
 
 // get is a helper function for Get to allow calls without locks from other methods that already have them
-func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	p := filepath.Join(s.root, key)
 	if opts.ResourceVersion == softwarecomposition.ResourceVersionMetadata {
 		// get metadata from SQLite
-		conn, err := s.pool.Take(context.Background())
-		if err != nil {
-			return fmt.Errorf("take connection: %w", err)
-		}
 		metadata, err := ReadMetadata(conn, key)
-		s.pool.Put(conn)
 		if err != nil {
 			if errors.Is(err, ErrMetadataNotFound) {
 				if opts.IgnoreNotFound {
@@ -357,12 +393,7 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			// file not found, delete corresponding metadata
-			conn, err := s.pool.Take(context.Background())
-			if err != nil {
-				return fmt.Errorf("take connection: %w", err)
-			}
 			_ = DeleteMetadata(conn, key, nil)
-			s.pool.Put(conn)
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {
@@ -380,12 +411,7 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 	if err != nil {
 		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 			// irrecoverable error, delete corresponding data
-			conn, err := s.pool.Take(context.Background())
-			if err != nil {
-				return fmt.Errorf("take connection: %w", err)
-			}
 			_ = DeleteMetadata(conn, key, nil)
-			s.pool.Put(conn)
 			_ = s.appFs.Remove(makePayloadPath(p))
 			logger.L().Debug("Get - gob unexpected EOF, removed files", helpers.String("key", key))
 			if opts.IgnoreNotFound {
@@ -408,6 +434,15 @@ func (s *StorageImpl) get(ctx context.Context, key string, opts storage.GetOptio
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return fmt.Errorf("take connection: %w", err)
+	}
+	defer s.pool.Put(conn)
+	return s.GetListWithConn(ctx, conn, key, opts, listObj)
+}
+
+func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -426,16 +461,11 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 		opts.Predicate.Limit = 500
 	}
 	// prepare SQLite connection
-	conn, err := s.pool.Take(context.Background()) // TODO maybe use ctx here to have cancellation?
-	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
-	}
 	var list []string
 	var last string
 	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
 		// get names from SQLite
-		list, last, err = listKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
-		s.pool.Put(conn)
+		list, last, err = listMetadataKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
@@ -443,7 +473,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 		for _, k := range list {
 			elem := v.Type().Elem()
 			obj := reflect.New(elem).Interface().(runtime.Object)
-			if err := s.get(ctx, k, storage.GetOptions{}, obj); err != nil {
+			if err := s.get(ctx, conn, k, storage.GetOptions{}, obj); err != nil {
 				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", k))
 			}
 			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
@@ -451,7 +481,6 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	} else {
 		// get metadata from SQLite
 		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
-		s.pool.Put(conn)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
 		}
@@ -586,6 +615,17 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 func (s *StorageImpl) GuaranteedUpdate(
 	ctx context.Context, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
+	conn, err := s.pool.Take(context.Background())
+	if err != nil {
+		return fmt.Errorf("take connection: %w", err)
+	}
+	defer s.pool.Put(conn)
+	return s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "")
+}
+
+func (s *StorageImpl) GuaranteedUpdateWithConn(
+	ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, ignoreNotFound bool,
+	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object, checksum string) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -614,7 +654,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 
 	getCurrentState := func() (*objState, error) {
 		objPtr := reflect.New(v.Type()).Interface().(runtime.Object)
-		err := s.get(ctx, key, storage.GetOptions{IgnoreNotFound: ignoreNotFound}, objPtr)
+		err := s.get(ctx, conn, key, storage.GetOptions{IgnoreNotFound: ignoreNotFound}, objPtr)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - get failed", helpers.Error(err), helpers.String("key", key))
 			return nil, err
@@ -638,7 +678,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 	// check object size
 	annotations := origState.obj.(metav1.Object).GetAnnotations()
 	if annotations != nil && annotations[helpersv1.StatusMetadataKey] == helpersv1.TooLarge {
-		logger.L().Ctx(ctx).Debug("GuaranteedUpdate - already too large object, skipping update", helpers.String("key", key))
+		logger.L().Debug("GuaranteedUpdate - already too large object, skipping update", helpers.String("key", key))
 		// no change, return the original object
 		v.Set(reflect.ValueOf(origState.obj).Elem())
 		return nil
@@ -673,7 +713,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
 					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
-				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				logger.L().Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				return err
 			}
 
@@ -695,7 +735,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
 					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				}
-				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				logger.L().Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
 				return cachedUpdateErr
 			}
 
@@ -704,8 +744,8 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// call processor on object to be saved
-		if err := s.processor.PreSave(ctx, ret); err != nil {
-			if errors.Is(err, TooLargeObjectError) {
+		if err := s.processor.PreSave(ctx, conn, ret); err != nil {
+			if errors.Is(err, ObjectTooLargeError) {
 				// revert spec
 				ret = origState.obj.DeepCopyObject() // FIXME this is expensive
 				// update annotations with the new state
@@ -713,17 +753,17 @@ func (s *StorageImpl) GuaranteedUpdate(
 				annotations := metadata.GetAnnotations()
 				annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
 				metadata.SetAnnotations(annotations)
-				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
+				logger.L().Debug("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
 				// we don't return here as we still need to save the object with updated annotations
 			} else {
-				logger.L().Ctx(ctx).Debug("GuaranteedUpdate - processor.PreSave failed", helpers.Error(err), helpers.String("key", key))
-				return fmt.Errorf("processor.PreSave: %w", err)
+				logger.L().Debug("GuaranteedUpdate - processor.PreSave failed", helpers.Error(err), helpers.String("key", key))
+				return err
 			}
 		}
 
 		// check if the object is the same as the original
 		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
-		_ = s.processor.PreSave(ctx, orig)
+		_ = s.processor.PreSave(ctx, conn, orig)
 		if reflect.DeepEqual(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object
@@ -732,8 +772,8 @@ func (s *StorageImpl) GuaranteedUpdate(
 		}
 
 		// save to disk and fill into metaOut
-		if err := s.writeFiles(key, ret, metaOut); err != nil {
-			logger.L().Ctx(ctx).Error("GuaranteedUpdate - write files failed", helpers.Error(err), helpers.String("key", key))
+		if err := s.saveObject(conn, key, ret, metaOut, checksum); err != nil {
+			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
 		}
 		// Only successful updates should produce modification events

@@ -1,4 +1,4 @@
-package cleanup
+package file
 
 // This test is used to populate wlids.json when updating the testdata
 //func TestKubernetesAPI_fetchWlidsFromRunningWorkloads(t *testing.T) {
