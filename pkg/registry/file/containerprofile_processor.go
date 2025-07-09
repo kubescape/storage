@@ -110,15 +110,19 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 		if err != nil {
 			return nil
 		}
-		switch existingProfile.Annotations[helpers.StatusMetadataKey] {
-		case helpers.TooLarge:
+		existingStatus := existingProfile.Annotations[helpers.StatusMetadataKey]
+		if existingStatus == helpers.TooLarge {
+			// reject TS profile if the existing profile is too large
 			return ObjectTooLargeError
-		case helpers.Completed:
-			return ObjectCompletedError
-		default:
-			// skip processing of TS profiles
-			return nil
+		} else if existingStatus == helpers.Completed {
+			// reject TS profile if the existing profile is already completed and full
+			// if the existing profile is completed and partial, we let complete TS profile amend it until it is full
+			if existingProfile.Annotations[helpers.CompletionMetadataKey] == helpers.Full || profile.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
+				return ObjectCompletedError
+			}
 		}
+		return nil
+
 	}
 
 	// size is the sum of all fields in all containers
