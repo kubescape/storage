@@ -16,7 +16,7 @@ package file
 //		resourceMaps.RunningWlidsToContainerNames.Set(k, sets.NewSet(v...))
 //	}
 //	h := NewKubernetesAPI(client, disco)
-//	err = h.fetchWlidsFromRunningWorkloads(&resourceMaps)
+//	err = h.fetchDataFromWorkloads(&resourceMaps)
 //	assert.NoError(t, err)
 //	bytes, err = json.Marshal(resourceMaps.RunningWlidsToContainerNames)
 //	assert.NoError(t, err)

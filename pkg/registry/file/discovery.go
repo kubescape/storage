@@ -75,18 +75,23 @@ func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
 		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
-	if err := h.fetchInstanceIdsAndImageIdsAndReplicasFromPods(&resourceMaps); err != nil {
+	if err := h.fetchDataFromPods(&resourceMaps); err != nil {
 		return resourceMaps, fmt.Errorf("failed to fetch instance ids and image ids from running pods: %w", err)
 	}
 
-	if err := h.fetchWlidsFromRunningWorkloads(&resourceMaps); err != nil {
+	if err := h.fetchDataFromWorkloads(&resourceMaps); err != nil {
 		return resourceMaps, fmt.Errorf("failed to fetch wlids from running workloads: %w", err)
 	}
 
 	return resourceMaps, nil
 }
 
-func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMaps) error {
+// fetchDataFromWorkloads iterates through a predefined list of Kubernetes workload types (e.g., Deployment, StatefulSet).
+// For each running workload instance, it extracts:
+// 1. The Template Hash, which links a workload to its pods.
+// 2. A mapping from the workload's unique ID (WLID) to the names of all containers (main, init, ephemeral) defined in its spec.
+// This data is used to identify which stored profiles correspond to currently active workloads.
+func (h *KubernetesAPI) fetchDataFromWorkloads(resourceMaps *ResourceMaps) error {
 	for _, resource := range Workloads.ToSlice() {
 		gvr, err := k8sinterface.GetGroupVersionResource(resource)
 		if err != nil {
@@ -97,55 +102,52 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 			return h.client.Resource(gvr).List(ctx, opts)
 		}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
 			workload := obj.(*unstructured.Unstructured)
+			workloadObj := workloadinterface.NewWorkloadObj(workload.Object)
+
+			instanceIds, err := instanceidhandler.GenerateInstanceID(workloadObj, h.cfg.ExcludeJsonPaths)
+			if err != nil {
+				return fmt.Errorf("failed to generate instance id for workload %s: %w", workloadObj.GetName(), err)
+			}
+			for _, instanceId := range instanceIds {
+				if templateHash := instanceId.GetTemplateHash(); templateHash != "" {
+					resourceMaps.RunningTemplateHash.Add(instanceId.GetTemplateHash())
+					break // templateHash is the same for every instanceId
+				}
+			}
+
 			// we don't care about the cluster name, so we remove it to avoid corner cases
 			wlid := wlidPkg.GetK8sWLID("", workload.GetNamespace(), workload.GetKind(), workload.GetName())
 			wlid = wlidWithoutClusterName(wlid)
 
-			resourceMaps.RunningWlidsToContainerNames.Set(wlid, mapset.NewSet[string]())
+			containerNames := mapset.NewSet[string]()
+			resourceMaps.RunningWlidsToContainerNames.Set(wlid, containerNames)
 
-			c, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "containers")...)
-			if !ok {
-				return nil
-			}
-			containers := c.([]interface{})
-			for _, container := range containers {
-				name, ok := workloadinterface.InspectMap(container, "name")
-				if !ok {
-					logger.L().Debug("container has no name", helpers.String("resource", resource))
-					continue
-				}
-				nameStr := name.(string)
-				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
+			podSpecPath := workloadinterface.PodSpec(workload.GetKind())
+			containerPaths := [][]string{
+				append(podSpecPath, "containers"),
+				append(podSpecPath, "initContainers"),
+				append(podSpecPath, "ephemeralContainers"),
 			}
 
-			initC, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "initContainers")...)
-			if !ok {
-				return nil
-			}
-			initContainers := initC.([]interface{})
-			for _, container := range initContainers {
-				name, ok := workloadinterface.InspectMap(container, "name")
+			for _, path := range containerPaths {
+				items, ok := workloadinterface.InspectMap(workload.Object, path...)
 				if !ok {
-					logger.L().Debug("container has no name", helpers.String("resource", resource))
+					continue // This container type doesn't exist in the spec, which is fine.
+				}
+				containers, ok := items.([]interface{})
+				if !ok {
 					continue
 				}
-				nameStr := name.(string)
-				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
-			}
-
-			ephemeralC, ok := workloadinterface.InspectMap(workload.Object, append(workloadinterface.PodSpec(workload.GetKind()), "ephemeralContainers")...)
-			if !ok {
-				return nil
-			}
-			ephemeralContainers := ephemeralC.([]interface{})
-			for _, container := range ephemeralContainers {
-				name, ok := workloadinterface.InspectMap(container, "name")
-				if !ok {
-					logger.L().Debug("container has no name", helpers.String("resource", resource))
-					continue
+				for _, container := range containers {
+					name, ok := workloadinterface.InspectMap(container, "name")
+					if !ok {
+						logger.L().Debug("container has no name", helpers.String("wlid", wlid))
+						continue
+					}
+					if nameStr, ok := name.(string); ok {
+						containerNames.Add(nameStr)
+					}
 				}
-				nameStr := name.(string)
-				resourceMaps.RunningWlidsToContainerNames.Get(wlid).Add(nameStr)
 			}
 			return nil
 		})
@@ -156,7 +158,13 @@ func (h *KubernetesAPI) fetchWlidsFromRunningWorkloads(resourceMaps *ResourceMap
 	return nil
 }
 
-func (h *KubernetesAPI) fetchInstanceIdsAndImageIdsAndReplicasFromPods(resourceMaps *ResourceMaps) error {
+// fetchDataFromPods iterates over all running pods in the cluster.
+// For each pod, it extracts:
+// 1. Instance IDs, which uniquely identify a container instance.
+// 2. Template Hashes, used to group pods belonging to the same controller revision.
+// 3. Container Image IDs, which are the unique identifiers for the container images.
+// It populates the corresponding sets in the ResourceMaps struct.
+func (h *KubernetesAPI) fetchDataFromPods(resourceMaps *ResourceMaps) error {
 	if err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 		return h.client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(ctx, metav1.ListOptions{})
 	}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
