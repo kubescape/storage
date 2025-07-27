@@ -125,6 +125,7 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 	for _, arg := range extraHelmSetArgs {
 		args = append(args, "--set", arg)
 	}
+	log.Printf("Running helm command: %v", args)
 	cmd = exec.Command("helm", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
