@@ -330,14 +330,14 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		}
 		// compute status and completion
 		// an aggregated series is complete only if it has one element, no previous report timestamp and is completed
-		var completed bool
+		var completedFull bool
 		if len(newTimeSeries) == 1 && isZeroTime(newTimeSeries[0].PreviousReportTimestamp) && newTimeSeries[0].Status == helpers.Completed {
 			if profile.Annotations[helpers.StatusMetadataKey] == helpers.Completed && profile.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
 				// do not override completed full
+				completedFull = true
 			} else {
 				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
 				profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
-				completed = true
 			}
 			// do not save this time series as it is already consolidated
 			newTimeSeries = newTimeSeries[:0]
@@ -345,9 +345,9 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 			profile.Annotations[helpers.StatusMetadataKey] = helpers.Learning
 			profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
 		}
-		// abort processing if the profile is completed
-		if completed {
-			logger.L().Info("ContainerProfileProcessor.updateProfile - profile is completed, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
+		// abort processing if the profile is completed/full
+		if completedFull {
+			logger.L().Debug("ContainerProfileProcessor.updateProfile - profile is completed/full, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
 			// remove the time series data
 			err := DeleteTimeSeriesContainerEntries(conn, key)
 			if err != nil {
