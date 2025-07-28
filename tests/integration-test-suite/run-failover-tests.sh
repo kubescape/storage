@@ -3,7 +3,7 @@
 set +e
 
 # List of failover tests to run sequentially
-FAILOVER_TESTS="TestSimpleProfileStorageFailover TestSimpleProfileNodeAgentFailover TestLongStorageFailover"
+FAILOVER_TESTS="TestSimpleProfileStorageFailover TestSimpleProfileNodeAgentFailover TestLongStorageFailover TestScaleDeploymentPartialCompletion"
 
 # Array to store test results
 declare -A results
