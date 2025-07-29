@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -330,6 +331,56 @@ type ContainerProfile struct {
 
 	Spec   ContainerProfileSpec
 	Status ContainerProfileStatus
+}
+
+type TimeSeriesContainers struct {
+	Completion              string
+	HasData                 bool
+	PreviousReportTimestamp string
+	ReportTimestamp         string
+	Status                  string
+	TsSuffix                string
+}
+
+// SetCompletedStatus marks the profile as 'Completed'. The completion state ('Full' or 'Partial') is inherited
+// from the provided timeseries data.
+// It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
+// It returns true if the profile's final state is 'Completed' and 'Full'.
+func (p *ContainerProfile) SetCompletedStatus(ts TimeSeriesContainers) bool {
+	// safeguard: never change a completed full profile
+	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+		return true
+	}
+	p.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+	p.Annotations[helpers.CompletionMetadataKey] = ts.Completion
+	return p.Annotations[helpers.CompletionMetadataKey] == helpers.Full
+}
+
+// SetFailedStatus marks the profile as 'Completed' and 'Partial', a terminal state for profiles that failed processing.
+// It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
+func (p *ContainerProfile) SetFailedStatus(_ TimeSeriesContainers) {
+	// safeguard: never change a completed full profile
+	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+		return
+	}
+	// failed is always completed partial
+	p.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+	p.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
+}
+
+// SetLearningStatus marks the profile as 'Learning'.
+// The completion state is updated from the timeseries data, but it will not downgrade a profile that is already 'Full'.
+// It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
+func (p *ContainerProfile) SetLearningStatus(ts TimeSeriesContainers) {
+	// safeguard: never change a completed full profile
+	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+		return
+	}
+	p.Annotations[helpers.StatusMetadataKey] = helpers.Learning
+	// don't change completion if already full
+	if p.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
+		p.Annotations[helpers.CompletionMetadataKey] = ts.Completion
+	}
 }
 
 type ContainerProfileSpec struct {
