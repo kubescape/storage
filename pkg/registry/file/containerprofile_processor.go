@@ -283,7 +283,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 	return nil
 }
 
-func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sqlite.Conn, timeSeries map[string][]TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix string, root string, namespace string) ([]string, error) {
+func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sqlite.Conn, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix string, root string, namespace string) ([]string, error) {
 	var processed []string
 	creationTimestamp := metav1.Now()
 	var newData bool
@@ -314,7 +314,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		}
 		// combine continuous time series entries
 		j := 0
-		var newTimeSeries []TimeSeriesContainers
+		var newTimeSeries []softwarecomposition.TimeSeriesContainers
 		for i := 0; i < len(timeSeries[seriesID])-1; i++ {
 			// time series are in reverse chronological order
 			if timeSeries[seriesID][j].PreviousReportTimestamp == timeSeries[seriesID][i+1].ReportTimestamp {
@@ -329,32 +329,33 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 			creationTimestamp = metav1.NewTime(t)
 		}
 		// compute status and completion
-		// an aggregated series is complete only if it has one element, no previous report timestamp and is completed
-		var completedFull bool
-		if len(newTimeSeries) == 1 && isZeroTime(newTimeSeries[0].PreviousReportTimestamp) && newTimeSeries[0].Status == helpers.Completed {
-			if profile.Annotations[helpers.StatusMetadataKey] == helpers.Completed && profile.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
-				// do not override completed full
-				completedFull = true
-			} else {
-				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
-				profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
+		// an aggregated series is removed only if it has one element, no previous report timestamp, and is completed or failed
+		if len(newTimeSeries) == 1 && isZeroTime(newTimeSeries[0].PreviousReportTimestamp) {
+			switch newTimeSeries[0].Status {
+			case helpers.Completed:
+				// TODO add annotation with the TS duration
+				if profile.SetCompletedStatus(newTimeSeries[0]) {
+					logger.L().Debug("ContainerProfileProcessor.updateProfile - profile is completed/full, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
+					// remove all time series data from SQLite
+					// time series on disk will be removed by regular cleanup as it won't find the metadata in SQLite
+					err := DeleteTimeSeriesContainerEntries(conn, key)
+					if err != nil {
+						return nil, fmt.Errorf("failed to delete time series data: %w", err)
+					}
+					// skip further processing
+					break
+				}
+				// clear this time series as it is finished
+				newTimeSeries = newTimeSeries[:0]
+			case helpers.Failed:
+				profile.SetFailedStatus(newTimeSeries[0])
+				// clear this time series as it is finished
+				newTimeSeries = newTimeSeries[:0]
+			default:
+				profile.SetLearningStatus(newTimeSeries[0]) // series is complete but not finished
 			}
-			// do not save this time series as it is already consolidated
-			newTimeSeries = newTimeSeries[:0]
-		} else if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed {
-			profile.Annotations[helpers.StatusMetadataKey] = helpers.Learning
-			profile.Annotations[helpers.CompletionMetadataKey] = newTimeSeries[0].Completion
-		}
-		// abort processing if the profile is completed/full
-		if completedFull {
-			logger.L().Debug("ContainerProfileProcessor.updateProfile - profile is completed/full, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
-			// remove the time series data
-			err := DeleteTimeSeriesContainerEntries(conn, key)
-			if err != nil {
-				return nil, fmt.Errorf("failed to delete time series data: %w", err)
-			}
-			// regular cleanup will remove the time series data if it cannot find the metadata in SQLite
-			break
+		} else {
+			profile.SetLearningStatus(newTimeSeries[0]) // series is missing some TS entries
 		}
 		// write the consolidated time series data back to the database
 		err := ReplaceTimeSeriesContainerEntries(conn, key, seriesID, deleteTimeSeries, newTimeSeries)
