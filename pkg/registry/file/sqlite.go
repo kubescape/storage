@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -177,15 +178,6 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 	return metadataJSONs, last, nil
 }
 
-type TimeSeriesContainers struct {
-	Completion              string
-	HasData                 bool
-	PreviousReportTimestamp string
-	ReportTimestamp         string
-	Status                  string
-	TsSuffix                string
-}
-
 // CleanOlderTimeSeries cleans up time series containers which are older than d.
 func CleanOlderTimeSeries(conn *sqlite.Conn, d time.Duration) error {
 	threshold := time.Now().Add(-d).String()
@@ -218,8 +210,8 @@ func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 }
 
 // ListTimeSeriesContainers retrieves time series containers for a given path.
-func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]TimeSeriesContainers, error) {
-	containers := make(map[string][]TimeSeriesContainers)
+func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
+	containers := make(map[string][]softwarecomposition.TimeSeriesContainers)
 	_, _, kind, namespace, name := pathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`SELECT seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData
@@ -239,11 +231,11 @@ func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]Time
 				previousReportTimestamp := stmt.ColumnText(5)
 				hasData := stmt.ColumnBool(6)
 				if _, ok := containers[seriesID]; !ok {
-					containers[seriesID] = make([]TimeSeriesContainers, 0)
+					containers[seriesID] = make([]softwarecomposition.TimeSeriesContainers, 0)
 				}
 
 				// Create a new TimeSeriesContainers instance and append it to the list
-				containers[seriesID] = append(containers[seriesID], TimeSeriesContainers{
+				containers[seriesID] = append(containers[seriesID], softwarecomposition.TimeSeriesContainers{
 					Completion:              completion,
 					HasData:                 hasData,
 					PreviousReportTimestamp: previousReportTimestamp,
@@ -346,7 +338,7 @@ func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, ts
 }
 
 // ReplaceTimeSeriesContainerEntries replaces time series entries for a given path and seriesID.
-func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, deleteTimeSeries []string, newTimeSeries []TimeSeriesContainers) error {
+func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
 	_, _, kind, namespace, name := pathToKeys(path)
 	// FIXME we can probably optimize this, rather than deleting everything to add it back
 	// delete old profiles
