@@ -4,99 +4,72 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/config"
-	"github.com/panjf2000/ants/v2"
 	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
-type queuedRequest struct {
-	w    http.ResponseWriter
-	r    *http.Request
-	next http.Handler
-	done chan struct{}
-}
-
 type kindQueue struct {
-	queue         chan *queuedRequest
-	pool          *ants.Pool
 	maxObjectSize int
+	maxQueueLen   uint64
+	queueLen      atomic.Uint64
+	workerSem     chan struct{}
 }
 
 type QueueManager struct {
-	queues           map[string]*kindQueue
-	lastQueueFullLog map[string]time.Time
-	mu               sync.Mutex
-	cfg              *config.Config
+	queues sync.Map
+	cfg    *config.Config
 }
 
 func NewQueueManager(cfg *config.Config) *QueueManager {
 	return &QueueManager{
-		queues:           make(map[string]*kindQueue),
-		cfg:              cfg,
-		lastQueueFullLog: make(map[string]time.Time),
+		cfg: cfg,
 	}
 }
 
 func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
-	qm.mu.Lock()
-	defer qm.mu.Unlock()
-	q, exists := qm.queues[kind]
-	if !exists {
-		// Get per-kind config or use defaults
-		kcfg, ok := qm.cfg.KindQueues[kind]
-		queueLen := qm.cfg.DefaultQueueLength
-		workerCount := qm.cfg.DefaultWorkerCount
-		maxObjectSize := qm.cfg.DefaultMaxObjectSize
-		if ok {
-			if kcfg.QueueLength > 0 {
-				queueLen = kcfg.QueueLength
-			}
-			if kcfg.WorkerCount > 0 {
-				workerCount = kcfg.WorkerCount
-			}
-			if kcfg.MaxObjectSize > 0 {
-				maxObjectSize = kcfg.MaxObjectSize
-			}
-		}
-		queue := make(chan *queuedRequest, queueLen)
-		pool, _ := ants.NewPool(workerCount)
-		q = &kindQueue{
-			queue:         queue,
-			pool:          pool,
-			maxObjectSize: maxObjectSize,
-		}
-		logger.L().Info("QueueManager - queue configuration", helpers.String("kind", kind), helpers.Int("queueLength", queueLen), helpers.Int("workerCount", workerCount), helpers.Int("maxObjectSize", maxObjectSize))
-		// Start a dispatcher goroutine for this kind
-		go func(q *kindQueue) {
-			for req := range q.queue {
-				reqLocal := req // capture loop variable
-				err := q.pool.Submit(func() {
-					select {
-					case <-reqLocal.r.Context().Done():
-						// Client has gone away, do not process
-						close(reqLocal.done)
-						return
-					default:
-						// Still active, process
-						reqLocal.next.ServeHTTP(reqLocal.w, reqLocal.r)
-						close(reqLocal.done)
-						return
-					}
-				})
-				if err != nil {
-					logger.L().Error("QueueManager - failed to submit to worker pool", helpers.Error(err), helpers.String("path", reqLocal.r.URL.Path), helpers.String("kind", kind), helpers.String("verb", reqLocal.r.Method), helpers.String("kind", kind))
-					close(reqLocal.done)
-				}
-			}
-		}(q)
-		qm.queues[kind] = q
+	// Attempt to load the queue directly
+	if q, exists := qm.queues.Load(kind); exists {
+		return q.(*kindQueue)
 	}
-	return q
+
+	// Use a double-check pattern with sync.Map
+	kcfg, ok := qm.cfg.KindQueues[kind]
+	queueLen := qm.cfg.DefaultQueueLength
+	workerCount := qm.cfg.DefaultWorkerCount
+	maxObjectSize := qm.cfg.DefaultMaxObjectSize
+	if ok {
+		if kcfg.QueueLength > 0 {
+			queueLen = kcfg.QueueLength
+		}
+		if kcfg.WorkerCount > 0 {
+			workerCount = kcfg.WorkerCount
+		}
+		if kcfg.MaxObjectSize > 0 {
+			maxObjectSize = kcfg.MaxObjectSize
+		}
+	}
+
+	newQueue := &kindQueue{
+		maxObjectSize: maxObjectSize,
+		maxQueueLen:   uint64(queueLen),
+		workerSem:     make(chan struct{}, workerCount),
+	}
+
+	// Store the new queue if it doesn't already exist
+	actual, _ := qm.queues.LoadOrStore(kind, newQueue)
+	if actual != newQueue {
+		// Another goroutine created the queue, discard the new one
+		return actual.(*kindQueue)
+	}
+
+	logger.L().Info("QueueManager - queue configuration", helpers.String("kind", kind), helpers.Int("queueLength", queueLen), helpers.Int("workerCount", workerCount), helpers.Int("maxObjectSize", maxObjectSize))
+	return newQueue
 }
 
 func extractKindAndVerb(r *http.Request) (kind, verb string) {
@@ -175,32 +148,29 @@ func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 			http.Error(w, "Request entity too large", http.StatusRequestEntityTooLarge)
 			return
 		}
-		req := &queuedRequest{
-			w:    w,
-			r:    r,
-			next: next,
-			done: make(chan struct{}),
-		}
-		select {
-		case q.queue <- req:
-			<-req.done
-		default:
-			qm.logQueueFullThrottled(kind, verb)
+		// Check if the queue is full
+		if q.queueLen.Add(1) > q.maxQueueLen {
+			q.queueLen.Add(^uint64(0)) // Decrement back if the queue is full
 			http.Error(w, "Too Many Requests (queue full)", http.StatusTooManyRequests)
+			return
+		}
+		defer q.queueLen.Add(^uint64(0)) // Ensure decrement after processing
+		// Limit concurrent workers (but also check for context cancellation)
+		select {
+		case <-r.Context().Done():
+			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
+			return
+		case q.workerSem <- struct{}{}:
+			// check if the context is still valid
+			if r.Context().Err() != nil {
+				<-q.workerSem // Release the semaphore
+				http.Error(w, "Request Timeout", http.StatusRequestTimeout)
+				return
+			}
+			defer func() { <-q.workerSem }() // Release semaphore when done
+			next.ServeHTTP(w, r)
 		}
 	})
-}
-
-func (qm *QueueManager) logQueueFullThrottled(kind, verb string) {
-	qm.mu.Lock()
-	lastLog, ok := qm.lastQueueFullLog[kind]
-	qm.mu.Unlock()
-	if !ok || time.Since(lastLog) > 1*time.Minute {
-		logger.L().Debug("QueueManager - queue full for resource", helpers.String("kind", kind), helpers.String("verb", verb), helpers.String("queue", "default"))
-		qm.mu.Lock()
-		qm.lastQueueFullLog[kind] = time.Now()
-		qm.mu.Unlock()
-	}
 }
 
 // TimeoutLoggerMiddleware logs a warning if a request takes longer than timeoutSeconds seconds to finish.
