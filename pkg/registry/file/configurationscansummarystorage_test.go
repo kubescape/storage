@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -122,7 +123,7 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
@@ -197,7 +198,7 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}

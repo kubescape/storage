@@ -158,11 +158,17 @@ func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 		// Limit concurrent workers (but also check for context cancellation)
 		select {
 		case <-r.Context().Done():
+			logger.L().Debug("QueueManager - request context canceled", helpers.String("path", r.URL.Path),
+				helpers.String("kind", kind), helpers.String("verb", verb),
+				helpers.Int("queueLen", int(q.queueLen.Load())), helpers.Int("maxQueueLen", int(q.maxQueueLen)))
 			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
 			return
 		case q.workerSem <- struct{}{}:
 			// check if the context is still valid
 			if r.Context().Err() != nil {
+				logger.L().Debug("QueueManager - request context canceled after semaphore", helpers.String("path", r.URL.Path),
+					helpers.String("kind", kind), helpers.String("verb", verb),
+					helpers.Int("queueLen", int(q.queueLen.Load())), helpers.Int("maxQueueLen", int(q.maxQueueLen)))
 				<-q.workerSem // Release the semaphore
 				http.Error(w, "Request Timeout", http.StatusRequestTimeout)
 				return

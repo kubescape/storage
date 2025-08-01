@@ -191,7 +191,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			opts := storage.ListOptions{}
 
@@ -323,7 +323,7 @@ func TestWatchGuaranteedUpdateProducesMatchingEvents(t *testing.T) {
 			}
 
 			destination := &v1beta1.SBOMSyft{}
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			_ = s.GuaranteedUpdate(ctx, tc.args.key, destination, tc.args.ignoreNotFound, tc.args.preconditions, tc.args.tryUpdate, tc.args.cachedExistingObject)
 

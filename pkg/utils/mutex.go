@@ -9,7 +9,9 @@ import (
 )
 
 var (
+	ContextNilError            = errors.New("context is nil")
 	ContextNotCancellableError = errors.New("context is not cancellable")
+	ContextNoTimeoutError      = errors.New("context has no timeout")
 	TimeOutError               = errors.New("lock acquisition timed out")
 )
 
@@ -37,9 +39,9 @@ func (m *MapMutex[T]) ensureLock(key T) *sync.RWMutex {
 }
 
 func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
-	done := ctx.Done()
-	if done == nil {
-		return ContextNotCancellableError // FIXME maybe should not return an error
+	done, err := verifyContext(ctx)
+	if err != nil {
+		return err
 	}
 	lock := m.ensureLock(key)
 	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
@@ -60,9 +62,9 @@ func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
 }
 
 func (m *MapMutex[T]) RLock(ctx context.Context, key T) error {
-	done := ctx.Done()
-	if done == nil {
-		return ContextNotCancellableError // FIXME maybe should not return an error
+	done, err := verifyContext(ctx)
+	if err != nil {
+		return err
 	}
 	lock := m.ensureLock(key)
 	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
@@ -88,4 +90,18 @@ func (m *MapMutex[T]) RUnlock(key T) {
 
 func (m *MapMutex[T]) Unlock(key T) {
 	m.ensureLock(key).Unlock()
+}
+
+func verifyContext(ctx context.Context) (<-chan struct{}, error) {
+	if ctx == nil {
+		return nil, ContextNilError
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		return nil, ContextNoTimeoutError
+	}
+	done := ctx.Done()
+	if done == nil {
+		return nil, ContextNotCancellableError
+	}
+	return done, nil
 }

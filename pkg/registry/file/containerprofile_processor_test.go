@@ -47,7 +47,7 @@ func TestConsolidateData(t *testing.T) {
 	}
 	processor.SetStorage(s)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
 	create := func(f string) {

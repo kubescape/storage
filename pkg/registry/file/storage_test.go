@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -156,7 +157,7 @@ func TestStorageImpl_Create(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, sch)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			err := s.Create(ctx, tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
@@ -251,7 +252,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 			pool.Put(conn)
 
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, nil)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if err := s.Delete(ctx, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5, tt.args.in6); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
@@ -393,7 +394,7 @@ func TestStorageImpl_Get(t *testing.T) {
 				require.NoError(t, afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key), tt.content, 0644))
 				pool.Put(conn)
 			}
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if err := s.Get(ctx, tt.args.key, tt.args.opts, tt.args.objPtr); !tt.wantErr(t, err) {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr(t, err))
@@ -461,7 +462,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 	for k, v := range objs {
 		err := s.Create(ctx, k, v.DeepCopyObject(), nil, 0)
@@ -623,7 +624,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
 				err := s.Create(ctx, tt.args.key, toto.DeepCopyObject(), nil, 0)
