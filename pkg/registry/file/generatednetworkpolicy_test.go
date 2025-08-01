@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"testing"
+	"time"
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -146,7 +147,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
 			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage, realStorage)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.NetworkNeighborhood{

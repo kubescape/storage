@@ -248,7 +248,9 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 		}
 		// load profile from disk if it exists
 		profile := softwarecomposition.ContainerProfile{}
-		err = a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &profile)
+		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cpCancel()
+		err = a.storageImpl.GetWithConn(cpCtx, conn, key, storage.GetOptions{}, &profile)
 		prefix, root, kind, namespace, name := pathToKeys(key)
 		switch {
 		case storage.IsNotFound(err):
@@ -268,7 +270,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 		processed, err := a.updateProfile(ctx, conn, timeSeries, key, profile, prefix, root, namespace)
 		endFn(&err)
 		if err != nil {
-			return fmt.Errorf("failed to process time series data (transaction rolled back): %w", err)
+			return fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
 		}
 		// delete processed time series profiles
 		for _, tsKey := range processed {
@@ -279,6 +281,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 				return fmt.Errorf("failed to delete processed time series profile: %w", err)
 			}
 		}
+		logger.L().Debug("ContainerProfileProcessor.consolidateTimeSeries - finished consolidating data for key", loggerhelpers.String("key", key))
 	}
 	return nil
 }
@@ -383,7 +386,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		// this is a full replace
 		return &profile, nil, nil
 	}
-	err := a.storageImpl.GuaranteedUpdateWithConn(ctx, conn, key, &softwarecomposition.ContainerProfile{}, true, nil, tryUpdateContainerProfile, &softwarecomposition.ContainerProfile{}, "")
+	// we use a timeout to avoid deadlocks in case of concurrent updates
+	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cpCancel()
+	err := a.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{}, true, nil, tryUpdateContainerProfile, &softwarecomposition.ContainerProfile{}, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to update container profile: %w", err)
 	}
@@ -428,7 +434,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		delete(ap.Labels, helpers.ContainerNameMetadataKey)
 		return output, nil, nil
 	}
-	err = a.storageImpl.GuaranteedUpdateWithConn(ctx, conn, apKey, &softwarecomposition.ApplicationProfile{}, true, nil, tryUpdateApplicationProfile, nil, apChecksum)
+	// we use a timeout to avoid deadlocks in case of concurrent updates
+	apCtx, apCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer apCancel()
+	err = a.storageImpl.GuaranteedUpdateWithConn(apCtx, conn, apKey, &softwarecomposition.ApplicationProfile{}, true, nil, tryUpdateApplicationProfile, nil, apChecksum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update application profile: %w", err)
 	}
@@ -464,7 +473,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		delete(nn.Labels, helpers.ContainerNameMetadataKey)
 		return output, nil, nil
 	}
-	err = a.storageImpl.GuaranteedUpdateWithConn(ctx, conn, nnKey, &softwarecomposition.NetworkNeighborhood{}, true, nil, tryUpdateNetworkNeighborhood, nil, nnChecksum)
+	// we use a timeout to avoid deadlocks in case of concurrent updates
+	nnCtx, nnCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer nnCancel()
+	err = a.storageImpl.GuaranteedUpdateWithConn(nnCtx, conn, nnKey, &softwarecomposition.NetworkNeighborhood{}, true, nil, tryUpdateNetworkNeighborhood, nil, nnChecksum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update network neighborhood: %w", err)
 	}
@@ -486,7 +498,9 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 	for key := range parts {
 		profile := softwarecomposition.ContainerProfile{}
 		// checksum is only present in get metadata
-		err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile)
+		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cpCancel()
+		err := a.storageImpl.GetWithConn(cpCtx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile)
 		if err != nil {
 			logger.L().Debug("ContainerProfileProcessor.getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 			continue
