@@ -57,15 +57,15 @@ Goal: Verify that a crashlooping container does not result in a completed applic
 	s.LogWithTimestamp("Waiting 3 minutes for learning period to end (container will restart at least once)")
 	time.Sleep(3 * time.Minute)
 
-	s.LogWithTimestamp("Fetching application profile and verifying it is not complete/completed")
+	s.LogWithTimestamp("Fetching application profile and verifying it is partial/completed")
 	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "crashloop-test-deployment")
 	s.Require().NoError(err)
 	s.Require().NotNil(applicationProfile)
-	// The profile should NOT be marked as completed/complete
+	// The profile should be marked as partial/completed
 	status := applicationProfile.Annotations["kubescape.io/status"]
 	completion := applicationProfile.Annotations["kubescape.io/completion"]
-	s.Require().NotEqual("completed", status, "Profile should not be marked as completed")
-	s.Require().Equal("complete", completion, "Profile should be marked as complete")
+	s.Require().Equal("completed", status, "Profile should be marked as completed")
+	s.Require().Equal("partial", completion, "Profile should be marked as partial")
 
 	s.LogWithTimestamp("TestCrashLoopProfileIncomplete completed successfully")
 }
