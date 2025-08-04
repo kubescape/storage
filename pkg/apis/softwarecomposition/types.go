@@ -372,8 +372,8 @@ func (p *ContainerProfile) SetFailedStatus(_ TimeSeriesContainers) {
 // The completion state is updated from the timeseries data, but it will not downgrade a profile that is already 'Full'.
 // It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
 func (p *ContainerProfile) SetLearningStatus(ts TimeSeriesContainers) {
-	// safeguard: never change a completed full profile
-	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+	// safeguard: never change a completed profile back to learning
+	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed {
 		return
 	}
 	p.Annotations[helpers.StatusMetadataKey] = helpers.Learning
