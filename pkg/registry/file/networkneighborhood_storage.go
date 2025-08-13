@@ -57,7 +57,7 @@ func (a NetworkNeighborhoodStorage) Get(ctx context.Context, key string, opts st
 		for cpKey := range nn.Parts {
 			cp := &softwarecomposition.ContainerProfile{}
 			if err := a.realStore.Get(ctx, cpKey, opts, cp); err != nil {
-				logger.L().Warning("NetworkNeighborhoodStorage.Get - get cp object", loggerhelpers.Error(err))
+				logger.L().Debug("NetworkNeighborhoodStorage.Get - get cp object", loggerhelpers.Error(err))
 				return nil
 			}
 			matchLabels = utils.MergeMaps(matchLabels, cp.Spec.MatchLabels)
