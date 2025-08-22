@@ -57,10 +57,7 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	_, err := configScanSummaryStorage.Watch(context.TODO(), "", storage.ListOptions{})
-
-	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
+	assert.NoError(t, err)
 }
 
 func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
