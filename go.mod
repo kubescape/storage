@@ -24,7 +24,6 @@ require (
 	github.com/kubescape/k8s-interface v0.0.198
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
-	github.com/panjf2000/ants/v2 v2.11.3
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.12.0
 	github.com/spf13/cobra v1.9.1
@@ -102,7 +101,7 @@ require (
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/go-pkgz/expirable-cache/v3 v3.0.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.23.2 // indirect
