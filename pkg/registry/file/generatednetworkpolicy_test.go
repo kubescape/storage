@@ -228,10 +228,7 @@ func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	_, err := generatedNetworkPolicyStorage.Watch(context.TODO(), "", storage.ListOptions{})
-
-	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
+	assert.NoError(t, err)
 }
 
 func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
