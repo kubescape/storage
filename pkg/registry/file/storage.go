@@ -329,7 +329,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	if namespace != "" {
 		// FIXME find an alternative to fix NS deletion
 		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
-		return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+		return watch.NewEmptyWatch(), nil
 	}
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
 	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
@@ -909,8 +909,8 @@ func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, 
 }
 
 // Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
-func (immutableStorage) Watch(_ context.Context, key string, _ storage.ListOptions) (watch.Interface, error) {
-	return nil, storage.NewInvalidObjError(key, operationNotSupportedMsg)
+func (immutableStorage) Watch(_ context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+	return watch.NewEmptyWatch(), nil
 }
 
 // GuaranteedUpdate is not supported for immutable objects. Objects are generated on the fly and not stored.
