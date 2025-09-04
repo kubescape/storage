@@ -4,24 +4,20 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubescape/go-logger"
-	"github.com/kubescape/go-logger/helpers"
-	"github.com/kubescape/storage/pkg/config"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/pager"
-
-	"k8s.io/client-go/discovery"
-
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
-	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/goradd/maps"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1"
 	"github.com/kubescape/k8s-interface/k8sinterface"
-	"github.com/kubescape/k8s-interface/workloadinterface"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/kubescape/storage/pkg/config"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/pager"
+
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/goradd/maps"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -30,9 +26,7 @@ var (
 		"daemonset",
 		"deployment",
 		"job",
-		"pod",
 		"replicaset",
-		"service",
 		"statefulset",
 	}...) // FIXME put in a configmap
 )
@@ -43,11 +37,10 @@ type ResourcesFetcher interface {
 
 type KubernetesAPI struct {
 	cfg    config.Config
-	client dynamic.Interface
+	client *kubernetes.Clientset
 }
 
-func NewKubernetesAPI(cfg config.Config, client dynamic.Interface, discovery discovery.DiscoveryInterface) *KubernetesAPI {
-	k8sinterface.InitializeMapResources(discovery)
+func NewKubernetesAPI(cfg config.Config, client *kubernetes.Clientset) *KubernetesAPI {
 	return &KubernetesAPI{
 		cfg:    cfg,
 		client: client,
@@ -86,6 +79,26 @@ func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
 	return resourceMaps, nil
 }
 
+func (h *KubernetesAPI) chooseLister(kind string, opts metav1.ListOptions) (runtime.Object, error) {
+	switch kind {
+	case "cronjob":
+		return h.client.BatchV1().CronJobs("").List(context.Background(), opts)
+	case "daemonset":
+		return h.client.AppsV1().DaemonSets("").List(context.Background(), opts)
+	case "deployment":
+		return h.client.AppsV1().Deployments("").List(context.Background(), opts)
+	case "job":
+		return h.client.BatchV1().Jobs("").List(context.Background(), opts)
+	case "pod":
+		return h.client.CoreV1().Pods("").List(context.Background(), opts)
+	case "replicaset":
+		return h.client.AppsV1().ReplicaSets("").List(context.Background(), opts)
+	case "statefulset":
+		return h.client.AppsV1().StatefulSets("").List(context.Background(), opts)
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{Resource: kind}, "not implemented")
+}
+
 // fetchDataFromWorkloads iterates through a predefined list of Kubernetes workload types (e.g., Deployment, StatefulSet).
 // For each running workload instance, it extracts:
 // 1. The Template Hash, which links a workload to its pods.
@@ -99,14 +112,18 @@ func (h *KubernetesAPI) fetchDataFromWorkloads(resourceMaps *ResourceMaps) error
 		}
 
 		err = pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-			return h.client.Resource(gvr).List(ctx, opts)
+			return h.chooseLister(resource, opts)
 		}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
-			workload := obj.(*unstructured.Unstructured)
-			workloadObj := workloadinterface.NewWorkloadObj(workload.Object)
-
-			instanceIds, err := instanceidhandler.GenerateInstanceID(workloadObj, h.cfg.ExcludeJsonPaths)
+			runtimeObj := obj.(runtime.Object)
+			meta := obj.(metav1.Object)
+			gvk, err := instanceidhandler.GetGvkFromRuntimeObj(runtimeObj)
 			if err != nil {
-				return fmt.Errorf("failed to generate instance id for workload %s: %w", workloadObj.GetName(), err)
+				return fmt.Errorf("failed to get gvk from workload %s: %w", meta.GetName(), err)
+			}
+
+			instanceIds, err := instanceidhandler.GenerateInstanceIDFromRuntimeObj(runtimeObj, h.cfg.ExcludeJsonPaths)
+			if err != nil {
+				return fmt.Errorf("failed to generate instance id for workload %s: %w", meta.GetName(), err)
 			}
 			for _, instanceId := range instanceIds {
 				if templateHash := instanceId.GetTemplateHash(); templateHash != "" {
@@ -116,37 +133,20 @@ func (h *KubernetesAPI) fetchDataFromWorkloads(resourceMaps *ResourceMaps) error
 			}
 
 			// we don't care about the cluster name, so we remove it to avoid corner cases
-			wlid := wlidPkg.GetK8sWLID("", workload.GetNamespace(), workload.GetKind(), workload.GetName())
+			wlid := wlidPkg.GetK8sWLID("", meta.GetNamespace(), gvk.Kind, meta.GetName())
 			wlid = wlidWithoutClusterName(wlid)
 
 			containerNames := mapset.NewSet[string]()
 			resourceMaps.RunningWlidsToContainerNames.Set(wlid, containerNames)
 
-			podSpecPath := workloadinterface.PodSpec(workload.GetKind())
-			containerPaths := [][]string{
-				append(podSpecPath, "containers"),
-				append(podSpecPath, "initContainers"),
-				append(podSpecPath, "ephemeralContainers"),
+			podSpec, err := instanceidhandler.GetPodSpecFromRuntimeObj(runtimeObj)
+			if err != nil {
+				return fmt.Errorf("failed to get pod spec from workload %s: %w", wlid, err)
 			}
 
-			for _, path := range containerPaths {
-				items, ok := workloadinterface.InspectMap(workload.Object, path...)
-				if !ok {
-					continue // This container type doesn't exist in the spec, which is fine.
-				}
-				containers, ok := items.([]interface{})
-				if !ok {
-					continue
-				}
+			for _, containers := range [][]corev1.Container{podSpec.Containers, podSpec.InitContainers, convertEphemeralToContainers(podSpec.EphemeralContainers)} {
 				for _, container := range containers {
-					name, ok := workloadinterface.InspectMap(container, "name")
-					if !ok {
-						logger.L().Debug("container has no name", helpers.String("wlid", wlid))
-						continue
-					}
-					if nameStr, ok := name.(string); ok {
-						containerNames.Add(nameStr)
-					}
+					containerNames.Add(container.Name)
 				}
 			}
 			return nil
@@ -158,6 +158,14 @@ func (h *KubernetesAPI) fetchDataFromWorkloads(resourceMaps *ResourceMaps) error
 	return nil
 }
 
+func convertEphemeralToContainers(e []corev1.EphemeralContainer) []corev1.Container {
+	c := make([]corev1.Container, len(e))
+	for i := range e {
+		c[i] = corev1.Container(e[i].EphemeralContainerCommon)
+	}
+	return c
+}
+
 // fetchDataFromPods iterates over all running pods in the cluster.
 // For each pod, it extracts:
 // 1. Instance IDs, which uniquely identify a container instance.
@@ -166,60 +174,47 @@ func (h *KubernetesAPI) fetchDataFromWorkloads(resourceMaps *ResourceMaps) error
 // It populates the corresponding sets in the ResourceMaps struct.
 func (h *KubernetesAPI) fetchDataFromPods(resourceMaps *ResourceMaps) error {
 	if err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-		return h.client.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}).List(ctx, metav1.ListOptions{})
+		return h.client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
-		p := obj.(*unstructured.Unstructured)
-		pod := workloadinterface.NewWorkloadObj(p.Object)
+		pod := obj.(*corev1.Pod)
 
-		instanceIds, err := instanceidhandler.GenerateInstanceID(pod, h.cfg.ExcludeJsonPaths)
+		instanceIds, err := instanceidhandler.GenerateInstanceIDFromRuntimeObj(pod, h.cfg.ExcludeJsonPaths)
 		if err != nil {
 			return fmt.Errorf("failed to generate instance id for pod %s: %w", pod.GetName(), err)
+		}
+		for _, instanceId := range instanceIds {
+			if templateHash := instanceId.GetTemplateHash(); templateHash != "" {
+				resourceMaps.RunningTemplateHash.Add(instanceId.GetTemplateHash())
+				break // templateHash is the same for every instanceId
+			}
 		}
 		for _, instanceId := range instanceIds {
 			resourceMaps.RunningInstanceIds.Add(instanceId.GetStringFormatted())
 			resourceMaps.RunningTemplateHash.Add(instanceId.GetTemplateHash())
 		}
 
-		s, ok := workloadinterface.InspectMap(p.Object, "status", "containerStatuses")
-		if !ok {
-			return nil
-		}
-		containerStatuses := s.([]interface{})
-		for _, cs := range containerStatuses {
-			containerImageId, ok := workloadinterface.InspectMap(cs, "imageID")
-			if !ok {
-				continue
-			}
-			imageIdStr := containerImageId.(string)
-			resourceMaps.RunningContainerImageIds.Add(imageIdStr)
+		// we don't care about the cluster name, so we remove it to avoid corner cases
+		wlid := wlidPkg.GetK8sWLID("", pod.Namespace, pod.Kind, pod.Name)
+		wlid = wlidWithoutClusterName(wlid)
+
+		containerNames := mapset.NewSet[string]()
+		resourceMaps.RunningWlidsToContainerNames.Set(wlid, containerNames)
+
+		podSpec, err := instanceidhandler.GetPodSpecFromRuntimeObj(pod)
+		if err != nil {
+			return fmt.Errorf("failed to get pod spec from workload %s: %w", wlid, err)
 		}
 
-		initC, ok := workloadinterface.InspectMap(p.Object, "status", "initContainerStatuses")
-		if !ok {
-			return nil
-		}
-		initContainers := initC.([]interface{})
-		for _, cs := range initContainers {
-			containerImageId, ok := workloadinterface.InspectMap(cs, "imageID")
-			if !ok {
-				continue
+		for _, containers := range [][]corev1.Container{podSpec.Containers, podSpec.InitContainers, convertEphemeralToContainers(podSpec.EphemeralContainers)} {
+			for _, container := range containers {
+				containerNames.Add(container.Name)
 			}
-			imageIdStr := containerImageId.(string)
-			resourceMaps.RunningContainerImageIds.Add(imageIdStr)
 		}
 
-		ephemeralC, ok := workloadinterface.InspectMap(p.Object, "status", "ephemeralContainerStatuses")
-		if !ok {
-			return nil
-		}
-		ephemeralContainers := ephemeralC.([]interface{})
-		for _, cs := range ephemeralContainers {
-			containerImageId, ok := workloadinterface.InspectMap(cs, "imageID")
-			if !ok {
-				continue
+		for _, statuses := range [][]corev1.ContainerStatus{pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses, pod.Status.EphemeralContainerStatuses} {
+			for _, cs := range statuses {
+				resourceMaps.RunningContainerImageIds.Add(cs.ImageID)
 			}
-			imageIdStr := containerImageId.(string)
-			resourceMaps.RunningContainerImageIds.Add(imageIdStr)
 		}
 		return nil
 	}); err != nil {

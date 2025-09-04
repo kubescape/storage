@@ -14,8 +14,7 @@ import (
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -38,21 +37,16 @@ func (p PartialObjectMetadata) DeepCopyObject() runtime.Object {
 	}
 }
 
-func NewKubernetesClient() (dynamic.Interface, discovery.DiscoveryInterface, error) {
+func NewKubernetesClient() (*kubernetes.Clientset, error) {
 	clusterConfig, err := getConfig()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get cluster config: %w", err)
+		return nil, fmt.Errorf("failed to get cluster config: %w", err)
 	}
+	// force GRPC
+	clusterConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf"
+	clusterConfig.ContentType = "application/vnd.kubernetes.protobuf"
 
-	dynClient, err := dynamic.NewForConfig(clusterConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create dynamic client: %w", err)
-	}
-	disco, err := discovery.NewDiscoveryClientForConfig(clusterConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create discovery client: %w", err)
-	}
-	return dynClient, disco, nil
+	return kubernetes.NewForConfig(clusterConfig)
 }
 
 func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) runtime.Object {

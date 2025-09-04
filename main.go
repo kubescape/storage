@@ -96,8 +96,8 @@ func main() {
 	watchDispatcher := file.NewWatchDispatcher()
 
 	// cleanup task
-	client, disco, err := file.NewKubernetesClient()
-	kubernetesAPI := file.NewKubernetesAPI(cfg, client, disco)
+	client, err := file.NewKubernetesClient()
+	kubernetesAPI := file.NewKubernetesAPI(cfg, client)
 	if err != nil {
 		panic(err.Error())
 	}
