@@ -23,3 +23,13 @@ package file
 //	err = os.WriteFile("testdata/wlids.json", bytes, 0644)
 //	assert.NoError(t, err)
 //}
+
+//func TestKubernetesAPI_FetchResources(t *testing.T) {
+//	cfg, err := config.LoadConfig("../../../configuration")
+//	assert.NoError(t, err)
+//	client, err := NewKubernetesClient()
+//	assert.NoError(t, err)
+//	kubernetesAPI := NewKubernetesAPI(cfg, client)
+//	_, err = kubernetesAPI.FetchResources()
+//	assert.NoError(t, err)
+//}
