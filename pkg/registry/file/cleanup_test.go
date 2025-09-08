@@ -84,7 +84,15 @@ type ResourcesFetchMock struct {
 
 var _ ResourcesFetcher = (*ResourcesFetchMock)(nil)
 
-func (r *ResourcesFetchMock) FetchResources() (ResourceMaps, error) {
+func (r *ResourcesFetchMock) ListNamespaces() ([]string, error) {
+	return []string{
+		"default", "gadget", "gmp-system", "kubescape", "kube-node-lease",
+		"kube-public", "kube-system", "local-path-storage", "systest-ns-foso",
+	}, nil
+}
+
+func (r *ResourcesFetchMock) FetchResources(_ string) (ResourceMaps, error) {
+	// TODO make use of the ns parameter instead of returning the full list all the time
 	resourceMaps := ResourceMaps{
 		RunningInstanceIds:           mapset.NewSet[string](),
 		RunningContainerImageIds:     mapset.NewSet[string](),
