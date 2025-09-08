@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"zombiezen.com/go/sqlite"
 )
 
 //go:embed testdata/expectedFilesToDelete.json
@@ -84,7 +85,7 @@ type ResourcesFetchMock struct {
 
 var _ ResourcesFetcher = (*ResourcesFetchMock)(nil)
 
-func (r *ResourcesFetchMock) ListNamespaces() ([]string, error) {
+func (r *ResourcesFetchMock) ListNamespaces(_ *sqlite.Conn) ([]string, error) {
 	return []string{
 		"default", "gadget", "gmp-system", "kubescape", "kube-node-lease",
 		"kube-public", "kube-system", "local-path-storage", "systest-ns-foso",

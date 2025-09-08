@@ -178,6 +178,24 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 	return metadataJSONs, last, nil
 }
 
+func listNamespaces(conn *sqlite.Conn) ([]string, error) {
+	var namespaces []string
+	err := sqlitex.Execute(conn,
+		`SELECT DISTINCT namespace FROM metadata
+				WHERE namespace != ''`,
+		&sqlitex.ExecOptions{
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				namespace := stmt.ColumnText(0)
+				namespaces = append(namespaces, namespace)
+				return nil
+			},
+		})
+	if err != nil {
+		return nil, fmt.Errorf("list namespaces: %w", err)
+	}
+	return namespaces, nil
+}
+
 // CleanOlderTimeSeries cleans up time series containers which are older than d.
 func CleanOlderTimeSeries(conn *sqlite.Conn, d time.Duration) error {
 	threshold := time.Now().Add(-d).String()
