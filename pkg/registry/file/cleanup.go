@@ -114,7 +114,7 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 		return fmt.Errorf("failed to take connection: %w", err)
 	}
 	// list namespaces
-	namespaces, err := h.fetcher.ListNamespaces()
+	namespaces, err := h.fetcher.ListNamespaces(conn)
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %w", err)
 	}
