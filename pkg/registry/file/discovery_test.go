@@ -26,10 +26,15 @@ package file
 
 //func TestKubernetesAPI_FetchResources(t *testing.T) {
 //	cfg, err := config.LoadConfig("../../../configuration")
-//	assert.NoError(t, err)
+//	require.NoError(t, err)
 //	client, err := NewKubernetesClient()
-//	assert.NoError(t, err)
+//	require.NoError(t, err)
 //	kubernetesAPI := NewKubernetesAPI(cfg, client)
-//	_, err = kubernetesAPI.FetchResources()
-//	assert.NoError(t, err)
+//	namespaces, err := kubernetesAPI.ListNamespaces()
+//	require.NoError(t, err)
+//	for i, ns := range namespaces {
+//		t.Logf("fetching resources from namespace %d/%d: %s", i+1, len(namespaces), ns)
+//		_, err := kubernetesAPI.FetchResources(ns)
+//		assert.NoError(t, err)
+//	}
 //}

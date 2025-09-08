@@ -32,7 +32,8 @@ var (
 )
 
 type ResourcesFetcher interface {
-	FetchResources() (ResourceMaps, error)
+	FetchResources(ns string) (ResourceMaps, error)
+	ListNamespaces() ([]string, error)
 }
 
 type KubernetesAPI struct {
@@ -51,16 +52,37 @@ var _ ResourcesFetcher = (*KubernetesAPI)(nil)
 
 // ResourceMaps is a map of running resources in the cluster, based on these maps we can decide which files to delete
 type ResourceMaps struct {
-	RunningWlidsToContainerNames *maps.SafeMap[string, mapset.Set[string]]
+	// CLUSTER level
+	RunningContainerImageIds mapset.Set[string]
+	RunningTemplateHash      mapset.Set[string]
+	// NAMESPACE level
 	RunningInstanceIds           mapset.Set[string]
-	RunningContainerImageIds     mapset.Set[string]
-	RunningTemplateHash          mapset.Set[string]
+	RunningWlidsToContainerNames *maps.SafeMap[string, mapset.Set[string]]
 	// FIXME add nodes
 	// FIXME how about hosts?
 }
 
+func (h *KubernetesAPI) ListNamespaces() ([]string, error) {
+	var namespaces []string
+	if err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+		return h.client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
+		ns := obj.(*corev1.Namespace)
+		// exclude kubescape namespace - TODO enable it again when we move the cluster-scoped resources
+		if ns.Name == h.cfg.DefaultNamespace {
+			return nil
+		}
+		// TODO check if NS is excluded in ks-cloud-config
+		namespaces = append(namespaces, ns.Name)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return namespaces, nil
+}
+
 // FetchResources builds a map of running resources in the cluster needed for cleanup
-func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
+func (h *KubernetesAPI) FetchResources(ns string) (ResourceMaps, error) {
 	resourceMaps := ResourceMaps{
 		RunningInstanceIds:           mapset.NewSet[string](),
 		RunningContainerImageIds:     mapset.NewSet[string](),
@@ -68,33 +90,31 @@ func (h *KubernetesAPI) FetchResources() (ResourceMaps, error) {
 		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
-	if err := h.fetchDataFromPods(&resourceMaps); err != nil {
+	if err := h.fetchDataFromPods(ns, &resourceMaps); err != nil {
 		return resourceMaps, fmt.Errorf("failed to fetch instance ids and image ids from running pods: %w", err)
 	}
 
-	if err := h.fetchDataFromWorkloads(&resourceMaps); err != nil {
+	if err := h.fetchDataFromWorkloads(ns, &resourceMaps); err != nil {
 		return resourceMaps, fmt.Errorf("failed to fetch wlids from running workloads: %w", err)
 	}
 
 	return resourceMaps, nil
 }
 
-func (h *KubernetesAPI) chooseLister(kind string, opts metav1.ListOptions) (runtime.Object, error) {
+func (h *KubernetesAPI) chooseLister(ns string, kind string, opts metav1.ListOptions) (runtime.Object, error) {
 	switch kind {
 	case "cronjob":
-		return h.client.BatchV1().CronJobs("").List(context.Background(), opts)
+		return h.client.BatchV1().CronJobs(ns).List(context.Background(), opts)
 	case "daemonset":
-		return h.client.AppsV1().DaemonSets("").List(context.Background(), opts)
+		return h.client.AppsV1().DaemonSets(ns).List(context.Background(), opts)
 	case "deployment":
-		return h.client.AppsV1().Deployments("").List(context.Background(), opts)
+		return h.client.AppsV1().Deployments(ns).List(context.Background(), opts)
 	case "job":
-		return h.client.BatchV1().Jobs("").List(context.Background(), opts)
-	case "pod":
-		return h.client.CoreV1().Pods("").List(context.Background(), opts)
+		return h.client.BatchV1().Jobs(ns).List(context.Background(), opts)
 	case "replicaset":
-		return h.client.AppsV1().ReplicaSets("").List(context.Background(), opts)
+		return h.client.AppsV1().ReplicaSets(ns).List(context.Background(), opts)
 	case "statefulset":
-		return h.client.AppsV1().StatefulSets("").List(context.Background(), opts)
+		return h.client.AppsV1().StatefulSets(ns).List(context.Background(), opts)
 	}
 	return nil, errors.NewNotFound(schema.GroupResource{Resource: kind}, "not implemented")
 }
@@ -104,7 +124,7 @@ func (h *KubernetesAPI) chooseLister(kind string, opts metav1.ListOptions) (runt
 // 1. The Template Hash, which links a workload to its pods.
 // 2. A mapping from the workload's unique ID (WLID) to the names of all containers (main, init, ephemeral) defined in its spec.
 // This data is used to identify which stored profiles correspond to currently active workloads.
-func (h *KubernetesAPI) fetchDataFromWorkloads(resourceMaps *ResourceMaps) error {
+func (h *KubernetesAPI) fetchDataFromWorkloads(ns string, resourceMaps *ResourceMaps) error {
 	for _, resource := range Workloads.ToSlice() {
 		gvr, err := k8sinterface.GetGroupVersionResource(resource)
 		if err != nil {
@@ -112,7 +132,7 @@ func (h *KubernetesAPI) fetchDataFromWorkloads(resourceMaps *ResourceMaps) error
 		}
 
 		err = pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-			return h.chooseLister(resource, opts)
+			return h.chooseLister(ns, resource, opts)
 		}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
 			runtimeObj := obj.(runtime.Object)
 			meta := obj.(metav1.Object)
@@ -172,9 +192,9 @@ func convertEphemeralToContainers(e []corev1.EphemeralContainer) []corev1.Contai
 // 2. Template Hashes, used to group pods belonging to the same controller revision.
 // 3. Container Image IDs, which are the unique identifiers for the container images.
 // It populates the corresponding sets in the ResourceMaps struct.
-func (h *KubernetesAPI) fetchDataFromPods(resourceMaps *ResourceMaps) error {
+func (h *KubernetesAPI) fetchDataFromPods(ns string, resourceMaps *ResourceMaps) error {
 	if err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-		return h.client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+		return h.client.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
 	}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
 		pod := obj.(*corev1.Pod)
 
