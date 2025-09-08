@@ -55,28 +55,16 @@ var _ ResourcesFetcher = (*KubernetesAPI)(nil)
 type ResourceMaps struct {
 	// CLUSTER level
 	RunningContainerImageIds mapset.Set[string]
-	RunningTemplateHash      mapset.Set[string]
+	RunningInstanceIds       mapset.Set[string]
 	// NAMESPACE level
-	RunningInstanceIds           mapset.Set[string]
+	RunningTemplateHash          mapset.Set[string]
 	RunningWlidsToContainerNames *maps.SafeMap[string, mapset.Set[string]]
 	// FIXME add nodes
 	// FIXME how about hosts?
 }
 
 func (h *KubernetesAPI) ListNamespaces(conn *sqlite.Conn) ([]string, error) {
-	var namespaces []string
-	dbNamespaces, err := listNamespaces(conn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces from db: %w", err)
-	}
-	for _, ns := range dbNamespaces {
-		// exclude kubescape namespace - TODO enable it again when we move the cluster-scoped resources
-		if ns == h.cfg.DefaultNamespace {
-			continue
-		}
-		namespaces = append(namespaces, ns)
-	}
-	return namespaces, nil
+	return listNamespaces(conn)
 }
 
 // FetchResources builds a map of running resources in the cluster needed for cleanup
