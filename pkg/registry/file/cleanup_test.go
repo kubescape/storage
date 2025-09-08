@@ -95,8 +95,9 @@ func (r *ResourcesFetchMock) ListNamespaces(_ *sqlite.Conn) ([]string, error) {
 func (r *ResourcesFetchMock) FetchResources(_ string) (ResourceMaps, error) {
 	// TODO make use of the ns parameter instead of returning the full list all the time
 	resourceMaps := ResourceMaps{
-		RunningInstanceIds:           mapset.NewSet[string](),
 		RunningContainerImageIds:     mapset.NewSet[string](),
+		RunningTemplateHash:          mapset.NewSet[string](),
+		RunningInstanceIds:           mapset.NewSet[string](),
 		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
