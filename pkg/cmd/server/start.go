@@ -28,11 +28,9 @@ import (
 	"github.com/didip/tollbooth/v7"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/apiserver"
 	"github.com/kubescape/storage/pkg/config"
-	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
 	"github.com/kubescape/storage/pkg/queuemanager"
@@ -43,7 +41,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/version"
-	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
@@ -242,16 +239,6 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 		return nil, fmt.Errorf("error creating self-signed certificates: %v", err)
 	}
 
-	o.RecommendedOptions.ExtraAdmissionInitializers = func(c *genericapiserver.RecommendedConfig) ([]admission.PluginInitializer, error) {
-		client, err := clientset.NewForConfig(c.LoopbackClientConfig)
-		if err != nil {
-			return nil, err
-		}
-		informerFactory := informers.NewSharedInformerFactory(client, c.LoopbackClientConfig.Timeout)
-		o.SharedInformerFactory = informerFactory
-		return []admission.PluginInitializer{wardleinitializer.New(informerFactory)}, nil
-	}
-
 	serverConfig := genericapiserver.NewRecommendedConfig(apiserver.Codecs)
 
 	serverConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(sampleopenapi.GetOpenAPIDefinitions, openapi.NewDefinitionNamer(apiserver.Scheme))
@@ -320,12 +307,6 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 		globalLimiter := NewConcurrentLimiter(rateLimitTotal)
 		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
 	}
-
-	server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {
-		c.GenericConfig.SharedInformerFactory.Start(context.Done())
-		o.SharedInformerFactory.Start(context.Done())
-		return nil
-	})
 
 	if o.StorageConfig.QueueProcessingStatsPrint {
 		go func() {

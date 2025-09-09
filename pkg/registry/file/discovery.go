@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/pager"
+	"zombiezen.com/go/sqlite"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
@@ -33,7 +34,7 @@ var (
 
 type ResourcesFetcher interface {
 	FetchResources(ns string) (ResourceMaps, error)
-	ListNamespaces() ([]string, error)
+	ListNamespaces(conn *sqlite.Conn) ([]string, error)
 }
 
 type KubernetesAPI struct {
@@ -54,31 +55,16 @@ var _ ResourcesFetcher = (*KubernetesAPI)(nil)
 type ResourceMaps struct {
 	// CLUSTER level
 	RunningContainerImageIds mapset.Set[string]
-	RunningTemplateHash      mapset.Set[string]
+	RunningInstanceIds       mapset.Set[string]
 	// NAMESPACE level
-	RunningInstanceIds           mapset.Set[string]
+	RunningTemplateHash          mapset.Set[string]
 	RunningWlidsToContainerNames *maps.SafeMap[string, mapset.Set[string]]
 	// FIXME add nodes
 	// FIXME how about hosts?
 }
 
-func (h *KubernetesAPI) ListNamespaces() ([]string, error) {
-	var namespaces []string
-	if err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-		return h.client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-	}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
-		ns := obj.(*corev1.Namespace)
-		// exclude kubescape namespace - TODO enable it again when we move the cluster-scoped resources
-		if ns.Name == h.cfg.DefaultNamespace {
-			return nil
-		}
-		// TODO check if NS is excluded in ks-cloud-config
-		namespaces = append(namespaces, ns.Name)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return namespaces, nil
+func (h *KubernetesAPI) ListNamespaces(conn *sqlite.Conn) ([]string, error) {
+	return listNamespaces(conn)
 }
 
 // FetchResources builds a map of running resources in the cluster needed for cleanup
