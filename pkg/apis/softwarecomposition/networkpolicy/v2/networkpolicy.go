@@ -83,6 +83,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	}
 
 	ingressHash := make(map[string]bool)
+	ingressPolicyRefsHash := make(map[string]bool)
 	for _, neighbor := range listIngressNetworkNeighbors(nn) {
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
@@ -94,14 +95,15 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 		}
 
 		if refsHash, err := hash(policyRefs); err == nil {
-			if !ingressHash[refsHash] {
+			if !ingressPolicyRefsHash[refsHash] {
 				generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
-				ingressHash[refsHash] = true
+				ingressPolicyRefsHash[refsHash] = true
 			}
 		}
 	}
 
 	egressHash := make(map[string]bool)
+	egressPolicyRefsHash := make(map[string]bool)
 	for _, neighbor := range listEgressNetworkNeighbors(nn) {
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
@@ -112,12 +114,10 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 			}
 		}
 
-		for i := range policyRefs {
-			if refsHash, err := hash(policyRefs[i]); err == nil {
-				if !egressHash[refsHash] {
-					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
-					egressHash[refsHash] = true
-				}
+		if refsHash, err := hash(policyRefs); err == nil {
+			if !egressPolicyRefsHash[refsHash] {
+				generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
+				egressPolicyRefsHash[refsHash] = true
 			}
 		}
 	}

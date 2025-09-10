@@ -64,7 +64,7 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 		return err
 	}
 
-	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighborhoodObjPtr, softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items), metav1.Now())
+	generatedNetworkPolicy, err, _ := networkpolicy.GenerateNetworkPolicy(networkNeighborhoodObjPtr, softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items), metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}

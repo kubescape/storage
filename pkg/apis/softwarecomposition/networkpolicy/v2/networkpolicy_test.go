@@ -1349,16 +1349,140 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "real_duplicate_bug_test",
+			networkNeighborhood: func() softwarecomposition.NetworkNeighborhood {
+				// Create shared objects to ensure identical hashes
+				sharedPodSelector := &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app.kubernetes.io/component": "master",
+						"app.kubernetes.io/name":      "redis",
+					},
+				}
+				sharedPort := softwarecomposition.NetworkPort{
+					Port:     ptrToInt32(6379),
+					Protocol: softwarecomposition.ProtocolTCP,
+					Name:     "TCP-6379",
+				}
+
+				return softwarecomposition.NetworkNeighborhood{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-real-bug",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							helpersv1.StatusMetadataKey: helpersv1.Learning,
+						},
+						Labels: map[string]string{
+							helpersv1.KindMetadataKey: "Deployment",
+							helpersv1.NameMetadataKey: "real-bug",
+						},
+					},
+					Spec: softwarecomposition.NetworkNeighborhoodSpec{
+						LabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "real-bug-app",
+							},
+						},
+						Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+							{
+								Egress: []softwarecomposition.NetworkNeighbor{
+									// First rule with selector (won't be merged)
+									{
+										PodSelector: sharedPodSelector,
+										Ports:       []softwarecomposition.NetworkPort{sharedPort},
+									},
+									// EXACT DUPLICATE with selector - should be deduplicated by hash
+									{
+										PodSelector: sharedPodSelector,
+										Ports:       []softwarecomposition.NetworkPort{sharedPort},
+									},
+								},
+							},
+						},
+					},
+				}
+			}(),
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "deployment-hash-test",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-hash-test",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "hash-test-app",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							// Only one rule - duplicates should be deduplicated
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(6379),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										PodSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app.kubernetes.io/component": "master",
+												"app.kubernetes.io/name":      "redis",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateNetworkPolicy(&tt.networkNeighborhood, softwarecomposition.NewKnownServersFinderImpl(tt.knownServers), timeProvider)
+			got, err, _ := GenerateNetworkPolicy(&tt.networkNeighborhood, softwarecomposition.NewKnownServersFinderImpl(tt.knownServers), timeProvider)
 
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+
+				// Debug: Print actual vs expected for duplicate detection test
+				if tt.name == "real_duplicate_bug_test" {
+					t.Logf("ACTUAL EGRESS RULES COUNT: %d", len(got.Spec.Spec.Egress))
+					for i, rule := range got.Spec.Spec.Egress {
+						t.Logf("RULE %d: %+v", i, rule)
+					}
+					t.Logf("EXPECTED EGRESS RULES COUNT: %d", len(tt.expectedNetworkPolicy.Spec.Spec.Egress))
+					for i, rule := range tt.expectedNetworkPolicy.Spec.Spec.Egress {
+						t.Logf("EXPECTED RULE %d: %+v", i, rule)
+					}
+				}
+
 				assert.Nil(t, compareNP(&tt.expectedNetworkPolicy, &got))
 			}
 		})
