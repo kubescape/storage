@@ -80,6 +80,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	}
 
 	ingressHash := make(map[string]bool)
+	ingressPolicyRefsHash := make(map[string]bool)
 	for _, neighbor := range listIngressNetworkNeighbors(nn) {
 
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
@@ -92,15 +93,16 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 		}
 
 		if refsHash, err := hash(policyRefs); err == nil {
-			if ok := ingressHash[refsHash]; !ok {
+			if ok := ingressPolicyRefsHash[refsHash]; !ok {
 				generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
-				ingressHash[refsHash] = true
+				ingressPolicyRefsHash[refsHash] = true
 			}
 		}
 
 	}
 
 	egressHash := make(map[string]bool)
+	egressPolicyRefsHash := make(map[string]bool)
 	for _, neighbor := range listEgressNetworkNeighbors(nn) {
 
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
@@ -112,12 +114,10 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 			}
 		}
 
-		for i := range policyRefs {
-			if refsHash, err := hash(policyRefs[i]); err == nil {
-				if ok := egressHash[refsHash]; !ok {
-					generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs[i])
-					egressHash[refsHash] = true
-				}
+		if refsHash, err := hash(policyRefs); err == nil {
+			if ok := egressPolicyRefsHash[refsHash]; !ok {
+				generatedNetworkPolicy.PoliciesRef = append(generatedNetworkPolicy.PoliciesRef, policyRefs...)
+				egressPolicyRefsHash[refsHash] = true
 			}
 		}
 	}
@@ -377,14 +377,19 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 		}
 	}
 
+	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
 
-		egressRule.Ports = append(egressRule.Ports, softwarecomposition.NetworkPolicyPort{
-			Protocol: &protocol,
-			Port:     portInt32,
-		})
+		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
+		if !portMap[key] {
+			egressRule.Ports = append(egressRule.Ports, softwarecomposition.NetworkPolicyPort{
+				Protocol: &protocol,
+				Port:     portInt32,
+			})
+			portMap[key] = true
+		}
 	}
 
 	return egressRule, policyRefs
@@ -450,14 +455,19 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 		}
 	}
 
+	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
 
-		ingressRule.Ports = append(ingressRule.Ports, softwarecomposition.NetworkPolicyPort{
-			Protocol: &protocol,
-			Port:     portInt32,
-		})
+		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
+		if !portMap[key] {
+			ingressRule.Ports = append(ingressRule.Ports, softwarecomposition.NetworkPolicyPort{
+				Protocol: &protocol,
+				Port:     portInt32,
+			})
+			portMap[key] = true
+		}
 	}
 
 	return ingressRule, policyRefs
