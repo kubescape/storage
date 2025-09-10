@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ApplicationProfileLister helps list ApplicationProfiles.
@@ -30,7 +30,7 @@ import (
 type ApplicationProfileLister interface {
 	// List lists all ApplicationProfiles in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.ApplicationProfile, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.ApplicationProfile, err error)
 	// ApplicationProfiles returns an object that can list and get ApplicationProfiles.
 	ApplicationProfiles(namespace string) ApplicationProfileNamespaceLister
 	ApplicationProfileListerExpansion
@@ -38,25 +38,17 @@ type ApplicationProfileLister interface {
 
 // applicationProfileLister implements the ApplicationProfileLister interface.
 type applicationProfileLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*softwarecompositionv1beta1.ApplicationProfile]
 }
 
 // NewApplicationProfileLister returns a new ApplicationProfileLister.
 func NewApplicationProfileLister(indexer cache.Indexer) ApplicationProfileLister {
-	return &applicationProfileLister{indexer: indexer}
-}
-
-// List lists all ApplicationProfiles in the indexer.
-func (s *applicationProfileLister) List(selector labels.Selector) (ret []*v1beta1.ApplicationProfile, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.ApplicationProfile))
-	})
-	return ret, err
+	return &applicationProfileLister{listers.New[*softwarecompositionv1beta1.ApplicationProfile](indexer, softwarecompositionv1beta1.Resource("applicationprofile"))}
 }
 
 // ApplicationProfiles returns an object that can list and get ApplicationProfiles.
 func (s *applicationProfileLister) ApplicationProfiles(namespace string) ApplicationProfileNamespaceLister {
-	return applicationProfileNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return applicationProfileNamespaceLister{listers.NewNamespaced[*softwarecompositionv1beta1.ApplicationProfile](s.ResourceIndexer, namespace)}
 }
 
 // ApplicationProfileNamespaceLister helps list and get ApplicationProfiles.
@@ -64,36 +56,15 @@ func (s *applicationProfileLister) ApplicationProfiles(namespace string) Applica
 type ApplicationProfileNamespaceLister interface {
 	// List lists all ApplicationProfiles in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.ApplicationProfile, err error)
+	List(selector labels.Selector) (ret []*softwarecompositionv1beta1.ApplicationProfile, err error)
 	// Get retrieves the ApplicationProfile from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.ApplicationProfile, error)
+	Get(name string) (*softwarecompositionv1beta1.ApplicationProfile, error)
 	ApplicationProfileNamespaceListerExpansion
 }
 
 // applicationProfileNamespaceLister implements the ApplicationProfileNamespaceLister
 // interface.
 type applicationProfileNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ApplicationProfiles in the indexer for a given namespace.
-func (s applicationProfileNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.ApplicationProfile, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.ApplicationProfile))
-	})
-	return ret, err
-}
-
-// Get retrieves the ApplicationProfile from the indexer for a given namespace and name.
-func (s applicationProfileNamespaceLister) Get(name string) (*v1beta1.ApplicationProfile, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("applicationprofile"), name)
-	}
-	return obj.(*v1beta1.ApplicationProfile), nil
+	listers.ResourceIndexer[*softwarecompositionv1beta1.ApplicationProfile]
 }

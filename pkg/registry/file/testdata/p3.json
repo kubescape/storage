@@ -1,0 +1,313 @@
+{
+  "name": "replicaset-multiple-containers-deployment-5f47987c85-server-2237-6628-e937a4c9cd5c4d4095e045c18caaaac8",
+  "namespace": "node-agent-test-hjjz",
+  "uid": "699a708c-2c67-4b0d-b8ef-bdb5ef446d86",
+  "creationTimestamp": "2025-06-24T10:31:11Z",
+  "labels": {
+    "kubescape.io/instance-template-hash": "5f47987c85",
+    "kubescape.io/workload-api-group": "apps",
+    "kubescape.io/workload-api-version": "v1",
+    "kubescape.io/workload-container-name": "server",
+    "kubescape.io/workload-kind": "Deployment",
+    "kubescape.io/workload-name": "multiple-containers-deployment",
+    "kubescape.io/workload-namespace": "node-agent-test-hjjz",
+    "kubescape.io/workload-resource-version": "1100"
+  },
+  "annotations": {
+    "kubescape.io/completion": "partial",
+    "kubescape.io/instance-id": "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-5f47987c85/containerName-server",
+    "kubescape.io/previous-report-timestamp": "0001-01-01 00:00:00 +0000 UTC",
+    "kubescape.io/report-series-id": "6e3c189c-660f-4e55-9497-9db9510c28c3",
+    "kubescape.io/report-timestamp": "2025-06-24 10:31:11.515851596 +0000 UTC m=+68.973764430",
+    "kubescape.io/status": "ready",
+    "kubescape.io/wlid": "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
+    "kubescape.io/workload-container-type": "containers"
+  },
+  "Spec": {
+    "Architectures": [
+      "amd64"
+    ],
+    "Capabilities": [
+      "SETGID",
+      "SETPCAP",
+      "SETUID",
+      "SYS_ADMIN"
+    ],
+    "Execs": [
+      {
+        "Path": "/bin/grpc_health_probe",
+        "Args": [
+          "/bin/grpc_health_probe",
+          "-addr=:9555"
+        ],
+        "Envs": null
+      }
+    ],
+    "Opens": [
+      {
+        "Path": "/etc/passwd",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/hosts",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/sys/kernel/mm/transparent_hugepage/hpage_pmd_size",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/fd",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/etc/group",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/setgroups",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/bin/grpc_health_probe",
+        "Flags": [
+          "O_CLOEXEC",
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/usr/share/zoneinfo/Etc/UTC",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/sys/kernel/cap_last_cap",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/filesystems",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      },
+      {
+        "Path": "/proc/⋯/status",
+        "Flags": [
+          "O_RDONLY",
+          "O_CLOEXEC"
+        ]
+      }
+    ],
+    "Syscalls": [
+      "mmap",
+      "openat",
+      "stat",
+      "ioctl",
+      "fstat",
+      "arch_prctl",
+      "epoll_ctl",
+      "gettid",
+      "madvise",
+      "clone",
+      "accept4",
+      "getpeername",
+      "writev",
+      "setsockopt",
+      "rt_sigprocmask",
+      "getpid",
+      "socket",
+      "epoll_create1",
+      "sched_getaffinity",
+      "close",
+      "epoll_pwait",
+      "sigaltstack",
+      "poll",
+      "nanosleep",
+      "recvfrom",
+      "pread64",
+      "write",
+      "sendmmsg",
+      "tgkill",
+      "epoll_wait",
+      "sched_yield",
+      "connect",
+      "read",
+      "exit",
+      "fcntl",
+      "dup2",
+      "timerfd_settime",
+      "futex",
+      "rt_sigreturn",
+      "lseek",
+      "pipe2",
+      "getsockopt",
+      "rt_sigaction",
+      "exit_group",
+      "lstat",
+      "mprotect",
+      "readlinkat",
+      "getsockname"
+    ],
+    "SeccompProfile": {
+      "Name": "",
+      "Path": "",
+      "Spec": {
+        "Disabled": false,
+        "BaseProfileName": "",
+        "DefaultAction": "",
+        "Architectures": null,
+        "ListenerPath": "",
+        "ListenerMetadata": "",
+        "Syscalls": null,
+        "Flags": null
+      }
+    },
+    "Endpoints": null,
+    "ImageID": "gcr.io/google-samples/microservices-demo/adservice@sha256:37b48b077af9130a6bd3b2fcb6d473e89eafc488262256f38fd663e890133af8",
+    "ImageTag": "gcr.io/google-samples/microservices-demo/adservice:v0.3.4",
+    "PolicyByRuleId": {
+      "R0001": {
+        "AllowedProcesses": [
+          "grpc_health_pro"
+        ],
+        "AllowedContainer": false
+      },
+      "R0002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R0011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1000": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1001": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1002": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1003": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1004": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1005": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1006": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1007": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1008": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1009": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1010": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1011": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1012": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1015": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      },
+      "R1030": {
+        "AllowedProcesses": null,
+        "AllowedContainer": false
+      }
+    },
+    "IdentifiedCallStacks": null,
+    "matchLabels": {
+      "app": "multiple-containers-app"
+    },
+    "Ingress": null,
+    "Egress": null
+  },
+  "Status": {}
+}

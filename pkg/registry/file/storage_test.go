@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -156,7 +157,7 @@ func TestStorageImpl_Create(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, sch)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			err := s.Create(ctx, tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
 			if tt.wantErr {
@@ -193,6 +194,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 		in3 *storage.Preconditions
 		in4 storage.ValidateObjectFunc
 		in5 runtime.Object
+		in6 storage.DeleteOptions
 	}
 	tests := []struct {
 		name    string
@@ -250,9 +252,9 @@ func TestStorageImpl_Delete(t *testing.T) {
 			pool.Put(conn)
 
 			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, nil)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
-			if err := s.Delete(ctx, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5); (err != nil) != tt.wantErr {
+			if err := s.Delete(ctx, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5, tt.args.in6); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.want != nil {
@@ -392,7 +394,7 @@ func TestStorageImpl_Get(t *testing.T) {
 				require.NoError(t, afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, tt.args.key), tt.content, 0644))
 				pool.Put(conn)
 			}
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if err := s.Get(ctx, tt.args.key, tt.args.opts, tt.args.objPtr); !tt.wantErr(t, err) {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr(t, err))
@@ -460,7 +462,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 	for k, v := range objs {
 		err := s.Create(ctx, k, v.DeepCopyObject(), nil, 0)
@@ -578,7 +580,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 				},
 				cachedExistingObject: toto.DeepCopyObject(),
 			},
-			wantNotFound: true, // no change, not found because we don't call writeFiles
+			wantNotFound: true, // no change, not found because we don't call saveObject
 		},
 		{
 			name: "test with failing precondition",
@@ -622,7 +624,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
 				err := s.Create(ctx, tt.args.key, toto.DeepCopyObject(), nil, 0)
@@ -673,7 +675,9 @@ func BenchmarkWriteFiles(b *testing.B) {
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
 	}(pool)
-	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, nil).(*StorageImpl)
+	sch := scheme.Scheme
+	require.NoError(b, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
 	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
 	obj := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
@@ -686,9 +690,11 @@ func BenchmarkWriteFiles(b *testing.B) {
 		},
 	}
 	metaOut := &v1beta1.SBOMSyft{}
+	conn, _ := s.pool.Take(context.Background())
 	for i := 0; i < b.N; i++ {
-		_ = s.writeFiles(key, obj, metaOut)
+		_ = s.saveObject(conn, key, obj, metaOut, "")
 	}
+	s.pool.Put(conn)
 	b.ReportAllocs()
 }
 

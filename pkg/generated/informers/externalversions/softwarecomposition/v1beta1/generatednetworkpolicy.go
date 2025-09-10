@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	apissoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // GeneratedNetworkPolicies.
 type GeneratedNetworkPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.GeneratedNetworkPolicyLister
+	Lister() softwarecompositionv1beta1.GeneratedNetworkPolicyLister
 }
 
 type generatedNetworkPolicyInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredGeneratedNetworkPolicyInformer(client versioned.Interface, names
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().GeneratedNetworkPolicies(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().GeneratedNetworkPolicies(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().GeneratedNetworkPolicies(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().GeneratedNetworkPolicies(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().GeneratedNetworkPolicies(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().GeneratedNetworkPolicies(namespace).Watch(ctx, options)
 			},
 		},
-		&softwarecompositionv1beta1.GeneratedNetworkPolicy{},
+		&apissoftwarecompositionv1beta1.GeneratedNetworkPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *generatedNetworkPolicyInformer) defaultInformer(client versioned.Interf
 }
 
 func (f *generatedNetworkPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&softwarecompositionv1beta1.GeneratedNetworkPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.GeneratedNetworkPolicy{}, f.defaultInformer)
 }
 
-func (f *generatedNetworkPolicyInformer) Lister() v1beta1.GeneratedNetworkPolicyLister {
-	return v1beta1.NewGeneratedNetworkPolicyLister(f.Informer().GetIndexer())
+func (f *generatedNetworkPolicyInformer) Lister() softwarecompositionv1beta1.GeneratedNetworkPolicyLister {
+	return softwarecompositionv1beta1.NewGeneratedNetworkPolicyLister(f.Informer().GetIndexer())
 }

@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	apissoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ConfigurationScanSummaries.
 type ConfigurationScanSummaryInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.ConfigurationScanSummaryLister
+	Lister() softwarecompositionv1beta1.ConfigurationScanSummaryLister
 }
 
 type configurationScanSummaryInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredConfigurationScanSummaryInformer(client versioned.Interface, nam
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().ConfigurationScanSummaries(namespace).Watch(ctx, options)
 			},
 		},
-		&softwarecompositionv1beta1.ConfigurationScanSummary{},
+		&apissoftwarecompositionv1beta1.ConfigurationScanSummary{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *configurationScanSummaryInformer) defaultInformer(client versioned.Inte
 }
 
 func (f *configurationScanSummaryInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&softwarecompositionv1beta1.ConfigurationScanSummary{}, f.defaultInformer)
+	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.ConfigurationScanSummary{}, f.defaultInformer)
 }
 
-func (f *configurationScanSummaryInformer) Lister() v1beta1.ConfigurationScanSummaryLister {
-	return v1beta1.NewConfigurationScanSummaryLister(f.Informer().GetIndexer())
+func (f *configurationScanSummaryInformer) Lister() softwarecompositionv1beta1.ConfigurationScanSummaryLister {
+	return softwarecompositionv1beta1.NewConfigurationScanSummaryLister(f.Informer().GetIndexer())
 }

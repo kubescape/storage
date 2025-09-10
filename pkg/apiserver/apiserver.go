@@ -17,15 +17,15 @@ limitations under the License.
 package apiserver
 
 import (
-	"os"
-
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/containerprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	knownserver "github.com/kubescape/storage/pkg/registry/softwarecomposition/knownservers"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighborhood"
@@ -43,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -59,7 +58,8 @@ var (
 	Scheme = runtime.NewScheme()
 	// Codecs provides methods for retrieving codecs and serializers for specific
 	// versions and content types.
-	Codecs = serializer.NewCodecFactory(Scheme)
+	Codecs              = serializer.NewCodecFactory(Scheme)
+	WardleComponentName = "storage"
 )
 
 func init() {
@@ -82,9 +82,10 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	Namespace       string
+	CleanupHandler  *file.ResourcesCleanupHandler
 	OsFs            afero.Fs
 	Pool            *sqlitemigration.Pool
+	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
 }
 
@@ -116,11 +117,6 @@ func (cfg *Config) Complete() CompletedConfig {
 		&cfg.ExtraConfig,
 	}
 
-	c.GenericConfig.Version = &version.Info{
-		Major: "1",
-		Minor: "0",
-	}
-
 	c.GenericConfig.MaxRequestBodyBytes = maxRequestBodyBytes
 
 	c.GenericConfig.RESTOptionsGetter = &options.StorageFactoryRestOptionsFactory{
@@ -146,11 +142,12 @@ func (c completedConfig) New() (*WardleServer, error) {
 	var (
 		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-		applicationProfileStorageImpl  = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewApplicationProfileProcessor(c.ExtraConfig.Namespace))
-		networkNeighborhoodStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewNetworkNeighborhoodProcessor())
+		applicationProfileStorageImpl  = file.NewApplicationProfileStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewApplicationProfileProcessor(c.ExtraConfig.StorageConfig)))
+		containerProfileStorageImpl    = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.Pool, c.ExtraConfig.CleanupHandler))
+		networkNeighborhoodStorageImpl = file.NewNetworkNeighborhoodStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewNetworkNeighborhoodProcessor(c.ExtraConfig.StorageConfig)))
 		configScanStorageImpl          = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage    = file.NewVulnerabilitySummaryStorage(storageImpl)
-		generatedNetworkPolicyStorage  = file.NewGeneratedNetworkPolicyStorage(storageImpl)
+		generatedNetworkPolicyStorage  = file.NewGeneratedNetworkPolicyStorage(storageImpl, networkNeighborhoodStorageImpl)
 
 		// REST endpoint registration, defaults to storageImpl.
 		ep = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.REST, error), s ...storage.Interface) *registry.REST {
@@ -164,6 +161,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
 		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
 		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
+		"containerprofiles":                   ep(containerprofile.NewREST, containerProfileStorageImpl),
 		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
 		"knownservers":                        ep(knownserver.NewREST),
 		"networkneighborhoods":                ep(networkneighborhood.NewREST, networkNeighborhoodStorageImpl),
@@ -177,7 +175,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 		"workloadconfigurationscans":          ep(wcsstorage.NewREST),
 		"workloadconfigurationscansummaries":  ep(wcssumstorage.NewREST),
 	}
-	if os.Getenv("DISABLE_VIRTUAL_CRDS") == "true" {
+	if c.ExtraConfig.StorageConfig.DisableVirtualCRDs {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "configurationscansummaries")
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "generatednetworkpolicies")
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "vulnerabilitysummaries")

@@ -25,7 +25,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not a KnownServer")
 	}
-	return labels.Set(apiserver.ObjectMeta.Labels), SelectableFields(apiserver), nil
+	return apiserver.ObjectMeta.Labels, SelectableFields(apiserver), nil
 }
 
 func MatchKnownServer(label labels.Selector, field fields.Selector) storage.SelectionPredicate {
@@ -50,18 +50,18 @@ func (KnownServerStrategy) NamespaceScoped() bool {
 	return false
 }
 
-func (KnownServerStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+func (KnownServerStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 }
 
-func (KnownServerStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+func (KnownServerStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
 }
 
-func (KnownServerStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+func (KnownServerStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
-func (KnownServerStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+func (KnownServerStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []string {
 	return nil
 }
 
@@ -73,14 +73,14 @@ func (KnownServerStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-func (KnownServerStrategy) Canonicalize(obj runtime.Object) {
+func (KnownServerStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (KnownServerStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+func (KnownServerStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) field.ErrorList {
 	return field.ErrorList{}
 }
 
 // WarningsOnUpdate returns warnings for the given update.
-func (KnownServerStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+func (KnownServerStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }

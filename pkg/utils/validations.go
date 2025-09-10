@@ -8,7 +8,7 @@ import (
 func ValidateCompletionAnnotation(annotations map[string]string) *field.Error {
 	if v, ok := annotations[helpers.CompletionMetadataKey]; ok {
 		switch v {
-		case helpers.Complete, helpers.Partial:
+		case helpers.Full, helpers.Partial:
 			return nil
 		default:
 			return field.Invalid(field.NewPath("metadata").Child("annotations").Child(helpers.CompletionMetadataKey), v, "invalid value")
@@ -20,7 +20,7 @@ func ValidateCompletionAnnotation(annotations map[string]string) *field.Error {
 func ValidateStatusAnnotation(annotations map[string]string) *field.Error {
 	if v, ok := annotations[helpers.StatusMetadataKey]; ok {
 		switch v {
-		case helpers.Initializing, helpers.Ready, helpers.Completed, helpers.Incomplete, helpers.Unauthorize, helpers.MissingRuntime, helpers.TooLarge:
+		case helpers.Initializing, helpers.Learning, helpers.Completed, helpers.Incomplete, helpers.Unauthorize, helpers.MissingRuntime, helpers.TooLarge:
 			return nil
 		default:
 			return field.Invalid(field.NewPath("metadata").Child("annotations").Child(helpers.StatusMetadataKey), v, "invalid value")

@@ -85,7 +85,7 @@ func TestRemoveManagedFields(t *testing.T) {
 			ja := jsonassert.New(t)
 			b, err := json.Marshal(tt.obj.Object)
 			assert.NoError(t, err)
-			ja.Assertf(string(b), string(tt.want))
+			ja.Assert(string(b), string(tt.want))
 		})
 	}
 }
@@ -117,7 +117,7 @@ func TestRemoveSpecificFields(t *testing.T) {
 			ja := jsonassert.New(t)
 			b, err := json.Marshal(tt.obj.Object)
 			assert.NoError(t, err)
-			ja.Assertf(string(b), string(tt.want))
+			ja.Assert(string(b), string(tt.want))
 		})
 	}
 }

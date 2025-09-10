@@ -3,11 +3,11 @@ package file
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,7 +67,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 	}{
 		{
 			name:                       "NetworkNeighborhood with initContainers and ephemeralContainers",
-			maxNetworkNeighborhoodSize: DefaultMaxNetworkNeighborhoodSize,
+			maxNetworkNeighborhoodSize: 40000,
 			object:                     &nn,
 			want: &softwarecomposition.NetworkNeighborhood{
 				ObjectMeta: v1.ObjectMeta{
@@ -75,6 +75,7 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 						helpers.ResourceSizeMetadataKey: "7",
 					},
 				},
+				SchemaVersion: 1,
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
 					EphemeralContainers: []softwarecomposition.NetworkNeighborhoodContainer{
 						{
@@ -123,9 +124,8 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("MAX_NETWORK_NEIGHBORHOOD_SIZE", strconv.Itoa(tt.maxNetworkNeighborhoodSize))
-			a := NewNetworkNeighborhoodProcessor()
-			tt.wantErr(t, a.PreSave(context.TODO(), tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
+			a := NewNetworkNeighborhoodProcessor(config.Config{MaxNetworkNeighborhoodSize: tt.maxNetworkNeighborhoodSize})
+			tt.wantErr(t, a.PreSave(context.TODO(), nil, tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
 			assert.Equal(t, tt.want, tt.object)
 		})
 	}

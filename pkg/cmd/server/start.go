@@ -17,44 +17,53 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"os"
-	"strconv"
+	"time"
 
 	"github.com/didip/tollbooth/v7"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"github.com/kubescape/storage/pkg/admission/wardleinitializer"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/apiserver"
-	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
+	"github.com/kubescape/storage/pkg/config"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
+	"github.com/kubescape/storage/pkg/queuemanager"
 	"github.com/kubescape/storage/pkg/registry/file"
+	"github.com/kubescape/storage/pkg/statscollector"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apiserver/pkg/admission"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/apiserver/pkg/util/compatibility"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	basecompatibility "k8s.io/component-base/compatibility"
+	"k8s.io/component-base/featuregate"
+	baseversion "k8s.io/component-base/version"
 	netutils "k8s.io/utils/net"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 const (
 	defaultEtcdPathPrefix = "/registry/spdx.softwarecomposition.kubescape.io"
-	defaultRateLimit      = 10000
 )
+
+var stats = statscollector.NewStatsCollector()
 
 // WardleServerOptions contains state for master/api server
 type WardleServerOptions struct {
 	RecommendedOptions *genericoptions.RecommendedOptions
+	// ComponentGlobalsRegistry is the registry where the effective versions and feature gates for all components are stored.
+	ComponentGlobalsRegistry basecompatibility.ComponentGlobalsRegistry
 
 	SharedInformerFactory informers.SharedInformerFactory
 	StdOut                io.Writer
@@ -62,65 +71,73 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
+	CleanupHandler  *file.ResourcesCleanupHandler
 	OsFs            afero.Fs
 	Pool            *sqlitemigration.Pool
-	Namespace       string
+	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
 }
 
+func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
+	if ver.Major() != 1 {
+		return nil
+	}
+	kubeVer := version.MustParse(baseversion.DefaultKubeBinaryVersion)
+	// "1.2" maps to kubeVer
+	offset := int(ver.Minor()) - 2
+	mappedVer := kubeVer.OffsetMinor(offset)
+	if mappedVer.GreaterThan(kubeVer) {
+		return kubeVer
+	}
+	return mappedVer
+}
+
 // NewWardleServerOptions returns a new WardleServerOptions
-func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, namespace string, watchDispatcher *file.WatchDispatcher) *WardleServerOptions {
+func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, cfg config.Config, watchDispatcher *file.WatchDispatcher, cleanupHandler *file.ResourcesCleanupHandler) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
 			apiserver.Codecs.LegacyCodec(v1beta1.SchemeGroupVersion),
 		),
+		ComponentGlobalsRegistry: compatibility.DefaultComponentGlobalsRegistry,
 
 		StdOut: out,
 		StdErr: errOut,
 
+		CleanupHandler:  cleanupHandler,
 		OsFs:            osFs,
 		Pool:            pool,
-		Namespace:       namespace,
+		StorageConfig:   cfg,
 		WatchDispatcher: watchDispatcher,
 	}
+	o.RecommendedOptions.Admission = nil
 	o.RecommendedOptions.Etcd = nil
 
 	// Disable authorization since we are publishing an internal endpoint (that only answers the API server)
 	o.RecommendedOptions.Authorization = nil
 
-	// Set TLS up and bind to 8443
-	value, exists := os.LookupEnv("TLS_CLIENT_CA_FILE")
-	if exists {
-		// Instead of reading the file contents, just set the path
-		o.RecommendedOptions.Authentication.ClientCert.ClientCA = value
-	} else {
-		logger.L().Warning("TLS_CLIENT_CA_FILE not set")
-	}
-	value, exists = os.LookupEnv("TLS_SERVER_CERT_FILE")
-	if exists {
-		o.RecommendedOptions.SecureServing.ServerCert.CertKey.CertFile = value
-	} else {
-		logger.L().Warning("TLS_SERVER_CERT_FILE not set")
-	}
-	value, exists = os.LookupEnv("TLS_SERVER_KEY_FILE")
-	if exists {
-		o.RecommendedOptions.SecureServing.ServerCert.CertKey.KeyFile = value
-	} else {
-		logger.L().Warning("TLS_SERVER_KEY_FILE not set")
-	}
-	o.RecommendedOptions.SecureServing.BindPort = 8443
+	// Set TLS up and bind to secure port
+	o.RecommendedOptions.Authentication.ClientCert.ClientCA = o.StorageConfig.TlsClientCaFile
+	o.RecommendedOptions.SecureServing.ServerCert.CertKey.CertFile = o.StorageConfig.TlsServerCertFile
+	o.RecommendedOptions.SecureServing.ServerCert.CertKey.KeyFile = o.StorageConfig.TlsServerKeyFile
+	o.RecommendedOptions.SecureServing.BindPort = o.StorageConfig.ServerBindPort
 
 	return o
 }
 
 // NewCommandStartWardleServer provides a CLI handler for 'start master' command
 // with a default WardleServerOptions.
-func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan struct{}) *cobra.Command {
+func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOptions, skipDefaultComponentGlobalsRegistrySet bool) *cobra.Command {
 	o := *defaults
 	cmd := &cobra.Command{
 		Short: "Launch a wardle API server",
 		Long:  "Launch a wardle API server",
+		PersistentPreRunE: func(*cobra.Command, []string) error {
+			if skipDefaultComponentGlobalsRegistrySet {
+				return nil
+			}
+			return defaults.ComponentGlobalsRegistry.Set()
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
 				logger.L().Error("config not completed", helpers.Error(err))
@@ -132,7 +149,7 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 				return err
 			}
 			logger.L().Debug("config validated")
-			if err := o.RunWardleServer(stopCh); err != nil {
+			if err := o.RunWardleServer(c.Context()); err != nil {
 				logger.L().Error("unable to run server validated", helpers.Error(err))
 				return err
 			}
@@ -140,10 +157,50 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 			return nil
 		},
 	}
+	cmd.SetContext(ctx)
 
 	flags := cmd.Flags()
 	o.RecommendedOptions.AddFlags(flags)
-	utilfeature.DefaultMutableFeatureGate.AddFlag(flags)
+
+	// The following lines demonstrate how to configure version compatibility and feature gates
+	// for the "Wardle" component, as an example of KEP-4330.
+
+	// Create an effective version object for the "Wardle" component.
+	// This initializes the binary version, the emulation version and the minimum compatibility version.
+	//
+	// Note:
+	// - The binary version represents the actual version of the running source code.
+	// - The emulation version is the version whose capabilities are being emulated by the binary.
+	// - The minimum compatibility version specifies the minimum version that the component remains compatible with.
+	//
+	// Refer to KEP-4330 for more details: https://github.com/kubernetes/enhancements/blob/master/keps/sig-architecture/4330-compatibility-versions
+	defaultWardleVersion := "1.1"
+	// Register the "Wardle" component with the global component registry,
+	// associating it with its effective version and feature gate configuration.
+	// Will skip if the component has been registered, like in the integration test.
+	_, wardleFeatureGate := defaults.ComponentGlobalsRegistry.ComponentGlobalsOrRegister(
+		apiserver.WardleComponentName, basecompatibility.NewEffectiveVersionFromString(defaultWardleVersion, "", ""),
+		featuregate.NewVersionedFeatureGate(version.MustParse(defaultWardleVersion)))
+
+	// Add versioned feature specifications for the "BanFlunder" feature.
+	// These specifications, together with the effective version, determine if the feature is enabled.
+	utilruntime.Must(wardleFeatureGate.AddVersioned(map[featuregate.Feature]featuregate.VersionedSpecs{
+		"BanFlunder": {
+			{Version: version.MustParse("1.0"), Default: false, PreRelease: featuregate.Alpha},
+			{Version: version.MustParse("1.1"), Default: true, PreRelease: featuregate.Beta},
+			{Version: version.MustParse("1.2"), Default: true, PreRelease: featuregate.GA, LockToDefault: true},
+		},
+	}))
+
+	// Register the default kube component if not already present in the global registry.
+	_, _ = defaults.ComponentGlobalsRegistry.ComponentGlobalsOrRegister(basecompatibility.DefaultKubeComponent,
+		basecompatibility.NewEffectiveVersionFromString(baseversion.DefaultKubeBinaryVersion, "", ""), utilfeature.DefaultMutableFeatureGate)
+
+	// Set the emulation version mapping from the "Wardle" component to the kube component.
+	// This ensures that the emulation version of the latter is determined by the emulation version of the former.
+	utilruntime.Must(defaults.ComponentGlobalsRegistry.SetEmulationVersionMapping(apiserver.WardleComponentName, basecompatibility.DefaultKubeComponent, WardleVersionToKubeVersion))
+
+	defaults.ComponentGlobalsRegistry.AddFlags(flags)
 
 	// replace built-in profiling with pprof on port 6060
 	err := flags.Set("profiling", "false")
@@ -162,9 +219,10 @@ func NewCommandStartWardleServer(defaults *WardleServerOptions, stopCh <-chan st
 }
 
 // Validate validates WardleServerOptions
-func (o WardleServerOptions) Validate(args []string) error {
-	errors := []error{}
+func (o WardleServerOptions) Validate(_ []string) error {
+	var errors []error
 	errors = append(errors, o.RecommendedOptions.Validate()...)
+	errors = append(errors, o.ComponentGlobalsRegistry.Validate()...)
 	return utilerrors.NewAggregate(errors)
 }
 
@@ -181,16 +239,6 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 		return nil, fmt.Errorf("error creating self-signed certificates: %v", err)
 	}
 
-	o.RecommendedOptions.ExtraAdmissionInitializers = func(c *genericapiserver.RecommendedConfig) ([]admission.PluginInitializer, error) {
-		client, err := clientset.NewForConfig(c.LoopbackClientConfig)
-		if err != nil {
-			return nil, err
-		}
-		informerFactory := informers.NewSharedInformerFactory(client, c.LoopbackClientConfig.Timeout)
-		o.SharedInformerFactory = informerFactory
-		return []admission.PluginInitializer{wardleinitializer.New(informerFactory)}, nil
-	}
-
 	serverConfig := genericapiserver.NewRecommendedConfig(apiserver.Codecs)
 
 	serverConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(sampleopenapi.GetOpenAPIDefinitions, openapi.NewDefinitionNamer(apiserver.Scheme))
@@ -201,39 +249,56 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	serverConfig.OpenAPIV3Config.Info.Title = "Wardle"
 	serverConfig.OpenAPIV3Config.Info.Version = "0.1"
 
+	serverConfig.FeatureGate = o.ComponentGlobalsRegistry.FeatureGateFor(basecompatibility.DefaultKubeComponent)
+	serverConfig.EffectiveVersion = o.ComponentGlobalsRegistry.EffectiveVersionFor(apiserver.WardleComponentName)
+
+	serverConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) http.Handler {
+		handler := genericapiserver.DefaultBuildHandlerChain(apiHandler, c) // Default handler chain
+		if o.StorageConfig.QueueProcessingStatsPrint {
+			handler = stats.Handler(handler) // Attach stats collector
+		}
+		if o.StorageConfig.QueueTimeoutPrint {
+			handler = queuemanager.TimeoutLoggerMiddleware(handler, o.StorageConfig.QueueTimeout) // Attach timeout logger
+		}
+		if o.StorageConfig.QueueManagerEnabled {
+			queueManager := queuemanager.NewQueueManager(&o.StorageConfig) // Attach queue manager
+			handler = queueManager.QueueHandler(handler)                   // Attach queue manager
+		}
+		return handler
+	}
+
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, err
 	}
 
-	config := &apiserver.Config{
+	c := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
+			CleanupHandler:  o.CleanupHandler,
 			OsFs:            o.OsFs,
 			Pool:            o.Pool,
-			Namespace:       o.Namespace,
+			StorageConfig:   o.StorageConfig,
 			WatchDispatcher: o.WatchDispatcher,
 		},
 	}
-	return config, nil
+	return c, nil
 }
 
 // RunWardleServer starts a new WardleServer given WardleServerOptions
-func (o WardleServerOptions) RunWardleServer(stopCh <-chan struct{}) error {
-	config, err := o.Config()
+func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
+	c, err := o.Config()
 	if err != nil {
 		return err
 	}
 
-	server, err := config.Complete().New()
+	server, err := c.Complete().New()
 	if err != nil {
 		return err
 	}
 
-	if rateLimitPerClient, err := strconv.ParseFloat(os.Getenv("RATE_LIMIT_PER_CLIENT"), 64); err == nil {
-		rateLimitTotal := defaultRateLimit
-		if value, err := strconv.Atoi(os.Getenv("RATE_LIMIT_TOTAL")); err == nil {
-			rateLimitTotal = value
-		}
+	rateLimitPerClient := c.ExtraConfig.StorageConfig.RateLimitPerClient
+	if rateLimitPerClient > 0 {
+		rateLimitTotal := c.ExtraConfig.StorageConfig.RateLimitTotal
 		logger.L().Info("rate limiting enabled", helpers.Interface("rateLimitPerClient", rateLimitPerClient), helpers.Int("rateLimitTotal", rateLimitTotal))
 		// modify fullHandlerChain to include the Tollbooth rate limiter
 		fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
@@ -243,13 +308,24 @@ func (o WardleServerOptions) RunWardleServer(stopCh <-chan struct{}) error {
 		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
 	}
 
-	server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {
-		config.GenericConfig.SharedInformerFactory.Start(context.StopCh)
-		o.SharedInformerFactory.Start(context.StopCh)
-		return nil
-	})
+	if o.StorageConfig.QueueProcessingStatsPrint {
+		go func() {
+			for {
+				time.Sleep(5 * time.Minute)
+				currentStats := stats.GetStats(true)
+				for kind, verbs := range currentStats {
+					for verb, stats := range verbs {
+						logger.L().Info("stats", helpers.String("kind", kind),
+							helpers.String("verb", verb), helpers.Int("count", int(stats.Count)),
+							helpers.String("min", stats.Min.String()), helpers.String("max", stats.Max.String()),
+							helpers.String("avg", time.Duration(stats.Sum.Nanoseconds()/stats.Count).String()))
+					}
+				}
+			}
+		}()
+	}
 
-	return server.GenericAPIServer.PrepareRun().Run(stopCh)
+	return server.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }
 
 func servePprof() {

@@ -3,7 +3,6 @@ package file
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -12,16 +11,17 @@ import (
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/k8s-interface/names"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite"
 )
 
 const (
-	OpenDynamicThreshold             = 50
-	EndpointDynamicThreshold         = 100
-	DefaultMaxApplicationProfileSize = 11000
+	OpenDynamicThreshold     = 50
+	EndpointDynamicThreshold = 100
 )
 
 type ApplicationProfileProcessor struct {
@@ -30,25 +30,27 @@ type ApplicationProfileProcessor struct {
 	storageImpl               *StorageImpl
 }
 
-func NewApplicationProfileProcessor(defaultNamespace string) *ApplicationProfileProcessor {
-	maxApplicationProfileSize, err := strconv.Atoi(os.Getenv("MAX_APPLICATION_PROFILE_SIZE"))
-	if err != nil {
-		maxApplicationProfileSize = DefaultMaxApplicationProfileSize
-	}
-	logger.L().Debug("maxApplicationProfileSize", loggerhelpers.Int("size", maxApplicationProfileSize))
+func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProcessor {
 	return &ApplicationProfileProcessor{
-		defaultNamespace:          defaultNamespace,
-		maxApplicationProfileSize: maxApplicationProfileSize,
+		defaultNamespace:          cfg.DefaultNamespace,
+		maxApplicationProfileSize: cfg.MaxApplicationProfileSize,
 	}
 }
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
-func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtime.Object) error {
+func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+	return nil
+}
+
+func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
 	}
+
+	// set schema version
+	profile.SchemaVersion = SchemaVersion
 
 	// size is the sum of all fields in all containers
 	var size int
@@ -61,8 +63,8 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 			sbomName, err := names.ImageInfoToSlug(container.ImageTag, container.ImageID)
 			if err == nil {
 				sbom := softwarecomposition.SBOMSyft{}
-				key := fmt.Sprintf("/spdx.softwarecomposition.kubescape.io/sbomsyft/%s/%s", a.defaultNamespace, sbomName)
-				if err := a.storageImpl.Get(ctx, key, storage.GetOptions{}, &sbom); err == nil {
+				key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
+				if err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &sbom); err == nil {
 					// fill sbomSet
 					sbomSet = mapset.NewSet[string]()
 					for _, f := range sbom.Spec.Syft.Files {
@@ -94,7 +96,7 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 
 	// check the size of the profile
 	if size > a.maxApplicationProfileSize {
-		return fmt.Errorf("application profile size exceeds the limit of %d: %w", a.maxApplicationProfileSize, TooLargeObjectError)
+		return fmt.Errorf("application profile size exceeds the limit of %d: %w", a.maxApplicationProfileSize, ObjectTooLargeError)
 	}
 
 	// make sure annotations are initialized
@@ -112,7 +114,7 @@ func (a *ApplicationProfileProcessor) SetStorage(storageImpl *StorageImpl) {
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string]) softwarecomposition.ApplicationProfileContainer {
 	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
 	if err != nil {
-		logger.L().Debug("failed to analyze opens", loggerhelpers.Error(err))
+		logger.L().Debug("falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
 	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))

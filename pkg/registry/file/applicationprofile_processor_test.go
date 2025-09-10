@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -78,7 +78,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 	}{
 		{
 			name:                      "ApplicationProfile with initContainers and ephemeralContainers",
-			maxApplicationProfileSize: DefaultMaxApplicationProfileSize,
+			maxApplicationProfileSize: 40000,
 			object:                    &ap,
 			want: &softwarecomposition.ApplicationProfile{
 				ObjectMeta: v1.ObjectMeta{
@@ -86,6 +86,7 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 						helpers.ResourceSizeMetadataKey: "7",
 					},
 				},
+				SchemaVersion: 1,
 				Spec: softwarecomposition.ApplicationProfileSpec{
 					Architectures: []string{"amd64", "arm64"},
 					EphemeralContainers: []softwarecomposition.ApplicationProfileContainer{
@@ -145,9 +146,8 @@ func TestApplicationProfileProcessor_PreSave(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("MAX_APPLICATION_PROFILE_SIZE", strconv.Itoa(tt.maxApplicationProfileSize))
-			a := NewApplicationProfileProcessor("kubescape")
-			tt.wantErr(t, a.PreSave(context.TODO(), tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
+			a := NewApplicationProfileProcessor(config.Config{DefaultNamespace: "kubescape", MaxApplicationProfileSize: tt.maxApplicationProfileSize})
+			tt.wantErr(t, a.PreSave(context.TODO(), nil, tt.object), fmt.Sprintf("PreSave(%v)", tt.object))
 			slices.Sort(tt.object.(*softwarecomposition.ApplicationProfile).Spec.Architectures)
 			assert.Equal(t, tt.want, tt.object)
 		})

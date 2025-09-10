@@ -35,27 +35,6 @@ message Advisory {
   optional string link = 2;
 }
 
-message ApplicationActivity {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
-
-  optional ApplicationActivitySpec spec = 2;
-
-  optional ApplicationActivityStatus status = 3;
-}
-
-message ApplicationActivityList {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
-
-  repeated ApplicationActivity items = 2;
-}
-
-message ApplicationActivitySpec {
-  repeated string syscalls = 1;
-}
-
-message ApplicationActivityStatus {
-}
-
 message ApplicationProfile {
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
 
@@ -214,6 +193,63 @@ message ConfigurationScanSummarySpec {
   optional WorkloadConfigurationScanSeveritiesSummary severities = 1;
 
   repeated WorkloadConfigurationScanSummaryIdentifier summaryRef = 2;
+}
+
+message ContainerProfile {
+  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
+
+  optional ContainerProfileSpec spec = 2;
+
+  optional ContainerProfileStatus status = 3;
+}
+
+message ContainerProfileList {
+  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
+
+  repeated ContainerProfile items = 2;
+}
+
+message ContainerProfileSpec {
+  // WARNING report fields from ApplicationProfileContainer here
+  repeated string architectures = 1;
+
+  repeated string capabilities = 2;
+
+  // +patchMergeKey=path
+  // +patchStrategy=merge
+  repeated ExecCalls execs = 3;
+
+  // +patchMergeKey=path
+  // +patchStrategy=merge
+  repeated OpenCalls opens = 4;
+
+  repeated string syscalls = 5;
+
+  optional SingleSeccompProfile seccompProfile = 6;
+
+  // +patchStrategy=merge
+  // +patchMergeKey=endpoint
+  repeated HTTPEndpoint endpoints = 7;
+
+  optional string imageID = 8;
+
+  optional string imageTag = 9;
+
+  // +patchStrategy=merge
+  // +patchMergeKey=ruleId
+  map<string, RulePolicy> rulePolicies = 10;
+
+  repeated IdentifiedCallStack identifiedCallStacks = 11;
+
+  // WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
+  optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector labelSelector = 101;
+
+  repeated NetworkNeighbor ingress = 102;
+
+  repeated NetworkNeighbor egress = 103;
+}
+
+message ContainerProfileStatus {
 }
 
 message ControlSeverity {
@@ -1285,6 +1321,8 @@ message StackFrame {
   optional string fileID = 1;
 
   optional string lineno = 2;
+
+  optional int64 frameType = 3;
 }
 
 message Statement {

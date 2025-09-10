@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	apissoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // SBOMSyfts.
 type SBOMSyftInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.SBOMSyftLister
+	Lister() softwarecompositionv1beta1.SBOMSyftLister
 }
 
 type sBOMSyftInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredSBOMSyftInformer(client versioned.Interface, namespace string, r
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().SBOMSyfts(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().SBOMSyfts(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().SBOMSyfts(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().SBOMSyfts(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().SBOMSyfts(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().SBOMSyfts(namespace).Watch(ctx, options)
 			},
 		},
-		&softwarecompositionv1beta1.SBOMSyft{},
+		&apissoftwarecompositionv1beta1.SBOMSyft{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *sBOMSyftInformer) defaultInformer(client versioned.Interface, resyncPer
 }
 
 func (f *sBOMSyftInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&softwarecompositionv1beta1.SBOMSyft{}, f.defaultInformer)
+	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.SBOMSyft{}, f.defaultInformer)
 }
 
-func (f *sBOMSyftInformer) Lister() v1beta1.SBOMSyftLister {
-	return v1beta1.NewSBOMSyftLister(f.Informer().GetIndexer())
+func (f *sBOMSyftInformer) Lister() softwarecompositionv1beta1.SBOMSyftLister {
+	return softwarecompositionv1beta1.NewSBOMSyftLister(f.Informer().GetIndexer())
 }

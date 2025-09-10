@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	apissoftwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
+	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/listers/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // KnownServers.
 type KnownServerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.KnownServerLister
+	Lister() softwarecompositionv1beta1.KnownServerLister
 }
 
 type knownServerInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredKnownServerInformer(client versioned.Interface, namespace string
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().KnownServers(namespace).List(context.TODO(), options)
+				return client.SpdxV1beta1().KnownServers(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SpdxV1beta1().KnownServers(namespace).Watch(context.TODO(), options)
+				return client.SpdxV1beta1().KnownServers(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().KnownServers(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SpdxV1beta1().KnownServers(namespace).Watch(ctx, options)
 			},
 		},
-		&softwarecompositionv1beta1.KnownServer{},
+		&apissoftwarecompositionv1beta1.KnownServer{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *knownServerInformer) defaultInformer(client versioned.Interface, resync
 }
 
 func (f *knownServerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&softwarecompositionv1beta1.KnownServer{}, f.defaultInformer)
+	return f.factory.InformerFor(&apissoftwarecompositionv1beta1.KnownServer{}, f.defaultInformer)
 }
 
-func (f *knownServerInformer) Lister() v1beta1.KnownServerLister {
-	return v1beta1.NewKnownServerLister(f.Informer().GetIndexer())
+func (f *knownServerInformer) Lister() softwarecompositionv1beta1.KnownServerLister {
+	return softwarecompositionv1beta1.NewKnownServerLister(f.Informer().GetIndexer())
 }

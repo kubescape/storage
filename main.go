@@ -17,19 +17,18 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
 	"github.com/go-logr/zapr"
+	"github.com/grafana/pyroscope-go"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	"github.com/kubescape/storage/pkg/cleanup"
 	"github.com/kubescape/storage/pkg/cmd/server"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
@@ -46,19 +45,47 @@ func main() {
 		klog.SetLogger(zapr.NewLogger(logger))
 	}
 
-	ctx := context.Background()
+	ctx := genericapiserver.SetupSignalContext()
 	clusterData, err := utilsmetadata.LoadConfig("/etc/config/clusterData.json")
 	if err != nil {
 		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
 	}
+	configDir := "/etc/config"
+	if envPath, present := os.LookupEnv("CONFIG_DIR"); present {
+		configDir = envPath
+	}
+	cfg, err := config.LoadConfig(configDir)
+	if err != nil {
+		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
+	}
+	cfg.DefaultNamespace = clusterData.Namespace
 	// to enable otel, set OTEL_COLLECTOR_SVC=otel-collector:4317
 	if otelHost, present := os.LookupEnv("OTEL_COLLECTOR_SVC"); present {
 		ctx = logger.InitOtel("storage",
 			os.Getenv("RELEASE"),
-			os.Getenv("ACCOUNT_ID"),
+			clusterData.AccountID,
 			clusterData.ClusterName,
 			url.URL{Host: otelHost})
 		defer logger.ShutdownOtel(ctx)
+	}
+
+	if pyroscopeServerSvc, present := os.LookupEnv("PYROSCOPE_SERVER_SVC"); present {
+		logger.L().Info("starting pyroscope profiler")
+
+		if os.Getenv("APPLICATION_NAME") == "" {
+			os.Setenv("APPLICATION_NAME", "node-agent")
+		}
+
+		_, err := pyroscope.Start(pyroscope.Config{
+			ApplicationName: os.Getenv("APPLICATION_NAME"),
+			ServerAddress:   pyroscopeServerSvc,
+			Logger:          pyroscope.StandardLogger,
+			Tags:            map[string]string{"app": "storage", "pod": os.Getenv("POD_NAME")},
+		})
+
+		if err != nil {
+			logger.L().Ctx(ctx).Error("error starting pyroscope", helpers.Error(err))
+		}
 	}
 
 	// setup storage components
@@ -68,29 +95,22 @@ func main() {
 	// setup watcher
 	watchDispatcher := file.NewWatchDispatcher()
 
-	stopCh := genericapiserver.SetupSignalHandler()
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, clusterData.Namespace, watchDispatcher)
-	cmd := server.NewCommandStartWardleServer(options, stopCh)
-
 	// cleanup task
-	client, disco, err := cleanup.NewKubernetesClient()
-	kubernetesAPI := cleanup.NewKubernetesAPI(client, disco)
+	client, err := file.NewKubernetesClient()
+	kubernetesAPI := file.NewKubernetesAPI(cfg, client)
 	if err != nil {
 		panic(err.Error())
-	}
-	interval := os.Getenv("CLEANUP_INTERVAL")
-	intervalDuration, err := time.ParseDuration(interval)
-	if err != nil {
-		intervalDuration = time.Hour * 24
-		logger.L().Info("failed to parse cleanup interval, falling back to default", helpers.Error(err), helpers.String("interval", intervalDuration.String()))
 	}
 
 	relevancyEnabled := clusterData.RelevantImageVulnerabilitiesEnabled != nil && *clusterData.RelevantImageVulnerabilitiesEnabled
 
-	cleanupHandler := cleanup.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, intervalDuration, kubernetesAPI, relevancyEnabled)
-	go cleanupHandler.StartCleanupTask(ctx)
+	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, cfg.CleanupInterval, cfg.DefaultNamespace, kubernetesAPI, relevancyEnabled)
+	go cleanupHandler.RunCleanupTask(ctx)
 
-	logger.L().Info("APIServer started")
+	// start the server
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, cleanupHandler)
+	cmd := server.NewCommandStartWardleServer(ctx, options, false)
+	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)
 	os.Exit(code)
 }

@@ -3,43 +3,40 @@ package file
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/kubescape/go-logger"
-	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
-)
-
-const (
-	DefaultMaxNetworkNeighborhoodSize = 1000
+	"zombiezen.com/go/sqlite"
 )
 
 type NetworkNeighborhoodProcessor struct {
 	maxNetworkNeighborhoodSize int
 }
 
-func NewNetworkNeighborhoodProcessor() *NetworkNeighborhoodProcessor {
-	maxNetworkNeighborhoodSize, err := strconv.Atoi(os.Getenv("MAX_NETWORK_NEIGHBORHOOD_SIZE"))
-	if err != nil {
-		maxNetworkNeighborhoodSize = DefaultMaxNetworkNeighborhoodSize
-	}
-	logger.L().Debug("maxApplicationProfileSize", loggerhelpers.Int("size", maxNetworkNeighborhoodSize))
+func NewNetworkNeighborhoodProcessor(cfg config.Config) *NetworkNeighborhoodProcessor {
 	return &NetworkNeighborhoodProcessor{
-		maxNetworkNeighborhoodSize: maxNetworkNeighborhoodSize,
+		maxNetworkNeighborhoodSize: cfg.MaxNetworkNeighborhoodSize,
 	}
 }
 
 var _ Processor = (*NetworkNeighborhoodProcessor)(nil)
 
-func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, object runtime.Object) error {
+func (a NetworkNeighborhoodProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+	return nil
+}
+
+func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, _ *sqlite.Conn, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.NetworkNeighborhood)
 	if !ok {
 		return fmt.Errorf("given object is not an NetworkNeighborhood")
 	}
+
+	// set schema version
+	profile.SchemaVersion = SchemaVersion
 
 	// size is the sum of all ingress/egress in all containers
 	var size int
@@ -61,7 +58,7 @@ func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, object runtime.
 
 	// check the size of the profile
 	if size > a.maxNetworkNeighborhoodSize {
-		return fmt.Errorf("application profile size exceeds the limit of %d: %w", a.maxNetworkNeighborhoodSize, TooLargeObjectError)
+		return fmt.Errorf("application profile size exceeds the limit of %d: %w", a.maxNetworkNeighborhoodSize, ObjectTooLargeError)
 	}
 
 	// make sure annotations are initialized

@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -32,6 +33,10 @@ func NewConfigurationScanSummaryStorage(realStore StorageQuerier) storage.Interf
 	return &ConfigurationScanSummaryStorage{realStore: realStore}
 }
 
+func (s *ConfigurationScanSummaryStorage) GetCurrentResourceVersion(_ context.Context) (uint64, error) {
+	return 0, nil
+}
+
 // Get generates and returns a single ConfigurationScanSummary object for a namespace
 func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, _ storage.GetOptions, objPtr runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "ConfigurationScanSummaryStorage.Get")
@@ -47,7 +52,7 @@ func (s *ConfigurationScanSummaryStorage) Get(ctx context.Context, key string, _
 	}
 
 	if &workloadScanSummaryListObjPtr == nil {
-		return storage.NewInternalError("workload scan summary list is nil")
+		return storage.NewInternalError(fmt.Errorf("workload scan summary list is nil"))
 	}
 
 	if len(workloadScanSummaryListObjPtr.Items) == 0 {

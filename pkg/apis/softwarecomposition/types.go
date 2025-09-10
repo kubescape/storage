@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -214,8 +215,12 @@ type ApplicationProfile struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   ApplicationProfileSpec
-	Status ApplicationProfileStatus
+	// +k8s:conversion-gen=false
+	Parts map[string]string
+	// +k8s:conversion-gen=false
+	SchemaVersion int64
+	Spec          ApplicationProfileSpec
+	Status        ApplicationProfileStatus
 }
 
 type ApplicationProfileSpec struct {
@@ -291,8 +296,9 @@ type IdentifiedCallStack struct {
 }
 
 type StackFrame struct {
-	FileID string
-	Lineno string
+	FileID    string
+	Lineno    string
+	FrameType int64
 }
 
 type CallStackNode struct {
@@ -319,28 +325,93 @@ type ApplicationProfileList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type ApplicationActivity struct {
+type ContainerProfile struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   ApplicationActivitySpec
-	Status ApplicationActivityStatus
+	Spec   ContainerProfileSpec
+	Status ContainerProfileStatus
 }
 
-type ApplicationActivitySpec struct {
-	Syscalls []string
+type TimeSeriesContainers struct {
+	Completion              string
+	HasData                 bool
+	PreviousReportTimestamp string
+	ReportTimestamp         string
+	Status                  string
+	TsSuffix                string
 }
 
-type ApplicationActivityStatus struct {
+// SetCompletedStatus marks the profile as 'Completed'. The completion state ('Full' or 'Partial') is inherited
+// from the provided timeseries data.
+// It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
+// It returns true if the profile's final state is 'Completed' and 'Full'.
+func (p *ContainerProfile) SetCompletedStatus(ts TimeSeriesContainers) bool {
+	// safeguard: never change a completed full profile
+	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+		return true
+	}
+	p.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+	p.Annotations[helpers.CompletionMetadataKey] = ts.Completion
+	return p.Annotations[helpers.CompletionMetadataKey] == helpers.Full
+}
+
+// SetFailedStatus marks the profile as 'Completed' and 'Partial', a terminal state for profiles that failed processing.
+// It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
+func (p *ContainerProfile) SetFailedStatus(_ TimeSeriesContainers) {
+	// safeguard: never change a completed full profile
+	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+		return
+	}
+	// failed is always completed partial
+	p.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+	p.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
+}
+
+// SetLearningStatus marks the profile as 'Learning'.
+// The completion state is updated from the timeseries data, but it will not downgrade a profile that is already 'Full'.
+// It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
+func (p *ContainerProfile) SetLearningStatus(ts TimeSeriesContainers) {
+	// safeguard: never change a completed profile back to learning
+	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed {
+		return
+	}
+	p.Annotations[helpers.StatusMetadataKey] = helpers.Learning
+	// don't change completion if already full
+	if p.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
+		p.Annotations[helpers.CompletionMetadataKey] = ts.Completion
+	}
+}
+
+type ContainerProfileSpec struct {
+	// WARNING report fields from ApplicationProfileContainer here
+	Architectures        []string
+	Capabilities         []string
+	Execs                []ExecCalls
+	Opens                []OpenCalls
+	Syscalls             []string
+	SeccompProfile       SingleSeccompProfile
+	Endpoints            []HTTPEndpoint
+	ImageID              string
+	ImageTag             string
+	PolicyByRuleId       map[string]RulePolicy
+	IdentifiedCallStacks []IdentifiedCallStack
+	// WARNING report fields from NetworkNeighborhoodContainer here
+	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
+	Ingress              []NetworkNeighbor
+	Egress               []NetworkNeighbor
+}
+
+type ContainerProfileStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type ApplicationActivityList struct {
+type ContainerProfileList struct {
 	metav1.TypeMeta
 	metav1.ListMeta
 
-	Items []ApplicationActivity
+	Items []ContainerProfile
 }
 
 ///////////////////////////////////////////////////////////////////////////////

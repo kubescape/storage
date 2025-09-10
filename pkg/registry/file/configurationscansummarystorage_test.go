@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -44,7 +45,7 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
-	err := configScanSummaryStorage.Delete(context.TODO(), "", nil, nil, nil, nil)
+	err := configScanSummaryStorage.Delete(context.TODO(), "", nil, nil, nil, nil, storage.DeleteOptions{})
 
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
@@ -56,10 +57,7 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	_, err := configScanSummaryStorage.Watch(context.TODO(), "", storage.ListOptions{})
-
-	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
+	assert.NoError(t, err)
 }
 
 func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
@@ -122,7 +120,7 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
@@ -197,7 +195,7 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
 				wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{}
