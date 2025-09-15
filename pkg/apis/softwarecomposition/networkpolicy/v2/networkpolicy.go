@@ -487,7 +487,7 @@ func removeLabels(labels map[string]string) {
 }
 
 func IsAvailable(nn *softwarecomposition.NetworkNeighborhood) bool {
-	if nn.GetAnnotations()[helpersv1.ManagedByUserValue] != "" {
+	if nn.GetAnnotations()[helpersv1.ManagedByMetadataKey] == helpersv1.ManagedByUserValue {
 		return true
 	}
 	switch nn.GetAnnotations()[helpersv1.StatusMetadataKey] {
