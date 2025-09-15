@@ -1349,6 +1349,442 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "real_duplicate_bug_test",
+			networkNeighborhood: func() softwarecomposition.NetworkNeighborhood {
+				sharedPodSelector := &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app.kubernetes.io/component": "master",
+						"app.kubernetes.io/name":      "redis",
+					},
+				}
+				sharedPort := softwarecomposition.NetworkPort{
+					Port:     ptrToInt32(6379),
+					Protocol: softwarecomposition.ProtocolTCP,
+					Name:     "TCP-6379",
+				}
+
+				return softwarecomposition.NetworkNeighborhood{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-real-bug",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							helpersv1.StatusMetadataKey: helpersv1.Learning,
+						},
+						Labels: map[string]string{
+							helpersv1.KindMetadataKey: "Deployment",
+							helpersv1.NameMetadataKey: "real-bug",
+						},
+					},
+					Spec: softwarecomposition.NetworkNeighborhoodSpec{
+						LabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "real-bug-app",
+							},
+						},
+						Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+							{
+								Egress: []softwarecomposition.NetworkNeighbor{
+									{
+										PodSelector: sharedPodSelector,
+										Ports:       []softwarecomposition.NetworkPort{sharedPort},
+									},
+									{
+										PodSelector: sharedPodSelector,
+										Ports:       []softwarecomposition.NetworkPort{sharedPort},
+									},
+								},
+							},
+						},
+					},
+				}
+			}(),
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "deployment-real-bug",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-real-bug",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "real-bug-app",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(6379),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										PodSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app.kubernetes.io/component": "master",
+												"app.kubernetes.io/name":      "redis",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "duplicate_ports_within_single_neighbor",
+			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-duplicate-ports",
+					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
+					},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.NameMetadataKey: "duplicate-ports",
+					},
+				},
+				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "duplicate-ports-app",
+						},
+					},
+					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+						{
+							Egress: []softwarecomposition.NetworkNeighbor{
+								{
+									IPAddress: "192.168.1.1",
+									Ports: []softwarecomposition.NetworkPort{
+										{
+											Port:     ptrToInt32(8080),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-8080",
+										},
+										{
+											Port:     ptrToInt32(8080),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-8080",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "deployment-duplicate-ports",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-duplicate-ports",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "duplicate-ports-app",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(8080),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "192.168.1.1/32",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "duplicate_ports_with_pod_selector",
+			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-duplicate-ports-pod",
+					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
+					},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.NameMetadataKey: "duplicate-ports-pod",
+					},
+				},
+				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "duplicate-ports-pod-app",
+						},
+					},
+					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+						{
+							Egress: []softwarecomposition.NetworkNeighbor{
+								{
+									PodSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app": "redis",
+										},
+									},
+									Ports: []softwarecomposition.NetworkPort{
+										{
+											Port:     ptrToInt32(6379),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-6379",
+										},
+										{
+											Port:     ptrToInt32(6379),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-6379",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "deployment-duplicate-ports-pod",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-duplicate-ports-pod",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "duplicate-ports-pod-app",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(6379),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										PodSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "redis",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "selector_based_rules_not_merged",
+			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-selector-rules",
+					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Learning,
+					},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.NameMetadataKey: "selector-rules",
+					},
+				},
+				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "selector-rules-app",
+						},
+					},
+					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+						{
+							Egress: []softwarecomposition.NetworkNeighbor{
+								{
+									PodSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app": "redis",
+										},
+									},
+									Ports: []softwarecomposition.NetworkPort{
+										{
+											Port:     ptrToInt32(6379),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-6379",
+										},
+									},
+								},
+								{
+									PodSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app": "postgres",
+										},
+									},
+									Ports: []softwarecomposition.NetworkPort{
+										{
+											Port:     ptrToInt32(6379),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-6379",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "deployment-selector-rules",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-selector-rules",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "selector-rules-app",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(6379),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										PodSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "redis",
+											},
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(6379),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										PodSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "postgres",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
