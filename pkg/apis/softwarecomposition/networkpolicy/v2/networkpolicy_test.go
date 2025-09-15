@@ -1785,6 +1785,231 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "network neighborhood with managed by user annotation should generate policy",
+			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-managed-by-user",
+					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.ManagedByMetadataKey: helpersv1.ManagedByUserValue,
+					},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.NameMetadataKey: "managed-by-user",
+					},
+				},
+				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "managed-app",
+						},
+					},
+					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+						{
+							Ingress: []softwarecomposition.NetworkNeighbor{
+								{
+									IPAddress: "10.0.0.1",
+									Ports: []softwarecomposition.NetworkPort{
+										{
+											Port:     ptrToInt32(80),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-80",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "deployment-managed-by-user",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-managed-by-user",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "managed-app",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(80),
+										Protocol: &protocolTCP,
+									},
+								},
+								From: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.1/32",
+										},
+									},
+								},
+							},
+						},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "network neighborhood with completed status should generate policy",
+			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-completed",
+					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: helpersv1.Completed,
+					},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.NameMetadataKey: "completed",
+					},
+				},
+				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "completed-app",
+						},
+					},
+					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+						{
+							Egress: []softwarecomposition.NetworkNeighbor{
+								{
+									IPAddress: "192.168.1.1",
+									Ports: []softwarecomposition.NetworkPort{
+										{
+											Port:     ptrToInt32(8080),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-8080",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "GeneratedNetworkPolicy",
+					APIVersion: "spdx.softwarecomposition.kubescape.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "deployment-completed",
+					Namespace:         "kubescape",
+					CreationTimestamp: timeProvider,
+				},
+				PoliciesRef: []softwarecomposition.PolicyRef{},
+				Spec: softwarecomposition.NetworkPolicy{
+					Kind:       "NetworkPolicy",
+					APIVersion: "networking.k8s.io/v1",
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "deployment-completed",
+						Namespace: "kubescape",
+						Annotations: map[string]string{
+							"generated-by": "kubescape",
+						},
+					},
+					Spec: softwarecomposition.NetworkPolicySpec{
+						PodSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "completed-app",
+							},
+						},
+						PolicyTypes: []softwarecomposition.PolicyType{
+							softwarecomposition.PolicyTypeIngress,
+							softwarecomposition.PolicyTypeEgress,
+						},
+						Ingress: []softwarecomposition.NetworkPolicyIngressRule{},
+						Egress: []softwarecomposition.NetworkPolicyEgressRule{
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
+									{
+										Port:     ptrToInt32(8080),
+										Protocol: &protocolTCP,
+									},
+								},
+								To: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "192.168.1.1/32",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "network neighborhood with not ready status should return error",
+			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-not-ready",
+					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey: "not-ready",
+					},
+					Labels: map[string]string{
+						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.NameMetadataKey: "not-ready",
+					},
+				},
+				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "not-ready-app",
+						},
+					},
+					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+						{
+							Ingress: []softwarecomposition.NetworkNeighbor{
+								{
+									IPAddress: "10.0.0.1",
+									Ports: []softwarecomposition.NetworkPort{
+										{
+											Port:     ptrToInt32(80),
+											Protocol: softwarecomposition.ProtocolTCP,
+											Name:     "TCP-80",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{},
+			expectError:           true,
+		},
 	}
 
 	for _, tt := range tests {
