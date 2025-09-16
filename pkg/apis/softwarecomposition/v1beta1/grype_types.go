@@ -99,6 +99,7 @@ type IgnoreRule struct {
 type IgnoreRulePackage struct {
 	Name         string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
 	Version      string `json:"version,omitempty" protobuf:"bytes,2,opt,name=version"`
+	Language     string `json:"language" protobuf:"bytes,6,opt,name=language"`
 	Type         string `json:"type,omitempty" protobuf:"bytes,3,opt,name=type"`
 	Location     string `json:"location,omitempty" protobuf:"bytes,4,opt,name=location"`
 	UpstreamName string `json:"upstream-name,omitempty" protobuf:"bytes,5,opt,name=upstreamname"`
