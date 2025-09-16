@@ -99,6 +99,7 @@ type IgnoreRule struct {
 type IgnoreRulePackage struct {
 	Name         string
 	Version      string
+	Language     string
 	Type         string
 	Location     string
 	UpstreamName string
