@@ -528,6 +528,8 @@ message IgnoreRulePackage {
 
   optional string version = 2;
 
+  optional string language = 6;
+
   optional string type = 3;
 
   optional string location = 4;

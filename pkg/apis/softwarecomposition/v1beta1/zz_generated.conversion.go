@@ -2897,6 +2897,7 @@ func Convert_softwarecomposition_IgnoreRule_To_v1beta1_IgnoreRule(in *softwareco
 func autoConvert_v1beta1_IgnoreRulePackage_To_softwarecomposition_IgnoreRulePackage(in *IgnoreRulePackage, out *softwarecomposition.IgnoreRulePackage, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Version = in.Version
+	out.Language = in.Language
 	out.Type = in.Type
 	out.Location = in.Location
 	out.UpstreamName = in.UpstreamName
@@ -2911,6 +2912,7 @@ func Convert_v1beta1_IgnoreRulePackage_To_softwarecomposition_IgnoreRulePackage(
 func autoConvert_softwarecomposition_IgnoreRulePackage_To_v1beta1_IgnoreRulePackage(in *softwarecomposition.IgnoreRulePackage, out *IgnoreRulePackage, s conversion.Scope) error {
 	out.Name = in.Name
 	out.Version = in.Version
+	out.Language = in.Language
 	out.Type = in.Type
 	out.Location = in.Location
 	out.UpstreamName = in.UpstreamName
