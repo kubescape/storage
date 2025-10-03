@@ -221,3 +221,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace k8s.io/apiserver => github.com/matthyx/apiserver v0.0.0-20251003105411-dd9f2bda2b69

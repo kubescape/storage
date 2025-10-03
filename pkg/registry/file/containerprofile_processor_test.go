@@ -36,14 +36,13 @@ func TestConsolidateData(t *testing.T) {
 		pool:                    pool,
 	}
 	s := &StorageImpl{
-		appFs:           afero.NewMemMapFs(),
-		pool:            pool,
-		locks:           utils.NewMapMutex[string](),
-		processor:       &processor,
-		root:            DefaultStorageRoot,
-		scheme:          sch,
-		versioner:       storage.APIObjectVersioner{},
-		watchDispatcher: NewWatchDispatcher(),
+		appFs:     afero.NewMemMapFs(),
+		pool:      pool,
+		locks:     utils.NewMapMutex[string](),
+		processor: &processor,
+		root:      DefaultStorageRoot,
+		scheme:    sch,
+		versioner: storage.APIObjectVersioner{},
 	}
 	processor.SetStorage(s)
 

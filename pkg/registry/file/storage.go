@@ -60,14 +60,13 @@ type objState struct {
 // StorageImpl offers a common interface for object marshaling/unmarshaling operations and
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
-	appFs           afero.Fs
-	pool            *sqlitemigration.Pool
-	locks           utils.MapMutex[string]
-	processor       Processor
-	root            string
-	scheme          *runtime.Scheme
-	versioner       storage.Versioner
-	watchDispatcher *WatchDispatcher
+	appFs     afero.Fs
+	pool      *sqlitemigration.Pool
+	locks     utils.MapMutex[string]
+	processor Processor
+	root      string
+	scheme    *runtime.Scheme
+	versioner storage.Versioner
 }
 
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
@@ -82,23 +81,19 @@ var _ storage.Interface = &StorageImpl{}
 
 var _ StorageQuerier = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme) StorageQuerier {
-	return NewStorageImplWithCollector(appFs, root, pool, watchDispatcher, scheme, DefaultProcessor{})
+func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, scheme *runtime.Scheme) StorageQuerier {
+	return NewStorageImplWithCollector(appFs, root, pool, scheme, DefaultProcessor{})
 }
 
-func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme, processor Processor) StorageQuerier {
-	if watchDispatcher == nil {
-		watchDispatcher = NewWatchDispatcher()
-	}
+func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, scheme *runtime.Scheme, processor Processor) StorageQuerier {
 	storageImpl := &StorageImpl{
-		appFs:           appFs,
-		pool:            conn,
-		locks:           utils.NewMapMutex[string](),
-		processor:       processor,
-		root:            root,
-		scheme:          scheme,
-		versioner:       storage.APIObjectVersioner{},
-		watchDispatcher: watchDispatcher,
+		appFs:     appFs,
+		pool:      conn,
+		locks:     utils.NewMapMutex[string](),
+		processor: processor,
+		root:      root,
+		scheme:    scheme,
+		versioner: storage.APIObjectVersioner{},
 	}
 	processor.SetStorage(storageImpl)
 	return storageImpl
@@ -260,8 +255,6 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	if err := s.processor.AfterCreate(ctx, conn, obj); err != nil {
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
-	// publish event to watchers
-	s.watchDispatcher.Added(key, metaOut, obj)
 	return nil
 }
 
@@ -309,8 +302,6 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
-	// publish event to watchers
-	s.watchDispatcher.Deleted(key, metaOut)
 	return nil
 }
 
@@ -321,20 +312,8 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 // (e.g. reconnecting without missing any updates).
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
-func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
-	span.SetAttributes(attribute.String("key", key))
-	defer span.End()
-	_, _, _, namespace, _ := pathToKeys(key)
-	if namespace != "" {
-		// FIXME find an alternative to fix NS deletion
-		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
-		return watch.NewEmptyWatch(), nil
-	}
-	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
-	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
-	s.watchDispatcher.Register(key, nw)
-	return nw, nil
+func (s *StorageImpl) Watch(_ context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+	return nil, nil // watch disabled
 }
 
 // Get unmarshals object found at key into objPtr. On a not found error, will either
@@ -776,8 +755,6 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
 		}
-		// Only successful updates should produce modification events
-		s.watchDispatcher.Modified(key, metaOut, ret)
 		return nil
 	}
 }
@@ -910,7 +887,7 @@ func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, 
 
 // Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
 func (immutableStorage) Watch(_ context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
-	return watch.NewEmptyWatch(), nil
+	return nil, nil // watch disabled
 }
 
 // GuaranteedUpdate is not supported for immutable objects. Objects are generated on the fly and not stored.

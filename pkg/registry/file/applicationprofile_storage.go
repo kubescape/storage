@@ -38,8 +38,8 @@ func (a ApplicationProfileStorage) Delete(ctx context.Context, key string, out r
 	return a.realStore.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
 }
 
-func (a ApplicationProfileStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	return a.realStore.Watch(ctx, key, opts)
+func (a ApplicationProfileStorage) Watch(_ context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+	return nil, nil // watch disabled
 }
 
 func (a ApplicationProfileStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {

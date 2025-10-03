@@ -39,8 +39,8 @@ func (a NetworkNeighborhoodStorage) Delete(ctx context.Context, key string, out 
 	return a.realStore.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
 }
 
-func (a NetworkNeighborhoodStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	return a.realStore.Watch(ctx, key, opts)
+func (a NetworkNeighborhoodStorage) Watch(_ context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+	return nil, nil // watch disabled
 }
 
 func (a NetworkNeighborhoodStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
