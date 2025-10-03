@@ -21,7 +21,6 @@ require (
 	github.com/kubescape/k8s-interface v0.0.206
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
-	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.20.1
@@ -221,3 +220,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+replace k8s.io/apiserver => github.com/matthyx/apiserver v0.0.0-20260603054931-54c588143d7b

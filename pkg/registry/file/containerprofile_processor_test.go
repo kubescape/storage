@@ -37,14 +37,13 @@ func TestConsolidateData(t *testing.T) {
 		MaxContainerProfileSize: 40000,
 	}
 	s := &StorageImpl{
-		appFs:           afero.NewMemMapFs(),
-		pool:            pool,
-		locks:           utils.NewMapMutex[string](),
-		processor:       &processor,
-		root:            DefaultStorageRoot,
-		scheme:          sch,
-		versioner:       storage.APIObjectVersioner{},
-		watchDispatcher: NewWatchDispatcher(),
+		appFs:     afero.NewMemMapFs(),
+		pool:      pool,
+		locks:     utils.NewMapMutex[string](),
+		processor: &processor,
+		root:      DefaultStorageRoot,
+		scheme:    sch,
+		versioner: storage.APIObjectVersioner{},
 	}
 	processor.SetStorage(NewContainerProfileStorageImpl(s, pool))
 

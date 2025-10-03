@@ -92,9 +92,6 @@ func main() {
 	osFs := afero.NewOsFs()
 	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), 0) // If less than 1, a reasonable default is used.
 
-	// setup watcher
-	watchDispatcher := file.NewWatchDispatcher()
-
 	// cleanup task
 	client, err := file.NewKubernetesClient()
 	kubernetesAPI := file.NewKubernetesAPI(cfg, client)
@@ -104,11 +101,11 @@ func main() {
 
 	relevancyEnabled := clusterData.RelevantImageVulnerabilitiesEnabled != nil && *clusterData.RelevantImageVulnerabilitiesEnabled
 
-	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, cfg.CleanupInterval, cfg.DefaultNamespace, kubernetesAPI, relevancyEnabled)
+	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, cfg.CleanupInterval, cfg.DefaultNamespace, kubernetesAPI, relevancyEnabled)
 	go cleanupHandler.RunCleanupTask(ctx)
 
 	// start the server
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, cleanupHandler)
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, cleanupHandler)
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)
