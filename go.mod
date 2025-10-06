@@ -19,12 +19,12 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/goradd/maps v1.0.0
 	github.com/grafana/pyroscope-go v1.2.2
+	github.com/jcuga/golongpoll v1.3.1
 	github.com/kinbiko/jsonassert v1.2.0
 	github.com/kubescape/go-logger v0.0.24
 	github.com/kubescape/k8s-interface v0.0.199
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
-	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
@@ -101,6 +101,7 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/go-pkgz/expirable-cache/v3 v3.0.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gohugoio/hashstructure v0.5.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect

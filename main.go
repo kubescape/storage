@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ import (
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
 	"github.com/go-logr/zapr"
 	"github.com/grafana/pyroscope-go"
+	"github.com/jcuga/golongpoll"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/cmd/server"
@@ -96,16 +98,26 @@ func main() {
 	client, err := file.NewKubernetesClient()
 	kubernetesAPI := file.NewKubernetesAPI(cfg, client)
 	if err != nil {
-		panic(err.Error())
+		logger.L().Fatal("failed to create kubernetes client", helpers.Error(err))
 	}
-
 	relevancyEnabled := clusterData.RelevantImageVulnerabilitiesEnabled != nil && *clusterData.RelevantImageVulnerabilitiesEnabled
-
-	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, cfg.CleanupInterval, cfg.DefaultNamespace, kubernetesAPI, relevancyEnabled)
+	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, nil, cfg.CleanupInterval, cfg.DefaultNamespace, kubernetesAPI, relevancyEnabled)
 	go cleanupHandler.RunCleanupTask(ctx)
 
+	// pub-sub manager
+	pubSub, err := golongpoll.StartLongpoll(golongpoll.Options{})
+	if err != nil {
+		logger.L().Fatal("failed to start pub-sub manager", helpers.Error(err))
+	}
+	http.HandleFunc("/events", pubSub.SubscriptionHandler)
+	//http.HandleFunc("/publish", manager.PublishHandler) // don't allow clients to publish
+	err = http.ListenAndServe("127.0.0.1:8101", nil)
+	if err != nil {
+		logger.L().Fatal("failed to listen for pub-sub events", helpers.Error(err))
+	}
+
 	// start the server
-	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, cleanupHandler)
+	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, cleanupHandler, pubSub)
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)

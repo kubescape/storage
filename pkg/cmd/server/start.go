@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/didip/tollbooth/v7"
+	"github.com/jcuga/golongpoll"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -74,6 +75,7 @@ type WardleServerOptions struct {
 	CleanupHandler *file.ResourcesCleanupHandler
 	OsFs           afero.Fs
 	Pool           *sqlitemigration.Pool
+	PubSub         *golongpoll.LongpollManager
 	StorageConfig  config.Config
 }
 
@@ -92,7 +94,7 @@ func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
 }
 
 // NewWardleServerOptions returns a new WardleServerOptions
-func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, cfg config.Config, cleanupHandler *file.ResourcesCleanupHandler) *WardleServerOptions {
+func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemigration.Pool, cfg config.Config, cleanupHandler *file.ResourcesCleanupHandler, pubSub *golongpoll.LongpollManager) *WardleServerOptions {
 	o := &WardleServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(
 			defaultEtcdPathPrefix,
@@ -106,6 +108,7 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 		CleanupHandler: cleanupHandler,
 		OsFs:           osFs,
 		Pool:           pool,
+		PubSub:         pubSub,
 		StorageConfig:  cfg,
 	}
 	o.RecommendedOptions.Admission = nil
@@ -275,6 +278,7 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 			CleanupHandler: o.CleanupHandler,
 			OsFs:           o.OsFs,
 			Pool:           o.Pool,
+			PubSub:         o.PubSub,
 			StorageConfig:  o.StorageConfig,
 		},
 	}

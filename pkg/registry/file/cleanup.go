@@ -11,12 +11,15 @@ import (
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
+	"github.com/jcuga/golongpoll"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
@@ -37,6 +40,7 @@ type ResourcesCleanupHandler struct {
 	defaultNamespace      string
 	fetcher               ResourcesFetcher
 	deleteFunc            TypeDeleteFunc
+	pubSub                *golongpoll.LongpollManager
 	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
 }
 
@@ -76,7 +80,7 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 	return resourceKindToHandler
 }
 
-func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, interval time.Duration, defaultNamespace string, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
+func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, pubSub *golongpoll.LongpollManager, interval time.Duration, defaultNamespace string, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
 
 	return &ResourcesCleanupHandler{
 		appFs:                 appFs,
@@ -86,6 +90,7 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 		defaultNamespace:      defaultNamespace,
 		fetcher:               fetcher,
 		deleteFunc:            deleteFile,
+		pubSub:                pubSub,
 		resourceToKindHandler: initResourceToKindHandler(relevancyEnabled),
 	}
 }
@@ -195,7 +200,13 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 				h.deleteFunc(h.appFs, path)
 
-				_ = h.deleteMetadata(conn, path)
+				metaOut := h.deleteMetadata(conn, path)
+				if h.pubSub != nil {
+					_ = h.pubSub.Publish(resourceKind, registry.WatchEvent{
+						Type:   watch.Deleted,
+						Object: metaOut,
+					})
+				}
 			}
 			return nil
 		})

@@ -19,6 +19,8 @@ package registry
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 )
 
@@ -36,4 +38,9 @@ func RESTInPeace(storage *REST, err error) *REST {
 		panic(err)
 	}
 	return storage
+}
+
+type WatchEvent struct {
+	Type   watch.EventType `json:"type"`
+	Object runtime.Object  `json:"data"`
 }

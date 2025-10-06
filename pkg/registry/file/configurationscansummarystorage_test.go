@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jcuga/golongpoll"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -18,7 +19,7 @@ import (
 )
 
 func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	count, err := configScanSummaryStorage.Count("random")
@@ -31,7 +32,7 @@ func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	err := configScanSummaryStorage.Create(context.TODO(), "", nil, nil, 0)
@@ -42,7 +43,7 @@ func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	err := configScanSummaryStorage.Delete(context.TODO(), "", nil, nil, nil, nil, storage.DeleteOptions{})
@@ -53,7 +54,7 @@ func TestConfigurationScanSummaryStorage_Delete(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	_, err := configScanSummaryStorage.Watch(context.TODO(), "", storage.ListOptions{})
@@ -61,7 +62,7 @@ func TestConfigurationScanSummaryStorage_Watch(t *testing.T) {
 }
 
 func TestConfigurationScanSummaryStorage_GuaranteedUpdate(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
 
 	err := configScanSummaryStorage.GuaranteedUpdate(context.TODO(), "", nil, false, nil, nil, nil)
@@ -113,9 +114,11 @@ func TestConfigurationScanSummaryStorage_Get(t *testing.T) {
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
 	}(pool)
+	pubSub, err := golongpoll.StartLongpoll(golongpoll.Options{})
+	require.NoError(t, err)
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
-	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, sch)
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, pubSub, sch)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -188,9 +191,11 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
 	}(pool)
+	pubSub, err := golongpoll.StartLongpoll(golongpoll.Options{})
+	require.NoError(t, err)
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
-	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, sch)
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, pubSub, sch)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

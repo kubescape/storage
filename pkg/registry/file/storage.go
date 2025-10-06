@@ -14,11 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jcuga/golongpoll"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
@@ -64,6 +66,7 @@ type StorageImpl struct {
 	pool      *sqlitemigration.Pool
 	locks     utils.MapMutex[string]
 	processor Processor
+	pubSub    *golongpoll.LongpollManager
 	root      string
 	scheme    *runtime.Scheme
 	versioner storage.Versioner
@@ -81,16 +84,17 @@ var _ storage.Interface = &StorageImpl{}
 
 var _ StorageQuerier = &StorageImpl{}
 
-func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, scheme *runtime.Scheme) StorageQuerier {
-	return NewStorageImplWithCollector(appFs, root, pool, scheme, DefaultProcessor{})
+func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, pubSub *golongpoll.LongpollManager, scheme *runtime.Scheme) StorageQuerier {
+	return NewStorageImplWithCollector(appFs, root, pool, pubSub, scheme, DefaultProcessor{})
 }
 
-func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, scheme *runtime.Scheme, processor Processor) StorageQuerier {
+func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, pubSub *golongpoll.LongpollManager, scheme *runtime.Scheme, processor Processor) StorageQuerier {
 	storageImpl := &StorageImpl{
 		appFs:     appFs,
 		pool:      conn,
 		locks:     utils.NewMapMutex[string](),
 		processor: processor,
+		pubSub:    pubSub,
 		root:      root,
 		scheme:    scheme,
 		versioner: storage.APIObjectVersioner{},
@@ -255,6 +259,12 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	if err := s.processor.AfterCreate(ctx, conn, obj); err != nil {
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
+	// publish event to watchers
+	_, _, kind, _, _ := pathToKeys(key)
+	_ = s.pubSub.Publish(kind, registry.WatchEvent{
+		Type:   watch.Added,
+		Object: metaOut,
+	})
 	return nil
 }
 
@@ -302,6 +312,12 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
+	// publish event to watchers
+	_, _, kind, _, _ := pathToKeys(key)
+	_ = s.pubSub.Publish(kind, registry.WatchEvent{
+		Type:   watch.Deleted,
+		Object: metaOut,
+	})
 	return nil
 }
 
@@ -755,6 +771,12 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
 		}
+		// Only successful updates should produce modification events
+		_, _, kind, _, _ := pathToKeys(key)
+		_ = s.pubSub.Publish(kind, registry.WatchEvent{
+			Type:   watch.Modified,
+			Object: metaOut,
+		})
 		return nil
 	}
 }
