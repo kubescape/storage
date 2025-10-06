@@ -173,7 +173,7 @@ func TestStorageImpl_Create(t *testing.T) {
 
 			conn, err := pool.Take(context.TODO())
 			require.NoError(t, err)
-			l, _, err := listMetadata(conn, tt.args.key, "", int64(500))
+			l, _, _, err := listMetadata(conn, tt.args.key, "", 0, int64(500))
 			assert.NoError(t, err)
 			assert.Len(t, l, 1)
 			pool.Put(conn)

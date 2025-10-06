@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -625,6 +626,8 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 // is true, 'key' is used as a prefix.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
+// If 'opts.ResourceVersion' is set, we assume it is a timestamp in unix seconds
+// and return objects that were created/modified since then.
 // GetList only returns metadata for the objects, not the objects themselves.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	poolCtx, cancel := poolContext()
@@ -638,6 +641,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 }
 
 func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	timeBeforeQuery := time.Now()
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -658,9 +662,14 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 	// prepare SQLite connection
 	var list []string
 	var last string
+	var lastUpdated int64
 	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
 		// get names from SQLite
-		list, last, err = listMetadataKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		since, err := strconv.ParseInt(opts.ResourceVersion, 10, 64)
+		if err != nil {
+			since = 0
+		}
+		list, last, lastUpdated, err = listMetadataKeys(conn, key, opts.Predicate.Continue, since, opts.Predicate.Limit)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
@@ -676,7 +685,11 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 		}
 	} else {
 		// get metadata from SQLite
-		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		since, err := strconv.ParseInt(opts.ResourceVersion, 10, 64)
+		if err != nil {
+			since = 0
+		}
+		list, last, lastUpdated, err = listMetadata(conn, key, opts.Predicate.Continue, since, opts.Predicate.Limit)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
 		}
@@ -692,19 +705,20 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 		}
 	}
 	// eventually set list accessor fields
+	listAccessor, err := meta.ListAccessor(listObj)
+	if err != nil {
+		return fmt.Errorf("list accessor: %w", err)
+	}
 	if len(list) == int(opts.Predicate.Limit) {
-		listAccessor, err := meta.ListAccessor(listObj)
-		if err != nil {
-			return fmt.Errorf("list accessor: %w", err)
-		}
 		listAccessor.SetContinue(last)
 		//if rsp.RemainingItemCount > 0 {
 		//listAccessor.SetRemainingItemCount(&rsp.RemainingItemCount)
 		//}
-		//if rsp.ResourceVersion > 0 {
-		//listAccessor.SetResourceVersion(strconv.FormatInt(rsp.ResourceVersion, 10))
-		//}
 	}
+	if lastUpdated == 0 {
+		lastUpdated = timeBeforeQuery.Unix()
+	}
+	listAccessor.SetResourceVersion(strconv.FormatInt(lastUpdated, 10)) // we misuse ResourceVersion to return last updated timestamp
 	return nil
 }
 
