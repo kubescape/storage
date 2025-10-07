@@ -23,6 +23,7 @@ package v1beta1
 type IgnoreRulePackageApplyConfiguration struct {
 	Name         *string `json:"name,omitempty"`
 	Version      *string `json:"version,omitempty"`
+	Language     *string `json:"language,omitempty"`
 	Type         *string `json:"type,omitempty"`
 	Location     *string `json:"location,omitempty"`
 	UpstreamName *string `json:"upstream-name,omitempty"`
@@ -47,6 +48,14 @@ func (b *IgnoreRulePackageApplyConfiguration) WithName(value string) *IgnoreRule
 // If called multiple times, the Version field is set to the value of the last call.
 func (b *IgnoreRulePackageApplyConfiguration) WithVersion(value string) *IgnoreRulePackageApplyConfiguration {
 	b.Version = &value
+	return b
+}
+
+// WithLanguage sets the Language field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Language field is set to the value of the last call.
+func (b *IgnoreRulePackageApplyConfiguration) WithLanguage(value string) *IgnoreRulePackageApplyConfiguration {
+	b.Language = &value
 	return b
 }
 

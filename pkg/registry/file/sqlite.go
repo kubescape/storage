@@ -34,6 +34,25 @@ func NewPool(path string, size int) *sqlitemigration.Pool {
 					metadata JSON,
 					PRIMARY KEY (kind, namespace, name)
 				);`,
+				`ALTER TABLE metadata ADD COLUMN last_updated INTEGER;`,
+				// trigger for setting last_updated on insert
+				`CREATE TRIGGER insert_metadata_timestamp
+					AFTER INSERT ON metadata
+					FOR EACH ROW
+					BEGIN
+						UPDATE metadata 
+						SET last_updated = unixepoch('now') 
+						WHERE rowid = new.rowid;
+					END;`,
+				// trigger for updating last_updated on update
+				`CREATE TRIGGER update_metadata_timestamp
+					AFTER UPDATE ON metadata
+					FOR EACH ROW
+					BEGIN
+						UPDATE metadata 
+						SET last_updated = unixepoch('now') 
+						WHERE rowid = old.rowid;
+					END;`,
 				`CREATE TABLE IF NOT EXISTS time_series (
     				kind TEXT,
 					namespace TEXT,
@@ -119,37 +138,41 @@ func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) err
 	return nil
 }
 
-func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
+func listMetadataKeys(conn *sqlite.Conn, path, cont string, since, limit int64) ([]string, string, int64, error) {
 	prefix, root, kind, namespace, _ := pathToKeys(path)
 	if cont == "" {
 		cont = "0"
 	}
 	var last string
+	var lastUpdated int64
 	var names []string
 	err := sqlitex.Execute(conn,
-		`SELECT rowid, namespace, name FROM metadata
+		`SELECT rowid, namespace, name, last_updated FROM metadata
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
+                	AND (:since = 0 OR last_updated > :since)
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
-			Named: map[string]any{":kind": kind, ":namespace": namespace, ":cont": cont, ":limit": limit},
+			Named: map[string]any{":kind": kind, ":namespace": namespace, ":cont": cont, ":since": since, ":limit": limit},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
 				last = stmt.ColumnText(0)
 				ns := stmt.ColumnText(1)
 				name := stmt.ColumnText(2)
+				lastUpdated = stmt.ColumnInt64(3)
 				names = append(names, keysToPath(prefix, root, kind, ns, name))
 				return nil
 			},
 		})
 	if err != nil {
-		return nil, "", fmt.Errorf("list names: %w", err)
+		return nil, "", 0, fmt.Errorf("list names: %w", err)
 	}
-	return names, last, nil
+	return names, last, lastUpdated, nil
 }
 
-func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
+func listMetadata(conn *sqlite.Conn, path, cont string, since, limit int64) ([]string, string, int64, error) {
+	var lastUpdated int64
 	_, _, kind, namespace, _ := pathToKeys(path)
 	if cont == "" {
 		cont = "0"
@@ -157,25 +180,27 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 	var last string
 	var metadataJSONs []string
 	err := sqlitex.Execute(conn,
-		`SELECT rowid, metadata FROM metadata
+		`SELECT rowid, metadata, last_updated FROM metadata
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
+                	AND (:since = 0 OR last_updated > :since)
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
-			Named: map[string]any{":kind": kind, ":namespace": namespace, ":cont": cont, ":limit": limit},
+			Named: map[string]any{":kind": kind, ":namespace": namespace, ":cont": cont, ":since": since, ":limit": limit},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
 				last = stmt.ColumnText(0)
 				metadataJSON := stmt.ColumnText(1)
+				lastUpdated = stmt.ColumnInt64(2)
 				metadataJSONs = append(metadataJSONs, metadataJSON)
 				return nil
 			},
 		})
 	if err != nil {
-		return nil, "", fmt.Errorf("list metadata: %w", err)
+		return nil, "", 0, fmt.Errorf("list metadata: %w", err)
 	}
-	return metadataJSONs, last, nil
+	return metadataJSONs, last, lastUpdated, nil
 }
 
 func listNamespaces(conn *sqlite.Conn) ([]string, error) {

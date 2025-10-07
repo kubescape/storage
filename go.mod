@@ -21,10 +21,9 @@ require (
 	github.com/grafana/pyroscope-go v1.2.2
 	github.com/kinbiko/jsonassert v1.2.0
 	github.com/kubescape/go-logger v0.0.24
-	github.com/kubescape/k8s-interface v0.0.199
+	github.com/kubescape/k8s-interface v0.0.200
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
-	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
@@ -221,3 +220,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace k8s.io/apiserver => github.com/matthyx/apiserver v0.0.0-20251003105411-dd9f2bda2b69
