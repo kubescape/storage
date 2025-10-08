@@ -2448,6 +2448,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref common.Re
 							Format: "",
 						},
 					},
+					"language": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"type": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -2467,6 +2474,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref common.Re
 						},
 					},
 				},
+				Required: []string{"language"},
 			},
 		},
 	}

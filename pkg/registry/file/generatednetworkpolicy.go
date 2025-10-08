@@ -28,7 +28,17 @@ type GeneratedNetworkPolicyStorage struct {
 	nnStore   storage.Interface
 }
 
-var _ storage.Interface = &GeneratedNetworkPolicyStorage{}
+func (s *GeneratedNetworkPolicyStorage) Stats(_ context.Context) (storage.Stats, error) {
+	return storage.Stats{}, fmt.Errorf("unimplemented")
+}
+
+func (s *GeneratedNetworkPolicyStorage) SetKeysFunc(_ storage.KeysFunc) {}
+
+func (s *GeneratedNetworkPolicyStorage) CompactRevision() int64 {
+	return 0
+}
+
+var _ storage.Interface = (*GeneratedNetworkPolicyStorage)(nil)
 
 func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier, nnStore storage.Interface) storage.Interface {
 	return &GeneratedNetworkPolicyStorage{

@@ -18,6 +18,18 @@ type ApplicationProfileStorage struct {
 	realStore StorageQuerier
 }
 
+func (a ApplicationProfileStorage) Stats(_ context.Context) (storage.Stats, error) {
+	return storage.Stats{}, fmt.Errorf("unimplemented")
+}
+
+func (a ApplicationProfileStorage) SetKeysFunc(_ storage.KeysFunc) {}
+
+func (a ApplicationProfileStorage) CompactRevision() int64 {
+	return 0
+}
+
+var _ storage.Interface = (*ApplicationProfileStorage)(nil)
+
 func NewApplicationProfileStorage(realStore StorageQuerier) storage.Interface {
 	return &ApplicationProfileStorage{realStore: realStore}
 }
@@ -102,10 +114,6 @@ func (a ApplicationProfileStorage) GetList(ctx context.Context, key string, opts
 
 func (a ApplicationProfileStorage) GuaranteedUpdate(ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool, preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
 	return a.realStore.GuaranteedUpdate(ctx, key, destination, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject)
-}
-
-func (a ApplicationProfileStorage) Count(key string) (int64, error) {
-	return a.realStore.Count(key)
 }
 
 func (a ApplicationProfileStorage) ReadinessCheck() error {

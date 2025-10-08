@@ -26,64 +26,6 @@ func getStoredPayloadFilepath(root, key string) string {
 	return root + key + GobExt
 }
 
-func TestStorageImpl_Count(t *testing.T) {
-	keys := []string{
-		"/other/type/ns/titi",
-		"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/kubescape/titi",
-		"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/other/toto",
-		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
-		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/toto",
-	}
-	tests := []struct {
-		name    string
-		key     string
-		want    int64
-		wantErr bool
-	}{
-		{
-			name: "one object",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
-			want: 1,
-		},
-		{
-			name: "one ns",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape",
-			want: 1,
-		},
-		{
-			name: "one type",
-			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts",
-			want: 2,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			pool := NewTestPool(t.TempDir())
-			require.NotNil(t, pool)
-			defer func(pool *sqlitemigration.Pool) {
-				_ = pool.Close()
-			}(pool)
-
-			conn, err := pool.Take(context.TODO())
-			require.NoError(t, err)
-			for _, k := range keys {
-				_ = writeMetadata(conn, k, &v1beta1.SBOMSyft{})
-			}
-			pool.Put(conn)
-
-			s := NewStorageImpl(nil, DefaultStorageRoot, pool, nil, nil)
-			got, err := s.Count(tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Count() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("Count() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestStorageImpl_Create(t *testing.T) {
 	type args struct {
 		key string
@@ -135,7 +77,7 @@ func TestStorageImpl_Create(t *testing.T) {
 					Name:            "toto",
 					ResourceVersion: "1",
 					Annotations: map[string]string{
-						"kubescape.io/sync-checksum": "c1cabafe2019d04e697774db7bc943c2d9012ff3ccf5ea78af2179f5558e764d",
+						"kubescape.io/sync-checksum": "0c8bc45306dae86e5a455fb117eae68f7a6903261ba7909979ec9e61806c7fd9",
 					},
 				},
 			},
@@ -725,7 +667,7 @@ func Test_calculateChecksum(t *testing.T) {
 					}},
 				},
 			},
-			want:    "e0d53970c4c25450026c60aae0125653a63cafc8c9173ffba1db298572594247",
+			want:    "cd4905299d95f0cf9d2337b7e674ea7ccff116e47ec6aa036f29a691a063a4ed",
 			wantErr: assert.NoError,
 		},
 	}

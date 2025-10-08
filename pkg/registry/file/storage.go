@@ -70,6 +70,20 @@ type StorageImpl struct {
 	watchDispatcher *WatchDispatcher
 }
 
+func (s *StorageImpl) Stats(_ context.Context) (storage.Stats, error) {
+	return storage.Stats{}, fmt.Errorf("unimplemented")
+}
+
+func (s *StorageImpl) SetKeysFunc(_ storage.KeysFunc) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StorageImpl) CompactRevision() int64 {
+	//TODO implement me
+	panic("implement me")
+}
+
 // StorageQuerier wraps the storage.Interface and adds some extra methods which are used by the storage implementation.
 type StorageQuerier interface {
 	storage.Interface
@@ -78,9 +92,9 @@ type StorageQuerier interface {
 	GetByCluster(ctx context.Context, apiVersion, kind string, listObj runtime.Object) error
 }
 
-var _ storage.Interface = &StorageImpl{}
+var _ storage.Interface = (*StorageImpl)(nil)
 
-var _ StorageQuerier = &StorageImpl{}
+var _ StorageQuerier = (*StorageImpl)(nil)
 
 func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme) StorageQuerier {
 	return NewStorageImplWithCollector(appFs, root, pool, watchDispatcher, scheme, DefaultProcessor{})

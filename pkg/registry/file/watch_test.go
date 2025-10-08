@@ -105,7 +105,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 			Name:            "some-sbom",
 			ResourceVersion: "1",
 			Annotations: map[string]string{
-				"kubescape.io/sync-checksum": "f01df40a881e487bda097444c66c52f99b821fd6a6a6b69fcde94ed81f3bf4e1",
+				"kubescape.io/sync-checksum": "58964290770ed17fd375e3c7ef02d0af5d52ca954c65fb2add8c75ff144bf0b1",
 			},
 		}}
 	)

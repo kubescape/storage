@@ -19,6 +19,18 @@ type NetworkNeighborhoodStorage struct {
 	realStore StorageQuerier
 }
 
+func (a NetworkNeighborhoodStorage) Stats(_ context.Context) (storage.Stats, error) {
+	return storage.Stats{}, fmt.Errorf("unimplemented")
+}
+
+func (a NetworkNeighborhoodStorage) SetKeysFunc(_ storage.KeysFunc) {}
+
+func (a NetworkNeighborhoodStorage) CompactRevision() int64 {
+	return 0
+}
+
+var _ storage.Interface = (*NetworkNeighborhoodStorage)(nil)
+
 func NewNetworkNeighborhoodStorage(realStore StorageQuerier) storage.Interface {
 	return &NetworkNeighborhoodStorage{realStore: realStore}
 }
@@ -93,10 +105,6 @@ func (a NetworkNeighborhoodStorage) GetList(ctx context.Context, key string, opt
 
 func (a NetworkNeighborhoodStorage) GuaranteedUpdate(ctx context.Context, key string, destination runtime.Object, ignoreNotFound bool, preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
 	return a.realStore.GuaranteedUpdate(ctx, key, destination, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject)
-}
-
-func (a NetworkNeighborhoodStorage) Count(key string) (int64, error) {
-	return a.realStore.Count(key)
 }
 
 func (a NetworkNeighborhoodStorage) ReadinessCheck() error {
