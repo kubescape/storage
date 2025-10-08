@@ -27,7 +27,17 @@ type ConfigurationScanSummaryStorage struct {
 	realStore StorageQuerier
 }
 
-var _ storage.Interface = &ConfigurationScanSummaryStorage{}
+func (s *ConfigurationScanSummaryStorage) Stats(_ context.Context) (storage.Stats, error) {
+	return storage.Stats{}, fmt.Errorf("unimplemented")
+}
+
+func (s *ConfigurationScanSummaryStorage) SetKeysFunc(_ storage.KeysFunc) {}
+
+func (s *ConfigurationScanSummaryStorage) CompactRevision() int64 {
+	return 0
+}
+
+var _ storage.Interface = (*ConfigurationScanSummaryStorage)(nil)
 
 func NewConfigurationScanSummaryStorage(realStore StorageQuerier) storage.Interface {
 	return &ConfigurationScanSummaryStorage{realStore: realStore}

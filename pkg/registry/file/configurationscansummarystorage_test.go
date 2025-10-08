@@ -17,19 +17,6 @@ import (
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
-func TestConfigurationScanSummaryStorage_Count(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
-
-	count, err := configScanSummaryStorage.Count("random")
-
-	assert.Equal(t, int64(0), count)
-
-	expectedError := storage.NewInvalidObjError("random", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
-}
-
 func TestConfigurationScanSummaryStorage_Create(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	configScanSummaryStorage := NewConfigurationScanSummaryStorage(storageImpl)
