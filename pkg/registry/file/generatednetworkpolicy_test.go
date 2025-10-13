@@ -188,19 +188,6 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 	}
 }
 
-func TestGeneratedNetworkPolicyStorage_Count(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
-
-	count, err := generatedNetworkPolicyStorage.Count("random")
-
-	assert.Equal(t, int64(0), count)
-
-	expectedError := storage.NewInvalidObjError("random", operationNotSupportedMsg)
-
-	assert.EqualError(t, err, expectedError.Error())
-}
-
 func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)

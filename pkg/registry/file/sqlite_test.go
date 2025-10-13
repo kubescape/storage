@@ -42,9 +42,9 @@ func TestMemoryConn(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, list, 3)
 	expected := []string{
-		"{\"metadata\":{\"name\":\"name\",\"creationTimestamp\":null},\"spec\":{\"containers\":null},\"status\":{}}",
-		"{\"metadata\":{\"name\":\"name\",\"creationTimestamp\":null},\"spec\":{\"containers\":null},\"status\":{}}",
-		"{\"metadata\":{\"name\":\"name\",\"creationTimestamp\":null},\"spec\":{\"containers\":null},\"status\":{}}",
+		"{\"metadata\":{\"name\":\"name\"},\"spec\":{\"containers\":null},\"status\":{}}",
+		"{\"metadata\":{\"name\":\"name\"},\"spec\":{\"containers\":null},\"status\":{}}",
+		"{\"metadata\":{\"name\":\"name\"},\"spec\":{\"containers\":null},\"status\":{}}",
 	}
 	assert.Equal(t, expected, list)
 	assert.Equal(t, "3", last)
@@ -61,7 +61,7 @@ func TestMemoryConn(t *testing.T) {
 	// Test read
 	b, err := ReadMetadata(conn, "/v1/pods/default2/pod1")
 	assert.NoError(t, err)
-	assert.Equal(t, "{\"metadata\":{\"name\":\"name\",\"creationTimestamp\":null},\"spec\":{\"containers\":null},\"status\":{}}", string(b))
+	assert.Equal(t, "{\"metadata\":{\"name\":\"name\"},\"spec\":{\"containers\":null},\"status\":{}}", string(b))
 	// Test delete returning value
 	p := &v1.Pod{}
 	assert.NoError(t, DeleteMetadata(conn, "/v1/pods/default1/pod1", p))
