@@ -219,199 +219,420 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	return a.cleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
 
+// consolidateTimeSeries processes all time series data, handling expired and active series separately.
+//
+// The function runs in two phases:
+// 1. Process expired time series (past deleteThreshold) - marked as Completed/Partial
+// 2. Process active time series with data - follow normal completion flow
+//
+// Expired time series are always marked as Completed/Partial unless they were already Completed/Full,
+// ensuring incomplete profiles don't remain in a Learning state indefinitely.
 func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // FIXME should we add a timeout here?
+
 	conn, err := a.pool.Take(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to take connection: %w", err)
 	}
 	defer a.pool.Put(conn)
-	// clean up older time series
-	if a.deleteThreshold > 0 {
-		err = CleanOlderTimeSeries(conn, a.deleteThreshold)
-		if err != nil {
-			return fmt.Errorf("failed to clean up time series: %w", err)
-		}
-	}
-	// list all time series keys with data
-	keys, err := ListTimeSeriesKeys(conn)
+
+	// Phase 1: Process expired time series
+	// These are marked as Completed/Partial (unless already Completed/Full)
+	expired, err := ListTimeSeriesExpired(conn, a.deleteThreshold)
 	if err != nil {
-		return fmt.Errorf("failed to list time series keys: %w", err)
+		return fmt.Errorf("failed to list time: %w", err)
 	}
-	// consolidate data for each key
-	for _, key := range keys {
-		logger.L().Debug("ContainerProfileProcessor.consolidateTimeSeries - consolidating data for key", loggerhelpers.String("key", key))
-		// list all containers for the key
-		timeSeries, err := ListTimeSeriesContainers(conn, key)
+
+	for _, key := range expired {
+		if err := a.consolidateKeyTimeSeries(ctx, conn, key, true); err != nil {
+			return err
+		}
+	}
+
+	// Phase 2: Process active time series with data
+	// These follow normal completion flow based on their status
+	withData, err := ListTimeSeriesWithData(conn)
+	if err != nil {
+		return fmt.Errorf("failed to list time: %w", err)
+	}
+
+	for _, key := range withData {
+		if err := a.consolidateKeyTimeSeries(ctx, conn, key, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// consolidateKeyTimeSeries consolidates time series data for a single key.
+//
+// The expired parameter indicates whether this time series has exceeded the deleteThreshold.
+// When expired=true, the resulting profile will be marked as Completed/Partial (unless already Completed/Full).
+func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context, conn *sqlite.Conn, key string, expired bool) error {
+	logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - consolidating data for key", loggerhelpers.String("key", key), loggerhelpers.Interface("expired", expired))
+
+	timeSeries, err := ListTimeSeriesContainers(conn, key)
+	if err != nil {
+		return fmt.Errorf("failed to list time series containers: %w", err)
+	}
+
+	profile, prefix, root, namespace, err := a.loadOrInitializeProfile(ctx, conn, key)
+	if err != nil {
+		return err
+	}
+
+	processed, err := a.processTimeSeriesInTransaction(ctx, conn, timeSeries, key, profile, prefix, root, namespace, expired)
+	if err != nil {
+		return err
+	}
+
+	if err := a.deleteProcessedTimeSeries(ctx, conn, processed); err != nil {
+		return err
+	}
+
+	logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - finished consolidating data for key", loggerhelpers.String("key", key))
+	return nil
+}
+
+// loadOrInitializeProfile loads an existing profile or creates a new one
+func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context, conn *sqlite.Conn, key string) (
+	profile softwarecomposition.ContainerProfile, prefix, root, namespace string, err error) {
+
+	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cpCancel()
+
+	err = a.storageImpl.GetWithConn(cpCtx, conn, key, storage.GetOptions{}, &profile)
+	prefix, root, kind, namespace, name := pathToKeys(key)
+
+	switch {
+	case storage.IsNotFound(err):
+		err = nil
+		profile = softwarecomposition.ContainerProfile{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: StorageV1Beta1ApiVersion,
+				Kind:       kind,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   namespace,
+				Name:        name,
+				Annotations: map[string]string{},
+				Labels:      map[string]string{},
+			},
+		}
+	case err != nil:
+		err = fmt.Errorf("failed to get profile: %w", err)
+	}
+
+	return profile, prefix, root, namespace, err
+}
+
+// processTimeSeriesInTransaction processes time series data within a database transaction
+func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.Context, conn *sqlite.Conn,
+	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
+	profile softwarecomposition.ContainerProfile, prefix, root, namespace string, expired bool) ([]string, error) {
+
+	endFn := sqlitex.Transaction(conn)
+	processed, err := a.updateProfile(ctx, conn, timeSeries, key, profile, prefix, root, namespace, expired)
+	endFn(&err)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
+	}
+
+	return processed, nil
+}
+
+// deleteProcessedTimeSeries removes processed time series profiles from storage
+func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Context, conn *sqlite.Conn, processed []string) error {
+	for _, tsKey := range processed {
+		// no locking needed for TS profiles
+		err := a.storageImpl.delete(ctx, conn, tsKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
+		// FIXME maybe try to delete others before exit?
 		if err != nil {
-			return fmt.Errorf("failed to list time series containers: %w", err)
+			return fmt.Errorf("failed to delete processed time series profile: %w", err)
 		}
-		// load profile from disk if it exists
-		profile := softwarecomposition.ContainerProfile{}
-		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cpCancel()
-		err = a.storageImpl.GetWithConn(cpCtx, conn, key, storage.GetOptions{}, &profile)
-		prefix, root, kind, namespace, name := pathToKeys(key)
-		switch {
-		case storage.IsNotFound(err):
-			// remove error
-			err = nil
-			profile.APIVersion = StorageV1Beta1ApiVersion
-			profile.Kind = kind
-			profile.Namespace = namespace
-			profile.Name = name
-			profile.Annotations = map[string]string{}
-			profile.Labels = map[string]string{}
-		case err != nil:
-			return fmt.Errorf("failed to get profile: %w", err)
-		}
-		// start a transaction
-		endFn := sqlitex.Transaction(conn)
-		processed, err := a.updateProfile(ctx, conn, timeSeries, key, profile, prefix, root, namespace)
-		endFn(&err)
-		if err != nil {
-			return fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
-		}
-		// delete processed time series profiles
-		for _, tsKey := range processed {
-			// no locking needed for TS profiles
-			err := a.storageImpl.delete(ctx, conn, tsKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
-			// FIXME maybe try to delete others before exit?
-			if err != nil {
-				return fmt.Errorf("failed to delete processed time series profile: %w", err)
-			}
-		}
-		logger.L().Debug("ContainerProfileProcessor.consolidateTimeSeries - finished consolidating data for key", loggerhelpers.String("key", key))
 	}
 	return nil
 }
 
-func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sqlite.Conn, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix string, root string, namespace string) ([]string, error) {
+func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sqlite.Conn, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix string, root string, namespace string, expired bool) ([]string, error) {
 	var processed []string
 	creationTimestamp := metav1.Now()
 	var newData bool
+
+	// Process each time series
 	for seriesID := range timeSeries {
-		var deleteTimeSeries []string
-		// merge time series data for each container
-		for k, ts := range timeSeries[seriesID] {
-			deleteTimeSeries = append(deleteTimeSeries, ts.TsSuffix)
-			if ts.HasData {
-				// load TS profile from disk
-				tsKey := key + "-" + ts.TsSuffix
-				tsProfile := softwarecomposition.ContainerProfile{}
-				// no locking needed for TS profiles
-				err := a.storageImpl.get(ctx, conn, tsKey, storage.GetOptions{}, &tsProfile)
-				switch {
-				case storage.IsNotFound(err):
-					timeSeries[seriesID][k].HasData = false
-					continue
-				case err != nil:
-					return nil, fmt.Errorf("failed to get ts profile: %w", err)
-				}
-				newData = true
-				mergeContainerProfileTS(&profile, &tsProfile)
-				// mark as processed
-				timeSeries[seriesID][k].HasData = false
-				processed = append(processed, tsKey)
-			}
-		}
-		// combine continuous time series entries
-		j := 0
-		var newTimeSeries []softwarecomposition.TimeSeriesContainers
-		for i := 0; i < len(timeSeries[seriesID])-1; i++ {
-			// time series are in reverse chronological order
-			if timeSeries[seriesID][j].PreviousReportTimestamp == timeSeries[seriesID][i+1].ReportTimestamp {
-				timeSeries[seriesID][j].PreviousReportTimestamp = timeSeries[seriesID][i+1].PreviousReportTimestamp
-			} else {
-				newTimeSeries = append(newTimeSeries, timeSeries[seriesID][j])
-				j = i + 1
-			}
-		}
-		newTimeSeries = append(newTimeSeries, timeSeries[seriesID][j])
-		if t, err := time.Parse(time.RFC3339, timeSeries[seriesID][j].ReportTimestamp); err == nil && creationTimestamp.After(t) {
-			creationTimestamp = metav1.NewTime(t)
-		}
-		// compute status and completion
-		// an aggregated series is removed only if it has one element, no previous report timestamp, and is completed or failed
-		if len(newTimeSeries) == 1 && isZeroTime(newTimeSeries[0].PreviousReportTimestamp) {
-			switch newTimeSeries[0].Status {
-			case helpers.Completed:
-				// TODO add annotation with the TS duration
-				if profile.SetCompletedStatus(newTimeSeries[0]) {
-					logger.L().Debug("ContainerProfileProcessor.updateProfile - profile is completed/full, skipping further processing", loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
-					// remove all time series data from SQLite
-					// time series on disk will be removed by regular cleanup as it won't find the metadata in SQLite
-					err := DeleteTimeSeriesContainerEntries(conn, key)
-					if err != nil {
-						return nil, fmt.Errorf("failed to delete time series data: %w", err)
-					}
-					// skip further processing
-					break
-				}
-				// clear this time series as it is finished
-				newTimeSeries = newTimeSeries[:0]
-			case helpers.Failed:
-				profile.SetFailedStatus(newTimeSeries[0])
-				// clear this time series as it is finished
-				newTimeSeries = newTimeSeries[:0]
-			default:
-				profile.SetLearningStatus(newTimeSeries[0]) // series is complete but not finished
-			}
-		} else {
-			profile.SetLearningStatus(newTimeSeries[0]) // series is missing some TS entries
-		}
-		// write the consolidated time series data back to the database
-		err := ReplaceTimeSeriesContainerEntries(conn, key, seriesID, deleteTimeSeries, newTimeSeries)
+		processResult, err := a.processTimeSeries(ctx, conn, timeSeries, seriesID, key, &profile, &creationTimestamp, expired)
 		if err != nil {
-			return nil, fmt.Errorf("failed to replace consolidated time series data: %w", err)
+			return nil, err
+		}
+		processed = append(processed, processResult.processed...)
+		if processResult.hasNewData {
+			newData = true
+		}
+		if processResult.skipFurtherProcessing {
+			break
 		}
 	}
-	// check if it's worth saving
+
+	// Skip saving if no new data or invalid profile
 	if !newData {
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, skip saving profile", loggerhelpers.String("key", key))
 		return processed, nil
 	}
-	// verify we have a valid profile before writing it to disk
 	if _, ok := profile.Annotations[helpers.InstanceIDMetadataKey]; !ok {
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
 		return processed, nil
 	}
-	// update creation timestamp
+
+	// Update creation timestamp
 	if profile.CreationTimestamp.IsZero() {
 		profile.CreationTimestamp = creationTimestamp
 	}
-	wlid := profile.Annotations[helpers.WlidMetadataKey]
-	// write the consolidated data back to disk
-	tryUpdateContainerProfile := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		// this is a full replace
-		return &profile, nil, nil
+
+	// Save the container profile
+	if err := a.saveContainerProfile(ctx, conn, key, &profile); err != nil {
+		return nil, err
 	}
-	// we use a timeout to avoid deadlocks in case of concurrent updates
+
+	// Update aggregated profiles (application profile and network neighborhood)
+	if err := a.updateAggregatedProfiles(ctx, conn, key, &profile, prefix, root, namespace, creationTimestamp); err != nil {
+		return nil, err
+	}
+
+	return processed, nil
+}
+
+// timeSeriesProcessResult holds the results of processing a time series
+type timeSeriesProcessResult struct {
+	processed             []string
+	hasNewData            bool
+	skipFurtherProcessing bool
+}
+
+// processTimeSeries processes a single time series and returns the result
+func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context, conn *sqlite.Conn,
+	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, seriesID, key string,
+	profile *softwarecomposition.ContainerProfile, creationTimestamp *metav1.Time, expired bool) (timeSeriesProcessResult, error) {
+
+	result := timeSeriesProcessResult{}
+
+	// Merge time series data
+	deleteTimeSeries, processed, hasNewData := a.mergeTimeSeriesData(ctx, conn, timeSeries[seriesID], key, profile)
+	result.processed = processed
+	result.hasNewData = hasNewData
+
+	// Consolidate continuous time series entries
+	newTimeSeries := a.consolidateContinuousTimeSeries(timeSeries[seriesID], creationTimestamp)
+
+	// Update profile status based on time series state
+	newTimeSeries, skipFurtherProcessing, err := a.updateProfileStatus(conn, key, seriesID, profile, newTimeSeries, expired)
+	if err != nil {
+		return result, err
+	}
+	result.skipFurtherProcessing = skipFurtherProcessing
+
+	// Write consolidated data back to database
+	if err := ReplaceTimeSeriesContainerEntries(conn, key, seriesID, deleteTimeSeries, newTimeSeries); err != nil {
+		return result, fmt.Errorf("failed to replace consolidated time series data: %w", err)
+	}
+
+	return result, nil
+}
+
+// mergeTimeSeriesData merges time series data into the profile
+func (a *ContainerProfileProcessor) mergeTimeSeriesData(ctx context.Context, conn *sqlite.Conn,
+	timeSeriesContainers []softwarecomposition.TimeSeriesContainers, key string, profile *softwarecomposition.ContainerProfile) (deleteList []string, processed []string, hasNewData bool) {
+
+	for k, ts := range timeSeriesContainers {
+		deleteList = append(deleteList, ts.TsSuffix)
+		if !ts.HasData {
+			continue
+		}
+
+		// Load TS profile from disk
+		tsKey := key + "-" + ts.TsSuffix
+		tsProfile := softwarecomposition.ContainerProfile{}
+		err := a.storageImpl.get(ctx, conn, tsKey, storage.GetOptions{}, &tsProfile)
+
+		switch {
+		case storage.IsNotFound(err):
+			timeSeriesContainers[k].HasData = false
+			continue
+		case err != nil:
+			// Log error but continue processing other entries
+			logger.L().Debug("ContainerProfileProcessor.mergeTimeSeriesData - failed to get ts profile",
+				loggerhelpers.Error(err), loggerhelpers.String("tsKey", tsKey))
+			continue
+		}
+
+		hasNewData = true
+		mergeContainerProfileTS(profile, &tsProfile)
+		timeSeriesContainers[k].HasData = false
+		processed = append(processed, tsKey)
+	}
+
+	return deleteList, processed, hasNewData
+}
+
+// consolidateContinuousTimeSeries combines continuous time series entries
+func (a *ContainerProfileProcessor) consolidateContinuousTimeSeries(
+	timeSeries []softwarecomposition.TimeSeriesContainers, creationTimestamp *metav1.Time) []softwarecomposition.TimeSeriesContainers {
+
+	if len(timeSeries) == 0 {
+		return nil
+	}
+
+	j := 0
+	var newTimeSeries []softwarecomposition.TimeSeriesContainers
+
+	for i := 0; i < len(timeSeries)-1; i++ {
+		// time series are in reverse chronological order
+		if timeSeries[j].PreviousReportTimestamp == timeSeries[i+1].ReportTimestamp {
+			timeSeries[j].PreviousReportTimestamp = timeSeries[i+1].PreviousReportTimestamp
+		} else {
+			newTimeSeries = append(newTimeSeries, timeSeries[j])
+			j = i + 1
+		}
+	}
+	newTimeSeries = append(newTimeSeries, timeSeries[j])
+
+	// Update creation timestamp if this is earlier
+	if t, err := time.Parse(time.RFC3339, timeSeries[j].ReportTimestamp); err == nil && creationTimestamp.After(t) {
+		*creationTimestamp = metav1.NewTime(t)
+	}
+
+	return newTimeSeries
+}
+
+// updateProfileStatus updates the profile status based on time series state.
+//
+// When expired=true, the profile is marked as Completed/Partial instead of Learning,
+// unless it's already Completed/Full (safeguard). This ensures expired time series
+// don't remain in Learning state indefinitely.
+//
+// Returns true if further processing should be skipped (e.g., profile is fully completed).
+func (a *ContainerProfileProcessor) updateProfileStatus(conn *sqlite.Conn, key, seriesID string,
+	profile *softwarecomposition.ContainerProfile, newTimeSeries []softwarecomposition.TimeSeriesContainers, expired bool) ([]softwarecomposition.TimeSeriesContainers, bool, error) {
+
+	// An aggregated series is removed only if it has one element, no previous report timestamp, and is completed or failed
+	if len(newTimeSeries) != 1 || !isZeroTime(newTimeSeries[0].PreviousReportTimestamp) {
+		profile.SetLearningStatus(newTimeSeries[0]) // series is missing some TS entries
+		return newTimeSeries, false, nil
+	}
+
+	switch newTimeSeries[0].Status {
+	case helpers.Completed:
+		// Safeguard: if already fully completed, keep it that way
+		if profile.SetCompletedStatus(newTimeSeries[0]) {
+			logger.L().Debug("ContainerProfileProcessor.updateProfileStatus - profile is completed/full, skipping further processing",
+				loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
+
+			// Remove all time series data from SQLite
+			if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
+				return newTimeSeries, false, fmt.Errorf("failed to delete time series data: %w", err)
+			}
+			return newTimeSeries, true, nil // skip further processing
+		}
+		// If this is an expired time series, mark it as partial completed instead of clearing it
+		if expired {
+			// Safeguard: never change a completed full profile
+			if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed || profile.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
+				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+				profile.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
+			}
+		}
+		// Clear this time series as it is finished
+		newTimeSeries = newTimeSeries[:0]
+
+	case helpers.Failed:
+		profile.SetFailedStatus(newTimeSeries[0])
+		// Clear this time series as it is finished
+		newTimeSeries = newTimeSeries[:0]
+
+	default:
+		// If this is an expired time series, mark it as partial completed
+		if expired {
+			// Safeguard: never change a completed full profile
+			if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed || profile.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
+				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+				profile.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
+			}
+		} else {
+			profile.SetLearningStatus(newTimeSeries[0]) // series is complete but not finished
+		}
+	}
+
+	return newTimeSeries, false, nil
+}
+
+// saveContainerProfile saves the container profile to storage
+func (a *ContainerProfileProcessor) saveContainerProfile(ctx context.Context, conn *sqlite.Conn,
+	key string, profile *softwarecomposition.ContainerProfile) error {
+
+	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		return profile, nil, nil
+	}
+
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cpCancel()
-	err := a.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{}, true, nil, tryUpdateContainerProfile, &softwarecomposition.ContainerProfile{}, "")
+
+	err := a.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{},
+		true, nil, tryUpdate, &softwarecomposition.ContainerProfile{}, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to update container profile: %w", err)
+		return fmt.Errorf("failed to update container profile: %w", err)
 	}
-	// calculate the slug without the container name
+
+	return nil
+}
+
+// updateAggregatedProfiles updates the application profile and network neighborhood
+func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context, conn *sqlite.Conn,
+	key string, profile *softwarecomposition.ContainerProfile, prefix, root, namespace string,
+	creationTimestamp metav1.Time) error {
+
 	instanceID, err := instanceidhandlerv1.GenerateInstanceIDFromString(profile.Annotations[helpers.InstanceIDMetadataKey])
 	if err != nil {
-		return nil, fmt.Errorf("failed to create instance ID: %w", err)
+		return fmt.Errorf("failed to create instance ID: %w", err)
 	}
+
 	slug, err := instanceID.GetSlug(true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get slug: %w", err)
+		return fmt.Errorf("failed to get slug: %w", err)
 	}
-	// update the corresponding application profile, appending the container profile key to Parts
+
+	wlid := profile.Annotations[helpers.WlidMetadataKey]
+
+	// Update application profile
+	if err := a.updateApplicationProfileWithInstanceID(ctx, conn, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
+		return err
+	}
+
+	// Update network neighborhood
+	if err := a.updateNetworkNeighborhoodWithInstanceID(ctx, conn, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// updateApplicationProfileWithInstanceID updates the application profile with container profile data
+func (a *ContainerProfileProcessor) updateApplicationProfileWithInstanceID(ctx context.Context, conn *sqlite.Conn,
+	key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string },
+	profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
+
 	apKey := keysToPath(prefix, root, "applicationprofiles", namespace, slug)
 	var apChecksum string
-	tryUpdateApplicationProfile := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+
+	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 		output := input.DeepCopyObject()
 		ap, ok := output.(*softwarecomposition.ApplicationProfile)
 		if !ok {
 			return nil, nil, fmt.Errorf("given object is not an ApplicationProfile")
 		}
+
 		ap.Name = slug
 		ap.Namespace = namespace
 		if ap.CreationTimestamp.IsZero() {
@@ -422,8 +643,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 			ap.Parts = map[string]string{}
 		}
 		ap.Parts[key] = "" // checksum will be updated by getAggregatedData
+
 		status, completion, checksum := a.getAggregatedData(ctx, conn, key, ap.Parts)
 		apChecksum = checksum
+
 		ap.Annotations = map[string]string{
 			helpers.CompletionMetadataKey: completion,
 			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
@@ -433,24 +656,37 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		ap.Labels = map[string]string{}
 		utils.MergeMaps(ap.Labels, profile.Labels)
 		delete(ap.Labels, helpers.ContainerNameMetadataKey)
+
 		return output, nil, nil
 	}
-	// we use a timeout to avoid deadlocks in case of concurrent updates
+
 	apCtx, apCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer apCancel()
-	err = a.storageImpl.GuaranteedUpdateWithConn(apCtx, conn, apKey, &softwarecomposition.ApplicationProfile{}, true, nil, tryUpdateApplicationProfile, nil, apChecksum)
+
+	err := a.storageImpl.GuaranteedUpdateWithConn(apCtx, conn, apKey, &softwarecomposition.ApplicationProfile{},
+		true, nil, tryUpdate, nil, apChecksum)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update application profile: %w", err)
+		return fmt.Errorf("failed to update application profile: %w", err)
 	}
-	// update the corresponding network neighborhood, appending the container profile key to Parts
+
+	return nil
+}
+
+// updateNetworkNeighborhoodWithInstanceID updates the network neighborhood with container profile data
+func (a *ContainerProfileProcessor) updateNetworkNeighborhoodWithInstanceID(ctx context.Context, conn *sqlite.Conn,
+	key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string },
+	profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
+
 	nnKey := keysToPath(prefix, root, "networkneighborhoods", namespace, slug)
 	var nnChecksum string
-	tryUpdateNetworkNeighborhood := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+
+	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 		output := input.DeepCopyObject()
 		nn, ok := output.(*softwarecomposition.NetworkNeighborhood)
 		if !ok {
 			return nil, nil, fmt.Errorf("given object is not an NetworkNeighborhood")
 		}
+
 		nn.Name = slug
 		nn.Namespace = namespace
 		if nn.CreationTimestamp.IsZero() {
@@ -461,8 +697,10 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 			nn.Parts = map[string]string{}
 		}
 		nn.Parts[key] = "" // checksum will be updated by getAggregatedData
+
 		status, completion, checksum := a.getAggregatedData(ctx, conn, key, nn.Parts)
 		nnChecksum = checksum
+
 		nn.Annotations = map[string]string{
 			helpers.CompletionMetadataKey: completion,
 			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
@@ -472,16 +710,20 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 		nn.Labels = map[string]string{}
 		utils.MergeMaps(nn.Labels, profile.Labels)
 		delete(nn.Labels, helpers.ContainerNameMetadataKey)
+
 		return output, nil, nil
 	}
-	// we use a timeout to avoid deadlocks in case of concurrent updates
+
 	nnCtx, nnCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer nnCancel()
-	err = a.storageImpl.GuaranteedUpdateWithConn(nnCtx, conn, nnKey, &softwarecomposition.NetworkNeighborhood{}, true, nil, tryUpdateNetworkNeighborhood, nil, nnChecksum)
+
+	err := a.storageImpl.GuaranteedUpdateWithConn(nnCtx, conn, nnKey, &softwarecomposition.NetworkNeighborhood{},
+		true, nil, tryUpdate, nil, nnChecksum)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update network neighborhood: %w", err)
+		return fmt.Errorf("failed to update network neighborhood: %w", err)
 	}
-	return processed, nil
+
+	return nil
 }
 
 // getAggregatedData computes various data of the aggregated profile.
