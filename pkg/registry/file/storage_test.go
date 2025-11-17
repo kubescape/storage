@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -77,7 +78,7 @@ func TestStorageImpl_Create(t *testing.T) {
 					Name:            "toto",
 					ResourceVersion: "1",
 					Annotations: map[string]string{
-						"kubescape.io/sync-checksum": "0c8bc45306dae86e5a455fb117eae68f7a6903261ba7909979ec9e61806c7fd9",
+						helpers.SyncChecksumMetadataKey: "0c8bc45306dae86e5a455fb117eae68f7a6903261ba7909979ec9e61806c7fd9",
 					},
 				},
 			},
@@ -439,6 +440,9 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
+			Annotations: map[string]string{
+				helpers.SyncChecksumMetadataKey: "f34e9780b1cab33db857768ff07da40a09ddf003ee31e66cc70acaeb1bf44f40",
+			},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -452,6 +456,9 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "3",
+			Annotations: map[string]string{
+				helpers.SyncChecksumMetadataKey: "d378bc779bc63bf3877d24fec9a62b7739aec21cf7489202c461756c07169ae7",
+			},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{
@@ -465,6 +472,9 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:            "toto",
 			ResourceVersion: "1",
+			Annotations: map[string]string{
+				helpers.SyncChecksumMetadataKey: "685b93d26f3f89db026ab3af428beeb3f254a3d69e7a623ad94a1b712a3e8968",
+			},
 		},
 		Spec: v1beta1.SBOMSyftSpec{
 			Metadata: v1beta1.SPDXMeta{

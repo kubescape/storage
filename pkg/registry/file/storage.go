@@ -170,6 +170,20 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	if managedFields.IsValid() {
 		managedFields.Set(reflect.Zero(managedFields.Type()))
 	}
+	// calculate checksum
+	if checksum == "" {
+		var err error
+		checksum, err = s.CalculateChecksum(obj)
+		if err != nil {
+			return fmt.Errorf("calculate checksum: %w", err)
+		}
+	}
+	// add checksum to annotations
+	if anno := obj.(metav1.Object).GetAnnotations(); anno == nil {
+		obj.(metav1.Object).SetAnnotations(map[string]string{helpersv1.SyncChecksumMetadataKey: checksum})
+	} else {
+		anno[helpersv1.SyncChecksumMetadataKey] = checksum
+	}
 	// prepare path
 	p := filepath.Join(s.root, key)
 	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
@@ -192,19 +206,6 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	}
 	// extract metadata
 	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
-	// calculate checksum
-	if checksum == "" {
-		checksum, err = s.CalculateChecksum(obj)
-		if err != nil {
-			return fmt.Errorf("calculate checksum: %w", err)
-		}
-	}
-	// add checksum to metadata
-	if anno := metadata.(metav1.Object).GetAnnotations(); anno == nil {
-		metadata.(metav1.Object).SetAnnotations(map[string]string{helpersv1.SyncChecksumMetadataKey: checksum})
-	} else {
-		anno[helpersv1.SyncChecksumMetadataKey] = checksum
-	}
 	// store metadata in SQLite
 	err = writeMetadata(conn, key, metadata)
 	if err != nil {
