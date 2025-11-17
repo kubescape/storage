@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/SergJa/jsonhash"
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,9 +24,10 @@ func CanonicalHash(in []byte) (string, error) {
 func RemoveManagedFields(d metav1.Object) {
 	// Remove managed fields
 	d.SetManagedFields(nil)
-	// Remove last-applied-configuration annotation
+	// Remove ignored annotation
 	ann := d.GetAnnotations()
 	delete(ann, "kubectl.kubernetes.io/last-applied-configuration")
+	delete(ann, helpers.SyncChecksumMetadataKey)
 	d.SetAnnotations(ann)
 }
 

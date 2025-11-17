@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -495,7 +496,13 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 	status := helpers.Learning
 	completion := helpers.Partial
 	hasher := sha256.New()
-	for key := range parts {
+	// Sort keys to ensure deterministic iteration order for consistent checksum
+	keys := make([]string, 0, len(parts))
+	for k := range parts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
 		profile := softwarecomposition.ContainerProfile{}
 		// checksum is only present in get metadata
 		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)

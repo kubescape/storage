@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -105,7 +106,7 @@ func TestFilesystemStorageWatchPublishing(t *testing.T) {
 			Name:            "some-sbom",
 			ResourceVersion: "1",
 			Annotations: map[string]string{
-				"kubescape.io/sync-checksum": "58964290770ed17fd375e3c7ef02d0af5d52ca954c65fb2add8c75ff144bf0b1",
+				helpers.SyncChecksumMetadataKey: "58964290770ed17fd375e3c7ef02d0af5d52ca954c65fb2add8c75ff144bf0b1",
 			},
 		}}
 	)
