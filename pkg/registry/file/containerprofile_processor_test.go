@@ -85,6 +85,7 @@ func TestConsolidateData(t *testing.T) {
 	key := "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &applicationProfile)
 	assert.NoError(t, err)
+	delete(applicationProfile.Annotations, helpersv1.SyncChecksumMetadataKey) // checksum depends on creation time
 	assert.Equal(t, map[string]string{
 		helpersv1.CompletionMetadataKey: helpersv1.Full,
 		helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd",
