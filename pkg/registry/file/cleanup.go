@@ -287,7 +287,15 @@ func deleteByWlidAndContainer(_, _ string, metadata *metav1.ObjectMeta, resource
 func deleteByTemplateHashOrWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	wlReplica, wlReplicaFound := metadata.Labels[helpersv1.TemplateHashKey] // replica
 	if wlReplicaFound && wlReplica != "" {
-		return !resourceMaps.RunningTemplateHash.Contains(wlReplica)
+		// Check the workload kind - for Jobs and CronJobs, pods are often not running
+		// so the template hash may not be in RunningTemplateHash even though the workload exists
+		kind, kindFound := metadata.Labels[helpersv1.KindMetadataKey]
+		if kindFound {
+			kind = strings.ToLower(kind)
+			if kind != "job" && kind != "cronjob" {
+				return !resourceMaps.RunningTemplateHash.Contains(wlReplica)
+			}
+		}
 	}
 	// fallback to wlid
 	return deleteByWlid("", "", metadata, resourceMaps)
