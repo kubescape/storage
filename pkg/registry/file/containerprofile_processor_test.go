@@ -45,7 +45,7 @@ func TestConsolidateData(t *testing.T) {
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: NewWatchDispatcher(),
 	}
-	processor.SetStorage(s)
+	processor.SetStorage(NewContainerProfileStorageImpl(s))
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
