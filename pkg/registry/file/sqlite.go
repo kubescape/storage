@@ -196,20 +196,6 @@ func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 	return namespaces, nil
 }
 
-// CleanOlderTimeSeries cleans up time series containers which are older than d.
-func CleanOlderTimeSeries(conn *sqlite.Conn, d time.Duration) error {
-	threshold := time.Now().Add(-d).String()
-	err := sqlitex.Execute(conn,
-		`DELETE FROM time_series WHERE reportTimestamp < ?`,
-		&sqlitex.ExecOptions{
-			Args: []any{threshold},
-		})
-	if err != nil {
-		return fmt.Errorf("failed to cleanup time series: %w", err)
-	}
-	return nil
-}
-
 // DeleteTimeSeriesContainerEntries deletes all time series entries for a completed container.
 func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 	_, _, kind, namespace, name := pathToKeys(path)
@@ -270,8 +256,35 @@ func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]soft
 	return containers, nil
 }
 
-// ListTimeSeriesKeys retrieves all time series keys that have data.
-func ListTimeSeriesKeys(conn *sqlite.Conn) ([]string, error) {
+// ListTimeSeriesExpired cleans up time series containers which are older than d.
+func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error) {
+	var keys []string
+	if d <= 0 {
+		return keys, nil
+	}
+	threshold := time.Now().Add(-d).String()
+	err := sqlitex.Execute(conn,
+		`SELECT kind, namespace, name
+				FROM time_series
+				WHERE reportTimestamp < ?`,
+		&sqlitex.ExecOptions{
+			Args: []any{threshold},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				kind := stmt.ColumnText(0)
+				ns := stmt.ColumnText(1)
+				name := stmt.ColumnText(2)
+				keys = append(keys, keysToPath("", "spdx.softwarecomposition.kubescape.io", kind, ns, name))
+				return nil
+			},
+		})
+	if err != nil {
+		return nil, fmt.Errorf("list ts expired: %w", err)
+	}
+	return keys, nil
+}
+
+// ListTimeSeriesWithData retrieves all time series keys that have data.
+func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 	var keys []string
 	err := sqlitex.Execute(conn,
 		`SELECT kind, namespace, name
@@ -287,7 +300,7 @@ func ListTimeSeriesKeys(conn *sqlite.Conn) ([]string, error) {
 			},
 		})
 	if err != nil {
-		return nil, fmt.Errorf("list ts keys: %w", err)
+		return nil, fmt.Errorf("list ts with data: %w", err)
 	}
 	return keys, nil
 }
@@ -344,7 +357,7 @@ func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
 func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error {
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO time_series
-    			(kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData) 
+    			(kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		&sqlitex.ExecOptions{
 			Args: []any{kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData},
