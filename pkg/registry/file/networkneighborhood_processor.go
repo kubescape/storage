@@ -69,7 +69,7 @@ func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, _ *sqlite.Conn,
 	return nil
 }
 
-func (a NetworkNeighborhoodProcessor) SetStorage(_ *StorageImpl) {}
+func (a NetworkNeighborhoodProcessor) SetStorage(_ ContainerProfileStorage) {}
 
 func deflateNetworkNeighborhoodContainer(container softwarecomposition.NetworkNeighborhoodContainer) softwarecomposition.NetworkNeighborhoodContainer {
 	return softwarecomposition.NetworkNeighborhoodContainer{

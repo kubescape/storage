@@ -38,7 +38,7 @@ type ContainerProfileProcessor struct {
 	lastCleanup             time.Time
 	maxContainerProfileSize int
 	pool                    *sqlitemigration.Pool
-	storageImpl             *StorageImpl
+	containerProfileStorage ContainerProfileStorage
 }
 
 func NewContainerProfileProcessor(cfg config.Config, conn *sqlitemigration.Pool, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -106,8 +106,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 		name, _ := splitProfileName(profile.Name)
 		// load profile metadata if profile exists
 		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", profile.Namespace, name)
-		existingProfile := softwarecomposition.ContainerProfile{}
-		err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &existingProfile)
+		existingProfile, err := a.containerProfileStorage.GetContainerProfileMetadata(ctx, conn, key)
 		if err != nil {
 			return nil
 		}
@@ -133,15 +132,15 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 	// get files from corresponding sbom
 	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
 	if err == nil {
-		sbom := softwarecomposition.SBOMSyft{}
 		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
-		if err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &sbom); err == nil {
+		sbom, err := a.containerProfileStorage.GetSbom(ctx, conn, key)
+		if err == nil {
 			// fill sbomSet
 			sbomSet = mapset.NewSet[string]()
 			for _, f := range sbom.Spec.Syft.Files {
 				sbomSet.Add(f.Location.RealPath)
 			}
-		} else {
+		} else if !storage.IsNotFound(err) {
 			logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 		}
 	} else {
@@ -171,8 +170,8 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Co
 	return nil
 }
 
-func (a *ContainerProfileProcessor) SetStorage(storageImpl *StorageImpl) {
-	a.storageImpl = storageImpl
+func (a *ContainerProfileProcessor) SetStorage(containerProfileStorage ContainerProfileStorage) {
+	a.containerProfileStorage = containerProfileStorage
 	if a.interval > 0 {
 		go a.runMaintenanceTasks()
 	}
@@ -303,7 +302,7 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cpCancel()
 
-	err = a.storageImpl.GetWithConn(cpCtx, conn, key, storage.GetOptions{}, &profile)
+	profile, err = a.containerProfileStorage.GetContainerProfile(cpCtx, conn, key)
 	prefix, root, kind, namespace, name := pathToKeys(key)
 
 	switch {
@@ -348,7 +347,7 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Context, conn *sqlite.Conn, processed []string) error {
 	for _, tsKey := range processed {
 		// no locking needed for TS profiles
-		err := a.storageImpl.delete(ctx, conn, tsKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
+		err := a.containerProfileStorage.DeleteContainerProfile(ctx, conn, tsKey)
 		// FIXME maybe try to delete others before exit?
 		if err != nil {
 			return fmt.Errorf("failed to delete processed time series profile: %w", err)
@@ -393,7 +392,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, conn *sql
 	}
 
 	// Save the container profile
-	if err := a.saveContainerProfile(ctx, conn, key, &profile); err != nil {
+	if err := a.containerProfileStorage.SaveContainerProfile(ctx, conn, key, &profile); err != nil {
 		return nil, err
 	}
 
@@ -454,8 +453,7 @@ func (a *ContainerProfileProcessor) mergeTimeSeriesData(ctx context.Context, con
 
 		// Load TS profile from disk
 		tsKey := key + "-" + ts.TsSuffix
-		tsProfile := softwarecomposition.ContainerProfile{}
-		err := a.storageImpl.get(ctx, conn, tsKey, storage.GetOptions{}, &tsProfile)
+		tsProfile, err := a.containerProfileStorage.GetTsContainerProfile(ctx, conn, tsKey)
 
 		switch {
 		case storage.IsNotFound(err):
@@ -568,26 +566,6 @@ func (a *ContainerProfileProcessor) updateProfileStatus(conn *sqlite.Conn, key, 
 	return newTimeSeries, false, nil
 }
 
-// saveContainerProfile saves the container profile to storage
-func (a *ContainerProfileProcessor) saveContainerProfile(ctx context.Context, conn *sqlite.Conn,
-	key string, profile *softwarecomposition.ContainerProfile) error {
-
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		return profile, nil, nil
-	}
-
-	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cpCancel()
-
-	err := a.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{},
-		true, nil, tryUpdate, &softwarecomposition.ContainerProfile{}, "")
-	if err != nil {
-		return fmt.Errorf("failed to update container profile: %w", err)
-	}
-
-	return nil
-}
-
 // updateAggregatedProfiles updates the application profile and network neighborhood
 func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context, conn *sqlite.Conn,
 	key string, profile *softwarecomposition.ContainerProfile, prefix, root, namespace string,
@@ -606,121 +584,13 @@ func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context
 	wlid := profile.Annotations[helpers.WlidMetadataKey]
 
 	// Update application profile
-	if err := a.updateApplicationProfileWithInstanceID(ctx, conn, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
+	if err := a.containerProfileStorage.UpdateApplicationProfile(ctx, conn, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
 		return err
 	}
 
 	// Update network neighborhood
-	if err := a.updateNetworkNeighborhoodWithInstanceID(ctx, conn, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
+	if err := a.containerProfileStorage.UpdateNetworkNeighborhood(ctx, conn, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-// updateApplicationProfileWithInstanceID updates the application profile with container profile data
-func (a *ContainerProfileProcessor) updateApplicationProfileWithInstanceID(ctx context.Context, conn *sqlite.Conn,
-	key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string },
-	profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-
-	apKey := keysToPath(prefix, root, "applicationprofiles", namespace, slug)
-	var apChecksum string
-
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		output := input.DeepCopyObject()
-		ap, ok := output.(*softwarecomposition.ApplicationProfile)
-		if !ok {
-			return nil, nil, fmt.Errorf("given object is not an ApplicationProfile")
-		}
-
-		ap.Name = slug
-		ap.Namespace = namespace
-		if ap.CreationTimestamp.IsZero() {
-			ap.CreationTimestamp = creationTimestamp
-		}
-		ap.SchemaVersion = SchemaVersion
-		if ap.Parts == nil {
-			ap.Parts = map[string]string{}
-		}
-		ap.Parts[key] = "" // checksum will be updated by getAggregatedData
-
-		status, completion, checksum := a.getAggregatedData(ctx, conn, key, ap.Parts)
-		apChecksum = checksum
-
-		ap.Annotations = map[string]string{
-			helpers.CompletionMetadataKey: completion,
-			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
-			helpers.StatusMetadataKey:     status,
-			helpers.WlidMetadataKey:       wlid,
-		}
-		ap.Labels = map[string]string{}
-		utils.MergeMaps(ap.Labels, profile.Labels)
-		delete(ap.Labels, helpers.ContainerNameMetadataKey)
-
-		return output, nil, nil
-	}
-
-	apCtx, apCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer apCancel()
-
-	err := a.storageImpl.GuaranteedUpdateWithConn(apCtx, conn, apKey, &softwarecomposition.ApplicationProfile{},
-		true, nil, tryUpdate, nil, apChecksum)
-	if err != nil {
-		return fmt.Errorf("failed to update application profile: %w", err)
-	}
-
-	return nil
-}
-
-// updateNetworkNeighborhoodWithInstanceID updates the network neighborhood with container profile data
-func (a *ContainerProfileProcessor) updateNetworkNeighborhoodWithInstanceID(ctx context.Context, conn *sqlite.Conn,
-	key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string },
-	profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-
-	nnKey := keysToPath(prefix, root, "networkneighborhoods", namespace, slug)
-	var nnChecksum string
-
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		output := input.DeepCopyObject()
-		nn, ok := output.(*softwarecomposition.NetworkNeighborhood)
-		if !ok {
-			return nil, nil, fmt.Errorf("given object is not an NetworkNeighborhood")
-		}
-
-		nn.Name = slug
-		nn.Namespace = namespace
-		if nn.CreationTimestamp.IsZero() {
-			nn.CreationTimestamp = creationTimestamp
-		}
-		nn.SchemaVersion = SchemaVersion
-		if nn.Parts == nil {
-			nn.Parts = map[string]string{}
-		}
-		nn.Parts[key] = "" // checksum will be updated by getAggregatedData
-
-		status, completion, checksum := a.getAggregatedData(ctx, conn, key, nn.Parts)
-		nnChecksum = checksum
-
-		nn.Annotations = map[string]string{
-			helpers.CompletionMetadataKey: completion,
-			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
-			helpers.StatusMetadataKey:     status,
-			helpers.WlidMetadataKey:       wlid,
-		}
-		nn.Labels = map[string]string{}
-		utils.MergeMaps(nn.Labels, profile.Labels)
-		delete(nn.Labels, helpers.ContainerNameMetadataKey)
-
-		return output, nil, nil
-	}
-
-	nnCtx, nnCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer nnCancel()
-
-	err := a.storageImpl.GuaranteedUpdateWithConn(nnCtx, conn, nnKey, &softwarecomposition.NetworkNeighborhood{},
-		true, nil, tryUpdate, nil, nnChecksum)
-	if err != nil {
-		return fmt.Errorf("failed to update network neighborhood: %w", err)
 	}
 
 	return nil
@@ -745,11 +615,9 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, conn 
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		profile := softwarecomposition.ContainerProfile{}
-		// checksum is only present in get metadata
 		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cpCancel()
-		err := a.storageImpl.GetWithConn(cpCtx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile)
+		profile, err := a.containerProfileStorage.GetContainerProfileMetadata(cpCtx, conn, key)
 		if err != nil {
 			logger.L().Debug("ContainerProfileProcessor.getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 			continue

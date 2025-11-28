@@ -107,8 +107,8 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.
 	return nil
 }
 
-func (a *ApplicationProfileProcessor) SetStorage(storageImpl *StorageImpl) {
-	a.storageImpl = storageImpl
+func (a *ApplicationProfileProcessor) SetStorage(containerProfileStorage ContainerProfileStorage) {
+	a.storageImpl = containerProfileStorage.(*ContainerProfileStorageImpl).GetStorageImpl() // FIXME this is a hack
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string]) softwarecomposition.ApplicationProfileContainer {

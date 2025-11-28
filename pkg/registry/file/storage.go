@@ -114,7 +114,7 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: watchDispatcher,
 	}
-	processor.SetStorage(storageImpl)
+	processor.SetStorage(NewContainerProfileStorageImpl(storageImpl))
 	return storageImpl
 }
 

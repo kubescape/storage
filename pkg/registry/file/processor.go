@@ -13,7 +13,7 @@ import (
 type Processor interface {
 	AfterCreate(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error
 	PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error
-	SetStorage(storageImpl *StorageImpl)
+	SetStorage(storageImpl ContainerProfileStorage)
 }
 
 type DefaultProcessor struct {
@@ -29,7 +29,7 @@ func (d DefaultProcessor) PreSave(_ context.Context, _ *sqlite.Conn, _ runtime.O
 	return nil
 }
 
-func (d DefaultProcessor) SetStorage(_ *StorageImpl) {}
+func (d DefaultProcessor) SetStorage(_ ContainerProfileStorage) {}
 
 type Stringer interface {
 	String() string
