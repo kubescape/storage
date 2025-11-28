@@ -33,7 +33,6 @@ func TestConsolidateData(t *testing.T) {
 	processor := ContainerProfileProcessor{
 		deleteThreshold:         0, // disable deletion
 		maxContainerProfileSize: 40000,
-		pool:                    pool,
 	}
 	s := &StorageImpl{
 		appFs:           afero.NewMemMapFs(),
@@ -45,7 +44,7 @@ func TestConsolidateData(t *testing.T) {
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: NewWatchDispatcher(),
 	}
-	processor.SetStorage(NewContainerProfileStorageImpl(s))
+	processor.SetStorage(NewContainerProfileStorageImpl(s, pool))
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()

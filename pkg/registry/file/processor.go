@@ -7,12 +7,11 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"zombiezen.com/go/sqlite"
 )
 
 type Processor interface {
-	AfterCreate(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error
-	PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error
+	AfterCreate(ctx context.Context, tx Transaction, object runtime.Object) error
+	PreSave(ctx context.Context, tx Transaction, object runtime.Object) error
 	SetStorage(storageImpl ContainerProfileStorage)
 }
 
@@ -21,11 +20,11 @@ type DefaultProcessor struct {
 
 var _ Processor = (*DefaultProcessor)(nil)
 
-func (d DefaultProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+func (d DefaultProcessor) AfterCreate(_ context.Context, _ Transaction, _ runtime.Object) error {
 	return nil
 }
 
-func (d DefaultProcessor) PreSave(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+func (d DefaultProcessor) PreSave(_ context.Context, _ Transaction, _ runtime.Object) error {
 	return nil
 }
 

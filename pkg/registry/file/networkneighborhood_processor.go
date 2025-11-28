@@ -10,7 +10,6 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
-	"zombiezen.com/go/sqlite"
 )
 
 type NetworkNeighborhoodProcessor struct {
@@ -25,11 +24,11 @@ func NewNetworkNeighborhoodProcessor(cfg config.Config) *NetworkNeighborhoodProc
 
 var _ Processor = (*NetworkNeighborhoodProcessor)(nil)
 
-func (a NetworkNeighborhoodProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+func (a NetworkNeighborhoodProcessor) AfterCreate(_ context.Context, _ Transaction, _ runtime.Object) error {
 	return nil
 }
 
-func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, _ *sqlite.Conn, object runtime.Object) error {
+func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, _ Transaction, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.NetworkNeighborhood)
 	if !ok {
 		return fmt.Errorf("given object is not an NetworkNeighborhood")
