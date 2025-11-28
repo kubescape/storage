@@ -16,7 +16,6 @@ import (
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
-	"zombiezen.com/go/sqlite"
 )
 
 const (
@@ -39,11 +38,14 @@ func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProces
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
-func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ Transaction, _ runtime.Object) error {
 	return nil
 }
 
-func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error {
+func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, tx Transaction, object runtime.Object) error {
+	// conn may be nil if tx is nil or invalid - SBOM lookup is optional
+	conn, _ := getSQLiteConn(tx)
+
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
@@ -61,7 +63,7 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.
 			var sbomSet mapset.Set[string]
 			// get files from corresponding sbom
 			sbomName, err := names.ImageInfoToSlug(container.ImageTag, container.ImageID)
-			if err == nil {
+			if err == nil && conn != nil && a.storageImpl != nil {
 				sbom := softwarecomposition.SBOMSyft{}
 				key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
 				if err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &sbom); err == nil {

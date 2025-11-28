@@ -114,7 +114,7 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: watchDispatcher,
 	}
-	processor.SetStorage(NewContainerProfileStorageImpl(storageImpl))
+	processor.SetStorage(NewContainerProfileStorageImpl(storageImpl, conn))
 	return storageImpl
 }
 
@@ -263,7 +263,8 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		return errors.New(msg)
 	}
 	// call processor on object to be saved
-	if err := s.processor.PreSave(ctx, conn, obj); err != nil {
+	tx := &SQLiteTransaction{conn: conn}
+	if err := s.processor.PreSave(ctx, tx, obj); err != nil {
 		return err
 	}
 	// save object
@@ -272,7 +273,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		return err
 	}
 	// call processor on saved object
-	if err := s.processor.AfterCreate(ctx, conn, obj); err != nil {
+	if err := s.processor.AfterCreate(ctx, tx, obj); err != nil {
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
 	// publish event to watchers
@@ -759,7 +760,8 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// call processor on object to be saved
-		if err := s.processor.PreSave(ctx, conn, ret); err != nil {
+		tx := &SQLiteTransaction{conn: conn}
+		if err := s.processor.PreSave(ctx, tx, ret); err != nil {
 			if errors.Is(err, ObjectTooLargeError) {
 				// revert spec
 				ret = origState.obj.DeepCopyObject() // FIXME this is expensive
@@ -778,7 +780,7 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 
 		// check if the object is the same as the original
 		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
-		_ = s.processor.PreSave(ctx, conn, orig)
+		_ = s.processor.PreSave(ctx, tx, orig)
 		if reflect.DeepEqual(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object
