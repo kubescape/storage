@@ -71,7 +71,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, tx Transact
 	reportTimestamp := profile.Annotations[helpers.ReportTimestampMetadataKey]
 	status := profile.Annotations[helpers.StatusMetadataKey]
 	// add sequence info via storage interface
-	err := a.containerProfileStorage.WriteTimeSeriesEntry(ctx, tx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
+	err := a.containerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, tx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.AfterCreate - failed to write time series data for container profile",
 			loggerhelpers.Error(err),
