@@ -27,24 +27,24 @@ import (
 )
 
 type ContainerProfileProcessor struct {
-	cleanupHandler          *ResourcesCleanupHandler
-	cleanupInterval         time.Duration
-	defaultNamespace        string
-	deleteThreshold         time.Duration
-	interval                time.Duration
-	lastCleanup             time.Time
-	maxContainerProfileSize int
-	containerProfileStorage ContainerProfileStorage
+	CleanupHandler          *ResourcesCleanupHandler
+	CleanupInterval         time.Duration
+	DefaultNamespace        string
+	DeleteThreshold         time.Duration
+	Interval                time.Duration
+	LastCleanup             time.Time
+	MaxContainerProfileSize int
+	ContainerProfileStorage ContainerProfileStorage
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
 	return &ContainerProfileProcessor{
-		cleanupHandler:          cleanupHandler,
-		cleanupInterval:         cfg.CleanupInterval,
-		defaultNamespace:        cfg.DefaultNamespace,
-		deleteThreshold:         2 * cfg.MaxSniffingTime,
-		interval:                30 * time.Second,
-		maxContainerProfileSize: cfg.MaxApplicationProfileSize,
+		CleanupHandler:          cleanupHandler,
+		CleanupInterval:         cfg.CleanupInterval,
+		DefaultNamespace:        cfg.DefaultNamespace,
+		DeleteThreshold:         2 * cfg.MaxSniffingTime,
+		Interval:                30 * time.Second,
+		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
 	}
 }
 
@@ -63,7 +63,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, tx Transact
 	}
 	// parse name and namespace
 	// remove the suffix from the name after the last hyphen
-	name, tsSuffix := splitProfileName(profile.Name)
+	name, tsSuffix := SplitProfileName(profile.Name)
 	namespace := profile.Namespace
 	// parse annotations
 	completion := profile.Annotations[helpers.CompletionMetadataKey]
@@ -71,7 +71,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, tx Transact
 	reportTimestamp := profile.Annotations[helpers.ReportTimestampMetadataKey]
 	status := profile.Annotations[helpers.StatusMetadataKey]
 	// add sequence info via storage interface
-	err := a.containerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, tx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
+	err := a.ContainerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, tx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.AfterCreate - failed to write time series data for container profile",
 			loggerhelpers.Error(err),
@@ -98,10 +98,10 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, tx Transaction,
 	// detect TS profiles
 	if profile.Annotations[helpers.ReportSeriesIdMetadataKey] != "" {
 		// check size and completion for the corresponding container profile
-		name, _ := splitProfileName(profile.Name)
+		name, _ := SplitProfileName(profile.Name)
 		// load profile metadata if profile exists
 		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", profile.Namespace, name)
-		existingProfile, err := a.containerProfileStorage.GetContainerProfileMetadata(ctx, tx, key)
+		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(ctx, tx, key)
 		if err != nil {
 			return nil
 		}
@@ -127,8 +127,8 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, tx Transaction,
 	// get files from corresponding sbom
 	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
 	if err == nil {
-		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
-		sbom, err := a.containerProfileStorage.GetSbom(ctx, tx, key)
+		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.DefaultNamespace, sbomName)
+		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, tx, key)
 		if err == nil {
 			// fill sbomSet
 			sbomSet = mapset.NewSet[string]()
@@ -151,7 +151,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, tx Transaction,
 	size += len(profile.Spec.Ingress)
 	size += len(profile.Spec.Egress)
 
-	if size > a.maxContainerProfileSize {
+	if size > a.MaxContainerProfileSize {
 		// set annotation but don't return an error as we want to save the profile anyway
 		profile.Annotations[helpers.StatusMetadataKey] = helpers.TooLarge
 	}
@@ -166,8 +166,8 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, tx Transaction,
 }
 
 func (a *ContainerProfileProcessor) SetStorage(containerProfileStorage ContainerProfileStorage) {
-	a.containerProfileStorage = containerProfileStorage
-	if a.interval > 0 {
+	a.ContainerProfileStorage = containerProfileStorage
+	if a.Interval > 0 {
 		go a.runMaintenanceTasks()
 	}
 }
@@ -183,7 +183,7 @@ func (a *ContainerProfileProcessor) runMaintenanceTasks() {
 			logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - cleanup task completed successfully")
 		}
 		// consolidation
-		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting consolidation task", loggerhelpers.String("interval", a.interval.String()))
+		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting consolidation task", loggerhelpers.String("interval", a.Interval.String()))
 		err = a.consolidateTimeSeries()
 		if err != nil {
 			logger.L().Error("ContainerProfileProcessor.runMaintenanceTasks - failed to complete consolidation task", loggerhelpers.Error(err))
@@ -191,26 +191,26 @@ func (a *ContainerProfileProcessor) runMaintenanceTasks() {
 			logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - consolidation task completed successfully")
 		}
 		// sleep
-		time.Sleep(a.interval)
+		time.Sleep(a.Interval)
 	}
 }
 
 func (a *ContainerProfileProcessor) cleanup() error {
-	if a.cleanupInterval == 0 && !a.lastCleanup.IsZero() {
+	if a.CleanupInterval == 0 && !a.LastCleanup.IsZero() {
 		// no cleanup interval set, we run cleanup only once
 		return nil
 	}
-	if time.Since(a.lastCleanup) < a.cleanupInterval {
+	if time.Since(a.LastCleanup) < a.CleanupInterval {
 		// cleanup interval not reached yet
 		return nil
 	}
-	a.lastCleanup = time.Now()
+	a.LastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
 		"applicationprofiles":  {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
 		"containerprofiles":    {deleteByTemplateHashOrWlid},
 		"networkneighborhoods": {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
 	}
-	return a.cleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
+	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
 
 // consolidateTimeSeries processes all time series data, handling expired and active series separately.
@@ -225,15 +225,15 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // FIXME should we add a timeout here?
 
-	tx, err := a.containerProfileStorage.BeginTransaction(ctx)
+	tx, err := a.ContainerProfileStorage.BeginTransaction(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer a.containerProfileStorage.CloseTransaction(tx)
+	defer a.ContainerProfileStorage.CloseTransaction(tx)
 
 	// Phase 1: Process expired time series
 	// These are marked as Completed/Partial (unless already Completed/Full)
-	expired, err := a.containerProfileStorage.ListTimeSeriesExpired(ctx, tx, a.deleteThreshold)
+	expired, err := a.ContainerProfileStorage.ListTimeSeriesExpired(ctx, tx, a.DeleteThreshold)
 	if err != nil {
 		return fmt.Errorf("failed to list time: %w", err)
 	}
@@ -246,7 +246,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 
 	// Phase 2: Process active time series with data
 	// These follow normal completion flow based on their status
-	withData, err := a.containerProfileStorage.ListTimeSeriesWithData(ctx, tx)
+	withData, err := a.ContainerProfileStorage.ListTimeSeriesWithData(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("failed to list time: %w", err)
 	}
@@ -257,7 +257,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 		}
 	}
 
-	if err := a.containerProfileStorage.CommitTransaction(tx); err != nil {
+	if err := a.ContainerProfileStorage.CommitTransaction(tx); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
@@ -271,7 +271,7 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context, tx Transaction, key string, expired bool) error {
 	logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - consolidating data for key", loggerhelpers.String("key", key), loggerhelpers.Interface("expired", expired))
 
-	timeSeries, err := a.containerProfileStorage.ListTimeSeriesContainers(ctx, tx, key)
+	timeSeries, err := a.ContainerProfileStorage.ListTimeSeriesContainers(ctx, tx, key)
 	if err != nil {
 		return fmt.Errorf("failed to list time series containers: %w", err)
 	}
@@ -301,7 +301,7 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cpCancel()
 
-	profile, err = a.containerProfileStorage.GetContainerProfile(cpCtx, tx, key)
+	profile, err = a.ContainerProfileStorage.GetContainerProfile(cpCtx, tx, key)
 	prefix, root, kind, namespace, name := pathToKeys(key)
 
 	switch {
@@ -331,7 +331,7 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
 	profile softwarecomposition.ContainerProfile, prefix, root, namespace string, expired bool) ([]string, error) {
 
-	endFn, err := a.containerProfileStorage.BeginNestedTransaction(tx)
+	endFn, err := a.ContainerProfileStorage.BeginNestedTransaction(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin nested transaction: %w", err)
 	}
@@ -349,7 +349,7 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Context, tx Transaction, processed []string) error {
 	for _, tsKey := range processed {
 		// no locking needed for TS profiles
-		err := a.containerProfileStorage.DeleteContainerProfile(ctx, tx, tsKey)
+		err := a.ContainerProfileStorage.DeleteContainerProfile(ctx, tx, tsKey)
 		// FIXME maybe try to delete others before exit?
 		if err != nil {
 			return fmt.Errorf("failed to delete processed time series profile: %w", err)
@@ -394,7 +394,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, tx Transa
 	}
 
 	// Save the container profile
-	if err := a.containerProfileStorage.SaveContainerProfile(ctx, tx, key, &profile); err != nil {
+	if err := a.ContainerProfileStorage.SaveContainerProfile(ctx, tx, key, &profile); err != nil {
 		return nil, err
 	}
 
@@ -436,7 +436,7 @@ func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context, tx Tr
 	result.skipFurtherProcessing = skipFurtherProcessing
 
 	// Write consolidated data back to database
-	if err := a.containerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, tx, key, seriesID, deleteTimeSeries, newTimeSeries); err != nil {
+	if err := a.ContainerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, tx, key, seriesID, deleteTimeSeries, newTimeSeries); err != nil {
 		return result, fmt.Errorf("failed to replace consolidated time series data: %w", err)
 	}
 
@@ -455,7 +455,7 @@ func (a *ContainerProfileProcessor) mergeTimeSeriesData(ctx context.Context, tx 
 
 		// Load TS profile from disk
 		tsKey := key + "-" + ts.TsSuffix
-		tsProfile, err := a.containerProfileStorage.GetTsContainerProfile(ctx, tx, tsKey)
+		tsProfile, err := a.ContainerProfileStorage.GetTsContainerProfile(ctx, tx, tsKey)
 
 		switch {
 		case storage.IsNotFound(err):
@@ -531,7 +531,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, tx 
 				loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
 
 			// Remove all time series data
-			if err := a.containerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, tx, key); err != nil {
+			if err := a.ContainerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, tx, key); err != nil {
 				return newTimeSeries, false, fmt.Errorf("failed to delete time series data: %w", err)
 			}
 			return newTimeSeries, true, nil // skip further processing
@@ -586,12 +586,12 @@ func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context
 	wlid := profile.Annotations[helpers.WlidMetadataKey]
 
 	// Update application profile
-	if err := a.containerProfileStorage.UpdateApplicationProfile(ctx, tx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, tx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
 		return err
 	}
 
 	// Update network neighborhood
-	if err := a.containerProfileStorage.UpdateNetworkNeighborhood(ctx, tx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, tx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
 		return err
 	}
 
@@ -619,7 +619,7 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, tx Tr
 	for _, key := range keys {
 		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cpCancel()
-		profile, err := a.containerProfileStorage.GetContainerProfileMetadata(cpCtx, tx, key)
+		profile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(cpCtx, tx, key)
 		if err != nil {
 			logger.L().Debug("ContainerProfileProcessor.getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 			continue
@@ -748,7 +748,7 @@ func mergePolicies(primary, secondary softwarecomposition.RulePolicy) softwareco
 	return mergedPolicy
 }
 
-func splitProfileName(profileName string) (name string, tsSuffix string) {
+func SplitProfileName(profileName string) (name string, tsSuffix string) {
 	lastHyphenIndex := strings.LastIndex(profileName, "-")
 	if lastHyphenIndex == -1 {
 		// No hyphen found, so the whole string is the name, and suffix is empty

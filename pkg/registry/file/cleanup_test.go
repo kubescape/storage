@@ -67,7 +67,7 @@ func TestCleanupTask(t *testing.T) {
 	handler.CleanupTask(context.TODO(), handler.resourceToKindHandler)
 
 	containerProfileProcessor := ContainerProfileProcessor{
-		cleanupHandler: handler,
+		CleanupHandler: handler,
 	}
 	err = containerProfileProcessor.cleanup()
 	require.NoError(t, err)

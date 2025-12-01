@@ -31,8 +31,8 @@ func TestConsolidateData(t *testing.T) {
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	processor := ContainerProfileProcessor{
-		deleteThreshold:         0, // disable deletion
-		maxContainerProfileSize: 40000,
+		DeleteThreshold:         0, // disable deletion
+		MaxContainerProfileSize: 40000,
 	}
 	s := &StorageImpl{
 		appFs:           afero.NewMemMapFs(),
