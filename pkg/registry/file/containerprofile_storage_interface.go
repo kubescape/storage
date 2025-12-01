@@ -162,7 +162,4 @@ type TimeSeriesOperations interface {
 	// ReplaceTimeSeriesContainerEntries replaces time series entries for a given key and seriesID.
 	// It deletes entries in deleteTimeSeries and inserts newTimeSeries.
 	ReplaceTimeSeriesContainerEntries(ctx context.Context, tx Transaction, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error
-
-	// WriteTimeSeriesEntry writes a single time series entry.
-	WriteTimeSeriesEntry(ctx context.Context, tx Transaction, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error
 }
