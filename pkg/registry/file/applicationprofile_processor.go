@@ -15,8 +15,6 @@ import (
 	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/storage"
-	"zombiezen.com/go/sqlite"
 )
 
 const (
@@ -27,7 +25,7 @@ const (
 type ApplicationProfileProcessor struct {
 	defaultNamespace          string
 	maxApplicationProfileSize int
-	storageImpl               *StorageImpl
+	storageImpl               ContainerProfileStorage
 }
 
 func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProcessor {
@@ -44,9 +42,6 @@ func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ runtime.O
 }
 
 func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtime.Object) error {
-	// conn may be nil - SBOM lookup is optional
-	conn, _ := ctx.Value(connKey).(*sqlite.Conn)
-
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
@@ -64,10 +59,9 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 			var sbomSet mapset.Set[string]
 			// get files from corresponding sbom
 			sbomName, err := names.ImageInfoToSlug(container.ImageTag, container.ImageID)
-			if err == nil && conn != nil && a.storageImpl != nil {
-				sbom := softwarecomposition.SBOMSyft{}
+			if err == nil {
 				key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
-				if err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &sbom); err == nil {
+				if sbom, err := a.storageImpl.GetSbom(ctx, key); err == nil {
 					// fill sbomSet
 					sbomSet = mapset.NewSet[string]()
 					for _, f := range sbom.Spec.Syft.Files {
@@ -111,7 +105,7 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 }
 
 func (a *ApplicationProfileProcessor) SetStorage(containerProfileStorage ContainerProfileStorage) {
-	a.storageImpl = containerProfileStorage.(*ContainerProfileStorageImpl).GetStorageImpl() // FIXME this is a hack
+	a.storageImpl = containerProfileStorage
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string]) softwarecomposition.ApplicationProfileContainer {
