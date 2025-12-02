@@ -2,144 +2,101 @@ package file
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ErrInvalidTransactionType is returned when a transaction type doesn't match the expected implementation
-var ErrInvalidTransactionType = errors.New("invalid transaction type for this storage implementation")
-
-// Transaction represents an abstract database transaction.
-// Different storage backends (SQLite, PostgreSQL, etc.) should implement their own
-// concrete transaction types that satisfy this interface.
-// Implementations should use type assertions internally to access backend-specific functionality.
-//
-// To implement a custom transaction type for a new backend:
-//
-//	type PostgresTransaction struct {
-//	    tx *sql.Tx
-//	}
-//
-//	func (t *PostgresTransaction) transaction() {} // marker method
-//
-//	func (t *PostgresTransaction) Tx() *sql.Tx {
-//	    return t.tx
-//	}
-type Transaction interface {
-	// transaction is a marker method to prevent arbitrary types from satisfying this interface
-	transaction()
-}
-
 // GetAggregatedDataFunc is a callback function for computing aggregated profile data.
-// It takes a context, transaction, key, and parts map, returning status, completion, and checksum.
-type GetAggregatedDataFunc func(ctx context.Context, tx Transaction, key string, parts map[string]string) (status string, completion string, checksum string)
+// It takes a context, key, and parts map, returning status, completion, and checksum.
+// The context should contain the database connection (via context.WithValue with key connKey).
+type GetAggregatedDataFunc func(ctx context.Context, key string, parts map[string]string) (status string, completion string, checksum string)
 
 // ContainerProfileStorage defines the storage operations for container profiles.
 // This interface abstracts the underlying database implementation, allowing different
 // backends (SQLite, PostgreSQL, etc.) to be used interchangeably.
 //
-// Transaction Management:
-// - Implementations must provide transaction support via the TransactionManager methods
-// - All data operations accept a Transaction parameter to enable atomic operations
-// - Callers are responsible for proper transaction lifecycle management (begin/commit/rollback)
+// Connection Management:
+// - The database connection is stored in the context using context.WithValue with key connKey
+// - Call BeginTransaction to acquire a connection and get a context with the connection embedded
+// - All data operations extract the connection from the context
+// - Use the cleanup function returned by BeginTransaction to return the connection to the pool
 //
-// Example usage with SQLite:
+// Example usage:
 //
 //	storage := NewContainerProfileStorageImpl(storageImpl, pool)
-//	tx, err := storage.BeginTransaction(ctx)
+//	ctx, cleanup, err := storage.WithConnection(ctx)
+//	if err != nil { ... }
+//	defer cleanup()
+//
+//	err = storage.SaveContainerProfile(ctx, key, profile)
 //	if err != nil { ... }
 //
-//	// Use defer to ensure cleanup - it's a no-op if already committed
-//	defer storage.CloseTransaction(tx)
-//
-//	err = storage.SaveContainerProfile(ctx, tx, key, profile)
+//	// For transactions (savepoints):
+//	endFn, err := storage.BeginTransaction(ctx)
 //	if err != nil { ... }
-//
-//	err = storage.CommitTransaction(tx)
-//	if err != nil { ... }
-//
-// Example usage with PostgreSQL (hypothetical):
-//
-//	storage := NewPostgresContainerProfileStorage(db)
-//	tx, err := storage.BeginTransaction(ctx)
-//	// ... same pattern as above
+//	err = doSomeWork(ctx)
+//	endFn(&err) // commits if err is nil, rolls back otherwise
 type ContainerProfileStorage interface {
 	TransactionManager
 	TimeSeriesOperations
 
 	// DeleteContainerProfile deletes a container profile by key.
-	DeleteContainerProfile(ctx context.Context, tx Transaction, key string) error
+	DeleteContainerProfile(ctx context.Context, key string) error
 
 	// GetContainerProfile retrieves a complete container profile by key.
-	GetContainerProfile(ctx context.Context, tx Transaction, key string) (softwarecomposition.ContainerProfile, error)
+	GetContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
 
 	// GetContainerProfileMetadata retrieves only the metadata of a container profile.
 	// This is more efficient when only metadata is needed.
-	GetContainerProfileMetadata(ctx context.Context, tx Transaction, key string) (softwarecomposition.ContainerProfile, error)
+	GetContainerProfileMetadata(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
 
 	// GetSbom retrieves an SBOM by key.
 	// Returns storage.ErrCodeKeyNotFound if not found or not implemented.
-	GetSbom(ctx context.Context, tx Transaction, key string) (softwarecomposition.SBOMSyft, error)
+	GetSbom(ctx context.Context, key string) (softwarecomposition.SBOMSyft, error)
 
 	// GetTsContainerProfile retrieves a time-series container profile.
 	// This bypasses locking mechanisms used by GetContainerProfile.
-	GetTsContainerProfile(ctx context.Context, tx Transaction, key string) (softwarecomposition.ContainerProfile, error)
+	GetTsContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
 
 	// SaveContainerProfile creates or updates a container profile.
-	SaveContainerProfile(ctx context.Context, tx Transaction, key string, profile *softwarecomposition.ContainerProfile) error
+	SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error
 
 	// UpdateApplicationProfile updates the application profile associated with a container profile.
-	UpdateApplicationProfile(
-		ctx context.Context,
-		tx Transaction,
-		key, prefix, root, namespace, slug, wlid string,
-		instanceID interface{ GetStringNoContainer() string },
-		profile *softwarecomposition.ContainerProfile,
-		creationTimestamp metav1.Time,
-		getAggregatedData GetAggregatedDataFunc,
-	) error
+	UpdateApplicationProfile(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time, getAggregatedData GetAggregatedDataFunc) error
 
 	// UpdateNetworkNeighborhood updates the network neighborhood associated with a container profile.
-	UpdateNetworkNeighborhood(
-		ctx context.Context,
-		tx Transaction,
-		key, prefix, root, namespace, slug, wlid string,
-		instanceID interface{ GetStringNoContainer() string },
-		profile *softwarecomposition.ContainerProfile,
-		creationTimestamp metav1.Time,
-		getAggregatedData GetAggregatedDataFunc,
-	) error
+	UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time, getAggregatedData GetAggregatedDataFunc) error
 }
 
 // TransactionManager handles database connection and transaction lifecycle.
 // Implementations should manage connection pooling and transaction semantics
 // appropriate for their backend.
+//
+// The connection is stored in the context using context.WithValue with key connKey.
+// All storage methods extract the connection from the context.
 type TransactionManager interface {
-	// BeginTransaction starts a new transaction and returns it.
-	// The caller must call either CommitTransaction or RollbackTransaction when done.
-	BeginTransaction(ctx context.Context) (Transaction, error)
+	// WithConnection acquires a connection from the pool and returns a new context
+	// with the connection embedded, plus a cleanup function to return the connection to the pool.
+	// The cleanup function is safe to call multiple times.
+	// Usage:
+	//   ctx, cleanup, err := storage.WithConnection(ctx)
+	//   if err != nil { return err }
+	//   defer cleanup()
+	//   // ... do work with ctx ...
+	WithConnection(ctx context.Context) (context.Context, func(), error)
 
-	// CommitTransaction commits the transaction.
-	// After commit, the transaction should not be used again.
-	CommitTransaction(tx Transaction) error
-
-	// CloseTransaction closes the transaction and releases associated resources.
-	// If the transaction was not committed, changes may be discarded (implementation-dependent).
-	// This is safe to call multiple times or after a commit (it will be a no-op).
-	// After close, the transaction should not be used again.
-	CloseTransaction(tx Transaction)
-
-	// BeginNestedTransaction starts a nested transaction (savepoint) within an existing transaction.
+	// BeginTransaction starts a SQLite transaction (savepoint) and returns a function
+	// to commit or rollback based on the error state.
+	// The connection must already be in the context (from WithConnection).
 	// Returns a function that must be called with the error pointer to commit or rollback the savepoint.
 	// Usage:
-	//   endFn, err := storage.BeginNestedTransaction(tx)
+	//   endFn, err := storage.BeginTransaction(ctx)
 	//   if err != nil { return err }
-	//   err = doSomeWork(tx)
+	//   err = doSomeWork(ctx)
 	//   endFn(&err) // commits savepoint if err is nil, rolls back otherwise
-	BeginNestedTransaction(tx Transaction) (endFunc func(*error), err error)
+	BeginTransaction(ctx context.Context) (endFunc func(*error), err error)
 }
 
 // TimeSeriesOperations defines operations for managing time series data.
@@ -147,19 +104,19 @@ type TransactionManager interface {
 type TimeSeriesOperations interface {
 	// ListTimeSeriesExpired returns keys for time series entries older than the given duration.
 	// These represent profiles that have exceeded their tracking threshold.
-	ListTimeSeriesExpired(ctx context.Context, tx Transaction, threshold time.Duration) ([]string, error)
+	ListTimeSeriesExpired(ctx context.Context, threshold time.Duration) ([]string, error)
 
 	// ListTimeSeriesWithData returns keys for all time series entries that have pending data.
-	ListTimeSeriesWithData(ctx context.Context, tx Transaction) ([]string, error)
+	ListTimeSeriesWithData(ctx context.Context) ([]string, error)
 
 	// ListTimeSeriesContainers retrieves time series container information for a given key.
 	// Returns a map of seriesID to slice of TimeSeriesContainers.
-	ListTimeSeriesContainers(ctx context.Context, tx Transaction, key string) (map[string][]softwarecomposition.TimeSeriesContainers, error)
+	ListTimeSeriesContainers(ctx context.Context, key string) (map[string][]softwarecomposition.TimeSeriesContainers, error)
 
 	// DeleteTimeSeriesContainerEntries removes all time series entries for a given key.
-	DeleteTimeSeriesContainerEntries(ctx context.Context, tx Transaction, key string) error
+	DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error
 
 	// ReplaceTimeSeriesContainerEntries replaces time series entries for a given key and seriesID.
 	// It deletes entries in deleteTimeSeries and inserts newTimeSeries.
-	ReplaceTimeSeriesContainerEntries(ctx context.Context, tx Transaction, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error
+	ReplaceTimeSeriesContainerEntries(ctx context.Context, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error
 }

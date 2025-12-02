@@ -10,8 +10,8 @@ import (
 )
 
 type Processor interface {
-	AfterCreate(ctx context.Context, tx Transaction, object runtime.Object) error
-	PreSave(ctx context.Context, tx Transaction, object runtime.Object) error
+	AfterCreate(ctx context.Context, object runtime.Object) error
+	PreSave(ctx context.Context, object runtime.Object) error
 	SetStorage(storageImpl ContainerProfileStorage)
 }
 
@@ -20,11 +20,11 @@ type DefaultProcessor struct {
 
 var _ Processor = (*DefaultProcessor)(nil)
 
-func (d DefaultProcessor) AfterCreate(_ context.Context, _ Transaction, _ runtime.Object) error {
+func (d DefaultProcessor) AfterCreate(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
-func (d DefaultProcessor) PreSave(_ context.Context, _ Transaction, _ runtime.Object) error {
+func (d DefaultProcessor) PreSave(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite"
 )
 
 const (
@@ -38,13 +39,13 @@ func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProces
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
-func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ Transaction, _ runtime.Object) error {
+func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
-func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, tx Transaction, object runtime.Object) error {
-	// conn may be nil if tx is nil or invalid - SBOM lookup is optional
-	conn, _ := getSQLiteConn(tx)
+func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtime.Object) error {
+	// conn may be nil - SBOM lookup is optional
+	conn, _ := ctx.Value(connKey).(*sqlite.Conn)
 
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {

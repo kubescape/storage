@@ -24,11 +24,11 @@ func NewNetworkNeighborhoodProcessor(cfg config.Config) *NetworkNeighborhoodProc
 
 var _ Processor = (*NetworkNeighborhoodProcessor)(nil)
 
-func (a NetworkNeighborhoodProcessor) AfterCreate(_ context.Context, _ Transaction, _ runtime.Object) error {
+func (a NetworkNeighborhoodProcessor) AfterCreate(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
-func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, _ Transaction, object runtime.Object) error {
+func (a NetworkNeighborhoodProcessor) PreSave(_ context.Context, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.NetworkNeighborhood)
 	if !ok {
 		return fmt.Errorf("given object is not an NetworkNeighborhood")
