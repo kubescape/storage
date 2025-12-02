@@ -184,7 +184,7 @@ func (a *ContainerProfileProcessor) runMaintenanceTasks() {
 		}
 		// consolidation
 		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting consolidation task", loggerhelpers.String("interval", a.Interval.String()))
-		err = a.consolidateTimeSeries()
+		err = a.ConsolidateTimeSeries(context.Background())
 		if err != nil {
 			logger.L().Error("ContainerProfileProcessor.runMaintenanceTasks - failed to complete consolidation task", loggerhelpers.Error(err))
 		} else {
@@ -213,7 +213,7 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
 
-// consolidateTimeSeries processes all time series data, handling expired and active series separately.
+// ConsolidateTimeSeries processes all time series data, handling expired and active series separately.
 //
 // The function runs in two phases:
 // 1. Process expired time series (past deleteThreshold) - marked as Completed/Partial
@@ -221,10 +221,7 @@ func (a *ContainerProfileProcessor) cleanup() error {
 //
 // Expired time series are always marked as Completed/Partial unless they were already Completed/Full,
 // ensuring incomplete profiles don't remain in a Learning state indefinitely.
-func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel() // FIXME should we add a timeout here?
-
+func (a *ContainerProfileProcessor) ConsolidateTimeSeries(ctx context.Context) error {
 	ctx, cleanup, err := a.ContainerProfileStorage.WithConnection(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
