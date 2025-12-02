@@ -51,7 +51,7 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 var _ Processor = (*ContainerProfileProcessor)(nil)
 
 // AfterCreate is called after a TS ContainerProfile is created to store metadata.
-func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, tx Transaction, object runtime.Object) error {
+func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ContainerProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ContainerProfile")
@@ -71,7 +71,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, tx Transact
 	reportTimestamp := profile.Annotations[helpers.ReportTimestampMetadataKey]
 	status := profile.Annotations[helpers.StatusMetadataKey]
 	// add sequence info via storage interface
-	err := a.ContainerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, tx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
+	err := a.ContainerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.AfterCreate - failed to write time series data for container profile",
 			loggerhelpers.Error(err),
@@ -88,7 +88,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, tx Transact
 	return nil
 }
 
-func (a *ContainerProfileProcessor) PreSave(ctx context.Context, tx Transaction, object runtime.Object) error {
+func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ContainerProfile)
 	if !ok || profile.Name == "" {
 		// do not return an error as we might call this on AP and NN as part of the updateProfile() flow below
@@ -101,7 +101,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, tx Transaction,
 		name, _ := SplitProfileName(profile.Name)
 		// load profile metadata if profile exists
 		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", profile.Namespace, name)
-		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(ctx, tx, key)
+		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(ctx, key)
 		if err != nil {
 			return nil
 		}
@@ -128,7 +128,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, tx Transaction,
 	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
 	if err == nil {
 		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.DefaultNamespace, sbomName)
-		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, tx, key)
+		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, key)
 		if err == nil {
 			// fill sbomSet
 			sbomSet = mapset.NewSet[string]()
@@ -225,40 +225,36 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // FIXME should we add a timeout here?
 
-	tx, err := a.ContainerProfileStorage.BeginTransaction(ctx)
+	ctx, cleanup, err := a.ContainerProfileStorage.WithConnection(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer a.ContainerProfileStorage.CloseTransaction(tx)
+	defer cleanup()
 
 	// Phase 1: Process expired time series
 	// These are marked as Completed/Partial (unless already Completed/Full)
-	expired, err := a.ContainerProfileStorage.ListTimeSeriesExpired(ctx, tx, a.DeleteThreshold)
+	expired, err := a.ContainerProfileStorage.ListTimeSeriesExpired(ctx, a.DeleteThreshold)
 	if err != nil {
 		return fmt.Errorf("failed to list time: %w", err)
 	}
 
 	for _, key := range expired {
-		if err := a.consolidateKeyTimeSeries(ctx, tx, key, true); err != nil {
+		if err := a.consolidateKeyTimeSeries(ctx, key, true); err != nil {
 			return err
 		}
 	}
 
 	// Phase 2: Process active time series with data
 	// These follow normal completion flow based on their status
-	withData, err := a.ContainerProfileStorage.ListTimeSeriesWithData(ctx, tx)
+	withData, err := a.ContainerProfileStorage.ListTimeSeriesWithData(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list time: %w", err)
 	}
 
 	for _, key := range withData {
-		if err := a.consolidateKeyTimeSeries(ctx, tx, key, false); err != nil {
+		if err := a.consolidateKeyTimeSeries(ctx, key, false); err != nil {
 			return err
 		}
-	}
-
-	if err := a.ContainerProfileStorage.CommitTransaction(tx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -268,25 +264,25 @@ func (a *ContainerProfileProcessor) consolidateTimeSeries() error {
 //
 // The expired parameter indicates whether this time series has exceeded the deleteThreshold.
 // When expired=true, the resulting profile will be marked as Completed/Partial (unless already Completed/Full).
-func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context, tx Transaction, key string, expired bool) error {
+func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context, key string, expired bool) error {
 	logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - consolidating data for key", loggerhelpers.String("key", key), loggerhelpers.Interface("expired", expired))
 
-	timeSeries, err := a.ContainerProfileStorage.ListTimeSeriesContainers(ctx, tx, key)
+	timeSeries, err := a.ContainerProfileStorage.ListTimeSeriesContainers(ctx, key)
 	if err != nil {
 		return fmt.Errorf("failed to list time series containers: %w", err)
 	}
 
-	profile, prefix, root, namespace, err := a.loadOrInitializeProfile(ctx, tx, key)
+	profile, prefix, root, namespace, err := a.loadOrInitializeProfile(ctx, key)
 	if err != nil {
 		return err
 	}
 
-	processed, err := a.processTimeSeriesInTransaction(ctx, tx, timeSeries, key, profile, prefix, root, namespace, expired)
+	processed, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, namespace, expired)
 	if err != nil {
 		return err
 	}
 
-	if err := a.deleteProcessedTimeSeries(ctx, tx, processed); err != nil {
+	if err := a.deleteProcessedTimeSeries(ctx, processed); err != nil {
 		return err
 	}
 
@@ -295,13 +291,13 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 }
 
 // loadOrInitializeProfile loads an existing profile or creates a new one
-func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context, tx Transaction, key string) (
+func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context, key string) (
 	profile softwarecomposition.ContainerProfile, prefix, root, namespace string, err error) {
 
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cpCancel()
 
-	profile, err = a.ContainerProfileStorage.GetContainerProfile(cpCtx, tx, key)
+	profile, err = a.ContainerProfileStorage.GetContainerProfile(cpCtx, key)
 	prefix, root, kind, namespace, name := pathToKeys(key)
 
 	switch {
@@ -327,15 +323,15 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 }
 
 // processTimeSeriesInTransaction processes time series data within a database transaction
-func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.Context, tx Transaction,
+func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.Context,
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
 	profile softwarecomposition.ContainerProfile, prefix, root, namespace string, expired bool) ([]string, error) {
 
-	endFn, err := a.ContainerProfileStorage.BeginNestedTransaction(tx)
+	endFn, err := a.ContainerProfileStorage.BeginTransaction(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin nested transaction: %w", err)
 	}
-	processed, err := a.updateProfile(ctx, tx, timeSeries, key, profile, prefix, root, namespace, expired)
+	processed, err := a.updateProfile(ctx, timeSeries, key, profile, prefix, root, namespace, expired)
 	endFn(&err)
 
 	if err != nil {
@@ -346,10 +342,10 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 }
 
 // deleteProcessedTimeSeries removes processed time series profiles from storage
-func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Context, tx Transaction, processed []string) error {
+func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Context, processed []string) error {
 	for _, tsKey := range processed {
 		// no locking needed for TS profiles
-		err := a.ContainerProfileStorage.DeleteContainerProfile(ctx, tx, tsKey)
+		err := a.ContainerProfileStorage.DeleteContainerProfile(ctx, tsKey)
 		// FIXME maybe try to delete others before exit?
 		if err != nil {
 			return fmt.Errorf("failed to delete processed time series profile: %w", err)
@@ -358,14 +354,14 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Contex
 	return nil
 }
 
-func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, tx Transaction, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix string, root string, namespace string, expired bool) ([]string, error) {
+func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix string, root string, namespace string, expired bool) ([]string, error) {
 	var processed []string
 	creationTimestamp := metav1.Now()
 	var newData bool
 
 	// Process each time series
 	for seriesID := range timeSeries {
-		processResult, err := a.processTimeSeries(ctx, tx, timeSeries, seriesID, key, &profile, &creationTimestamp, expired)
+		processResult, err := a.processTimeSeries(ctx, timeSeries, seriesID, key, &profile, &creationTimestamp, expired)
 		if err != nil {
 			return nil, err
 		}
@@ -394,12 +390,12 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, tx Transa
 	}
 
 	// Save the container profile
-	if err := a.ContainerProfileStorage.SaveContainerProfile(ctx, tx, key, &profile); err != nil {
+	if err := a.ContainerProfileStorage.SaveContainerProfile(ctx, key, &profile); err != nil {
 		return nil, err
 	}
 
 	// Update aggregated profiles (application profile and network neighborhood)
-	if err := a.updateAggregatedProfiles(ctx, tx, key, &profile, prefix, root, namespace, creationTimestamp); err != nil {
+	if err := a.updateAggregatedProfiles(ctx, key, &profile, prefix, root, namespace, creationTimestamp); err != nil {
 		return nil, err
 	}
 
@@ -414,14 +410,14 @@ type timeSeriesProcessResult struct {
 }
 
 // processTimeSeries processes a single time series and returns the result
-func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context, tx Transaction,
+func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context,
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, seriesID, key string,
 	profile *softwarecomposition.ContainerProfile, creationTimestamp *metav1.Time, expired bool) (timeSeriesProcessResult, error) {
 
 	result := timeSeriesProcessResult{}
 
 	// Merge time series data
-	deleteTimeSeries, processed, hasNewData := a.mergeTimeSeriesData(ctx, tx, timeSeries[seriesID], key, profile)
+	deleteTimeSeries, processed, hasNewData := a.mergeTimeSeriesData(ctx, timeSeries[seriesID], key, profile)
 	result.processed = processed
 	result.hasNewData = hasNewData
 
@@ -429,14 +425,14 @@ func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context, tx Tr
 	newTimeSeries := a.consolidateContinuousTimeSeries(timeSeries[seriesID], creationTimestamp)
 
 	// Update profile status based on time series state
-	newTimeSeries, skipFurtherProcessing, err := a.updateProfileStatus(ctx, tx, key, seriesID, profile, newTimeSeries, expired)
+	newTimeSeries, skipFurtherProcessing, err := a.updateProfileStatus(ctx, key, seriesID, profile, newTimeSeries, expired)
 	if err != nil {
 		return result, err
 	}
 	result.skipFurtherProcessing = skipFurtherProcessing
 
 	// Write consolidated data back to database
-	if err := a.ContainerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, tx, key, seriesID, deleteTimeSeries, newTimeSeries); err != nil {
+	if err := a.ContainerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, key, seriesID, deleteTimeSeries, newTimeSeries); err != nil {
 		return result, fmt.Errorf("failed to replace consolidated time series data: %w", err)
 	}
 
@@ -444,7 +440,7 @@ func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context, tx Tr
 }
 
 // mergeTimeSeriesData merges time series data into the profile
-func (a *ContainerProfileProcessor) mergeTimeSeriesData(ctx context.Context, tx Transaction,
+func (a *ContainerProfileProcessor) mergeTimeSeriesData(ctx context.Context,
 	timeSeriesContainers []softwarecomposition.TimeSeriesContainers, key string, profile *softwarecomposition.ContainerProfile) (deleteList []string, processed []string, hasNewData bool) {
 
 	for k, ts := range timeSeriesContainers {
@@ -455,7 +451,7 @@ func (a *ContainerProfileProcessor) mergeTimeSeriesData(ctx context.Context, tx 
 
 		// Load TS profile from disk
 		tsKey := key + "-" + ts.TsSuffix
-		tsProfile, err := a.ContainerProfileStorage.GetTsContainerProfile(ctx, tx, tsKey)
+		tsProfile, err := a.ContainerProfileStorage.GetTsContainerProfile(ctx, tsKey)
 
 		switch {
 		case storage.IsNotFound(err):
@@ -514,7 +510,7 @@ func (a *ContainerProfileProcessor) consolidateContinuousTimeSeries(
 // don't remain in Learning state indefinitely.
 //
 // Returns true if further processing should be skipped (e.g., profile is fully completed).
-func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, tx Transaction, key, seriesID string,
+func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key, seriesID string,
 	profile *softwarecomposition.ContainerProfile, newTimeSeries []softwarecomposition.TimeSeriesContainers, expired bool) ([]softwarecomposition.TimeSeriesContainers, bool, error) {
 
 	// An aggregated series is removed only if it has one element, no previous report timestamp, and is completed or failed
@@ -531,7 +527,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, tx 
 				loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
 
 			// Remove all time series data
-			if err := a.ContainerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, tx, key); err != nil {
+			if err := a.ContainerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, key); err != nil {
 				return newTimeSeries, false, fmt.Errorf("failed to delete time series data: %w", err)
 			}
 			return newTimeSeries, true, nil // skip further processing
@@ -569,7 +565,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, tx 
 }
 
 // updateAggregatedProfiles updates the application profile and network neighborhood
-func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context, tx Transaction,
+func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context,
 	key string, profile *softwarecomposition.ContainerProfile, prefix, root, namespace string,
 	creationTimestamp metav1.Time) error {
 
@@ -586,12 +582,12 @@ func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context
 	wlid := profile.Annotations[helpers.WlidMetadataKey]
 
 	// Update application profile
-	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, tx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
 		return err
 	}
 
 	// Update network neighborhood
-	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, tx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
 		return err
 	}
 
@@ -602,7 +598,7 @@ func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context
 // A profile status is completed only if all its main containers are completed.
 // A profile completion is full only if all its init/main containers are full.
 // A profile sync checksum is the checksum of all container checksums.
-func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, tx Transaction, key string, parts map[string]string) (string, string, string) {
+func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, key string, parts map[string]string) (string, string, string) {
 	mainContainers := 0
 	completed := 0
 	full := 0
@@ -619,7 +615,7 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, tx Tr
 	for _, key := range keys {
 		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cpCancel()
-		profile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(cpCtx, tx, key)
+		profile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(cpCtx, key)
 		if err != nil {
 			logger.L().Debug("ContainerProfileProcessor.getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 			continue
