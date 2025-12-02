@@ -67,7 +67,7 @@ require (
 	github.com/briandowns/spinner v1.23.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cilium/cilium v1.16.9 // indirect
+	github.com/cilium/cilium v1.16.17 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/coreos/go-oidc/v3 v3.14.1 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
@@ -202,8 +202,8 @@ require (
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
 	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250422160041-2d3770c4ea7f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250422160041-2d3770c4ea7f // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250519155744-55703ea1f237 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250519155744-55703ea1f237 // indirect
 	google.golang.org/grpc v1.72.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
