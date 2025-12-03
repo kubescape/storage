@@ -115,7 +115,7 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time, getAggregatedData GetAggregatedDataFunc) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 
-	apKey := keysToPath(prefix, root, "applicationprofiles", namespace, slug)
+	apKey := KeysToPath(prefix, root, "applicationprofiles", namespace, slug)
 	var apChecksum string
 
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
@@ -167,7 +167,7 @@ func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Conte
 func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time, getAggregatedData GetAggregatedDataFunc) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 
-	nnKey := keysToPath(prefix, root, "networkneighborhoods", namespace, slug)
+	nnKey := KeysToPath(prefix, root, "networkneighborhoods", namespace, slug)
 	var nnChecksum string
 
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {

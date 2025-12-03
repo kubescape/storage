@@ -100,7 +100,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		// check size and completion for the corresponding container profile
 		name, _ := SplitProfileName(profile.Name)
 		// load profile metadata if profile exists
-		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", profile.Namespace, name)
+		key := KeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", profile.Namespace, name)
 		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(ctx, key)
 		if err != nil {
 			return nil
@@ -127,7 +127,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	// get files from corresponding sbom
 	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
 	if err == nil {
-		key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.DefaultNamespace, sbomName)
+		key := KeysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.DefaultNamespace, sbomName)
 		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, key)
 		if err == nil {
 			// fill sbomSet
@@ -295,7 +295,7 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 	defer cpCancel()
 
 	profile, err = a.ContainerProfileStorage.GetContainerProfile(cpCtx, key)
-	prefix, root, kind, namespace, name := pathToKeys(key)
+	prefix, root, kind, namespace, name := PathToKeys(key)
 
 	switch {
 	case storage.IsNotFound(err):

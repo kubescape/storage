@@ -61,11 +61,11 @@ func NewTestPool(dir string) *sqlitemigration.Pool {
 	return NewPool(path, 0)
 }
 
-func keysToPath(prefix, root, kind, ns, name string) string {
+func KeysToPath(prefix, root, kind, ns, name string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s", prefix, root, kind, ns, name)
 }
 
-func pathToKeys(path string) (string, string, string, string, string) {
+func PathToKeys(path string) (string, string, string, string, string) {
 	s := strings.SplitN(path, "/", 5)
 	// ensure we have at least 5 parts
 	for len(s) < 5 {
@@ -75,7 +75,7 @@ func pathToKeys(path string) (string, string, string, string, string) {
 }
 
 func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
-	_, _, kind, namespace, _ := pathToKeys(path)
+	_, _, kind, namespace, _ := PathToKeys(path)
 	var count int64
 	err := sqlitex.Execute(conn,
 		`SELECT COUNT(*) FROM metadata
@@ -96,7 +96,7 @@ func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 
 // DeleteMetadata deletes metadata for the given path and unmarshals the deleted metadata into the provided runtime.Object.
 func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) error {
-	_, _, kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := PathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`DELETE FROM metadata
 				WHERE kind = :kind
@@ -120,7 +120,7 @@ func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) err
 }
 
 func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
-	prefix, root, kind, namespace, _ := pathToKeys(path)
+	prefix, root, kind, namespace, _ := PathToKeys(path)
 	if cont == "" {
 		cont = "0"
 	}
@@ -139,7 +139,7 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
 				last = stmt.ColumnText(0)
 				ns := stmt.ColumnText(1)
 				name := stmt.ColumnText(2)
-				names = append(names, keysToPath(prefix, root, kind, ns, name))
+				names = append(names, KeysToPath(prefix, root, kind, ns, name))
 				return nil
 			},
 		})
@@ -150,7 +150,7 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
 }
 
 func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
-	_, _, kind, namespace, _ := pathToKeys(path)
+	_, _, kind, namespace, _ := PathToKeys(path)
 	if cont == "" {
 		cont = "0"
 	}
@@ -198,7 +198,7 @@ func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 
 // DeleteTimeSeriesContainerEntries deletes all time series entries for a completed container.
 func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
-	_, _, kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := PathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`DELETE FROM time_series
 					WHERE kind = ?
@@ -216,7 +216,7 @@ func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 // ListTimeSeriesContainers retrieves time series containers for a given path.
 func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
 	containers := make(map[string][]softwarecomposition.TimeSeriesContainers)
-	_, _, kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := PathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`SELECT seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData
 				FROM time_series
@@ -273,7 +273,7 @@ func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error)
 				kind := stmt.ColumnText(0)
 				ns := stmt.ColumnText(1)
 				name := stmt.ColumnText(2)
-				keys = append(keys, keysToPath("", "spdx.softwarecomposition.kubescape.io", kind, ns, name))
+				keys = append(keys, KeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, ns, name))
 				return nil
 			},
 		})
@@ -295,7 +295,7 @@ func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 				kind := stmt.ColumnText(0)
 				ns := stmt.ColumnText(1)
 				name := stmt.ColumnText(2)
-				keys = append(keys, keysToPath("", "spdx.softwarecomposition.kubescape.io", kind, ns, name))
+				keys = append(keys, KeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, ns, name))
 				return nil
 			},
 		})
@@ -307,7 +307,7 @@ func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 
 // ReadMetadata reads metadata for the given path and returns it as a byte slice.
 func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
-	_, _, kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := PathToKeys(path)
 	var metadataJSON string
 	err := sqlitex.Execute(conn,
 		`SELECT metadata FROM metadata
@@ -340,7 +340,7 @@ func writeMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) erro
 
 // WriteJSON writes the given JSON metadata to the database for the specified path.
 func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
-	_, _, kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := PathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO metadata
 				(kind, namespace, name, metadata) VALUES (?, ?, ?, ?)`,
@@ -370,7 +370,7 @@ func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, ts
 
 // ReplaceTimeSeriesContainerEntries replaces time series entries for a given path and seriesID.
 func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
-	_, _, kind, namespace, name := pathToKeys(path)
+	_, _, kind, namespace, name := PathToKeys(path)
 	// FIXME we can probably optimize this, rather than deleting everything to add it back
 	// delete old profiles
 	tsSuffixes, err := json.Marshal(deleteTimeSeries)
