@@ -579,12 +579,12 @@ func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context
 	wlid := profile.Annotations[helpers.WlidMetadataKey]
 
 	// Update application profile
-	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
 		return err
 	}
 
 	// Update network neighborhood
-	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
 		return err
 	}
 
