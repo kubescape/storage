@@ -15,8 +15,6 @@ import (
 	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/storage"
-	"zombiezen.com/go/sqlite"
 )
 
 const (
@@ -27,7 +25,7 @@ const (
 type ApplicationProfileProcessor struct {
 	defaultNamespace          string
 	maxApplicationProfileSize int
-	storageImpl               *StorageImpl
+	storageImpl               ContainerProfileStorage
 }
 
 func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProcessor {
@@ -39,11 +37,11 @@ func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProces
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
-func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ *sqlite.Conn, _ runtime.Object) error {
+func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
-func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error {
+func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ApplicationProfile)
 	if !ok {
 		return fmt.Errorf("given object is not an ApplicationProfile")
@@ -62,9 +60,8 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.
 			// get files from corresponding sbom
 			sbomName, err := names.ImageInfoToSlug(container.ImageTag, container.ImageID)
 			if err == nil {
-				sbom := softwarecomposition.SBOMSyft{}
-				key := keysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
-				if err := a.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{}, &sbom); err == nil {
+				key := KeysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
+				if sbom, err := a.storageImpl.GetSbom(ctx, key); err == nil {
 					// fill sbomSet
 					sbomSet = mapset.NewSet[string]()
 					for _, f := range sbom.Spec.Syft.Files {
@@ -107,8 +104,8 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, conn *sqlite.
 	return nil
 }
 
-func (a *ApplicationProfileProcessor) SetStorage(storageImpl *StorageImpl) {
-	a.storageImpl = storageImpl
+func (a *ApplicationProfileProcessor) SetStorage(containerProfileStorage ContainerProfileStorage) {
+	a.storageImpl = containerProfileStorage
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string]) softwarecomposition.ApplicationProfileContainer {

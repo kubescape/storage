@@ -36,13 +36,13 @@ import (
 )
 
 const (
-	GobExt                   = ".g"
-	JsonExt                  = ".j"
-	MetadataExt              = ".m"
 	DefaultStorageRoot       = "/data"
-	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
-	operationNotSupportedMsg = "operation not supported"
+	GobExt                   = ".g"
+	MetadataExt              = ".m"
 	SchemaVersion            = int64(1)
+	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
+	connKey                  = "conn"
+	operationNotSupportedMsg = "operation not supported"
 )
 
 var (
@@ -114,7 +114,7 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: watchDispatcher,
 	}
-	processor.SetStorage(storageImpl)
+	processor.SetStorage(NewContainerProfileStorageImpl(storageImpl, conn))
 	return storageImpl
 }
 
@@ -262,8 +262,10 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		logger.L().Ctx(ctx).Error(msg)
 		return errors.New(msg)
 	}
+	// add conn to context
+	ctx = context.WithValue(ctx, connKey, conn)
 	// call processor on object to be saved
-	if err := s.processor.PreSave(ctx, conn, obj); err != nil {
+	if err := s.processor.PreSave(ctx, obj); err != nil {
 		return err
 	}
 	// save object
@@ -272,7 +274,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		return err
 	}
 	// call processor on saved object
-	if err := s.processor.AfterCreate(ctx, conn, obj); err != nil {
+	if err := s.processor.AfterCreate(ctx, obj); err != nil {
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
 	// publish event to watchers
@@ -340,7 +342,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	_, _, _, namespace, _ := pathToKeys(key)
+	_, _, _, namespace, _ := PathToKeys(key)
 	if namespace != "" {
 		// FIXME find an alternative to fix NS deletion
 		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
@@ -758,8 +760,11 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			continue
 		}
 
+		// add conn to context
+		ctx = context.WithValue(ctx, connKey, conn)
+
 		// call processor on object to be saved
-		if err := s.processor.PreSave(ctx, conn, ret); err != nil {
+		if err := s.processor.PreSave(ctx, ret); err != nil {
 			if errors.Is(err, ObjectTooLargeError) {
 				// revert spec
 				ret = origState.obj.DeepCopyObject() // FIXME this is expensive
@@ -778,7 +783,7 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 
 		// check if the object is the same as the original
 		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
-		_ = s.processor.PreSave(ctx, conn, orig)
+		_ = s.processor.PreSave(ctx, orig)
 		if reflect.DeepEqual(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object

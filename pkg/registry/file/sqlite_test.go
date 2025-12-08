@@ -102,7 +102,7 @@ func Test_pathToKindKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.test, func(t *testing.T) {
-			_, _, kind, namespace, name := pathToKeys(tt.path)
+			_, _, kind, namespace, name := PathToKeys(tt.path)
 			assert.Equalf(t, tt.kind, kind, "pathToKeys(%v)", tt.path)
 			assert.Equalf(t, tt.namespace, namespace, "pathToKeys(%v)", tt.path)
 			assert.Equalf(t, tt.name, name, "pathToKeys(%v)", tt.path)

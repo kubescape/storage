@@ -31,9 +31,8 @@ func TestConsolidateData(t *testing.T) {
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	processor := ContainerProfileProcessor{
-		deleteThreshold:         0, // disable deletion
-		maxContainerProfileSize: 40000,
-		pool:                    pool,
+		DeleteThreshold:         0, // disable deletion
+		MaxContainerProfileSize: 40000,
 	}
 	s := &StorageImpl{
 		appFs:           afero.NewMemMapFs(),
@@ -45,7 +44,7 @@ func TestConsolidateData(t *testing.T) {
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: NewWatchDispatcher(),
 	}
-	processor.SetStorage(s)
+	processor.SetStorage(NewContainerProfileStorageImpl(s, pool))
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
@@ -64,21 +63,21 @@ func TestConsolidateData(t *testing.T) {
 	create("testdata/p2.json")
 	create("testdata/p3.json")
 	create("testdata/p4.json")
-	err = processor.consolidateTimeSeries()
+	err = processor.ConsolidateTimeSeries(ctx)
 	assert.NoError(t, err)
 	create("testdata/p5.json")
 	create("testdata/p6.json")
 	create("testdata/p7.json")
-	err = processor.consolidateTimeSeries()
+	err = processor.ConsolidateTimeSeries(ctx)
 	assert.NoError(t, err)
 	create("testdata/p8.json")
 	create("testdata/p9.json")
-	err = processor.consolidateTimeSeries()
+	err = processor.ConsolidateTimeSeries(ctx)
 	assert.NoError(t, err)
 	create("testdata/p10.json")
 	create("testdata/p11.json")
 	create("testdata/p12.json")
-	err = processor.consolidateTimeSeries()
+	err = processor.ConsolidateTimeSeries(ctx)
 	assert.NoError(t, err)
 
 	applicationProfile := softwarecomposition.ApplicationProfile{}
