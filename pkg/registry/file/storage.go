@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/kubescape/go-logger"
@@ -190,7 +189,7 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 		return fmt.Errorf("mkdir: %w", err)
 	}
 	// prepare payload file
-	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open payload file: %w", err)
 	}
@@ -406,7 +405,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 		}
 		return json.Unmarshal(metadata, objPtr)
 	}
-	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), syscall.O_DIRECT|os.O_RDONLY, 0)
+	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			// file not found, delete corresponding metadata
@@ -849,7 +848,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
 	}
 	defer s.locks.RUnlock(key)
-	payloadFile, err := s.appFs.OpenFile(path, syscall.O_DIRECT|os.O_RDONLY, 0)
+	payloadFile, err := s.appFs.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		// skip if file is not readable, maybe it was deleted
 		return nil
