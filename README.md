@@ -84,6 +84,8 @@ Metadata are stored in JSON format, and should be unmarshalled to the appropriat
 GetList() operations should support pagination, we are using ROWID to sort the results and limit the number
 of rows returned. On subsequent calls, the client provides the last ROWID to get the next page.
 
+Note that `GetList()` returns the list of objects with a `nil` Spec for performance reasons, as the CRDs are quite big.
+
 ### Filesystem layout
 
 The filesystem contains both the metadata database and the payload files.
