@@ -8,11 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GetAggregatedDataFunc is a callback function for computing aggregated profile data.
-// It takes a context, key, and parts map, returning status, completion, and checksum.
-// The context should contain the database connection (via context.WithValue with key connKey).
-type GetAggregatedDataFunc func(ctx context.Context, key string, parts map[string]string) (status string, completion string, checksum string)
-
 // ContainerProfileStorage defines the storage operations for container profiles.
 // This interface abstracts the underlying database implementation, allowing different
 // backends (SQLite, PostgreSQL, etc.) to be used interchangeably.
@@ -64,10 +59,10 @@ type ContainerProfileStorage interface {
 	SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error
 
 	// UpdateApplicationProfile updates the application profile associated with a container profile.
-	UpdateApplicationProfile(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time, getAggregatedData GetAggregatedDataFunc) error
+	UpdateApplicationProfile(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
 
 	// UpdateNetworkNeighborhood updates the network neighborhood associated with a container profile.
-	UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time, getAggregatedData GetAggregatedDataFunc) error
+	UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
 }
 
 // TransactionManager handles database connection and transaction lifecycle.

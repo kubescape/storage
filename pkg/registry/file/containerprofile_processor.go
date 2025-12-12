@@ -141,7 +141,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	} else {
 		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
 	}
-	profile.Spec = deflateContainerProfileSpec(profile.Spec, sbomSet)
+	profile.Spec = DeflateContainerProfileSpec(profile.Spec, sbomSet)
 	size += len(profile.Spec.Execs)
 	size += len(profile.Spec.Opens)
 	size += len(profile.Spec.Syscalls)
@@ -579,12 +579,12 @@ func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context
 	wlid := profile.Annotations[helpers.WlidMetadataKey]
 
 	// Update application profile
-	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
 		return err
 	}
 
 	// Update network neighborhood
-	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp, a.getAggregatedData); err != nil {
+	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
 		return err
 	}
 
@@ -649,7 +649,7 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, key s
 	return status, completion, hash
 }
 
-func deflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string]) softwarecomposition.ContainerProfileSpec {
+func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string]) softwarecomposition.ContainerProfileSpec {
 	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
 	if err != nil {
 		logger.L().Debug("ContainerProfileProcessor.deflateContainerProfileSpec - falling back to DeflateStringer for opens", loggerhelpers.Error(err))
