@@ -112,7 +112,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		} else if existingStatus == helpers.Completed {
 			// reject TS profile if the existing profile is already completed and full
 			// if the existing profile is completed and partial, we let complete TS profile amend it until it is full
-			if existingProfile.Annotations[helpers.CompletionMetadataKey] == helpers.Full || profile.Annotations[helpers.CompletionMetadataKey] == helpers.Partial {
+			if existingProfile.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
 				return ObjectCompletedError
 			}
 		}
