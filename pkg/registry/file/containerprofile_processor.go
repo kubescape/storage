@@ -35,6 +35,7 @@ type ContainerProfileProcessor struct {
 	LastCleanup             time.Time
 	MaxContainerProfileSize int
 	ContainerProfileStorage ContainerProfileStorage
+	ConsolidatedSlugChannel chan string
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -277,6 +278,42 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 	processed, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, namespace, expired)
 	if err != nil {
 		return err
+	}
+
+	// Calculate and send the slug (AP/NN name) to the channel before deleting processed time series
+	// This allows downstream processing even if the ingester dies after consolidation
+	// The slug is calculated for both ApplicationProfile and NetworkNeighborhood
+	if a.ConsolidatedSlugChannel != nil {
+		// Check if profile has instance ID annotation (required for slug calculation)
+		if instanceIDStr, ok := profile.Annotations[helpers.InstanceIDMetadataKey]; ok {
+			instanceID, err := instanceidhandlerv1.GenerateInstanceIDFromString(instanceIDStr)
+			if err != nil {
+				logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.consolidateKeyTimeSeries - failed to generate instance ID, skipping slug",
+					loggerhelpers.String("key", key),
+					loggerhelpers.Error(err))
+			} else {
+				slug, err := instanceID.GetSlug(true)
+				if err != nil {
+					logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.consolidateKeyTimeSeries - failed to get slug, skipping",
+						loggerhelpers.String("key", key),
+						loggerhelpers.Error(err))
+				} else {
+					// Send slug with namespace format: "namespace/name" to channel (non-blocking)
+					// This allows the ingester to extract both namespace and name
+					slugWithNamespace := fmt.Sprintf("%s/%s", namespace, slug)
+					select {
+					case a.ConsolidatedSlugChannel <- slugWithNamespace:
+					case <-ctx.Done():
+						return ctx.Err()
+					default:
+						// Non-blocking: if channel is full, log and continue
+						logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.consolidateKeyTimeSeries - consolidated slug channel is full, dropping slug",
+							loggerhelpers.String("key", key),
+							loggerhelpers.String("slug", slugWithNamespace))
+					}
+				}
+			}
+		}
 	}
 
 	if err := a.deleteProcessedTimeSeries(ctx, processed); err != nil {
