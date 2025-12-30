@@ -26,6 +26,12 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 )
 
+// ConsolidatedSlugData contains the slug (name) and namespace of a consolidated profile
+type ConsolidatedSlugData struct {
+	Name      string
+	Namespace string
+}
+
 type ContainerProfileProcessor struct {
 	CleanupHandler          *ResourcesCleanupHandler
 	CleanupInterval         time.Duration
@@ -35,7 +41,7 @@ type ContainerProfileProcessor struct {
 	LastCleanup             time.Time
 	MaxContainerProfileSize int
 	ContainerProfileStorage ContainerProfileStorage
-	ConsolidatedSlugChannel chan string
+	ConsolidatedSlugChannel chan ConsolidatedSlugData
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -282,7 +288,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 
 	// Send consolidated slug to channel before deleting processed time series
 	// This allows downstream processing even if the ingester dies after consolidation
-	if err := a.sendConsolidatedSlugToChannel(ctx, key, profile, namespace); err != nil {
+	if err := a.sendConsolidatedSlugToChannel(ctx, profile, namespace); err != nil {
 		return err
 	}
 
@@ -297,7 +303,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 // sendConsolidatedSlugToChannel calculates the slug from the profile and sends it to the channel
 // The slug is calculated for both ApplicationProfile and NetworkNeighborhood
 // Format: "namespace/name" to allow the ingester to extract both namespace and name
-func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Context, key string, profile softwarecomposition.ContainerProfile, namespace string) error {
+func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Context, profile softwarecomposition.ContainerProfile, namespace string) error {
 	if a.ConsolidatedSlugChannel == nil {
 		return nil
 	}
@@ -305,36 +311,28 @@ func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Co
 	// Check if profile has instance ID annotation (required for slug calculation)
 	instanceIDStr, ok := profile.Annotations[helpers.InstanceIDMetadataKey]
 	if !ok {
-		return nil
+		return fmt.Errorf("ContainerProfileProcessor.sendConsolidatedSlugToChannel - instance ID annotation not found")
 	}
 
 	instanceID, err := instanceidhandlerv1.GenerateInstanceIDFromString(instanceIDStr)
 	if err != nil {
-		logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.sendConsolidatedSlugToChannel - failed to generate instance ID, skipping slug",
-			loggerhelpers.String("key", key),
-			loggerhelpers.Error(err))
-		return nil
+		return fmt.Errorf("ContainerProfileProcessor.sendConsolidatedSlugToChannel - failed to generate instance ID: %w", err)
 	}
 
 	slug, err := instanceID.GetSlug(true)
 	if err != nil {
-		logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.sendConsolidatedSlugToChannel - failed to get slug, skipping",
-			loggerhelpers.String("key", key),
-			loggerhelpers.Error(err))
-		return nil
+		return fmt.Errorf("ContainerProfileProcessor.sendConsolidatedSlugToChannel - failed to get slug: %w", err)
 	}
 
-	// Send slug with namespace format: "namespace/name" to channel (non-blocking)
-	slugWithNamespace := fmt.Sprintf("%s/%s", namespace, slug)
+	// Send slug data to channel (blocking - will wait if channel is full)
+	slugData := ConsolidatedSlugData{
+		Name:      slug,
+		Namespace: namespace,
+	}
 	select {
-	case a.ConsolidatedSlugChannel <- slugWithNamespace:
+	case a.ConsolidatedSlugChannel <- slugData:
 	case <-ctx.Done():
 		return ctx.Err()
-	default:
-		// Non-blocking: if channel is full, log and continue
-		logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.sendConsolidatedSlugToChannel - consolidated slug channel is full, dropping slug",
-			loggerhelpers.String("key", key),
-			loggerhelpers.String("slug", slugWithNamespace))
 	}
 
 	return nil
