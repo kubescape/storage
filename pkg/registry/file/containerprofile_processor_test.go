@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
@@ -142,6 +143,157 @@ func Test_isZeroTime(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, isZeroTime(tt.s), tt.s)
+		})
+	}
+}
+
+func TestSendConsolidatedSlugToChannel(t *testing.T) {
+	tests := []struct {
+		name           string
+		channel        chan ConsolidatedSlugData
+		profile        softwarecomposition.ContainerProfile
+		namespace      string
+		ctx            context.Context
+		expectError    bool
+		expectedSlug   string
+		expectedResult bool // whether we expect data in channel
+	}{
+		{
+			name:           "nil channel returns nil",
+			channel:        nil,
+			profile:        softwarecomposition.ContainerProfile{},
+			namespace:      "default",
+			ctx:            context.Background(),
+			expectError:    false,
+			expectedResult: false,
+		},
+		{
+			name:    "missing instance ID annotation",
+			channel: make(chan ConsolidatedSlugData, 1),
+			profile: softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			namespace:      "default",
+			ctx:            context.Background(),
+			expectError:    true,
+			expectedResult: false,
+		},
+		{
+			name:    "invalid instance ID",
+			channel: make(chan ConsolidatedSlugData, 1),
+			profile: softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpersv1.InstanceIDMetadataKey: "invalid-instance-id",
+					},
+				},
+			},
+			namespace:      "default",
+			ctx:            context.Background(),
+			expectError:    true,
+			expectedResult: false,
+		},
+		{
+			name:    "successful send to channel",
+			channel: make(chan ConsolidatedSlugData, 1),
+			profile: softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-default/kind-Deployment/name-test-app",
+					},
+				},
+			},
+			namespace:      "default",
+			ctx:            context.Background(),
+			expectError:    false,
+			expectedSlug:   "deployment-test-app", // GetSlug(true) includes kind prefix
+			expectedResult: true,
+		},
+		{
+			name: "context cancellation",
+			channel: func() chan ConsolidatedSlugData {
+				// Use buffered channel of size 1, but fill it so the next send will block
+				ch := make(chan ConsolidatedSlugData, 1)
+				// Fill the channel to make subsequent send block
+				ch <- ConsolidatedSlugData{Name: "blocking", Namespace: "test"}
+				return ch
+			}(),
+			profile: softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-default/kind-Deployment/name-test-app",
+					},
+				},
+			},
+			namespace: "default",
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel() // Cancel immediately
+				return ctx
+			}(),
+			expectError:    true,
+			expectedResult: false,
+		},
+		{
+			name:    "different namespace",
+			channel: make(chan ConsolidatedSlugData, 1),
+			profile: softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-kube-system/kind-Deployment/name-coredns",
+					},
+				},
+			},
+			namespace:      "kube-system",
+			ctx:            context.Background(),
+			expectError:    false,
+			expectedSlug:   "deployment-coredns", // GetSlug(true) includes kind prefix
+			expectedResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			processor := &ContainerProfileProcessor{
+				ConsolidatedSlugChannel: tt.channel,
+			}
+
+			err := processor.sendConsolidatedSlugToChannel(tt.ctx, tt.profile, tt.namespace)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if tt.expectedResult {
+				// Verify data was sent to channel
+				select {
+				case slugData := <-tt.channel:
+					assert.Equal(t, tt.expectedSlug, slugData.Name)
+					assert.Equal(t, tt.namespace, slugData.Namespace)
+				case <-time.After(100 * time.Millisecond):
+					t.Fatal("Expected data in channel but none received")
+				}
+			} else if tt.channel != nil && tt.name != "context cancellation" {
+				// Verify no data was sent (except for context cancellation test which has blocking data)
+				select {
+				case <-tt.channel:
+					t.Fatal("Unexpected data in channel")
+				case <-time.After(10 * time.Millisecond):
+					// Expected - no data
+				}
+			} else if tt.name == "context cancellation" {
+				// For context cancellation, drain the blocking data we put in
+				select {
+				case <-tt.channel:
+					// Expected - this is the blocking data we put in
+				case <-time.After(10 * time.Millisecond):
+					// No blocking data (shouldn't happen)
+				}
+			}
 		})
 	}
 }
