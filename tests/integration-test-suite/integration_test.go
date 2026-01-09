@@ -41,16 +41,25 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	args := os.Args[1:]
-	for i, arg := range args {
-		if arg == "--" {
-			args = args[i+1:]
+	origArgs := os.Args[1:]
+	testBinaryArgs := []string{}
+	goTestArgs := origArgs
+	for i, a := range origArgs {
+		if a == "--" {
+			testBinaryArgs = origArgs[i+1:]
+			goTestArgs = origArgs[:i]
+			// Keep only program name + go test args in os.Args so the test harness sees only
+			// the flags it expects and not our custom ones.
+			os.Args = append([]string{os.Args[0]}, goTestArgs...)
 			break
 		}
 	}
-	updateIfPresent := pflag.Bool("update-if-present", false, "Update helm release if already present")
+
+	// Flags to control helm behavior in tests. Useful when running test suites in parallel.
+	skipEnsureHelm := pflag.Bool("skip-ensure-helm", false, "Skip ensuring kubescape helm release is installed/upgraded")
+	updateIfPresent := pflag.Bool("update-helm-if-present", true, "If false, do not perform helm upgrade if a release already exists")
 	extraHelmSetArgs := pflag.String("extra-helm-set-args", "", "Comma-separated extra helm set args (e.g. foo=bar,bar=baz)")
-	pflag.CommandLine.Parse(args)
+	pflag.CommandLine.Parse(testBinaryArgs)
 
 	// Parse comma-separated extra helm set args
 	extraArgs := []string{}
@@ -63,9 +72,14 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	if err := EnsureKubescapeHelmRelease(*updateIfPresent, extraArgs); err != nil {
-		panic(err)
+	if !*skipEnsureHelm {
+		if err := EnsureKubescapeHelmRelease(*updateIfPresent, extraArgs); err != nil {
+			panic(err)
+		}
+	} else {
+		fmt.Println("Skipping EnsureKubescapeHelmRelease due to --skip-ensure-helm flag")
 	}
+
 	os.Exit(m.Run())
 }
 
@@ -92,7 +106,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 				isReady = true
 				break
 			}
-			if pod.OwnerReferences != nil && len(pod.OwnerReferences) > 0 && pod.OwnerReferences[0].Kind == "Job" {
+			if len(pod.OwnerReferences) > 0 && pod.OwnerReferences[0].Kind == "Job" {
 				isReady = true
 				break
 			}

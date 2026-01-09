@@ -12,10 +12,16 @@ go build .
 declare -A pids
 declare -A results
 
+# Optional extra arguments to pass to the test binary (e.g., "--skip-ensure-helm")
+# Set via environment variable EXTRA_TEST_ARGS (unquoted, words are split), for example:
+#   EXTRA_TEST_ARGS="--skip-ensure-helm --update-helm-if-present=false" ./run-non-failover-tests.sh
+EXTRA_TEST_ARGS="${EXTRA_TEST_ARGS:-}"
+echo "Extra test args: $EXTRA_TEST_ARGS"
+
 # Run tests in parallel
 for test in $NON_FAILOVER_TESTS; do
     echo "Running $test"
-    gotestsum --format standard-verbose --junitfile "junit-$test.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/$test$" ./... 2>&1 | tee "log-$test.txt" &
+    gotestsum --format standard-verbose --junitfile "junit-$test.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/$test$" ./... -- $EXTRA_TEST_ARGS 2>&1 | tee "log-$test.txt" &
     pids[$test]=$!
 done
 
