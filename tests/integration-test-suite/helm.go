@@ -5,6 +5,7 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -129,8 +130,35 @@ func EnsureKubescapeHelmRelease(updateIfPresent bool, extraHelmSetArgs []string)
 	cmd = exec.Command("helm", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("helm upgrade/install failed: %v\n%s", err, string(out))
+		outStr := string(out)
+		// If the error looks like a concurrent install/upgrade race (release already exists),
+		// wait for the release to appear/become deployed (best-effort).
+		if strings.Contains(outStr, "already exists") || strings.Contains(outStr, "another operation") {
+			log.Printf("Detected concurrent helm operation while running helm upgrade/install: %s", outStr)
+			// Wait (best-effort) for another process to finish installing/upgrading the release.
+			timeout := 3 * time.Minute
+			deadline := time.Now().Add(timeout)
+			for time.Now().Before(deadline) {
+				statusCmd := exec.Command("helm", "list", "-n", "kubescape", "--filter", fmt.Sprintf("^%s$", releaseName), "-o", "yaml")
+				statusOut, _ := statusCmd.CombinedOutput()
+				var list []map[string]interface{}
+				_ = yaml.Unmarshal(statusOut, &list)
+				if len(list) > 0 {
+					if st, ok := list[0]["status"].(string); ok && strings.ToLower(st) == "deployed" {
+						log.Printf("Kubescape helm release %s is now deployed (detected after concurrent operation)", releaseName)
+						goto INSTALLED_OK
+					}
+					log.Printf("Helm release %s present but not yet deployed: status=%v; waiting...", releaseName, list[0]["status"])
+				} else {
+					log.Printf("Helm release %s not present yet; waiting...", releaseName)
+				}
+				time.Sleep(2 * time.Second)
+			}
+			return fmt.Errorf("helm upgrade/install failed: %v\n%s\nTimed out waiting for concurrent install to finish", err, outStr)
+		}
+		return fmt.Errorf("helm upgrade/install failed: %v\n%s", err, outStr)
 	}
+INSTALLED_OK:
 	log.Printf("Kubescape helm release installed/upgraded successfully.")
 	// Print installed chart version and parameters
 	log.Printf("Getting installed chart details...")
