@@ -13,10 +13,11 @@ type KindQueueConfig struct {
 }
 
 type Config struct {
-	CleanupInterval            time.Duration `mapstructure:"cleanupInterval"`
-	DefaultNamespace           string        `mapstructure:"defaultNamespace"`
-	DisableVirtualCRDs         bool          `mapstructure:"disableVirtualCRDs"`
-	ExcludeJsonPaths           []string      `mapstructure:"excludeJsonPaths"`
+	CleanupInterval               time.Duration `mapstructure:"cleanupInterval"`
+	DefaultNamespace              string        `mapstructure:"defaultNamespace"`
+	DisableVirtualCRDs            bool          `mapstructure:"disableVirtualCRDs"`
+	DisableSeccompProfileEndpoint bool          `mapstructure:"disableSeccompProfileEndpoint"`
+	ExcludeJsonPaths              []string      `mapstructure:"excludeJsonPaths"`
 	MaxApplicationProfileSize  int           `mapstructure:"maxApplicationProfileSize"`
 	MaxNetworkNeighborhoodSize int           `mapstructure:"maxNetworkNeighborhoodSize"`
 	MaxSniffingTime            time.Duration `mapstructure:"maxSniffingTimePerContainer"`

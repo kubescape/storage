@@ -180,6 +180,9 @@ func (c completedConfig) New() (*WardleServer, error) {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "generatednetworkpolicies")
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "vulnerabilitysummaries")
 	}
+	if c.ExtraConfig.StorageConfig.DisableSeccompProfileEndpoint {
+		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "seccompprofiles")
+	}
 
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err
