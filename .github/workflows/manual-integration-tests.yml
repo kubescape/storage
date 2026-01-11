@@ -90,7 +90,7 @@ jobs:
         run: |
           cd tests/integration-test-suite
           echo "Running non-failover tests"
-          ./run-non-failover-tests.sh
+          EXTRA_TEST_ARGS="--skip-ensure-helm --update-helm-if-present=false" ./run-non-failover-tests.sh
           echo "Non-failover tests completed"
         continue-on-error: true
 
@@ -212,7 +212,7 @@ jobs:
       - name: Run failover test
         run: |
           cd tests/integration-test-suite
-          gotestsum --format standard-verbose --junitfile "junit-${{ matrix.test_name }}.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/${{ matrix.test_name }}$" ./...
+          gotestsum --format standard-verbose --junitfile "junit-${{ matrix.test_name }}.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/${{ matrix.test_name }}$" ./... -- --skip-ensure-helm --update-helm-if-present=false
 
       - name: Print test summary
         run: |
