@@ -7,8 +7,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestCronJobProfileCreate() {
@@ -28,8 +26,8 @@ func (s *IntegrationTestSuite) TestCronJobProfileCreate() {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"app":                                 "test-cronjob-profile",
-								containerwatcher.MaxSniffingTimeLabel: "2m",
+								"app":                "test-cronjob-profile",
+								MaxSniffingTimeLabel: "2m",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -57,8 +55,8 @@ func (s *IntegrationTestSuite) TestCronJobProfileCreate() {
 	time.Sleep(3 * time.Minute)
 
 	s.LogWithTimestamp("Verifying profiles are complete")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "cronjob", "test-cronjob-profile")
-	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "cronjob", "test-cronjob-profile")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "cronjob", "test-cronjob-profile", s.accountID, s.accessKey, s.isRapid7)
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "cronjob", "test-cronjob-profile", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("TestCronJobProfileCreate completed successfully")
 }

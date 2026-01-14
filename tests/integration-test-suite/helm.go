@@ -171,3 +171,12 @@ INSTALLED_OK:
 	}
 	return nil
 }
+
+func CheckRapidHelmRelease() bool {
+	cmd := exec.Command("helm", "status", "rapid7", "-n", "kubescape")
+	if err := cmd.Run(); err == nil {
+		log.Printf("Rapid7 helm release is installed")
+		return true
+	}
+	return false
+}

@@ -7,8 +7,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestJobProfileCreate() {
@@ -24,8 +22,8 @@ func (s *IntegrationTestSuite) TestJobProfileCreate() {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "test-job-profile",
-						containerwatcher.MaxSniffingTimeLabel: "2m",
+						"app":                "test-job-profile",
+						MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -51,8 +49,8 @@ func (s *IntegrationTestSuite) TestJobProfileCreate() {
 	time.Sleep(3 * time.Minute)
 
 	s.LogWithTimestamp("Verifying profiles are complete")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "job", "test-job-profile")
-	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "job", "test-job-profile")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "job", "test-job-profile", s.accountID, s.accessKey, s.isRapid7)
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "job", "test-job-profile", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("TestJobProfileCreate completed successfully")
 }
