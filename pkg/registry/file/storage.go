@@ -265,7 +265,22 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	ctx = context.WithValue(ctx, connKey, conn)
 	// call processor on object to be saved
 	if err := s.processor.PreSave(ctx, obj); err != nil {
-		return err
+		if errors.Is(err, ObjectTooLargeError) {
+			// clear spec to not bloat the storage
+			clearSpec(obj)
+			// update annotations with the new state
+			metadata := obj.(metav1.Object)
+			annotations := metadata.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
+			metadata.SetAnnotations(annotations)
+			logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
+			// we don't return here as we still need to save the object with updated annotations
+		} else {
+			return err
+		}
 	}
 	// save object
 	if err := s.saveObject(conn, key, obj, metaOut, ""); err != nil {
@@ -765,11 +780,14 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		// call processor on object to be saved
 		if err := s.processor.PreSave(ctx, ret); err != nil {
 			if errors.Is(err, ObjectTooLargeError) {
-				// revert spec
-				ret = origState.obj.DeepCopyObject() // FIXME this is expensive
+				// clear spec to not bloat the storage
+				clearSpec(ret)
 				// update annotations with the new state
 				metadata := ret.(metav1.Object)
 				annotations := metadata.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
 				annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
 				metadata.SetAnnotations(annotations)
 				logger.L().Debug("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
@@ -954,4 +972,17 @@ func (immutableStorage) RequestWatchProgress(context.Context) error { return nil
 // Versioner Returns fixed versioner associated with this interface.
 func (immutableStorage) Versioner() storage.Versioner {
 	return storage.APIObjectVersioner{}
+}
+
+func clearSpec(obj runtime.Object) {
+	v := reflect.ValueOf(obj)
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() == reflect.Struct {
+		f := v.FieldByName("Spec")
+		if f.IsValid() && f.CanSet() {
+			f.Set(reflect.Zero(f.Type()))
+		}
+	}
 }
