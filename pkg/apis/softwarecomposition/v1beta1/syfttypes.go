@@ -11,8 +11,6 @@ import (
 	"github.com/anchore/syft/syft/license"
 	"github.com/anchore/syft/syft/source"
 
-	"github.com/kubescape/go-logger"
-	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/packagemetadata"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/sourcemetadata"
 )
@@ -254,14 +252,7 @@ type License struct {
 
 func newModelLicensesFromValues(licenses []string) (ml []License) {
 	for _, v := range licenses {
-		expression, err := license.ParseExpression(v)
-		if err != nil {
-			logger.L().Warning(
-				"could not find valid spdx expression for %s: %w",
-				helpers.String("value", v),
-				helpers.Error(err),
-			)
-		}
+		expression, _ := license.ParseExpression(v)
 		ml = append(ml, License{
 			Value:          v,
 			SPDXExpression: expression,
@@ -315,17 +306,11 @@ func (p *SyftPackage) UnmarshalJSON(b []byte) error {
 
 	var unpacker packageMetadataUnpacker
 	if err := json.Unmarshal(b, &unpacker); err != nil {
-		logger.L().Warning("failed to unmarshall into packageMetadataUnpacker: %v", helpers.Error(err))
 		return err
 	}
 
 	err := unpackPkgMetadata(p, unpacker)
 	if errors.Is(err, errUnknownMetadataType) {
-		logger.L().Warning(
-			"unknown package metadata type=%q for packageID=%q",
-			helpers.Interface("type", p.MetadataType),
-			helpers.Interface("packageID", p.ID),
-		)
 		return nil
 	}
 

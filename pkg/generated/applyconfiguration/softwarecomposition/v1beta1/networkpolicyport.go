@@ -24,6 +24,8 @@ import (
 
 // NetworkPolicyPortApplyConfiguration represents a declarative configuration of the NetworkPolicyPort type for use
 // with apply.
+//
+// NetworkPolicyPort describes a port to allow traffic on
 type NetworkPolicyPortApplyConfiguration struct {
 	Protocol *v1.Protocol `json:"protocol,omitempty"`
 	Port     *int32       `json:"port,omitempty"`

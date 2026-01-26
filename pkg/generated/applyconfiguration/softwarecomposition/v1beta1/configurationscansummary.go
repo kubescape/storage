@@ -26,6 +26,8 @@ import (
 
 // ConfigurationScanSummaryApplyConfiguration represents a declarative configuration of the ConfigurationScanSummary type for use
 // with apply.
+//
+// ConfigurationScanSummary is a summary for a group of WorkloadConfigurationScanSummary objects for a given scope (ex. namespace).
 type ConfigurationScanSummaryApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -42,6 +44,7 @@ func ConfigurationScanSummary(name, namespace string) *ConfigurationScanSummaryA
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b ConfigurationScanSummaryApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

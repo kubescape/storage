@@ -25,7 +25,8 @@ import (
 // NetworkPortApplyConfiguration represents a declarative configuration of the NetworkPort type for use
 // with apply.
 type NetworkPortApplyConfiguration struct {
-	Name     *string                              `json:"name,omitempty"`
+	Name *string `json:"name,omitempty"`
+	// protocol-port
 	Protocol *softwarecompositionv1beta1.Protocol `json:"protocol,omitempty"`
 	Port     *int32                               `json:"port,omitempty"`
 }

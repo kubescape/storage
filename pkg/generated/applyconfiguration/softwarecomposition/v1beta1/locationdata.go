@@ -21,6 +21,8 @@ package v1beta1
 // LocationDataApplyConfiguration represents a declarative configuration of the LocationData type for use
 // with apply.
 type LocationDataApplyConfiguration struct {
+	// note: it is IMPORTANT to ignore anything but the coordinates for a Location when considering the ID (hash value)
+	// since the coordinates are the minimally correct ID for a location (symlinks should not come into play)
 	VirtualPath *string `json:"accessPath,omitempty"`
 }
 

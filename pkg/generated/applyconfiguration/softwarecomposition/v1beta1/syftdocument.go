@@ -24,14 +24,21 @@ import (
 
 // SyftDocumentApplyConfiguration represents a declarative configuration of the SyftDocument type for use
 // with apply.
+//
+// SyftDocument represents the syft cataloging findings as a JSON document
 type SyftDocumentApplyConfiguration struct {
-	Artifacts             []softwarecompositionv1beta1.SyftPackage `json:"artifacts,omitempty"`
-	ArtifactRelationships []SyftRelationshipApplyConfiguration     `json:"artifactRelationships,omitempty"`
-	Files                 []SyftFileApplyConfiguration             `json:"files,omitempty"`
-	SyftSource            *SyftSourceApplyConfiguration            `json:"source,omitempty"`
-	Distro                *LinuxReleaseApplyConfiguration          `json:"distro,omitempty"`
-	SyftDescriptor        *SyftDescriptorApplyConfiguration        `json:"descriptor,omitempty"`
-	Schema                *SchemaApplyConfiguration                `json:"schema,omitempty"`
+	Artifacts []softwarecompositionv1beta1.SyftPackage `json:"artifacts,omitempty"`
+	// Artifacts is the list of packages discovered and placed into the catalog
+	ArtifactRelationships []SyftRelationshipApplyConfiguration `json:"artifactRelationships,omitempty"`
+	Files                 []SyftFileApplyConfiguration         `json:"files,omitempty"`
+	// note: must have omitempty
+	SyftSource *SyftSourceApplyConfiguration `json:"source,omitempty"`
+	// SyftSource represents the original object that was cataloged
+	Distro *LinuxReleaseApplyConfiguration `json:"distro,omitempty"`
+	// Distro represents the Linux distribution that was detected from the source
+	SyftDescriptor *SyftDescriptorApplyConfiguration `json:"descriptor,omitempty"`
+	// SyftDescriptor is a block containing self-describing information about syft
+	Schema *SchemaApplyConfiguration `json:"schema,omitempty"`
 }
 
 // SyftDocumentApplyConfiguration constructs a declarative configuration of the SyftDocument type for use with

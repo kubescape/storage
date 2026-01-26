@@ -25,10 +25,17 @@ import (
 // ComponentApplyConfiguration represents a declarative configuration of the Component type for use
 // with apply.
 type ComponentApplyConfiguration struct {
-	ID          *string                                                                  `json:"@id,omitempty"`
-	Hashes      map[softwarecompositionv1beta1.Algorithm]softwarecompositionv1beta1.Hash `json:"hashes,omitempty"`
-	Identifiers map[softwarecompositionv1beta1.IdentifierType]string                     `json:"identifiers,omitempty"`
-	Supplier    *string                                                                  `json:"supplier,omitempty"`
+	// ID is an IRI identifying the component. It is optional as the component
+	// can also be identified using hashes or software identifiers.
+	ID *string `json:"@id,omitempty"`
+	// Hashes is a map of hashes to identify the component using cryptographic
+	// hashes.
+	Hashes map[softwarecompositionv1beta1.Algorithm]softwarecompositionv1beta1.Hash `json:"hashes,omitempty"`
+	// Identifiers is a list of software identifiers that describe the component.
+	Identifiers map[softwarecompositionv1beta1.IdentifierType]string `json:"identifiers,omitempty"`
+	// Supplier is an optional machine-readable identifier for the supplier of
+	// the component. Valid examples include email address or IRIs.
+	Supplier *string `json:"supplier,omitempty"`
 }
 
 // ComponentApplyConfiguration constructs a declarative configuration of the Component type for use with

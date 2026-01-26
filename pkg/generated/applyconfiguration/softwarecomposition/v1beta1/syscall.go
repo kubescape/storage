@@ -25,11 +25,18 @@ import (
 
 // SyscallApplyConfiguration represents a declarative configuration of the Syscall type for use
 // with apply.
+//
+// Syscall defines a syscall in seccomp.
 type SyscallApplyConfiguration struct {
-	Names    []string                          `json:"names,omitempty"`
-	Action   *seccomp.Action                   `json:"action,omitempty"`
-	ErrnoRet *uint64                           `json:"errnoRet,omitempty"`
-	Args     []*softwarecompositionv1beta1.Arg `json:"args,omitempty"`
+	// the names of the syscalls
+	Names []string `json:"names,omitempty"`
+	// the action for seccomp rules
+	Action *seccomp.Action `json:"action,omitempty"`
+	// the errno return code to use. Some actions like SCMP_ACT_ERRNO and
+	// SCMP_ACT_TRACE allow to specify the errno code to return
+	ErrnoRet *uint64 `json:"errnoRet,omitempty"`
+	// the specific syscall in seccomp
+	Args []*softwarecompositionv1beta1.Arg `json:"args,omitempty"`
 }
 
 // SyscallApplyConfiguration constructs a declarative configuration of the Syscall type for use with

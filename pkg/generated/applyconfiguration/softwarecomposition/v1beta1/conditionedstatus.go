@@ -21,6 +21,7 @@ package v1beta1
 // ConditionedStatusApplyConfiguration represents a declarative configuration of the ConditionedStatus type for use
 // with apply.
 type ConditionedStatusApplyConfiguration struct {
+	// Conditions of the resource.
 	Conditions []ConditionApplyConfiguration `json:"conditions,omitempty"`
 }
 

@@ -25,15 +25,19 @@ import (
 
 // NetworkNeighborApplyConfiguration represents a declarative configuration of the NetworkNeighbor type for use
 // with apply.
+//
+// NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighborApplyConfiguration struct {
-	Identifier        *string                                       `json:"identifier,omitempty"`
-	Type              *softwarecompositionv1beta1.CommunicationType `json:"type,omitempty"`
-	DNS               *string                                       `json:"dns,omitempty"`
-	DNSNames          []string                                      `json:"dnsNames,omitempty"`
-	Ports             []NetworkPortApplyConfiguration               `json:"ports,omitempty"`
-	PodSelector       *v1.LabelSelectorApplyConfiguration           `json:"podSelector,omitempty"`
-	NamespaceSelector *v1.LabelSelectorApplyConfiguration           `json:"namespaceSelector,omitempty"`
-	IPAddress         *string                                       `json:"ipAddress,omitempty"`
+	Identifier *string `json:"identifier,omitempty"`
+	// A unique identifier for this entry
+	Type *softwarecompositionv1beta1.CommunicationType `json:"type,omitempty"`
+	DNS  *string                                       `json:"dns,omitempty"`
+	// DEPRECATED - use DNSNames instead.
+	DNSNames          []string                            `json:"dnsNames,omitempty"`
+	Ports             []NetworkPortApplyConfiguration     `json:"ports,omitempty"`
+	PodSelector       *v1.LabelSelectorApplyConfiguration `json:"podSelector,omitempty"`
+	NamespaceSelector *v1.LabelSelectorApplyConfiguration `json:"namespaceSelector,omitempty"`
+	IPAddress         *string                             `json:"ipAddress,omitempty"`
 }
 
 // NetworkNeighborApplyConfiguration constructs a declarative configuration of the NetworkNeighbor type for use with

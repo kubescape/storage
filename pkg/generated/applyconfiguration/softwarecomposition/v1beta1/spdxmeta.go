@@ -20,6 +20,8 @@ package v1beta1
 
 // SPDXMetaApplyConfiguration represents a declarative configuration of the SPDXMeta type for use
 // with apply.
+//
+// SPDXMeta describes metadata about an SPDX-formatted SBOM
 type SPDXMetaApplyConfiguration struct {
 	Tool   *ToolMetaApplyConfiguration   `json:"tool,omitempty"`
 	Report *ReportMetaApplyConfiguration `json:"report,omitempty"`

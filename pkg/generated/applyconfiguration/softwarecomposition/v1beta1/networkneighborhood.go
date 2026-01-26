@@ -26,6 +26,8 @@ import (
 
 // NetworkNeighborhoodApplyConfiguration represents a declarative configuration of the NetworkNeighborhood type for use
 // with apply.
+//
+// NetworkNeighborhood represents a list of network communications for a specific workload.
 type NetworkNeighborhoodApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -42,6 +44,7 @@ func NetworkNeighborhood(name, namespace string) *NetworkNeighborhoodApplyConfig
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b NetworkNeighborhoodApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

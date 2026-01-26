@@ -24,6 +24,8 @@ import (
 
 // SyftSourceApplyConfiguration represents a declarative configuration of the SyftSource type for use
 // with apply.
+//
+// SyftSource object represents the thing that was cataloged
 type SyftSourceApplyConfiguration struct {
 	ID       *string          `json:"id,omitempty"`
 	Name     *string          `json:"name,omitempty"`

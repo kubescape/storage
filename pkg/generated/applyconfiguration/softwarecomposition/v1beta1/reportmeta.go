@@ -24,6 +24,8 @@ import (
 
 // ReportMetaApplyConfiguration represents a declarative configuration of the ReportMeta type for use
 // with apply.
+//
+// ReportMeta describes metadata about a report
 type ReportMetaApplyConfiguration struct {
 	CreatedAt *v1.Time `json:"createdAt,omitempty"`
 }

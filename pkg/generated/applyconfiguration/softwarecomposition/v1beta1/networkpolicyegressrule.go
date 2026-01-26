@@ -20,6 +20,10 @@ package v1beta1
 
 // NetworkPolicyEgressRuleApplyConfiguration represents a declarative configuration of the NetworkPolicyEgressRule type for use
 // with apply.
+//
+// NetworkPolicyEgressRule describes a particular set of traffic that is allowed out of pods
+// matched by a NetworkPolicySpec's podSelector. The traffic must match both ports and to.
+// This type is beta-level in 1.8
 type NetworkPolicyEgressRuleApplyConfiguration struct {
 	Ports []NetworkPolicyPortApplyConfiguration `json:"ports,omitempty"`
 	To    []NetworkPolicyPeerApplyConfiguration `json:"to,omitempty"`
