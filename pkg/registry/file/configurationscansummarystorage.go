@@ -27,6 +27,10 @@ type ConfigurationScanSummaryStorage struct {
 	realStore StorageQuerier
 }
 
+func (s *ConfigurationScanSummaryStorage) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
+	return nil
+}
+
 func (s *ConfigurationScanSummaryStorage) Stats(_ context.Context) (storage.Stats, error) {
 	return storage.Stats{}, fmt.Errorf("unimplemented")
 }

@@ -69,6 +69,10 @@ type StorageImpl struct {
 	watchDispatcher *WatchDispatcher
 }
 
+func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
+	return nil
+}
+
 func (s *StorageImpl) Stats(_ context.Context) (storage.Stats, error) {
 	return storage.Stats{}, fmt.Errorf("unimplemented")
 }
