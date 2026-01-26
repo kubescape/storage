@@ -26,6 +26,8 @@ import (
 
 // GeneratedNetworkPolicyApplyConfiguration represents a declarative configuration of the GeneratedNetworkPolicy type for use
 // with apply.
+//
+// GeneratedNetworkPolicy represents a generated NetworkPolicy.
 type GeneratedNetworkPolicyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +45,7 @@ func GeneratedNetworkPolicy(name, namespace string) *GeneratedNetworkPolicyApply
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b GeneratedNetworkPolicyApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

@@ -25,6 +25,7 @@ import (
 // ExecutableApplyConfiguration represents a declarative configuration of the Executable type for use
 // with apply.
 type ExecutableApplyConfiguration struct {
+	// Format denotes either ELF, Mach-O, or PE
 	Format              *softwarecompositionv1beta1.ExecutableFormat `json:"format,omitempty"`
 	HasExports          *bool                                        `json:"hasExports,omitempty"`
 	HasEntrypoint       *bool                                        `json:"hasEntrypoint,omitempty"`

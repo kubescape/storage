@@ -20,6 +20,9 @@ package v1beta1
 
 // GrypeDocumentApplyConfiguration represents a declarative configuration of the GrypeDocument type for use
 // with apply.
+//
+// GrypeDocument is the document that represents the vulnerability manifest in
+// the Grype’s JSON format
 type GrypeDocumentApplyConfiguration struct {
 	Matches        []MatchApplyConfiguration        `json:"matches,omitempty"`
 	IgnoredMatches []IgnoredMatchApplyConfiguration `json:"ignoredMatches,omitempty"`

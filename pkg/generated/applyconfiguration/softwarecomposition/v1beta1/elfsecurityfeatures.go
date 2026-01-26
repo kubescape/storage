@@ -31,9 +31,15 @@ type ELFSecurityFeaturesApplyConfiguration struct {
 	RelocationReadOnly            *softwarecompositionv1beta1.RelocationReadOnly `json:"relRO,omitempty"`
 	PositionIndependentExecutable *bool                                          `json:"pie,omitempty"`
 	DynamicSharedObject           *bool                                          `json:"dso,omitempty"`
-	LlvmSafeStack                 *bool                                          `json:"safeStack,omitempty"`
-	LlvmControlFlowIntegrity      *bool                                          `json:"cfi,omitempty"`
-	ClangFortifySource            *bool                                          `json:"fortify,omitempty"`
+	// LlvmSafeStack represents a compiler-based security mechanism that separates the stack into a safe stack for storing return addresses and other critical data, and an unsafe stack for everything else, to mitigate stack-based memory corruption errors
+	// see https://clang.llvm.org/docs/SafeStack.html
+	LlvmSafeStack *bool `json:"safeStack,omitempty"`
+	// ControlFlowIntegrity represents runtime checks to ensure a program's control flow adheres to the legal paths determined at compile time, thus protecting against various types of control-flow hijacking attacks
+	// see https://clang.llvm.org/docs/ControlFlowIntegrity.html
+	LlvmControlFlowIntegrity *bool `json:"cfi,omitempty"`
+	// ClangFortifySource is a broad suite of extensions to libc aimed at catching misuses of common library functions
+	// see https://android.googlesource.com/platform//bionic/+/d192dbecf0b2a371eb127c0871f77a9caf81c4d2/docs/clang_fortify_anatomy.md
+	ClangFortifySource *bool `json:"fortify,omitempty"`
 }
 
 // ELFSecurityFeaturesApplyConfiguration constructs a declarative configuration of the ELFSecurityFeatures type for use with

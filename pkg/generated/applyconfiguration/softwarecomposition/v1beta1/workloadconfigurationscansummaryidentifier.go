@@ -20,6 +20,8 @@ package v1beta1
 
 // WorkloadConfigurationScanSummaryIdentifierApplyConfiguration represents a declarative configuration of the WorkloadConfigurationScanSummaryIdentifier type for use
 // with apply.
+//
+// WorkloadConfigurationScanSummaryIdentifier includes information needed to identify a WorkloadConfigurationScanSummary object
 type WorkloadConfigurationScanSummaryIdentifierApplyConfiguration struct {
 	Namespace *string `json:"namespace,omitempty"`
 	Kind      *string `json:"kind,omitempty"`

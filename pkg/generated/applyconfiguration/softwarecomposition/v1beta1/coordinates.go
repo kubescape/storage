@@ -20,8 +20,11 @@ package v1beta1
 
 // CoordinatesApplyConfiguration represents a declarative configuration of the Coordinates type for use
 // with apply.
+//
+// Coordinates contains the minimal information needed to describe how to find a file within any possible source object (e.g. image and directory sources)
 type CoordinatesApplyConfiguration struct {
-	RealPath     *string `json:"path,omitempty"`
+	RealPath *string `json:"path,omitempty"`
+	// The path where all path ancestors have no hardlinks / symlinks
 	FileSystemID *string `json:"layerID,omitempty"`
 }
 

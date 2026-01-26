@@ -20,6 +20,8 @@ package v1beta1
 
 // SBOMSyftSpecApplyConfiguration represents a declarative configuration of the SBOMSyftSpec type for use
 // with apply.
+//
+// SBOMSyftSpec is the specification of a Syft SBOM
 type SBOMSyftSpecApplyConfiguration struct {
 	Metadata *SPDXMetaApplyConfiguration     `json:"metadata,omitempty"`
 	Syft     *SyftDocumentApplyConfiguration `json:"syft,omitempty"`

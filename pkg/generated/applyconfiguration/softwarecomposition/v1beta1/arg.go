@@ -24,11 +24,17 @@ import (
 
 // ArgApplyConfiguration represents a declarative configuration of the Arg type for use
 // with apply.
+//
+// Arg defines the specific syscall in seccomp.
 type ArgApplyConfiguration struct {
-	Index    *uint64           `json:"index,omitempty"`
-	Value    *uint64           `json:"value,omitempty"`
-	ValueTwo *uint64           `json:"valueTwo,omitempty"`
-	Op       *seccomp.Operator `json:"op,omitempty"`
+	// the index for syscall arguments in seccomp
+	Index *uint64 `json:"index,omitempty"`
+	// the value for syscall arguments in seccomp
+	Value *uint64 `json:"value,omitempty"`
+	// the value for syscall arguments in seccomp
+	ValueTwo *uint64 `json:"valueTwo,omitempty"`
+	// the operator for syscall arguments in seccomp
+	Op *seccomp.Operator `json:"op,omitempty"`
 }
 
 // ArgApplyConfiguration constructs a declarative configuration of the Arg type for use with

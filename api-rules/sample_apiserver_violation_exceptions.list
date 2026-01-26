@@ -146,6 +146,12 @@ API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwareco
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilityManifestSummarySpec,Vulnerabilities
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilityMetadata,URLs
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilitySummarySpec,WorkloadVulnerabilitiesObj
+API rule violation: names_match,k8s.io/apimachinery/pkg/api/resource,Quantity,Format
+API rule violation: names_match,k8s.io/apimachinery/pkg/api/resource,Quantity,d
+API rule violation: names_match,k8s.io/apimachinery/pkg/api/resource,Quantity,i
+API rule violation: names_match,k8s.io/apimachinery/pkg/api/resource,Quantity,s
+API rule violation: names_match,k8s.io/apimachinery/pkg/api/resource,int64Amount,scale
+API rule violation: names_match,k8s.io/apimachinery/pkg/api/resource,int64Amount,value
 API rule violation: names_match,k8s.io/apimachinery/pkg/apis/meta/v1,APIResourceList,APIResources
 API rule violation: names_match,k8s.io/apimachinery/pkg/apis/meta/v1,Duration,Duration
 API rule violation: names_match,k8s.io/apimachinery/pkg/apis/meta/v1,InternalEvent,Object

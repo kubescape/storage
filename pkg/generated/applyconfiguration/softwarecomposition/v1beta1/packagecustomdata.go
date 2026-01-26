@@ -24,6 +24,8 @@ import (
 
 // PackageCustomDataApplyConfiguration represents a declarative configuration of the PackageCustomData type for use
 // with apply.
+//
+// PackageCustomData contains ambiguous values (type-wise) from pkg.SyftPackage.
 type PackageCustomDataApplyConfiguration struct {
 	MetadataType *string          `json:"metadataType,omitempty"`
 	Metadata     *json.RawMessage `json:"metadata,omitempty"`

@@ -25,17 +25,19 @@ import (
 // ContainerProfileSpecApplyConfiguration represents a declarative configuration of the ContainerProfileSpec type for use
 // with apply.
 type ContainerProfileSpecApplyConfiguration struct {
-	Architectures                      []string                                `json:"architectures,omitempty"`
-	Capabilities                       []string                                `json:"capabilities,omitempty"`
-	Execs                              []ExecCallsApplyConfiguration           `json:"execs,omitempty"`
-	Opens                              []OpenCallsApplyConfiguration           `json:"opens,omitempty"`
-	Syscalls                           []string                                `json:"syscalls,omitempty"`
-	SeccompProfile                     *SingleSeccompProfileApplyConfiguration `json:"seccompProfile,omitempty"`
-	Endpoints                          []HTTPEndpointApplyConfiguration        `json:"endpoints,omitempty"`
-	ImageID                            *string                                 `json:"imageID,omitempty"`
-	ImageTag                           *string                                 `json:"imageTag,omitempty"`
-	PolicyByRuleId                     map[string]RulePolicyApplyConfiguration `json:"rulePolicies,omitempty"`
-	IdentifiedCallStacks               []IdentifiedCallStackApplyConfiguration `json:"identifiedCallStacks,omitempty"`
+	// WARNING report fields from ApplicationProfileContainer here
+	Architectures        []string                                `json:"architectures,omitempty"`
+	Capabilities         []string                                `json:"capabilities,omitempty"`
+	Execs                []ExecCallsApplyConfiguration           `json:"execs,omitempty"`
+	Opens                []OpenCallsApplyConfiguration           `json:"opens,omitempty"`
+	Syscalls             []string                                `json:"syscalls,omitempty"`
+	SeccompProfile       *SingleSeccompProfileApplyConfiguration `json:"seccompProfile,omitempty"`
+	Endpoints            []HTTPEndpointApplyConfiguration        `json:"endpoints,omitempty"`
+	ImageID              *string                                 `json:"imageID,omitempty"`
+	ImageTag             *string                                 `json:"imageTag,omitempty"`
+	PolicyByRuleId       map[string]RulePolicyApplyConfiguration `json:"rulePolicies,omitempty"`
+	IdentifiedCallStacks []IdentifiedCallStackApplyConfiguration `json:"identifiedCallStacks,omitempty"`
+	// WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
 	v1.LabelSelectorApplyConfiguration `json:",inline"`
 	Ingress                            []NetworkNeighborApplyConfiguration `json:"ingress,omitempty"`
 	Egress                             []NetworkNeighborApplyConfiguration `json:"egress,omitempty"`
