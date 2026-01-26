@@ -19,6 +19,10 @@ type NetworkNeighborhoodStorage struct {
 	realStore StorageQuerier
 }
 
+func (a NetworkNeighborhoodStorage) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
+	return nil
+}
+
 func (a NetworkNeighborhoodStorage) Stats(_ context.Context) (storage.Stats, error) {
 	return storage.Stats{}, fmt.Errorf("unimplemented")
 }

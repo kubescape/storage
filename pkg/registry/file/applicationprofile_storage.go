@@ -18,6 +18,10 @@ type ApplicationProfileStorage struct {
 	realStore StorageQuerier
 }
 
+func (a ApplicationProfileStorage) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
+	return nil
+}
+
 func (a ApplicationProfileStorage) Stats(_ context.Context) (storage.Stats, error) {
 	return storage.Stats{}, fmt.Errorf("unimplemented")
 }

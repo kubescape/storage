@@ -28,6 +28,10 @@ type GeneratedNetworkPolicyStorage struct {
 	nnStore   storage.Interface
 }
 
+func (s *GeneratedNetworkPolicyStorage) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
+	return nil
+}
+
 func (s *GeneratedNetworkPolicyStorage) Stats(_ context.Context) (storage.Stats, error) {
 	return storage.Stats{}, fmt.Errorf("unimplemented")
 }
