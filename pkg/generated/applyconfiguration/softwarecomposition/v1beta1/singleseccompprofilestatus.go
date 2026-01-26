@@ -28,7 +28,9 @@ type SingleSeccompProfileStatusApplyConfiguration struct {
 	StatusBaseApplyConfiguration `json:",inline"`
 	Path                         *string  `json:"path,omitempty"`
 	ActiveWorkloads              []string `json:"activeWorkloads,omitempty"`
-	LocalhostProfile             *string  `json:"localhostProfile,omitempty"`
+	// The path that should be provided to the `securityContext.seccompProfile.localhostProfile`
+	// field of a Pod or container spec
+	LocalhostProfile *string `json:"localhostProfile,omitempty"`
 }
 
 // SingleSeccompProfileStatusApplyConfiguration constructs a declarative configuration of the SingleSeccompProfileStatus type for use with

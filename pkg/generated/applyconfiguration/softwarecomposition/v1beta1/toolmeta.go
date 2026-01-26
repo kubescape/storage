@@ -20,6 +20,8 @@ package v1beta1
 
 // ToolMetaApplyConfiguration represents a declarative configuration of the ToolMeta type for use
 // with apply.
+//
+// ToolMeta describes metadata about a tool that generated an artifact
 type ToolMetaApplyConfiguration struct {
 	Name    *string `json:"name,omitempty"`
 	Version *string `json:"version,omitempty"`

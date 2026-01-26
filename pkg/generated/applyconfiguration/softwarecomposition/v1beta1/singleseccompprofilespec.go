@@ -26,14 +26,27 @@ import (
 // SingleSeccompProfileSpecApplyConfiguration represents a declarative configuration of the SingleSeccompProfileSpec type for use
 // with apply.
 type SingleSeccompProfileSpecApplyConfiguration struct {
+	// Common spec fields for all profiles.
 	SpecBaseApplyConfiguration `json:",inline"`
-	BaseProfileName            *string                               `json:"baseProfileName,omitempty"`
-	DefaultAction              *seccomp.Action                       `json:"defaultAction,omitempty"`
-	Architectures              []softwarecompositionv1beta1.Arch     `json:"architectures,omitempty"`
-	ListenerPath               *string                               `json:"listenerPath,omitempty"`
-	ListenerMetadata           *string                               `json:"listenerMetadata,omitempty"`
-	Syscalls                   []*softwarecompositionv1beta1.Syscall `json:"syscalls,omitempty"`
-	Flags                      []softwarecompositionv1beta1.Flag     `json:"flags,omitempty"`
+	// BaseProfileName is the name of base profile (in the same namespace) that
+	// will be unioned into this profile. Base profiles can be references as
+	// remote OCI artifacts as well when prefixed with `oci://`.
+	BaseProfileName *string `json:"baseProfileName,omitempty"`
+	// the default action for seccomp
+	DefaultAction *seccomp.Action `json:"defaultAction,omitempty"`
+	// the architecture used for system calls
+	Architectures []softwarecompositionv1beta1.Arch `json:"architectures,omitempty"`
+	// path of UNIX domain socket to contact a seccomp agent for SCMP_ACT_NOTIFY
+	ListenerPath *string `json:"listenerPath,omitempty"`
+	// opaque data to pass to the seccomp agent
+	ListenerMetadata *string `json:"listenerMetadata,omitempty"`
+	// match a syscall in seccomp. While this property is OPTIONAL, some values
+	// of defaultAction are not useful without syscalls entries. For example,
+	// if defaultAction is SCMP_ACT_KILL and syscalls is empty or unset, the
+	// kernel will kill the container process on its first syscall
+	Syscalls []*softwarecompositionv1beta1.Syscall `json:"syscalls,omitempty"`
+	// list of flags to use with seccomp(2)
+	Flags []softwarecompositionv1beta1.Flag `json:"flags,omitempty"`
 }
 
 // SingleSeccompProfileSpecApplyConfiguration constructs a declarative configuration of the SingleSeccompProfileSpec type for use with

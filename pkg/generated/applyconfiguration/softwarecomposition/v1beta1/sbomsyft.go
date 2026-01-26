@@ -27,6 +27,8 @@ import (
 
 // SBOMSyftApplyConfiguration represents a declarative configuration of the SBOMSyft type for use
 // with apply.
+//
+// SBOMSyft is a custom resource that describes an SBOM in the Syft format.
 type SBOMSyftApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -44,6 +46,7 @@ func SBOMSyft(name, namespace string) *SBOMSyftApplyConfiguration {
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b SBOMSyftApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

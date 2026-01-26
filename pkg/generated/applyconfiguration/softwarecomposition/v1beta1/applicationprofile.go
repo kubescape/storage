@@ -44,6 +44,7 @@ func ApplicationProfile(name, namespace string) *ApplicationProfileApplyConfigur
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b ApplicationProfileApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

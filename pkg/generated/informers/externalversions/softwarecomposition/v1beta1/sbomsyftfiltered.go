@@ -57,7 +57,7 @@ func NewSBOMSyftFilteredInformer(client versioned.Interface, namespace string, r
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredSBOMSyftFilteredInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -82,7 +82,7 @@ func NewFilteredSBOMSyftFilteredInformer(client versioned.Interface, namespace s
 				}
 				return client.SpdxV1beta1().SBOMSyftFiltereds(namespace).Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apissoftwarecompositionv1beta1.SBOMSyftFiltered{},
 		resyncPeriod,
 		indexers,

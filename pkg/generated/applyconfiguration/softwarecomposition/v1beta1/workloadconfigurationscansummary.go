@@ -26,6 +26,8 @@ import (
 
 // WorkloadConfigurationScanSummaryApplyConfiguration represents a declarative configuration of the WorkloadConfigurationScanSummary type for use
 // with apply.
+//
+// WorkloadConfigurationScanSummary is a summary of a WorkloadConfigurationScan
 type WorkloadConfigurationScanSummaryApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -42,6 +44,7 @@ func WorkloadConfigurationScanSummary(name, namespace string) *WorkloadConfigura
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b WorkloadConfigurationScanSummaryApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

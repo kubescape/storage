@@ -20,6 +20,8 @@ package v1beta1
 
 // SeveritySummaryApplyConfiguration represents a declarative configuration of the SeveritySummary type for use
 // with apply.
+//
+// SeveritySummary is a summary of all vulnerabilities included in vulnerability manifest
 type SeveritySummaryApplyConfiguration struct {
 	Critical   *VulnerabilityCountersApplyConfiguration `json:"critical,omitempty"`
 	High       *VulnerabilityCountersApplyConfiguration `json:"high,omitempty"`

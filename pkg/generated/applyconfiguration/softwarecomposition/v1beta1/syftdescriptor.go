@@ -24,6 +24,8 @@ import (
 
 // SyftDescriptorApplyConfiguration represents a declarative configuration of the SyftDescriptor type for use
 // with apply.
+//
+// SyftDescriptor describes what created the document as well as surrounding metadata
 type SyftDescriptorApplyConfiguration struct {
 	Name          *string          `json:"name,omitempty"`
 	Version       *string          `json:"version,omitempty"`

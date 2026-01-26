@@ -27,11 +27,19 @@ import (
 // ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
 // with apply.
 type ConditionApplyConfiguration struct {
-	Type               *softwarecompositionv1beta1.ConditionType   `json:"type,omitempty"`
-	Status             *v1.ConditionStatus                         `json:"status,omitempty"`
-	LastTransitionTime *metav1.Time                                `json:"lastTransitionTime,omitempty"`
-	Reason             *softwarecompositionv1beta1.ConditionReason `json:"reason,omitempty"`
-	Message            *string                                     `json:"message,omitempty"`
+	// Type of this condition. At most one of each condition type may apply to
+	// a resource at any point in time.
+	Type *softwarecompositionv1beta1.ConditionType `json:"type,omitempty"`
+	// Status of this condition; is it currently True, False, or Unknown?
+	Status *v1.ConditionStatus `json:"status,omitempty"`
+	// LastTransitionTime is the last time this condition transitioned from one
+	// status to another.
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
+	// A Reason for this condition's last transition from one status to another.
+	Reason *softwarecompositionv1beta1.ConditionReason `json:"reason,omitempty"`
+	// A Message containing details about this condition's last transition from
+	// one status to another, if any.
+	Message *string `json:"message,omitempty"`
 }
 
 // ConditionApplyConfiguration constructs a declarative configuration of the Condition type for use with

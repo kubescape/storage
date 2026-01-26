@@ -27,6 +27,10 @@ import (
 
 // SBOMSyftFilteredApplyConfiguration represents a declarative configuration of the SBOMSyftFiltered type for use
 // with apply.
+//
+// SBOMSyftFiltered is a custom resource that describes a filtered SBOM in the Syft format.
+//
+// Being filtered means that the SBOM contains only the relevant vulnerable materials.
 type SBOMSyftFilteredApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -44,6 +48,7 @@ func SBOMSyftFiltered(name, namespace string) *SBOMSyftFilteredApplyConfiguratio
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b SBOMSyftFilteredApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

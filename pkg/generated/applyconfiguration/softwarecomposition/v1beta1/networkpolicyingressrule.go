@@ -20,6 +20,9 @@ package v1beta1
 
 // NetworkPolicyIngressRuleApplyConfiguration represents a declarative configuration of the NetworkPolicyIngressRule type for use
 // with apply.
+//
+// NetworkPolicyIngressRule describes a particular set of traffic that is allowed to the pods
+// matched by a NetworkPolicySpec's podSelector. The traffic must match both ports and from.
 type NetworkPolicyIngressRuleApplyConfiguration struct {
 	Ports []NetworkPolicyPortApplyConfiguration `json:"ports,omitempty"`
 	From  []NetworkPolicyPeerApplyConfiguration `json:"from,omitempty"`

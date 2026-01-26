@@ -24,6 +24,9 @@ import (
 
 // NetworkPolicyPeerApplyConfiguration represents a declarative configuration of the NetworkPolicyPeer type for use
 // with apply.
+//
+// NetworkPolicyPeer describes a peer to allow traffic to/from. Only certain combinations of
+// fields are allowed
 type NetworkPolicyPeerApplyConfiguration struct {
 	PodSelector       *v1.LabelSelectorApplyConfiguration `json:"podSelector,omitempty"`
 	NamespaceSelector *v1.LabelSelectorApplyConfiguration `json:"namespaceSelector,omitempty"`

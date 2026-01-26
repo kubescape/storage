@@ -25,17 +25,43 @@ import (
 // StatementApplyConfiguration represents a declarative configuration of the Statement type for use
 // with apply.
 type StatementApplyConfiguration struct {
-	ID                       *string                                   `json:"@id,omitempty"`
-	Vulnerability            *VexVulnerabilityApplyConfiguration       `json:"vulnerability,omitempty"`
-	Timestamp                *string                                   `json:"timestamp,omitempty"`
-	LastUpdated              *string                                   `json:"last_updated,omitempty"`
-	Products                 []ProductApplyConfiguration               `json:"products,omitempty"`
-	Status                   *softwarecompositionv1beta1.Status        `json:"status,omitempty"`
-	StatusNotes              *string                                   `json:"status_notes,omitempty"`
-	Justification            *softwarecompositionv1beta1.Justification `json:"justification,omitempty"`
-	ImpactStatement          *string                                   `json:"impact_statement,omitempty"`
-	ActionStatement          *string                                   `json:"action_statement,omitempty"`
-	ActionStatementTimestamp *string                                   `json:"action_statement_timestamp,omitempty"`
+	// ID is an optional identifier for the statement. It takes an IRI and must
+	// be unique for each statement in the document.
+	ID *string `json:"@id,omitempty"`
+	// [vul_id] SHOULD use existing and well known identifiers, for example:
+	// CVE, the Global Security Database (GSD), or a supplier’s vulnerability
+	// tracking system. It is expected that vulnerability identification systems
+	// are external to and maintained separately from VEX.
+	//
+	// [vul_id] MAY be URIs or URLs.
+	// [vul_id] MAY be arbitrary and MAY be created by the VEX statement [author].
+	Vulnerability *VexVulnerabilityApplyConfiguration `json:"vulnerability,omitempty"`
+	// Timestamp is the time at which the information expressed in the Statement
+	// was known to be true.
+	Timestamp *string `json:"timestamp,omitempty"`
+	// LastUpdated records the time when the statement last had a modification
+	LastUpdated *string `json:"last_updated,omitempty"`
+	// Product
+	// Product details MUST specify what Status applies to.
+	// Product details MUST include [product_id] and MAY include [subcomponent_id].
+	Products []ProductApplyConfiguration `json:"products,omitempty"`
+	// A VEX statement MUST provide Status of the vulnerabilities with respect to the
+	// products and components listed in the statement. Status MUST be one of the
+	// Status const values, some of which have further options and requirements.
+	Status *softwarecompositionv1beta1.Status `json:"status,omitempty"`
+	// [status_notes] MAY convey information about how [status] was determined
+	// and MAY reference other VEX information.
+	StatusNotes *string `json:"status_notes,omitempty"`
+	// For ”not_affected” status, a VEX statement MUST include a status Justification
+	// that further explains the status.
+	Justification *softwarecompositionv1beta1.Justification `json:"justification,omitempty"`
+	// For ”not_affected” status, a VEX statement MAY include an ImpactStatement
+	// that contains a description why the vulnerability cannot be exploited.
+	ImpactStatement *string `json:"impact_statement,omitempty"`
+	// For "affected" status, a VEX statement MUST include an ActionStatement that
+	// SHOULD describe actions to remediate or mitigate [vul_id].
+	ActionStatement          *string `json:"action_statement,omitempty"`
+	ActionStatementTimestamp *string `json:"action_statement_timestamp,omitempty"`
 }
 
 // StatementApplyConfiguration constructs a declarative configuration of the Statement type for use with

@@ -26,6 +26,8 @@ import (
 
 // WorkloadConfigurationScanApplyConfiguration represents a declarative configuration of the WorkloadConfigurationScan type for use
 // with apply.
+//
+// WorkloadConfigurationScan is a custom resource that describes a configuration scan result of a workload.
 type WorkloadConfigurationScanApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -42,6 +44,7 @@ func WorkloadConfigurationScan(name, namespace string) *WorkloadConfigurationSca
 	b.WithAPIVersion("spdx.softwarecomposition.kubescape.io/v1beta1")
 	return b
 }
+
 func (b WorkloadConfigurationScanApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

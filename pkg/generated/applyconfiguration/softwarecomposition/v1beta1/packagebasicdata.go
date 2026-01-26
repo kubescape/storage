@@ -24,6 +24,8 @@ import (
 
 // PackageBasicDataApplyConfiguration represents a declarative configuration of the PackageBasicData type for use
 // with apply.
+//
+// PackageBasicData contains non-ambiguous values (type-wise) from pkg.SyftPackage.
 type PackageBasicDataApplyConfiguration struct {
 	ID        *string                               `json:"id,omitempty"`
 	Name      *string                               `json:"name,omitempty"`
