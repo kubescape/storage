@@ -20,7 +20,7 @@ jobs:
       pull-requests: read
     uses: kubescape/workflows/.github/workflows/incluster-comp-pr-merged.yaml@main
     with:
-      IMAGE_NAME: quay.io/${{ github.repository_owner }}/storage
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/storage
       IMAGE_TAG: v0.0.${{ github.run_number }}
       COMPONENT_NAME: storage
       CGO_ENABLED: 0

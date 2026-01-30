@@ -27,7 +27,7 @@ jobs:
     uses: ./.github/workflows/publish-image.yaml
     with:
       client: ${{ inputs.CLIENT }}
-      image_name: "quay.io/${{ github.repository_owner }}/storge"
+      image_name: "ghcr.io/${{ github.repository_owner }}/storage"
       image_tag: ${{ inputs.IMAGE_TAG }}
       support_platforms: ${{ inputs.PLATFORMS }}
       cosign: ${{ inputs.CO_SIGN }}
