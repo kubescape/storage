@@ -66,7 +66,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@4079ad3567a89f68395480299c77e40170430341 # ratchet:sigstore/cosign-installer@main
         with:
-          cosign-release: 'v1.12.0'
+          cosign-release: 'v3.0.4'
       - name: sign kubescape container image
         if: ${{ inputs.cosign }}
         env:
