@@ -27,6 +27,9 @@ on:
 jobs:
   integration-tests:
     runs-on: ubuntu-large
+    permissions:
+      checks: write
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
