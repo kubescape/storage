@@ -239,6 +239,42 @@ func TestCompareDynamic(t *testing.T) {
 			regularPath: "/api/apps/456",
 			want:        false,
 		},
+		{
+			name:        "Asterisk wildcard matches everything",
+			dynamicPath: "*",
+			regularPath: "/anything/goes/here",
+			want:        true,
+		},
+		{
+			name:        "Asterisk wildcard for multiple segments",
+			dynamicPath: "/api/*/123",
+			regularPath: "/api/users/some/other/segment/123",
+			want:        true,
+		},
+		{
+			name:        "Asterisk wildcard at the end",
+			dynamicPath: "/api/users/*",
+			regularPath: "/api/users/123/posts/456",
+			want:        true,
+		},
+		{
+			name:        "Asterisk wildcard no match",
+			dynamicPath: "/api/*/123",
+			regularPath: "/api/users/456",
+			want:        false,
+		},
+		{
+			name:        "Combination of asterisk and ellipsis",
+			dynamicPath: "/api/*/posts/\u22ef",
+			regularPath: "/api/users/123/posts/456",
+			want:        true,
+		},
+		{
+			name:        "Combination of asterisk and ellipsis no match",
+			dynamicPath: "/api/*/posts/\u22ef",
+			regularPath: "/api/users/123/posts/456/comments",
+			want:        false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -2,7 +2,12 @@ package dynamicpathdetector
 
 import (
 	"path"
+	"regexp"
 	"strings"
+	"sync"
+
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
 )
 
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
@@ -11,6 +16,11 @@ func NewPathAnalyzer(threshold int) *PathAnalyzer {
 		threshold: threshold,
 	}
 }
+
+var (
+	regexCache = make(map[string]*regexp.Regexp)
+	cacheMutex = &sync.RWMutex{}
+)
 
 func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 	p = path.Clean(p)
@@ -134,33 +144,73 @@ func shallowChildrenCopy(src, dst *SegmentNode) {
 	}
 }
 
-func CompareDynamic(dynamicPath, regularPath string) bool {
-	dynamicIndex, regularIndex := 0, 0
-	dynamicLen, regularLen := len(dynamicPath), len(regularPath)
+// This may have terrible performance penalties DO NOT MERGE
+// Match checks if a path matches a pattern containing wildcards.
+// It converts the pattern to a regular expression and performs the match.
+// The supported wildcards are:
+// - `*` (asterisk): matches any sequence of zero or more characters, including '/'.
+// - `...` (ellipsis): matches any sequence of one or more characters, excluding '/'.
+func Match(pattern, path string) (bool, error) {
+	cacheMutex.RLock()
+	re, found := regexCache[pattern]
+	cacheMutex.RUnlock()
 
-	for dynamicIndex < dynamicLen && regularIndex < regularLen {
-		// Find the next segment in dynamicPath
-		dynamicSegmentStart := dynamicIndex
-		for dynamicIndex < dynamicLen && dynamicPath[dynamicIndex] != '/' {
-			dynamicIndex++
+	if !found {
+		var err error
+		// Upgrade lock for writing
+		cacheMutex.Lock()
+		// Double-check in case it was compiled while waiting for the lock.
+		if re, found = regexCache[pattern]; !found {
+			// Convert pattern to regex string
+			regexStr := regexp.QuoteMeta(pattern)
+			// Replace our wildcards with their regex equivalents.
+			// The ellipsis `...` becomes `\.\.\.` after quoting.
+			regexStr = strings.ReplaceAll(regexStr, `\.\.\.`, `[^/]+`)
+			// The asterisk `*` becomes `\*` after quoting.
+			regexStr = strings.ReplaceAll(regexStr, `\*`, `.*`)
+
+			// Anchor the regex to match the entire string
+			re, err = regexp.Compile("^" + regexStr + "$")
+			if err == nil {
+				regexCache[pattern] = re
+			}
 		}
-		dynamicSegment := dynamicPath[dynamicSegmentStart:dynamicIndex]
+		cacheMutex.Unlock()
 
-		// Find the next segment in regularPath
-		regularSegmentStart := regularIndex
-		for regularIndex < regularLen && regularPath[regularIndex] != '/' {
-			regularIndex++
+		if err != nil {
+			return false, err
 		}
-		regularSegment := regularPath[regularSegmentStart:regularIndex]
-
-		if dynamicSegment != DynamicIdentifier && dynamicSegment != regularSegment {
-			return false
-		}
-
-		// Move to the next segment
-		dynamicIndex++
-		regularIndex++
 	}
 
-	return dynamicIndex > dynamicLen && regularIndex > regularLen
+	return re.MatchString(path), nil
+}
+
+func CompareDynamic(dynamicPath, regularPath string) bool {
+	// If the dynamic path contains no wildcards, perform a simple string comparison.
+	if !strings.ContainsAny(dynamicPath, "*"+DynamicIdentifier) {
+
+		logger.L().Debug("CompareDynamic: no wildcards, using simple string comparison",
+			helpers.String("dynamicPath", dynamicPath),
+			helpers.String("regularPath", regularPath))
+		return dynamicPath == regularPath
+	}
+
+	// Otherwise, use the more powerful regex-based matching.
+	logger.L().Debug("CompareDynamic: wildcards detected, using regex matching",
+		helpers.String("pattern", dynamicPath),
+		helpers.String("path", regularPath))
+
+	matched, err := Match(dynamicPath, regularPath)
+	if err != nil {
+		// If the pattern is invalid, it cannot match.
+		logger.L().Error("CompareDynamic: regex match failed with an error",
+			helpers.String("pattern", dynamicPath),
+			helpers.String("path", regularPath),
+			helpers.Error(err))
+		return false
+	}
+	logger.L().Debug("CompareDynamic: regex match result",
+		helpers.String("pattern", dynamicPath),
+		helpers.String("path", regularPath))
+	return matched
 }
