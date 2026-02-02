@@ -139,6 +139,55 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 	}
 }
 
+func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3
+
+	input := []types.OpenCalls{
+		// These should collapse into /home/…/file.txt
+		{Path: "/home/user1/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
+		// This path with an asterisk should be treated as a literal path and not interfere as it has a different FLAG
+		{Path: "/home/user*/file.txt", Flags: []string{"WRITE"}},
+	}
+
+	expected := []types.OpenCalls{
+		{Path: "/home/user*/file.txt", Flags: []string{"WRITE"}},
+		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
+	}
+
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+
+	// Use ElementsMatch because the order of elements in the result is not guaranteed
+	assert.ElementsMatch(t, expected, result)
+}
+
+func TestAnalyzeOpensWithAsteriskAndEllipsisNotCollapse(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3
+
+	input := []types.OpenCalls{
+		// These should collapse into /home/…/file.txt
+		{Path: "/home/user1/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
+		// This path with an asterisk must not be collapsed, as it has a different meaning
+		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
+	}
+
+	expected := []types.OpenCalls{
+		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
+	}
+
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+
+	assert.ElementsMatch(t, expected, result)
+}
+
 // Helper function to check if a slice of strings contains only unique elements
 func areStringSlicesUnique(slice []string) bool {
 	seen := make(map[string]struct{})
