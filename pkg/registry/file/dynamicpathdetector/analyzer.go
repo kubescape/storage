@@ -164,8 +164,8 @@ func Match(pattern, path string) (bool, error) {
 			// Convert pattern to regex string
 			regexStr := regexp.QuoteMeta(pattern)
 			// Replace our wildcards with their regex equivalents.
-			// The ellipsis `...` becomes `\.\.\.` after quoting.
-			regexStr = strings.ReplaceAll(regexStr, `\.\.\.`, `[^/]+`)
+			// The ellipsis `…` is not a meta character, so it's not escaped by QuoteMeta.
+			regexStr = strings.ReplaceAll(regexStr, DynamicIdentifier, `[^/]+`)
 			// The asterisk `*` becomes `\*` after quoting.
 			regexStr = strings.ReplaceAll(regexStr, `\*`, `.*`)
 
