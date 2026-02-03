@@ -11,6 +11,11 @@ on:
 jobs:
   pr-merged:
     if: ${{ github.event.pull_request.merged == true }} ## Skip if not merged
+    permissions:
+      actions: read
+      id-token: write
+      packages: write
+      contents: write
     uses: kubescape/workflows/.github/workflows/incluster-comp-pr-merged.yaml@main
     with:
       IMAGE_NAME: quay.io/${{ github.repository_owner }}/storage
