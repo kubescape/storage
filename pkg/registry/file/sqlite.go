@@ -450,9 +450,11 @@ func checkWriteCapability(conn *sqlite.Conn) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin immediate transaction (database may be locked): %w", err)
 	}
-	_ = sqlitex.Execute(conn, "ROLLBACK", nil)
+	defer func() {
+		_ = sqlitex.Execute(conn, "ROLLBACK", nil)
+	}()
 
-	if err := sqlitex.Execute(conn, "SELECT COUNT(*) FROM metadata", nil); err != nil {
+	if err := sqlitex.Execute(conn, "SELECT 1 FROM metadata LIMIT 1", nil); err != nil {
 		return fmt.Errorf("failed to execute read in transaction (database may be locked): %w", err)
 	}
 
