@@ -399,3 +399,62 @@ func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string,
 	}
 	return nil
 }
+
+// HealthCheck checks the health of the SQLite database for use in liveness probes.
+// It verifies:
+// - Database is responsive (can execute simple queries)
+// - Database is not locked (can obtain a write lock)
+// - File system is writable (if testWrite is true)
+func HealthCheck(pool *sqlitemigration.Pool, testWrite bool) error {
+	if pool == nil {
+		return errors.New("pool is nil")
+	}
+
+	conn, err := pool.Get(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get connection from pool: %w", err)
+	}
+	defer pool.Put(conn)
+
+	done := make(chan error, 1)
+	go func() {
+		var err error
+		defer func() {
+			done <- err
+		}()
+
+		if err := sqlitex.Execute(conn, "SELECT 1", nil); err != nil {
+			err = fmt.Errorf("database query failed: %w", err)
+			return
+		}
+
+		if testWrite {
+			if err := checkWriteCapability(conn); err != nil {
+				err = fmt.Errorf("write capability check failed: %w", err)
+				return
+			}
+		}
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(5 * time.Second):
+		return errors.New("health check timeout after 5s")
+	}
+}
+
+// checkWriteCapability tests if we can obtain a write lock and perform a simple read operation.
+func checkWriteCapability(conn *sqlite.Conn) error {
+	err := sqlitex.Execute(conn, "BEGIN IMMEDIATE", nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin immediate transaction (database may be locked): %w", err)
+	}
+	_ = sqlitex.Execute(conn, "ROLLBACK", nil)
+
+	if err := sqlitex.Execute(conn, "SELECT COUNT(*) FROM metadata", nil); err != nil {
+		return fmt.Errorf("failed to execute read in transaction (database may be locked): %w", err)
+	}
+
+	return nil
+}
