@@ -49,7 +49,23 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer, sbomSet mapse
 		}
 	}
 
-	return slices.SortedFunc(maps.Values(dynamicOpens), func(a, b types.OpenCalls) int {
+	// Second pass to collapse multi-level dynamic paths
+	finalOpens := make(map[string]types.OpenCalls)
+	for _, open := range dynamicOpens {
+		finalResult, err := AnalyzeOpen(open.Path, analyzer)
+		if err != nil {
+			continue // Should not happen as paths are already processed
+		}
+		if existing, ok := finalOpens[finalResult]; ok {
+			// Merge flags if we collapsed multiple dynamic paths into one
+			existing.Flags = mapset.Sorted(mapset.NewThreadUnsafeSet(slices.Concat(existing.Flags, open.Flags)...))
+			finalOpens[finalResult] = existing
+		} else {
+			finalOpens[finalResult] = open
+		}
+	}
+
+	return slices.SortedFunc(maps.Values(finalOpens), func(a, b types.OpenCalls) int {
 		return strings.Compare(a.Path, b.Path)
 	}), nil
 }
