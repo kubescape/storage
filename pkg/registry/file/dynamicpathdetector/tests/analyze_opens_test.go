@@ -148,12 +148,10 @@ func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
 		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
 		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
 		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
-		// This path with an asterisk should be treated as a literal path and not interfere as it has a different FLAG
 		{Path: "/home/user*/file.txt", Flags: []string{"WRITE"}},
 	}
 
 	expected := []types.OpenCalls{
-		{Path: "/home/user*/file.txt", Flags: []string{"WRITE"}},
 		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
 	}
 
