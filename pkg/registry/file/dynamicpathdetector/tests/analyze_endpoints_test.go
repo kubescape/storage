@@ -67,7 +67,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/\u22ef/posts/\u22ef",
+					Endpoint: ":80/users/*/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 				},
 			},
