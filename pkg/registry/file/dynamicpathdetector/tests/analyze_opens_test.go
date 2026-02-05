@@ -191,9 +191,12 @@ func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
 	input := []types.OpenCalls{
 		// These should collapse into /home/*/file.txt  and that may not be great, but lets first check if it actually does it
 		{Path: "/home/user1/txt/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user2/tmp/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user3/blu/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user2/txt/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user3/txt/file.txt", Flags: []string{"READ"}},
 		{Path: "/home/user4/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user1/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user2/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user3/brr/file.txt", Flags: []string{"READ"}},
 	}
 
 	expected := []types.OpenCalls{
