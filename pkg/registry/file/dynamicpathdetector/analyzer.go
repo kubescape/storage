@@ -145,7 +145,13 @@ func CollapseAdjacentDynamicIdentifiers(p string) string {
 
 		if isDynamic && !inDynamicSequence {
 			// Check if this starts a sequence of at least two dynamic identifiers
-			isSequence := i+1 < len(segments) && segments[i+1] == DynamicIdentifier
+			isSequence := false
+			for j := i + 1; j < len(segments); j++ {
+				if segments[j] == DynamicIdentifier {
+					isSequence = true
+					break
+				}
+			}
 
 			if isSequence {
 				inDynamicSequence = true
