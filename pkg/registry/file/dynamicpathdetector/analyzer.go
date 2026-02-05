@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// This function builds a tree of nodes
+
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
 	return &PathAnalyzer{
 		RootNodes: make(map[string]*SegmentNode),
@@ -50,18 +52,22 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 }
 
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
-	if segment == DynamicIdentifier {
+	switch segment {
+	case DynamicIdentifier:
 		return ua.handleDynamicSegment(node)
-	} else if node.IsNextDynamic() {
-		if len(node.Children) > 1 {
-			temp := node.Children[DynamicIdentifier]
-			node.Children = map[string]*SegmentNode{}
-			node.Children[DynamicIdentifier] = temp
+	case "*":
+		return ua.handleWildcardSegment(node)
+	default:
+		if node.IsNextDynamic() {
+			if len(node.Children) > 1 {
+				temp := node.Children[DynamicIdentifier]
+				node.Children = map[string]*SegmentNode{}
+				node.Children[DynamicIdentifier] = temp
+			}
+			return node.Children[DynamicIdentifier]
+		} else if child, exists := node.Children[segment]; exists {
+			return child
 		}
-		return node.Children[DynamicIdentifier]
-	} else if child, exists := node.Children[segment]; exists {
-		return child
-	} else {
 		return ua.handleNewSegment(node, segment)
 	}
 }
@@ -105,8 +111,39 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 	return dynamicNode
 }
 
+func (ua *PathAnalyzer) handleWildcardSegment(node *SegmentNode) *SegmentNode {
+	if wildcardChild, exists := node.Children["*"]; exists {
+		return wildcardChild
+	} else {
+		return ua.createWildcardNode(node)
+	}
+}
+
+func (ua *PathAnalyzer) createWildcardNode(node *SegmentNode) *SegmentNode {
+	wildcardNode := &SegmentNode{
+		SegmentName: "*",
+		Count:       0, // for wildcards its not relevant how many counts it has, it collapes neighbors
+		Children:    make(map[string]*SegmentNode),
+	}
+
+	child := node.Children[DynamicIdentifier] //@constanze : not sure if this pointer exist, lets test
+
+	// copy all existing GRANDchildren to the wildcard node
+	for _, grandchild := range child.Children {
+		shallowChildrenCopy(grandchild, wildcardNode)
+	}
+
+	// Replace all children with the new wildcard node
+	node.Children = map[string]*SegmentNode{
+		"*": wildcardNode,
+	}
+
+	return wildcardNode
+}
+
 func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
-	if node.Count > ua.threshold && !node.IsNextDynamic() {
+	switch {
+	case node.Count > ua.threshold && !node.IsNextDynamic():
 		dynamicChild := &SegmentNode{
 			SegmentName: DynamicIdentifier,
 			Count:       0,
@@ -121,6 +158,10 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 		node.Children = map[string]*SegmentNode{
 			DynamicIdentifier: dynamicChild,
 		}
+
+	case node.IsNextDynamic() && node.Children[DynamicIdentifier].IsNextDynamic():
+		// Second-level collapse: adjacent dynamic identifiers (⋯/⋯) -> wildcard (*)
+		ua.createWildcardNode(node)
 	}
 }
 
@@ -135,6 +176,9 @@ func shallowChildrenCopy(src, dst *SegmentNode) {
 	}
 }
 
+// so in this masterful logic: we have 3 types of nodes:  the regular ,the ellipsis and the wildcard
+// if the path analyser is above the threshold it creates the ellipsis
+// if two ellipsis are adjacent it creates the asterix (and currently messes up the node tree)
 func CollapseAdjacentDynamicIdentifiers(p string) string {
 	segments := strings.Split(p, "/")
 	var result []string
@@ -144,7 +188,7 @@ func CollapseAdjacentDynamicIdentifiers(p string) string {
 		isDynamic := segments[i] == DynamicIdentifier
 
 		if isDynamic && !inDynamicSequence {
-			// Check if this starts a sequence of at least two dynamic identifiers
+			// Check if this starts a sequence of at least two dynamic identifiers ## TODO: @constanze check if we ever have two asterix adjacent
 			isSequence := false
 			for j := i + 1; j < len(segments); j++ {
 				if segments[j] == DynamicIdentifier {
