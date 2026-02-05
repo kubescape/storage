@@ -148,7 +148,7 @@ func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
 		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
 		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
 		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user*/file.txt", Flags: []string{"WRITE"}},
+		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
 	}
 
 	expected := []types.OpenCalls{

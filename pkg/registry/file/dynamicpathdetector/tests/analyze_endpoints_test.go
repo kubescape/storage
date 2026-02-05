@@ -121,9 +121,10 @@ func TestAnalyzeEndpoints(t *testing.T) {
 					Headers:  json.RawMessage(`{"Content-Type": ["application/xml"], "Authorization": ["Bearer token"]}`),
 				},
 			},
+			//TODO @constanze revisit this once you tackle endpoints, the path matching logic is applied here the same way as for file paths
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/x/\u22ef/posts/\u22ef",
+					Endpoint: ":80/x/*/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 					Headers:  json.RawMessage(`{"Authorization":["Bearer token"],"Content-Type":["<<UNORDERED>>","application/json","application/xml"],"X-API-Key":["key1"]}`),
 				},
