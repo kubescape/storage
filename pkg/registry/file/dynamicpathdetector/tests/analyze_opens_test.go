@@ -178,8 +178,28 @@ func TestAnalyzeOpensWithAsteriskAndEllipsisNotCollapse(t *testing.T) {
 	}
 
 	expected := []types.OpenCalls{
-		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
 		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
+	}
+
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+
+	assert.ElementsMatch(t, expected, result)
+}
+
+func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3
+
+	input := []types.OpenCalls{
+		// These should collapse into /home/*/file.txt  and that may not be great, but lets first check if it actually does it
+		{Path: "/home/user1/txt/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user2/tmp/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user3/blu/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user4/brr/file.txt", Flags: []string{"READ"}},
+	}
+
+	expected := []types.OpenCalls{
+		{Path: "/home/*/file.txt", Flags: []string{"READ"}},
 	}
 
 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
