@@ -276,8 +276,8 @@ func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, err
 	}
 
 	finalPath := "/" + strings.Join(pathSegments, "/")
-	return finalPath, nil
-	//return CollapseAdjacentDynamicIdentifiers(finalPath), nil
+	//return finalPath, nil
+	return CollapseAdjacentDynamicIdentifiers(finalPath), nil
 }
 
 // CollapseAdjacentDynamicIdentifiers replaces consecutive dynamic identifiers with a single wildcard.

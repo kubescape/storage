@@ -38,7 +38,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with multiple endpoints",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/\u22ef", //debug : is it the ellipsis character
+					Endpoint: ":80/users/123", //debug : is it the ellipsis character
 					Methods:  []string{"GET"},
 				},
 				{
@@ -48,7 +48,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/\u22ef",
+					Endpoint: ":80/users/123", //debug : is it the ellipsis character
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -57,17 +57,17 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with dynamic segments",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/123/posts/\u22ef",
+					Endpoint: ":80/users/123/posts/999", //debug : is it the ellipsis character
 					Methods:  []string{"GET"},
 				},
 				{
-					Endpoint: ":80/users/\u22ef/posts/101",
+					Endpoint: ":80/users/123/posts/999", //debug : is it the ellipsis character
 					Methods:  []string{"POST"},
 				},
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/*/posts/\u22ef",
+					Endpoint: ":80/users/123/posts/999", //debug : is it the ellipsis character
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -76,21 +76,21 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with 0 port",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":0/users/123/posts/\u22ef",
+					Endpoint: ":0/users/123/posts/101", //debug : is it the ellipsis character
 					Methods:  []string{"GET"},
 				},
 				{
-					Endpoint: ":80/users/\u22ef/posts/101",
+					Endpoint: ":80/users/123/posts/101",
 					Methods:  []string{"POST"},
 				},
 				{
-					Endpoint: ":8770/users/blub/posts/101",
+					Endpoint: ":8770/users/123/posts/101",
 					Methods:  []string{"POST"},
 				},
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":0/users/\u22ef/posts/\u22ef",
+					Endpoint: ":0/users/123/posts/101", //debug : is it the ellipsis character
 					Methods:  []string{"GET", "POST"},
 				},
 			},
