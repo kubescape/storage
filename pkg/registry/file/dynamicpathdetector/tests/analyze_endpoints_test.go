@@ -73,6 +73,29 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			},
 		},
 		{
+			name: "Test with 0 port",
+			input: []types.HTTPEndpoint{
+				{
+					Endpoint: ":0/users/123/posts/\u22ef",
+					Methods:  []string{"GET"},
+				},
+				{
+					Endpoint: ":80/users/\u22ef/posts/101",
+					Methods:  []string{"POST"},
+				},
+				{
+					Endpoint: ":8770/users/blub/posts/101",
+					Methods:  []string{"POST"},
+				},
+			},
+			expected: []types.HTTPEndpoint{
+				{
+					Endpoint: ":0/users/\u22ef/posts/\u22ef",
+					Methods:  []string{"GET", "POST"},
+				},
+			},
+		},
+		{
 			name: "Test with different domains",
 			input: []types.HTTPEndpoint{
 				{

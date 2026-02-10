@@ -17,8 +17,7 @@ func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) [
 
 	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range *endpoints {
-		_, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
-		analyzer.AddPath(pathPart)
+		_, _ = AnalyzeURL(endpoint.Endpoint, analyzer)
 	}
 
 	for _, endpoint := range *endpoints {
@@ -67,16 +66,6 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 }
 
 func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
-	// Handle wildcard port in input (can't be parsed by url.Parse)
-	port, pathPart := splitEndpointPortAndPath(urlString)
-	if port == DynamicIdentifier {
-		analyzedPath, _ := analyzer.AnalyzePath(pathPart, DynamicIdentifier)
-		if analyzedPath == "/." {
-			analyzedPath = "/"
-		}
-		return ":" + DynamicIdentifier + analyzedPath, nil
-	}
-
 	if !strings.HasPrefix(urlString, "http://") && !strings.HasPrefix(urlString, "https://") {
 		urlString = "http://" + urlString
 	}
@@ -90,12 +79,7 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 		return "", err
 	}
 
-	port = parsedURL.Port()
-
-	// If a wildcard port tree already exists, use it
-	if _, hasWildcard := analyzer.root.Children[DynamicIdentifier]; hasWildcard {
-		port = DynamicIdentifier
-	}
+	port := parsedURL.Port()
 
 	path, _ := analyzer.AnalyzePath(parsedURL.Path, port)
 	if path == "/." {
@@ -113,27 +97,36 @@ func splitEndpointPortAndPath(endpoint string) (string, string) {
 	return s[:idx], s[idx:]
 }
 
+func getEndpointKey(endpoint *types.HTTPEndpoint) string {
+	port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
+	return fmt.Sprintf(":%s%s|%s", port, pathPart, endpoint.Direction)
+}
+
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
 	seen := make(map[string]*types.HTTPEndpoint)
 	var newEndpoints []*types.HTTPEndpoint
-	for _, endpoint := range endpoints {
-		key := getEndpointKey(endpoint)
 
-		if existing, found := seen[key]; found {
+	for _, endpoint := range endpoints {
+		var key, wildcardKey string
+		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
+		wildcardKey = fmt.Sprintf(":%s%s|%s", "0", pathPart, endpoint.Direction)
+
+		//  Check if a wildcard version (:0) of this endpoint already exists.
+		if existing, found := seen[wildcardKey]; found {
+			if existing.Endpoint == endpoint.Endpoint {
+				continue
+			}
 			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
 			mergeHeaders(existing, endpoint)
 			continue
 		}
 
-		// Check if a wildcard port variant already exists
-		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
-		if port != DynamicIdentifier {
-			wildcardKey := fmt.Sprintf(":%s%s|%s", DynamicIdentifier, pathPart, endpoint.Direction)
-			if existing, found := seen[wildcardKey]; found {
-				existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
-				mergeHeaders(existing, endpoint)
-				continue
-			}
+		// Check if an endpoint with the exact same port and path exists.
+		key = fmt.Sprintf(":%s%s|%s", port, pathPart, endpoint.Direction)
+		if existing, found := seen[key]; found {
+			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
+			mergeHeaders(existing, endpoint)
+			continue
 		}
 
 		seen[key] = endpoint
@@ -143,12 +136,8 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 	return newEndpoints
 }
 
-func getEndpointKey(endpoint *types.HTTPEndpoint) string {
-	return fmt.Sprintf("%s|%s", endpoint.Endpoint, endpoint.Direction)
-}
-
 func mergeHeaders(existing, new *types.HTTPEndpoint) {
-	// TODO: Find a better way to unmashal the headers
+	// TODO: Find a better way to unmarshal the headers
 	existingHeaders, err := existing.GetHeaders()
 	if err != nil {
 		return
