@@ -225,6 +225,20 @@ func (pm *PathAnalyzer) collectPaths(node *TrieNode, currentPath string, paths *
 	}
 }
 
+// func (pm *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
+// 	p = path.Clean(p)
+// 	node, exists := pm.RootNodes[identifier]
+// 	if !exists {
+// 		node = &SegmentNode{
+// 			SegmentName: identifier,
+// 			Count:       0,
+// 			Children:    make(map[string]*SegmentNode),
+// 		}
+// 		pm.RootNodes[identifier] = node
+// 	}
+// 	return pm.processSegments(node, p), nil
+// }
+
 func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, error) {
 	// Clean the path
 	path = strings.Trim(path, "/")
@@ -242,20 +256,16 @@ func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, err
 	var pathSegments []string
 
 	for _, segment := range segments {
-		if segment == DynamicIdentifier {
-			pathSegments = append(pathSegments, DynamicIdentifier)
-			continue
-		}
 
 		if nextNode, ok := node.Children[WildcardIdentifier]; ok {
 			node = nextNode
 			pathSegments = append(pathSegments, WildcardIdentifier)
 			break // Wildcard consumes the rest
 		}
-
 		if nextNode, ok := node.Children[DynamicIdentifier]; ok {
 			node = nextNode
 			pathSegments = append(pathSegments, DynamicIdentifier)
+
 		} else if nextNode, ok := node.Children[segment]; ok {
 			node = nextNode
 			pathSegments = append(pathSegments, segment)
@@ -266,7 +276,8 @@ func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, err
 	}
 
 	finalPath := "/" + strings.Join(pathSegments, "/")
-	return CollapseAdjacentDynamicIdentifiers(finalPath), nil
+	return finalPath, nil
+	//return CollapseAdjacentDynamicIdentifiers(finalPath), nil
 }
 
 // CollapseAdjacentDynamicIdentifiers replaces consecutive dynamic identifiers with a single wildcard.
