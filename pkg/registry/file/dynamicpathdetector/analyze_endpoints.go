@@ -92,7 +92,7 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 	port = parsedURL.Port()
 
 	// If a wildcard port tree already exists, use it
-	if _, hasWildcard := analyzer.RootNodes[DynamicIdentifier]; hasWildcard {
+	if _, hasWildcard := analyzer.root.Children[DynamicIdentifier]; hasWildcard {
 		port = DynamicIdentifier
 	}
 

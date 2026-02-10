@@ -224,3 +224,55 @@ func (pm *PathAnalyzer) collectPaths(node *TrieNode, currentPath string, paths *
 		pm.collectPaths(child, newPath, paths)
 	}
 }
+
+func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, error) {
+	// Clean the path
+	path = strings.Trim(path, "/")
+	if path == "" {
+		return "/", nil
+	}
+
+	segments := strings.Split(path, "/")
+	if len(segments) == 0 {
+		return "/", nil
+	}
+
+	// Traverse the trie to find the correct node
+	node := pm.root
+	var pathSegments []string
+
+	for _, segment := range segments {
+		if nextNode, ok := node.Children[WildcardIdentifier]; ok {
+			node = nextNode
+			pathSegments = append(pathSegments, WildcardIdentifier)
+			break // Wildcard consumes the rest
+		}
+
+		if nextNode, ok := node.Children[DynamicIdentifier]; ok {
+			node = nextNode
+			pathSegments = append(pathSegments, DynamicIdentifier)
+		} else if nextNode, ok := node.Children[segment]; ok {
+			node = nextNode
+			pathSegments = append(pathSegments, segment)
+		} else {
+			// Path not found, return original
+			pathSegments = append(pathSegments, segment)
+		}
+	}
+
+	finalPath := "/" + strings.Join(pathSegments, "/")
+	return CollapseAdjacentDynamicIdentifiers(finalPath), nil
+}
+
+// CollapseAdjacentDynamicIdentifiers replaces consecutive dynamic identifiers with a single wildcard.
+func CollapseAdjacentDynamicIdentifiers(path string) string {
+	// This pattern identifies two or more consecutive dynamic identifiers
+	pattern := DynamicIdentifier + "/" + DynamicIdentifier
+	wildcardPattern := WildcardIdentifier
+
+	// Keep replacing until no more consecutive dynamic identifiers are found
+	for strings.Contains(path, pattern) {
+		path = strings.Replace(path, pattern, wildcardPattern, -1)
+	}
+	return path
+}

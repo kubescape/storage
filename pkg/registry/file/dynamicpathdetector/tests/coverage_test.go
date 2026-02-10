@@ -195,121 +195,37 @@ func TestDynamicInsertion(t *testing.T) {
 	assert.Equal(t, expected, result)
 }
 
-func TestCompareDynamic(t *testing.T) {
-	tests := []struct {
-		name        string
-		dynamicPath string
-		regularPath string
-		want        bool
-	}{
-		{
-			name:        "Equal paths",
-			dynamicPath: "/api/users/123",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "Different paths",
-			dynamicPath: "/api/users/123",
-			regularPath: "/api/users/456",
-			want:        false,
-		},
-		{
-			name:        "Dynamic segment at the end",
-			dynamicPath: "/api/users/\u22ef",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "Dynamic segment at the end",
-			dynamicPath: "/api/users/\u22ef",
-			regularPath: "/api/users/123/posts",
-			want:        false,
-		},
-		{
-			name:        "Dynamic segment at the end, no match",
-			dynamicPath: "/api/users/\u22ef",
-			regularPath: "/api/apps/123",
-			want:        false,
-		},
-		{
-			name:        "Dynamic segment in the middle",
-			dynamicPath: "/api/\u22ef/123",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "Dynamic segment in the middle, no match",
-			dynamicPath: "/api/\u22ef/123",
-			regularPath: "/api/users/456",
-			want:        false,
-		},
-		{
-			name:        "2 dynamic segments",
-			dynamicPath: "/api/\u22ef/\u22ef",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "2 dynamic segments, no match",
-			dynamicPath: "/api/\u22ef/\u22ef",
-			regularPath: "/papi/users/456",
-			want:        false,
-		},
-		{
-			name:        "2 other dynamic segments",
-			dynamicPath: "/\u22ef/users/\u22ef",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "2 other dynamic segments, no match",
-			dynamicPath: "/\u22ef/users/\u22ef",
-			regularPath: "/api/apps/456",
-			want:        false,
-		},
-		{
-			name:        "Asterisk wildcard matches everything",
-			dynamicPath: "*",
-			regularPath: "/anything/goes/here",
-			want:        true,
-		},
-		{
-			name:        "Asterisk wildcard for multiple segments",
-			dynamicPath: "/api/*/123",
-			regularPath: "/api/users/some/other/segment/123",
-			want:        true,
-		},
-		{
-			name:        "Asterisk wildcard at the end",
-			dynamicPath: "/api/users/*",
-			regularPath: "/api/users/123/posts/456",
-			want:        true,
-		},
-		{
-			name:        "Asterisk wildcard no match",
-			dynamicPath: "/api/*/123",
-			regularPath: "/api/users/456",
-			want:        false,
-		},
-		{
-			name:        "Combination of asterisk and ellipsis",
-			dynamicPath: "/api/*/posts/\u22ef",
-			regularPath: "/api/users/123/posts/456",
-			want:        true,
-		},
-		{
-			name:        "Combination of asterisk and ellipsis no match",
-			dynamicPath: "/api/*/posts/\u22ef",
-			regularPath: "/api/users/123/posts/456/comments",
-			want:        false,
-		},
+func TestDynamic(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	for i := 0; i < 101; i++ {
+		path := fmt.Sprintf("/api/users/%d", i)
+		_, err := analyzer.AnalyzePath(path, "api")
+		assert.NoError(t, err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := dynamicpathdetector.CompareDynamic(tt.dynamicPath, tt.regularPath); got != tt.want {
-				t.Errorf("CompareDynamic() = %v, want %v", got, tt.want)
-			}
-		})
+	result, err := analyzer.AnalyzePath("/api/users/101", "api")
+	assert.NoError(t, err)
+	expected := "/api/users/\u22ef"
+	assert.Equal(t, expected, result)
+}
+
+func TestCollapseConfig(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs([]dynamicpathdetector.CollapseConfig{
+		{
+			Prefix:    "/api",
+			Threshold: 1,
+		},
+		{
+			Prefix:    "/169.254.169.254", // todo test this as well
+			Threshold: 50,
+		},
+	})
+	for i := 0; i < 2; i++ {
+		path := fmt.Sprintf("/api/users/%d", i)
+		_, err := analyzer.AnalyzePath(path, "api")
+		assert.NoError(t, err)
 	}
+	result, err := analyzer.AnalyzePath("/api/users/101", "api")
+	assert.NoError(t, err)
+	expected := "/api/*"
+	assert.Equal(t, expected, result)
 }

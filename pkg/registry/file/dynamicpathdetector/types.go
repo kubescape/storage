@@ -18,12 +18,6 @@ type PathAnalyzer struct {
 	root *TrieNode
 }
 
-//	type PathAnalyzer struct {
-//		RootNodes             map[string]*SegmentNode
-//		threshold             int // Default threshold
-//		DefaultCollapseConfig *CollapseConfig
-//		configRoot            *SegmentNode // Trie for storing CollapseConfigs
-//	}
 func NewTrieNode() *TrieNode {
 	return &TrieNode{
 		Children: make(map[string]*TrieNode),
