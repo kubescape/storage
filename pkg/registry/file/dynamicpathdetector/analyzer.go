@@ -126,19 +126,25 @@ func (ua *PathAnalyzer) createWildcardNode(node *SegmentNode) *SegmentNode {
 		Children:    make(map[string]*SegmentNode),
 	}
 
-	child := node.Children[DynamicIdentifier] //@constanze : not sure if this pointer exist, lets test
+	// This function is called when a ⋯/⋯ structure is detected.
+	// We copy the children of the second '⋯' (the grandchildren) to the new '*' node.
+	ua.copyGrandchildren(node, wildcardNode)
 
-	// copy all existing GRANDchildren to the wildcard node
-	for _, grandchild := range child.Children {
-		shallowChildrenCopy(grandchild, wildcardNode)
-	}
-
-	// Replace all children with the new wildcard node
-	node.Children = map[string]*SegmentNode{
-		"*": wildcardNode,
-	}
+	// Surgically replace the first dynamic node with the new wildcard node,
+	// leaving other children of the parent node intact.
+	delete(node.Children, DynamicIdentifier)
+	node.Children["*"] = wildcardNode
 
 	return wildcardNode
+}
+
+// copyGrandchildren finds the child and grandchild dynamic nodes and copies the grandchild's children to the destination node.
+func (ua *PathAnalyzer) copyGrandchildren(src, dst *SegmentNode) {
+	if child, exists := src.Children[DynamicIdentifier]; exists {
+		if grandchild, exists := child.Children[DynamicIdentifier]; exists {
+			shallowChildrenCopy(grandchild, dst)
+		}
+	}
 }
 
 func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
@@ -159,7 +165,7 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
 			DynamicIdentifier: dynamicChild,
 		}
 
-	case node.IsNextDynamic() && node.Children[DynamicIdentifier].IsNextDynamic():
+	case node.SegmentName == DynamicIdentifier && node.IsNextDynamic():
 		// Second-level collapse: adjacent dynamic identifiers (⋯/⋯) -> wildcard (*)
 		ua.createWildcardNode(node)
 	}

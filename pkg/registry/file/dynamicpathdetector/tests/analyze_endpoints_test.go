@@ -214,3 +214,101 @@ func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
 	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 	assert.Equal(t, 0, len(result))
 }
+
+func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":\u22ef/users/123",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":80/users/456",
+			Methods:   []string{"POST"},
+			Direction: "outbound",
+		},
+	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	// Both endpoints should use the wildcard port
+	for _, ep := range result {
+		port := ep.Endpoint[:len(":\u22ef")]
+		assert.Equal(t, ":\u22ef", port, "endpoint %s should have wildcard port", ep.Endpoint)
+	}
+}
+
+func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":80/api/data",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":\u22ef/api/info",
+			Methods:   []string{"POST"},
+			Direction: "outbound",
+		},
+	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	// After second pass, both endpoints should be normalized to wildcard port
+	for _, ep := range result {
+		port := ep.Endpoint[:len(":\u22ef")]
+		assert.Equal(t, ":\u22ef", port, "endpoint %s should have wildcard port", ep.Endpoint)
+	}
+}
+
+func TestAnalyzeEndpointsMultiplePortsMergeIntoWildcard(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":\u22ef/api/data",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":80/api/data",
+			Methods:   []string{"POST"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":81/api/data",
+			Methods:   []string{"PUT"},
+			Direction: "outbound",
+		},
+	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	// All three should merge into a single wildcard endpoint
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, ":\u22ef/api/data", result[0].Endpoint)
+	assert.Equal(t, []string{"GET", "POST", "PUT"}, result[0].Methods)
+}
+
+func TestMergeDuplicateEndpointsWildcardPort(t *testing.T) {
+	wildcardEP := &types.HTTPEndpoint{
+		Endpoint:  ":\u22ef/api/data",
+		Methods:   []string{"GET"},
+		Direction: "outbound",
+	}
+	specificEP := &types.HTTPEndpoint{
+		Endpoint:  ":80/api/data",
+		Methods:   []string{"POST"},
+		Direction: "outbound",
+	}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{wildcardEP, specificEP})
+
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, ":\u22ef/api/data", result[0].Endpoint)
+	assert.Equal(t, []string{"GET", "POST"}, result[0].Methods)
+}

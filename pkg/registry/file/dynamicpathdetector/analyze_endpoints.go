@@ -66,6 +66,16 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 }
 
 func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
+	// Handle wildcard port in input (can't be parsed by url.Parse)
+	port, pathPart := splitEndpointPortAndPath(urlString)
+	if port == DynamicIdentifier {
+		analyzedPath, _ := analyzer.AnalyzePath(pathPart, DynamicIdentifier)
+		if analyzedPath == "/." {
+			analyzedPath = "/"
+		}
+		return ":" + DynamicIdentifier + analyzedPath, nil
+	}
+
 	if !strings.HasPrefix(urlString, "http://") && !strings.HasPrefix(urlString, "https://") {
 		urlString = "http://" + urlString
 	}
@@ -79,13 +89,27 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 		return "", err
 	}
 
-	port := parsedURL.Port()
+	port = parsedURL.Port()
+
+	// If a wildcard port tree already exists, use it
+	if _, hasWildcard := analyzer.RootNodes[DynamicIdentifier]; hasWildcard {
+		port = DynamicIdentifier
+	}
 
 	path, _ := analyzer.AnalyzePath(parsedURL.Path, port)
 	if path == "/." {
 		path = "/"
 	}
 	return ":" + port + path, nil
+}
+
+func splitEndpointPortAndPath(endpoint string) (string, string) {
+	s := strings.TrimPrefix(endpoint, ":")
+	idx := strings.Index(s, "/")
+	if idx == -1 {
+		return s, "/"
+	}
+	return s[:idx], s[idx:]
 }
 
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
@@ -97,10 +121,22 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 		if existing, found := seen[key]; found {
 			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
 			mergeHeaders(existing, endpoint)
-		} else {
-			seen[key] = endpoint
-			newEndpoints = append(newEndpoints, endpoint)
+			continue
 		}
+
+		// Check if a wildcard port variant already exists
+		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
+		if port != DynamicIdentifier {
+			wildcardKey := fmt.Sprintf(":%s%s|%s", DynamicIdentifier, pathPart, endpoint.Direction)
+			if existing, found := seen[wildcardKey]; found {
+				existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
+				mergeHeaders(existing, endpoint)
+				continue
+			}
+		}
+
+		seen[key] = endpoint
+		newEndpoints = append(newEndpoints, endpoint)
 	}
 
 	return newEndpoints
