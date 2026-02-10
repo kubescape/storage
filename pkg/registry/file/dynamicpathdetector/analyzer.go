@@ -102,25 +102,22 @@ func (ua *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
 }
 
 func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string, config *CollapseConfig) string {
-	var result strings.Builder
+	var resultParts []string
 	currentNode := node
-	i := 0
-	for {
-		start := i
-		for i < len(p) && p[i] != '/' {
-			i++
-		}
-		segment := p[start:i]
+	segments := strings.Split(p, "/")
+	if segments[0] == "" && len(segments) > 1 { // handles absolute paths
+		segments = segments[1:]
+	} else if segments[0] == "" {
+		return "/"
+	}
+
+	for _, segment := range segments {
 		currentNode = ua.processSegment(currentNode, segment)
 		ua.updateNodeStats(currentNode, config)
-		result.WriteString(currentNode.SegmentName)
-		i++
-		if len(p) < i {
-			break
-		}
-		result.WriteByte('/')
+		resultParts = append(resultParts, currentNode.SegmentName)
 	}
-	return result.String()
+
+	return "/" + strings.Join(resultParts, "/")
 }
 
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
@@ -130,6 +127,11 @@ func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *Segme
 	case "*":
 		return ua.handleWildcardSegment(node)
 	default:
+		// Second-level collapse: adjacent dynamic identifiers (⋯/⋯) -> wildcard (*)
+		if node.SegmentName == DynamicIdentifier && node.IsNextDynamic() {
+			return ua.createWildcardNode(node)
+		}
+
 		if node.IsNextDynamic() {
 			if len(node.Children) > 1 {
 				temp := node.Children[DynamicIdentifier]
@@ -236,10 +238,6 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode, config *CollapseConfi
 		node.Children = map[string]*SegmentNode{
 			DynamicIdentifier: dynamicChild,
 		}
-
-	case node.SegmentName == DynamicIdentifier && node.IsNextDynamic():
-		// Second-level collapse: adjacent dynamic identifiers (⋯/⋯) -> wildcard (*)
-		ua.createWildcardNode(node)
 	}
 }
 
