@@ -15,10 +15,25 @@ type SegmentNode struct {
 }
 
 type PathAnalyzer struct {
-	RootNodes             map[string]*SegmentNode
-	threshold             int // Default threshold
-	DefaultCollapseConfig *CollapseConfig
-	configRoot            *SegmentNode // Trie for storing CollapseConfigs
+	root *TrieNode
+}
+
+//	type PathAnalyzer struct {
+//		RootNodes             map[string]*SegmentNode
+//		threshold             int // Default threshold
+//		DefaultCollapseConfig *CollapseConfig
+//		configRoot            *SegmentNode // Trie for storing CollapseConfigs
+//	}
+func NewTrieNode() *TrieNode {
+	return &TrieNode{
+		Children: make(map[string]*TrieNode),
+	}
+}
+
+type TrieNode struct {
+	Children map[string]*TrieNode
+	Config   *CollapseConfig // Configuration that applies from this node downwards
+	Count    int             // Number of paths passing through this node
 }
 
 func (sn *SegmentNode) IsNextDynamic() bool {

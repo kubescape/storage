@@ -1,11 +1,13 @@
 package dynamicpathdetector
 
 import (
-	"path"
 	"strings"
 )
 
 // This function builds a tree of nodes
+const (
+	WildcardIdentifier = "*"
+)
 
 var CollapseConfigs = []CollapseConfig{
 	{
@@ -25,62 +27,162 @@ var CollapseConfigs = []CollapseConfig{
 		Threshold: 1, // Now 1 has the special treatment that it IMMEDIATELY collapses everything into /$prefix/* , meaning it just matches everything
 	},
 }
-
-func NewPathAnalyzer(threshold int) *PathAnalyzer {
-	defaultConfig := &CollapseConfig{
-		Prefix:    "/",
-		Threshold: threshold,
-	}
-	analyzer := &PathAnalyzer{
-		RootNodes:             make(map[string]*SegmentNode),
-		threshold:             threshold,
-		DefaultCollapseConfig: defaultConfig,
-		configRoot: &SegmentNode{
-			SegmentName: "/",
-			Children:    make(map[string]*SegmentNode),
-			Config:      defaultConfig,
-		},
-	}
-	for i := range CollapseConfigs {
-		analyzer.addConfig(&CollapseConfigs[i])
-	}
-	return analyzer
+var DefaultCollapseConfig = CollapseConfig{
+	Prefix:    "/",
+	Threshold: 50, //later set to 50
 }
 
-func (ua *PathAnalyzer) addConfig(config *CollapseConfig) {
-	node := ua.configRoot
+// NewPathAnalyzer is the primary constructor for the PathAnalyzer.
+// It initializes the analyzer with a default set of collapse configurations
+// and sets the global default threshold.
+func NewPathAnalyzer(threshold int) *PathAnalyzer {
+	DefaultCollapseConfig.Threshold = threshold
+	return NewPathAnalyzerWithConfigs(CollapseConfigs)
+}
+
+// NewPathAnalyzerWithConfigs creates a PathAnalyzer with a specific set of collapse configurations.
+func NewPathAnalyzerWithConfigs(configs []CollapseConfig) *PathAnalyzer {
+
+	matcher := &PathAnalyzer{
+		root: NewTrieNode(),
+	}
+	matcher.addConfig(&DefaultCollapseConfig)
+	for i := range configs {
+		matcher.addConfig(&configs[i])
+	}
+	return matcher
+}
+
+func (pm *PathAnalyzer) addConfig(config *CollapseConfig) {
+	node := pm.root
 	segments := strings.Split(strings.Trim(config.Prefix, "/"), "/")
 	if segments[0] == "" { // Handle root prefix "/"
+		node.Config = config
 		return
 	}
 	for _, segment := range segments {
 		if _, ok := node.Children[segment]; !ok {
-			node.Children[segment] = &SegmentNode{Children: make(map[string]*SegmentNode), SegmentName: segment}
+			node.Children[segment] = NewTrieNode()
 		}
 		node = node.Children[segment]
 	}
 	node.Config = config
 }
 
-func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
-	p = path.Clean(p)
-	node, exists := ua.RootNodes[identifier]
-	if !exists {
-		node = &SegmentNode{
-			SegmentName: identifier,
-			Count:       0,
-			Children:    make(map[string]*SegmentNode),
-		}
-		ua.RootNodes[identifier] = node
+func (pm *PathAnalyzer) AddPath(path string) {
+	parent := pm.root
+	currentConfig := pm.root.Config
+
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	if len(segments) == 0 || segments[0] == "" {
+		return // Nothing to add for root path
 	}
-	config := ua.FindConfigForPath(p)
-	processedPath := ua.processSegments(node, p, config)
-	return CollapseAdjacentDynamicIdentifiers(processedPath), nil
+
+	for _, segment := range segments {
+		// If a wildcard exists, it consumes the rest of the path.
+		if wildcardNode, ok := parent.Children[WildcardIdentifier]; ok {
+			wildcardNode.Count++
+			return
+		}
+
+		// Check for second-level collapse (⋯/⋯ -> *)
+		// This happens if the parent is a dynamic node and we are about to create another one.
+		if parent.Children[DynamicIdentifier] != nil {
+			// If the dynamic child itself has too many children, it will collapse.
+			// This logic is complex. A simpler approach is to check after traversal.
+		}
+
+		// If a dynamic node exists, traverse it.
+		if dynamicNode, ok := parent.Children[DynamicIdentifier]; ok {
+			parent = dynamicNode
+			if parent.Config != nil {
+				currentConfig = parent.Config
+			}
+			// We still need to process the current segment under this dynamic node.
+			// Let's adjust the logic to handle adding the segment to the dynamic node's children.
+		} else {
+			// Standard path traversal and creation
+		}
+
+		// --- Add new node if it doesn't exist ---
+		child, exists := parent.Children[segment]
+		if !exists {
+			child = NewTrieNode()
+			parent.Children[segment] = child
+		}
+		child.Count++
+
+		// --- Check for collapse at the PARENT level ---
+		// Special case: threshold of 1 immediately creates a wildcard
+		if currentConfig.Threshold == 1 && parent.Children[WildcardIdentifier] == nil {
+			pm.createWildcardNode(parent)
+			parent.Children[WildcardIdentifier].Count++
+			return // Path is consumed by the new wildcard
+		}
+
+		// Standard collapse: if children > threshold, collapse to dynamic node
+		if len(parent.Children) > currentConfig.Threshold && parent.Children[DynamicIdentifier] == nil {
+			pm.createDynamicNode(parent)
+		}
+
+		// After a potential collapse, find the correct child to traverse to next.
+		if nextNode, ok := parent.Children[DynamicIdentifier]; ok {
+			// The segment is now part of the dynamic node's logic, but we traverse into the dynamic node itself.
+			parent = nextNode
+		} else if nextNode, ok := parent.Children[segment]; ok {
+			parent = nextNode
+		} else if nextNode, ok := parent.Children[WildcardIdentifier]; ok {
+			// This case is handled at the top of the loop.
+			parent = nextNode
+			return
+		} else {
+			// This should not be reached if logic is correct.
+			// print error
+			return
+		}
+
+		// Update config for the next level
+		if parent.Config != nil {
+			currentConfig = parent.Config
+		}
+
+		// Check for ⋯/⋯ -> * collapse
+		// This checks if the current node is dynamic and its only child is also dynamic.
+		if len(parent.Children) == 1 {
+			if grandChild, isDynamic := parent.Children[DynamicIdentifier]; isDynamic {
+				pm.createWildcardNode(parent)
+				//print grandChild
+				grandChild.Count++
+				return
+			}
+		}
+	}
 }
 
-func (ua *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
-	node := ua.configRoot
-	lastFoundConfig := ua.configRoot.Config
+func (pm *PathAnalyzer) createDynamicNode(node *TrieNode) {
+	dynamicNode := NewTrieNode()
+	dynamicNode.Config = node.Config // Inherit config
+	for _, child := range node.Children {
+		// A simple merge for demonstration. A real implementation might need deeper merging.
+		dynamicNode.Count += child.Count
+	}
+	node.Children = map[string]*TrieNode{DynamicIdentifier: dynamicNode}
+}
+
+func (pm *PathAnalyzer) createWildcardNode(node *TrieNode) {
+	wildcardNode := NewTrieNode()
+	for _, child := range node.Children {
+		wildcardNode.Count += child.Count
+	}
+	node.Children = map[string]*TrieNode{WildcardIdentifier: wildcardNode}
+}
+
+func (pm *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
+	node := pm.root
+	var lastFoundConfig *CollapseConfig
+	if node.Config != nil {
+		lastFoundConfig = node.Config
+	}
 
 	segments := strings.Split(strings.Trim(path, "/"), "/")
 	if segments[0] == "" {
@@ -94,237 +196,31 @@ func (ua *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
 				lastFoundConfig = node.Config
 			}
 		} else {
-			// If we can't traverse further, the last config we found on the path is the most specific one.
 			break
 		}
 	}
 	return lastFoundConfig
 }
 
-func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string, config *CollapseConfig) string {
-	var resultParts []string
-	currentNode := node
-	segments := strings.Split(p, "/")
-	if segments[0] == "" && len(segments) > 1 { // handles absolute paths
-		segments = segments[1:]
-	} else if segments[0] == "" {
-		return "/"
-	}
-
-	for _, segment := range segments {
-		currentNode = ua.processSegment(currentNode, segment)
-		ua.updateNodeStats(currentNode, config)
-		resultParts = append(resultParts, currentNode.SegmentName)
-	}
-
-	return "/" + strings.Join(resultParts, "/")
+func (pm *PathAnalyzer) GetStoredPaths() []string {
+	var storedPaths []string
+	pm.collectPaths(pm.root, "", &storedPaths)
+	return storedPaths
 }
 
-func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
-	switch segment {
-	case DynamicIdentifier:
-		return ua.handleDynamicSegment(node)
-	case "*":
-		return ua.handleWildcardSegment(node)
-	default:
-		// Second-level collapse: adjacent dynamic identifiers (⋯/⋯) -> wildcard (*)
-		if node.SegmentName == DynamicIdentifier && node.IsNextDynamic() {
-			return ua.createWildcardNode(node)
+// collectPaths is a recursive helper to traverse the tree and build path strings.
+func (pm *PathAnalyzer) collectPaths(node *TrieNode, currentPath string, paths *[]string) {
+	// If it's a leaf node, we've found a full path.
+	if len(node.Children) == 0 {
+		if currentPath != "" {
+			*paths = append(*paths, currentPath)
 		}
-
-		if node.IsNextDynamic() {
-			if len(node.Children) > 1 {
-				temp := node.Children[DynamicIdentifier]
-				node.Children = map[string]*SegmentNode{}
-				node.Children[DynamicIdentifier] = temp
-			}
-			return node.Children[DynamicIdentifier]
-		} else if child, exists := node.Children[segment]; exists {
-			return child
-		}
-		return ua.handleNewSegment(node, segment)
-	}
-}
-
-func (ua *PathAnalyzer) handleNewSegment(node *SegmentNode, segment string) *SegmentNode {
-	node.Count++
-	newNode := &SegmentNode{
-		SegmentName: segment,
-		Count:       0,
-		Children:    make(map[string]*SegmentNode),
-	}
-	node.Children[segment] = newNode
-	return newNode
-}
-
-func (ua *PathAnalyzer) handleDynamicSegment(node *SegmentNode) *SegmentNode {
-	if dynamicChild, exists := node.Children[DynamicIdentifier]; exists {
-		return dynamicChild
-	} else {
-		return ua.createDynamicNode(node)
-	}
-}
-
-func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
-	dynamicNode := &SegmentNode{
-		SegmentName: DynamicIdentifier,
-		Count:       0,
-		Children:    make(map[string]*SegmentNode),
+		return
 	}
 
-	// Copy all existing children to the new dynamic node
-	for _, child := range node.Children {
-		shallowChildrenCopy(child, dynamicNode)
+	// Otherwise, continue traversing for each child.
+	for segment, child := range node.Children {
+		newPath := currentPath + "/" + segment
+		pm.collectPaths(child, newPath, paths)
 	}
-
-	// Replace all children with the new dynamic node
-	node.Children = map[string]*SegmentNode{
-		DynamicIdentifier: dynamicNode,
-	}
-
-	return dynamicNode
-}
-
-func (ua *PathAnalyzer) handleWildcardSegment(node *SegmentNode) *SegmentNode {
-	if wildcardChild, exists := node.Children["*"]; exists {
-		return wildcardChild
-	} else {
-		return ua.createWildcardNode(node)
-	}
-}
-
-func (ua *PathAnalyzer) createWildcardNode(node *SegmentNode) *SegmentNode {
-	wildcardNode := &SegmentNode{
-		SegmentName: "*",
-		Count:       0, // for wildcards its not relevant how many counts it has, it collapes neighbors
-		Children:    make(map[string]*SegmentNode),
-	}
-
-	// This function is called when a ⋯/⋯ structure is detected.
-	// We copy the children of the second '⋯' (the grandchildren) to the new '*' node.
-	ua.copyGrandchildren(node, wildcardNode)
-
-	// Surgically replace the first dynamic node with the new wildcard node,
-	// leaving other children of the parent node intact.
-	delete(node.Children, DynamicIdentifier)
-	node.Children["*"] = wildcardNode
-
-	return wildcardNode
-}
-
-// copyGrandchildren finds the child and grandchild dynamic nodes and copies the grandchild's children to the destination node.
-func (ua *PathAnalyzer) copyGrandchildren(src, dst *SegmentNode) {
-	if child, exists := src.Children[DynamicIdentifier]; exists {
-		if grandchild, exists := child.Children[DynamicIdentifier]; exists {
-			shallowChildrenCopy(grandchild, dst)
-		}
-	}
-}
-
-func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode, config *CollapseConfig) {
-	switch {
-	case node.Count > config.Threshold && !node.IsNextDynamic():
-		dynamicChild := &SegmentNode{
-			SegmentName: DynamicIdentifier,
-			Count:       0,
-			Children:    make(map[string]*SegmentNode),
-		}
-
-		// Copy all descendants
-		for _, child := range node.Children {
-			shallowChildrenCopy(child, dynamicChild)
-		}
-
-		node.Children = map[string]*SegmentNode{
-			DynamicIdentifier: dynamicChild,
-		}
-	}
-}
-
-func shallowChildrenCopy(src, dst *SegmentNode) {
-	for segmentName := range src.Children {
-		if _, ok := dst.Children[segmentName]; !ok {
-			dst.Children[segmentName] = src.Children[segmentName]
-		} else {
-			dst.Children[segmentName].Count += src.Children[segmentName].Count
-			shallowChildrenCopy(src.Children[segmentName], dst.Children[segmentName])
-		}
-	}
-}
-
-// so in this masterful logic: we have 3 types of nodes:  the regular ,the ellipsis and the wildcard
-// if the path analyser is above the threshold it creates the ellipsis
-// if two ellipsis are adjacent it creates the asterix (and currently messes up the node tree)
-func CollapseAdjacentDynamicIdentifiers(p string) string {
-	segments := strings.Split(p, "/")
-	var result []string
-	inDynamicSequence := false
-
-	for i := 0; i < len(segments); i++ {
-		isDynamic := segments[i] == DynamicIdentifier
-
-		if isDynamic && !inDynamicSequence {
-			// Check if this starts a sequence of at least two dynamic identifiers ## TODO: @constanze check if we ever have two asterix adjacent
-			isSequence := false
-			for j := i + 1; j < len(segments); j++ {
-				if segments[j] == DynamicIdentifier {
-					isSequence = true
-					break
-				}
-			}
-
-			if isSequence {
-				inDynamicSequence = true
-				result = append(result, "*")
-			} else {
-				result = append(result, segments[i])
-			}
-		} else if isDynamic && inDynamicSequence {
-			// Continue sequence, do nothing as '*' is already added
-			continue
-		} else {
-			inDynamicSequence = false
-			result = append(result, segments[i])
-		}
-	}
-	return strings.Join(result, "/")
-}
-
-func CompareDynamic(dynamicPath, regularPath string) bool {
-	dynamicSegments := strings.Split(dynamicPath, "/")
-	regularSegments := strings.Split(regularPath, "/")
-
-	return compareSegments(dynamicSegments, regularSegments)
-}
-
-func compareSegments(dynamic, regular []string) bool {
-	if len(dynamic) == 0 {
-		return len(regular) == 0
-	}
-
-	if dynamic[0] == "*" {
-		if len(dynamic) == 1 {
-			return true
-		}
-		nextDynamic := dynamic[1]
-		for i := range regular {
-
-			match := nextDynamic == DynamicIdentifier || (i < len(regular) && regular[i] == nextDynamic)
-
-			if match && compareSegments(dynamic[1:], regular[i:]) {
-				return true
-			}
-		}
-		return false
-	}
-
-	if len(regular) == 0 {
-		return false
-	}
-
-	if dynamic[0] == DynamicIdentifier || dynamic[0] == regular[0] {
-		return compareSegments(dynamic[1:], regular[1:])
-	}
-
-	return false
 }

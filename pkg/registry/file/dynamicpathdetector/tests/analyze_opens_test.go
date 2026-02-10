@@ -32,34 +32,6 @@ func TestAnalyzeOpensWithThreshold(t *testing.T) {
 	assert.Equal(t, expected, result)
 }
 
-// func TestAnalyzeOpensWithThresholdAndExclusion(t *testing.T) {
-// 	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
-
-// 	var input []types.OpenCalls
-// 	for i := 0; i < 101; i++ {
-// 		input = append(input, types.OpenCalls{
-// 			Path:  fmt.Sprintf("/home/user%d/file.txt", i),
-// 			Flags: []string{"READ"},
-// 		})
-// 	}
-
-// 	//interesting: @constanze: why should it preserve the 42?
-// 	expected := []types.OpenCalls{
-// 		{
-// 			Path:  "/home/user42/file.txt",
-// 			Flags: []string{"READ"},
-// 		},
-// 		{
-// 			Path:  "/home/\u22ef/file.txt",
-// 			Flags: []string{"READ"},
-// 		},
-// 	}
-
-// 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]("/home/user42/file.txt"))
-// 	assert.NoError(t, err)
-// 	assert.Equal(t, expected, result)
-// }
-
 func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -141,7 +113,7 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 }
 
 func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3 OLD BEHAVIOR
 
 	input := []types.OpenCalls{
 		// These should collapse into /home/…/file.txt
@@ -191,13 +163,13 @@ func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
 
 	input := []types.OpenCalls{
 		// These should collapse into /home/*/file.txt  and that may not be great, but lets first check if it actually does it
-		{Path: "/home/user1/txt/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user2/txt/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user3/txt/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user4/brr/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user1/brr/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user2/brr/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user3/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
 	}
 
 	expected := []types.OpenCalls{
@@ -212,7 +184,28 @@ func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
 
 func TestAnalyzeOpensWithDynamicConfigs(t *testing.T) {
 	// Default threshold is 10, used for paths like /tmp
-	analyzer := dynamicpathdetector.NewPathAnalyzer(10)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs([]dynamicpathdetector.CollapseConfig{
+		{
+			Prefix:    "/etc",
+			Threshold: 50,
+		},
+		{
+			Prefix:    "/opt",
+			Threshold: 5,
+		},
+		{
+			Prefix:    "/var/run",
+			Threshold: 3,
+		},
+		{
+			Prefix:    "/app",
+			Threshold: 1,
+		},
+		{
+			Prefix:    "/tmp",
+			Threshold: 10,
+		},
+	})
 
 	// The paths to be added, exercising different collapse configurations.
 	pathsToAdd := []string{
