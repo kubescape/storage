@@ -17,7 +17,8 @@ func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) [
 
 	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range *endpoints {
-		_, _ = AnalyzeURL(endpoint.Endpoint, analyzer)
+		_, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
+		analyzer.AddPath(pathPart)
 	}
 
 	for _, endpoint := range *endpoints {
