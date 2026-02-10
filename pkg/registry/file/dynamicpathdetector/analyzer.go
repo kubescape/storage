@@ -242,6 +242,11 @@ func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, err
 	var pathSegments []string
 
 	for _, segment := range segments {
+		if segment == DynamicIdentifier {
+			pathSegments = append(pathSegments, DynamicIdentifier)
+			continue
+		}
+
 		if nextNode, ok := node.Children[WildcardIdentifier]; ok {
 			node = nextNode
 			pathSegments = append(pathSegments, WildcardIdentifier)
