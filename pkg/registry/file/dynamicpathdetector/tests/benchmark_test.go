@@ -72,14 +72,14 @@ func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 	})
 }
 
-func BenchmarkCompareDynamic(b *testing.B) {
-	dynamicPath := "/api/\u22ef/\u22ef"
-	regularPath := "/api/users/123"
-	for i := 0; i < b.N; i++ {
-		_ = dynamicpathdetector.CompareDynamic(dynamicPath, regularPath)
-	}
-	b.ReportAllocs()
-}
+// func BenchmarkCompareDynamic(b *testing.B) {
+// 	dynamicPath := "/api/\u22ef/\u22ef"
+// 	regularPath := "/api/users/123"
+// 	for i := 0; i < b.N; i++ {
+// 		_ = dynamicpathdetector.CompareDynamic(dynamicPath, regularPath)
+// 	}
+// 	b.ReportAllocs()
+// }
 
 func generateMixedPaths(count int, fixedLength int) []string {
 	paths := make([]string, count)
