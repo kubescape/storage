@@ -110,8 +110,8 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 		var key, wildcardKey string
 		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
 		wildcardKey = fmt.Sprintf(":%s%s|%s", "0", pathPart, endpoint.Direction)
-		//debug only -- why are the METHODS collapsing
-		wildcardKey = fmt.Sprintf(":%s%s|%s", port, pathPart, endpoint.Direction)
+		//debug only -- why are the METHODS collapsing NOPE THIS DOESNT UNDO IT
+		//wildcardKey = fmt.Sprintf(":%s%s|%s", port, pathPart, endpoint.Direction)
 		//  Check if a wildcard version (:0) of this endpoint already exists.
 		if existing, found := seen[wildcardKey]; found {
 			if existing.Endpoint == endpoint.Endpoint {

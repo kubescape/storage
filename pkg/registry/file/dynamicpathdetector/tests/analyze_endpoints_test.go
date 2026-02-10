@@ -38,7 +38,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with multiple endpoints",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/\u22ef",
+					Endpoint: ":80/users/123", //debug : is it the ellipsis character
 					Methods:  []string{"GET"},
 				},
 				{
