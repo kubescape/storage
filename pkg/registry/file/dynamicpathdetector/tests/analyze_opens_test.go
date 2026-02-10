@@ -210,6 +210,81 @@ func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
 	assert.ElementsMatch(t, expected, result)
 }
 
+func TestAnalyzeOpensWithDynamicConfigs(t *testing.T) {
+	// Default threshold is 10, used for paths like /tmp
+	analyzer := dynamicpathdetector.NewPathAnalyzer(10)
+
+	// The paths to be added, exercising different collapse configurations.
+	pathsToAdd := []string{
+		// /etc paths (Threshold: 50) - should not collapse
+		"/etc/config/app.conf",
+		"/etc/config/db.conf",
+		"/etc/hosts",
+		"/etc/resolv.conf",
+		"/etc/config/cron.d/hourly",
+		"/etc/systemd/system.conf",
+		"/etc/hostname",
+		"/etc/config/something",
+
+		// /opt paths (Threshold: 5) - should collapse at /opt level
+		"/opt/app1/binary",
+		"/opt/app2/binary",
+		"/opt/app3/binary",
+		"/opt/app4/binary",
+		"/opt/app5/binary",
+		"/opt/app6/binary", // 6th child of /opt, triggers collapse
+
+		// /var/run paths (Threshold: 3) - should collapse at /var/run level
+		"/var/run/pid1.pid",
+		"/var/run/pid2.pid",
+		"/var/run/pid3.pid",
+		"/var/run/pid4.pid", // 4th child of /var/run, triggers collapse
+
+		// /app paths (Threshold: 1) - should immediately collapse
+		"/app/some/deep/path",
+		"/app/another/path", // 2nd child of /app, triggers collapse
+
+		// /tmp paths (Default Threshold: 10) - should collapse at /tmp level
+		"/tmp/user1/a",
+		"/tmp/user2/a",
+		"/tmp/user3/a",
+		"/tmp/user4/a",
+		"/tmp/user5/a",
+		"/tmp/user6/a",
+		"/tmp/user7/a",
+		"/tmp/user8/a",
+		"/tmp/user9/a",
+		"/tmp/user10/a",
+		"/tmp/user11/a", // 11th child of /tmp, triggers collapse
+	}
+
+	var input []types.OpenCalls
+	for _, p := range pathsToAdd {
+		input = append(input, types.OpenCalls{Path: p, Flags: []string{"READ"}})
+	}
+
+	expected := []types.OpenCalls{
+		// /etc paths are not collapsed
+		{Path: "/etc/config/app.conf", Flags: []string{"READ"}},
+		{Path: "/etc/config/cron.d/hourly", Flags: []string{"READ"}},
+		{Path: "/etc/config/db.conf", Flags: []string{"READ"}},
+		{Path: "/etc/config/something", Flags: []string{"READ"}},
+		{Path: "/etc/hostname", Flags: []string{"READ"}},
+		{Path: "/etc/hosts", Flags: []string{"READ"}},
+		{Path: "/etc/resolv.conf", Flags: []string{"READ"}},
+		{Path: "/etc/systemd/system.conf", Flags: []string{"READ"}},
+		// Collapsed paths
+		{Path: "/app/\u22ef", Flags: []string{"READ"}},
+		{Path: "/opt/\u22ef/binary", Flags: []string{"READ"}},
+		{Path: "/tmp/\u22ef/a", Flags: []string{"READ"}},
+		{Path: "/var/run/\u22ef", Flags: []string{"READ"}},
+	}
+
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, expected, result)
+}
+
 // Helper function to check if a slice of strings contains only unique elements
 func areStringSlicesUnique(slice []string) bool {
 	seen := make(map[string]struct{})

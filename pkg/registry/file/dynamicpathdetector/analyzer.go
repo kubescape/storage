@@ -7,11 +7,59 @@ import (
 
 // This function builds a tree of nodes
 
+var CollapseConfigs = []CollapseConfig{
+	{
+		Prefix:    "/etc",
+		Threshold: 50,
+	},
+	{
+		Prefix:    "/opt",
+		Threshold: 5,
+	},
+	{
+		Prefix:    "/var/run", // here we have the special case that we treat two segments of the path as one
+		Threshold: 3,
+	},
+	{
+		Prefix:    "/app",
+		Threshold: 1, // Now 1 has the special treatment that it IMMEDIATELY collapses everything into /$prefix/* , meaning it just matches everything
+	},
+}
+
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
-	return &PathAnalyzer{
-		RootNodes: make(map[string]*SegmentNode),
-		threshold: threshold,
+	defaultConfig := &CollapseConfig{
+		Prefix:    "/",
+		Threshold: threshold,
 	}
+	analyzer := &PathAnalyzer{
+		RootNodes:             make(map[string]*SegmentNode),
+		threshold:             threshold,
+		DefaultCollapseConfig: defaultConfig,
+		configRoot: &SegmentNode{
+			SegmentName: "/",
+			Children:    make(map[string]*SegmentNode),
+			Config:      defaultConfig,
+		},
+	}
+	for i := range CollapseConfigs {
+		analyzer.addConfig(&CollapseConfigs[i])
+	}
+	return analyzer
+}
+
+func (ua *PathAnalyzer) addConfig(config *CollapseConfig) {
+	node := ua.configRoot
+	segments := strings.Split(strings.Trim(config.Prefix, "/"), "/")
+	if segments[0] == "" { // Handle root prefix "/"
+		return
+	}
+	for _, segment := range segments {
+		if _, ok := node.Children[segment]; !ok {
+			node.Children[segment] = &SegmentNode{Children: make(map[string]*SegmentNode), SegmentName: segment}
+		}
+		node = node.Children[segment]
+	}
+	node.Config = config
 }
 
 func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
@@ -25,11 +73,35 @@ func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 		}
 		ua.RootNodes[identifier] = node
 	}
-	processedPath := ua.processSegments(node, p)
+	config := ua.FindConfigForPath(p)
+	processedPath := ua.processSegments(node, p, config)
 	return CollapseAdjacentDynamicIdentifiers(processedPath), nil
 }
 
-func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
+func (ua *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
+	node := ua.configRoot
+	lastFoundConfig := ua.configRoot.Config
+
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	if segments[0] == "" {
+		return lastFoundConfig
+	}
+
+	for _, segment := range segments {
+		if nextNode, ok := node.Children[segment]; ok {
+			node = nextNode
+			if node.Config != nil {
+				lastFoundConfig = node.Config
+			}
+		} else {
+			// If we can't traverse further, the last config we found on the path is the most specific one.
+			break
+		}
+	}
+	return lastFoundConfig
+}
+
+func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string, config *CollapseConfig) string {
 	var result strings.Builder
 	currentNode := node
 	i := 0
@@ -40,7 +112,7 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 		}
 		segment := p[start:i]
 		currentNode = ua.processSegment(currentNode, segment)
-		ua.updateNodeStats(currentNode)
+		ua.updateNodeStats(currentNode, config)
 		result.WriteString(currentNode.SegmentName)
 		i++
 		if len(p) < i {
@@ -147,9 +219,9 @@ func (ua *PathAnalyzer) copyGrandchildren(src, dst *SegmentNode) {
 	}
 }
 
-func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
+func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode, config *CollapseConfig) {
 	switch {
-	case node.Count > ua.threshold && !node.IsNextDynamic():
+	case node.Count > config.Threshold && !node.IsNextDynamic():
 		dynamicChild := &SegmentNode{
 			SegmentName: DynamicIdentifier,
 			Count:       0,
