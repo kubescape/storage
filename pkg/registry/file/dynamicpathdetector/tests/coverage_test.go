@@ -106,7 +106,7 @@ func TestMultipleDynamicSegments(t *testing.T) {
 	// Test with the 100th unique user and post IDs (should trigger dynamic segments)
 	result, err := analyzer.AnalyzePath("/api/users/101/posts/1031", "api")
 	assert.NoError(t, err)
-	expected := "/api/users/*/posts/\u22ef"
+	expected := "/api/users/\u22ef/posts/\u22ef"
 	assert.Equal(t, expected, result)
 }
 

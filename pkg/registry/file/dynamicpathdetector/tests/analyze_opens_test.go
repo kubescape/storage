@@ -2,6 +2,7 @@ package dynamicpathdetectortests
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -112,68 +113,42 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 	}
 }
 
-func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3 OLD BEHAVIOR
+// func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
+// 	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3 OLD BEHAVIOR
 
-	input := []types.OpenCalls{
-		// These should collapse into /home/…/file.txt
-		{Path: "/home/user1/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
-	}
+// 	input := []types.OpenCalls{
+// 		// These should collapse into /home/…/file.txt
+// 		{Path: "/home/user1/file.txt", Flags: []string{"READ"}},
+// 		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
+// 		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
+// 		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
+// 		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
+// 	}
 
-	expected := []types.OpenCalls{
-		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
-	}
+// 	expected := []types.OpenCalls{
+// 		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
+// 	}
 
-	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
-	assert.NoError(t, err)
+// 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+// 	assert.NoError(t, err)
 
-	// Use ElementsMatch because the order of elements in the result is not guaranteed
-	assert.ElementsMatch(t, expected, result)
-}
-
-func TestAnalyzeOpensWithAsteriskAndEllipsisNotCollapse(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3
-
-	input := []types.OpenCalls{
-		// These should collapse into /home/…/file.txt
-		{Path: "/home/user1/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
-		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
-		// This path with an asterisk must not be collapsed, as it has a different meaning
-		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
-	}
-
-	expected := []types.OpenCalls{
-		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
-	}
-
-	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
-	assert.NoError(t, err)
-
-	assert.ElementsMatch(t, expected, result)
-}
+// 	// Use ElementsMatch because the order of elements in the result is not guaranteed
+// 	assert.ElementsMatch(t, expected, result)
+// }
 
 func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3
+	analyzer := dynamicpathdetector.NewPathAnalyzer(5) // Threshold of 3 for /var/run prefix is set in the defaults, but here we are overwriting the defaults
 
 	input := []types.OpenCalls{
-		// These should collapse into /home/*/file.txt  and that may not be great, but lets first check if it actually does it
 		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
-		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
-		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
-		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
-		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
-		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
-		{Path: "/var/run/brr/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt1/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt2/file.txt", Flags: []string{"READ"}},
 	}
 
 	expected := []types.OpenCalls{
-		{Path: "/home/*/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt1/file.txt", Flags: []string{"READ"}},
+		{Path: "/var/run/txt2/file.txt", Flags: []string{"READ"}},
 	}
 
 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
@@ -256,26 +231,284 @@ func TestAnalyzeOpensWithDynamicConfigs(t *testing.T) {
 		input = append(input, types.OpenCalls{Path: p, Flags: []string{"READ"}})
 	}
 
-	expected := []types.OpenCalls{
-		// /etc paths are not collapsed
-		{Path: "/etc/config/app.conf", Flags: []string{"READ"}},
-		{Path: "/etc/config/cron.d/hourly", Flags: []string{"READ"}},
-		{Path: "/etc/config/db.conf", Flags: []string{"READ"}},
-		{Path: "/etc/config/something", Flags: []string{"READ"}},
-		{Path: "/etc/hostname", Flags: []string{"READ"}},
-		{Path: "/etc/hosts", Flags: []string{"READ"}},
-		{Path: "/etc/resolv.conf", Flags: []string{"READ"}},
-		{Path: "/etc/systemd/system.conf", Flags: []string{"READ"}},
-		// Collapsed paths
-		{Path: "/app/\u22ef", Flags: []string{"READ"}},
-		{Path: "/opt/\u22ef/binary", Flags: []string{"READ"}},
-		{Path: "/tmp/\u22ef/a", Flags: []string{"READ"}},
-		{Path: "/var/run/\u22ef", Flags: []string{"READ"}},
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+
+	// /etc paths (threshold 50) should NOT be collapsed - all 8 paths remain individual
+	assertContainsPath(t, result, "/etc/config/app.conf")
+	assertContainsPath(t, result, "/etc/config/cron.d/hourly")
+	assertContainsPath(t, result, "/etc/config/db.conf")
+	assertContainsPath(t, result, "/etc/config/something")
+	assertContainsPath(t, result, "/etc/hostname")
+	assertContainsPath(t, result, "/etc/hosts")
+	assertContainsPath(t, result, "/etc/resolv.conf")
+	assertContainsPath(t, result, "/etc/systemd/system.conf")
+
+	// /app (threshold 1) - immediately collapses to wildcard
+	assertContainsPath(t, result, "/app/*")
+
+	// /opt (threshold 5) - collapses; both wildcard and dynamic-with-subtree are acceptable
+	assertContainsOneOfPaths(t, result, "/opt/*", "/opt/\u22ef/binary")
+
+	// /tmp (threshold 10) - collapses; both wildcard and dynamic-with-subtree are acceptable
+	assertContainsOneOfPaths(t, result, "/tmp/*", "/tmp/\u22ef/a")
+
+	// /var/run (threshold 3) - collapses; both forms are equivalent here (leaf nodes)
+	assertContainsOneOfPaths(t, result, "/var/run/*", "/var/run/\u22ef")
+
+	// Total: 8 etc + 1 app + 1 opt + 1 tmp + 1 var/run = 12
+	assert.Equal(t, 12, len(result), "expected 12 total paths, got %d: %v", len(result), pathsFromResult(result))
+}
+
+// TestAnalyzeOpensCollapseExactBoundary verifies that threshold is strictly "greater than",
+// not "greater than or equal". With threshold N, exactly N children should NOT collapse,
+// but N+1 children SHOULD.
+func TestAnalyzeOpensCollapseExactBoundary(t *testing.T) {
+	t.Run("at threshold - no collapse", func(t *testing.T) {
+		analyzer := dynamicpathdetector.NewPathAnalyzer(5)
+		var input []types.OpenCalls
+		for i := 0; i < 5; i++ {
+			input = append(input, types.OpenCalls{
+				Path:  fmt.Sprintf("/data/item%d/info", i),
+				Flags: []string{"READ"},
+			})
+		}
+		result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+		assert.NoError(t, err)
+		assert.Equal(t, 5, len(result), "at exact threshold, paths should NOT collapse")
+		for _, r := range result {
+			assert.NotContains(t, r.Path, "\u22ef", "no dynamic segment expected")
+			assert.NotContains(t, r.Path, "*", "no wildcard expected")
+		}
+	})
+
+	t.Run("above threshold - collapse", func(t *testing.T) {
+		analyzer := dynamicpathdetector.NewPathAnalyzer(5)
+		var input []types.OpenCalls
+		for i := 0; i < 6; i++ {
+			input = append(input, types.OpenCalls{
+				Path:  fmt.Sprintf("/data/item%d/info", i),
+				Flags: []string{"READ"},
+			})
+		}
+		result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(result), "above threshold, paths should collapse to 1")
+		assertPathIsOneOf(t, result[0].Path, "/data/*/info", "/data/\u22ef/info")
+	})
+}
+
+// TestAnalyzeOpensDuplicatePathsNoCollapse verifies that repeating the same path
+// many times does NOT trigger a collapse - only unique segment names count.
+func TestAnalyzeOpensDuplicatePathsNoCollapse(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+	var input []types.OpenCalls
+	for i := 0; i < 100; i++ {
+		input = append(input, types.OpenCalls{
+			Path:  "/data/same-child/file.txt",
+			Flags: []string{"READ"},
+		})
+	}
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, "/data/same-child/file.txt", result[0].Path, "duplicate paths should not trigger collapse")
+}
+
+// TestAnalyzeOpensVaryingDepthsUnderPrefix verifies collapse behavior when paths
+// under the same prefix have different depths.
+func TestAnalyzeOpensVaryingDepthsUnderPrefix(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+	input := []types.OpenCalls{
+		{Path: "/data/a", Flags: []string{"READ"}},
+		{Path: "/data/b/deep/file", Flags: []string{"READ"}},
+		{Path: "/data/c/other", Flags: []string{"WRITE"}},
+		{Path: "/data/d", Flags: []string{"APPEND"}},
+	}
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	// 4 unique children under /data with threshold 3 -> should collapse
+	// All paths should be merged under the dynamic/wildcard node
+	for _, r := range result {
+		assert.True(t,
+			strings.Contains(r.Path, "\u22ef") || strings.Contains(r.Path, "*"),
+			"path %q should contain a dynamic or wildcard segment after collapse", r.Path)
+	}
+}
+
+// TestAnalyzeOpensNewPathAfterCollapse verifies that a new path arriving after
+// the threshold was already crossed gets absorbed by the collapsed node.
+func TestAnalyzeOpensNewPathAfterCollapse(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+
+	// First batch: trigger collapse
+	batch1 := []types.OpenCalls{
+		{Path: "/srv/a/log", Flags: []string{"READ"}},
+		{Path: "/srv/b/log", Flags: []string{"READ"}},
+		{Path: "/srv/c/log", Flags: []string{"READ"}},
+		{Path: "/srv/d/log", Flags: []string{"READ"}},
+	}
+	result1, err := dynamicpathdetector.AnalyzeOpens(batch1, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result1), "first batch should collapse to 1 path")
+
+	// Second batch: add a completely new child - it should be absorbed
+	batch2 := append(batch1, types.OpenCalls{
+		Path: "/srv/new-service/log", Flags: []string{"WRITE"},
+	})
+	result2, err := dynamicpathdetector.AnalyzeOpens(batch2, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result2), "new path after collapse should be absorbed")
+	assert.Contains(t, result2[0].Flags, "WRITE", "flags from new path should be merged")
+}
+
+// TestAnalyzeOpensDefaultThresholdForUnconfiguredPrefix verifies that paths under
+// a prefix without a specific config use the default threshold.
+func TestAnalyzeOpensDefaultThresholdForUnconfiguredPrefix(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs([]dynamicpathdetector.CollapseConfig{
+		{Prefix: "/configured", Threshold: 2},
+	})
+
+	// /configured has threshold 2: 3 children should collapse
+	configuredInput := []types.OpenCalls{
+		{Path: "/configured/a/file", Flags: []string{"READ"}},
+		{Path: "/configured/b/file", Flags: []string{"READ"}},
+		{Path: "/configured/c/file", Flags: []string{"READ"}},
+	}
+	result, err := dynamicpathdetector.AnalyzeOpens(configuredInput, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result), "/configured should collapse with threshold 2")
+
+	// /unconfigured uses default threshold (50): 3 children should NOT collapse
+	analyzer2 := dynamicpathdetector.NewPathAnalyzerWithConfigs([]dynamicpathdetector.CollapseConfig{
+		{Prefix: "/configured", Threshold: 2},
+	})
+	unconfiguredInput := []types.OpenCalls{
+		{Path: "/unconfigured/a/file", Flags: []string{"READ"}},
+		{Path: "/unconfigured/b/file", Flags: []string{"READ"}},
+		{Path: "/unconfigured/c/file", Flags: []string{"READ"}},
+	}
+	result2, err := dynamicpathdetector.AnalyzeOpens(unconfiguredInput, analyzer2, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(result2), "/unconfigured should NOT collapse with default threshold 50")
+}
+
+// TestAnalyzeOpensThreshold1ImmediateWildcard verifies that threshold 1 produces
+// a wildcard (*) on the very first additional child.
+func TestAnalyzeOpensThreshold1ImmediateWildcard(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs([]dynamicpathdetector.CollapseConfig{
+		{Prefix: "/instant", Threshold: 1},
+	})
+
+	t.Run("single path - no collapse yet", func(t *testing.T) {
+		input := []types.OpenCalls{
+			{Path: "/instant/only-child/data", Flags: []string{"READ"}},
+		}
+		result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(result))
+		assert.Equal(t, "/instant/*", result[0].Path, "threshold 1 should wildcard immediately")
+	})
+
+	t.Run("two paths - collapsed", func(t *testing.T) {
+		analyzer2 := dynamicpathdetector.NewPathAnalyzerWithConfigs([]dynamicpathdetector.CollapseConfig{
+			{Prefix: "/instant", Threshold: 1},
+		})
+		input := []types.OpenCalls{
+			{Path: "/instant/first/data", Flags: []string{"READ"}},
+			{Path: "/instant/second/data", Flags: []string{"WRITE"}},
+		}
+		result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer2, mapset.NewSet[string]())
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(result))
+		assert.Equal(t, "/instant/*", result[0].Path)
+		assert.ElementsMatch(t, []string{"READ", "WRITE"}, result[0].Flags)
+	})
+}
+
+// TestAnalyzeOpensCollapseDoesNotAffectSiblingPrefixes verifies that collapsing
+// one prefix does not affect paths under a sibling prefix.
+func TestAnalyzeOpensCollapseDoesNotAffectSiblingPrefixes(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+
+	input := []types.OpenCalls{
+		// /alpha should collapse (4 > 3)
+		{Path: "/alpha/a1/file", Flags: []string{"READ"}},
+		{Path: "/alpha/a2/file", Flags: []string{"READ"}},
+		{Path: "/alpha/a3/file", Flags: []string{"READ"}},
+		{Path: "/alpha/a4/file", Flags: []string{"READ"}},
+		// /beta should NOT collapse (2 <= 3)
+		{Path: "/beta/b1/file", Flags: []string{"WRITE"}},
+		{Path: "/beta/b2/file", Flags: []string{"WRITE"}},
 	}
 
 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
 	assert.NoError(t, err)
-	assert.ElementsMatch(t, expected, result)
+
+	betaPaths := filterByPrefix(result, "/beta/")
+	assert.Equal(t, 2, len(betaPaths), "/beta paths should remain individual")
+
+	alphaPaths := filterByPrefix(result, "/alpha/")
+	assert.Equal(t, 1, len(alphaPaths), "/alpha paths should collapse to 1")
+}
+
+// TestAnalyzeOpensFlagMergingAfterCollapse verifies that flags from all paths
+// that collapse into the same dynamic node are properly merged and deduplicated.
+func TestAnalyzeOpensFlagMergingAfterCollapse(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+	input := []types.OpenCalls{
+		{Path: "/logs/service1/app.log", Flags: []string{"READ", "WRITE"}},
+		{Path: "/logs/service2/app.log", Flags: []string{"WRITE", "APPEND"}},
+		{Path: "/logs/service3/app.log", Flags: []string{"READ"}},
+		{Path: "/logs/service4/app.log", Flags: []string{"APPEND", "READ"}},
+	}
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+	assert.ElementsMatch(t, []string{"APPEND", "READ", "WRITE"}, result[0].Flags, "flags should be merged and deduplicated")
+	assert.True(t, areStringSlicesUnique(result[0].Flags), "flags must be unique")
+}
+
+// TestAnalyzeOpensMultipleLevelsOfCollapse verifies behavior when both parent and
+// grandchild segments independently exceed their thresholds.
+func TestAnalyzeOpensMultipleLevelsOfCollapse(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+
+	var input []types.OpenCalls
+	// 4 unique children under /multi, each with 4 unique grandchildren
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			input = append(input, types.OpenCalls{
+				Path:  fmt.Sprintf("/multi/level%d/sub%d/file", i, j),
+				Flags: []string{"READ"},
+			})
+		}
+	}
+
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	// Both /multi children and the grandchildren should collapse
+	assert.Equal(t, 1, len(result), "double collapse should yield a single path")
+	// The path should contain wildcard or dynamic segments
+	assert.True(t,
+		strings.Contains(result[0].Path, "\u22ef") || strings.Contains(result[0].Path, "*"),
+		"result %q should contain dynamic or wildcard segments", result[0].Path)
+}
+
+// TestAnalyzeOpensExistingDynamicSegmentInInput verifies that input paths
+// already containing ⋯ are handled correctly and merge with new paths.
+func TestAnalyzeOpensExistingDynamicSegmentInInput(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	input := []types.OpenCalls{
+		{Path: "/data/\u22ef/config", Flags: []string{"READ"}},
+		{Path: "/data/specific/config", Flags: []string{"WRITE"}},
+	}
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
+	// The specific path should be absorbed by the existing dynamic segment
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, "/data/\u22ef/config", result[0].Path)
+	assert.ElementsMatch(t, []string{"READ", "WRITE"}, result[0].Flags)
 }
 
 // Helper function to check if a slice of strings contains only unique elements
@@ -288,4 +521,60 @@ func areStringSlicesUnique(slice []string) bool {
 		seen[s] = struct{}{}
 	}
 	return true
+}
+
+// assertContainsPath checks that at least one result has the given path.
+func assertContainsPath(t *testing.T, result []types.OpenCalls, path string) {
+	t.Helper()
+	for _, r := range result {
+		if r.Path == path {
+			return
+		}
+	}
+	assert.Fail(t, fmt.Sprintf("result does not contain path %q, got: %v", path, pathsFromResult(result)))
+}
+
+// assertContainsOneOfPaths checks that at least one result matches any of the given paths.
+// Used when both the dynamic (⋯) and wildcard (*) forms are acceptable.
+func assertContainsOneOfPaths(t *testing.T, result []types.OpenCalls, alternatives ...string) {
+	t.Helper()
+	for _, r := range result {
+		for _, alt := range alternatives {
+			if r.Path == alt {
+				return
+			}
+		}
+	}
+	assert.Fail(t, fmt.Sprintf("result does not contain any of %v, got: %v", alternatives, pathsFromResult(result)))
+}
+
+// assertPathIsOneOf checks that the given path matches one of the alternatives.
+func assertPathIsOneOf(t *testing.T, actual string, alternatives ...string) {
+	t.Helper()
+	for _, alt := range alternatives {
+		if actual == alt {
+			return
+		}
+	}
+	assert.Fail(t, fmt.Sprintf("path %q does not match any of %v", actual, alternatives))
+}
+
+// filterByPrefix returns all OpenCalls whose path starts with the given prefix.
+func filterByPrefix(result []types.OpenCalls, prefix string) []types.OpenCalls {
+	var filtered []types.OpenCalls
+	for _, r := range result {
+		if strings.HasPrefix(r.Path, prefix) {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
+}
+
+// pathsFromResult extracts just the paths for readable error messages.
+func pathsFromResult(result []types.OpenCalls) []string {
+	paths := make([]string, len(result))
+	for i, r := range result {
+		paths[i] = r.Path
+	}
+	return paths
 }

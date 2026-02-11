@@ -15,7 +15,10 @@ type SegmentNode struct {
 }
 
 type PathAnalyzer struct {
-	root *TrieNode
+	root       *TrieNode
+	identRoots map[string]*TrieNode
+	configs    []CollapseConfig
+	defaultCfg CollapseConfig
 }
 
 func NewTrieNode() *TrieNode {

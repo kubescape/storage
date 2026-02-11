@@ -38,7 +38,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with multiple endpoints",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/123", //debug : is it the ellipsis character
+					Endpoint: ":80/users/\u22ef", //debug : is it the ellipsis character
 					Methods:  []string{"GET"},
 				},
 				{
@@ -48,7 +48,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/123", //debug : is it the ellipsis character
+					Endpoint: ":80/users/\u22ef",
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -57,17 +57,17 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with dynamic segments",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/123/posts/999", //debug : is it the ellipsis character
+					Endpoint: ":80/users/123/posts/\u22ef",
 					Methods:  []string{"GET"},
 				},
 				{
-					Endpoint: ":80/users/123/posts/999", //debug : is it the ellipsis character
+					Endpoint: ":80/users/\u22ef/posts/101",
 					Methods:  []string{"POST"},
 				},
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/users/123/posts/999", //debug : is it the ellipsis character
+					Endpoint: ":80/users/\u22ef/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -76,21 +76,21 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			name: "Test with 0 port",
 			input: []types.HTTPEndpoint{
 				{
-					Endpoint: ":0/users/123/posts/101", //debug : is it the ellipsis character
+					Endpoint: ":0/users/123/posts/\u22ef",
 					Methods:  []string{"GET"},
 				},
 				{
-					Endpoint: ":80/users/123/posts/101",
+					Endpoint: ":80/users/\u22ef/posts/101",
 					Methods:  []string{"POST"},
 				},
 				{
-					Endpoint: ":8770/users/123/posts/101",
+					Endpoint: ":8770/users/blub/posts/101",
 					Methods:  []string{"POST"},
 				},
 			},
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":0/users/123/posts/101", //debug : is it the ellipsis character
+					Endpoint: ":0/users/\u22ef/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -147,7 +147,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			//TODO @constanze revisit this once you tackle endpoints, the path matching logic is applied here the same way as for file paths
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":80/x/*/posts/\u22ef",
+					Endpoint: ":80/x/\u22ef/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 					Headers:  json.RawMessage(`{"Authorization":["Bearer token"],"Content-Type":["<<UNORDERED>>","application/json","application/xml"],"X-API-Key":["key1"]}`),
 				},
@@ -243,7 +243,7 @@ func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
 
 	input := []types.HTTPEndpoint{
 		{
-			Endpoint:  ":\u22ef/users/123",
+			Endpoint:  ":0/users/123",
 			Methods:   []string{"GET"},
 			Direction: "outbound",
 		},
@@ -258,8 +258,8 @@ func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
 
 	// Both endpoints should use the wildcard port
 	for _, ep := range result {
-		port := ep.Endpoint[:len(":\u22ef")]
-		assert.Equal(t, ":\u22ef", port, "endpoint %s should have wildcard port", ep.Endpoint)
+		port := ep.Endpoint[:len(":0")]
+		assert.Equal(t, ":0", port, "endpoint %s should have wildcard port", ep.Endpoint)
 	}
 }
 
@@ -273,7 +273,7 @@ func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
 			Direction: "outbound",
 		},
 		{
-			Endpoint:  ":\u22ef/api/info",
+			Endpoint:  ":0/api/info",
 			Methods:   []string{"POST"},
 			Direction: "outbound",
 		},
@@ -281,10 +281,10 @@ func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
 
 	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
-	// After second pass, both endpoints should be normalized to wildcard port
+	// 0 is the wildcard port,
 	for _, ep := range result {
-		port := ep.Endpoint[:len(":\u22ef")]
-		assert.Equal(t, ":\u22ef", port, "endpoint %s should have wildcard port", ep.Endpoint)
+		port := ep.Endpoint[:len(":0")]
+		assert.Equal(t, ":0", port, "endpoint %s should have wildcard port", ep.Endpoint)
 	}
 }
 
@@ -293,7 +293,7 @@ func TestAnalyzeEndpointsMultiplePortsMergeIntoWildcard(t *testing.T) {
 
 	input := []types.HTTPEndpoint{
 		{
-			Endpoint:  ":\u22ef/api/data",
+			Endpoint:  ":0/api/data",
 			Methods:   []string{"GET"},
 			Direction: "outbound",
 		},
@@ -313,13 +313,13 @@ func TestAnalyzeEndpointsMultiplePortsMergeIntoWildcard(t *testing.T) {
 
 	// All three should merge into a single wildcard endpoint
 	assert.Equal(t, 1, len(result))
-	assert.Equal(t, ":\u22ef/api/data", result[0].Endpoint)
+	assert.Equal(t, ":0/api/data", result[0].Endpoint)
 	assert.Equal(t, []string{"GET", "POST", "PUT"}, result[0].Methods)
 }
 
 func TestMergeDuplicateEndpointsWildcardPort(t *testing.T) {
 	wildcardEP := &types.HTTPEndpoint{
-		Endpoint:  ":\u22ef/api/data",
+		Endpoint:  ":0/api/data",
 		Methods:   []string{"GET"},
 		Direction: "outbound",
 	}
@@ -332,6 +332,6 @@ func TestMergeDuplicateEndpointsWildcardPort(t *testing.T) {
 	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{wildcardEP, specificEP})
 
 	assert.Equal(t, 1, len(result))
-	assert.Equal(t, ":\u22ef/api/data", result[0].Endpoint)
+	assert.Equal(t, ":0/api/data", result[0].Endpoint)
 	assert.Equal(t, []string{"GET", "POST"}, result[0].Methods)
 }

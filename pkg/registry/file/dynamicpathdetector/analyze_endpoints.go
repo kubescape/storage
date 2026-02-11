@@ -10,23 +10,51 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
+func isWildcardPort(port string) bool {
+	return port == "0"
+}
+
+func rewritePort(endpoint, wildcardPort string) string {
+	if wildcardPort == "" {
+		return endpoint
+	}
+	port, pathPart := splitEndpointPortAndPath(endpoint)
+	if !isWildcardPort(port) {
+		return ":" + wildcardPort + pathPart
+	}
+	return endpoint
+}
+
 func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) []types.HTTPEndpoint {
 	if len(*endpoints) == 0 {
 		return nil
 	}
 
-	var newEndpoints []*types.HTTPEndpoint
-	for _, endpoint := range *endpoints {
-		_, _ = AnalyzeURL(endpoint.Endpoint, analyzer)
+	// Detect wildcard port in input (port 0 means any port)
+	wildcardPort := ""
+	for _, ep := range *endpoints {
+		port, _ := splitEndpointPortAndPath(ep.Endpoint)
+		if isWildcardPort(port) {
+			wildcardPort = port
+			break
+		}
 	}
 
+	// First pass: build tree, redirecting to wildcard port if needed
 	for _, endpoint := range *endpoints {
-		processedEndpoint, err := ProcessEndpoint(&endpoint, analyzer, newEndpoints)
+		_, _ = AnalyzeURL(rewritePort(endpoint.Endpoint, wildcardPort), analyzer)
+	}
+
+	// Second pass: process endpoints
+	var newEndpoints []*types.HTTPEndpoint
+	for _, endpoint := range *endpoints {
+		ep := endpoint
+		ep.Endpoint = rewritePort(ep.Endpoint, wildcardPort)
+		processedEndpoint, err := ProcessEndpoint(&ep, analyzer, newEndpoints)
 		if processedEndpoint == nil && err == nil || err != nil {
 			continue
-		} else {
-			newEndpoints = append(newEndpoints, processedEndpoint)
 		}
+		newEndpoints = append(newEndpoints, processedEndpoint)
 	}
 
 	newEndpoints = MergeDuplicateEndpoints(newEndpoints)
@@ -97,37 +125,27 @@ func splitEndpointPortAndPath(endpoint string) (string, string) {
 	return s[:idx], s[idx:]
 }
 
-func getEndpointKey(endpoint *types.HTTPEndpoint) string {
-	port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
-	return fmt.Sprintf(":%s%s|%s", port, pathPart, endpoint.Direction)
-}
-
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
 	seen := make(map[string]*types.HTTPEndpoint)
 	var newEndpoints []*types.HTTPEndpoint
-
 	for _, endpoint := range endpoints {
-		var key, wildcardKey string
-		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
-		wildcardKey = fmt.Sprintf(":%s%s|%s", "0", pathPart, endpoint.Direction)
-		//debug only -- why are the METHODS collapsing NOPE THIS DOESNT UNDO IT
-		//wildcardKey = fmt.Sprintf(":%s%s|%s", port, pathPart, endpoint.Direction)
-		//  Check if a wildcard version (:0) of this endpoint already exists.
-		if existing, found := seen[wildcardKey]; found {
-			if existing.Endpoint == endpoint.Endpoint {
-				continue
-			}
+		key := getEndpointKey(endpoint)
+
+		if existing, found := seen[key]; found {
 			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
 			mergeHeaders(existing, endpoint)
 			continue
 		}
 
-		// Check if an endpoint with the exact same port and path exists.
-		key = fmt.Sprintf(":%s%s|%s", port, pathPart, endpoint.Direction)
-		if existing, found := seen[key]; found {
-			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
-			mergeHeaders(existing, endpoint)
-			continue
+		// Check if a wildcard port variant already exists (port 0 means any port)
+		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
+		if !isWildcardPort(port) {
+			wildcardKey := fmt.Sprintf(":%s%s|%s", "0", pathPart, endpoint.Direction)
+			if existing, found := seen[wildcardKey]; found {
+				existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
+				mergeHeaders(existing, endpoint)
+				continue
+			}
 		}
 
 		seen[key] = endpoint
@@ -137,8 +155,11 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 	return newEndpoints
 }
 
+func getEndpointKey(endpoint *types.HTTPEndpoint) string {
+	return fmt.Sprintf("%s|%s", endpoint.Endpoint, endpoint.Direction)
+}
+
 func mergeHeaders(existing, new *types.HTTPEndpoint) {
-	// TODO: Find a better way to unmarshal the headers
 	existingHeaders, err := existing.GetHeaders()
 	if err != nil {
 		return

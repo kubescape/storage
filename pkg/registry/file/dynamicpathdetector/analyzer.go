@@ -4,59 +4,53 @@ import (
 	"strings"
 )
 
-// This function builds a tree of nodes
 const (
 	WildcardIdentifier = "*"
 )
 
 var CollapseConfigs = []CollapseConfig{
-	{
-		Prefix:    "/etc",
-		Threshold: 50,
-	},
-	{
-		Prefix:    "/opt",
-		Threshold: 5,
-	},
-	{
-		Prefix:    "/var/run", // here we have the special case that we treat two segments of the path as one
-		Threshold: 3,
-	},
-	{
-		Prefix:    "/app",
-		Threshold: 1, // Now 1 has the special treatment that it IMMEDIATELY collapses everything into /$prefix/* , meaning it just matches everything
-	},
+	{Prefix: "/etc", Threshold: 50},
+	{Prefix: "/opt", Threshold: 5},
+	{Prefix: "/var/run", Threshold: 3},
+	{Prefix: "/app", Threshold: 1},
 }
+
 var DefaultCollapseConfig = CollapseConfig{
 	Prefix:    "/",
-	Threshold: 50, //later set to 50
+	Threshold: 50,
 }
 
-// NewPathAnalyzer is the primary constructor for the PathAnalyzer.
-// It initializes the analyzer with a default set of collapse configurations
-// and sets the global default threshold.
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
-	DefaultCollapseConfig.Threshold = threshold
-	return NewPathAnalyzerWithConfigs(CollapseConfigs)
+	return newAnalyzer(CollapseConfig{Prefix: "/", Threshold: threshold}, CollapseConfigs)
 }
 
-// NewPathAnalyzerWithConfigs creates a PathAnalyzer with a specific set of collapse configurations.
 func NewPathAnalyzerWithConfigs(configs []CollapseConfig) *PathAnalyzer {
+	return newAnalyzer(DefaultCollapseConfig, configs)
+}
 
+func newAnalyzer(defaultCfg CollapseConfig, configs []CollapseConfig) *PathAnalyzer {
 	matcher := &PathAnalyzer{
-		root: NewTrieNode(),
+		root:       NewTrieNode(),
+		identRoots: make(map[string]*TrieNode),
+		configs:    make([]CollapseConfig, len(configs)),
+		defaultCfg: defaultCfg,
 	}
-	matcher.addConfig(&DefaultCollapseConfig)
-	for i := range configs {
-		matcher.addConfig(&configs[i])
-	}
+	copy(matcher.configs, configs)
+	applyConfigsToNode(matcher.root, &matcher.defaultCfg, matcher.configs)
 	return matcher
 }
 
-func (pm *PathAnalyzer) addConfig(config *CollapseConfig) {
-	node := pm.root
+func applyConfigsToNode(node *TrieNode, defaultCfg *CollapseConfig, configs []CollapseConfig) {
+	addConfigToNode(node, defaultCfg)
+	for i := range configs {
+		addConfigToNode(node, &configs[i])
+	}
+}
+
+func addConfigToNode(root *TrieNode, config *CollapseConfig) {
+	node := root
 	segments := strings.Split(strings.Trim(config.Prefix, "/"), "/")
-	if segments[0] == "" { // Handle root prefix "/"
+	if segments[0] == "" {
 		node.Config = config
 		return
 	}
@@ -69,13 +63,45 @@ func (pm *PathAnalyzer) addConfig(config *CollapseConfig) {
 	node.Config = config
 }
 
-func (pm *PathAnalyzer) AddPath(path string) {
-	parent := pm.root
-	currentConfig := pm.root.Config
+func (pm *PathAnalyzer) getRoot(identifier string) *TrieNode {
+	if root, ok := pm.identRoots[identifier]; ok {
+		return root
+	}
+	newRoot := NewTrieNode()
+	pm.identRoots[identifier] = newRoot
+	return newRoot
+}
 
-	segments := strings.Split(strings.Trim(path, "/"), "/")
-	if len(segments) == 0 || segments[0] == "" {
-		return // Nothing to add for root path
+// splitPath splits a path into non-empty segments.
+func splitPath(path string) []string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	var result []string
+	for _, p := range parts {
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+func (pm *PathAnalyzer) AddPath(path string) {
+	pm.addPathToRoot(pm.root, path)
+}
+
+func (pm *PathAnalyzer) addPathToRoot(root *TrieNode, path string) {
+	parent := root
+
+	segments := splitPath(path)
+	if len(segments) == 0 {
+		return
+	}
+
+	// Use pm.root as config trie for per-prefix threshold lookup.
+	// Config advances AFTER navigation so threshold applies at the correct level.
+	configNode := pm.root
+	currentConfig := &pm.defaultCfg
+	if configNode != nil && configNode.Config != nil {
+		currentConfig = configNode.Config
 	}
 
 	for _, segment := range segments {
@@ -85,26 +111,47 @@ func (pm *PathAnalyzer) AddPath(path string) {
 			return
 		}
 
-		// Check for second-level collapse (⋯/⋯ -> *)
-		// This happens if the parent is a dynamic node and we are about to create another one.
-		if parent.Children[DynamicIdentifier] != nil {
-			// If the dynamic child itself has too many children, it will collapse.
-			// This logic is complex. A simpler approach is to check after traversal.
-		}
-
-		// If a dynamic node exists, traverse it.
+		// If a dynamic node exists, absorb this segment and continue.
 		if dynamicNode, ok := parent.Children[DynamicIdentifier]; ok {
 			parent = dynamicNode
-			if parent.Config != nil {
-				currentConfig = parent.Config
+			parent.Count++
+			// Advance config after navigation
+			if configNode != nil {
+				if next, ok := configNode.Children[segment]; ok {
+					configNode = next
+					if configNode.Config != nil {
+						currentConfig = configNode.Config
+					}
+				}
 			}
-			// We still need to process the current segment under this dynamic node.
-			// Let's adjust the logic to handle adding the segment to the dynamic node's children.
-		} else {
-			// Standard path traversal and creation
+			continue
 		}
 
-		// --- Add new node if it doesn't exist ---
+		// Handle DynamicIdentifier segment from input: merge siblings into new ⋯ node
+		if segment == DynamicIdentifier {
+			if _, exists := parent.Children[DynamicIdentifier]; !exists {
+				dynamicNode := NewTrieNode()
+				for _, child := range parent.Children {
+					dynamicNode.Count += child.Count
+					shallowChildrenCopy(child, dynamicNode)
+				}
+				parent.Children = map[string]*TrieNode{DynamicIdentifier: dynamicNode}
+			}
+			parent = parent.Children[DynamicIdentifier]
+			parent.Count++
+			// Advance config after navigation
+			if configNode != nil {
+				if next, ok := configNode.Children[segment]; ok {
+					configNode = next
+					if configNode.Config != nil {
+						currentConfig = configNode.Config
+					}
+				}
+			}
+			continue
+		}
+
+		// Add new node if it doesn't exist
 		child, exists := parent.Children[segment]
 		if !exists {
 			child = NewTrieNode()
@@ -112,59 +159,57 @@ func (pm *PathAnalyzer) AddPath(path string) {
 		}
 		child.Count++
 
-		// --- Check for collapse at the PARENT level ---
 		// Special case: threshold of 1 immediately creates a wildcard
-		if currentConfig.Threshold == 1 && parent.Children[WildcardIdentifier] == nil {
+		if currentConfig != nil && currentConfig.Threshold == 1 && parent.Children[WildcardIdentifier] == nil {
 			pm.createWildcardNode(parent)
 			parent.Children[WildcardIdentifier].Count++
-			return // Path is consumed by the new wildcard
+			return
 		}
 
-		// Standard collapse: if children > threshold, collapse to dynamic node
-		if len(parent.Children) > currentConfig.Threshold && parent.Children[DynamicIdentifier] == nil {
+		// Standard collapse: if unique children > threshold, collapse to dynamic node
+		if currentConfig != nil && len(parent.Children) > currentConfig.Threshold && parent.Children[DynamicIdentifier] == nil {
 			pm.createDynamicNode(parent)
 		}
 
 		// After a potential collapse, find the correct child to traverse to next.
 		if nextNode, ok := parent.Children[DynamicIdentifier]; ok {
-			// The segment is now part of the dynamic node's logic, but we traverse into the dynamic node itself.
 			parent = nextNode
 		} else if nextNode, ok := parent.Children[segment]; ok {
 			parent = nextNode
-		} else if nextNode, ok := parent.Children[WildcardIdentifier]; ok {
-			// This case is handled at the top of the loop.
-			parent = nextNode
+		} else if _, ok := parent.Children[WildcardIdentifier]; ok {
 			return
 		} else {
-			// This should not be reached if logic is correct.
-			// print error
 			return
 		}
 
-		// Update config for the next level
-		if parent.Config != nil {
-			currentConfig = parent.Config
-		}
-
-		// Check for ⋯/⋯ -> * collapse
-		// This checks if the current node is dynamic and its only child is also dynamic.
-		if len(parent.Children) == 1 {
-			if grandChild, isDynamic := parent.Children[DynamicIdentifier]; isDynamic {
-				pm.createWildcardNode(parent)
-				//print grandChild
-				grandChild.Count++
-				return
+		// Advance config AFTER navigation so threshold applies at the correct level
+		if configNode != nil {
+			if next, ok := configNode.Children[segment]; ok {
+				configNode = next
+				if configNode.Config != nil {
+					currentConfig = configNode.Config
+				}
 			}
+		}
+	}
+}
+
+func shallowChildrenCopy(src, dst *TrieNode) {
+	for key, srcChild := range src.Children {
+		if dstChild, ok := dst.Children[key]; !ok {
+			dst.Children[key] = srcChild
+		} else {
+			dstChild.Count += srcChild.Count
+			shallowChildrenCopy(srcChild, dstChild)
 		}
 	}
 }
 
 func (pm *PathAnalyzer) createDynamicNode(node *TrieNode) {
 	dynamicNode := NewTrieNode()
-	dynamicNode.Config = node.Config // Inherit config
 	for _, child := range node.Children {
-		// A simple merge for demonstration. A real implementation might need deeper merging.
 		dynamicNode.Count += child.Count
+		shallowChildrenCopy(child, dynamicNode)
 	}
 	node.Children = map[string]*TrieNode{DynamicIdentifier: dynamicNode}
 }
@@ -183,12 +228,7 @@ func (pm *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
 	if node.Config != nil {
 		lastFoundConfig = node.Config
 	}
-
-	segments := strings.Split(strings.Trim(path, "/"), "/")
-	if segments[0] == "" {
-		return lastFoundConfig
-	}
-
+	segments := splitPath(path)
 	for _, segment := range segments {
 		if nextNode, ok := node.Children[segment]; ok {
 			node = nextNode
@@ -208,87 +248,110 @@ func (pm *PathAnalyzer) GetStoredPaths() []string {
 	return storedPaths
 }
 
-// collectPaths is a recursive helper to traverse the tree and build path strings.
 func (pm *PathAnalyzer) collectPaths(node *TrieNode, currentPath string, paths *[]string) {
-	// If it's a leaf node, we've found a full path.
 	if len(node.Children) == 0 {
 		if currentPath != "" {
 			*paths = append(*paths, currentPath)
 		}
 		return
 	}
-
-	// Otherwise, continue traversing for each child.
 	for segment, child := range node.Children {
 		newPath := currentPath + "/" + segment
 		pm.collectPaths(child, newPath, paths)
 	}
 }
 
-// func (pm *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
-// 	p = path.Clean(p)
-// 	node, exists := pm.RootNodes[identifier]
-// 	if !exists {
-// 		node = &SegmentNode{
-// 			SegmentName: identifier,
-// 			Count:       0,
-// 			Children:    make(map[string]*SegmentNode),
-// 		}
-// 		pm.RootNodes[identifier] = node
-// 	}
-// 	return pm.processSegments(node, p), nil
-// }
-
 func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, error) {
-	// Clean the path
-	path = strings.Trim(path, "/")
-	if path == "" {
+	cleanPath := strings.Trim(path, "/")
+	if cleanPath == "" {
 		return "/", nil
 	}
 
-	segments := strings.Split(path, "/")
+	root := pm.getRoot(identifier)
+
+	segments := splitPath(cleanPath)
 	if len(segments) == 0 {
 		return "/", nil
 	}
 
-	// Traverse the trie to find the correct node
-	node := pm.root
+	// Read the tree state BEFORE adding the new path.
+	// This ensures the current path doesn't see its own collapse.
+	node := root
 	var pathSegments []string
 
 	for _, segment := range segments {
-
 		if nextNode, ok := node.Children[WildcardIdentifier]; ok {
 			node = nextNode
 			pathSegments = append(pathSegments, WildcardIdentifier)
-			break // Wildcard consumes the rest
+			break
 		}
 		if nextNode, ok := node.Children[DynamicIdentifier]; ok {
 			node = nextNode
 			pathSegments = append(pathSegments, DynamicIdentifier)
-
 		} else if nextNode, ok := node.Children[segment]; ok {
 			node = nextNode
 			pathSegments = append(pathSegments, segment)
 		} else {
-			// Path not found, return original
 			pathSegments = append(pathSegments, segment)
 		}
 	}
 
+	// Now add the path to the tree (for future calls).
+	pm.addPathToRoot(root, cleanPath)
+
 	finalPath := "/" + strings.Join(pathSegments, "/")
-	//return finalPath, nil
 	return CollapseAdjacentDynamicIdentifiers(finalPath), nil
 }
 
-// CollapseAdjacentDynamicIdentifiers replaces consecutive dynamic identifiers with a single wildcard.
-func CollapseAdjacentDynamicIdentifiers(path string) string {
-	// This pattern identifies two or more consecutive dynamic identifiers
-	pattern := DynamicIdentifier + "/" + DynamicIdentifier
-	wildcardPattern := WildcardIdentifier
-
-	// Keep replacing until no more consecutive dynamic identifiers are found
-	for strings.Contains(path, pattern) {
-		path = strings.Replace(path, pattern, wildcardPattern, -1)
+// CollapseAdjacentDynamicIdentifiers replaces sequences of truly adjacent dynamic identifiers with a wildcard.
+// Only consecutive ⋯/⋯ segments are collapsed to *. Static segments between ⋯ prevent collapsing.
+func CollapseAdjacentDynamicIdentifiers(p string) string {
+	segments := strings.Split(p, "/")
+	var result []string
+	i := 0
+	for i < len(segments) {
+		if segments[i] == DynamicIdentifier && i+1 < len(segments) && segments[i+1] == DynamicIdentifier {
+			// Replace sequence of adjacent ⋯ with *
+			result = append(result, WildcardIdentifier)
+			for i < len(segments) && segments[i] == DynamicIdentifier {
+				i++
+			}
+			continue
+		}
+		result = append(result, segments[i])
+		i++
 	}
-	return path
+	return strings.Join(result, "/")
+}
+
+func CompareDynamic(dynamicPath, regularPath string) bool {
+	dynamicSegments := strings.Split(dynamicPath, "/")
+	regularSegments := strings.Split(regularPath, "/")
+	return compareSegments(dynamicSegments, regularSegments)
+}
+
+func compareSegments(dynamic, regular []string) bool {
+	if len(dynamic) == 0 {
+		return len(regular) == 0
+	}
+	if dynamic[0] == WildcardIdentifier {
+		if len(dynamic) == 1 {
+			return true
+		}
+		nextDynamic := dynamic[1]
+		for i := range regular {
+			match := nextDynamic == DynamicIdentifier || (i < len(regular) && regular[i] == nextDynamic)
+			if match && compareSegments(dynamic[1:], regular[i:]) {
+				return true
+			}
+		}
+		return false
+	}
+	if len(regular) == 0 {
+		return false
+	}
+	if dynamic[0] == DynamicIdentifier || dynamic[0] == regular[0] {
+		return compareSegments(dynamic[1:], regular[1:])
+	}
+	return false
 }
