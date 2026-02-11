@@ -113,28 +113,27 @@ func TestAnalyzeOpensWithFlagMergingAndThreshold(t *testing.T) {
 	}
 }
 
-// func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
-// 	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3 OLD BEHAVIOR
+func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3) // Threshold of 3 OLD BEHAVIOR
 
-// 	input := []types.OpenCalls{
-// 		// These should collapse into /home/…/file.txt
-// 		{Path: "/home/user1/file.txt", Flags: []string{"READ"}},
-// 		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
-// 		{Path: "/home/user3/file.txt", Flags: []string{"READ"}},
-// 		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
-// 		{Path: "/home/user*/file.txt", Flags: []string{"READ"}},
-// 	}
+	input := []types.OpenCalls{
+		// These should collapse into /home/…/file.txt
+		{Path: "/home/user1/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user2/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
+		{Path: "/home/user4/file.txt", Flags: []string{"READ"}},
+	}
 
-// 	expected := []types.OpenCalls{
-// 		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
-// 	}
+	expected := []types.OpenCalls{
+		{Path: "/home/\u22ef/file.txt", Flags: []string{"READ"}},
+	}
 
-// 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
-// 	assert.NoError(t, err)
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
+	assert.NoError(t, err)
 
-// 	// Use ElementsMatch because the order of elements in the result is not guaranteed
-// 	assert.ElementsMatch(t, expected, result)
-// }
+	// Use ElementsMatch because the order of elements in the result is not guaranteed
+	assert.ElementsMatch(t, expected, result)
+}
 
 func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
 	analyzer := dynamicpathdetector.NewPathAnalyzer(5) // Threshold of 3 for /var/run prefix is set in the defaults, but here we are overwriting the defaults
