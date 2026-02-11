@@ -17,7 +17,7 @@ var CollapseConfigs = []CollapseConfig{
 
 var DefaultCollapseConfig = CollapseConfig{
 	Prefix:    "/",
-	Threshold: 50,
+	Threshold: 5,
 }
 
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
