@@ -12,10 +12,23 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"github.com/kubescape/storage/pkg/config"
+	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+// configThreshold returns the collapse threshold for the given path prefix
+// from dynamicpathdetector.DefaultCollapseConfigs. Falls back to
+// dynamicpathdetector.DefaultCollapseConfig.Threshold for unconfigured prefixes.
+func configThreshold(prefix string) int {
+	for _, cfg := range dynamicpathdetector.DefaultCollapseConfigs {
+		if cfg.Prefix == prefix {
+			return cfg.Threshold
+		}
+	}
+	return dynamicpathdetector.DefaultCollapseConfig.Threshold
+}
 
 var ap = softwarecomposition.ApplicationProfile{
 	ObjectMeta: v1.ObjectMeta{
@@ -263,7 +276,9 @@ func generateSOOpens(n int) []softwarecomposition.OpenCalls {
 }
 
 func TestDeflateApplicationProfileContainer_CollapsesManyOpens(t *testing.T) {
-	opens := generateSOOpens(100)
+	// Generate enough opens to exceed the threshold for /usr/lib (uses default config)
+	numOpens := configThreshold("/usr/lib") + 1
+	opens := generateSOOpens(numOpens)
 
 	container := softwarecomposition.ApplicationProfileContainer{
 		Name:  "test-container",
@@ -272,8 +287,8 @@ func TestDeflateApplicationProfileContainer_CollapsesManyOpens(t *testing.T) {
 
 	result := deflateApplicationProfileContainer(container, nil)
 
-	assert.Less(t, len(result.Opens), 100,
-		"100 .so files should be collapsed, got %d opens", len(result.Opens))
+	assert.Less(t, len(result.Opens), numOpens,
+		"%d .so files should be collapsed, got %d opens", numOpens, len(result.Opens))
 
 	// Verify collapsed paths contain dynamic or wildcard segments
 	for _, open := range result.Opens {
@@ -290,9 +305,9 @@ func TestDeflateApplicationProfileContainer_CollapsesManyOpens(t *testing.T) {
 	}
 }
 
-// Todo use the OpenDynamicThreshold in the test here not hardcoded integers
 func TestDeflateApplicationProfileContainer_CollapsesWithSbomSet(t *testing.T) {
-	opens := generateSOOpens(100)
+	numOpens := configThreshold("/usr/lib") + 1
+	opens := generateSOOpens(numOpens)
 
 	// Build sbomSet containing ALL the .so paths (realistic scenario)
 	sbomSet := mapset.NewSet[string]()
@@ -308,22 +323,25 @@ func TestDeflateApplicationProfileContainer_CollapsesWithSbomSet(t *testing.T) {
 	result := deflateApplicationProfileContainer(container, sbomSet)
 
 	// Even though all paths are in SBOM, they should still be collapsed
-	assert.Less(t, len(result.Opens), 100,
+	assert.Less(t, len(result.Opens), numOpens,
 		"SBOM paths should be collapsed too, got %d opens", len(result.Opens))
 }
 
-// Todo use the OpenDynamicThreshold in the test here not hardcoded integers
 func TestDeflateApplicationProfileContainer_MixedPathsCollapse(t *testing.T) {
 	var opens []softwarecomposition.OpenCalls
 
-	for i := 0; i < 60; i++ {
+	// /usr/lib uses the default threshold (no specific prefix config)
+	usrLibThreshold := configThreshold("/usr/lib")
+	for i := 0; i < usrLibThreshold+1; i++ {
 		opens = append(opens, softwarecomposition.OpenCalls{
 			Path:  fmt.Sprintf("/usr/lib/lib%d.so", i),
 			Flags: []string{"O_RDONLY"},
 		})
 	}
 
-	for i := 0; i < 55; i++ {
+	// /etc has its own threshold in DefaultCollapseConfigs
+	etcThreshold := configThreshold("/etc")
+	for i := 0; i < etcThreshold+1; i++ {
 		opens = append(opens, softwarecomposition.OpenCalls{
 			Path:  fmt.Sprintf("/etc/conf%d.cfg", i),
 			Flags: []string{"O_RDONLY"},
@@ -386,7 +404,8 @@ func TestDeflateApplicationProfileContainer_NilSbomNoError(t *testing.T) {
 // TestDeflateApplicationProfileContainer_PreSaveEndToEnd verifies the full
 // PreSave flow with an ApplicationProfile containing many opens that should collapse.
 func TestDeflateApplicationProfileContainer_PreSaveEndToEnd(t *testing.T) {
-	opens := generateSOOpens(100)
+	numOpens := configThreshold("/usr/lib") + 1
+	opens := generateSOOpens(numOpens)
 
 	profile := &softwarecomposition.ApplicationProfile{
 		ObjectMeta: v1.ObjectMeta{
@@ -410,10 +429,9 @@ func TestDeflateApplicationProfileContainer_PreSaveEndToEnd(t *testing.T) {
 	err := processor.PreSave(context.TODO(), profile)
 	assert.NoError(t, err)
 
-	// Todo use the OpenDynamicThreshold in the test here not hardcoded integers
 	resultOpens := profile.Spec.Containers[0].Opens
-	assert.Less(t, len(resultOpens), 100,
-		"PreSave should collapse 100 .so files, got %d opens", len(resultOpens))
+	assert.Less(t, len(resultOpens), numOpens,
+		"PreSave should collapse %d .so files, got %d opens", numOpens, len(resultOpens))
 
 	// The collapsed path should contain dynamic or wildcard segments
 	hasCollapsed := false
