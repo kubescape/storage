@@ -4,10 +4,12 @@ import (
 	"strings"
 )
 
+// TODO define the two Wildcards in the same place
 const (
 	WildcardIdentifier = "*"
 )
 
+// TODO move this to whereever we define those Configs, write tests that they are consistent
 var CollapseConfigs = []CollapseConfig{
 	{Prefix: "/etc", Threshold: 50},
 	{Prefix: "/opt", Threshold: 5},
@@ -15,6 +17,7 @@ var CollapseConfigs = []CollapseConfig{
 	{Prefix: "/app", Threshold: 1},
 }
 
+// TODO replace the Threshold Integer with the struct everywhere in codebase and tests
 var DefaultCollapseConfig = CollapseConfig{
 	Prefix:    "/",
 	Threshold: 5,

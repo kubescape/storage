@@ -510,6 +510,37 @@ func TestAnalyzeOpensExistingDynamicSegmentInInput(t *testing.T) {
 	assert.ElementsMatch(t, []string{"READ", "WRITE"}, result[0].Flags)
 }
 
+// TestAnalyzeOpens_NilSbomSetNoError verifies that passing a nil sbomSet
+// does not return an error (previously it did).
+func TestAnalyzeOpens_NilSbomSetNoError(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+	input := []types.OpenCalls{
+		{Path: "/usr/lib/libfoo.so", Flags: []string{"READ"}},
+		{Path: "/usr/lib/libbar.so", Flags: []string{"READ"}},
+	}
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, nil)
+	assert.NoError(t, err, "nil sbomSet should not cause an error")
+	assert.Equal(t, 2, len(result), "paths below threshold should remain individual")
+}
+
+// TestAnalyzeOpens_NilSbomSetWithCollapse verifies that collapse works
+// correctly even when sbomSet is nil.
+func TestAnalyzeOpens_NilSbomSetWithCollapse(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzer(3)
+	input := []types.OpenCalls{
+		{Path: "/usr/lib/liba.so", Flags: []string{"READ"}},
+		{Path: "/usr/lib/libb.so", Flags: []string{"READ"}},
+		{Path: "/usr/lib/libc.so", Flags: []string{"WRITE"}},
+		{Path: "/usr/lib/libd.so", Flags: []string{"APPEND"}},
+	}
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result), "4 children > threshold 3, should collapse")
+	assert.True(t,
+		strings.Contains(result[0].Path, "\u22ef") || strings.Contains(result[0].Path, "*"),
+		"collapsed path should contain dynamic or wildcard segment, got %q", result[0].Path)
+}
+
 // Helper function to check if a slice of strings contains only unique elements
 func areStringSlicesUnique(slice []string) bool {
 	seen := make(map[string]struct{})

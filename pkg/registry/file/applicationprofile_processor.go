@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	OpenDynamicThreshold     = 50
-	EndpointDynamicThreshold = 100
+	OpenDynamicThreshold     = 5 //todo @constanze : this is currently in contradiction with the actual analyzer
+	EndpointDynamicThreshold = 5 // modified for testing
 )
 
 type ApplicationProfileProcessor struct {
