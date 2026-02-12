@@ -17,10 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const (
-	OpenDynamicThreshold     = 5 //todo @constanze : this is currently in contradiction with the actual analyzer
-	EndpointDynamicThreshold = 5 // modified for testing
-)
+// Thresholds are defined in dynamicpathdetector.OpenDynamicThreshold and
+// dynamicpathdetector.EndpointDynamicThreshold (single source of truth).
 
 type ApplicationProfileProcessor struct {
 	defaultNamespace          string
@@ -109,12 +107,12 @@ func (a *ApplicationProfileProcessor) SetStorage(containerProfileStorage Contain
 }
 
 func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string]) softwarecomposition.ApplicationProfileContainer {
-	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold), sbomSet)
 	if err != nil {
 		logger.L().Debug("falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
-	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
+	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.EndpointDynamicThreshold))
 	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
 
 	return softwarecomposition.ApplicationProfileContainer{

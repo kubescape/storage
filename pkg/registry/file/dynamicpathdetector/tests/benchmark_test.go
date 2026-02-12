@@ -13,7 +13,7 @@ import (
 )
 
 func BenchmarkAnalyzePath(b *testing.B) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
 	paths := generateMixedPaths(10000, 0) // 0 means use default mixed lengths
 
 	identifier := "test"
@@ -33,7 +33,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 	for _, length := range pathLengths {
 		b.Run(fmt.Sprintf("PathLength-%d", length), func(b *testing.B) {
-			analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+			analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
 			paths := generateMixedPaths(10000, length)
 			identifier := "test"
 
@@ -52,7 +52,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 	paths := pathsToOpens(generateMixedPaths(10000, 0))
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
 
 	b.Run("AnalyzeOpens", func(b *testing.B) {
 		b.ResetTimer()
