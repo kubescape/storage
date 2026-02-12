@@ -19,7 +19,20 @@ on:
             required: false
             default: false
 jobs:
+  tag-for-go-module:
+    name: Create Git tag so Go modules can resolve this version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create git tag matching IMAGE_TAG
+        run: |
+          git tag -f "go/${{ inputs.IMAGE_TAG }}"
+          git push origin "go/${{ inputs.IMAGE_TAG }}" --force
+
   publish-image:
+    needs: tag-for-go-module
     permissions:
       id-token: write
       packages: write
