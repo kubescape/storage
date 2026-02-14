@@ -21,28 +21,20 @@ type CollapseConfig struct {
 // Paths under these prefixes are collapsed when the number of unique children
 // exceeds the threshold.
 var DefaultCollapseConfigs = []CollapseConfig{
-	{Prefix: "/etc", Threshold: 50},
+	{Prefix: "/etc", Threshold: 100},
+	{Prefix: "/etc/apache2", Threshold: 5}, //this is mostly for our webapp standard test
 	{Prefix: "/opt", Threshold: 5},
 	{Prefix: "/var/run", Threshold: 3},
 	{Prefix: "/app", Threshold: 1},
 }
 
-// DefaultCollapseConfig is the fallback used for paths that don't match any
-// prefix in DefaultCollapseConfigs.
+const OpenDynamicThreshold = 50
+const EndpointDynamicThreshold = 100
+
 var DefaultCollapseConfig = CollapseConfig{
 	Prefix:    "/",
-	Threshold: 5,
+	Threshold: OpenDynamicThreshold,
 }
-
-// --- Default thresholds for processors ---
-
-// OpenDynamicThreshold is the default collapse threshold used when analyzing
-// file-open paths in ApplicationProfile and ContainerProfile processors.
-const OpenDynamicThreshold = 50
-
-// EndpointDynamicThreshold is the default collapse threshold used when
-// analyzing HTTP endpoint paths.
-const EndpointDynamicThreshold = 100
 
 // --- Types ---
 
