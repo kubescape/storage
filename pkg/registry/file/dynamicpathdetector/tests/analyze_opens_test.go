@@ -131,13 +131,12 @@ func TestAnalyzeOpensWithAsteriskAndEllipsis(t *testing.T) {
 }
 
 func TestAnalyzeOpensWithMultiCollapse(t *testing.T) {
-	// Use a threshold higher than the /var/run config (3) so /var/run paths do NOT collapse
+	// NewPathAnalyzer uses a uniform threshold (no per-prefix configs).
 	threshold := dynamicpathdetector.DefaultCollapseConfig.Threshold
 	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
 
-	// Only 3 paths under /var/run — the per-prefix threshold for /var/run is 3,
-	// but NewPathAnalyzer overrides the default to 'threshold', so /var/run inherits its own config (3).
-	// 3 children <= threshold 3, so these should NOT collapse.
+	// Only 3 paths under /var/run — uniform threshold is 5, so 3 children <= 5.
+	// These should NOT collapse.
 	input := []types.OpenCalls{
 		{Path: "/var/run/txt/file.txt", Flags: []string{"READ"}},
 		{Path: "/var/run/txt1/file.txt", Flags: []string{"READ"}},
@@ -270,7 +269,7 @@ func TestAnalyzeOpensCollapseExactBoundary(t *testing.T) {
 		result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, mapset.NewSet[string]())
 		assert.NoError(t, err)
 		assert.Equal(t, 1, len(result), "above threshold, paths should collapse to 1")
-		assertPathIsOneOf(t, result[0].Path, "/data/*/info", "/data/\u22ef/info")
+		assert.Equal(t, "/data/\u22ef/info", result[0].Path, "NewPathAnalyzer should only produce \u22ef, never *")
 	})
 }
 

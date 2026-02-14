@@ -4,3 +4,15 @@ artifacts/simple-image/storage-apiserver
 artifacts/simple-image/kube-sample-apiserver
 logs-*/*
 tmp/*
+
+# Integration test artifacts
+tests/integration-test-suite/junit-*.xml
+tests/integration-test-suite/log-*.txt
+tests/integration-test-suite/integration-test-suite.test
+
+# TODO: Fix upstream - these test files import containerwatcher/v1 which was
+# renamed to containerprofilemanager/v1 in node-agent. Until the upstream
+# integration test suite is updated, local builds require patching these imports.
+tests/integration-test-suite/case_*_test.go
+tests/integration-test-suite/go.mod
+tests/integration-test-suite/go.sum

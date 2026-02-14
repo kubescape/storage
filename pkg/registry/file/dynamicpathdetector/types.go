@@ -38,11 +38,11 @@ var DefaultCollapseConfig = CollapseConfig{
 
 // OpenDynamicThreshold is the default collapse threshold used when analyzing
 // file-open paths in ApplicationProfile and ContainerProfile processors.
-const OpenDynamicThreshold = 5
+const OpenDynamicThreshold = 50
 
 // EndpointDynamicThreshold is the default collapse threshold used when
 // analyzing HTTP endpoint paths.
-const EndpointDynamicThreshold = 5
+const EndpointDynamicThreshold = 100
 
 // --- Types ---
 
@@ -54,10 +54,11 @@ type SegmentNode struct {
 }
 
 type PathAnalyzer struct {
-	root       *TrieNode
-	identRoots map[string]*TrieNode
-	configs    []CollapseConfig
-	defaultCfg CollapseConfig
+	root             *TrieNode
+	identRoots       map[string]*TrieNode
+	configs          []CollapseConfig
+	defaultCfg       CollapseConfig
+	collapseAdjacent bool
 }
 
 func NewTrieNode() *TrieNode {
