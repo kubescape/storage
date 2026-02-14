@@ -5,19 +5,20 @@ import (
 )
 
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
-	return newAnalyzer(CollapseConfig{Prefix: "/", Threshold: threshold}, DefaultCollapseConfigs)
+	return newAnalyzer(CollapseConfig{Prefix: "/", Threshold: threshold}, nil, false)
 }
 
 func NewPathAnalyzerWithConfigs(configs []CollapseConfig) *PathAnalyzer {
-	return newAnalyzer(DefaultCollapseConfig, configs)
+	return newAnalyzer(DefaultCollapseConfig, configs, true)
 }
 
-func newAnalyzer(defaultCfg CollapseConfig, configs []CollapseConfig) *PathAnalyzer {
+func newAnalyzer(defaultCfg CollapseConfig, configs []CollapseConfig, collapseAdjacent bool) *PathAnalyzer {
 	matcher := &PathAnalyzer{
-		root:       NewTrieNode(),
-		identRoots: make(map[string]*TrieNode),
-		configs:    make([]CollapseConfig, len(configs)),
-		defaultCfg: defaultCfg,
+		root:             NewTrieNode(),
+		identRoots:       make(map[string]*TrieNode),
+		configs:          make([]CollapseConfig, len(configs)),
+		defaultCfg:       defaultCfg,
+		collapseAdjacent: collapseAdjacent,
 	}
 	copy(matcher.configs, configs)
 	applyConfigsToNode(matcher.root, &matcher.defaultCfg, matcher.configs)
@@ -143,8 +144,8 @@ func (pm *PathAnalyzer) addPathToRoot(root *TrieNode, path string) {
 		}
 		child.Count++
 
-		// Special case: threshold of 1 immediately creates a wildcard
-		if currentConfig != nil && currentConfig.Threshold == 1 && parent.Children[WildcardIdentifier] == nil {
+		// Special case: threshold of 1 immediately creates a wildcard (only with collapseAdjacent)
+		if pm.collapseAdjacent && currentConfig != nil && currentConfig.Threshold == 1 && parent.Children[WildcardIdentifier] == nil {
 			pm.createWildcardNode(parent)
 			parent.Children[WildcardIdentifier].Count++
 			return
@@ -284,7 +285,10 @@ func (pm *PathAnalyzer) AnalyzePath(path string, identifier string) (string, err
 	pm.addPathToRoot(root, cleanPath)
 
 	finalPath := "/" + strings.Join(pathSegments, "/")
-	return CollapseAdjacentDynamicIdentifiers(finalPath), nil
+	if pm.collapseAdjacent {
+		return CollapseAdjacentDynamicIdentifiers(finalPath), nil
+	}
+	return finalPath, nil
 }
 
 // CollapseAdjacentDynamicIdentifiers replaces sequences of truly adjacent dynamic identifiers with a wildcard.
