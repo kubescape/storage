@@ -18,16 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// configThreshold returns the collapse threshold for the given path prefix
-// from dynamicpathdetector.DefaultCollapseConfigs. Falls back to
-// dynamicpathdetector.DefaultCollapseConfig.Threshold for unconfigured prefixes.
-func configThreshold(prefix string) int {
-	for _, cfg := range dynamicpathdetector.DefaultCollapseConfigs {
-		if cfg.Prefix == prefix {
-			return cfg.Threshold
-		}
-	}
-	return dynamicpathdetector.DefaultCollapseConfig.Threshold
+// openThreshold returns the collapse threshold used by deflateApplicationProfileContainer
+// for file-open paths. NewPathAnalyzer uses a uniform threshold (OpenDynamicThreshold).
+func openThreshold() int {
+	return dynamicpathdetector.OpenDynamicThreshold
 }
 
 var ap = softwarecomposition.ApplicationProfile{
@@ -276,8 +270,8 @@ func generateSOOpens(n int) []softwarecomposition.OpenCalls {
 }
 
 func TestDeflateApplicationProfileContainer_CollapsesManyOpens(t *testing.T) {
-	// Generate enough opens to exceed the threshold for /usr/lib (uses default config)
-	numOpens := configThreshold("/usr/lib") + 1
+	// Generate enough opens to exceed the uniform threshold used by NewPathAnalyzer
+	numOpens := openThreshold() + 1
 	opens := generateSOOpens(numOpens)
 
 	container := softwarecomposition.ApplicationProfileContainer{
@@ -306,7 +300,7 @@ func TestDeflateApplicationProfileContainer_CollapsesManyOpens(t *testing.T) {
 }
 
 func TestDeflateApplicationProfileContainer_CollapsesWithSbomSet(t *testing.T) {
-	numOpens := configThreshold("/usr/lib") + 1
+	numOpens := openThreshold() + 1
 	opens := generateSOOpens(numOpens)
 
 	// Build sbomSet containing ALL the .so paths (realistic scenario)
@@ -330,8 +324,8 @@ func TestDeflateApplicationProfileContainer_CollapsesWithSbomSet(t *testing.T) {
 func TestDeflateApplicationProfileContainer_MixedPathsCollapse(t *testing.T) {
 	var opens []softwarecomposition.OpenCalls
 
-	// /usr/lib uses the default threshold (no specific prefix config)
-	usrLibThreshold := configThreshold("/usr/lib")
+	// /usr/lib uses the uniform threshold from NewPathAnalyzer(OpenDynamicThreshold)
+	usrLibThreshold := openThreshold()
 	for i := 0; i < usrLibThreshold+1; i++ {
 		opens = append(opens, softwarecomposition.OpenCalls{
 			Path:  fmt.Sprintf("/usr/lib/lib%d.so", i),
@@ -339,8 +333,8 @@ func TestDeflateApplicationProfileContainer_MixedPathsCollapse(t *testing.T) {
 		})
 	}
 
-	// /etc has its own threshold in DefaultCollapseConfigs
-	etcThreshold := configThreshold("/etc")
+	// /etc also uses the same uniform threshold
+	etcThreshold := openThreshold()
 	for i := 0; i < etcThreshold+1; i++ {
 		opens = append(opens, softwarecomposition.OpenCalls{
 			Path:  fmt.Sprintf("/etc/conf%d.cfg", i),
@@ -404,7 +398,7 @@ func TestDeflateApplicationProfileContainer_NilSbomNoError(t *testing.T) {
 // TestDeflateApplicationProfileContainer_PreSaveEndToEnd verifies the full
 // PreSave flow with an ApplicationProfile containing many opens that should collapse.
 func TestDeflateApplicationProfileContainer_PreSaveEndToEnd(t *testing.T) {
-	numOpens := configThreshold("/usr/lib") + 1
+	numOpens := openThreshold() + 1
 	opens := generateSOOpens(numOpens)
 
 	profile := &softwarecomposition.ApplicationProfile{
