@@ -19,15 +19,15 @@ func configThreshold(prefix string) int {
 	return dynamicpathdetector.DefaultCollapseConfig.Threshold
 }
 
-func TestNewPathAnalyzer(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
+func TestNewPathAnalyzerWithConfigs(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 	if analyzer == nil {
-		t.Error("NewPathAnalyzer() returned nil")
+		t.Error("NewPathAnalyzerWithConfigs() returned nil")
 	}
 }
 
 func TestAnalyzePath(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	testCases := []struct {
 		name       string
@@ -81,7 +81,7 @@ func TestCollapseAdjacentDynamicIdentifiers(t *testing.T) {
 
 func TestDynamicSegments(t *testing.T) {
 	threshold := dynamicpathdetector.OpenDynamicThreshold
-	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	for i := 0; i < threshold+1; i++ {
 		path := fmt.Sprintf("/api/users/%d", i)
@@ -104,7 +104,7 @@ func TestDynamicSegments(t *testing.T) {
 
 func TestMultipleDynamicSegments(t *testing.T) {
 	threshold := dynamicpathdetector.OpenDynamicThreshold
-	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	for i := 0; i < threshold+10; i++ {
 		path := fmt.Sprintf("/api/users/%d/posts/%d", i, i)
@@ -122,7 +122,7 @@ func TestMultipleDynamicSegments(t *testing.T) {
 
 func TestMixedStaticAndDynamicSegments(t *testing.T) {
 	threshold := dynamicpathdetector.OpenDynamicThreshold
-	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	for i := 0; i < threshold+1; i++ {
 		path := fmt.Sprintf("/api/users/%d/posts", i)
@@ -139,7 +139,7 @@ func TestMixedStaticAndDynamicSegments(t *testing.T) {
 }
 
 func TestDifferentRootIdentifiers(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	result1, _ := analyzer.AnalyzePath("/api/users/123", "api")
 	result2, _ := analyzer.AnalyzePath("/api/products/456", "store")
@@ -150,7 +150,7 @@ func TestDifferentRootIdentifiers(t *testing.T) {
 
 func TestDynamicThreshold(t *testing.T) {
 	threshold := dynamicpathdetector.OpenDynamicThreshold
-	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	for i := 0; i < threshold+1; i++ {
 		path := fmt.Sprintf("/api/users/%d", i)
@@ -165,7 +165,7 @@ func TestDynamicThreshold(t *testing.T) {
 }
 
 func TestEdgeCases(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	testCases := []struct {
 		name       string
@@ -188,7 +188,7 @@ func TestEdgeCases(t *testing.T) {
 }
 
 func TestDynamicInsertion(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.OpenDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	result, err := analyzer.AnalyzePath("/api/users/\u22ef", "api")
 	assert.NoError(t, err)
@@ -203,7 +203,7 @@ func TestDynamicInsertion(t *testing.T) {
 
 func TestDynamic(t *testing.T) {
 	threshold := dynamicpathdetector.OpenDynamicThreshold
-	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 	for i := 0; i < threshold+1; i++ {
 		path := fmt.Sprintf("/api/users/%d", i)
 		_, err := analyzer.AnalyzePath(path, "api")
@@ -217,7 +217,7 @@ func TestDynamic(t *testing.T) {
 
 func TestCollapseConfig(t *testing.T) {
 	appThreshold := configThreshold("/app")
-	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs([]dynamicpathdetector.CollapseConfig{
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, []dynamicpathdetector.CollapseConfig{
 		{
 			Prefix:    "/api",
 			Threshold: appThreshold,

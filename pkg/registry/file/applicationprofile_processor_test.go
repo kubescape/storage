@@ -19,7 +19,7 @@ import (
 )
 
 // openThreshold returns the collapse threshold used by deflateApplicationProfileContainer
-// for file-open paths. NewPathAnalyzer uses a uniform threshold (OpenDynamicThreshold).
+// for file-open paths. NewPathAnalyzerWithConfigs uses OpenDynamicThreshold as the default.
 func openThreshold() int {
 	return dynamicpathdetector.OpenDynamicThreshold
 }
@@ -270,7 +270,7 @@ func generateSOOpens(n int) []softwarecomposition.OpenCalls {
 }
 
 func TestDeflateApplicationProfileContainer_CollapsesManyOpens(t *testing.T) {
-	// Generate enough opens to exceed the uniform threshold used by NewPathAnalyzer
+	// Generate enough opens to exceed the default threshold used by NewPathAnalyzerWithConfigs
 	numOpens := openThreshold() + 1
 	opens := generateSOOpens(numOpens)
 
@@ -324,7 +324,7 @@ func TestDeflateApplicationProfileContainer_CollapsesWithSbomSet(t *testing.T) {
 func TestDeflateApplicationProfileContainer_MixedPathsCollapse(t *testing.T) {
 	var opens []softwarecomposition.OpenCalls
 
-	// /usr/lib uses the uniform threshold from NewPathAnalyzer(OpenDynamicThreshold)
+	// /usr/lib uses the default threshold from NewPathAnalyzerWithConfigs(OpenDynamicThreshold, ...)
 	usrLibThreshold := openThreshold()
 	for i := 0; i < usrLibThreshold+1; i++ {
 		opens = append(opens, softwarecomposition.OpenCalls{
@@ -333,8 +333,8 @@ func TestDeflateApplicationProfileContainer_MixedPathsCollapse(t *testing.T) {
 		})
 	}
 
-	// /etc also uses the same uniform threshold
-	etcThreshold := openThreshold()
+	// /etc uses the /etc config threshold from DefaultCollapseConfigs (100)
+	etcThreshold := 100
 	for i := 0; i < etcThreshold+1; i++ {
 		opens = append(opens, softwarecomposition.OpenCalls{
 			Path:  fmt.Sprintf("/etc/conf%d.cfg", i),
