@@ -12,7 +12,7 @@ import (
 )
 
 func TestAnalyzeEndpoints(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.EndpointDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	tests := []struct {
 		name     string
@@ -169,7 +169,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 
 func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
 	threshold := dynamicpathdetector.EndpointDynamicThreshold
-	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	var input []types.HTTPEndpoint
 	for i := 0; i < threshold+1; i++ {
@@ -192,7 +192,7 @@ func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
 
 func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 	threshold := dynamicpathdetector.EndpointDynamicThreshold
-	analyzer := dynamicpathdetector.NewPathAnalyzer(threshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	var input []types.HTTPEndpoint
 	for i := 0; i < threshold; i++ {
@@ -225,7 +225,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 }
 
 func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.EndpointDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	input := []types.HTTPEndpoint{
 		{
@@ -239,7 +239,7 @@ func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
 }
 
 func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.EndpointDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	input := []types.HTTPEndpoint{
 		{
@@ -263,7 +263,7 @@ func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
 }
 
 func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.EndpointDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	input := []types.HTTPEndpoint{
 		{
@@ -287,7 +287,7 @@ func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
 }
 
 func TestAnalyzeEndpointsMultiplePortsMergeIntoWildcard(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(dynamicpathdetector.EndpointDynamicThreshold)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	input := []types.HTTPEndpoint{
 		{

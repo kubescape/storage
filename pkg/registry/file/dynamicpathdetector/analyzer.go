@@ -4,12 +4,8 @@ import (
 	"strings"
 )
 
-func NewPathAnalyzer(threshold int) *PathAnalyzer {
-	return newAnalyzer(CollapseConfig{Prefix: "/", Threshold: threshold}, nil, false)
-}
-
-func NewPathAnalyzerWithConfigs(configs []CollapseConfig) *PathAnalyzer {
-	return newAnalyzer(DefaultCollapseConfig, configs, true)
+func NewPathAnalyzerWithConfigs(defaultThreshold int, configs []CollapseConfig) *PathAnalyzer {
+	return newAnalyzer(CollapseConfig{Prefix: "/", Threshold: defaultThreshold}, configs, true)
 }
 
 func newAnalyzer(defaultCfg CollapseConfig, configs []CollapseConfig, collapseAdjacent bool) *PathAnalyzer {
