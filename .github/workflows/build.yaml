@@ -18,17 +18,76 @@ on:
             type: boolean
             required: false
             default: false
+    push:
+      branches:
+        - test/localtestbuild
+
 jobs:
+  prepare:
+    name: Resolve build parameters
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.params.outputs.image_tag }}
+      client: ${{ steps.params.outputs.client }}
+      platforms: ${{ steps.params.outputs.platforms }}
+      cosign: ${{ steps.params.outputs.cosign }}
+    steps:
+      - id: params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "image_tag=${{ inputs.IMAGE_TAG }}" >> "$GITHUB_OUTPUT"
+            echo "client=${{ inputs.CLIENT }}" >> "$GITHUB_OUTPUT"
+            echo "platforms=${{ inputs.PLATFORMS }}" >> "$GITHUB_OUTPUT"
+            echo "cosign=${{ inputs.CO_SIGN }}" >> "$GITHUB_OUTPUT"
+          else
+            # Push trigger: derive tag from short commit SHA
+            echo "image_tag=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "client=test" >> "$GITHUB_OUTPUT"
+            echo "platforms=false" >> "$GITHUB_OUTPUT"
+            echo "cosign=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  tag-for-go-module:
+    needs: prepare
+    name: Create Git tag so Go modules can resolve this version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create git tag matching IMAGE_TAG
+        run: |
+          git tag -f "go/${{ needs.prepare.outputs.image_tag }}"
+          git push origin "go/${{ needs.prepare.outputs.image_tag }}" --force
+
   publish-image:
+    needs: [prepare, tag-for-go-module]
     permissions:
       id-token: write
       packages: write
       contents: read
     uses: ./.github/workflows/publish-image.yaml
     with:
-      client: ${{ inputs.CLIENT }}
+      client: ${{ needs.prepare.outputs.client }}
       image_name: "ghcr.io/${{ github.repository_owner }}/storage"
-      image_tag: ${{ inputs.IMAGE_TAG }}
-      support_platforms: ${{ inputs.PLATFORMS }}
-      cosign: ${{ inputs.CO_SIGN }}
+      image_tag: ${{ needs.prepare.outputs.image_tag }}
+      support_platforms: ${{ needs.prepare.outputs.platforms == 'true' }}
+      cosign: ${{ needs.prepare.outputs.cosign == 'true' }}
     secrets: inherit
+
+  trigger-node-agent:
+    needs: [prepare, publish-image]
+    name: Trigger node-agent rebuild with matching tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger node-agent build
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          IMAGE_TAG="${{ needs.prepare.outputs.image_tag }}"
+          echo "Triggering node-agent build with IMAGE_TAG=${IMAGE_TAG} STORAGE_REF=${IMAGE_TAG}"
+          gh workflow run build.yaml \
+            --repo "${{ github.repository_owner }}/node-agent" \
+            --ref test/localtestbuild \
+            -f IMAGE_TAG="${IMAGE_TAG}" \
+            -f STORAGE_REF="${IMAGE_TAG}"

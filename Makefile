@@ -2,7 +2,7 @@ DOCKERFILE_PATH=./build/Dockerfile
 BINARY_NAME=storage
 
 TAG?=test
-IMAGE?=quay.io/kubescape/$(BINARY_NAME)
+IMAGE?=ghcr.io/k8sstormcenter/$(BINARY_NAME)
 
 
 build:

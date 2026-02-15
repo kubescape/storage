@@ -13,6 +13,10 @@ concurrency:
 
 jobs:
   pr-created:
+    permissions:
+      pull-requests: write
+      security-events: write
+      contents: read
     uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@main
     with:
       CGO_ENABLED: 0
