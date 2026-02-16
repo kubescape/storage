@@ -20,7 +20,7 @@ on:
             default: false
     push:
       branches:
-        - test/localtestbuild
+        - features/exec
 
 jobs:
   prepare:
