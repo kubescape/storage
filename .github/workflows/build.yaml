@@ -20,7 +20,7 @@ on:
             default: false
     push:
       branches:
-        - features/exec
+        - feature/exec
 
 jobs:
   prepare:
