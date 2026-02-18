@@ -22,6 +22,7 @@ limitations under the License.
 package openapi
 
 import (
+	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -32,226 +33,226 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory":                                   schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfile":                         schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer":                schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileList":                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileSpec":                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus":                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg":                                        schema_pkg_apis_softwarecomposition_v1beta1_Arg(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE":                                        schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack":                                  schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode":                              schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component":                                  schema_pkg_apis_softwarecomposition_v1beta1_Component(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition":                                  schema_pkg_apis_softwarecomposition_v1beta1_Condition(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConditionedStatus":                          schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary":                   schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummaryList":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec":               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfile":                           schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfile(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfileList":                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfileSpec":                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfileStatus":                     schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity":                            schema_pkg_apis_softwarecomposition_v1beta1_ControlSeverity(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates":                                schema_pkg_apis_softwarecomposition_v1beta1_Coordinates(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss":                                       schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics":                                schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor":                                 schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest":                                     schema_pkg_apis_softwarecomposition_v1beta1_Digest(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution":                               schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ELFSecurityFeatures":                        schema_pkg_apis_softwarecomposition_v1beta1_ELFSecurityFeatures(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls":                                  schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Executable":                                 schema_pkg_apis_softwarecomposition_v1beta1_Executable(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense":                                schema_pkg_apis_softwarecomposition_v1beta1_FileLicense(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicenseEvidence":                        schema_pkg_apis_softwarecomposition_v1beta1_FileLicenseEvidence(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry":                          schema_pkg_apis_softwarecomposition_v1beta1_FileMetadataEntry(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix":                                        schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicy":                     schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicyList":                 schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument":                              schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage":                               schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint":                               schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressPath":                            schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressPath(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressRuleValue":                       schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressRuleValue(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IPBlock":                                    schema_pkg_apis_softwarecomposition_v1beta1_IPBlock(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack":                        schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule":                                 schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage":                          schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch":                               schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Ingress":                                    schema_pkg_apis_softwarecomposition_v1beta1_Ingress(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressBackend":                             schema_pkg_apis_softwarecomposition_v1beta1_IngressBackend(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClass":                               schema_pkg_apis_softwarecomposition_v1beta1_IngressClass(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClassList":                           schema_pkg_apis_softwarecomposition_v1beta1_IngressClassList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClassParametersReference":            schema_pkg_apis_softwarecomposition_v1beta1_IngressClassParametersReference(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClassSpec":                           schema_pkg_apis_softwarecomposition_v1beta1_IngressClassSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressList":                                schema_pkg_apis_softwarecomposition_v1beta1_IngressList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressLoadBalancerIngress":                 schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerIngress(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressLoadBalancerStatus":                  schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressPortStatus":                          schema_pkg_apis_softwarecomposition_v1beta1_IngressPortStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressRule":                                schema_pkg_apis_softwarecomposition_v1beta1_IngressRule(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressRuleValue":                           schema_pkg_apis_softwarecomposition_v1beta1_IngressRuleValue(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressServiceBackend":                      schema_pkg_apis_softwarecomposition_v1beta1_IngressServiceBackend(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressSpec":                                schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressStatus":                              schema_pkg_apis_softwarecomposition_v1beta1_IngressStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressTLS":                                 schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer":                                schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerEntry":                           schema_pkg_apis_softwarecomposition_v1beta1_KnownServerEntry(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerList":                            schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License":                                    schema_pkg_apis_softwarecomposition_v1beta1_License(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease":                               schema_pkg_apis_softwarecomposition_v1beta1_LinuxRelease(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location":                                   schema_pkg_apis_softwarecomposition_v1beta1_Location(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationData":                               schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationMetadata":                           schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match":                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails":                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata":                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor":                            schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhood":                        schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhood(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodContainer":               schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodList":                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodSpec":                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy":                              schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicy(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyEgressRule":                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyIngressRule":                   schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyList":                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPeer":                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyPeer(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPort":                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyPort(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicySpec":                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyStatus":                        schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPort":                                schema_pkg_apis_softwarecomposition_v1beta1_NetworkPort(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls":                                  schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer":         schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainer(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainerList":     schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainerList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData":                           schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicDataV01011":                     schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData":                          schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PolicyRef":                                  schema_pkg_apis_softwarecomposition_v1beta1_PolicyRef(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product":                                    schema_pkg_apis_softwarecomposition_v1beta1_Product(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta":                                 schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePath":                                   schema_pkg_apis_softwarecomposition_v1beta1_RulePath(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy":                                 schema_pkg_apis_softwarecomposition_v1beta1_RulePolicy(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RuleStatus":                                 schema_pkg_apis_softwarecomposition_v1beta1_RuleStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft":                                   schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyft(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered":                           schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFilteredList":                       schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftList":                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec":                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus":                             schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControl":                             schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlRule":                         schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus":                       schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlSummary":                      schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema":                                     schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfile":                             schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfile(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileList":                         schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileSpec":                         schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileStatus":                       schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ServiceBackendPort":                         schema_pkg_apis_softwarecomposition_v1beta1_ServiceBackendPort(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary":                            schema_pkg_apis_softwarecomposition_v1beta1_SeveritySummary(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile":                       schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfile(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileSpec":                   schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus":                 schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source":                                     schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SpecBase":                                   schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame":                                 schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement":                                  schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StatusBase":                                 schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent":                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates":                            schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor":                             schema_pkg_apis_softwarecomposition_v1beta1_SyftDescriptor(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument":                               schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile":                                   schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage":                                schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship":                           schema_pkg_apis_softwarecomposition_v1beta1_SyftRelationship(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource":                                 schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Syscall":                                    schema_pkg_apis_softwarecomposition_v1beta1_Syscall(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta":                                   schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage":                            schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX":                                        schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VexVulnerability":                           schema_pkg_apis_softwarecomposition_v1beta1_VexVulnerability(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents":                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope":                    schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesObjScope(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability":                              schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters":                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityCounters(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest":                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestList":                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestMeta":                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestReportMeta":            schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestReportMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSpec":                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus":                schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummary":               schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummary(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummaryList":           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummaryList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummarySpec":           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestToolMeta":              schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestToolMeta(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata":                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummary":                       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummary(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryList":                   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummarySpec":                   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryStatus":                 schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryStatus(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScan":                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScan(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanList":              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary": schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSpec":              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummary":           schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummary(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier": schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryIdentifier(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryList":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryList(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummarySpec":       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummarySpec(ref),
-		"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadScanRelatedObject":                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadScanRelatedObject(ref),
-		resource.Quantity{}.OpenAPIModelName():                                                                         schema_apimachinery_pkg_api_resource_Quantity(ref),
-		v1.APIGroup{}.OpenAPIModelName():                                                                               schema_pkg_apis_meta_v1_APIGroup(ref),
-		v1.APIGroupList{}.OpenAPIModelName():                                                                           schema_pkg_apis_meta_v1_APIGroupList(ref),
-		v1.APIResource{}.OpenAPIModelName():                                                                            schema_pkg_apis_meta_v1_APIResource(ref),
-		v1.APIResourceList{}.OpenAPIModelName():                                                                        schema_pkg_apis_meta_v1_APIResourceList(ref),
-		v1.APIVersions{}.OpenAPIModelName():                                                                            schema_pkg_apis_meta_v1_APIVersions(ref),
-		v1.ApplyOptions{}.OpenAPIModelName():                                                                           schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		v1.Condition{}.OpenAPIModelName():                                                                              schema_pkg_apis_meta_v1_Condition(ref),
-		v1.CreateOptions{}.OpenAPIModelName():                                                                          schema_pkg_apis_meta_v1_CreateOptions(ref),
-		v1.DeleteOptions{}.OpenAPIModelName():                                                                          schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		v1.Duration{}.OpenAPIModelName():                                                                               schema_pkg_apis_meta_v1_Duration(ref),
-		v1.FieldSelectorRequirement{}.OpenAPIModelName():                                                               schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
-		v1.FieldsV1{}.OpenAPIModelName():                                                                               schema_pkg_apis_meta_v1_FieldsV1(ref),
-		v1.GetOptions{}.OpenAPIModelName():                                                                             schema_pkg_apis_meta_v1_GetOptions(ref),
-		v1.GroupKind{}.OpenAPIModelName():                                                                              schema_pkg_apis_meta_v1_GroupKind(ref),
-		v1.GroupResource{}.OpenAPIModelName():                                                                          schema_pkg_apis_meta_v1_GroupResource(ref),
-		v1.GroupVersion{}.OpenAPIModelName():                                                                           schema_pkg_apis_meta_v1_GroupVersion(ref),
-		v1.GroupVersionForDiscovery{}.OpenAPIModelName():                                                               schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		v1.GroupVersionKind{}.OpenAPIModelName():                                                                       schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		v1.GroupVersionResource{}.OpenAPIModelName():                                                                   schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		v1.InternalEvent{}.OpenAPIModelName():                                                                          schema_pkg_apis_meta_v1_InternalEvent(ref),
-		v1.LabelSelector{}.OpenAPIModelName():                                                                          schema_pkg_apis_meta_v1_LabelSelector(ref),
-		v1.LabelSelectorRequirement{}.OpenAPIModelName():                                                               schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		v1.List{}.OpenAPIModelName():                      schema_pkg_apis_meta_v1_List(ref),
-		v1.ListMeta{}.OpenAPIModelName():                  schema_pkg_apis_meta_v1_ListMeta(ref),
-		v1.ListOptions{}.OpenAPIModelName():               schema_pkg_apis_meta_v1_ListOptions(ref),
-		v1.ManagedFieldsEntry{}.OpenAPIModelName():        schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		v1.MicroTime{}.OpenAPIModelName():                 schema_pkg_apis_meta_v1_MicroTime(ref),
-		v1.ObjectMeta{}.OpenAPIModelName():                schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		v1.OwnerReference{}.OpenAPIModelName():            schema_pkg_apis_meta_v1_OwnerReference(ref),
-		v1.PartialObjectMetadata{}.OpenAPIModelName():     schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		v1.PartialObjectMetadataList{}.OpenAPIModelName(): schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		v1.Patch{}.OpenAPIModelName():                     schema_pkg_apis_meta_v1_Patch(ref),
-		v1.PatchOptions{}.OpenAPIModelName():              schema_pkg_apis_meta_v1_PatchOptions(ref),
-		v1.Preconditions{}.OpenAPIModelName():             schema_pkg_apis_meta_v1_Preconditions(ref),
-		v1.RootPaths{}.OpenAPIModelName():                 schema_pkg_apis_meta_v1_RootPaths(ref),
-		v1.ServerAddressByClientCIDR{}.OpenAPIModelName(): schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		v1.Status{}.OpenAPIModelName():                    schema_pkg_apis_meta_v1_Status(ref),
-		v1.StatusCause{}.OpenAPIModelName():               schema_pkg_apis_meta_v1_StatusCause(ref),
-		v1.StatusDetails{}.OpenAPIModelName():             schema_pkg_apis_meta_v1_StatusDetails(ref),
-		v1.Table{}.OpenAPIModelName():                     schema_pkg_apis_meta_v1_Table(ref),
-		v1.TableColumnDefinition{}.OpenAPIModelName():     schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		v1.TableOptions{}.OpenAPIModelName():              schema_pkg_apis_meta_v1_TableOptions(ref),
-		v1.TableRow{}.OpenAPIModelName():                  schema_pkg_apis_meta_v1_TableRow(ref),
-		v1.TableRowCondition{}.OpenAPIModelName():         schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		v1.Time{}.OpenAPIModelName():                      schema_pkg_apis_meta_v1_Time(ref),
-		v1.Timestamp{}.OpenAPIModelName():                 schema_pkg_apis_meta_v1_Timestamp(ref),
-		v1.TypeMeta{}.OpenAPIModelName():                  schema_pkg_apis_meta_v1_TypeMeta(ref),
-		v1.UpdateOptions{}.OpenAPIModelName():             schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		v1.WatchEvent{}.OpenAPIModelName():                schema_pkg_apis_meta_v1_WatchEvent(ref),
-		runtime.RawExtension{}.OpenAPIModelName():         schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		runtime.TypeMeta{}.OpenAPIModelName():             schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		runtime.Unknown{}.OpenAPIModelName():              schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		version.Info{}.OpenAPIModelName():                 schema_k8sio_apimachinery_pkg_version_Info(ref),
+		v1beta1.Advisory{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref),
+		v1beta1.ApplicationProfile{}.OpenAPIModelName():                         schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref),
+		v1beta1.ApplicationProfileContainer{}.OpenAPIModelName():                schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref),
+		v1beta1.ApplicationProfileList{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref),
+		v1beta1.ApplicationProfileSpec{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref),
+		v1beta1.ApplicationProfileStatus{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
+		v1beta1.Arg{}.OpenAPIModelName():                                        schema_pkg_apis_softwarecomposition_v1beta1_Arg(ref),
+		v1beta1.CPE{}.OpenAPIModelName():                                        schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref),
+		v1beta1.CallStack{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref),
+		v1beta1.CallStackNode{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref),
+		v1beta1.Component{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_Component(ref),
+		v1beta1.Condition{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_Condition(ref),
+		v1beta1.ConditionedStatus{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref),
+		v1beta1.ConfigurationScanSummary{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref),
+		v1beta1.ConfigurationScanSummaryList{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
+		v1beta1.ConfigurationScanSummarySpec{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
+		v1beta1.ContainerProfile{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfile(ref),
+		v1beta1.ContainerProfileList{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref),
+		v1beta1.ContainerProfileSpec{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref),
+		v1beta1.ContainerProfileStatus{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileStatus(ref),
+		v1beta1.ControlSeverity{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_ControlSeverity(ref),
+		v1beta1.Coordinates{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_Coordinates(ref),
+		v1beta1.Cvss{}.OpenAPIModelName():                                       schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref),
+		v1beta1.CvssMetrics{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref),
+		v1beta1.Descriptor{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref),
+		v1beta1.Digest{}.OpenAPIModelName():                                     schema_pkg_apis_softwarecomposition_v1beta1_Digest(ref),
+		v1beta1.Distribution{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
+		v1beta1.ELFSecurityFeatures{}.OpenAPIModelName():                        schema_pkg_apis_softwarecomposition_v1beta1_ELFSecurityFeatures(ref),
+		v1beta1.ExecCalls{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref),
+		v1beta1.Executable{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_Executable(ref),
+		v1beta1.FileLicense{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_FileLicense(ref),
+		v1beta1.FileLicenseEvidence{}.OpenAPIModelName():                        schema_pkg_apis_softwarecomposition_v1beta1_FileLicenseEvidence(ref),
+		v1beta1.FileMetadataEntry{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_FileMetadataEntry(ref),
+		v1beta1.Fix{}.OpenAPIModelName():                                        schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref),
+		v1beta1.GeneratedNetworkPolicy{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref),
+		v1beta1.GeneratedNetworkPolicyList{}.OpenAPIModelName():                 schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref),
+		v1beta1.GrypeDocument{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref),
+		v1beta1.GrypePackage{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref),
+		v1beta1.HTTPEndpoint{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref),
+		v1beta1.HTTPIngressPath{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressPath(ref),
+		v1beta1.HTTPIngressRuleValue{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressRuleValue(ref),
+		v1beta1.IPBlock{}.OpenAPIModelName():                                    schema_pkg_apis_softwarecomposition_v1beta1_IPBlock(ref),
+		v1beta1.IdentifiedCallStack{}.OpenAPIModelName():                        schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref),
+		v1beta1.IgnoreRule{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref),
+		v1beta1.IgnoreRulePackage{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRulePackage(ref),
+		v1beta1.IgnoredMatch{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref),
+		v1beta1.Ingress{}.OpenAPIModelName():                                    schema_pkg_apis_softwarecomposition_v1beta1_Ingress(ref),
+		v1beta1.IngressBackend{}.OpenAPIModelName():                             schema_pkg_apis_softwarecomposition_v1beta1_IngressBackend(ref),
+		v1beta1.IngressClass{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_IngressClass(ref),
+		v1beta1.IngressClassList{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_IngressClassList(ref),
+		v1beta1.IngressClassParametersReference{}.OpenAPIModelName():            schema_pkg_apis_softwarecomposition_v1beta1_IngressClassParametersReference(ref),
+		v1beta1.IngressClassSpec{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_IngressClassSpec(ref),
+		v1beta1.IngressList{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_IngressList(ref),
+		v1beta1.IngressLoadBalancerIngress{}.OpenAPIModelName():                 schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerIngress(ref),
+		v1beta1.IngressLoadBalancerStatus{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerStatus(ref),
+		v1beta1.IngressPortStatus{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_IngressPortStatus(ref),
+		v1beta1.IngressRule{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_IngressRule(ref),
+		v1beta1.IngressRuleValue{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_IngressRuleValue(ref),
+		v1beta1.IngressServiceBackend{}.OpenAPIModelName():                      schema_pkg_apis_softwarecomposition_v1beta1_IngressServiceBackend(ref),
+		v1beta1.IngressSpec{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref),
+		v1beta1.IngressStatus{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_IngressStatus(ref),
+		v1beta1.IngressTLS{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref),
+		v1beta1.KnownServer{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref),
+		v1beta1.KnownServerEntry{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_KnownServerEntry(ref),
+		v1beta1.KnownServerList{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref),
+		v1beta1.License{}.OpenAPIModelName():                                    schema_pkg_apis_softwarecomposition_v1beta1_License(ref),
+		v1beta1.LinuxRelease{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_LinuxRelease(ref),
+		v1beta1.Location{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Location(ref),
+		v1beta1.LocationData{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref),
+		v1beta1.LocationMetadata{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref),
+		v1beta1.Match{}.OpenAPIModelName():                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
+		v1beta1.MatchDetails{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
+		v1beta1.Metadata{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
+		v1beta1.NetworkNeighbor{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref),
+		v1beta1.NetworkNeighborhood{}.OpenAPIModelName():                        schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhood(ref),
+		v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(ref),
+		v1beta1.NetworkNeighborhoodList{}.OpenAPIModelName():                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodList(ref),
+		v1beta1.NetworkNeighborhoodSpec{}.OpenAPIModelName():                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref),
+		v1beta1.NetworkPolicy{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicy(ref),
+		v1beta1.NetworkPolicyEgressRule{}.OpenAPIModelName():                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref),
+		v1beta1.NetworkPolicyIngressRule{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref),
+		v1beta1.NetworkPolicyList{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyList(ref),
+		v1beta1.NetworkPolicyPeer{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyPeer(ref),
+		v1beta1.NetworkPolicyPort{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyPort(ref),
+		v1beta1.NetworkPolicySpec{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref),
+		v1beta1.NetworkPolicyStatus{}.OpenAPIModelName():                        schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyStatus(ref),
+		v1beta1.NetworkPort{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_NetworkPort(ref),
+		v1beta1.OpenCalls{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref),
+		v1beta1.OpenVulnerabilityExchangeContainer{}.OpenAPIModelName():         schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainer(ref),
+		v1beta1.OpenVulnerabilityExchangeContainerList{}.OpenAPIModelName():     schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContainerList(ref),
+		v1beta1.PackageBasicData{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref),
+		v1beta1.PackageBasicDataV01011{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref),
+		v1beta1.PackageCustomData{}.OpenAPIModelName():                          schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref),
+		v1beta1.PolicyRef{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_PolicyRef(ref),
+		v1beta1.Product{}.OpenAPIModelName():                                    schema_pkg_apis_softwarecomposition_v1beta1_Product(ref),
+		v1beta1.ReportMeta{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_ReportMeta(ref),
+		v1beta1.RulePath{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_RulePath(ref),
+		v1beta1.RulePolicy{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_RulePolicy(ref),
+		v1beta1.RuleStatus{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_RuleStatus(ref),
+		v1beta1.SBOMSyft{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyft(ref),
+		v1beta1.SBOMSyftFiltered{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref),
+		v1beta1.SBOMSyftFilteredList{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref),
+		v1beta1.SBOMSyftList{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref),
+		v1beta1.SBOMSyftSpec{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref),
+		v1beta1.SBOMSyftStatus{}.OpenAPIModelName():                             schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftStatus(ref),
+		v1beta1.SPDXMeta{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref),
+		v1beta1.ScannedControl{}.OpenAPIModelName():                             schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref),
+		v1beta1.ScannedControlRule{}.OpenAPIModelName():                         schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref),
+		v1beta1.ScannedControlStatus{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlStatus(ref),
+		v1beta1.ScannedControlSummary{}.OpenAPIModelName():                      schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref),
+		v1beta1.Schema{}.OpenAPIModelName():                                     schema_pkg_apis_softwarecomposition_v1beta1_Schema(ref),
+		v1beta1.SeccompProfile{}.OpenAPIModelName():                             schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfile(ref),
+		v1beta1.SeccompProfileList{}.OpenAPIModelName():                         schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileList(ref),
+		v1beta1.SeccompProfileSpec{}.OpenAPIModelName():                         schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref),
+		v1beta1.SeccompProfileStatus{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileStatus(ref),
+		v1beta1.ServiceBackendPort{}.OpenAPIModelName():                         schema_pkg_apis_softwarecomposition_v1beta1_ServiceBackendPort(ref),
+		v1beta1.SeveritySummary{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_SeveritySummary(ref),
+		v1beta1.SingleSeccompProfile{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfile(ref),
+		v1beta1.SingleSeccompProfileSpec{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref),
+		v1beta1.SingleSeccompProfileStatus{}.OpenAPIModelName():                 schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref),
+		v1beta1.Source{}.OpenAPIModelName():                                     schema_pkg_apis_softwarecomposition_v1beta1_Source(ref),
+		v1beta1.SpecBase{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_SpecBase(ref),
+		v1beta1.StackFrame{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_StackFrame(ref),
+		v1beta1.Statement{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref),
+		v1beta1.StatusBase{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref),
+		v1beta1.Subcomponent{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref),
+		v1beta1.SyftCoordinates{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_SyftCoordinates(ref),
+		v1beta1.SyftDescriptor{}.OpenAPIModelName():                             schema_pkg_apis_softwarecomposition_v1beta1_SyftDescriptor(ref),
+		v1beta1.SyftDocument{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref),
+		v1beta1.SyftFile{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref),
+		v1beta1.SyftPackage{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref),
+		v1beta1.SyftRelationship{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_SyftRelationship(ref),
+		v1beta1.SyftSource{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref),
+		v1beta1.Syscall{}.OpenAPIModelName():                                    schema_pkg_apis_softwarecomposition_v1beta1_Syscall(ref),
+		v1beta1.ToolMeta{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_ToolMeta(ref),
+		v1beta1.UpstreamPackage{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_UpstreamPackage(ref),
+		v1beta1.VEX{}.OpenAPIModelName():                                        schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref),
+		v1beta1.VexVulnerability{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_VexVulnerability(ref),
+		v1beta1.VulnerabilitiesComponents{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref),
+		v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName():                    schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesObjScope(ref),
+		v1beta1.Vulnerability{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref),
+		v1beta1.VulnerabilityCounters{}.OpenAPIModelName():                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityCounters(ref),
+		v1beta1.VulnerabilityManifest{}.OpenAPIModelName():                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref),
+		v1beta1.VulnerabilityManifestList{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref),
+		v1beta1.VulnerabilityManifestMeta{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestMeta(ref),
+		v1beta1.VulnerabilityManifestReportMeta{}.OpenAPIModelName():            schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestReportMeta(ref),
+		v1beta1.VulnerabilityManifestSpec{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref),
+		v1beta1.VulnerabilityManifestStatus{}.OpenAPIModelName():                schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestStatus(ref),
+		v1beta1.VulnerabilityManifestSummary{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummary(ref),
+		v1beta1.VulnerabilityManifestSummaryList{}.OpenAPIModelName():           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummaryList(ref),
+		v1beta1.VulnerabilityManifestSummarySpec{}.OpenAPIModelName():           schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpec(ref),
+		v1beta1.VulnerabilityManifestToolMeta{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestToolMeta(ref),
+		v1beta1.VulnerabilityMetadata{}.OpenAPIModelName():                      schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref),
+		v1beta1.VulnerabilitySummary{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummary(ref),
+		v1beta1.VulnerabilitySummaryList{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref),
+		v1beta1.VulnerabilitySummarySpec{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref),
+		v1beta1.VulnerabilitySummaryStatus{}.OpenAPIModelName():                 schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryStatus(ref),
+		v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScan(ref),
+		v1beta1.WorkloadConfigurationScanList{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(ref),
+		v1beta1.WorkloadConfigurationScanSeveritiesSummary{}.OpenAPIModelName(): schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref),
+		v1beta1.WorkloadConfigurationScanSpec{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(ref),
+		v1beta1.WorkloadConfigurationScanSummary{}.OpenAPIModelName():           schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummary(ref),
+		v1beta1.WorkloadConfigurationScanSummaryIdentifier{}.OpenAPIModelName(): schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryIdentifier(ref),
+		v1beta1.WorkloadConfigurationScanSummaryList{}.OpenAPIModelName():       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummaryList(ref),
+		v1beta1.WorkloadConfigurationScanSummarySpec{}.OpenAPIModelName():       schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummarySpec(ref),
+		v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadScanRelatedObject(ref),
+		resource.Quantity{}.OpenAPIModelName():                                  schema_apimachinery_pkg_api_resource_Quantity(ref),
+		v1.APIGroup{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_APIGroup(ref),
+		v1.APIGroupList{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_APIGroupList(ref),
+		v1.APIResource{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_APIResource(ref),
+		v1.APIResourceList{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_APIResourceList(ref),
+		v1.APIVersions{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_APIVersions(ref),
+		v1.ApplyOptions{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		v1.Condition{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_Condition(ref),
+		v1.CreateOptions{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_CreateOptions(ref),
+		v1.DeleteOptions{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		v1.Duration{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_Duration(ref),
+		v1.FieldSelectorRequirement{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
+		v1.FieldsV1{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_FieldsV1(ref),
+		v1.GetOptions{}.OpenAPIModelName():                                      schema_pkg_apis_meta_v1_GetOptions(ref),
+		v1.GroupKind{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_GroupKind(ref),
+		v1.GroupResource{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_GroupResource(ref),
+		v1.GroupVersion{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_GroupVersion(ref),
+		v1.GroupVersionForDiscovery{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		v1.GroupVersionKind{}.OpenAPIModelName():                                schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		v1.GroupVersionResource{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		v1.InternalEvent{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_InternalEvent(ref),
+		v1.LabelSelector{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_LabelSelector(ref),
+		v1.LabelSelectorRequirement{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		v1.List{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_List(ref),
+		v1.ListMeta{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_ListMeta(ref),
+		v1.ListOptions{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_ListOptions(ref),
+		v1.ManagedFieldsEntry{}.OpenAPIModelName():                              schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		v1.MicroTime{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_MicroTime(ref),
+		v1.ObjectMeta{}.OpenAPIModelName():                                      schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		v1.OwnerReference{}.OpenAPIModelName():                                  schema_pkg_apis_meta_v1_OwnerReference(ref),
+		v1.PartialObjectMetadata{}.OpenAPIModelName():                           schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		v1.PartialObjectMetadataList{}.OpenAPIModelName():                       schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		v1.Patch{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_Patch(ref),
+		v1.PatchOptions{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_PatchOptions(ref),
+		v1.Preconditions{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_Preconditions(ref),
+		v1.RootPaths{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_RootPaths(ref),
+		v1.ServerAddressByClientCIDR{}.OpenAPIModelName():                       schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		v1.Status{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_Status(ref),
+		v1.StatusCause{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_StatusCause(ref),
+		v1.StatusDetails{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_StatusDetails(ref),
+		v1.Table{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_Table(ref),
+		v1.TableColumnDefinition{}.OpenAPIModelName():                           schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		v1.TableOptions{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_TableOptions(ref),
+		v1.TableRow{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_TableRow(ref),
+		v1.TableRowCondition{}.OpenAPIModelName():                               schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		v1.Time{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_Time(ref),
+		v1.Timestamp{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_Timestamp(ref),
+		v1.TypeMeta{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_TypeMeta(ref),
+		v1.UpdateOptions{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		v1.WatchEvent{}.OpenAPIModelName():                                      schema_pkg_apis_meta_v1_WatchEvent(ref),
+		runtime.RawExtension{}.OpenAPIModelName():                               schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		runtime.TypeMeta{}.OpenAPIModelName():                                   schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		runtime.Unknown{}.OpenAPIModelName():                                    schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		version.Info{}.OpenAPIModelName():                                       schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -311,20 +312,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref common.R
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileSpec"),
+							Ref:     ref(v1beta1.ApplicationProfileSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus"),
+							Ref:     ref(v1beta1.ApplicationProfileStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.ApplicationProfileSpec{}.OpenAPIModelName(), v1beta1.ApplicationProfileStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -367,7 +368,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls"),
+										Ref:     ref(v1beta1.ExecCalls{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -386,7 +387,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls"),
+										Ref:     ref(v1beta1.OpenCalls{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -409,7 +410,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 					"seccompProfile": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+							Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 						},
 					},
 					"endpoints": {
@@ -425,7 +426,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint"),
+										Ref:     ref(v1beta1.HTTPEndpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -459,7 +460,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy"),
+										Ref:     ref(v1beta1.RulePolicy{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -472,7 +473,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack"),
+										Ref:     ref(v1beta1.IdentifiedCallStack{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -483,7 +484,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
+			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName()},
 	}
 }
 
@@ -520,7 +521,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfile"),
+										Ref:     ref(v1beta1.ApplicationProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -531,7 +532,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfile", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.ApplicationProfile{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -568,7 +569,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer"),
+										Ref:     ref(v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -587,7 +588,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer"),
+										Ref:     ref(v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -606,7 +607,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer"),
+										Ref:     ref(v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -617,7 +618,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ApplicationProfileContainer"},
+			v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()},
 	}
 }
 
@@ -710,7 +711,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref common.ReferenceC
 					"root": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
+							Ref:     ref(v1beta1.CallStackNode{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -718,7 +719,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"},
+			v1beta1.CallStackNode{}.OpenAPIModelName()},
 	}
 }
 
@@ -735,7 +736,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.Refere
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode"),
+										Ref:     ref(v1beta1.CallStackNode{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -744,7 +745,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.Refere
 					"frame": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"),
+							Ref:     ref(v1beta1.StackFrame{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -752,7 +753,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStackNode", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.StackFrame"},
+			v1beta1.CallStackNode{}.OpenAPIModelName(), v1beta1.StackFrame{}.OpenAPIModelName()},
 	}
 }
 
@@ -880,7 +881,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref common.Re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"),
+										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -890,7 +891,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"},
+			v1beta1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -924,7 +925,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref co
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec"),
+							Ref:     ref(v1beta1.ConfigurationScanSummarySpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -932,7 +933,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummary(ref co
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummarySpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.ConfigurationScanSummarySpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -970,7 +971,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary"),
+										Ref:     ref(v1beta1.ConfigurationScanSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -981,7 +982,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ConfigurationScanSummary", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.ConfigurationScanSummary{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -994,7 +995,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(re
 					"severities": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary"),
+							Ref:     ref(v1beta1.WorkloadConfigurationScanSeveritiesSummary{}.OpenAPIModelName()),
 						},
 					},
 					"summaryRef": {
@@ -1004,7 +1005,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier"),
+										Ref:     ref(v1beta1.WorkloadConfigurationScanSummaryIdentifier{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1015,7 +1016,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummaryIdentifier"},
+			v1beta1.WorkloadConfigurationScanSeveritiesSummary{}.OpenAPIModelName(), v1beta1.WorkloadConfigurationScanSummaryIdentifier{}.OpenAPIModelName()},
 	}
 }
 
@@ -1048,20 +1049,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfile(ref common.Ref
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfileSpec"),
+							Ref:     ref(v1beta1.ContainerProfileSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfileStatus"),
+							Ref:     ref(v1beta1.ContainerProfileStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfileSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfileStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.ContainerProfileSpec{}.OpenAPIModelName(), v1beta1.ContainerProfileStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1098,7 +1099,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfile"),
+										Ref:     ref(v1beta1.ContainerProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1109,7 +1110,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ContainerProfile", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.ContainerProfile{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1161,7 +1162,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls"),
+										Ref:     ref(v1beta1.ExecCalls{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1180,7 +1181,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls"),
+										Ref:     ref(v1beta1.OpenCalls{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1203,7 +1204,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 					"seccompProfile": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+							Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 						},
 					},
 					"endpoints": {
@@ -1219,7 +1220,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint"),
+										Ref:     ref(v1beta1.HTTPEndpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1253,7 +1254,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy"),
+										Ref:     ref(v1beta1.RulePolicy{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1266,7 +1267,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack"),
+										Ref:     ref(v1beta1.IdentifiedCallStack{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1314,7 +1315,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
+										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1327,7 +1328,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
+										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1338,7 +1339,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ExecCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPEndpoint", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IdentifiedCallStack", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenCalls", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile", v1.LabelSelectorRequirement{}.OpenAPIModelName()},
+			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
 	}
 }
 
@@ -1430,7 +1431,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref common.ReferenceCallba
 					"metrics": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics"),
+							Ref:     ref(v1beta1.CvssMetrics{}.OpenAPIModelName()),
 						},
 					},
 					"vendorMetadata": {
@@ -1444,7 +1445,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CvssMetrics"},
+			v1beta1.CvssMetrics{}.OpenAPIModelName()},
 	}
 }
 
@@ -1752,7 +1753,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Executable(ref common.Reference
 					},
 					"elfSecurityFeatures": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ELFSecurityFeatures"),
+							Ref: ref(v1beta1.ELFSecurityFeatures{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -1760,7 +1761,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Executable(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ELFSecurityFeatures"},
+			v1beta1.ELFSecurityFeatures{}.OpenAPIModelName()},
 	}
 }
 
@@ -1793,7 +1794,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_FileLicense(ref common.Referenc
 					},
 					"evidence": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicenseEvidence"),
+							Ref: ref(v1beta1.FileLicenseEvidence{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -1801,7 +1802,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_FileLicense(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicenseEvidence"},
+			v1beta1.FileLicenseEvidence{}.OpenAPIModelName()},
 	}
 }
 
@@ -1964,7 +1965,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref comm
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy"),
+							Ref:     ref(v1beta1.NetworkPolicy{}.OpenAPIModelName()),
 						},
 					},
 					"policyRef": {
@@ -1974,7 +1975,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PolicyRef"),
+										Ref:     ref(v1beta1.PolicyRef{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1985,7 +1986,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PolicyRef", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.NetworkPolicy{}.OpenAPIModelName(), v1beta1.PolicyRef{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2023,7 +2024,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicy"),
+										Ref:     ref(v1beta1.GeneratedNetworkPolicy{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2034,7 +2035,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GeneratedNetworkPolicy", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.GeneratedNetworkPolicy{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2052,7 +2053,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref common.Refere
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match"),
+										Ref:     ref(v1beta1.Match{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2065,7 +2066,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref common.Refere
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch"),
+										Ref:     ref(v1beta1.IgnoredMatch{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2073,19 +2074,19 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref common.Refere
 					},
 					"source": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source"),
+							Ref: ref(v1beta1.Source{}.OpenAPIModelName()),
 						},
 					},
 					"distro": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution"),
+							Ref:     ref(v1beta1.Distribution{}.OpenAPIModelName()),
 						},
 					},
 					"descriptor": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor"),
+							Ref:     ref(v1beta1.Descriptor{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -2093,7 +2094,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Descriptor", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Distribution", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoredMatch", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Source"},
+			v1beta1.Descriptor{}.OpenAPIModelName(), v1beta1.Distribution{}.OpenAPIModelName(), v1beta1.IgnoredMatch{}.OpenAPIModelName(), v1beta1.Match{}.OpenAPIModelName(), v1beta1.Source{}.OpenAPIModelName()},
 	}
 }
 
@@ -2131,7 +2132,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates"),
+										Ref:     ref(v1beta1.SyftCoordinates{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2186,7 +2187,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage"),
+										Ref:     ref(v1beta1.UpstreamPackage{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2209,7 +2210,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftCoordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.UpstreamPackage"},
+			v1beta1.SyftCoordinates{}.OpenAPIModelName(), v1beta1.UpstreamPackage{}.OpenAPIModelName()},
 	}
 }
 
@@ -2290,7 +2291,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressPath(ref common.Refe
 						SchemaProps: spec.SchemaProps{
 							Description: "backend defines the referenced service endpoint to which the traffic will be forwarded to.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressBackend"),
+							Ref:         ref(v1beta1.IngressBackend{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -2298,7 +2299,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressPath(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressBackend"},
+			v1beta1.IngressBackend{}.OpenAPIModelName()},
 	}
 }
 
@@ -2322,7 +2323,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressRuleValue(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressPath"),
+										Ref:     ref(v1beta1.HTTPIngressPath{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2333,7 +2334,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressRuleValue(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressPath"},
+			v1beta1.HTTPIngressPath{}.OpenAPIModelName()},
 	}
 }
 
@@ -2389,7 +2390,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref common.
 					"callStack": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack"),
+							Ref:     ref(v1beta1.CallStack{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -2397,7 +2398,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IdentifiedCallStack(ref common.
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CallStack"},
+			v1beta1.CallStack{}.OpenAPIModelName()},
 	}
 }
 
@@ -2421,14 +2422,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref common.Reference
 					},
 					"package": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage"),
+							Ref: ref(v1beta1.IgnoreRulePackage{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRulePackage"},
+			v1beta1.IgnoreRulePackage{}.OpenAPIModelName()},
 	}
 }
 
@@ -2491,7 +2492,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref common.Referen
 					"Match": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match"),
+							Ref:     ref(v1beta1.Match{}.OpenAPIModelName()),
 						},
 					},
 					"appliedIgnoreRules": {
@@ -2501,7 +2502,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule"),
+										Ref:     ref(v1beta1.IgnoreRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2512,7 +2513,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IgnoreRule", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Match"},
+			v1beta1.IgnoreRule{}.OpenAPIModelName(), v1beta1.Match{}.OpenAPIModelName()},
 	}
 }
 
@@ -2546,20 +2547,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Ingress(ref common.ReferenceCal
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressSpec"),
+							Ref:     ref(v1beta1.IngressSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressStatus"),
+							Ref:     ref(v1beta1.IngressStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.IngressSpec{}.OpenAPIModelName(), v1beta1.IngressStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2572,7 +2573,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressBackend(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"service": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressServiceBackend"),
+							Ref: ref(v1beta1.IngressServiceBackend{}.OpenAPIModelName()),
 						},
 					},
 					"resource": {
@@ -2584,7 +2585,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressBackend(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressServiceBackend", "k8s.io/api/core/v1.TypedLocalObjectReference"},
+			v1beta1.IngressServiceBackend{}.OpenAPIModelName(), "k8s.io/api/core/v1.TypedLocalObjectReference"},
 	}
 }
 
@@ -2618,14 +2619,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressClass(ref common.Referen
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClassSpec"),
+							Ref:     ref(v1beta1.IngressClassSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClassSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.IngressClassSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2664,7 +2665,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressClassList(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClass"),
+										Ref:     ref(v1beta1.IngressClass{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2675,7 +2676,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressClassList(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClass", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.IngressClass{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2743,14 +2744,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressClassSpec(ref common.Ref
 					},
 					"parameters": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClassParametersReference"),
+							Ref: ref(v1beta1.IngressClassParametersReference{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressClassParametersReference"},
+			v1beta1.IngressClassParametersReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -2789,7 +2790,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressList(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Ingress"),
+										Ref:     ref(v1beta1.Ingress{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2800,7 +2801,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressList(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Ingress", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.Ingress{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2830,7 +2831,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerIngress(ref 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressPortStatus"),
+										Ref:     ref(v1beta1.IngressPortStatus{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2840,7 +2841,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerIngress(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressPortStatus"},
+			v1beta1.IngressPortStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -2858,7 +2859,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerStatus(ref c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressLoadBalancerIngress"),
+										Ref:     ref(v1beta1.IngressLoadBalancerIngress{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2868,7 +2869,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerStatus(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressLoadBalancerIngress"},
+			v1beta1.IngressLoadBalancerIngress{}.OpenAPIModelName()},
 	}
 }
 
@@ -2923,14 +2924,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressRule(ref common.Referenc
 					},
 					"http": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressRuleValue"),
+							Ref: ref(v1beta1.HTTPIngressRuleValue{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressRuleValue"},
+			v1beta1.HTTPIngressRuleValue{}.OpenAPIModelName()},
 	}
 }
 
@@ -2943,14 +2944,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressRuleValue(ref common.Ref
 				Properties: map[string]spec.Schema{
 					"http": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressRuleValue"),
+							Ref: ref(v1beta1.HTTPIngressRuleValue{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.HTTPIngressRuleValue"},
+			v1beta1.HTTPIngressRuleValue{}.OpenAPIModelName()},
 	}
 }
 
@@ -2973,7 +2974,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressServiceBackend(ref commo
 						SchemaProps: spec.SchemaProps{
 							Description: "port of the referenced service. A port name or port number is required for a IngressServiceBackend.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ServiceBackendPort"),
+							Ref:         ref(v1beta1.ServiceBackendPort{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -2981,7 +2982,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressServiceBackend(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ServiceBackendPort"},
+			v1beta1.ServiceBackendPort{}.OpenAPIModelName()},
 	}
 }
 
@@ -3000,7 +3001,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref common.Referenc
 					},
 					"defaultBackend": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressBackend"),
+							Ref: ref(v1beta1.IngressBackend{}.OpenAPIModelName()),
 						},
 					},
 					"tls": {
@@ -3010,7 +3011,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressTLS"),
+										Ref:     ref(v1beta1.IngressTLS{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3023,7 +3024,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressRule"),
+										Ref:     ref(v1beta1.IngressRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3033,7 +3034,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressBackend", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressRule", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressTLS"},
+			v1beta1.IngressBackend{}.OpenAPIModelName(), v1beta1.IngressRule{}.OpenAPIModelName(), v1beta1.IngressTLS{}.OpenAPIModelName()},
 	}
 }
 
@@ -3047,14 +3048,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressStatus(ref common.Refere
 					"loadBalancer": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressLoadBalancerStatus"),
+							Ref:     ref(v1beta1.IngressLoadBalancerStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IngressLoadBalancerStatus"},
+			v1beta1.IngressLoadBalancerStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -3125,7 +3126,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerEntry"),
+										Ref:     ref(v1beta1.KnownServerEntry{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3136,7 +3137,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServerEntry", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.KnownServerEntry{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3208,7 +3209,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer"),
+										Ref:     ref(v1beta1.KnownServer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3219,7 +3220,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.KnownServer", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.KnownServer{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3271,7 +3272,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_License(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"),
+										Ref:     ref(v1beta1.Location{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3282,7 +3283,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_License(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+			v1beta1.Location{}.OpenAPIModelName()},
 	}
 }
 
@@ -3424,13 +3425,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Location(ref common.ReferenceCa
 					"LocationData": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationData"),
+							Ref:     ref(v1beta1.LocationData{}.OpenAPIModelName()),
 						},
 					},
 					"LocationMetadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationMetadata"),
+							Ref:     ref(v1beta1.LocationMetadata{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -3438,7 +3439,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Location(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationData", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LocationMetadata"},
+			v1beta1.LocationData{}.OpenAPIModelName(), v1beta1.LocationMetadata{}.OpenAPIModelName()},
 	}
 }
 
@@ -3451,7 +3452,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref common.Referen
 					"Coordinates": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"),
+							Ref:     ref(v1beta1.Coordinates{}.OpenAPIModelName()),
 						},
 					},
 					"accessPath": {
@@ -3467,7 +3468,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"},
+			v1beta1.Coordinates{}.OpenAPIModelName()},
 	}
 }
 
@@ -3507,7 +3508,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallb
 					"vulnerability": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability"),
+							Ref:     ref(v1beta1.Vulnerability{}.OpenAPIModelName()),
 						},
 					},
 					"relatedVulnerabilities": {
@@ -3517,7 +3518,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"),
+										Ref:     ref(v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3530,7 +3531,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails"),
+										Ref:     ref(v1beta1.MatchDetails{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3539,7 +3540,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallb
 					"artifact": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage"),
+							Ref:     ref(v1beta1.GrypePackage{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -3547,7 +3548,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypePackage", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.MatchDetails", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Vulnerability", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"},
+			v1beta1.GrypePackage{}.OpenAPIModelName(), v1beta1.MatchDetails{}.OpenAPIModelName(), v1beta1.Vulnerability{}.OpenAPIModelName(), v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()},
 	}
 }
 
@@ -3728,7 +3729,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPort"),
+										Ref:     ref(v1beta1.NetworkPort{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3756,7 +3757,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPort", v1.LabelSelector{}.OpenAPIModelName()},
+			v1beta1.NetworkPort{}.OpenAPIModelName(), v1.LabelSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -3790,7 +3791,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhood(ref common.
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodSpec"),
+							Ref:     ref(v1beta1.NetworkNeighborhoodSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -3798,7 +3799,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhood(ref common.
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.NetworkNeighborhoodSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3822,7 +3823,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
+										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3835,7 +3836,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"),
+										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3846,7 +3847,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighbor"},
+			v1beta1.NetworkNeighbor{}.OpenAPIModelName()},
 	}
 }
 
@@ -3884,7 +3885,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodList(ref com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhood"),
+										Ref:     ref(v1beta1.NetworkNeighborhood{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3895,7 +3896,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodList(ref com
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhood", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.NetworkNeighborhood{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3947,7 +3948,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodContainer"),
+										Ref:     ref(v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3960,7 +3961,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodContainer"),
+										Ref:     ref(v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3973,7 +3974,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodContainer"),
+										Ref:     ref(v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3984,7 +3985,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref com
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkNeighborhoodContainer", v1.LabelSelectorRequirement{}.OpenAPIModelName()},
+			v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
 	}
 }
 
@@ -4015,14 +4016,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicy(ref common.Refere
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicySpec"),
+							Ref:     ref(v1beta1.NetworkPolicySpec{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicySpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.NetworkPolicySpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4040,7 +4041,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPort"),
+										Ref:     ref(v1beta1.NetworkPolicyPort{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4053,7 +4054,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPeer"),
+										Ref:     ref(v1beta1.NetworkPolicyPeer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4063,7 +4064,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref com
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPeer", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPort"},
+			v1beta1.NetworkPolicyPeer{}.OpenAPIModelName(), v1beta1.NetworkPolicyPort{}.OpenAPIModelName()},
 	}
 }
 
@@ -4081,7 +4082,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref co
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPort"),
+										Ref:     ref(v1beta1.NetworkPolicyPort{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4094,7 +4095,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref co
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPeer"),
+										Ref:     ref(v1beta1.NetworkPolicyPeer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4104,7 +4105,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref co
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPeer", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyPort"},
+			v1beta1.NetworkPolicyPeer{}.OpenAPIModelName(), v1beta1.NetworkPolicyPort{}.OpenAPIModelName()},
 	}
 }
 
@@ -4143,7 +4144,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyList(ref common.Re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy"),
+										Ref:     ref(v1beta1.NetworkPolicy{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4154,7 +4155,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyList(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicy", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.NetworkPolicy{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4177,14 +4178,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyPeer(ref common.Re
 					},
 					"ipBlock": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IPBlock"),
+							Ref: ref(v1beta1.IPBlock{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.IPBlock", v1.LabelSelector{}.OpenAPIModelName()},
+			v1beta1.IPBlock{}.OpenAPIModelName(), v1.LabelSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -4240,7 +4241,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref common.Re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyIngressRule"),
+										Ref:     ref(v1beta1.NetworkPolicyIngressRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4253,7 +4254,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref common.Re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyEgressRule"),
+										Ref:     ref(v1beta1.NetworkPolicyEgressRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4278,7 +4279,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyEgressRule", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.NetworkPolicyIngressRule", v1.LabelSelector{}.OpenAPIModelName()},
+			v1beta1.NetworkPolicyEgressRule{}.OpenAPIModelName(), v1beta1.NetworkPolicyIngressRule{}.OpenAPIModelName(), v1.LabelSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -4417,14 +4418,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContai
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX"),
+							Ref:     ref(v1beta1.VEX{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VEX", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.VEX{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4461,7 +4462,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContai
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer"),
+										Ref:     ref(v1beta1.OpenVulnerabilityExchangeContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4472,7 +4473,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContai
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.OpenVulnerabilityExchangeContainer", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.OpenVulnerabilityExchangeContainer{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4525,7 +4526,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"),
+										Ref:     ref(v1beta1.Location{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4538,7 +4539,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License"),
+										Ref:     ref(v1beta1.License{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4558,7 +4559,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE"),
+										Ref:     ref(v1beta1.CPE{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4576,7 +4577,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.CPE", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+			v1beta1.CPE{}.OpenAPIModelName(), v1beta1.License{}.OpenAPIModelName(), v1beta1.Location{}.OpenAPIModelName()},
 	}
 }
 
@@ -4629,7 +4630,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"),
+										Ref:     ref(v1beta1.Location{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4642,7 +4643,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License"),
+										Ref:     ref(v1beta1.License{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4681,7 +4682,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.License", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Location"},
+			v1beta1.License{}.OpenAPIModelName(), v1beta1.Location{}.OpenAPIModelName()},
 	}
 }
 
@@ -4767,7 +4768,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Product(ref common.ReferenceCal
 					"Component": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component"),
+							Ref:     ref(v1beta1.Component{}.OpenAPIModelName()),
 						},
 					},
 					"subcomponents": {
@@ -4777,7 +4778,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Product(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent"),
+										Ref:     ref(v1beta1.Subcomponent{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4788,7 +4789,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Product(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Subcomponent"},
+			v1beta1.Component{}.OpenAPIModelName(), v1beta1.Subcomponent{}.OpenAPIModelName()},
 	}
 }
 
@@ -4949,20 +4950,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyft(ref common.ReferenceCa
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec"),
+							Ref:     ref(v1beta1.SBOMSyftSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus"),
+							Ref:     ref(v1beta1.SBOMSyftStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.SBOMSyftSpec{}.OpenAPIModelName(), v1beta1.SBOMSyftStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4996,20 +4997,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFiltered(ref common.Ref
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec"),
+							Ref:     ref(v1beta1.SBOMSyftSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus"),
+							Ref:     ref(v1beta1.SBOMSyftStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.SBOMSyftSpec{}.OpenAPIModelName(), v1beta1.SBOMSyftStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5047,7 +5048,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered"),
+										Ref:     ref(v1beta1.SBOMSyftFiltered{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5058,7 +5059,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyftFiltered", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.SBOMSyftFiltered{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5096,7 +5097,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft"),
+										Ref:     ref(v1beta1.SBOMSyft{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5107,7 +5108,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SBOMSyft", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.SBOMSyft{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5121,13 +5122,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref common.Referen
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta"),
+							Ref:     ref(v1beta1.SPDXMeta{}.OpenAPIModelName()),
 						},
 					},
 					"syft": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"),
+							Ref:     ref(v1beta1.SyftDocument{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -5135,7 +5136,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SPDXMeta", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDocument"},
+			v1beta1.SPDXMeta{}.OpenAPIModelName(), v1beta1.SyftDocument{}.OpenAPIModelName()},
 	}
 }
 
@@ -5160,13 +5161,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref common.ReferenceCa
 					"tool": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta"),
+							Ref:     ref(v1beta1.ToolMeta{}.OpenAPIModelName()),
 						},
 					},
 					"report": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta"),
+							Ref:     ref(v1beta1.ReportMeta{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -5174,7 +5175,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SPDXMeta(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ReportMeta", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ToolMeta"},
+			v1beta1.ReportMeta{}.OpenAPIModelName(), v1beta1.ToolMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5201,13 +5202,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref common.Refer
 					"severity": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity"),
+							Ref:     ref(v1beta1.ControlSeverity{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus"),
+							Ref:     ref(v1beta1.ScannedControlStatus{}.OpenAPIModelName()),
 						},
 					},
 					"rules": {
@@ -5217,7 +5218,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlRule"),
+										Ref:     ref(v1beta1.ScannedControlRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5228,7 +5229,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlRule", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus"},
+			v1beta1.ControlSeverity{}.OpenAPIModelName(), v1beta1.ScannedControlRule{}.OpenAPIModelName(), v1beta1.ScannedControlStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -5248,7 +5249,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref common.R
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RuleStatus"),
+							Ref:     ref(v1beta1.RuleStatus{}.OpenAPIModelName()),
 						},
 					},
 					"controlConfigurations": {
@@ -5272,7 +5273,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePath"),
+										Ref:     ref(v1beta1.RulePath{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5311,7 +5312,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RulePath", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.RuleStatus"},
+			v1beta1.RulePath{}.OpenAPIModelName(), v1beta1.RuleStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -5365,13 +5366,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref commo
 					"severity": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity"),
+							Ref:     ref(v1beta1.ControlSeverity{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus"),
+							Ref:     ref(v1beta1.ScannedControlStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -5379,7 +5380,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlSummary(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ControlSeverity", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlStatus"},
+			v1beta1.ControlSeverity{}.OpenAPIModelName(), v1beta1.ScannedControlStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -5439,20 +5440,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfile(ref common.Refer
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileSpec"),
+							Ref:     ref(v1beta1.SeccompProfileSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileStatus"),
+							Ref:     ref(v1beta1.SeccompProfileStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfileStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.SeccompProfileSpec{}.OpenAPIModelName(), v1beta1.SeccompProfileStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5489,7 +5490,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileList(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfile"),
+										Ref:     ref(v1beta1.SeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5500,7 +5501,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileList(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeccompProfile", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.SeccompProfile{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5517,7 +5518,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+										Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5530,7 +5531,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+										Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5543,7 +5544,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"),
+										Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5553,7 +5554,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfile"},
+			v1beta1.SingleSeccompProfile{}.OpenAPIModelName()},
 	}
 }
 
@@ -5571,7 +5572,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus"),
+										Ref:     ref(v1beta1.SingleSeccompProfileStatus{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5581,7 +5582,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileStatus"},
+			v1beta1.SingleSeccompProfileStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -5620,44 +5621,44 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeveritySummary(ref common.Refe
 					"critical": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"),
+							Ref:     ref(v1beta1.VulnerabilityCounters{}.OpenAPIModelName()),
 						},
 					},
 					"high": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"),
+							Ref:     ref(v1beta1.VulnerabilityCounters{}.OpenAPIModelName()),
 						},
 					},
 					"medium": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"),
+							Ref:     ref(v1beta1.VulnerabilityCounters{}.OpenAPIModelName()),
 						},
 					},
 					"low": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"),
+							Ref:     ref(v1beta1.VulnerabilityCounters{}.OpenAPIModelName()),
 						},
 					},
 					"negligible": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"),
+							Ref:     ref(v1beta1.VulnerabilityCounters{}.OpenAPIModelName()),
 						},
 					},
 					"unknown": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"),
+							Ref:     ref(v1beta1.VulnerabilityCounters{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityCounters"},
+			v1beta1.VulnerabilityCounters{}.OpenAPIModelName()},
 	}
 }
 
@@ -5682,14 +5683,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfile(ref common
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileSpec"),
+							Ref:     ref(v1beta1.SingleSeccompProfileSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SingleSeccompProfileSpec"},
+			v1beta1.SingleSeccompProfileSpec{}.OpenAPIModelName()},
 	}
 }
 
@@ -5756,7 +5757,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Syscall"),
+										Ref: ref(v1beta1.Syscall{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5782,7 +5783,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref co
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Syscall"},
+			v1beta1.Syscall{}.OpenAPIModelName()},
 	}
 }
 
@@ -5800,7 +5801,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"),
+										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5843,7 +5844,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"},
+			v1beta1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -5942,7 +5943,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Description: "[vul_id] SHOULD use existing and well known identifiers, for example: CVE, the Global Security Database (GSD), or a supplier’s vulnerability tracking system. It is expected that vulnerability identification systems are external to and maintained separately from VEX.\n\n[vul_id] MAY be URIs or URLs. [vul_id] MAY be arbitrary and MAY be created by the VEX statement [author].",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VexVulnerability"),
+							Ref:         ref(v1beta1.VexVulnerability{}.OpenAPIModelName()),
 						},
 					},
 					"timestamp": {
@@ -5967,7 +5968,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product"),
+										Ref:     ref(v1beta1.Product{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6020,7 +6021,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Product", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VexVulnerability"},
+			v1beta1.Product{}.OpenAPIModelName(), v1beta1.VexVulnerability{}.OpenAPIModelName()},
 	}
 }
 
@@ -6038,7 +6039,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref common.Reference
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"),
+										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6054,7 +6055,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Condition"},
+			v1beta1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -6067,7 +6068,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref common.Referen
 					"Component": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component"),
+							Ref:     ref(v1beta1.Component{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -6075,7 +6076,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Component"},
+			v1beta1.Component{}.OpenAPIModelName()},
 	}
 }
 
@@ -6152,7 +6153,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage"),
+										Ref: ref(v1beta1.SyftPackage{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6166,7 +6167,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship"),
+										Ref:     ref(v1beta1.SyftRelationship{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6179,7 +6180,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile"),
+										Ref:     ref(v1beta1.SyftFile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6188,28 +6189,28 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 					"source": {
 						SchemaProps: spec.SchemaProps{
 							Description: "note: must have omitempty",
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource"),
+							Ref:         ref(v1beta1.SyftSource{}.OpenAPIModelName()),
 						},
 					},
 					"distro": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SyftSource represents the original object that was cataloged",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease"),
+							Ref:         ref(v1beta1.LinuxRelease{}.OpenAPIModelName()),
 						},
 					},
 					"descriptor": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Distro represents the Linux distribution that was detected from the source",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor"),
+							Ref:         ref(v1beta1.SyftDescriptor{}.OpenAPIModelName()),
 						},
 					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SyftDescriptor is a block containing self-describing information about syft",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema"),
+							Ref:         ref(v1beta1.Schema{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -6217,7 +6218,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.LinuxRelease", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Schema", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftDescriptor", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftFile", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftPackage", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftRelationship", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SyftSource"},
+			v1beta1.LinuxRelease{}.OpenAPIModelName(), v1beta1.Schema{}.OpenAPIModelName(), v1beta1.SyftDescriptor{}.OpenAPIModelName(), v1beta1.SyftFile{}.OpenAPIModelName(), v1beta1.SyftPackage{}.OpenAPIModelName(), v1beta1.SyftRelationship{}.OpenAPIModelName(), v1beta1.SyftSource{}.OpenAPIModelName()},
 	}
 }
 
@@ -6237,12 +6238,12 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 					"location": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates"),
+							Ref:     ref(v1beta1.Coordinates{}.OpenAPIModelName()),
 						},
 					},
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry"),
+							Ref: ref(v1beta1.FileMetadataEntry{}.OpenAPIModelName()),
 						},
 					},
 					"contents": {
@@ -6258,7 +6259,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest"),
+										Ref:     ref(v1beta1.Digest{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6271,7 +6272,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense"),
+										Ref:     ref(v1beta1.FileLicense{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6279,7 +6280,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 					},
 					"executable": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Executable"),
+							Ref: ref(v1beta1.Executable{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -6287,7 +6288,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Coordinates", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Digest", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Executable", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileLicense", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.FileMetadataEntry"},
+			v1beta1.Coordinates{}.OpenAPIModelName(), v1beta1.Digest{}.OpenAPIModelName(), v1beta1.Executable{}.OpenAPIModelName(), v1beta1.FileLicense{}.OpenAPIModelName(), v1beta1.FileMetadataEntry{}.OpenAPIModelName()},
 	}
 }
 
@@ -6301,13 +6302,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref common.Referenc
 					"PackageBasicData": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData"),
+							Ref:     ref(v1beta1.PackageBasicData{}.OpenAPIModelName()),
 						},
 					},
 					"PackageCustomData": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData"),
+							Ref:     ref(v1beta1.PackageCustomData{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -6315,7 +6316,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageBasicData", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.PackageCustomData"},
+			v1beta1.PackageBasicData{}.OpenAPIModelName(), v1beta1.PackageCustomData{}.OpenAPIModelName()},
 	}
 }
 
@@ -6451,7 +6452,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Syscall(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg"),
+										Ref: ref(v1beta1.Arg{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6462,7 +6463,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Syscall(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Arg"},
+			v1beta1.Arg{}.OpenAPIModelName()},
 	}
 }
 
@@ -6529,7 +6530,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref common.ReferenceCallbac
 					"Metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata"),
+							Ref:     ref(v1beta1.Metadata{}.OpenAPIModelName()),
 						},
 					},
 					"statements": {
@@ -6539,7 +6540,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement"),
+										Ref:     ref(v1beta1.Statement{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6550,7 +6551,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Metadata", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Statement"},
+			v1beta1.Metadata{}.OpenAPIModelName(), v1beta1.Statement{}.OpenAPIModelName()},
 	}
 }
 
@@ -6611,13 +6612,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref c
 					"all": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
+							Ref:     ref(v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName()),
 						},
 					},
 					"relevant": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
+							Ref:     ref(v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -6625,7 +6626,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitiesComponents(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"},
+			v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName()},
 	}
 }
 
@@ -6672,13 +6673,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref common.Refere
 					"VulnerabilityMetadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"),
+							Ref:     ref(v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()),
 						},
 					},
 					"fix": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix"),
+							Ref:     ref(v1beta1.Fix{}.OpenAPIModelName()),
 						},
 					},
 					"advisories": {
@@ -6688,7 +6689,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref common.Refere
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory"),
+										Ref:     ref(v1beta1.Advisory{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6699,7 +6700,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Advisory", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Fix", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityMetadata"},
+			v1beta1.Advisory{}.OpenAPIModelName(), v1beta1.Fix{}.OpenAPIModelName(), v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()},
 	}
 }
 
@@ -6760,20 +6761,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifest(ref commo
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSpec"),
+							Ref:     ref(v1beta1.VulnerabilityManifestSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus"),
+							Ref:     ref(v1beta1.VulnerabilityManifestStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.VulnerabilityManifestSpec{}.OpenAPIModelName(), v1beta1.VulnerabilityManifestStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -6811,7 +6812,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest"),
+										Ref:     ref(v1beta1.VulnerabilityManifest{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6822,7 +6823,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifest", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.VulnerabilityManifest{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -6843,13 +6844,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestMeta(ref c
 					"tool": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestToolMeta"),
+							Ref:     ref(v1beta1.VulnerabilityManifestToolMeta{}.OpenAPIModelName()),
 						},
 					},
 					"report": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestReportMeta"),
+							Ref:     ref(v1beta1.VulnerabilityManifestReportMeta{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -6857,7 +6858,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestMeta(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestReportMeta", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestToolMeta"},
+			v1beta1.VulnerabilityManifestReportMeta{}.OpenAPIModelName(), v1beta1.VulnerabilityManifestToolMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -6891,20 +6892,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSpec(ref c
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestMeta"),
+							Ref:     ref(v1beta1.VulnerabilityManifestMeta{}.OpenAPIModelName()),
 						},
 					},
 					"payload": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument"),
+							Ref:     ref(v1beta1.GrypeDocument{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.GrypeDocument", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestMeta"},
+			v1beta1.GrypeDocument{}.OpenAPIModelName(), v1beta1.VulnerabilityManifestMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -6948,20 +6949,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummary(re
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummarySpec"),
+							Ref:     ref(v1beta1.VulnerabilityManifestSummarySpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus"),
+							Ref:     ref(v1beta1.VulnerabilityManifestStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestStatus", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummarySpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.VulnerabilityManifestStatus{}.OpenAPIModelName(), v1beta1.VulnerabilityManifestSummarySpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -6999,7 +7000,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummaryLis
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummary"),
+										Ref:     ref(v1beta1.VulnerabilityManifestSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7010,7 +7011,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummaryLis
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilityManifestSummary", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.VulnerabilityManifestSummary{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7023,13 +7024,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpe
 					"severities": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary"),
+							Ref:     ref(v1beta1.SeveritySummary{}.OpenAPIModelName()),
 						},
 					},
 					"vulnerabilitiesRef": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents"),
+							Ref:     ref(v1beta1.VulnerabilitiesComponents{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -7037,7 +7038,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummarySpe
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesComponents"},
+			v1beta1.SeveritySummary{}.OpenAPIModelName(), v1beta1.VulnerabilitiesComponents{}.OpenAPIModelName()},
 	}
 }
 
@@ -7135,7 +7136,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref commo
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss"),
+										Ref:     ref(v1beta1.Cvss{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7146,7 +7147,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.Cvss"},
+			v1beta1.Cvss{}.OpenAPIModelName()},
 	}
 }
 
@@ -7180,20 +7181,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummary(ref common
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummarySpec"),
+							Ref:     ref(v1beta1.VulnerabilitySummarySpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryStatus"),
+							Ref:     ref(v1beta1.VulnerabilitySummaryStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummarySpec", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummaryStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.VulnerabilitySummarySpec{}.OpenAPIModelName(), v1beta1.VulnerabilitySummaryStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7231,7 +7232,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref co
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummary"),
+										Ref:     ref(v1beta1.VulnerabilitySummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7242,7 +7243,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref co
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitySummary", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.VulnerabilitySummary{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7255,7 +7256,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref co
 					"severities": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary"),
+							Ref:     ref(v1beta1.SeveritySummary{}.OpenAPIModelName()),
 						},
 					},
 					"vulnerabilitiesRef": {
@@ -7265,7 +7266,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref co
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"),
+										Ref:     ref(v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7276,7 +7277,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref co
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.SeveritySummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.VulnerabilitiesObjScope"},
+			v1beta1.SeveritySummary{}.OpenAPIModelName(), v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName()},
 	}
 }
 
@@ -7320,7 +7321,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScan(ref c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSpec"),
+							Ref:     ref(v1beta1.WorkloadConfigurationScanSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -7328,7 +7329,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScan(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.WorkloadConfigurationScanSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7366,7 +7367,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(r
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScan"),
+										Ref:     ref(v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7377,7 +7378,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScan", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7443,7 +7444,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(r
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControl"),
+										Ref:     ref(v1beta1.ScannedControl{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7456,7 +7457,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(r
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadScanRelatedObject"),
+										Ref:     ref(v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7467,7 +7468,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControl", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadScanRelatedObject"},
+			v1beta1.ScannedControl{}.OpenAPIModelName(), v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()},
 	}
 }
 
@@ -7501,7 +7502,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummarySpec"),
+							Ref:     ref(v1beta1.WorkloadConfigurationScanSummarySpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -7509,7 +7510,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummarySpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1beta1.WorkloadConfigurationScanSummarySpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7582,7 +7583,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummary"),
+										Ref:     ref(v1beta1.WorkloadConfigurationScanSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7593,7 +7594,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSummary", v1.ListMeta{}.OpenAPIModelName()},
+			v1beta1.WorkloadConfigurationScanSummary{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7606,7 +7607,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 					"severities": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary"),
+							Ref:     ref(v1beta1.WorkloadConfigurationScanSeveritiesSummary{}.OpenAPIModelName()),
 						},
 					},
 					"controls": {
@@ -7617,7 +7618,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlSummary"),
+										Ref:     ref(v1beta1.ScannedControlSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7628,7 +7629,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.ScannedControlSummary", "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1.WorkloadConfigurationScanSeveritiesSummary"},
+			v1beta1.ScannedControlSummary{}.OpenAPIModelName(), v1beta1.WorkloadConfigurationScanSeveritiesSummary{}.OpenAPIModelName()},
 	}
 }
 

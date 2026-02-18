@@ -43,6 +43,7 @@ kube::codegen::gen_openapi \
     --report-filename "${report_filename:-"/dev/null"}" \
     ${update_report:+"${update_report}"} \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    --output-model-name-file zz_generated.model_name.go \
     "${SCRIPT_ROOT}/pkg/apis"
 
 kube::codegen::gen_client \
