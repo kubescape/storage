@@ -303,6 +303,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 // sendConsolidatedSlugToChannel calculates the slug from the profile and sends it to the channel
 // The slug is calculated for both ApplicationProfile and NetworkNeighborhood
 // Format: "namespace/name" to allow the ingester to extract both namespace and name
+// Currently disabled to investigate slowness
 func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Context, profile softwarecomposition.ContainerProfile, namespace string) error {
 	if a.ConsolidatedSlugChannel == nil {
 		return nil
