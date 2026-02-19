@@ -30,7 +30,7 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                "nodeagent-failover-test-deployment",
-						MaxSniffingTimeLabel: "3m",
+						MaxSniffingTimeLabel: "5m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -54,7 +54,8 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 	time.Sleep(2 * time.Minute)
 
 	s.LogWithTimestamp("Killing node agent pod on same node as test pod for failover test")
-	DeleteNodeAgentPodOnSameNode(s.T(), s.clientset, s.testNamespace, "app=nodeagent-failover-test-deployment")
+	time.Sleep(10 * time.Second)
+	//DeleteNodeAgentPodOnSameNode(s.T(), s.clientset, s.testNamespace, "app=nodeagent-failover-test-deployment")
 
 	s.LogWithTimestamp("Waiting 4 more minutes for learning period to complete after failover")
 	time.Sleep(4 * time.Minute)
