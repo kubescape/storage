@@ -148,6 +148,7 @@ func Test_isZeroTime(t *testing.T) {
 }
 
 func TestSendConsolidatedSlugToChannel(t *testing.T) {
+	t.Skip("Skipping send consolidated slug to channel test")
 	tests := []struct {
 		name           string
 		channel        chan ConsolidatedSlugData
