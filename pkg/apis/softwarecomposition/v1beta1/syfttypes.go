@@ -8,7 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	syftfile "github.com/anchore/syft/syft/file"
 	"github.com/anchore/syft/syft/license"
+	"github.com/anchore/syft/syft/pkg"
+	"github.com/anchore/syft/syft/sbom"
 	"github.com/anchore/syft/syft/source"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/packagemetadata"
@@ -525,4 +528,100 @@ type SyftDocument struct {
 	Distro                LinuxRelease       `json:"distro" protobuf:"bytes,5,req,name=distro"`         // Distro represents the Linux distribution that was detected from the source
 	SyftDescriptor        SyftDescriptor     `json:"descriptor" protobuf:"bytes,6,req,name=descriptor"` // SyftDescriptor is a block containing self-describing information about syft
 	Schema                Schema             `json:"schema" protobuf:"bytes,7,req,name=schema"`         // Schema is a block reserved for defining the version for the shape of this JSON document and where to find the schema document to validate the shape
+}
+
+// StripSBOM removes unnecessary fields from a Syft SBOM to reduce size
+func StripSBOM(syftSBOM *sbom.SBOM) {
+	if syftSBOM == nil {
+		return
+	}
+
+	// Clear descriptor configuration
+	syftSBOM.Descriptor.Configuration = nil
+
+	// Clear file-level artifact maps
+	// Note: we have to keep FileMetadata, FileDigests, FileContents, Unknowns as they are used to create "files"
+	syftSBOM.Artifacts.FileLicenses = nil
+	syftSBOM.Artifacts.Executables = nil
+
+	// Clear relationships — kubevuln scans via pkg.FromCollection directly, not the syft SBOM
+	// provider, so relationships are never consumed during vulnerability scanning
+	syftSBOM.Relationships = nil
+
+	if syftSBOM.Artifacts.Packages == nil {
+		return
+	}
+
+	// Clear fields in each artifact by rebuilding the collection
+	var modifiedPackages []pkg.Package
+	for p := range syftSBOM.Artifacts.Packages.Enumerate() {
+		p.FoundBy = ""
+		// Preserve only the fields needed by vulnerability scanners (e.g. Grype).
+		// Everything else is cleared to reduce size.
+		switch meta := p.Metadata.(type) {
+		case pkg.ApkDBEntry:
+			p.Metadata = pkg.ApkDBEntry{OriginPackage: meta.OriginPackage}
+		case pkg.DpkgDBEntry:
+			p.Metadata = pkg.DpkgDBEntry{Source: meta.Source, SourceVersion: meta.SourceVersion}
+		case pkg.DpkgArchiveEntry:
+			p.Metadata = pkg.DpkgArchiveEntry{Source: meta.Source, SourceVersion: meta.SourceVersion}
+		case pkg.RpmDBEntry:
+			p.Metadata = pkg.RpmDBEntry{SourceRpm: meta.SourceRpm, Epoch: meta.Epoch, ModularityLabel: meta.ModularityLabel}
+		case pkg.RpmArchive:
+			p.Metadata = pkg.RpmArchive{SourceRpm: meta.SourceRpm, Epoch: meta.Epoch, ModularityLabel: meta.ModularityLabel}
+		case pkg.GolangBinaryBuildinfoEntry:
+			// MainModule is read by the Go matcher to avoid false-positive matching on the
+			// binary's own embedded main module when its version is "(devel)"
+			p.Metadata = pkg.GolangBinaryBuildinfoEntry{MainModule: meta.MainModule}
+		case pkg.JavaArchive:
+			// PomProperties (GroupID/ArtifactID), Manifest.Main (Name key), VirtualPath and
+			// ArchiveDigests are all used by Grype for Java CVE lookup and Maven fallback.
+			// PomProject and Manifest.Sections are presentation-only and stripped.
+			var manifest *pkg.JavaManifest
+			if meta.Manifest != nil {
+				manifest = &pkg.JavaManifest{Main: meta.Manifest.Main}
+			}
+			p.Metadata = pkg.JavaArchive{
+				VirtualPath:    meta.VirtualPath,
+				Manifest:       manifest,
+				PomProperties:  meta.PomProperties,
+				ArchiveDigests: meta.ArchiveDigests,
+			}
+		case pkg.JavaVMInstallation:
+			p.Metadata = pkg.JavaVMInstallation{
+				Release: pkg.JavaVMRelease{
+					JavaRuntimeVersion: meta.Release.JavaRuntimeVersion,
+					JavaVersion:        meta.Release.JavaVersion,
+					FullVersion:        meta.Release.FullVersion,
+					SemanticVersion:    meta.Release.SemanticVersion,
+				},
+			}
+		default:
+			p.Metadata = nil
+		}
+
+		// Clear license locations by rebuilding the license set
+		licenses := p.Licenses.ToSlice()
+		var modifiedLicenses []pkg.License
+		for _, lic := range licenses {
+			lic.Locations = syftfile.NewLocationSet()
+			modifiedLicenses = append(modifiedLicenses, lic)
+		}
+		p.Licenses = pkg.NewLicenseSet(modifiedLicenses...)
+
+		// Clear virtual path in locations by rebuilding the location set
+		locations := p.Locations.ToSlice()
+		var modifiedLocations []syftfile.Location
+		for _, loc := range locations {
+			loc.AccessPath = ""
+			loc.Annotations = nil
+			modifiedLocations = append(modifiedLocations, loc)
+		}
+		p.Locations = syftfile.NewLocationSet(modifiedLocations...)
+
+		modifiedPackages = append(modifiedPackages, p)
+	}
+
+	// Replace the collection with modified packages
+	syftSBOM.Artifacts.Packages = pkg.NewCollection(modifiedPackages...)
 }
