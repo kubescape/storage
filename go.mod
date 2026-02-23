@@ -14,7 +14,6 @@ require (
 	github.com/dghubble/trie v0.1.0
 	github.com/didip/tollbooth/v7 v7.0.2
 	github.com/go-logr/zapr v1.3.0
-	github.com/gogo/protobuf v1.3.2
 	github.com/goradd/maps v1.0.0
 	github.com/grafana/pyroscope-go v1.2.2
 	github.com/kinbiko/jsonassert v1.2.0
@@ -99,6 +98,7 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/go-pkgz/expirable-cache/v3 v3.0.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gohugoio/hashstructure v0.5.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
@@ -199,7 +199,6 @@ require (
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
-	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250519155744-55703ea1f237 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250528174236-200df99c418a // indirect
 	google.golang.org/grpc v1.72.2 // indirect
