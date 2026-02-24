@@ -544,10 +544,6 @@ func StripSBOM(syftSBOM *sbom.SBOM) {
 	syftSBOM.Artifacts.FileLicenses = nil
 	syftSBOM.Artifacts.Executables = nil
 
-	// Clear relationships — kubevuln scans via pkg.FromCollection directly, not the syft SBOM
-	// provider, so relationships are never consumed during vulnerability scanning
-	syftSBOM.Relationships = nil
-
 	if syftSBOM.Artifacts.Packages == nil {
 		return
 	}

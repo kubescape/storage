@@ -37,7 +37,7 @@ func TestStripSBOM(t *testing.T) {
 				assert.Nil(t, sbom.Artifacts.FileLicenses, "file licenses should be cleared")
 				assert.Nil(t, sbom.Artifacts.Executables, "executables should be cleared")
 				assert.NotNil(t, sbom.Artifacts.Unknowns, "unknowns should be preserved")
-				assert.Nil(t, sbom.Relationships, "relationships should be cleared")
+				assert.NotNil(t, sbom.Relationships, "relationships should be preserved")
 			},
 		},
 		{
@@ -51,7 +51,7 @@ func TestStripSBOM(t *testing.T) {
 				assert.Nil(t, sbom.Artifacts.FileLicenses, "file licenses should be cleared")
 				assert.Nil(t, sbom.Artifacts.Executables, "executables should be cleared")
 				assert.NotNil(t, sbom.Artifacts.Unknowns, "unknowns should be preserved")
-				assert.Nil(t, sbom.Relationships, "relationships should be cleared")
+				assert.NotNil(t, sbom.Relationships, "relationships should be preserved")
 
 				for p := range sbom.Artifacts.Packages.Enumerate() {
 					assert.Equal(t, "", p.FoundBy, "package FoundBy should be cleared")
