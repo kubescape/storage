@@ -7,8 +7,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestSimpleProfileCreate() {
@@ -31,8 +29,8 @@ Goal: Ensure that the profiling and learning period mechanism works as expected 
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "simple-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "2m",
+						"app":                "simple-test-deployment",
+						MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -56,8 +54,8 @@ Goal: Ensure that the profiling and learning period mechanism works as expected 
 	time.Sleep(3 * time.Minute)
 
 	s.LogWithTimestamp("Verifying profiles are complete")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "simple-test-deployment")
-	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "simple-test-deployment")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "simple-test-deployment", s.accountID, s.accessKey, s.isRapid7)
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "simple-test-deployment", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("TestSimpleProfileCreate completed successfully")
 }

@@ -4,10 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	backendv1 "github.com/kubescape/backend/pkg/client/v1"
+	"github.com/kubescape/backend/pkg/servicediscovery"
+	v3 "github.com/kubescape/backend/pkg/servicediscovery/v3"
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
 	spdxv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	spdxv1beta1client "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
 
@@ -17,6 +23,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+// MaxSniffingTimeLabel is the label key for setting the maximum sniffing time per container.
+// This is defined locally to avoid importing the containerwatcher package which has platform-specific dependencies.
+const MaxSniffingTimeLabel = "kubescape.io/max-sniffing-time"
 
 func getKubeconfig() (*rest.Config, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
@@ -30,12 +40,52 @@ func getKubeconfig() (*rest.Config, error) {
 	return config, nil
 }
 
+func getClusterName() string {
+	cmd := exec.Command("kubectl", "config", "current-context")
+	clusterNameBytes, err := cmd.Output()
+	if err != nil {
+		logger.L().Fatal("failed to get current cluster name", helpers.Error(err))
+	}
+	clusterName := string(clusterNameBytes)
+	// Trim newline (matching helm.go behavior)
+	clusterName = strings.TrimSpace(clusterName)
+	logger.L().Info("Current cluster name", helpers.String("clusterName", clusterName))
+	return clusterName
+}
+
 func GetKubeClient() (*kubernetes.Clientset, error) {
 	config, err := getKubeconfig()
 	if err != nil {
 		return nil, err
 	}
 	return kubernetes.NewForConfig(config)
+}
+
+func getStorageUrl() (string, error) {
+	serviceDiscoveryClient, err := v3.NewServiceDiscoveryClientV3("api.stage-us-east-1.r7.armo-cadr.com")
+	if err != nil {
+		return "", fmt.Errorf("failed to create service discovery client: %v", err)
+	}
+
+	services, err := servicediscovery.GetServices(serviceDiscoveryClient)
+	if err != nil {
+		return "", fmt.Errorf("failed to get services: %v", err)
+	}
+
+	storageUrl := services.GetStorageUrl()
+	return storageUrl, nil
+}
+
+func NewStorageClient(clusterName, accountID, accessKey, url string) *backendv1.StorageClient {
+	client, err := backendv1.NewStorageClient(url, accountID, accessKey, clusterName)
+	if err != nil {
+		logger.L().Fatal("failed to create storage client", helpers.Error(err))
+	}
+	err = client.Connect()
+	if err != nil {
+		logger.L().Fatal("failed to connect to storage backend", helpers.Error(err))
+	}
+	return client
 }
 
 func CreateKubscapeObjectConnection() (spdxv1beta1client.SpdxV1beta1Interface, error) {
@@ -66,7 +116,7 @@ func ListPodsInNamespace(clientset *kubernetes.Clientset, namespace string) ([]*
 	return result, nil
 }
 
-func fetchApplicationProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, namespace string, relatedKind string, relatedName string) (*spdxv1beta1.ApplicationProfile, error) {
+func fetchApplicationProfileFromCluster(ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, namespace string, relatedKind string, relatedName string) (*spdxv1beta1.ApplicationProfile, error) {
 	applicationProfileList, err := ksObjectConnection.ApplicationProfiles(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -89,7 +139,40 @@ func fetchApplicationProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta1Int
 	return applicationProfile, nil
 }
 
-func fetchNetworkNeighborProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, namespace string, relatedKind string, relatedName string) (*spdxv1beta1.NetworkNeighborhood, error) {
+func fetchApplicationProfileFromStorageBackend(testNamespace, relatedKind, relatedName, accountID, accessKey string) (*spdxv1beta1.ApplicationProfile, error) {
+	ctx := context.Background()
+
+	storageUrl, err := getStorageUrl()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage url: %v", err)
+	}
+	storageClient := NewStorageClient(getClusterName(), accountID, accessKey, storageUrl)
+
+	applicationProfileList, err := storageClient.ListApplicationProfiles(ctx, testNamespace, 100, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list application profiles: %v", err)
+	}
+
+	var matchingProfile *spdxv1beta1.ApplicationProfile
+	for _, profile := range applicationProfileList.Items {
+		if strings.EqualFold(profile.Labels["kubescape.io/workload-name"], relatedName) &&
+			strings.EqualFold(profile.Labels["kubescape.io/workload-kind"], relatedKind) {
+			matchingProfile = &profile
+			break
+		}
+	}
+	if matchingProfile == nil {
+		return nil, fmt.Errorf("no application profile found for %s %s", relatedKind, relatedName)
+	}
+	applicationProfile, err := storageClient.GetApplicationProfile(ctx, testNamespace, matchingProfile.Name)
+	if err != nil {
+		return nil, err
+	}
+	return applicationProfile, nil
+
+}
+
+func fetchNetworkNeighborProfileFromCluster(ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, namespace string, relatedKind string, relatedName string) (*spdxv1beta1.NetworkNeighborhood, error) {
 	networkNeighborProfileList, err := ksObjectConnection.NetworkNeighborhoods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -106,6 +189,38 @@ func fetchNetworkNeighborProfile(ksObjectConnection spdxv1beta1client.SpdxV1beta
 		return nil, fmt.Errorf("no network neighbor profile found for %s %s", relatedKind, relatedName)
 	}
 	networkNeighborProfile, err := ksObjectConnection.NetworkNeighborhoods(namespace).Get(context.Background(), matchingProfile.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return networkNeighborProfile, nil
+}
+
+func fetchNetworkNeighborProfileFromStorageBackend(testNamespace, relatedKind, relatedName, accountID, accessKey string) (*spdxv1beta1.NetworkNeighborhood, error) {
+	ctx := context.Background()
+
+	storageUrl, err := getStorageUrl()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage url: %v", err)
+	}
+	storageClient := NewStorageClient(getClusterName(), accountID, accessKey, storageUrl)
+
+	networkNeighborProfileList, err := storageClient.ListNetworkNeighborhoods(ctx, testNamespace, 100, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list network neighbor profiles: %v", err)
+	}
+
+	var matchingProfile *spdxv1beta1.NetworkNeighborhood
+	for _, profile := range networkNeighborProfileList.Items {
+		if strings.EqualFold(profile.Labels["kubescape.io/workload-name"], relatedName) &&
+			strings.EqualFold(profile.Labels["kubescape.io/workload-kind"], relatedKind) {
+			matchingProfile = &profile
+			break
+		}
+	}
+	if matchingProfile == nil {
+		return nil, fmt.Errorf("no network neighbor profile found for %s %s", relatedKind, relatedName)
+	}
+	networkNeighborProfile, err := storageClient.GetNetworkNeighborhood(ctx, testNamespace, matchingProfile.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +313,21 @@ func DeleteNodeAgentPodOnSameNode(t *testing.T, clientset *kubernetes.Clientset,
 	return ""
 }
 
-func verifyApplicationProfileCompleted(t *testing.T, ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, expectedCompletness, testNamespace, relatedKind, relatedName string) {
-	applicationProfile, err := fetchApplicationProfile(ksObjectConnection, testNamespace, relatedKind, relatedName)
-	if err != nil {
-		t.Fatalf("Failed to fetch application profile: %v", err)
+func verifyApplicationProfileCompleted(t *testing.T, ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, expectedCompletness, testNamespace, relatedKind, relatedName, accountID, accessKey string, isRapid7 bool) {
+	var applicationProfile *spdxv1beta1.ApplicationProfile
+	var err error
+	if isRapid7 {
+		applicationProfile, err = fetchApplicationProfileFromStorageBackend(testNamespace, relatedKind, relatedName, accountID, accessKey)
+		if err != nil {
+			t.Fatalf("Failed to fetch application profile from storage backend: %v", err)
+		}
+	} else {
+		applicationProfile, err = fetchApplicationProfileFromCluster(ksObjectConnection, testNamespace, relatedKind, relatedName)
+		if err != nil {
+			t.Fatalf("Failed to fetch application profile from cluster: %v", err)
+		}
 	}
+
 	if applicationProfile.Annotations["kubescape.io/status"] != "completed" {
 		t.Fatalf("Application profile %s %s is not completed", relatedKind, relatedName)
 	}
@@ -233,10 +358,19 @@ func verifyApplicationProfileCompleted(t *testing.T, ksObjectConnection spdxv1be
 	}
 }
 
-func verifyNetworkNeighborProfileCompleted(t *testing.T, ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, expectEgress, expectIngress bool, expectedCompletness, testNamespace, relatedKind, relatedName string) {
-	networkNeighborProfile, err := fetchNetworkNeighborProfile(ksObjectConnection, testNamespace, relatedKind, relatedName)
-	if err != nil {
-		t.Fatalf("Failed to fetch network neighbor profile: %v", err)
+func verifyNetworkNeighborProfileCompleted(t *testing.T, ksObjectConnection spdxv1beta1client.SpdxV1beta1Interface, expectEgress, expectIngress bool, expectedCompletness, testNamespace, relatedKind, relatedName, accountID, accessKey string, isRapid7 bool) {
+	var networkNeighborProfile *spdxv1beta1.NetworkNeighborhood
+	var err error
+	if isRapid7 {
+		networkNeighborProfile, err = fetchNetworkNeighborProfileFromStorageBackend(testNamespace, relatedKind, relatedName, accountID, accessKey)
+		if err != nil {
+			t.Fatalf("Failed to fetch network neighbor profile from storage backend: %v", err)
+		}
+	} else {
+		networkNeighborProfile, err = fetchNetworkNeighborProfileFromCluster(ksObjectConnection, testNamespace, relatedKind, relatedName)
+		if err != nil {
+			t.Fatalf("Failed to fetch network neighbor profile from cluster: %v", err)
+		}
 	}
 	if networkNeighborProfile.Annotations["kubescape.io/status"] != "completed" {
 		t.Fatalf("Network neighbor profile %s %s is not completed", relatedKind, relatedName)
