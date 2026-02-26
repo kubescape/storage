@@ -17,6 +17,8 @@ limitations under the License.
 package apiserver
 
 import (
+	"net/http"
+
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/config"
@@ -46,6 +48,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -135,6 +138,17 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	s := &WardleServer{
 		GenericAPIServer: genericServer,
+	}
+
+	if err := genericServer.AddHealthChecks(
+		healthz.NamedCheck("sqlite", func(r *http.Request) error {
+			return file.HealthCheck(c.ExtraConfig.Pool, false)
+		}),
+		healthz.NamedCheck("sqlite-write", func(r *http.Request) error {
+			return file.HealthCheck(c.ExtraConfig.Pool, true)
+		}),
+	); err != nil {
+		return nil, err
 	}
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
