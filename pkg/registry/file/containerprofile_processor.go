@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -390,18 +389,13 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 	return processed, nil
 }
 
-// deleteProcessedTimeSeries removes processed time series profiles from storage.
-// Treats "key not found" as success (idempotent delete): the profile may already have been
-// deleted by a concurrent consolidation run for the same customer/cluster.
+// deleteProcessedTimeSeries removes processed time series profiles from storage
 func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Context, processed []string) error {
 	for _, tsKey := range processed {
+		// no locking needed for TS profiles
 		err := a.ContainerProfileStorage.DeleteContainerProfile(ctx, tsKey)
+		// FIXME maybe try to delete others before exit?
 		if err != nil {
-			if isKeyNotFoundErr(err) {
-				logger.L().Debug("deleteProcessedTimeSeries - TS profile already deleted, skipping",
-					loggerhelpers.String("tsKey", tsKey), loggerhelpers.Error(err))
-				continue
-			}
 			return fmt.Errorf("failed to delete processed time series profile: %w", err)
 		}
 	}
@@ -707,12 +701,12 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, key s
 }
 
 func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string]) softwarecomposition.ContainerProfileSpec {
-	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, dynamicpathdetector.DefaultCollapseConfigs), sbomSet)
 	if err != nil {
 		logger.L().Debug("ContainerProfileProcessor.deflateContainerProfileSpec - falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
-	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
+	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil))
 	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
 
 	return softwarecomposition.ContainerProfileSpec{
@@ -807,15 +801,4 @@ func SplitProfileName(profileName string) (name string, tsSuffix string) {
 	name = profileName[:lastHyphenIndex]
 	tsSuffix = profileName[lastHyphenIndex+1:]
 	return name, tsSuffix
-}
-
-// isKeyNotFoundErr returns true if err indicates the key was not found (already deleted).
-// Checks the error chain so wrapped errors from different backends are handled.
-func isKeyNotFoundErr(err error) bool {
-	for e := err; e != nil; e = errors.Unwrap(e) {
-		if storage.IsNotFound(e) || strings.Contains(e.Error(), "key not found") {
-			return true
-		}
-	}
-	return storage.IsNotFound(err) || strings.Contains(err.Error(), "key not found")
 }
