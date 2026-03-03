@@ -13,7 +13,7 @@ import (
 )
 
 func BenchmarkAnalyzePath(b *testing.B) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 	paths := generateMixedPaths(10000, 0) // 0 means use default mixed lengths
 
 	identifier := "test"
@@ -33,7 +33,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 	for _, length := range pathLengths {
 		b.Run(fmt.Sprintf("PathLength-%d", length), func(b *testing.B) {
-			analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+			analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 			paths := generateMixedPaths(10000, length)
 			identifier := "test"
 
@@ -52,7 +52,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 	paths := pathsToOpens(generateMixedPaths(10000, 0))
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	b.Run("AnalyzeOpens", func(b *testing.B) {
 		b.ResetTimer()
@@ -72,14 +72,14 @@ func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 	})
 }
 
-func BenchmarkCompareDynamic(b *testing.B) {
-	dynamicPath := "/api/\u22ef/\u22ef"
-	regularPath := "/api/users/123"
-	for i := 0; i < b.N; i++ {
-		_ = dynamicpathdetector.CompareDynamic(dynamicPath, regularPath)
-	}
-	b.ReportAllocs()
-}
+// func BenchmarkCompareDynamic(b *testing.B) {
+// 	dynamicPath := "/api/\u22ef/\u22ef"
+// 	regularPath := "/api/users/123"
+// 	for i := 0; i < b.N; i++ {
+// 		_ = dynamicpathdetector.CompareDynamic(dynamicPath, regularPath)
+// 	}
+// 	b.ReportAllocs()
+// }
 
 func generateMixedPaths(count int, fixedLength int) []string {
 	paths := make([]string, count)

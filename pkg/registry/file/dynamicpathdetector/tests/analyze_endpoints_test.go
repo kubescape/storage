@@ -12,7 +12,7 @@ import (
 )
 
 func TestAnalyzeEndpoints(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	tests := []struct {
 		name     string
@@ -68,6 +68,29 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			expected: []types.HTTPEndpoint{
 				{
 					Endpoint: ":80/users/\u22ef/posts/\u22ef",
+					Methods:  []string{"GET", "POST"},
+				},
+			},
+		},
+		{
+			name: "Test with 0 port",
+			input: []types.HTTPEndpoint{
+				{
+					Endpoint: ":0/users/123/posts/\u22ef",
+					Methods:  []string{"GET"},
+				},
+				{
+					Endpoint: ":80/users/\u22ef/posts/101",
+					Methods:  []string{"POST"},
+				},
+				{
+					Endpoint: ":8770/users/blub/posts/101",
+					Methods:  []string{"POST"},
+				},
+			},
+			expected: []types.HTTPEndpoint{
+				{
+					Endpoint: ":0/users/\u22ef/posts/\u22ef",
 					Methods:  []string{"GET", "POST"},
 				},
 			},
@@ -145,10 +168,11 @@ func TestAnalyzeEndpoints(t *testing.T) {
 }
 
 func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	threshold := dynamicpathdetector.EndpointDynamicThreshold
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	var input []types.HTTPEndpoint
-	for i := 0; i < 101; i++ {
+	for i := 0; i < threshold+1; i++ {
 		input = append(input, types.HTTPEndpoint{
 			Endpoint: fmt.Sprintf(":80/users/%d", i),
 			Methods:  []string{"GET"},
@@ -167,10 +191,11 @@ func TestAnalyzeEndpointsWithThreshold(t *testing.T) {
 }
 
 func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	threshold := dynamicpathdetector.EndpointDynamicThreshold
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
 	var input []types.HTTPEndpoint
-	for i := 0; i < 100; i++ {
+	for i := 0; i < threshold; i++ {
 		input = append(input, types.HTTPEndpoint{
 			Endpoint: fmt.Sprintf(":80/users/%d", i),
 			Methods:  []string{"GET"},
@@ -179,18 +204,17 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 
 	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
-	// Check that all 100 endpoints are still individual
-	assert.Equal(t, 100, len(result))
+	// At exact threshold: all endpoints should remain individual
+	assert.Equal(t, threshold, len(result))
 
 	// Now add one more endpoint to trigger the dynamic behavior
 	input = append(input, types.HTTPEndpoint{
-		Endpoint: ":80/users/100",
+		Endpoint: fmt.Sprintf(":80/users/%d", threshold),
 		Methods:  []string{"GET"},
 	})
 
 	result = dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
-	// Check that all endpoints are now merged into one dynamic endpoint
 	expected := []types.HTTPEndpoint{
 		{
 			Endpoint: ":80/users/\u22ef",
@@ -201,7 +225,7 @@ func TestAnalyzeEndpointsWithExactThreshold(t *testing.T) {
 }
 
 func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	input := []types.HTTPEndpoint{
 		{
@@ -212,4 +236,99 @@ func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
 
 	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 	assert.Equal(t, 0, len(result))
+}
+
+func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":0/users/123",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":80/users/456",
+			Methods:   []string{"POST"},
+			Direction: "outbound",
+		},
+	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	for _, ep := range result {
+		port := ep.Endpoint[:len(":0")]
+		assert.Equal(t, ":0", port, "endpoint %s should have wildcard port", ep.Endpoint)
+	}
+}
+
+func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":80/api/data",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":0/api/info",
+			Methods:   []string{"POST"},
+			Direction: "outbound",
+		},
+	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	for _, ep := range result {
+		port := ep.Endpoint[:len(":0")]
+		assert.Equal(t, ":0", port, "endpoint %s should have wildcard port", ep.Endpoint)
+	}
+}
+
+func TestAnalyzeEndpointsMultiplePortsMergeIntoWildcard(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":0/api/data",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":80/api/data",
+			Methods:   []string{"POST"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":81/api/data",
+			Methods:   []string{"PUT"},
+			Direction: "outbound",
+		},
+	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, ":0/api/data", result[0].Endpoint)
+	assert.Equal(t, []string{"GET", "POST", "PUT"}, result[0].Methods)
+}
+
+func TestMergeDuplicateEndpointsWildcardPort(t *testing.T) {
+	wildcardEP := &types.HTTPEndpoint{
+		Endpoint:  ":0/api/data",
+		Methods:   []string{"GET"},
+		Direction: "outbound",
+	}
+	specificEP := &types.HTTPEndpoint{
+		Endpoint:  ":80/api/data",
+		Methods:   []string{"POST"},
+		Direction: "outbound",
+	}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{wildcardEP, specificEP})
+
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, ":0/api/data", result[0].Endpoint)
+	assert.Equal(t, []string{"GET", "POST"}, result[0].Methods)
 }
