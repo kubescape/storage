@@ -15691,7 +15691,7 @@ func (m *Arg) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Index |= uint64(b&0x7F) << shift
+				m.Index |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15710,7 +15710,7 @@ func (m *Arg) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Value |= uint64(b&0x7F) << shift
+				m.Value |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15729,7 +15729,7 @@ func (m *Arg) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ValueTwo |= uint64(b&0x7F) << shift
+				m.ValueTwo |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -36405,7 +36405,7 @@ func (m *Syscall) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ErrnoRet |= uint64(b&0x7F) << shift
+				m.ErrnoRet |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

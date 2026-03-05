@@ -706,7 +706,7 @@ type Syscall struct {
 	Action seccomp.Action
 	// the errno return code to use. Some actions like SCMP_ACT_ERRNO and
 	// SCMP_ACT_TRACE allow to specify the errno code to return
-	ErrnoRet uint64
+	ErrnoRet int64
 	// the specific syscall in seccomp
 	Args []*Arg
 }
@@ -714,11 +714,11 @@ type Syscall struct {
 // Arg defines the specific syscall in seccomp.
 type Arg struct {
 	// the index for syscall arguments in seccomp
-	Index uint64
+	Index int64
 	// the value for syscall arguments in seccomp
-	Value uint64
+	Value int64
 	// the value for syscall arguments in seccomp
-	ValueTwo uint64
+	ValueTwo int64
 	// the operator for syscall arguments in seccomp
 	Op seccomp.Operator
 }
