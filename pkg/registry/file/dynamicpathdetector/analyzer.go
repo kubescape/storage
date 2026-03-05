@@ -162,5 +162,5 @@ func CompareDynamic(dynamicPath, regularPath string) bool {
 		regularIndex++
 	}
 
-	return dynamicIndex > dynamicLen && regularIndex > regularLen
+	return dynamicIndex >= dynamicLen && regularIndex >= regularLen
 }
