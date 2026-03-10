@@ -355,7 +355,6 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 
 	profile, err = a.ContainerProfileStorage.GetContainerProfile(cpCtx, key)
 
-
 	id, prefix, root, kind, parseErr := ParseContainerProfileKey(key, a.HostType)
 	if parseErr != nil {
 		return profile, id, "", "", fmt.Errorf("failed to parse profile key: %w", parseErr)
@@ -364,22 +363,6 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 	switch {
 	case storage.IsNotFound(err):
 		err = nil
-		labels := map[string]string{
-			helpers.HostTypeMetadataKey: string(id.HostType),
-		}
-		if id.Cluster != "" {
-			labels[helpers.ClusterMetadataKey] = id.Cluster
-		}
-		if id.AWSAccountID != "" {
-			labels[helpers.AWSAccountIDMetadataKey] = id.AWSAccountID
-		}
-		if id.Region != "" {
-			labels[helpers.RegionMetadataKey] = id.Region
-		}
-		if id.HostID != "" {
-			labels[helpers.HostIDMetadataKey] = id.HostID
-		}
-
 		profile = softwarecomposition.ContainerProfile{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: StorageV1Beta1ApiVersion,
@@ -389,7 +372,7 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 				Namespace:   id.Namespace,
 				Name:        id.Name,
 				Annotations: map[string]string{},
-				Labels:      labels,
+				Labels:      map[string]string{},
 			},
 		}
 	case err != nil:
