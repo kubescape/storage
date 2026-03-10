@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,10 +67,10 @@ func (f *fakeStorage) GetTsContainerProfile(ctx context.Context, key string) (so
 func (f *fakeStorage) SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error {
 	return nil
 }
-func (f *fakeStorage) UpdateApplicationProfile(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
+func (f *fakeStorage) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	return nil
 }
-func (f *fakeStorage) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
+func (f *fakeStorage) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	return nil
 }
 func (f *fakeStorage) GetStorageImpl() *StorageImpl {

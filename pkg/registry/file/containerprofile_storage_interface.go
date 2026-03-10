@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -59,10 +60,10 @@ type ContainerProfileStorage interface {
 	SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error
 
 	// UpdateApplicationProfile updates the application profile associated with a container profile.
-	UpdateApplicationProfile(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
+	UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
 
 	// UpdateNetworkNeighborhood updates the network neighborhood associated with a container profile.
-	UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
+	UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
 }
 
 // TransactionManager handles database connection and transaction lifecycle.
