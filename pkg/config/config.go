@@ -3,6 +3,7 @@ package config
 import (
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/spf13/viper"
 )
 
@@ -13,20 +14,21 @@ type KindQueueConfig struct {
 }
 
 type Config struct {
-	CleanupInterval               time.Duration `mapstructure:"cleanupInterval"`
-	DefaultNamespace              string        `mapstructure:"defaultNamespace"`
-	DisableVirtualCRDs            bool          `mapstructure:"disableVirtualCRDs"`
-	DisableSeccompProfileEndpoint bool          `mapstructure:"disableSeccompProfileEndpoint"`
-	ExcludeJsonPaths              []string      `mapstructure:"excludeJsonPaths"`
-	MaxApplicationProfileSize  int           `mapstructure:"maxApplicationProfileSize"`
-	MaxNetworkNeighborhoodSize int           `mapstructure:"maxNetworkNeighborhoodSize"`
-	MaxSniffingTime            time.Duration `mapstructure:"maxSniffingTimePerContainer"`
-	RateLimitPerClient         float64       `mapstructure:"rateLimitPerClient"`
-	RateLimitTotal             int           `mapstructure:"rateLimitTotal"`
-	ServerBindPort             int           `mapstructure:"serverBindPort"`
-	TlsClientCaFile            string        `mapstructure:"tlsClientCaFile"`
-	TlsServerCertFile          string        `mapstructure:"tlsServerCertFile"`
-	TlsServerKeyFile           string        `mapstructure:"tlsServerKeyFile"`
+	CleanupInterval               time.Duration      `mapstructure:"cleanupInterval"`
+	DefaultNamespace              string             `mapstructure:"defaultNamespace"`
+	HostType                      armotypes.HostType `mapstructure:"hostType"`
+	DisableVirtualCRDs            bool               `mapstructure:"disableVirtualCRDs"`
+	DisableSeccompProfileEndpoint bool               `mapstructure:"disableSeccompProfileEndpoint"`
+	ExcludeJsonPaths              []string           `mapstructure:"excludeJsonPaths"`
+	MaxApplicationProfileSize     int                `mapstructure:"maxApplicationProfileSize"`
+	MaxNetworkNeighborhoodSize    int                `mapstructure:"maxNetworkNeighborhoodSize"`
+	MaxSniffingTime               time.Duration      `mapstructure:"maxSniffingTimePerContainer"`
+	RateLimitPerClient            float64            `mapstructure:"rateLimitPerClient"`
+	RateLimitTotal                int                `mapstructure:"rateLimitTotal"`
+	ServerBindPort                int                `mapstructure:"serverBindPort"`
+	TlsClientCaFile               string             `mapstructure:"tlsClientCaFile"`
+	TlsServerCertFile             string             `mapstructure:"tlsServerCertFile"`
+	TlsServerKeyFile              string             `mapstructure:"tlsServerKeyFile"`
 
 	// New fields for per-kind queue/worker/object size config
 	KindQueues           map[string]KindQueueConfig `mapstructure:"kindQueues"`
