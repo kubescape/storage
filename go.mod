@@ -7,6 +7,7 @@ go 1.25.0
 require (
 	github.com/SergJa/jsonhash v0.0.0-20210531165746-fc45f346aa74
 	github.com/anchore/syft v1.32.0
+	github.com/armosec/armoapi-go v0.0.679-0.20260308170643-4933c175944f
 	github.com/armosec/utils-k8s-go v0.0.30
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/containers/common v0.63.0
