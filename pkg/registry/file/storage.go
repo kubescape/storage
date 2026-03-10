@@ -369,7 +369,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	_, _, _, namespace, _ := PathToKeys(key)
+	_, _, _, _, namespace, _ := K8sPathToKeys(key)
 	if namespace != "" {
 		// FIXME find an alternative to fix NS deletion
 		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))

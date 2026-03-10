@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
 	"zombiezen.com/go/sqlite"
@@ -61,21 +62,97 @@ func NewTestPool(dir string) *sqlitemigration.Pool {
 	return NewPool(path, 0)
 }
 
-func KeysToPath(prefix, root, kind, ns, name string) string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s", prefix, root, kind, ns, name)
+func K8sKeysToPath(prefix, root, kind, cluster, namespace, name string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, namespace, name)
 }
 
-func PathToKeys(path string) (string, string, string, string, string) {
-	s := strings.SplitN(path, "/", 5)
-	// ensure we have at least 5 parts
-	for len(s) < 5 {
+func ECSKeysToPath(prefix, root, kind, cluster, awsAccountID, region, name string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, awsAccountID, region, name)
+}
+
+func HostKeysToPath(prefix, root, kind, hostID, name string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s", prefix, root, kind, hostID, name)
+}
+
+func K8sPathToKeys(path string) (string, string, string, string, string, string) {
+	s := strings.SplitN(path, "/", 6)
+	// ensure we have at least 6 parts
+	for len(s) < 6 {
 		s = append(s, "")
 	}
-	return s[0], s[1], s[2], s[3], s[4]
+	return s[0], s[1], s[2], s[3], s[4], s[5]
+}
+
+// BuildContainerProfileKey constructs a storage key from a ProfileIdentifier.
+// The key format is determined by id.HostType (defaults to K8s when empty).
+// For K8s and ECS the cluster is embedded in the key so that ParseContainerProfileKey
+// can reconstruct a fully self-contained ProfileIdentifier without external context.
+func BuildContainerProfileKey(id armotypes.ProfileIdentifier, kind string) string {
+	switch id.HostType {
+	case armotypes.HostTypeEcsEc2, armotypes.HostTypeEcsFargate:
+		return ECSKeysToPath("", softwarecomposition.GroupName, kind, id.Cluster, id.AWSAccountID, id.Region, id.Name)
+	// If host type is not set, use K8s format (backward compatibility)
+	case armotypes.HostTypeKubernetes, "":
+		return K8sKeysToPath("", softwarecomposition.GroupName, kind, id.Cluster, id.Namespace, id.Name)
+	default:
+		return HostKeysToPath("", softwarecomposition.GroupName, kind, id.HostID, id.Name)
+	}
+}
+
+// ParseContainerProfileKey parses a storage key back into a ProfileIdentifier
+// plus the prefix, root, and kind segments that are common to all key formats.
+// hostType determines how segments are interpreted; empty defaults to K8s.
+func ParseContainerProfileKey(key string, hostType armotypes.HostType) (id armotypes.ProfileIdentifier, prefix, root, kind string, err error) {
+	parts := strings.Split(key, "/")
+
+	id = armotypes.ProfileIdentifier{}
+	id.HostType = hostType
+
+	if len(parts) < 3 {
+		return id, "", "", "", fmt.Errorf("invalid key format: expected at least 3 parts, got %d", len(parts))
+	}
+	prefix = parts[0]
+	root = parts[1]
+	kind = parts[2]
+
+	switch hostType {
+	case armotypes.HostTypeEcsEc2, armotypes.HostTypeEcsFargate:
+		// format: prefix/root/kind/cluster/awsAccountID/region/name
+		if len(parts) < 7 {
+			return id, prefix, root, kind, fmt.Errorf("invalid ECS key format: expected 7 parts, got %d", len(parts))
+		}
+		id.Cluster = parts[3]
+		id.AWSAccountID = parts[4]
+		id.Region = parts[5]
+		id.Name = parts[6]
+	case armotypes.HostTypeKubernetes, "":
+		if len(parts) >= 6 {
+			// new format with cluster: prefix/root/kind/cluster/namespace/name
+			id.Cluster = parts[3]
+			id.Namespace = parts[4]
+			id.Name = parts[5]
+		} else if len(parts) >= 5 {
+			// legacy format without cluster: prefix/root/kind/namespace/name
+			id.Namespace = parts[3]
+			id.Name = parts[4]
+		} else {
+			return id, prefix, root, kind, fmt.Errorf("invalid K8s key format: expected at least 5 parts, got %d", len(parts))
+		}
+		if hostType == "" {
+			id.HostType = armotypes.HostTypeKubernetes
+		}
+	default:
+		if len(parts) < 5 {
+			return id, prefix, root, kind, fmt.Errorf("invalid Host key format: expected 5 parts, got %d", len(parts))
+		}
+		id.HostID = parts[3]
+		id.Name = parts[4]
+	}
+	return id, prefix, root, kind, nil
 }
 
 func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
-	_, _, kind, namespace, _ := PathToKeys(path)
+	_, _, kind, _, namespace, _ := K8sPathToKeys(path)
 	var count int64
 	err := sqlitex.Execute(conn,
 		`SELECT COUNT(*) FROM metadata
@@ -96,7 +173,7 @@ func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 
 // DeleteMetadata deletes metadata for the given path and unmarshals the deleted metadata into the provided runtime.Object.
 func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) error {
-	_, _, kind, namespace, name := PathToKeys(path)
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`DELETE FROM metadata
 				WHERE kind = :kind
@@ -120,7 +197,7 @@ func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) err
 }
 
 func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
-	prefix, root, kind, namespace, _ := PathToKeys(path)
+	prefix, root, kind, _, namespace, _ := K8sPathToKeys(path)
 	if cont == "" {
 		cont = "0"
 	}
@@ -139,7 +216,7 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
 				last = stmt.ColumnText(0)
 				ns := stmt.ColumnText(1)
 				name := stmt.ColumnText(2)
-				names = append(names, KeysToPath(prefix, root, kind, ns, name))
+				names = append(names, K8sKeysToPath(prefix, root, kind, "", ns, name))
 				return nil
 			},
 		})
@@ -150,7 +227,7 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
 }
 
 func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
-	_, _, kind, namespace, _ := PathToKeys(path)
+	_, _, kind, _, namespace, _ := K8sPathToKeys(path)
 	if cont == "" {
 		cont = "0"
 	}
@@ -198,7 +275,7 @@ func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 
 // DeleteTimeSeriesContainerEntries deletes all time series entries for a completed container.
 func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
-	_, _, kind, namespace, name := PathToKeys(path)
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`DELETE FROM time_series
 					WHERE kind = ?
@@ -216,7 +293,7 @@ func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 // ListTimeSeriesContainers retrieves time series containers for a given path.
 func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
 	containers := make(map[string][]softwarecomposition.TimeSeriesContainers)
-	_, _, kind, namespace, name := PathToKeys(path)
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`SELECT seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData
 				FROM time_series
@@ -273,7 +350,7 @@ func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error)
 				kind := stmt.ColumnText(0)
 				ns := stmt.ColumnText(1)
 				name := stmt.ColumnText(2)
-				keys = append(keys, KeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, ns, name))
+				keys = append(keys, K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, "", ns, name))
 				return nil
 			},
 		})
@@ -295,7 +372,7 @@ func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 				kind := stmt.ColumnText(0)
 				ns := stmt.ColumnText(1)
 				name := stmt.ColumnText(2)
-				keys = append(keys, KeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, ns, name))
+				keys = append(keys, K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, "", ns, name))
 				return nil
 			},
 		})
@@ -307,7 +384,7 @@ func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 
 // ReadMetadata reads metadata for the given path and returns it as a byte slice.
 func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
-	_, _, kind, namespace, name := PathToKeys(path)
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	var metadataJSON string
 	err := sqlitex.Execute(conn,
 		`SELECT metadata FROM metadata
@@ -340,7 +417,7 @@ func writeMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) erro
 
 // WriteJSON writes the given JSON metadata to the database for the specified path.
 func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
-	_, _, kind, namespace, name := PathToKeys(path)
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO metadata
 				(kind, namespace, name, metadata) VALUES (?, ?, ?, ?)`,
@@ -370,7 +447,7 @@ func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, ts
 
 // ReplaceTimeSeriesContainerEntries replaces time series entries for a given path and seriesID.
 func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
-	_, _, kind, namespace, name := PathToKeys(path)
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	// FIXME we can probably optimize this, rather than deleting everything to add it back
 	// delete old profiles
 	tsSuffixes, err := json.Marshal(deleteTimeSeries)
