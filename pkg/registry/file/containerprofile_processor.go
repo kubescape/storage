@@ -296,8 +296,11 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 
 	// Send consolidated slug to channel before deleting processed time series
 	// This allows downstream processing even if the ingester dies after consolidation
-	if err := a.sendConsolidatedSlugToChannel(ctx, profile, id); err != nil {
-		return err
+	// Only send for k8s host type
+	if a.HostType == armotypes.HostTypeKubernetes {
+		if err := a.sendConsolidatedSlugToChannel(ctx, profile, id); err != nil {
+			return err
+		}
 	}
 
 	if err := a.deleteProcessedTimeSeries(ctx, processed); err != nil {
