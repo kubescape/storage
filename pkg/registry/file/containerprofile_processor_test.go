@@ -96,9 +96,9 @@ func TestConsolidateData(t *testing.T) {
 		helpersv1.TemplateHashKey:            "d4b8dd5fd",
 		helpersv1.ApiGroupMetadataKey:        "apps",
 		helpersv1.ApiVersionMetadataKey:      "v1",
-		helpersv1.KindMetadataKey:            "Deployment",
-		helpersv1.NameMetadataKey:            "multiple-containers-deployment",
-		helpersv1.NamespaceMetadataKey:       "node-agent-test-hjjz",
+		helpersv1.RelatedKindMetadataKey:            "Deployment",
+		helpersv1.RelatedNameMetadataKey:            "multiple-containers-deployment",
+		helpersv1.RelatedNamespaceMetadataKey:       "node-agent-test-hjjz",
 		helpersv1.ResourceVersionMetadataKey: "1448",
 	}, applicationProfile.Labels)
 

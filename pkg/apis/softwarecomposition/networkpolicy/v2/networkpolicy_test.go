@@ -37,8 +37,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "nginx",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "nginx",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -136,8 +136,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: "not-ready",
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "nginx",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "nginx",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{},
@@ -155,8 +155,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "multi",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "multi",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -299,8 +299,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "known-servers",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "known-servers",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -450,8 +450,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "known-servers",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "known-servers",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -601,8 +601,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "dns",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "dns",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -701,8 +701,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "multi-container",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "multi-container",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -835,8 +835,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "multi-containers",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "multi-containers",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -992,8 +992,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "multi-containers",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "multi-containers",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -1372,8 +1372,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							helpersv1.StatusMetadataKey: helpersv1.Learning,
 						},
 						Labels: map[string]string{
-							helpersv1.KindMetadataKey: "Deployment",
-							helpersv1.NameMetadataKey: "real-bug",
+							helpersv1.RelatedKindMetadataKey: "Deployment",
+							helpersv1.RelatedNameMetadataKey: "real-bug",
 						},
 					},
 					Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -1466,8 +1466,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "duplicate-ports",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "duplicate-ports",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -1563,8 +1563,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "duplicate-ports-pod",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "duplicate-ports-pod",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -1666,8 +1666,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Learning,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "selector-rules",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "selector-rules",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -1795,8 +1795,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.ManagedByMetadataKey: helpersv1.ManagedByUserValue,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "managed-by-user",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "managed-by-user",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -1887,8 +1887,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: helpersv1.Completed,
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "completed",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "completed",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{
@@ -1979,8 +1979,8 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.StatusMetadataKey: "not-ready",
 					},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "not-ready",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "not-ready",
 					},
 				},
 				Spec: softwarecomposition.NetworkNeighborhoodSpec{

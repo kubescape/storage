@@ -57,8 +57,8 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					Namespace:         "kubescape",
 					CreationTimestamp: v1.Time{},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
-						helpersv1.NameMetadataKey: "totowl",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
+						helpersv1.RelatedNameMetadataKey: "totowl",
 					},
 				},
 				Spec: softwarecomposition.NetworkPolicy{
@@ -71,8 +71,8 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Name:      "deployment-totowl",
 						Namespace: "kubescape",
 						Labels: map[string]string{
-							helpersv1.KindMetadataKey: "Deployment",
-							helpersv1.NameMetadataKey: "totowl",
+							helpersv1.RelatedKindMetadataKey: "Deployment",
+							helpersv1.RelatedNameMetadataKey: "totowl",
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
@@ -106,7 +106,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					Namespace:         "kubescape",
 					CreationTimestamp: v1.Time{},
 					Labels: map[string]string{
-						helpersv1.KindMetadataKey: "Deployment",
+						helpersv1.RelatedKindMetadataKey: "Deployment",
 					},
 				},
 				Spec: softwarecomposition.NetworkPolicy{
@@ -119,7 +119,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 						Name:      "deployment-toto",
 						Namespace: "kubescape",
 						Labels: map[string]string{
-							helpersv1.KindMetadataKey: "Deployment",
+							helpersv1.RelatedKindMetadataKey: "Deployment",
 						},
 					},
 					Spec: softwarecomposition.NetworkPolicySpec{
@@ -162,13 +162,13 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 							helpersv1.StatusMetadataKey: helpersv1.Learning,
 						},
 						Labels: map[string]string{
-							helpersv1.KindMetadataKey: "Deployment",
-							helpersv1.NameMetadataKey: "totowl",
+							helpersv1.RelatedKindMetadataKey: "Deployment",
+							helpersv1.RelatedNameMetadataKey: "totowl",
 						},
 					},
 				}
 				if tt.noWorkloadName {
-					delete(wlObj.ObjectMeta.Labels, helpersv1.NameMetadataKey)
+					delete(wlObj.ObjectMeta.Labels, helpersv1.RelatedNameMetadataKey)
 				}
 				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", wlObj, nil, 0)
 				require.NoError(t, err)
