@@ -26,11 +26,11 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	}
 
 	// get name from labels and clean labels
-	kind, ok := nn.Labels[helpersv1.KindMetadataKey]
+	kind, ok := nn.Labels[helpersv1.RelatedKindMetadataKey]
 	if !ok {
 		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name)
 	}
-	name, ok := nn.Labels[helpersv1.NameMetadataKey]
+	name, ok := nn.Labels[helpersv1.RelatedNameMetadataKey]
 	if !ok {
 		logger.L().Debug("nn does not have a workload-name label, falling back to nn.Name", helpers.String("name", nn.Name), helpers.String("namespace", nn.Namespace))
 		name = nn.Name
