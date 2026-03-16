@@ -213,6 +213,18 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 	if err != nil {
 		logger.L().Warning("failed to set ServerSideApply feature gate to false", helpers.Error(err))
 	}
+
+	// disable watch cache to reduce memory usage
+	err = flags.Set("watch-cache", "false")
+	if err != nil {
+		logger.L().Warning("failed to set watch-cache to false", helpers.Error(err))
+	}
+
+	// disable swagger UI to reduce memory usage
+	err = flags.Set("enable-swagger-ui", "false")
+	if err != nil {
+		logger.L().Warning("failed to set enable-swagger-ui to false", helpers.Error(err))
+	}
 	servePprof()
 
 	// mute klog
