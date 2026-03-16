@@ -207,6 +207,12 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 	if err != nil {
 		logger.L().Warning("failed to set profiling flag to false", helpers.Error(err))
 	}
+
+	// disable server-side apply
+	err = flags.Set("feature-gates", "ServerSideApply=false")
+	if err != nil {
+		logger.L().Warning("failed to set ServerSideApply feature gate to false", helpers.Error(err))
+	}
 	servePprof()
 
 	// mute klog
