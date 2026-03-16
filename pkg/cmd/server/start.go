@@ -132,11 +132,18 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 	cmd := &cobra.Command{
 		Short: "Launch a wardle API server",
 		Long:  "Launch a wardle API server",
-		PersistentPreRunE: func(*cobra.Command, []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			if skipDefaultComponentGlobalsRegistrySet {
 				return nil
 			}
-			return defaults.ComponentGlobalsRegistry.Set()
+			if err := defaults.ComponentGlobalsRegistry.Set(); err != nil {
+				return err
+			}
+			flags := cmd.Flags()
+			if err := flags.Set("feature-gates", "ServerSideApply=false"); err != nil {
+				return err
+			}
+			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
@@ -206,24 +213,6 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 	err := flags.Set("profiling", "false")
 	if err != nil {
 		logger.L().Warning("failed to set profiling flag to false", helpers.Error(err))
-	}
-
-	// disable server-side apply
-	err = flags.Set("feature-gates", "ServerSideApply=false")
-	if err != nil {
-		logger.L().Warning("failed to set ServerSideApply feature gate to false", helpers.Error(err))
-	}
-
-	// disable watch cache to reduce memory usage
-	err = flags.Set("watch-cache", "false")
-	if err != nil {
-		logger.L().Warning("failed to set watch-cache to false", helpers.Error(err))
-	}
-
-	// disable swagger UI to reduce memory usage
-	err = flags.Set("enable-swagger-ui", "false")
-	if err != nil {
-		logger.L().Warning("failed to set enable-swagger-ui to false", helpers.Error(err))
 	}
 	servePprof()
 
