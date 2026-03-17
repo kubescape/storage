@@ -63,6 +63,9 @@ func NewTestPool(dir string) *sqlitemigration.Pool {
 }
 
 func K8sKeysToPath(prefix, root, kind, cluster, namespace, name string) string {
+	if cluster == "" {
+		return fmt.Sprintf("%s/%s/%s/%s/%s", prefix, root, kind, namespace, name)
+	}
 	return fmt.Sprintf("%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, namespace, name)
 }
 
@@ -75,12 +78,17 @@ func HostKeysToPath(prefix, root, kind, hostID, name string) string {
 }
 
 func K8sPathToKeys(path string) (string, string, string, string, string, string) {
-	s := strings.SplitN(path, "/", 6)
-	// ensure we have at least 6 parts
+	s := strings.Split(path, "/")
+	if len(s) >= 6 {
+		return s[0], s[1], s[2], s[3], s[4], s[5]
+	}
+	// ensure we have at least 6 parts by padding with empty strings
 	for len(s) < 6 {
 		s = append(s, "")
 	}
-	return s[0], s[1], s[2], s[3], s[4], s[5]
+	// handle legacy format (4 or 5 parts) where the cluster segment is missing
+	// in these cases, we shift namespace/name to their correct return indices
+	return s[0], s[1], s[2], "", s[3], s[4]
 }
 
 // BuildContainerProfileKey constructs a storage key from a ProfileIdentifier.

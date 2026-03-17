@@ -351,19 +351,19 @@ func TestStorageImpl_Get(t *testing.T) {
 
 func TestStorageImpl_GetList(t *testing.T) {
 	objs := map[string]runtime.Object{
-		"/spdx.softwarecomposition.kubescape.io/sbomsyfts//kubescape/toto": &v1beta1.SBOMSyft{
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "toto",
 				Namespace: "kubescape",
 			},
 		},
-		"/spdx.softwarecomposition.kubescape.io/sbomsyfts//kubescape/titi": &v1beta1.SBOMSyft{
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/titi": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "titi",
 				Namespace: "kubescape",
 			},
 		},
-		"/spdx.softwarecomposition.kubescape.io/sbomsyfts//other/tata": &v1beta1.SBOMSyft{
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/tata": &v1beta1.SBOMSyft{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "tata",
 				Namespace: "other",
@@ -383,7 +383,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 		{
 			name: "get ns",
 			args: args{
-				key:     "/spdx.softwarecomposition.kubescape.io/sbomsyfts//kubescape",
+				key:     "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape",
 				listObj: &v1beta1.SBOMSyftList{},
 			},
 			want: 2,

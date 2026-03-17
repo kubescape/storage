@@ -57,7 +57,7 @@ func TestConsolidateData(t *testing.T) {
 		var profile softwarecomposition.ContainerProfile
 		err = json.Unmarshal(content, &profile)
 		require.NoError(t, err)
-		err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile//"+profile.Namespace+"/"+profile.Name, &profile, nil, 0)
+		err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0)
 		require.NoError(t, err)
 	}
 
@@ -83,7 +83,7 @@ func TestConsolidateData(t *testing.T) {
 	assert.NoError(t, err)
 
 	applicationProfile := softwarecomposition.ApplicationProfile{}
-	key := "/spdx.softwarecomposition.kubescape.io/applicationprofiles//node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
+	key := "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &applicationProfile)
 	assert.NoError(t, err)
 	delete(applicationProfile.Annotations, helpersv1.SyncChecksumMetadataKey) // checksum depends on creation time
@@ -104,7 +104,7 @@ func TestConsolidateData(t *testing.T) {
 	}, applicationProfile.Labels)
 
 	containerProfile := softwarecomposition.ContainerProfile{}
-	key = "/spdx.softwarecomposition.kubescape.io/containerprofile//kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
+	key = "/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &containerProfile)
 	assert.NoError(t, err)
 	assert.Equal(t, softwarecomposition.CallID("test-call-id"), containerProfile.Spec.IdentifiedCallStacks[0].CallID)

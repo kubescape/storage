@@ -26,15 +26,15 @@ func TestMemoryConn(t *testing.T) {
 	conn, err := pool.Take(context.TODO())
 	require.NoError(t, err)
 	// Test write
-	assert.NoError(t, writeMetadata(conn, "/v1/pods//default1/pod1", &pod))
-	assert.NoError(t, writeMetadata(conn, "/v1/pods//default1/pod2", &pod))
-	assert.NoError(t, writeMetadata(conn, "/v1/pods//default2/pod1", &pod))
+	assert.NoError(t, writeMetadata(conn, "/v1/pods/default1/pod1", &pod))
+	assert.NoError(t, writeMetadata(conn, "/v1/pods/default1/pod2", &pod))
+	assert.NoError(t, writeMetadata(conn, "/v1/pods/default2/pod1", &pod))
 	// Test count
 	count, err := countMetadata(conn, "/v1/pods")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(3), count)
 	// Test count namespace
-	count, err = countMetadata(conn, "/v1/pods//default1")
+	count, err = countMetadata(conn, "/v1/pods/default1")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), count)
 	// Test list
@@ -49,22 +49,22 @@ func TestMemoryConn(t *testing.T) {
 	assert.Equal(t, expected, list)
 	assert.Equal(t, "3", last)
 	// Test list with limit
-	list, last, err = listMetadata(conn, "/v1/pods//default1", "", int64(1))
+	list, last, err = listMetadata(conn, "/v1/pods/default1", "", int64(1))
 	assert.NoError(t, err)
 	assert.Len(t, list, 1)
 	assert.Equal(t, "1", last)
 	// Test list with last
-	list, last, err = listMetadata(conn, "/v1/pods//default1", last, int64(500))
+	list, last, err = listMetadata(conn, "/v1/pods/default1", last, int64(500))
 	assert.NoError(t, err)
 	assert.Len(t, list, 1)
 	assert.Equal(t, "2", last)
 	// Test read
-	b, err := ReadMetadata(conn, "/v1/pods//default2/pod1")
+	b, err := ReadMetadata(conn, "/v1/pods/default2/pod1")
 	assert.NoError(t, err)
 	assert.Equal(t, "{\"metadata\":{\"name\":\"name\"},\"spec\":{\"containers\":null},\"status\":{}}", string(b))
 	// Test delete returning value
 	p := &v1.Pod{}
-	assert.NoError(t, DeleteMetadata(conn, "/v1/pods//default1/pod1", p))
+	assert.NoError(t, DeleteMetadata(conn, "/v1/pods/default1/pod1", p))
 	assert.NotNil(t, p)
 	assert.Equal(t, "name", pod.Name)
 	// Tear down
@@ -84,7 +84,7 @@ func Test_K8sPathToKeys(t *testing.T) {
 	}{
 		{
 			test:      "single",
-			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles//default/replicaset-collection-85f89d8b47",
+			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/default/replicaset-collection-85f89d8b47",
 			kind:      "applicationprofiles",
 			cluster:   "",
 			namespace: "default",
@@ -92,7 +92,7 @@ func Test_K8sPathToKeys(t *testing.T) {
 		},
 		{
 			test:      "namespace",
-			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles//default/",
+			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/default",
 			kind:      "applicationprofiles",
 			cluster:   "",
 			namespace: "default",
@@ -102,6 +102,38 @@ func Test_K8sPathToKeys(t *testing.T) {
 			path:    "/spdx.softwarecomposition.kubescape.io/applicationprofiles",
 			kind:    "applicationprofiles",
 			cluster: "",
+		},
+		{
+			test:      "full with cluster",
+			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/my-cluster/default/my-name",
+			kind:      "applicationprofiles",
+			cluster:   "my-cluster",
+			namespace: "default",
+			name:      "my-name",
+		},
+		{
+			test:      "partial with cluster (no name)",
+			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/my-cluster/default/",
+			kind:      "applicationprofiles",
+			cluster:   "my-cluster",
+			namespace: "default",
+			name:      "",
+		},
+		{
+			test:      "very short path",
+			path:      "/spdx.softwarecomposition.kubescape.io",
+			kind:      "",
+			cluster:   "",
+			namespace: "",
+			name:      "",
+		},
+		{
+			test:      "empty path",
+			path:      "",
+			kind:      "",
+			cluster:   "",
+			namespace: "",
+			name:      "",
 		},
 	}
 	for _, tt := range tests {
