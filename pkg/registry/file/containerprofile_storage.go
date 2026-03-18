@@ -116,7 +116,8 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 
-	apKey := K8sKeysToPath(prefix, root, "applicationprofiles", "", id.Namespace, slug)
+	id.Name = slug
+	apKey := BuildContainerProfileKey(id, "applicationprofiles")
 	var apChecksum string
 
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
@@ -127,7 +128,9 @@ func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Conte
 		}
 
 		ap.Name = slug
-		ap.Namespace = id.Namespace
+		if id.HostType == armotypes.HostTypeKubernetes {
+			ap.Namespace = id.Namespace
+		}
 		if ap.CreationTimestamp.IsZero() {
 			ap.CreationTimestamp = creationTimestamp
 		}
@@ -168,7 +171,8 @@ func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Conte
 func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 
-	nnKey := K8sKeysToPath(prefix, root, "networkneighborhoods", "", id.Namespace, slug)
+	id.Name = slug
+	nnKey := BuildContainerProfileKey(id, "networkneighborhoods")
 	var nnChecksum string
 
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
@@ -179,7 +183,9 @@ func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Cont
 		}
 
 		nn.Name = slug
-		nn.Namespace = id.Namespace
+		if id.HostType == armotypes.HostTypeKubernetes {
+			nn.Namespace = id.Namespace
+		}
 		if nn.CreationTimestamp.IsZero() {
 			nn.CreationTimestamp = creationTimestamp
 		}

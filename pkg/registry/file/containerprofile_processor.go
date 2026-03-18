@@ -115,7 +115,18 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		// check size and completion for the corresponding container profile
 		name, _ := SplitProfileName(profile.Name)
 		// load profile metadata if profile exists
-		key := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", profile.Namespace, name)
+		id := armotypes.ProfileIdentifier{
+			ProfileScope: armotypes.ProfileScope{
+				HostType:     a.HostType,
+				Cluster:      profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:    profile.Namespace,
+				AWSAccountID: profile.Annotations[helpers.AWSAccountIDMetadataKey],
+				Region:       profile.Annotations[helpers.RegionMetadataKey],
+				HostID:       profile.Annotations[helpers.HostIDMetadataKey],
+			},
+			Name: name,
+		}
+		key := BuildContainerProfileKey(id, "containerprofile")
 		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(ctx, key)
 		if err != nil {
 			return nil
@@ -142,7 +153,18 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	// get files from corresponding sbom
 	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
 	if err == nil {
-		key := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", "", a.DefaultNamespace, sbomName)
+		id := armotypes.ProfileIdentifier{
+			ProfileScope: armotypes.ProfileScope{
+				HostType:     a.HostType,
+				Cluster:      profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:    a.DefaultNamespace, // sbom is stored in default namespace
+				AWSAccountID: profile.Annotations[helpers.AWSAccountIDMetadataKey],
+				Region:       profile.Annotations[helpers.RegionMetadataKey],
+				HostID:       profile.Annotations[helpers.HostIDMetadataKey],
+			},
+			Name: sbomName,
+		}
+		key := BuildContainerProfileKey(id, "sbomsyft")
 		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, key)
 		if err == nil {
 			// fill sbomSet
