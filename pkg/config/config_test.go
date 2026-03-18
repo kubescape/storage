@@ -109,6 +109,18 @@ func TestHostTypeValidation(t *testing.T) {
 			wantErr:      false,
 		},
 		{
+			name:         "EC2 HostType",
+			configJSON:   `{"hostType": "ec2"}`,
+			wantHostType: armotypes.HostTypeEc2,
+			wantErr:      false,
+		},
+		{
+			name:         "Other HostType",
+			configJSON:   `{"hostType": "other"}`,
+			wantHostType: armotypes.HostTypeOther,
+			wantErr:      false,
+		},
+		{
 			name:         "Empty HostType defaults to Kubernetes",
 			configJSON:   `{}`,
 			wantHostType: armotypes.HostTypeKubernetes,

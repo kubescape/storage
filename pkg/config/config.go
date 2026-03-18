@@ -123,8 +123,25 @@ func LoadConfig(path string) (Config, error) {
 		config.HostType = armotypes.HostTypeKubernetes
 	}
 
-	switch string(config.HostType) {
-	case "kubernetes", "ecs-ec2", "ecs-fargate", "aks", "aci", "azurevm", "cloudrun", "autopilot":
+	switch config.HostType {
+	case armotypes.HostTypeKubernetes,
+		armotypes.HostTypeEcsEc2,
+		armotypes.HostTypeEcsFargate,
+		armotypes.HostTypeAks,
+		armotypes.HostTypeAci,
+		armotypes.HostTypeAzureVm,
+		armotypes.HostTypeCloudRun,
+		armotypes.HostTypeAutopilot,
+		armotypes.HostTypeDoks,
+		armotypes.HostTypeDroplet,
+		armotypes.HostTypeEc2,
+		armotypes.HostTypeEcsService,
+		armotypes.HostTypeEcsTask,
+		armotypes.HostTypeEksEc2,
+		armotypes.HostTypeEksFargate,
+		armotypes.HostTypeGce,
+		armotypes.HostTypeGke,
+		armotypes.HostTypeOther:
 		// valid
 	default:
 		return Config{}, fmt.Errorf("unsupported hostType: %s", config.HostType)
