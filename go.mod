@@ -7,7 +7,7 @@ go 1.25.0
 require (
 	github.com/SergJa/jsonhash v0.0.0-20210531165746-fc45f346aa74
 	github.com/anchore/syft v1.32.0
-	github.com/armosec/armoapi-go v0.0.691-0.20260319150151-10f97ab56d4a
+	github.com/armosec/armoapi-go v0.0.693
 	github.com/armosec/utils-k8s-go v0.0.30
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/containers/common v0.63.0
@@ -19,7 +19,7 @@ require (
 	github.com/grafana/pyroscope-go v1.2.2
 	github.com/kinbiko/jsonassert v1.2.0
 	github.com/kubescape/go-logger v0.0.24
-	github.com/kubescape/k8s-interface v0.0.206-0.20260319150457-87bba79f7cda
+	github.com/kubescape/k8s-interface v0.0.206
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
