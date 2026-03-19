@@ -69,8 +69,8 @@ func K8sKeysToPath(prefix, root, kind, cluster, namespace, name string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, namespace, name)
 }
 
-func ECSKeysToPath(prefix, root, kind, cluster, awsAccountID, region, name string) string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, awsAccountID, region, name)
+func ECSKeysToPath(prefix, root, kind, cluster, cloudAccountIdentifier, region, name string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, cloudAccountIdentifier, region, name)
 }
 
 func HostKeysToPath(prefix, root, kind, hostID, name string) string {
@@ -98,7 +98,7 @@ func K8sPathToKeys(path string) (string, string, string, string, string, string)
 func BuildContainerProfileKey(id armotypes.ProfileIdentifier, kind string) string {
 	switch id.HostType {
 	case armotypes.HostTypeEcsEc2, armotypes.HostTypeEcsFargate:
-		return ECSKeysToPath("", softwarecomposition.GroupName, kind, id.Cluster, id.AWSAccountID, id.Region, id.Name)
+		return ECSKeysToPath("", softwarecomposition.GroupName, kind, id.Cluster, id.CloudAccountIdentifier, id.Region, id.Name)
 	// If host type is not set, use K8s format (backward compatibility)
 	case armotypes.HostTypeKubernetes, "":
 		return K8sKeysToPath("", softwarecomposition.GroupName, kind, id.Cluster, id.Namespace, id.Name)
@@ -125,12 +125,12 @@ func ParseContainerProfileKey(key string, hostType armotypes.HostType) (id armot
 
 	switch hostType {
 	case armotypes.HostTypeEcsEc2, armotypes.HostTypeEcsFargate:
-		// format: prefix/root/kind/cluster/awsAccountID/region/name
+		// format: prefix/root/kind/cluster/cloudAccountIdentifier/region/name
 		if len(parts) < 7 {
 			return id, prefix, root, kind, fmt.Errorf("invalid ECS key format: expected 7 parts, got %d", len(parts))
 		}
 		id.Cluster = parts[3]
-		id.AWSAccountID = parts[4]
+		id.CloudAccountIdentifier = parts[4]
 		id.Region = parts[5]
 		id.Name = parts[6]
 	case armotypes.HostTypeKubernetes, "":

@@ -117,12 +117,12 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		// load profile metadata if profile exists
 		id := armotypes.ProfileIdentifier{
 			ProfileScope: armotypes.ProfileScope{
-				HostType:     a.HostType,
-				Cluster:      profile.Annotations[helpers.ClusterMetadataKey],
-				Namespace:    profile.Namespace,
-				AWSAccountID: profile.Annotations[helpers.AWSAccountIDMetadataKey],
-				Region:       profile.Annotations[helpers.RegionMetadataKey],
-				HostID:       profile.Annotations[helpers.HostIDMetadataKey],
+				HostType:               a.HostType,
+				Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:              profile.Namespace,
+				CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+				Region:                 profile.Annotations[helpers.RegionMetadataKey],
+				HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
 			},
 			Name: name,
 		}
@@ -155,12 +155,12 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	if err == nil {
 		id := armotypes.ProfileIdentifier{
 			ProfileScope: armotypes.ProfileScope{
-				HostType:     a.HostType,
-				Cluster:      profile.Annotations[helpers.ClusterMetadataKey],
-				Namespace:    a.DefaultNamespace, // sbom is stored in default namespace
-				AWSAccountID: profile.Annotations[helpers.AWSAccountIDMetadataKey],
-				Region:       profile.Annotations[helpers.RegionMetadataKey],
-				HostID:       profile.Annotations[helpers.HostIDMetadataKey],
+				HostType:               a.HostType,
+				Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:              a.DefaultNamespace, // sbom is stored in default namespace
+				CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+				Region:                 profile.Annotations[helpers.RegionMetadataKey],
+				HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
 			},
 			Name: sbomName,
 		}
