@@ -60,7 +60,7 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 			// get files from corresponding sbom
 			sbomName, err := names.ImageInfoToSlug(container.ImageTag, container.ImageID)
 			if err == nil {
-				key := KeysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.defaultNamespace, sbomName)
+				key := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", "", a.defaultNamespace, sbomName)
 				if sbom, err := a.storageImpl.GetSbom(ctx, key); err == nil {
 					// fill sbomSet
 					sbomSet = mapset.NewSet[string]()

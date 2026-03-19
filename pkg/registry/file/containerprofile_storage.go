@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/utils"
@@ -112,10 +113,11 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	return nil
 }
 
-func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
+func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 
-	apKey := KeysToPath(prefix, root, "applicationprofiles", namespace, slug)
+	id.Name = slug
+	apKey := BuildContainerProfileKey(id, "applicationprofiles")
 	var apChecksum string
 
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
@@ -126,7 +128,9 @@ func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Conte
 		}
 
 		ap.Name = slug
-		ap.Namespace = namespace
+		if id.HostType == armotypes.HostTypeKubernetes {
+			ap.Namespace = id.Namespace
+		}
 		if ap.CreationTimestamp.IsZero() {
 			ap.CreationTimestamp = creationTimestamp
 		}
@@ -164,10 +168,11 @@ func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Conte
 	return nil
 }
 
-func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root, namespace, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
+func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 
-	nnKey := KeysToPath(prefix, root, "networkneighborhoods", namespace, slug)
+	id.Name = slug
+	nnKey := BuildContainerProfileKey(id, "networkneighborhoods")
 	var nnChecksum string
 
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
@@ -178,7 +183,9 @@ func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Cont
 		}
 
 		nn.Name = slug
-		nn.Namespace = namespace
+		if id.HostType == armotypes.HostTypeKubernetes {
+			nn.Namespace = id.Namespace
+		}
 		if nn.CreationTimestamp.IsZero() {
 			nn.CreationTimestamp = creationTimestamp
 		}
