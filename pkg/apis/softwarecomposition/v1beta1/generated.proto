@@ -103,13 +103,13 @@ message ApplicationProfileStatus {
 // Arg defines the specific syscall in seccomp.
 message Arg {
   // the index for syscall arguments in seccomp
-  optional uint64 index = 1;
+  optional int64 index = 1;
 
   // the value for syscall arguments in seccomp
-  optional uint64 value = 2;
+  optional int64 value = 2;
 
   // the value for syscall arguments in seccomp
-  optional uint64 valueTwo = 3;
+  optional int64 valueTwo = 3;
 
   // the operator for syscall arguments in seccomp
   optional string op = 4;
@@ -1480,7 +1480,7 @@ message Syscall {
 
   // the errno return code to use. Some actions like SCMP_ACT_ERRNO and
   // SCMP_ACT_TRACE allow to specify the errno code to return
-  optional uint64 errnoRet = 3;
+  optional int64 errnoRet = 3;
 
   // the specific syscall in seccomp
   repeated Arg args = 4;

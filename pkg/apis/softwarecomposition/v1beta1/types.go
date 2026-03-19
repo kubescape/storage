@@ -612,7 +612,7 @@ type Syscall struct {
 	Action seccomp.Action `json:"action" protobuf:"bytes,2,opt,name=action"`
 	// the errno return code to use. Some actions like SCMP_ACT_ERRNO and
 	// SCMP_ACT_TRACE allow to specify the errno code to return
-	ErrnoRet uint64 `json:"errnoRet,omitempty" protobuf:"bytes,3,opt,name=errnoRet"`
+	ErrnoRet int64 `json:"errnoRet,omitempty" protobuf:"bytes,3,opt,name=errnoRet"`
 	// the specific syscall in seccomp
 	Args []*Arg `json:"args,omitempty" protobuf:"bytes,4,rep,name=args"`
 }
@@ -646,11 +646,11 @@ func (e *HTTPEndpoint) GetHeaders() (map[string][]string, error) {
 // Arg defines the specific syscall in seccomp.
 type Arg struct {
 	// the index for syscall arguments in seccomp
-	Index uint64 `json:"index" protobuf:"bytes,1,opt,name=index"`
+	Index int64 `json:"index" protobuf:"bytes,1,opt,name=index"`
 	// the value for syscall arguments in seccomp
-	Value uint64 `json:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
+	Value int64 `json:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
 	// the value for syscall arguments in seccomp
-	ValueTwo uint64 `json:"valueTwo,omitempty" protobuf:"bytes,3,opt,name=valueTwo"`
+	ValueTwo int64 `json:"valueTwo,omitempty" protobuf:"bytes,3,opt,name=valueTwo"`
 	// the operator for syscall arguments in seccomp
 	Op seccomp.Operator `json:"op" protobuf:"bytes,4,opt,name=op"`
 }
