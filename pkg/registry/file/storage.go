@@ -505,8 +505,9 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
 		// populate list object
+		elem := v.Type().Elem()
+		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
 		for _, k := range list {
-			elem := v.Type().Elem()
 			obj := reflect.New(elem).Interface().(runtime.Object)
 			if err := s.get(ctx, conn, k, storage.GetOptions{}, obj); err != nil {
 				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", k))
@@ -520,8 +521,9 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
 		}
 		// populate list object
+		elem := v.Type().Elem()
+		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
 		for _, metadataJSON := range list {
-			elem := v.Type().Elem()
 			obj := reflect.New(elem).Interface().(runtime.Object)
 			if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
 				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
@@ -879,8 +881,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 		_ = payloadFile.Close()
 	}()
 
-	elem := v.Type().Elem()
-	obj := reflect.New(elem).Interface().(runtime.Object)
+	obj := reflect.New(v.Type().Elem()).Interface().(runtime.Object)
 
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
 	if err := decoder.Decode(obj); err != nil {
