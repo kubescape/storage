@@ -132,11 +132,18 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 	cmd := &cobra.Command{
 		Short: "Launch a wardle API server",
 		Long:  "Launch a wardle API server",
-		PersistentPreRunE: func(*cobra.Command, []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			if skipDefaultComponentGlobalsRegistrySet {
 				return nil
 			}
-			return defaults.ComponentGlobalsRegistry.Set()
+			if err := defaults.ComponentGlobalsRegistry.Set(); err != nil {
+				return err
+			}
+			flags := cmd.Flags()
+			if err := flags.Set("feature-gates", "ServerSideApply=false"); err != nil {
+				return err
+			}
+			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(); err != nil {
