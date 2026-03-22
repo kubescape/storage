@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -93,13 +94,13 @@ func TestConsolidateData(t *testing.T) {
 		helpersv1.WlidMetadataKey:       "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
 	}, applicationProfile.Annotations)
 	assert.Equal(t, map[string]string{
-		helpersv1.TemplateHashKey:            "d4b8dd5fd",
-		helpersv1.ApiGroupMetadataKey:        "apps",
-		helpersv1.ApiVersionMetadataKey:      "v1",
-		helpersv1.RelatedKindMetadataKey:            "Deployment",
-		helpersv1.RelatedNameMetadataKey:            "multiple-containers-deployment",
-		helpersv1.RelatedNamespaceMetadataKey:       "node-agent-test-hjjz",
-		helpersv1.ResourceVersionMetadataKey: "1448",
+		helpersv1.TemplateHashKey:             "d4b8dd5fd",
+		helpersv1.ApiGroupMetadataKey:         "apps",
+		helpersv1.ApiVersionMetadataKey:       "v1",
+		helpersv1.RelatedKindMetadataKey:      "Deployment",
+		helpersv1.RelatedNameMetadataKey:      "multiple-containers-deployment",
+		helpersv1.RelatedNamespaceMetadataKey: "node-agent-test-hjjz",
+		helpersv1.ResourceVersionMetadataKey:  "1448",
 	}, applicationProfile.Labels)
 
 	containerProfile := softwarecomposition.ContainerProfile{}
@@ -153,7 +154,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 		name           string
 		channel        chan ConsolidatedSlugData
 		profile        softwarecomposition.ContainerProfile
-		namespace      string
+		id             armotypes.ProfileIdentifier
 		ctx            context.Context
 		expectError    bool
 		expectedSlug   string
@@ -163,7 +164,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 			name:           "nil channel returns nil",
 			channel:        nil,
 			profile:        softwarecomposition.ContainerProfile{},
-			namespace:      "default",
+			id:             armotypes.ProfileIdentifier{ProfileScope: armotypes.ProfileScope{Namespace: "default"}},
 			ctx:            context.Background(),
 			expectError:    false,
 			expectedResult: false,
@@ -176,7 +177,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 					Annotations: map[string]string{},
 				},
 			},
-			namespace:      "default",
+			id:             armotypes.ProfileIdentifier{ProfileScope: armotypes.ProfileScope{Namespace: "default"}},
 			ctx:            context.Background(),
 			expectError:    true,
 			expectedResult: false,
@@ -191,7 +192,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 					},
 				},
 			},
-			namespace:      "default",
+			id:             armotypes.ProfileIdentifier{ProfileScope: armotypes.ProfileScope{Namespace: "default"}},
 			ctx:            context.Background(),
 			expectError:    true,
 			expectedResult: false,
@@ -206,7 +207,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 					},
 				},
 			},
-			namespace:      "default",
+			id:             armotypes.ProfileIdentifier{ProfileScope: armotypes.ProfileScope{Namespace: "default"}},
 			ctx:            context.Background(),
 			expectError:    false,
 			expectedSlug:   "deployment-test-app", // GetSlug(true) includes kind prefix
@@ -228,7 +229,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 					},
 				},
 			},
-			namespace: "default",
+			id: armotypes.ProfileIdentifier{ProfileScope: armotypes.ProfileScope{Namespace: "default"}},
 			ctx: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel() // Cancel immediately
@@ -247,7 +248,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 					},
 				},
 			},
-			namespace:      "kube-system",
+			id:             armotypes.ProfileIdentifier{ProfileScope: armotypes.ProfileScope{Namespace: "kube-system"}},
 			ctx:            context.Background(),
 			expectError:    false,
 			expectedSlug:   "deployment-coredns", // GetSlug(true) includes kind prefix
@@ -261,7 +262,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 				ConsolidatedSlugChannel: tt.channel,
 			}
 
-			err := processor.sendConsolidatedSlugToChannel(tt.ctx, tt.profile, tt.namespace)
+			err := processor.sendConsolidatedSlugToChannel(tt.ctx, tt.profile, tt.id)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -274,7 +275,7 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 				select {
 				case slugData := <-tt.channel:
 					assert.Equal(t, tt.expectedSlug, slugData.Name)
-					assert.Equal(t, tt.namespace, slugData.Namespace)
+					assert.Equal(t, tt.id.Namespace, slugData.Namespace)
 				case <-time.After(100 * time.Millisecond):
 					t.Fatal("Expected data in channel but none received")
 				}

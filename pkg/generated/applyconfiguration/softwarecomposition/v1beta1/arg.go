@@ -28,11 +28,11 @@ import (
 // Arg defines the specific syscall in seccomp.
 type ArgApplyConfiguration struct {
 	// the index for syscall arguments in seccomp
-	Index *uint64 `json:"index,omitempty"`
+	Index *int64 `json:"index,omitempty"`
 	// the value for syscall arguments in seccomp
-	Value *uint64 `json:"value,omitempty"`
+	Value *int64 `json:"value,omitempty"`
 	// the value for syscall arguments in seccomp
-	ValueTwo *uint64 `json:"valueTwo,omitempty"`
+	ValueTwo *int64 `json:"valueTwo,omitempty"`
 	// the operator for syscall arguments in seccomp
 	Op *seccomp.Operator `json:"op,omitempty"`
 }
@@ -46,7 +46,7 @@ func Arg() *ArgApplyConfiguration {
 // WithIndex sets the Index field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Index field is set to the value of the last call.
-func (b *ArgApplyConfiguration) WithIndex(value uint64) *ArgApplyConfiguration {
+func (b *ArgApplyConfiguration) WithIndex(value int64) *ArgApplyConfiguration {
 	b.Index = &value
 	return b
 }
@@ -54,7 +54,7 @@ func (b *ArgApplyConfiguration) WithIndex(value uint64) *ArgApplyConfiguration {
 // WithValue sets the Value field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Value field is set to the value of the last call.
-func (b *ArgApplyConfiguration) WithValue(value uint64) *ArgApplyConfiguration {
+func (b *ArgApplyConfiguration) WithValue(value int64) *ArgApplyConfiguration {
 	b.Value = &value
 	return b
 }
@@ -62,7 +62,7 @@ func (b *ArgApplyConfiguration) WithValue(value uint64) *ArgApplyConfiguration {
 // WithValueTwo sets the ValueTwo field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ValueTwo field is set to the value of the last call.
-func (b *ArgApplyConfiguration) WithValueTwo(value uint64) *ArgApplyConfiguration {
+func (b *ArgApplyConfiguration) WithValueTwo(value int64) *ArgApplyConfiguration {
 	b.ValueTwo = &value
 	return b
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
@@ -38,6 +39,7 @@ type ContainerProfileProcessor struct {
 	CleanupInterval         time.Duration
 	DefaultNamespace        string
 	DeleteThreshold         time.Duration
+	HostType                armotypes.HostType
 	Interval                time.Duration
 	LastCleanup             time.Time
 	MaxContainerProfileSize int
@@ -46,11 +48,16 @@ type ContainerProfileProcessor struct {
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
+	hostType := cfg.HostType
+	if hostType == "" {
+		hostType = armotypes.HostTypeKubernetes
+	}
 	return &ContainerProfileProcessor{
 		CleanupHandler:          cleanupHandler,
 		CleanupInterval:         cfg.CleanupInterval,
 		DefaultNamespace:        cfg.DefaultNamespace,
 		DeleteThreshold:         2 * cfg.MaxSniffingTime,
+		HostType:                hostType,
 		Interval:                30 * time.Second,
 		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
 	}
@@ -108,7 +115,18 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		// check size and completion for the corresponding container profile
 		name, _ := SplitProfileName(profile.Name)
 		// load profile metadata if profile exists
-		key := KeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", profile.Namespace, name)
+		id := armotypes.ProfileIdentifier{
+			ProfileScope: armotypes.ProfileScope{
+				HostType:               a.HostType,
+				Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:              profile.Namespace,
+				CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+				Region:                 profile.Annotations[helpers.RegionMetadataKey],
+				HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
+			},
+			Name: name,
+		}
+		key := BuildContainerProfileKey(id, "containerprofile")
 		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(ctx, key)
 		if err != nil {
 			return nil
@@ -135,7 +153,18 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	// get files from corresponding sbom
 	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
 	if err == nil {
-		key := KeysToPath("", "spdx.softwarecomposition.kubescape.io", "sbomsyft", a.DefaultNamespace, sbomName)
+		id := armotypes.ProfileIdentifier{
+			ProfileScope: armotypes.ProfileScope{
+				HostType:               a.HostType,
+				Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:              a.DefaultNamespace, // sbom is stored in default namespace
+				CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+				Region:                 profile.Annotations[helpers.RegionMetadataKey],
+				HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
+			},
+			Name: sbomName,
+		}
+		key := BuildContainerProfileKey(id, "sbomsyft")
 		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, key)
 		if err == nil {
 			// fill sbomSet
@@ -277,20 +306,23 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 		return fmt.Errorf("failed to list time series containers: %w", err)
 	}
 
-	profile, prefix, root, namespace, err := a.loadOrInitializeProfile(ctx, key)
+	profile, id, prefix, root, err := a.loadOrInitializeProfile(ctx, key)
 	if err != nil {
 		return err
 	}
 
-	processed, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, namespace, expired)
+	processed, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, id, expired)
 	if err != nil {
 		return err
 	}
 
 	// Send consolidated slug to channel before deleting processed time series
 	// This allows downstream processing even if the ingester dies after consolidation
-	if err := a.sendConsolidatedSlugToChannel(ctx, profile, namespace); err != nil {
-		return err
+	// Only send for k8s host type
+	if a.HostType == armotypes.HostTypeKubernetes {
+		if err := a.sendConsolidatedSlugToChannel(ctx, profile, id); err != nil {
+			return err
+		}
 	}
 
 	if err := a.deleteProcessedTimeSeries(ctx, processed); err != nil {
@@ -304,7 +336,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 // sendConsolidatedSlugToChannel calculates the slug from the profile and sends it to the channel
 // The slug is calculated for both ApplicationProfile and NetworkNeighborhood
 // Format: "namespace/name" to allow the ingester to extract both namespace and name
-func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Context, profile softwarecomposition.ContainerProfile, namespace string) error {
+func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Context, profile softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier) error {
 	if a.ConsolidatedSlugChannel == nil {
 		return nil
 	}
@@ -328,7 +360,7 @@ func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Co
 	// Send slug data to channel (blocking - will wait if channel is full)
 	slugData := ConsolidatedSlugData{
 		Name:      slug,
-		Namespace: namespace,
+		Namespace: id.Namespace,
 	}
 	select {
 	case a.ConsolidatedSlugChannel <- slugData:
@@ -341,13 +373,17 @@ func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Co
 
 // loadOrInitializeProfile loads an existing profile or creates a new one
 func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context, key string) (
-	profile softwarecomposition.ContainerProfile, prefix, root, namespace string, err error) {
+	profile softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier, prefix, root string, err error) {
 
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cpCancel()
 
 	profile, err = a.ContainerProfileStorage.GetContainerProfile(cpCtx, key)
-	prefix, root, kind, namespace, name := PathToKeys(key)
+
+	id, prefix, root, kind, parseErr := ParseContainerProfileKey(key, a.HostType)
+	if parseErr != nil {
+		return profile, id, "", "", fmt.Errorf("failed to parse profile key: %w", parseErr)
+	}
 
 	switch {
 	case storage.IsNotFound(err):
@@ -358,8 +394,8 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 				Kind:       kind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   namespace,
-				Name:        name,
+				Namespace:   id.Namespace,
+				Name:        id.Name,
 				Annotations: map[string]string{},
 				Labels:      map[string]string{},
 			},
@@ -368,19 +404,19 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 		err = fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	return profile, prefix, root, namespace, err
+	return profile, id, prefix, root, err
 }
 
 // processTimeSeriesInTransaction processes time series data within a database transaction
 func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.Context,
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
-	profile softwarecomposition.ContainerProfile, prefix, root, namespace string, expired bool) ([]string, error) {
+	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
 
 	endFn, err := a.ContainerProfileStorage.BeginTransaction(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin nested transaction: %w", err)
 	}
-	processed, err := a.updateProfile(ctx, timeSeries, key, profile, prefix, root, namespace, expired)
+	processed, err := a.updateProfile(ctx, timeSeries, key, profile, prefix, root, id, expired)
 	endFn(&err)
 
 	if err != nil {
@@ -408,7 +444,7 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Contex
 	return nil
 }
 
-func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix string, root string, namespace string, expired bool) ([]string, error) {
+func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
 	var processed []string
 	creationTimestamp := metav1.Now()
 	var newData bool
@@ -449,7 +485,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 	}
 
 	// Update aggregated profiles (application profile and network neighborhood)
-	if err := a.updateAggregatedProfiles(ctx, key, &profile, prefix, root, namespace, creationTimestamp); err != nil {
+	if err := a.updateAggregatedProfiles(ctx, key, &profile, prefix, root, id, creationTimestamp); err != nil {
 		return nil, err
 	}
 
@@ -620,7 +656,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 
 // updateAggregatedProfiles updates the application profile and network neighborhood
 func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context,
-	key string, profile *softwarecomposition.ContainerProfile, prefix, root, namespace string,
+	key string, profile *softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier,
 	creationTimestamp metav1.Time) error {
 
 	instanceID, err := instanceidhandlerv1.GenerateInstanceIDFromString(profile.Annotations[helpers.InstanceIDMetadataKey])
@@ -636,12 +672,12 @@ func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context
 	wlid := profile.Annotations[helpers.WlidMetadataKey]
 
 	// Update application profile
-	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
+	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, id, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
 		return err
 	}
 
 	// Update network neighborhood
-	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, namespace, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
+	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, id, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
 		return err
 	}
 

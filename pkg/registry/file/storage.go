@@ -42,6 +42,7 @@ const (
 	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 	connKey                  = "conn"
 	operationNotSupportedMsg = "operation not supported"
+	poolTimeout              = time.Minute
 )
 
 var (
@@ -156,6 +157,10 @@ func IsPayloadFile(path string) bool {
 	return strings.HasSuffix(path, GobExt)
 }
 
+func poolContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), poolTimeout)
+}
+
 func (s *StorageImpl) keyFromPath(path string) string {
 	extension := filepath.Ext(path)
 	return strings.TrimPrefix(strings.TrimSuffix(path, extension), s.root)
@@ -231,7 +236,9 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
-	conn, err := s.pool.Take(context.Background())
+	poolCtx, cancel := poolContext()
+	defer cancel()
+	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
@@ -306,7 +313,9 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
-	conn, err := s.pool.Take(context.Background())
+	poolCtx, cancel := poolContext()
+	defer cancel()
+	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
@@ -360,7 +369,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	_, _, _, namespace, _ := PathToKeys(key)
+	_, _, _, _, namespace, _ := K8sPathToKeys(key)
 	if namespace != "" {
 		// FIXME find an alternative to fix NS deletion
 		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
@@ -378,7 +387,9 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
-	conn, err := s.pool.Take(context.Background())
+	poolCtx, cancel := poolContext()
+	defer cancel()
+	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
@@ -469,7 +480,9 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
-	conn, err := s.pool.Take(context.Background())
+	poolCtx, cancel := poolContext()
+	defer cancel()
+	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
@@ -505,8 +518,9 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
 		// populate list object
+		elem := v.Type().Elem()
+		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
 		for _, k := range list {
-			elem := v.Type().Elem()
 			obj := reflect.New(elem).Interface().(runtime.Object)
 			if err := s.get(ctx, conn, k, storage.GetOptions{}, obj); err != nil {
 				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", k))
@@ -520,8 +534,9 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
 		}
 		// populate list object
+		elem := v.Type().Elem()
+		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
 		for _, metadataJSON := range list {
-			elem := v.Type().Elem()
 			obj := reflect.New(elem).Interface().(runtime.Object)
 			if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
 				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
@@ -650,7 +665,9 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 func (s *StorageImpl) GuaranteedUpdate(
 	ctx context.Context, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	conn, err := s.pool.Take(context.Background())
+	poolCtx, cancel := poolContext()
+	defer cancel()
+	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
 		return fmt.Errorf("take connection: %w", err)
 	}
@@ -826,7 +843,9 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 // Count returns number of different entries under the key (generally being path prefix).
 func (s *StorageImpl) Count(key string) (int64, error) {
 	logger.L().Debug("Custom storage count", helpers.String("key", key))
-	conn, err := s.pool.Take(context.Background())
+	poolCtx, cancel := poolContext()
+	defer cancel()
+	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
 		return 0, fmt.Errorf("take connection: %w", err)
 	}
@@ -879,8 +898,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 		_ = payloadFile.Close()
 	}()
 
-	elem := v.Type().Elem()
-	obj := reflect.New(elem).Interface().(runtime.Object)
+	obj := reflect.New(v.Type().Elem()).Interface().(runtime.Object)
 
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
 	if err := decoder.Decode(obj); err != nil {

@@ -34,7 +34,7 @@ type SyscallApplyConfiguration struct {
 	Action *seccomp.Action `json:"action,omitempty"`
 	// the errno return code to use. Some actions like SCMP_ACT_ERRNO and
 	// SCMP_ACT_TRACE allow to specify the errno code to return
-	ErrnoRet *uint64 `json:"errnoRet,omitempty"`
+	ErrnoRet *int64 `json:"errnoRet,omitempty"`
 	// the specific syscall in seccomp
 	Args []*softwarecompositionv1beta1.Arg `json:"args,omitempty"`
 }
@@ -66,7 +66,7 @@ func (b *SyscallApplyConfiguration) WithAction(value seccomp.Action) *SyscallApp
 // WithErrnoRet sets the ErrnoRet field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ErrnoRet field is set to the value of the last call.
-func (b *SyscallApplyConfiguration) WithErrnoRet(value uint64) *SyscallApplyConfiguration {
+func (b *SyscallApplyConfiguration) WithErrnoRet(value int64) *SyscallApplyConfiguration {
 	b.ErrnoRet = &value
 	return b
 }

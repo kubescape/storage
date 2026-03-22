@@ -72,12 +72,13 @@ func TestMemoryConn(t *testing.T) {
 	assert.NoError(t, pool.Close())
 }
 
-func Test_pathToKindKey(t *testing.T) {
+func Test_K8sPathToKeys(t *testing.T) {
 
 	tests := []struct {
 		test      string
 		path      string
 		kind      string
+		cluster   string
 		namespace string
 		name      string
 	}{
@@ -85,6 +86,7 @@ func Test_pathToKindKey(t *testing.T) {
 			test:      "single",
 			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/default/replicaset-collection-85f89d8b47",
 			kind:      "applicationprofiles",
+			cluster:   "",
 			namespace: "default",
 			name:      "replicaset-collection-85f89d8b47",
 		},
@@ -92,20 +94,55 @@ func Test_pathToKindKey(t *testing.T) {
 			test:      "namespace",
 			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/default",
 			kind:      "applicationprofiles",
+			cluster:   "",
 			namespace: "default",
 		},
 		{
-			test: "cluster",
-			path: "/spdx.softwarecomposition.kubescape.io/applicationprofiles",
-			kind: "applicationprofiles",
+			test:    "cluster",
+			path:    "/spdx.softwarecomposition.kubescape.io/applicationprofiles",
+			kind:    "applicationprofiles",
+			cluster: "",
+		},
+		{
+			test:      "full with cluster",
+			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/my-cluster/default/my-name",
+			kind:      "applicationprofiles",
+			cluster:   "my-cluster",
+			namespace: "default",
+			name:      "my-name",
+		},
+		{
+			test:      "partial with cluster (no name)",
+			path:      "/spdx.softwarecomposition.kubescape.io/applicationprofiles/my-cluster/default/",
+			kind:      "applicationprofiles",
+			cluster:   "my-cluster",
+			namespace: "default",
+			name:      "",
+		},
+		{
+			test:      "very short path",
+			path:      "/spdx.softwarecomposition.kubescape.io",
+			kind:      "",
+			cluster:   "",
+			namespace: "",
+			name:      "",
+		},
+		{
+			test:      "empty path",
+			path:      "",
+			kind:      "",
+			cluster:   "",
+			namespace: "",
+			name:      "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.test, func(t *testing.T) {
-			_, _, kind, namespace, name := PathToKeys(tt.path)
-			assert.Equalf(t, tt.kind, kind, "pathToKeys(%v)", tt.path)
-			assert.Equalf(t, tt.namespace, namespace, "pathToKeys(%v)", tt.path)
-			assert.Equalf(t, tt.name, name, "pathToKeys(%v)", tt.path)
+			_, _, kind, cluster, namespace, name := K8sPathToKeys(tt.path)
+			assert.Equalf(t, tt.kind, kind, "K8sPathToKeys(%v)", tt.path)
+			assert.Equalf(t, tt.cluster, cluster, "K8sPathToKeys(%v)", tt.path)
+			assert.Equalf(t, tt.namespace, namespace, "K8sPathToKeys(%v)", tt.path)
+			assert.Equalf(t, tt.name, name, "K8sPathToKeys(%v)", tt.path)
 		})
 	}
 }

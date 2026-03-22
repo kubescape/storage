@@ -1,9 +1,12 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,6 +23,7 @@ func TestLoadConfig(t *testing.T) {
 			want: Config{
 				CleanupInterval:            24 * time.Hour,
 				DefaultNamespace:           "kubescape",
+				HostType:                   armotypes.HostTypeKubernetes,
 				ExcludeJsonPaths:           []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
 				MaxApplicationProfileSize:  40000,
 				MaxNetworkNeighborhoodSize: 40000,
@@ -79,6 +83,72 @@ func TestLoadConfig(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestHostTypeValidation(t *testing.T) {
+	tempDir := t.TempDir()
+
+	tests := []struct {
+		name         string
+		configJSON   string
+		wantHostType armotypes.HostType
+		wantErr      bool
+	}{
+		{
+			name:         "Kubernetes HostType",
+			configJSON:   `{"hostType": "kubernetes"}`,
+			wantHostType: armotypes.HostTypeKubernetes,
+			wantErr:      false,
+		},
+		{
+			name:         "ECS EC2 HostType",
+			configJSON:   `{"hostType": "ecs-ec2"}`,
+			wantHostType: armotypes.HostTypeEcsEc2,
+			wantErr:      false,
+		},
+		{
+			name:         "EC2 HostType",
+			configJSON:   `{"hostType": "ec2"}`,
+			wantHostType: armotypes.HostTypeEc2,
+			wantErr:      false,
+		},
+		{
+			name:         "Other HostType",
+			configJSON:   `{"hostType": "other"}`,
+			wantHostType: armotypes.HostTypeOther,
+			wantErr:      false,
+		},
+		{
+			name:         "Empty HostType defaults to Kubernetes",
+			configJSON:   `{}`,
+			wantHostType: armotypes.HostTypeKubernetes,
+			wantErr:      false,
+		},
+		{
+			name:       "Invalid HostType returns error",
+			configJSON: `{"hostType": "invalid"}`,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(tempDir, tt.name)
+			err := os.MkdirAll(dir, 0755)
+			assert.NoError(t, err)
+
+			err = os.WriteFile(filepath.Join(dir, "config.json"), []byte(tt.configJSON), 0644)
+			assert.NoError(t, err)
+
+			got, err := LoadConfig(dir)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantHostType, got.HostType)
+			}
 		})
 	}
 }
