@@ -15,25 +15,41 @@ var (
 	TimeOutError               = errors.New("lock acquisition timed out")
 )
 
+type refCountedLock struct {
+	mu       sync.RWMutex
+	refCount int // protected by MapMutex.m
+}
+
 type MapMutex[T comparable] struct {
-	locks map[T]*sync.RWMutex
+	locks map[T]*refCountedLock
 	m     sync.Mutex
 }
 
 func NewMapMutex[T comparable]() MapMutex[T] {
 	return MapMutex[T]{
-		locks: make(map[T]*sync.RWMutex),
+		locks: make(map[T]*refCountedLock),
 	}
 }
 
-// FIXME add a way to remove locks
-func (m *MapMutex[T]) ensureLock(key T) *sync.RWMutex {
+func (m *MapMutex[T]) acquire(key T) *refCountedLock {
 	m.m.Lock()
 	defer m.m.Unlock()
 	l, ok := m.locks[key]
 	if !ok {
-		l = &sync.RWMutex{}
+		l = &refCountedLock{}
 		m.locks[key] = l
+	}
+	l.refCount++
+	return l
+}
+
+func (m *MapMutex[T]) release(key T) *refCountedLock {
+	m.m.Lock()
+	defer m.m.Unlock()
+	l := m.locks[key]
+	l.refCount--
+	if l.refCount == 0 {
+		delete(m.locks, key)
 	}
 	return l
 }
@@ -43,21 +59,21 @@ func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
 	if err != nil {
 		return err
 	}
-	lock := m.ensureLock(key)
+	l := m.acquire(key)
 	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
 	defer ticker.Stop()
 	for range ticker.C {
 		select {
 		case <-done:
-			// context has expired
+			m.release(key)
 			return ctx.Err()
 		default:
 		}
-		if lock.TryLock() {
-			// lock acquired
+		if l.mu.TryLock() {
 			return nil
 		}
 	}
+	m.release(key)
 	return TimeOutError
 }
 
@@ -66,30 +82,37 @@ func (m *MapMutex[T]) RLock(ctx context.Context, key T) error {
 	if err != nil {
 		return err
 	}
-	lock := m.ensureLock(key)
+	l := m.acquire(key)
 	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
 	defer ticker.Stop()
 	for range ticker.C {
 		select {
 		case <-done:
-			// context has expired
+			m.release(key)
 			return ctx.Err()
 		default:
 		}
-		if lock.TryRLock() {
-			// lock acquired
+		if l.mu.TryRLock() {
 			return nil
 		}
 	}
+	m.release(key)
 	return TimeOutError
 }
 
-func (m *MapMutex[T]) RUnlock(key T) {
-	m.ensureLock(key).RUnlock()
+// release before unlock: release decrements refcount and may delete the map
+// entry under the global lock. The per-key unlock happens after, on the
+// returned pointer. Do NOT reorder — unlocking first would allow a concurrent
+// acquire to find and reuse the entry before the refcount is decremented,
+// preventing eviction.
+func (m *MapMutex[T]) Unlock(key T) {
+	l := m.release(key)
+	l.mu.Unlock()
 }
 
-func (m *MapMutex[T]) Unlock(key T) {
-	m.ensureLock(key).Unlock()
+func (m *MapMutex[T]) RUnlock(key T) {
+	l := m.release(key)
+	l.mu.RUnlock()
 }
 
 func verifyContext(ctx context.Context) (<-chan struct{}, error) {
