@@ -4,6 +4,12 @@ WORKDIR /work
 ARG TARGETOS TARGETARCH
 ENV GO111MODULE=on CGO_ENABLED=0
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+RUN --mount=target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/migration ./cmd/migration/main.go
+
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
@@ -13,7 +19,7 @@ FROM gcr.io/distroless/static-debian13:debug-nonroot
 
 COPY --from=builder /go/bin/dlv /usr/bin/dlv
 COPY --from=builder /out/storage /usr/bin/storage
-
+COPY --from=builder /out/migration /usr/bin/migration
 ARG image_version
 ENV RELEASE=$image_version
 

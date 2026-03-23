@@ -32,7 +32,7 @@ func (d *DirectIOReader) Read(p []byte) (int, error) {
 	if d.off == d.bufSize {
 		var err error
 		d.bufSize, err = io.ReadFull(d.rd, d.buf)
-		if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		if err != nil && (!errors.Is(err, io.ErrUnexpectedEOF) || d.bufSize == 0) {
 			return 0, err
 		}
 		d.off = 0
@@ -44,7 +44,12 @@ func (d *DirectIOReader) Read(p []byte) (int, error) {
 }
 
 func (d *DirectIOReader) ReadByte() (byte, error) {
-	panic("ReadByte not implemented, gob.Decode should not be using this")
+	p := make([]byte, 1)
+	n, err := d.Read(p)
+	if n == 1 {
+		return p[0], nil
+	}
+	return 0, err
 }
 
 // DirectIOWriter is a writer that writes data to the underlying writer using direct I/O.

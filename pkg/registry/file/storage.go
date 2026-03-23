@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -203,15 +205,22 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 		return fmt.Errorf("open payload file: %w", err)
 	}
 	directIOWriter := NewDirectIOWriter(payloadFile)
-	defer func() {
-		_ = directIOWriter.Close()
-		_ = payloadFile.Close()
-	}()
+	
 	// write payload
 	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
+		_ = directIOWriter.Close()
+		_ = payloadFile.Close()
 		return fmt.Errorf("encode payload: %w", err)
 	}
+	if err := directIOWriter.Close(); err != nil {
+		_ = payloadFile.Close()
+		return fmt.Errorf("close directIOWriter: %w", err)
+	}
+	if err := payloadFile.Close(); err != nil {
+		return fmt.Errorf("close payload file: %w", err)
+	}
+
 	// extract metadata
 	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
 	// store metadata in SQLite
@@ -452,29 +461,110 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	defer func() {
 		_ = payloadFile.Close()
 	}()
+
+	// Try normal decode first
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
 	err = decoder.Decode(objPtr)
-	if err != nil {
-		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
-			// irrecoverable error, delete corresponding data
+	if err == nil {
+		return nil
+	}
+
+	// If it fails with type error, or any other gob error, try external migration tool
+	if strings.Contains(err.Error(), "gob: wrong type") || strings.Contains(err.Error(), "extra fields") {
+		logger.L().Ctx(ctx).Info("Get - detected gob type mismatch, attempting external migration", helpers.Error(err), helpers.String("key", key))
+
+		// Rewrite the object in the modern format to complete the migration
+		// We upgrade to a write lock BEFORE running the migration tool to prevent concurrent migration attempts
+		s.locks.RUnlock(key)
+		// re-acquire read lock if anything fails or when we are done
+		defer s.locks.RLock(ctx, key)
+
+		if lockErr := s.locks.Lock(ctx, key); lockErr != nil {
+			logger.L().Ctx(ctx).Error("Get - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("key", key))
+			return fmt.Errorf("failed to acquire write lock for migration: %w", lockErr)
+		}
+		defer s.locks.Unlock(key)
+
+		// Re-check if the file still needs migration now that we have the write lock
+		// Another thread might have finished the migration while we were waiting for the lock
+		payloadFileRetry, err := s.appFs.OpenFile(makePayloadPath(p), os.O_RDONLY, 0)
+		if err == nil {
+			decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
+			errRetry := decoderRetry.Decode(objPtr)
+			_ = payloadFileRetry.Close()
+			if errRetry == nil {
+				logger.L().Ctx(ctx).Info("Get - migration already completed by another thread", helpers.String("key", key))
+				return nil
+			}
+		}
+
+		typeName := "ApplicationProfile"
+		if _, ok := objPtr.(*softwarecomposition.ContainerProfile); ok {
+			typeName = "ContainerProfile"
+		} else if _, ok := objPtr.(*softwarecomposition.SeccompProfile); ok {
+			typeName = "SeccompProfile"
+		}
+
+		// Run migration tool: /usr/bin/migration -file <path> -type <typeName>
+		migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
+		defer migrationCancel()
+
+		cmd := exec.CommandContext(migrationCtx, "/usr/bin/migration", "-file", makePayloadPath(p), "-type", typeName)
+		var out bytes.Buffer
+		var stderr bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &stderr
+		if runErr := cmd.Run(); runErr != nil {
+			if errors.Is(migrationCtx.Err(), context.DeadlineExceeded) {
+				logger.L().Ctx(ctx).Error("Get - migration tool timed out", helpers.String("key", key))
+				return fmt.Errorf("migration tool timed out: %w", migrationCtx.Err())
+			}
+			logger.L().Ctx(ctx).Error("Get - migration tool failed", helpers.Error(runErr), helpers.String("stderr", stderr.String()), helpers.String("key", key))
+			// If migration tool fails, treat as corrupted and delete
 			_ = DeleteMetadata(conn, key, nil)
 			_ = s.appFs.Remove(makePayloadPath(p))
-			logger.L().Debug("Get - gob unexpected EOF, removed files", helpers.String("key", key))
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {
 				return storage.NewKeyNotFoundError(key, 0)
 			}
 		}
-		logger.L().Ctx(ctx).Error("Get - gob unmarshal failed", helpers.Error(err), helpers.String("key", key))
-		return err
+
+		// Migration tool outputted JSON, unmarshal it into objPtr
+		if unmarshalErr := json.Unmarshal(out.Bytes(), objPtr); unmarshalErr != nil {
+			logger.L().Ctx(ctx).Error("Get - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("key", key))
+			return unmarshalErr
+		}
+
+		logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
+
+		if saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+			logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
+		} else {
+			logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
+		}
+
+		return nil
 	}
-	return nil
+
+	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+		// irrecoverable error, delete corresponding data
+		_ = DeleteMetadata(conn, key, nil)
+		_ = s.appFs.Remove(makePayloadPath(p))
+		logger.L().Ctx(ctx).Error("Get - gob error, treating as corrupted and removing files", helpers.Error(err), helpers.String("key", key))
+		if opts.IgnoreNotFound {
+			return runtime.SetZeroValue(objPtr)
+		} else {
+			return storage.NewKeyNotFoundError(key, 0)
+		}
+	}
+	logger.L().Ctx(ctx).Error("Get - gob unmarshal failed", helpers.Error(err), helpers.String("key", key))
+	return err
 }
 
 // GetList unmarshalls objects found at key into a *List api object (an object
 // that satisfies runtime.IsList definition).
-// If 'opts.Recursive' is false, 'key' is used as an exact match. If `opts.Recursive'
+// If 'opts.Recursive' is false, 'key' is used as an exact match. If `opts.Recursive`
 // is true, 'key' is used as a prefix.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
@@ -900,9 +990,91 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 
 	obj := reflect.New(v.Type().Elem()).Interface().(runtime.Object)
 
+	// Try normal decode first
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
-	if err := decoder.Decode(obj); err != nil {
-		return err
+	err = decoder.Decode(obj)
+	if err != nil {
+		// If it fails with type error, try legacy decoding via external tool
+		if strings.Contains(err.Error(), "gob: wrong type") || strings.Contains(err.Error(), "extra fields") {
+			logger.L().Ctx(ctx).Info("appendGobObjectFromFile - detected gob type mismatch, attempting external migration", helpers.Error(err), helpers.String("path", path))
+
+			// Rewrite the object in the modern format to complete the migration
+			// We upgrade to a write lock BEFORE running the migration tool to prevent concurrent migration attempts
+			s.locks.RUnlock(key)
+			// re-acquire read lock if anything fails or when we are done
+			defer s.locks.RLock(ctx, key)
+
+			if lockErr := s.locks.Lock(ctx, key); lockErr != nil {
+				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("path", path))
+				return fmt.Errorf("failed to acquire write lock for migration: %w", lockErr)
+			}
+			defer s.locks.Unlock(key)
+
+			// Re-check if the file still needs migration now that we have the write lock
+			// Another thread might have finished the migration while we were waiting for the lock
+			payloadFileRetry, err := s.appFs.OpenFile(path, os.O_RDONLY, 0)
+			if err == nil {
+				decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
+				errRetry := decoderRetry.Decode(obj)
+				_ = payloadFileRetry.Close()
+				if errRetry == nil {
+					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - migration already completed by another thread", helpers.String("path", path))
+					v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+					return nil
+				}
+			}
+
+			typeName := "ApplicationProfile"
+			if _, ok := obj.(*softwarecomposition.ContainerProfile); ok {
+				typeName = "ContainerProfile"
+			} else if _, ok := obj.(*softwarecomposition.SeccompProfile); ok {
+				typeName = "SeccompProfile"
+			}
+
+			// Run migration tool: /usr/bin/migration -file <path> -type <typeName>
+			migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
+			defer migrationCancel()
+
+			cmd := exec.CommandContext(migrationCtx, "/usr/bin/migration", "-file", path, "-type", typeName)
+			var out bytes.Buffer
+			var stderr bytes.Buffer
+			cmd.Stdout = &out
+			cmd.Stderr = &stderr
+			if runErr := cmd.Run(); runErr != nil {
+				if errors.Is(migrationCtx.Err(), context.DeadlineExceeded) {
+					logger.L().Ctx(ctx).Error("appendGobObjectFromFile - migration tool timed out", helpers.String("path", path))
+					return nil // treat as skip/corrupted in list operations
+				}
+				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - migration tool failed", helpers.Error(runErr), helpers.String("stderr", stderr.String()), helpers.String("path", path))
+				// If migration tool fails, treat as corrupted and skip
+				return nil
+			}
+
+			// Migration tool outputted JSON, unmarshal it into obj
+			if unmarshalErr := json.Unmarshal(out.Bytes(), obj); unmarshalErr != nil {
+				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("path", path))
+				return unmarshalErr
+			}
+
+			logger.L().Ctx(ctx).Info("appendGobObjectFromFile - external migration successful", helpers.String("path", path))
+
+			// Write modern format back to disk to finish migration
+			poolCtx, cancel := poolContext()
+			defer cancel()
+			conn, err := s.pool.Take(poolCtx)
+			if err != nil {
+				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to take connection for migration save", helpers.Error(err), helpers.String("path", path))
+			} else {
+				defer s.pool.Put(conn)
+				if saveErr := s.saveObject(conn, key, obj, nil, ""); saveErr != nil {
+					logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("path", path))
+				} else {
+					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - successfully migrated object to modern format", helpers.String("path", path))
+				}
+			}
+		} else {
+			return err
+		}
 	}
 
 	v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
