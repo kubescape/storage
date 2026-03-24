@@ -236,3 +236,40 @@ func TestMapMutex_SingleKeyHighContention(t *testing.T) {
 		return len(m.keys) == 0
 	}, 5*time.Second, time.Millisecond, "map should be empty after all goroutines complete")
 }
+
+func TestMapMutex_WriterPriority(t *testing.T) {
+	m := NewMapMutex[string]()
+	ctx := testCtx(t)
+
+	// Reader holds the lock.
+	err := m.RLock(ctx, "key")
+	require.NoError(t, err)
+
+	// Writer blocks behind the reader.
+	writerDone := make(chan struct{})
+	go func() {
+		err := m.Lock(ctx, "key")
+		require.NoError(t, err)
+		close(writerDone)
+		time.Sleep(50 * time.Millisecond)
+		m.Unlock("key")
+	}()
+
+	// Give the writer time to enter the wait loop.
+	time.Sleep(10 * time.Millisecond)
+
+	// A new reader must NOT slip past the pending writer.
+	shortCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	err = m.RLock(shortCtx, "key")
+	assert.Error(t, err, "new reader should block while a writer is pending")
+
+	// Release original reader — writer acquires.
+	m.RUnlock("key")
+	<-writerDone
+
+	// After writer releases, readers proceed normally.
+	err = m.RLock(ctx, "key")
+	require.NoError(t, err)
+	m.RUnlock("key")
+}
