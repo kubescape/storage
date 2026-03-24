@@ -9,7 +9,6 @@ require (
 	github.com/anchore/syft v1.32.0
 	github.com/armosec/armoapi-go v0.0.693
 	github.com/armosec/utils-k8s-go v0.0.30
-	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/containers/common v0.63.0
 	github.com/deckarep/golang-set/v2 v2.7.0
 	github.com/dghubble/trie v0.1.0
@@ -62,6 +61,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
 	github.com/briandowns/spinner v1.23.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
+	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/cilium v1.16.17 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
@@ -183,7 +183,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.42.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.42.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.18.0 // indirect
-	go.opentelemetry.io/otel/sdk/log/logtest v0.18.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.42.0 // indirect
 	go.opentelemetry.io/otel/trace v1.42.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
