@@ -4,127 +4,147 @@ import (
 	"context"
 	"errors"
 	"sync"
-
-	"github.com/cenkalti/backoff/v5"
 )
 
-var (
-	ContextNilError            = errors.New("context is nil")
-	ContextNotCancellableError = errors.New("context is not cancellable")
-	ContextNoTimeoutError      = errors.New("context has no timeout")
-	TimeOutError               = errors.New("lock acquisition timed out")
-)
+var ContextNilError = errors.New("context is nil")
 
-type refCountedLock struct {
-	mu       sync.RWMutex
-	refCount int // protected by MapMutex.m
+type keyState struct {
+	cond           *sync.Cond
+	readers        int
+	writer         bool
+	waiters        int // goroutines blocked in lockSlow (for eviction)
+	pendingWriters int // writers waiting to acquire (blocks new readers)
 }
 
 type MapMutex[T comparable] struct {
-	locks map[T]*refCountedLock
-	m     sync.Mutex
+	mu   sync.Mutex
+	keys map[T]*keyState
 }
 
 func NewMapMutex[T comparable]() MapMutex[T] {
 	return MapMutex[T]{
-		locks: make(map[T]*refCountedLock),
+		keys: make(map[T]*keyState),
 	}
 }
 
-func (m *MapMutex[T]) acquire(key T) *refCountedLock {
-	m.m.Lock()
-	defer m.m.Unlock()
-	l, ok := m.locks[key]
+// getOrCreate returns the keyState for key, creating one if needed.
+// Must be called with m.mu held.
+func (m *MapMutex[T]) getOrCreate(key T) *keyState {
+	s, ok := m.keys[key]
 	if !ok {
-		l = &refCountedLock{}
-		m.locks[key] = l
+		s = &keyState{cond: sync.NewCond(&m.mu)}
+		m.keys[key] = s
 	}
-	l.refCount++
-	return l
+	return s
 }
 
-func (m *MapMutex[T]) release(key T) *refCountedLock {
-	m.m.Lock()
-	defer m.m.Unlock()
-	l := m.locks[key]
-	l.refCount--
-	if l.refCount == 0 {
-		delete(m.locks, key)
+// maybeEvict removes the keyState from the map if nobody holds or waits on it.
+// Must be called with m.mu held.
+func (m *MapMutex[T]) maybeEvict(key T, s *keyState) {
+	if s.readers == 0 && !s.writer && s.waiters == 0 {
+		delete(m.keys, key)
 	}
-	return l
+}
+
+// lockSlow is the shared slow path for Lock and RLock. The caller must hold
+// m.mu and have already checked that the fast path doesn't apply.
+// canProceed checks whether the lock can be acquired; onAcquire updates state
+// on success; onCancel (if non-nil) runs on context cancellation for cleanup
+// (e.g. decrementing pendingWriters).
+func (m *MapMutex[T]) lockSlow(
+	ctx context.Context, key T, s *keyState,
+	canProceed func() bool, onAcquire func(), onCancel func(),
+) error {
+	s.waiters++
+
+	// Spawn a goroutine to broadcast on context cancellation so that
+	// Cond.Wait wakes up and can observe ctx.Err(). The goroutine exits
+	// immediately in all cases (no leak).
+	stop := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			m.mu.Lock()
+			s.cond.Broadcast()
+			m.mu.Unlock()
+		case <-stop:
+		}
+	}()
+
+	for !canProceed() {
+		if ctx.Err() != nil {
+			s.waiters--
+			if onCancel != nil {
+				onCancel()
+			}
+			m.maybeEvict(key, s)
+			m.mu.Unlock()
+			close(stop)
+			return ctx.Err()
+		}
+		s.cond.Wait() // releases m.mu while sleeping
+	}
+
+	s.waiters--
+	onAcquire()
+	m.mu.Unlock()
+	close(stop)
+	return nil
 }
 
 func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
-	done, err := verifyContext(ctx)
-	if err != nil {
-		return err
+	if ctx == nil {
+		return ContextNilError
 	}
-	l := m.acquire(key)
-	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
-	defer ticker.Stop()
-	for range ticker.C {
-		select {
-		case <-done:
-			m.release(key)
-			return ctx.Err()
-		default:
-		}
-		if l.mu.TryLock() {
-			return nil
-		}
+	m.mu.Lock()
+	s := m.getOrCreate(key)
+	if !s.writer && s.readers == 0 {
+		s.writer = true
+		m.mu.Unlock()
+		return nil
 	}
-	m.release(key)
-	return TimeOutError
+	s.pendingWriters++
+	return m.lockSlow(ctx, key, s,
+		func() bool { return !s.writer && s.readers == 0 },
+		func() { s.pendingWriters--; s.writer = true },
+		func() { s.pendingWriters-- },
+	)
 }
 
 func (m *MapMutex[T]) RLock(ctx context.Context, key T) error {
-	done, err := verifyContext(ctx)
-	if err != nil {
-		return err
+	if ctx == nil {
+		return ContextNilError
 	}
-	l := m.acquire(key)
-	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
-	defer ticker.Stop()
-	for range ticker.C {
-		select {
-		case <-done:
-			m.release(key)
-			return ctx.Err()
-		default:
-		}
-		if l.mu.TryRLock() {
-			return nil
-		}
+	m.mu.Lock()
+	s := m.getOrCreate(key)
+	if !s.writer && s.pendingWriters == 0 {
+		s.readers++
+		m.mu.Unlock()
+		return nil
 	}
-	m.release(key)
-	return TimeOutError
+	return m.lockSlow(ctx, key, s,
+		func() bool { return !s.writer && s.pendingWriters == 0 },
+		func() { s.readers++ },
+		nil,
+	)
 }
 
-// release before unlock: release decrements refcount and may delete the map
-// entry under the global lock. The per-key unlock happens after, on the
-// returned pointer. Do NOT reorder — unlocking first would allow a concurrent
-// acquire to find and reuse the entry before the refcount is decremented,
-// preventing eviction.
 func (m *MapMutex[T]) Unlock(key T) {
-	l := m.release(key)
-	l.mu.Unlock()
+	m.mu.Lock()
+	s := m.keys[key]
+	s.writer = false
+	s.cond.Broadcast()
+	m.maybeEvict(key, s)
+	m.mu.Unlock()
 }
 
 func (m *MapMutex[T]) RUnlock(key T) {
-	l := m.release(key)
-	l.mu.RUnlock()
-}
-
-func verifyContext(ctx context.Context) (<-chan struct{}, error) {
-	if ctx == nil {
-		return nil, ContextNilError
+	m.mu.Lock()
+	s := m.keys[key]
+	s.readers--
+	if s.readers == 0 {
+		s.cond.Broadcast()
 	}
-	if _, ok := ctx.Deadline(); !ok {
-		return nil, ContextNoTimeoutError
-	}
-	done := ctx.Done()
-	if done == nil {
-		return nil, ContextNotCancellableError
-	}
-	return done, nil
+	m.maybeEvict(key, s)
+	m.mu.Unlock()
 }
