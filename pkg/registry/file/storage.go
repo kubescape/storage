@@ -76,6 +76,17 @@ func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) er
 	return nil
 }
 
+// openPayloadFileWithFallback opens a payload file with O_DIRECT when supported
+// and transparently retries without it when the filesystem returns an
+// "unsupported" error (e.g. EINVAL on tmpfs/overlayfs).
+func (s *StorageImpl) openPayloadFileWithFallback(path string, flag int, perm os.FileMode) (afero.File, error) {
+	f, err := s.appFs.OpenFile(path, openFlagDirect|flag, perm)
+	if err != nil && isDirectIOUnsupported(err) {
+		f, err = s.appFs.OpenFile(path, flag, perm)
+	}
+	return f, err
+}
+
 func (s *StorageImpl) Stats(_ context.Context) (storage.Stats, error) {
 	return storage.Stats{}, fmt.Errorf("unimplemented")
 }
@@ -200,12 +211,12 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 		return fmt.Errorf("mkdir: %w", err)
 	}
 	// prepare payload file
-	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open payload file: %w", err)
 	}
 	directIOWriter := NewDirectIOWriter(payloadFile)
-	
+
 	// write payload
 	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
@@ -444,7 +455,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 		}
 		return json.Unmarshal(metadata, objPtr)
 	}
-	payloadFile, err := s.appFs.OpenFile(makePayloadPath(p), os.O_RDONLY, 0)
+	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			// file not found, delete corresponding metadata
@@ -487,7 +498,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 
 		// Re-check if the file still needs migration now that we have the write lock
 		// Another thread might have finished the migration while we were waiting for the lock
-		payloadFileRetry, err := s.appFs.OpenFile(makePayloadPath(p), os.O_RDONLY, 0)
+		payloadFileRetry, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_RDONLY, 0)
 		if err == nil {
 			decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
 			errRetry := decoderRetry.Decode(objPtr)
@@ -979,7 +990,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
 	}
 	defer s.locks.RUnlock(key)
-	payloadFile, err := s.appFs.OpenFile(path, os.O_RDONLY, 0)
+	payloadFile, err := s.openPayloadFileWithFallback(path, os.O_RDONLY, 0)
 	if err != nil {
 		// skip if file is not readable, maybe it was deleted
 		return nil
@@ -1012,7 +1023,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 
 			// Re-check if the file still needs migration now that we have the write lock
 			// Another thread might have finished the migration while we were waiting for the lock
-			payloadFileRetry, err := s.appFs.OpenFile(path, os.O_RDONLY, 0)
+			payloadFileRetry, err := s.openPayloadFileWithFallback(path, os.O_RDONLY, 0)
 			if err == nil {
 				decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
 				errRetry := decoderRetry.Decode(obj)

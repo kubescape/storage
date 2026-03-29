@@ -11,3 +11,7 @@
 package file
 
 var openFlagDirect = 0
+
+// isDirectIOUnsupported always returns false on non-Linux platforms because
+// openFlagDirect is zero and O_DIRECT is never requested.
+func isDirectIOUnsupported(_ error) bool { return false }
