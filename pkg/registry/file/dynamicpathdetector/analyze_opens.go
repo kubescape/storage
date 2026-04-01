@@ -1,7 +1,6 @@
 package dynamicpathdetector
 
 import (
-	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -16,7 +15,7 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer, sbomSet mapse
 	}
 
 	if sbomSet == nil {
-		return nil, errors.New("sbomSet is nil")
+		sbomSet = mapset.NewThreadUnsafeSet[string]()
 	}
 
 	dynamicOpens := make(map[string]types.OpenCalls)
