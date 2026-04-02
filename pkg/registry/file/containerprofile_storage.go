@@ -90,7 +90,7 @@ func (c *ContainerProfileStorageImpl) GetStorageImpl() *StorageImpl {
 func (c *ContainerProfileStorageImpl) GetTsContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error) {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	tsProfile := softwarecomposition.ContainerProfile{}
-	err := c.storageImpl.get(ctx, conn, key, storage.GetOptions{}, &tsProfile) // get instead of GetWithConn to bypass locking
+	err := c.storageImpl.get(ctx, conn, key, storage.GetOptions{}, &tsProfile, noLock) // get instead of GetWithConn to bypass locking
 	return tsProfile, err
 }
 
