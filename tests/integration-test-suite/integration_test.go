@@ -23,6 +23,10 @@ type IntegrationTestSuite struct {
 	testNamespace      string
 	clientset          *kubernetes.Clientset
 	ksObjectConnection spdxv1beta1.SpdxV1beta1Interface
+	isRapid7           bool
+	// These are only used when storage backend is enbled (Rapid7)
+	accountID string
+	accessKey string
 }
 
 func TestIntegrationTestSuite(t *testing.T) {
@@ -92,6 +96,15 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	ksObjectConnection, err := CreateKubscapeObjectConnection()
 	s.Require().NoError(err)
 	s.ksObjectConnection = ksObjectConnection
+
+	s.isRapid7 = CheckRapidHelmRelease()
+
+	// Extract account ID and access key from environment variables
+	s.accountID = os.Getenv("BACKEND_ACCOUNT_ID")
+	s.accessKey = os.Getenv("BACKEND_ACCESS_KEY")
+	if s.isRapid7 && (s.accountID == "" || s.accessKey == "") {
+		s.T().Fatalf("BACKEND_ACCOUNT_ID and BACKEND_ACCESS_KEY environment variables must be set when using storage backend (Rapid7)")
+	}
 
 	// Verify all pods are ready
 	pods, err := ListPodsInNamespace(s.clientset, "kubescape")

@@ -4,11 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestInitContainerProfileCreate() {
@@ -32,8 +31,8 @@ The profile should be complete after the main container's learning period finish
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "init-container-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "2m",
+						"app":                "init-container-test-deployment",
+						MaxSniffingTimeLabel: "5m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -60,12 +59,18 @@ The profile should be complete after the main container's learning period finish
 	s.LogWithTimestamp("Waiting for pod to be ready (init container should be running)")
 	WaitForPodWithLabelReady(s.T(), s.clientset, s.testNamespace, "app=init-container-test-deployment")
 
-	s.LogWithTimestamp("Waiting 90 seconds for init container to complete in storage (main container should be running)")
-	time.Sleep(90 * time.Second)
-
 	// Verify that profile exists but is not complete yet
 	s.LogWithTimestamp("Verifying profile exists but is not complete after init container")
-	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "init-container-test-deployment")
+	var applicationProfile *v1beta1.ApplicationProfile
+	if s.isRapid7 {
+		s.LogWithTimestamp("Waiting 3 minutes for init container to complete in storage backend (main container should be running)")
+		time.Sleep(3 * time.Minute)
+		applicationProfile, err = fetchApplicationProfileFromStorageBackend(s.testNamespace, "deployment", "init-container-test-deployment", s.accountID, s.accessKey)
+	} else {
+		s.LogWithTimestamp("Waiting 90 seconds for init container to complete in cluster (main container should be running)")
+		time.Sleep(90 * time.Second)
+		applicationProfile, err = fetchApplicationProfileFromCluster(s.ksObjectConnection, s.testNamespace, "deployment", "init-container-test-deployment")
+	}
 	s.Require().NoError(err)
 	s.Require().NotNil(applicationProfile)
 	s.Require().Equal("complete", applicationProfile.Annotations["kubescape.io/completion"])
@@ -84,12 +89,12 @@ The profile should be complete after the main container's learning period finish
 	}
 	s.Require().True(initContainerFound, "Init container should be present in the profile")
 
-	s.LogWithTimestamp("Waiting 3 minutes for main container learning period")
-	time.Sleep(3 * time.Minute)
+	s.LogWithTimestamp("Waiting 4 minutes for main container learning period")
+	time.Sleep(4 * time.Minute)
 
 	s.LogWithTimestamp("Verifying profiles are complete")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "init-container-test-deployment")
-	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "init-container-test-deployment")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "init-container-test-deployment", s.accountID, s.accessKey, s.isRapid7)
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "init-container-test-deployment", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("TestInitContainerProfileCreate completed successfully")
 }

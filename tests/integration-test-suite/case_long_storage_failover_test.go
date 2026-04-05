@@ -7,8 +7,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestLongStorageFailover() {
@@ -32,8 +30,8 @@ Goal: Ensure that the system can recover from a long storage failover and still 
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "long-storage-failover-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "15m",
+						"app":                "long-storage-failover-test-deployment",
+						MaxSniffingTimeLabel: "15m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -78,8 +76,8 @@ Goal: Ensure that the system can recover from a long storage failover and still 
 	time.Sleep(5 * time.Minute)
 
 	s.LogWithTimestamp("Verifying profiles are complete after long storage failover")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "long-storage-failover-test-deployment")
-	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "long-storage-failover-test-deployment")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "long-storage-failover-test-deployment", s.accountID, s.accessKey, s.isRapid7)
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "long-storage-failover-test-deployment", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("TestLongStorageFailover completed successfully")
 }
