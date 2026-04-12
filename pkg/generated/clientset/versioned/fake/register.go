@@ -19,6 +19,7 @@ limitations under the License.
 package fake
 
 import (
+	kubescapev1 "github.com/kubescape/storage/pkg/apis/securityexception/v1"
 	spdxv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +32,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
+	kubescapev1.AddToScheme,
 	spdxv1beta1.AddToScheme,
 }
 

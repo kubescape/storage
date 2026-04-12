@@ -25,6 +25,7 @@ import (
 
 	versioned "github.com/kubescape/storage/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubescape/storage/pkg/generated/informers/externalversions/internalinterfaces"
+	securityexception "github.com/kubescape/storage/pkg/generated/informers/externalversions/securityexception"
 	softwarecomposition "github.com/kubescape/storage/pkg/generated/informers/externalversions/softwarecomposition"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -255,7 +256,12 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
+	Kubescape() securityexception.Interface
 	Spdx() softwarecomposition.Interface
+}
+
+func (f *sharedInformerFactory) Kubescape() securityexception.Interface {
+	return securityexception.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Spdx() softwarecomposition.Interface {

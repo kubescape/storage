@@ -21,6 +21,7 @@ package externalversions
 import (
 	fmt "fmt"
 
+	v1 "github.com/kubescape/storage/pkg/apis/securityexception/v1"
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -52,7 +53,13 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
+	// Group=kubescape.io, Version=v1
+	case v1.SchemeGroupVersion.WithResource("clustersecurityexceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubescape().V1().ClusterSecurityExceptions().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("securityexceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubescape().V1().SecurityExceptions().Informer()}, nil
+
+		// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("applicationprofiles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationProfiles().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"):

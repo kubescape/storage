@@ -19,6 +19,7 @@ limitations under the License.
 package scheme
 
 import (
+	kubescapev1 "github.com/kubescape/storage/pkg/apis/securityexception/v1"
 	spdxv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +32,7 @@ var Scheme = runtime.NewScheme()
 var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
+	kubescapev1.AddToScheme,
 	spdxv1beta1.AddToScheme,
 }
 
