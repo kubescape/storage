@@ -217,7 +217,7 @@ func Convert_securityexception_ExceptionMatch_To_v1_ExceptionMatch(in *securitye
 func autoConvert_v1_PostureException_To_securityexception_PostureException(in *PostureException, out *securityexception.PostureException, s conversion.Scope) error {
 	out.ControlID = in.ControlID
 	out.FrameworkName = in.FrameworkName
-	out.Action = in.Action
+	out.Action = securityexception.PostureAction(in.Action)
 	return nil
 }
 
@@ -229,7 +229,7 @@ func Convert_v1_PostureException_To_securityexception_PostureException(in *Postu
 func autoConvert_securityexception_PostureException_To_v1_PostureException(in *securityexception.PostureException, out *PostureException, s conversion.Scope) error {
 	out.ControlID = in.ControlID
 	out.FrameworkName = in.FrameworkName
-	out.Action = in.Action
+	out.Action = PostureAction(in.Action)
 	return nil
 }
 
@@ -348,7 +348,7 @@ func autoConvert_v1_VulnerabilityException_To_securityexception_VulnerabilityExc
 	if err := Convert_v1_VulnerabilityRef_To_securityexception_VulnerabilityRef(&in.Vulnerability, &out.Vulnerability, s); err != nil {
 		return err
 	}
-	out.Status = in.Status
+	out.Status = securityexception.VulnerabilityStatus(in.Status)
 	out.Justification = in.Justification
 	out.ImpactStatement = in.ImpactStatement
 	out.ExpiredOnFix = in.ExpiredOnFix
@@ -364,7 +364,7 @@ func autoConvert_securityexception_VulnerabilityException_To_v1_VulnerabilityExc
 	if err := Convert_securityexception_VulnerabilityRef_To_v1_VulnerabilityRef(&in.Vulnerability, &out.Vulnerability, s); err != nil {
 		return err
 	}
-	out.Status = in.Status
+	out.Status = VulnerabilityStatus(in.Status)
 	out.Justification = in.Justification
 	out.ImpactStatement = in.ImpactStatement
 	out.ExpiredOnFix = in.ExpiredOnFix

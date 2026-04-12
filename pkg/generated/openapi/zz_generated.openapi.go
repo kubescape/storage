@@ -377,6 +377,11 @@ func schema_pkg_apis_securityexception_v1_ExceptionMatch(ref common.ReferenceCal
 						},
 					},
 					"resources": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Resources is an explicit list of workloads by kind/name.",
 							Type:        []string{"array"},
@@ -391,6 +396,11 @@ func schema_pkg_apis_securityexception_v1_ExceptionMatch(ref common.ReferenceCal
 						},
 					},
 					"images": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Images is a list of glob patterns matched against container image references.",
 							Type:        []string{"array"},
@@ -611,6 +621,11 @@ func schema_pkg_apis_securityexception_v1_SecurityExceptionSpec(ref common.Refer
 						},
 					},
 					"vulnerabilities": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Vulnerabilities lists vulnerability exceptions (CVE-based).",
 							Type:        []string{"array"},
@@ -625,6 +640,11 @@ func schema_pkg_apis_securityexception_v1_SecurityExceptionSpec(ref common.Refer
 						},
 					},
 					"posture": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Posture lists posture/compliance control exceptions.",
 							Type:        []string{"array"},
@@ -714,6 +734,11 @@ func schema_pkg_apis_securityexception_v1_VulnerabilityRef(ref common.ReferenceC
 						},
 					},
 					"aliases": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Aliases are alternative identifiers (e.g., GHSA IDs).",
 							Type:        []string{"array"},

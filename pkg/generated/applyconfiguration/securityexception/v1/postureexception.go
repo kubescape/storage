@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1
 
+import (
+	securityexceptionv1 "github.com/kubescape/storage/pkg/apis/securityexception/v1"
+)
+
 // PostureExceptionApplyConfiguration represents a declarative configuration of the PostureException type for use
 // with apply.
 //
@@ -28,7 +32,7 @@ type PostureExceptionApplyConfiguration struct {
 	// FrameworkName is the framework the control belongs to (e.g., "NSA").
 	FrameworkName *string `json:"frameworkName,omitempty"`
 	// Action is the exception action: ignore or alert_only.
-	Action *string `json:"action,omitempty"`
+	Action *securityexceptionv1.PostureAction `json:"action,omitempty"`
 }
 
 // PostureExceptionApplyConfiguration constructs a declarative configuration of the PostureException type for use with
@@ -56,7 +60,7 @@ func (b *PostureExceptionApplyConfiguration) WithFrameworkName(value string) *Po
 // WithAction sets the Action field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Action field is set to the value of the last call.
-func (b *PostureExceptionApplyConfiguration) WithAction(value string) *PostureExceptionApplyConfiguration {
+func (b *PostureExceptionApplyConfiguration) WithAction(value securityexceptionv1.PostureAction) *PostureExceptionApplyConfiguration {
 	b.Action = &value
 	return b
 }

@@ -47,6 +47,23 @@ type ClusterSecurityExceptionList struct {
 	Items []ClusterSecurityException `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// VulnerabilityStatus is the VEX status of a vulnerability exception.
+type VulnerabilityStatus string
+
+const (
+	VulnerabilityStatusNotAffected        VulnerabilityStatus = "not_affected"
+	VulnerabilityStatusFixed              VulnerabilityStatus = "fixed"
+	VulnerabilityStatusUnderInvestigation VulnerabilityStatus = "under_investigation"
+)
+
+// PostureAction is the action to take for a posture exception.
+type PostureAction string
+
+const (
+	PostureActionIgnore    PostureAction = "ignore"
+	PostureActionAlertOnly PostureAction = "alert_only"
+)
+
 // SecurityExceptionSpec defines the desired state of a SecurityException.
 type SecurityExceptionSpec struct {
 	// Author is an optional identifier for who created this exception.
@@ -58,8 +75,10 @@ type SecurityExceptionSpec struct {
 	// Match defines which workloads the exception applies to.
 	Match ExceptionMatch `json:"match,omitempty" protobuf:"bytes,4,opt,name=match"`
 	// Vulnerabilities lists vulnerability exceptions (CVE-based).
+	// +listType=atomic
 	Vulnerabilities []VulnerabilityException `json:"vulnerabilities,omitempty" protobuf:"bytes,5,rep,name=vulnerabilities"`
 	// Posture lists posture/compliance control exceptions.
+	// +listType=atomic
 	Posture []PostureException `json:"posture,omitempty" protobuf:"bytes,6,rep,name=posture"`
 }
 
@@ -70,8 +89,10 @@ type ExceptionMatch struct {
 	// ObjectSelector selects workloads by their labels.
 	ObjectSelector *metav1.LabelSelector `json:"objectSelector,omitempty" protobuf:"bytes,2,opt,name=objectSelector"`
 	// Resources is an explicit list of workloads by kind/name.
+	// +listType=atomic
 	Resources []ResourceMatch `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
 	// Images is a list of glob patterns matched against container image references.
+	// +listType=atomic
 	Images []string `json:"images,omitempty" protobuf:"bytes,4,rep,name=images"`
 }
 
@@ -90,7 +111,7 @@ type VulnerabilityException struct {
 	// Vulnerability identifies the CVE.
 	Vulnerability VulnerabilityRef `json:"vulnerability" protobuf:"bytes,1,opt,name=vulnerability"`
 	// Status is the VEX status: not_affected, fixed, under_investigation.
-	Status string `json:"status" protobuf:"bytes,2,opt,name=status"`
+	Status VulnerabilityStatus `json:"status" protobuf:"bytes,2,opt,name=status"`
 	// Justification is the VEX justification when status is not_affected.
 	Justification string `json:"justification,omitempty" protobuf:"bytes,3,opt,name=justification"`
 	// ImpactStatement is a freeform explanation of the exception.
@@ -104,6 +125,7 @@ type VulnerabilityRef struct {
 	// ID is the CVE identifier (e.g., "CVE-2021-44228").
 	ID string `json:"id" protobuf:"bytes,1,opt,name=id"`
 	// Aliases are alternative identifiers (e.g., GHSA IDs).
+	// +listType=atomic
 	Aliases []string `json:"aliases,omitempty" protobuf:"bytes,2,rep,name=aliases"`
 }
 
@@ -114,5 +136,5 @@ type PostureException struct {
 	// FrameworkName is the framework the control belongs to (e.g., "NSA").
 	FrameworkName string `json:"frameworkName,omitempty" protobuf:"bytes,2,opt,name=frameworkName"`
 	// Action is the exception action: ignore or alert_only.
-	Action string `json:"action" protobuf:"bytes,3,opt,name=action"`
+	Action PostureAction `json:"action" protobuf:"bytes,3,opt,name=action"`
 }

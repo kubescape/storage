@@ -47,6 +47,23 @@ type ClusterSecurityExceptionList struct {
 	Items []ClusterSecurityException
 }
 
+// VulnerabilityStatus is the VEX status of a vulnerability exception.
+type VulnerabilityStatus string
+
+const (
+	VulnerabilityStatusNotAffected        VulnerabilityStatus = "not_affected"
+	VulnerabilityStatusFixed              VulnerabilityStatus = "fixed"
+	VulnerabilityStatusUnderInvestigation VulnerabilityStatus = "under_investigation"
+)
+
+// PostureAction is the action to take for a posture exception.
+type PostureAction string
+
+const (
+	PostureActionIgnore    PostureAction = "ignore"
+	PostureActionAlertOnly PostureAction = "alert_only"
+)
+
 // SecurityExceptionSpec defines the desired state of a SecurityException.
 type SecurityExceptionSpec struct {
 	Author          string
@@ -75,7 +92,7 @@ type ResourceMatch struct {
 // VulnerabilityException defines an exception for a specific CVE.
 type VulnerabilityException struct {
 	Vulnerability   VulnerabilityRef
-	Status          string
+	Status          VulnerabilityStatus
 	Justification   string
 	ImpactStatement string
 	ExpiredOnFix    bool
@@ -91,5 +108,5 @@ type VulnerabilityRef struct {
 type PostureException struct {
 	ControlID     string
 	FrameworkName string
-	Action        string
+	Action        PostureAction
 }
