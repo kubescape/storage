@@ -19,10 +19,8 @@ limitations under the License.
 package applyconfiguration
 
 import (
-	v1 "github.com/kubescape/storage/pkg/apis/securityexception/v1"
 	v1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	internal "github.com/kubescape/storage/pkg/generated/applyconfiguration/internal"
-	securityexceptionv1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/securityexception/v1"
 	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/generated/applyconfiguration/softwarecomposition/v1beta1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,25 +31,7 @@ import (
 // apply configuration type exists for the given GroupVersionKind.
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
-	// Group=kubescape.io, Version=v1
-	case v1.SchemeGroupVersion.WithKind("ClusterSecurityException"):
-		return &securityexceptionv1.ClusterSecurityExceptionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ExceptionMatch"):
-		return &securityexceptionv1.ExceptionMatchApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("PostureException"):
-		return &securityexceptionv1.PostureExceptionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ResourceMatch"):
-		return &securityexceptionv1.ResourceMatchApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("SecurityException"):
-		return &securityexceptionv1.SecurityExceptionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("SecurityExceptionSpec"):
-		return &securityexceptionv1.SecurityExceptionSpecApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("VulnerabilityException"):
-		return &securityexceptionv1.VulnerabilityExceptionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("VulnerabilityRef"):
-		return &securityexceptionv1.VulnerabilityRefApplyConfiguration{}
-
-		// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
+	// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithKind("Advisory"):
 		return &softwarecompositionv1beta1.AdvisoryApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ApplicationProfile"):

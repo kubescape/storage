@@ -21,8 +21,6 @@ package fake
 import (
 	applyconfiguration "github.com/kubescape/storage/pkg/generated/applyconfiguration"
 	clientset "github.com/kubescape/storage/pkg/generated/clientset/versioned"
-	kubescapev1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/securityexception/v1"
-	fakekubescapev1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/securityexception/v1/fake"
 	spdxv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1"
 	fakespdxv1beta1 "github.com/kubescape/storage/pkg/generated/clientset/versioned/typed/softwarecomposition/v1beta1/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -137,11 +135,6 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
-
-// KubescapeV1 retrieves the KubescapeV1Client
-func (c *Clientset) KubescapeV1() kubescapev1.KubescapeV1Interface {
-	return &fakekubescapev1.FakeKubescapeV1{Fake: &c.Fake}
-}
 
 // SpdxV1beta1 retrieves the SpdxV1beta1Client
 func (c *Clientset) SpdxV1beta1() spdxv1beta1.SpdxV1beta1Interface {

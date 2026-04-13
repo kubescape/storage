@@ -4,7 +4,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SecurityException defines a namespaced exception for vulnerability and posture findings.
@@ -25,8 +24,6 @@ type SecurityExceptionList struct {
 	Items []SecurityException `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// +genclient
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ClusterSecurityException defines a cluster-scoped exception for vulnerability and posture findings.
