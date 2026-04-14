@@ -135,6 +135,7 @@ func LoadConfig(path string) (Config, error) {
 		armotypes.HostTypeDoks,
 		armotypes.HostTypeDroplet,
 		armotypes.HostTypeEc2,
+		armotypes.HostTypeEksEc2,
 		armotypes.HostTypeEksFargate,
 		armotypes.HostTypeGce,
 		armotypes.HostTypeGke,
