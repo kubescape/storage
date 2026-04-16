@@ -23,6 +23,19 @@ on:
         description: 'Extra Helm --set arguments (comma-separated, e.g. foo=bar,bar=baz)'
         required: false
         default: ''
+      use_storage_backend:
+        description: 'Use storage backend (Rapid7) instead of local storage'
+        required: false
+        type: boolean
+        default: false
+      customer_guid:
+        description: 'Customer GUID (Account ID) for storage backend'
+        required: false
+        default: ''
+      access_key:
+        description: 'Access key for storage backend'
+        required: false
+        default: ''
 
 jobs:
   integration-tests:
@@ -50,6 +63,7 @@ jobs:
           version: v3.14.4
 
       - name: Install Kubescape via Helm
+        if: ${{ github.event.inputs.use_storage_backend != 'true' }}
         run: |
           EXTRA_SET_ARGS=""
           if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
@@ -78,6 +92,36 @@ jobs:
             --wait
           popd
 
+      - name: Install Rapid7 release via Helm
+        if: ${{ github.event.inputs.use_storage_backend == 'true' }}
+        run: |
+          EXTRA_SET_ARGS=""
+          if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
+            IFS=',' read -ra ADDR <<< "${{ github.event.inputs.extra_helm_set_args }}"
+            for arg in "${ADDR[@]}"; do
+              EXTRA_SET_ARGS="$EXTRA_SET_ARGS --set $arg"
+            done
+          fi
+          git clone https://github.com/kubescape/helm-charts.git
+          pushd helm-charts
+          git checkout ${{ github.event.inputs.branch_helm_chart }}
+          echo "Building Helm dependencies"
+          helm dependency build charts/kubescape-operator
+          echo "Installing Rapid7 release with Helm"
+          set -x
+          helm upgrade --install rapid7 charts/kubescape-operator \
+            -n kubescape --create-namespace \
+            --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
+            --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
+            --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
+            --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
+            --set nodeAgent.config.learningPeriod=30s \
+            --set nodeAgent.config.updatePeriod=1m \
+            --set storage.cleanupInterval=1m \
+            $EXTRA_SET_ARGS \
+            --wait
+          popd
+
       - name: Verify all Pods are running
         run: |
           kubectl logs -n kubescape -l app=node-agent
@@ -86,7 +130,16 @@ jobs:
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
 
+      - name: Set storage backend environment variables
+        if: ${{ github.event.inputs.use_storage_backend == 'true' }}
+        run: |
+          echo "BACKEND_ACCOUNT_ID=${{ github.event.inputs.customer_guid }}" >> $GITHUB_ENV
+          echo "BACKEND_ACCESS_KEY=${{ github.event.inputs.access_key }}" >> $GITHUB_ENV
+
       - name: Run non-failover tests in parallel
+        env:
+          BACKEND_ACCOUNT_ID: ${{ github.event.inputs.use_storage_backend == 'true' && github.event.inputs.customer_guid || '' }}
+          BACKEND_ACCESS_KEY: ${{ github.event.inputs.use_storage_backend == 'true' && github.event.inputs.access_key || '' }}
         run: |
           cd tests/integration-test-suite
           echo "Running non-failover tests"
@@ -173,6 +226,7 @@ jobs:
           version: v3.14.4
 
       - name: Install Kubescape via Helm
+        if: ${{ github.event.inputs.use_storage_backend != 'true' }}
         run: |
           EXTRA_SET_ARGS=""
           if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
@@ -201,6 +255,36 @@ jobs:
             --wait
           popd
 
+      - name: Install Rapid7 release via Helm
+        if: ${{ github.event.inputs.use_storage_backend == 'true' }}
+        run: |
+          EXTRA_SET_ARGS=""
+          if [ -n "${{ github.event.inputs.extra_helm_set_args }}" ]; then
+            IFS=',' read -ra ADDR <<< "${{ github.event.inputs.extra_helm_set_args }}"
+            for arg in "${ADDR[@]}"; do
+              EXTRA_SET_ARGS="$EXTRA_SET_ARGS --set $arg"
+            done
+          fi
+          git clone https://github.com/kubescape/helm-charts.git
+          pushd helm-charts
+          git checkout ${{ github.event.inputs.branch_helm_chart }}
+          echo "Building Helm dependencies"
+          helm dependency build charts/kubescape-operator
+          echo "Installing Rapid7 release with Helm"
+          set -x
+          helm upgrade --install rapid7 charts/kubescape-operator \
+            -n kubescape --create-namespace \
+            --set nodeAgent.image.repository=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f1) \
+            --set nodeAgent.image.tag=$(echo "${{ github.event.inputs.node_agent_image }}" | cut -d: -f2-) \
+            --set storage.image.repository=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f1) \
+            --set storage.image.tag=$(echo "${{ github.event.inputs.storage_image }}" | cut -d: -f2-) \
+            --set nodeAgent.config.learningPeriod=30s \
+            --set nodeAgent.config.updatePeriod=1m \
+            --set storage.cleanupInterval=1m \
+            $EXTRA_SET_ARGS \
+            --wait
+          popd
+
       - name: Verify all Pods are running
         run: |
           kubectl logs -n kubescape -l app=node-agent
@@ -209,7 +293,16 @@ jobs:
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
 
+      - name: Set storage backend environment variables
+        if: ${{ github.event.inputs.use_storage_backend == 'true' }}
+        run: |
+          echo "BACKEND_ACCOUNT_ID=${{ github.event.inputs.customer_guid }}" >> $GITHUB_ENV
+          echo "BACKEND_ACCESS_KEY=${{ github.event.inputs.access_key }}" >> $GITHUB_ENV
+
       - name: Run failover test
+        env:
+          BACKEND_ACCOUNT_ID: ${{ github.event.inputs.use_storage_backend == 'true' && github.event.inputs.customer_guid || '' }}
+          BACKEND_ACCESS_KEY: ${{ github.event.inputs.use_storage_backend == 'true' && github.event.inputs.access_key || '' }}
         run: |
           cd tests/integration-test-suite
           gotestsum --format standard-verbose --junitfile "junit-${{ matrix.test_name }}.xml" -- -count=1 -timeout 30m -v -run "IntegrationTestSuite/${{ matrix.test_name }}$" ./... -- --skip-ensure-helm --update-helm-if-present=false

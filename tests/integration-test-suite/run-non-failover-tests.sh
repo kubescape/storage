@@ -2,8 +2,49 @@
 
 set +ex
 
+# Ensure we're running with bash (not zsh or other shells)
+if [ -z "$BASH_VERSION" ]; then
+    echo "Error: This script requires bash. Please run with: bash $0"
+    exit 1
+fi
+
+# Set GOPATH if not already set (default Go location)
+if [ -z "$GOPATH" ]; then
+    export GOPATH="$HOME/go"
+fi
+
+# Add Go bin directories to PATH if not already present
+if [ -n "$GOPATH" ] && [ -d "$GOPATH/bin" ] && [[ ":$PATH:" != *":$GOPATH/bin:"* ]]; then
+    export PATH="$GOPATH/bin:$PATH"
+fi
+if [ -n "$GOBIN" ] && [ -d "$GOBIN" ] && [[ ":$PATH:" != *":$GOBIN:"* ]]; then
+    export PATH="$GOBIN:$PATH"
+fi
+
+# Check for gotestsum in common locations
+GOTESTSUM_PATH=""
+if command -v gotestsum &> /dev/null; then
+    GOTESTSUM_PATH=$(command -v gotestsum)
+elif [ -f "$GOPATH/bin/gotestsum" ]; then
+    GOTESTSUM_PATH="$GOPATH/bin/gotestsum"
+    export PATH="$GOPATH/bin:$PATH"
+elif [ -f "$HOME/go/bin/gotestsum" ]; then
+    GOTESTSUM_PATH="$HOME/go/bin/gotestsum"
+    export PATH="$HOME/go/bin:$PATH"
+fi
+
+# Check if gotestsum is available
+if [ -z "$GOTESTSUM_PATH" ] || [ ! -f "$GOTESTSUM_PATH" ]; then
+    echo "Error: gotestsum is not installed."
+    echo "Install it with: go install gotest.tools/gotestsum@latest"
+    echo "GOPATH: $GOPATH"
+    echo "GOBIN: $GOBIN"
+    echo "Checked paths: $GOPATH/bin, $HOME/go/bin"
+    exit 1
+fi
+
 # List of non-failover tests to run in parallel
-NON_FAILOVER_TESTS="TestSimpleProfileCreate TestJobProfileCreate TestCronJobProfileCreate TestInitContainerProfileCreate TestSidecarProfileCreate TestInitSidecarProfileCreate TestCrashLoopProfileIncomplete TestCrashLoopAndStableProfileIncomplete TestStatefulSetProfileCleanup"
+NON_FAILOVER_TESTS="TestSimpleProfileNodeAgentFailover"
 
 # Build the test suite so we don't compile it for each test
 go build .

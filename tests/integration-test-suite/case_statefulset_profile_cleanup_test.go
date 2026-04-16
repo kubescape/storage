@@ -8,8 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestStatefulSetProfileCleanup() {
@@ -36,8 +34,8 @@ Goal: Verify that the application profile is created and completed, and is delet
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "cleanup-test-statefulset",
-						containerwatcher.MaxSniffingTimeLabel: "2m",
+						"app":                "cleanup-test-statefulset",
+						MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -62,7 +60,7 @@ Goal: Verify that the application profile is created and completed, and is delet
 	time.Sleep(runPeriod)
 
 	s.LogWithTimestamp("Verifying application profile is complete and completed")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "statefulset", "cleanup-test-statefulset")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "statefulset", "cleanup-test-statefulset", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("Deleting StatefulSet")
 	err = s.clientset.AppsV1().StatefulSets(s.testNamespace).Delete(context.Background(), "cleanup-test-statefulset", metav1.DeleteOptions{})
@@ -71,9 +69,12 @@ Goal: Verify that the application profile is created and completed, and is delet
 	s.LogWithTimestamp("Waiting 2 minutes for profile cleanup")
 	time.Sleep(2 * time.Minute)
 
-	s.LogWithTimestamp("Verifying application profile is deleted")
-	_, err = fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "statefulset", "cleanup-test-statefulset")
-	s.Require().Error(err, "Application profile should be deleted after StatefulSet removal and 2 minutes")
+	// We don't do cleanup with storage backend (Rapid7)
+	if !s.isRapid7 {
+		s.LogWithTimestamp("Verifying application profile is deleted")
+		_, err = fetchApplicationProfileFromCluster(s.ksObjectConnection, s.testNamespace, "statefulset", "cleanup-test-statefulset")
+		s.Require().Error(err, "Application profile should be deleted after StatefulSet removal and 2 minutes")
+	}
 
 	s.LogWithTimestamp("TestStatefulSetProfileCleanup completed successfully")
 }

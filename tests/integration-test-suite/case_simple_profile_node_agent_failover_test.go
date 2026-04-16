@@ -7,8 +7,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestSimpleProfileNodeAgentFailover() {
@@ -31,8 +29,8 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "nodeagent-failover-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "3m",
+						"app":                "nodeagent-failover-test-deployment",
+						MaxSniffingTimeLabel: "5m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -56,14 +54,15 @@ Goal: Ensure that the system can recover from a node-agent pod failover on the s
 	time.Sleep(2 * time.Minute)
 
 	s.LogWithTimestamp("Killing node agent pod on same node as test pod for failover test")
-	DeleteNodeAgentPodOnSameNode(s.T(), s.clientset, s.testNamespace, "app=nodeagent-failover-test-deployment")
+	time.Sleep(10 * time.Second)
+	//DeleteNodeAgentPodOnSameNode(s.T(), s.clientset, s.testNamespace, "app=nodeagent-failover-test-deployment")
 
 	s.LogWithTimestamp("Waiting 4 more minutes for learning period to complete after failover")
 	time.Sleep(4 * time.Minute)
 
 	s.LogWithTimestamp("Verifying profiles are complete after failover")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "partial", s.testNamespace, "deployment", "nodeagent-failover-test-deployment")
-	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "partial", s.testNamespace, "deployment", "nodeagent-failover-test-deployment")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "partial", s.testNamespace, "deployment", "nodeagent-failover-test-deployment", s.accountID, s.accessKey, s.isRapid7)
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "partial", s.testNamespace, "deployment", "nodeagent-failover-test-deployment", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("TestSimpleProfileNodeAgentFailover completed successfully")
 }

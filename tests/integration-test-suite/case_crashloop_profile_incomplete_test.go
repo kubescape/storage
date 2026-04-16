@@ -4,11 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestCrashLoopProfileIncomplete() {
@@ -31,8 +30,8 @@ Goal: Verify that a crashlooping container does not result in a completed applic
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "crashloop-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "2m",
+						"app":                "crashloop-test-deployment",
+						MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -58,7 +57,12 @@ Goal: Verify that a crashlooping container does not result in a completed applic
 	time.Sleep(3 * time.Minute)
 
 	s.LogWithTimestamp("Fetching application profile and verifying it is partial/completed")
-	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "crashloop-test-deployment")
+	var applicationProfile *v1beta1.ApplicationProfile
+	if s.isRapid7 {
+		applicationProfile, err = fetchApplicationProfileFromStorageBackend(s.testNamespace, "deployment", "crashloop-test-deployment", s.accountID, s.accessKey)
+	} else {
+		applicationProfile, err = fetchApplicationProfileFromCluster(s.ksObjectConnection, s.testNamespace, "deployment", "crashloop-test-deployment")
+	}
 	s.Require().NoError(err)
 	s.Require().NotNil(applicationProfile)
 	// The profile should be marked as partial/completed

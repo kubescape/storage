@@ -7,8 +7,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestScaleDeploymentPartialCompletion() {
@@ -34,8 +32,8 @@ profiles transition from partial to complete after the learning period.`
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                                 "scale-partial-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "3m",
+						"app":                "scale-partial-test-deployment",
+						MaxSniffingTimeLabel: "3m",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -68,7 +66,7 @@ profiles transition from partial to complete after the learning period.`
 	time.Sleep(2 * time.Minute)
 
 	// Verify that profile exists and is partial
-	applicationProfile, err := fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "scale-partial-test-deployment")
+	applicationProfile, err := fetchApplicationProfileFromCluster(s.ksObjectConnection, s.testNamespace, "deployment", "scale-partial-test-deployment")
 	s.Require().NoError(err)
 	s.Require().NotNil(applicationProfile)
 	s.Require().Equal("partial", applicationProfile.Annotations["kubescape.io/completion"], "Profile should be marked as partial")
@@ -91,7 +89,7 @@ profiles transition from partial to complete after the learning period.`
 	s.LogWithTimestamp("Waiting 1 minute and checking profile is still partial")
 	time.Sleep(1 * time.Minute)
 
-	applicationProfile, err = fetchApplicationProfile(s.ksObjectConnection, s.testNamespace, "deployment", "scale-partial-test-deployment")
+	applicationProfile, err = fetchApplicationProfileFromCluster(s.ksObjectConnection, s.testNamespace, "deployment", "scale-partial-test-deployment")
 	s.Require().NoError(err)
 	s.Require().NotNil(applicationProfile)
 	s.Require().Equal("partial", applicationProfile.Annotations["kubescape.io/completion"], "Profile should still be marked as partial after scaling")
@@ -102,11 +100,11 @@ profiles transition from partial to complete after the learning period.`
 
 	// Verify that the application profile is now complete
 	s.LogWithTimestamp("Verifying application profile is now complete")
-	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "scale-partial-test-deployment")
+	verifyApplicationProfileCompleted(s.T(), s.ksObjectConnection, "complete", s.testNamespace, "deployment", "scale-partial-test-deployment", s.accountID, s.accessKey, s.isRapid7)
 
 	// Verify network neighbor profile is also complete
 	s.LogWithTimestamp("Verifying network neighbor profile is complete")
-	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "scale-partial-test-deployment")
+	verifyNetworkNeighborProfileCompleted(s.T(), s.ksObjectConnection, false, false, "complete", s.testNamespace, "deployment", "scale-partial-test-deployment", s.accountID, s.accessKey, s.isRapid7)
 
 	s.LogWithTimestamp("TestScaleDeploymentPartialCompletion completed successfully")
 }
