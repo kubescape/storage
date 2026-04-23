@@ -107,11 +107,10 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 			i++
 		}
 		segment := p[start:i]
-		currentNode = ua.processSegment(currentNode, segment)
-		// Look up the effective collapse threshold at the prefix we've
-		// just walked to (p[:i]). Allocation-free — the slice aliases
-		// the caller's original path string.
-		ua.updateNodeStats(currentNode, ua.effectiveThreshold(p[:i]))
+		// Effective threshold at this depth (allocation-free slice).
+		threshold := ua.effectiveThreshold(p[:i])
+		currentNode = ua.processSegment(currentNode, segment, threshold)
+		ua.updateNodeStats(currentNode, threshold)
 		buf = append(buf, currentNode.SegmentName...)
 		i++
 		if len(p) < i {
@@ -128,21 +127,36 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 	return out
 }
 
-func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
+func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string, threshold int) *SegmentNode {
 	if segment == DynamicIdentifier {
 		return ua.handleDynamicSegment(node)
-	} else if node.IsNextDynamic() {
+	}
+	// Wildcard short-circuit: once a node has a * child, all paths through
+	// it go there. This is the glob-style "collapse everything below here"
+	// behaviour; set up either by threshold=1 (see below) or by a caller
+	// explicitly feeding a WildcardIdentifier segment.
+	if wildcardChild, exists := node.Children[WildcardIdentifier]; exists {
+		return wildcardChild
+	}
+	if node.IsNextDynamic() {
 		if len(node.Children) > 1 {
 			temp := node.Children[DynamicIdentifier]
 			node.Children = map[string]*SegmentNode{}
 			node.Children[DynamicIdentifier] = temp
 		}
 		return node.Children[DynamicIdentifier]
-	} else if child, exists := node.Children[segment]; exists {
-		return child
-	} else {
-		return ua.handleNewSegment(node, segment)
 	}
+	if child, exists := node.Children[segment]; exists {
+		return child
+	}
+	// Threshold-1 short-circuit: a prefix explicitly configured to accept
+	// one unique child (CollapseConfig Threshold == 1) collapses to * on
+	// the first *new* segment rather than going through the ⋯ path. This
+	// matches the caller's intent of "anything under /app is noise".
+	if threshold == 1 {
+		return ua.createWildcardNode(node)
+	}
+	return ua.handleNewSegment(node, segment)
 }
 
 func (ua *PathAnalyzer) handleNewSegment(node *SegmentNode, segment string) *SegmentNode {
@@ -162,6 +176,27 @@ func (ua *PathAnalyzer) handleDynamicSegment(node *SegmentNode) *SegmentNode {
 	} else {
 		return ua.createDynamicNode(node)
 	}
+}
+
+// createWildcardNode replaces all of node's existing children with a single
+// WildcardIdentifier (*) child, absorbing the existing subtree counts into it.
+// Used for the threshold-1 short-circuit: once a prefix is configured to keep
+// at most one unique child, any second unique value collapses the whole
+// subtree to *.
+func (ua *PathAnalyzer) createWildcardNode(node *SegmentNode) *SegmentNode {
+	wildcard := &SegmentNode{
+		SegmentName: WildcardIdentifier,
+		Count:       0,
+		Children:    make(map[string]*SegmentNode),
+	}
+	// Absorb any previously-accumulated children. Mirrors createDynamicNode.
+	for _, child := range node.Children {
+		shallowChildrenCopy(child, wildcard)
+	}
+	node.Children = map[string]*SegmentNode{
+		WildcardIdentifier: wildcard,
+	}
+	return wildcard
 }
 
 func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
