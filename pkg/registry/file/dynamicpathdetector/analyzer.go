@@ -2,8 +2,22 @@ package dynamicpathdetector
 
 import (
 	"path"
-	"strings"
+	"sync"
 )
+
+// bufPool reuses byte-slice capacity across AnalyzePath calls. strings.Builder
+// was tempting but its Reset() discards the buffer, defeating the pool; a raw
+// []byte with len=0/cap-preserved survives reuse. Steady-state per-call cost
+// is one string allocation (the final string conversion) and nothing else.
+// Thread-safe by virtue of sync.Pool.
+const defaultBuildBufCap = 128
+
+var bufPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 0, defaultBuildBufCap)
+		return &b
+	},
+}
 
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
 	return &PathAnalyzer{
@@ -27,7 +41,14 @@ func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 }
 
 func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
-	var result strings.Builder
+	// Acquire a pooled byte-slice. len=0, cap preserved from previous reuse.
+	bufPtr := bufPool.Get().(*[]byte)
+	buf := (*bufPtr)[:0]
+	if cap(buf) < len(p) {
+		// Pooled capacity is too small for this input; grow once.
+		buf = make([]byte, 0, len(p)+16)
+	}
+
 	currentNode := node
 	i := 0
 	for {
@@ -38,14 +59,20 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 		segment := p[start:i]
 		currentNode = ua.processSegment(currentNode, segment)
 		ua.updateNodeStats(currentNode)
-		result.WriteString(currentNode.SegmentName)
+		buf = append(buf, currentNode.SegmentName...)
 		i++
 		if len(p) < i {
 			break
 		}
-		result.WriteByte('/')
+		buf = append(buf, '/')
 	}
-	return result.String()
+
+	// string(buf) always copies, so it is safe to return the pool capacity
+	// immediately afterwards — the returned string does not alias buf.
+	out := string(buf)
+	*bufPtr = buf
+	bufPool.Put(bufPtr)
+	return out
 }
 
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string) *SegmentNode {
