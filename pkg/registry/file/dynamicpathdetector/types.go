@@ -32,10 +32,10 @@ type CollapseConfig struct {
 // they want to tune for their workload.
 var DefaultCollapseConfigs = []CollapseConfig{
 	{Prefix: "/etc", Threshold: 100},
-	{Prefix: "/etc/apache2", Threshold: 5}, // webapp test workload has a tight apache tree
-	{Prefix: "/opt", Threshold: 5},
-	{Prefix: "/var/run", Threshold: 3},
-	{Prefix: "/app", Threshold: 1},
+	{Prefix: "/etc/apache2", Threshold: 50}, 
+	{Prefix: "/opt", Threshold: 50},
+	{Prefix: "/var/run", Threshold: 50},
+	{Prefix: "/app", Threshold: 50},
 }
 
 // DefaultCollapseConfig is the global fallback used when no CollapseConfig
