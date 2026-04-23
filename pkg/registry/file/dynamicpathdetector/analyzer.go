@@ -119,12 +119,50 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 		buf = append(buf, '/')
 	}
 
+	// Post-process: collapse runs of adjacent DynamicIdentifier segments
+	// (e.g. "/a/⋯/⋯/b") into a single WildcardIdentifier ("/a/*/b"). Done
+	// in place by shrinking buf — zero allocation because the output is
+	// always shorter than the input.
+	buf = collapseAdjacentDynamic(buf)
+
 	// string(buf) always copies, so it is safe to return the pool capacity
 	// immediately afterwards — the returned string does not alias buf.
 	out := string(buf)
 	*bufPtr = buf
 	bufPool.Put(bufPtr)
 	return out
+}
+
+// collapseAdjacentDynamic compacts buf in place: any run of
+// "⋯/⋯[/⋯…]" becomes a single "*". Returns a buf[:n] slice where n is
+// the compacted length. Does not allocate; suitable for the hot path.
+func collapseAdjacentDynamic(buf []byte) []byte {
+	// DynamicIdentifier is U+22EF, three UTF-8 bytes: 0xE2 0x8B 0xAF.
+	const d0, d1, d2 = 0xE2, 0x8B, 0xAF
+	const dynLen = 3
+	isDyn := func(i int) bool {
+		return i+dynLen <= len(buf) && buf[i] == d0 && buf[i+1] == d1 && buf[i+2] == d2
+	}
+
+	out := 0
+	i := 0
+	for i < len(buf) {
+		// Need at least "⋯/⋯" (7 bytes) to trigger a collapse.
+		if isDyn(i) && i+dynLen+1+dynLen <= len(buf) && buf[i+dynLen] == '/' && isDyn(i+dynLen+1) {
+			buf[out] = '*'
+			out++
+			// Consume "⋯/⋯" plus any further "/⋯" in the run.
+			i += dynLen + 1 + dynLen
+			for i+1+dynLen <= len(buf) && buf[i] == '/' && isDyn(i+1) {
+				i += 1 + dynLen
+			}
+			continue
+		}
+		buf[out] = buf[i]
+		out++
+		i++
+	}
+	return buf[:out]
 }
 
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string, threshold int) *SegmentNode {
