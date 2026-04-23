@@ -19,11 +19,61 @@ var bufPool = sync.Pool{
 	},
 }
 
+// NewPathAnalyzer builds an analyzer with a single global collapse threshold
+// and no per-prefix overrides — equivalent behaviour to the pre-CollapseConfig
+// world. Retained so existing callers don't need to change.
 func NewPathAnalyzer(threshold int) *PathAnalyzer {
+	return NewPathAnalyzerWithConfigs(threshold, nil)
+}
+
+// NewPathAnalyzerWithConfigs builds an analyzer whose collapse threshold can
+// vary per path prefix. defaultThreshold applies when no CollapseConfig in
+// configs matches; configs are checked longest-prefix-wins at walk time.
+//
+// configs is copied so the caller can reuse or mutate the slice without
+// affecting the analyzer.
+func NewPathAnalyzerWithConfigs(defaultThreshold int, configs []CollapseConfig) *PathAnalyzer {
+	copied := make([]CollapseConfig, len(configs))
+	copy(copied, configs)
 	return &PathAnalyzer{
-		RootNodes: make(map[string]*SegmentNode),
-		threshold: threshold,
+		RootNodes:  make(map[string]*SegmentNode),
+		threshold:  defaultThreshold,
+		configs:    copied,
+		defaultCfg: CollapseConfig{Prefix: "/", Threshold: defaultThreshold},
 	}
+}
+
+// effectiveThreshold returns the collapse threshold applicable to the given
+// path prefix, picking the longest matching CollapseConfig or falling back
+// to the analyzer's default. Loop is O(len(configs)) and configs is small
+// (five entries in practice); no allocations.
+func (ua *PathAnalyzer) effectiveThreshold(pathPrefix string) int {
+	bestLen := 0
+	best := ua.threshold
+	for i := range ua.configs {
+		c := &ua.configs[i]
+		if len(c.Prefix) >= bestLen && hasPrefixAtBoundary(pathPrefix, c.Prefix) {
+			bestLen = len(c.Prefix)
+			best = c.Threshold
+		}
+	}
+	return best
+}
+
+// hasPrefixAtBoundary is like strings.HasPrefix but only matches if the
+// prefix ends at a path boundary (either pathPrefix == prefix, or the next
+// rune in pathPrefix is '/'). Prevents "/etc" matching "/etcd".
+func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
+	if len(pathPrefix) < len(prefix) {
+		return false
+	}
+	if pathPrefix[:len(prefix)] != prefix {
+		return false
+	}
+	if len(pathPrefix) == len(prefix) {
+		return true
+	}
+	return pathPrefix[len(prefix)] == '/'
 }
 
 func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
@@ -58,7 +108,10 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 		}
 		segment := p[start:i]
 		currentNode = ua.processSegment(currentNode, segment)
-		ua.updateNodeStats(currentNode)
+		// Look up the effective collapse threshold at the prefix we've
+		// just walked to (p[:i]). Allocation-free — the slice aliases
+		// the caller's original path string.
+		ua.updateNodeStats(currentNode, ua.effectiveThreshold(p[:i]))
 		buf = append(buf, currentNode.SegmentName...)
 		i++
 		if len(p) < i {
@@ -131,8 +184,12 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 	return dynamicNode
 }
 
-func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode) {
-	if node.Count > ua.threshold && !node.IsNextDynamic() {
+// updateNodeStats collapses node's children into a single ⋯ (DynamicIdentifier)
+// child once the number of distinct children exceeds the provided threshold.
+// Threshold is passed in by the caller so per-prefix overrides (via
+// CollapseConfig) can take effect without this function knowing about them.
+func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode, threshold int) {
+	if node.Count > threshold && !node.IsNextDynamic() {
 		dynamicChild := &SegmentNode{
 			SegmentName: DynamicIdentifier,
 			Count:       0,
