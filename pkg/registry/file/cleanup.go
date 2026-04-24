@@ -185,6 +185,11 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				return nil
 			}
 
+			// Skip user-managed resources (e.g., user-defined profiles)
+			if metadata.Labels[helpersv1.ManagedByMetadataKey] == helpersv1.ManagedByUserValue {
+				return nil
+			}
+
 			// either run single handler, or perform OR operation on multiple handlers
 			var toDelete bool
 			if len(handlers) == 1 {

@@ -2,6 +2,7 @@ package dynamicpathdetector
 
 import (
 	"path"
+	"strings"
 	"sync"
 )
 
@@ -107,11 +108,36 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 			i++
 		}
 		segment := p[start:i]
-		// Effective threshold at this depth (allocation-free slice).
-		threshold := ua.effectiveThreshold(p[:i])
-		currentNode = ua.processSegment(currentNode, segment, threshold)
-		ua.updateNodeStats(currentNode, threshold)
+		// Two thresholds at two scopes — necessary because processSegment
+		// and updateNodeStats ask different questions about different nodes:
+		//
+		// insertThreshold is for the PARENT node's config (path prefix up
+		// to, but not including, the current segment). It answers: "if
+		// we need to add `segment` under the parent, should we wildcard
+		// the parent's children instead (threshold == 1)?". Using p[:i]
+		// here would incorrectly apply the current segment's own config,
+		// causing a {Prefix: "/instant", Threshold: 1} rule to wildcard
+		// the "instant" segment itself and produce "/*/*/*" rather than
+		// "/instant/*".
+		//
+		// collapseThreshold is for the CURRENT node's config (path prefix
+		// INCLUDING the current segment, i.e. the node we just descended
+		// to). It answers: "do this node's direct children exceed the
+		// collapse threshold configured for this node's path?". Here we
+		// do want p[:i] — updateNodeStats then collapses the current
+		// node's children to ⋯ when Count > threshold.
+		insertThreshold := ua.effectiveThreshold(p[:start])
+		collapseThreshold := ua.effectiveThreshold(p[:i])
+		currentNode = ua.processSegment(currentNode, segment, insertThreshold)
+		ua.updateNodeStats(currentNode, collapseThreshold)
 		buf = append(buf, currentNode.SegmentName...)
+		// Wildcard absorbs the rest of the path: once a segment has been
+		// emitted as `*`, walking deeper would just append more "/*"
+		// suffixes, producing "/a/*/*/*" where the correct output is
+		// "/a/*". Terminate emission here.
+		if currentNode.SegmentName == WildcardIdentifier {
+			break
+		}
 		i++
 		if len(p) < i {
 			break
@@ -274,6 +300,15 @@ func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode, threshold int) {
 			shallowChildrenCopy(child, dynamicChild)
 		}
 
+		// The absorbed children become dynamicChild's own children —
+		// update dynamicChild.Count so subsequent updateNodeStats calls
+		// on this node can correctly detect that the grandchild level
+		// also exceeds its threshold and trigger the next collapse.
+		// Without this, multi-level grids like /a/{many}/{many}/leaf
+		// only collapse the first level and leave the grandchild
+		// literals intact in the output.
+		dynamicChild.Count = len(dynamicChild.Children)
+
 		node.Children = map[string]*SegmentNode{
 			DynamicIdentifier: dynamicChild,
 		}
@@ -291,33 +326,77 @@ func shallowChildrenCopy(src, dst *SegmentNode) {
 	}
 }
 
+// CompareDynamic checks whether `regularPath` is matched by `dynamicPath`,
+// where `dynamicPath` may contain DynamicIdentifier (⋯, single-segment
+// wildcard) or WildcardIdentifier (*, zero-or-more-segment wildcard).
+// The previous implementation only handled DynamicIdentifier, causing
+// explicit `/etc/*` profile entries to never match at runtime — the
+// node-agent R0002 rule (Files Access Anomalies) uses this to decide
+// whether a file access is in-profile.
 func CompareDynamic(dynamicPath, regularPath string) bool {
-	dynamicIndex, regularIndex := 0, 0
-	dynamicLen, regularLen := len(dynamicPath), len(regularPath)
+	dynamicSegments := strings.Split(dynamicPath, "/")
+	regularSegments := strings.Split(regularPath, "/")
+	return compareSegments(dynamicSegments, regularSegments)
+}
 
-	for dynamicIndex < dynamicLen && regularIndex < regularLen {
-		// Find the next segment in dynamicPath
-		dynamicSegmentStart := dynamicIndex
-		for dynamicIndex < dynamicLen && dynamicPath[dynamicIndex] != '/' {
-			dynamicIndex++
-		}
-		dynamicSegment := dynamicPath[dynamicSegmentStart:dynamicIndex]
-
-		// Find the next segment in regularPath
-		regularSegmentStart := regularIndex
-		for regularIndex < regularLen && regularPath[regularIndex] != '/' {
-			regularIndex++
-		}
-		regularSegment := regularPath[regularSegmentStart:regularIndex]
-
-		if dynamicSegment != DynamicIdentifier && dynamicSegment != regularSegment {
-			return false
-		}
-
-		// Move to the next segment
-		dynamicIndex++
-		regularIndex++
+func compareSegments(dynamic, regular []string) bool {
+	if len(dynamic) == 0 {
+		return len(regular) == 0
 	}
+	if dynamic[0] == WildcardIdentifier {
+		// A trailing `*` matches any remaining path tail (including empty).
+		if len(dynamic) == 1 {
+			return true
+		}
+		// Otherwise try to match the rest of the dynamic pattern starting
+		// at every position in the regular tail; the wildcard greedily
+		// consumes 0+ segments as long as the remainder still matches.
+		nextDynamic := dynamic[1]
+		for i := range regular {
+			match := nextDynamic == DynamicIdentifier || regular[i] == nextDynamic
+			if match && compareSegments(dynamic[1:], regular[i:]) {
+				return true
+			}
+		}
+		return false
+	}
+	if len(regular) == 0 {
+		return false
+	}
+	if dynamic[0] == DynamicIdentifier || dynamic[0] == regular[0] {
+		return compareSegments(dynamic[1:], regular[1:])
+	}
+	return false
+}
 
-	return dynamicIndex >= dynamicLen && regularIndex >= regularLen
+// FindConfigForPath returns the CollapseConfig whose Prefix matches
+// `path` with the longest match, or nil if none match. Exposed so
+// callers and tests can introspect which threshold will apply to a
+// given path without walking the trie.
+func (ua *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
+	var best *CollapseConfig
+	bestLen := -1
+	for i := range ua.configs {
+		cfg := &ua.configs[i]
+		if hasPrefixAtBoundary(path, cfg.Prefix) && len(cfg.Prefix) > bestLen {
+			best = cfg
+			bestLen = len(cfg.Prefix)
+		}
+	}
+	// Fall back to the `/` default config if no per-prefix override
+	// matched — callers expect a non-nil result when *any* threshold
+	// applies, and the default always applies.
+	if best == nil {
+		return &ua.defaultCfg
+	}
+	return best
+}
+
+// CollapseAdjacentDynamicIdentifiers replaces runs of adjacent
+// DynamicIdentifier segments (e.g. "/a/⋯/⋯/b") with a single
+// WildcardIdentifier ("/a/*/b"). Static segments between dynamic
+// identifiers prevent collapsing. String wrapper over the internal
+// byte-level collapseAdjacentDynamic, intended for test coverage.
+func CollapseAdjacentDynamicIdentifiers(p string) string {
+	return string(collapseAdjacentDynamic([]byte(p)))
 }

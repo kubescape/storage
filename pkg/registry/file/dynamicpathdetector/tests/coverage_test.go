@@ -8,15 +8,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewPathAnalyzer(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+// configThreshold returns the collapse threshold for the given path prefix
+// as this test suite expects it — sourced from testCollapseConfigs (defined
+// in analyze_opens_test.go), NOT from the production DefaultCollapseConfigs.
+// The decoupling is deliberate: tests probe threshold-1/3/5 edge cases and
+// shouldn't constrain what values ship in production defaults.
+// Falls back to DefaultCollapseConfig.Threshold for unknown prefixes.
+func configThreshold(prefix string) int {
+	for _, cfg := range testCollapseConfigs {
+		if cfg.Prefix == prefix {
+			return cfg.Threshold
+		}
+	}
+	return dynamicpathdetector.DefaultCollapseConfig.Threshold
+}
+
+func TestNewPathAnalyzerWithConfigs(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 	if analyzer == nil {
-		t.Error("NewPathAnalyzer() returned nil")
+		t.Error("NewPathAnalyzerWithConfigs() returned nil")
 	}
 }
 
 func TestAnalyzePath(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	testCases := []struct {
 		name       string
@@ -39,17 +54,46 @@ func TestAnalyzePath(t *testing.T) {
 	}
 }
 
-func TestDynamicSegments(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+func TestCollapseAdjacentDynamicIdentifiers(t *testing.T) {
+	testCases := []struct {
+		name     string
+		path     string
+		expected string
+	}{
+		{"No dynamic identifiers", "/a/b/c", "/a/b/c"},
+		{"Single dynamic identifier", "/a/\u22ef/c", "/a/\u22ef/c"},
+		{"Two adjacent dynamic identifiers", "/a/\u22ef/\u22ef/d", "/a/*/d"},
+		{"Three adjacent dynamic identifiers", "/a/\u22ef/\u22ef/\u22ef/e", "/a/*/e"},
+		{"Dynamic identifiers separated by static segment", "/\u22ef/b/\u22ef/d", "/\u22ef/b/\u22ef/d"},
+		{"Multiple groups of adjacent identifiers", "/\u22ef/\u22ef/c/\u22ef/\u22ef/f", "/*/c/*/f"},
+		{"Starts with adjacent identifiers", "/\u22ef/\u22ef/c", "/*/c"},
+		{"Ends with adjacent identifiers", "/a/\u22ef/\u22ef", "/a/*"},
+		{"Only adjacent identifiers", "/\u22ef/\u22ef", "/*"},
+		{"Path with leading slash", "/\u22ef/\u22ef", "/*"},
+		{"Empty path", "", ""},
+		{"Single segment path", "a", "a"},
+		{"Single dynamic segment path", "\u22ef", "\u22ef"},
+	}
 
-	// Create 99 different paths under the 'users' segment
-	for i := 0; i < 101; i++ {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := dynamicpathdetector.CollapseAdjacentDynamicIdentifiers(tc.path)
+			assert.Equal(t, tc.expected, result, "Path was not collapsed as expected. Got %s, want %s", result, tc.expected)
+		})
+	}
+}
+
+func TestDynamicSegments(t *testing.T) {
+	threshold := dynamicpathdetector.OpenDynamicThreshold
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
+
+	for i := 0; i < threshold+1; i++ {
 		path := fmt.Sprintf("/api/users/%d", i)
 		_, err := analyzer.AnalyzePath(path, "api")
 		assert.NoError(t, err)
 	}
 
-	result, err := analyzer.AnalyzePath("/api/users/101", "api")
+	result, err := analyzer.AnalyzePath(fmt.Sprintf("/api/users/%d", threshold+1), "api")
 	if err != nil {
 		t.Errorf("AnalyzePath() returned an error: %v", err)
 	}
@@ -57,16 +101,16 @@ func TestDynamicSegments(t *testing.T) {
 	assert.Equal(t, expected, result)
 
 	// Test with one of the original IDs to ensure it's also marked as dynamic
-	result, err = analyzer.AnalyzePath("/api/users/50", "api")
+	result, err = analyzer.AnalyzePath("/api/users/0", "api")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
 }
 
 func TestMultipleDynamicSegments(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	threshold := dynamicpathdetector.OpenDynamicThreshold
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
-	// Create 99 different paths for both 'users' and 'posts' segments
-	for i := 0; i < 110; i++ {
+	for i := 0; i < threshold+10; i++ {
 		path := fmt.Sprintf("/api/users/%d/posts/%d", i, i)
 		_, err := analyzer.AnalyzePath(path, "api")
 		if err != nil {
@@ -74,18 +118,17 @@ func TestMultipleDynamicSegments(t *testing.T) {
 		}
 	}
 
-	// Test with the 100th unique user and post IDs (should trigger dynamic segments)
-	result, err := analyzer.AnalyzePath("/api/users/101/posts/1031", "api")
+	result, err := analyzer.AnalyzePath(fmt.Sprintf("/api/users/%d/posts/%d", threshold+11, threshold+11), "api")
 	assert.NoError(t, err)
 	expected := "/api/users/\u22ef/posts/\u22ef"
 	assert.Equal(t, expected, result)
 }
 
 func TestMixedStaticAndDynamicSegments(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	threshold := dynamicpathdetector.OpenDynamicThreshold
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
-	// Create 99 different paths for 'users' but keep 'posts' static
-	for i := 0; i < 101; i++ {
+	for i := 0; i < threshold+1; i++ {
 		path := fmt.Sprintf("/api/users/%d/posts", i)
 		_, err := analyzer.AnalyzePath(path, "api")
 		if err != nil {
@@ -93,42 +136,40 @@ func TestMixedStaticAndDynamicSegments(t *testing.T) {
 		}
 	}
 
-	// Test with the 100th unique user ID but same 'posts' segment (should trigger dynamic segment for users)
-	result, err := analyzer.AnalyzePath("/api/users/99/posts", "api")
+	result, err := analyzer.AnalyzePath("/api/users/0/posts", "api")
 	assert.NoError(t, err)
 	expected := "/api/users/\u22ef/posts"
 	assert.Equal(t, expected, result)
 }
 
 func TestDifferentRootIdentifiers(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
-	// Analyze paths with different root identifiers
 	result1, _ := analyzer.AnalyzePath("/api/users/123", "api")
 	result2, _ := analyzer.AnalyzePath("/api/products/456", "store")
 
 	assert.Equal(t, "/api/users/123", result1)
-
 	assert.Equal(t, "/api/products/456", result2)
 }
 
 func TestDynamicThreshold(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	threshold := dynamicpathdetector.OpenDynamicThreshold
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
 
-	for i := 0; i < 101; i++ {
+	for i := 0; i < threshold+1; i++ {
 		path := fmt.Sprintf("/api/users/%d", i)
 		result, _ := analyzer.AnalyzePath(path, "api")
 		if result != fmt.Sprintf("/api/users/%d", i) {
-			t.Errorf("Path became dynamic before reaching 99 different paths")
+			t.Errorf("Path became dynamic before reaching %d different paths", threshold)
 		}
 	}
 
-	result, _ := analyzer.AnalyzePath("/api/users/991", "api")
+	result, _ := analyzer.AnalyzePath(fmt.Sprintf("/api/users/%d", threshold+2), "api")
 	assert.Equal(t, "/api/users/\u22ef", result)
 }
 
 func TestEdgeCases(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	testCases := []struct {
 		name       string
@@ -151,100 +192,129 @@ func TestEdgeCases(t *testing.T) {
 }
 
 func TestDynamicInsertion(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
-	// Insert a new path with a different identifier
 	result, err := analyzer.AnalyzePath("/api/users/\u22ef", "api")
 	assert.NoError(t, err)
 	expected := "/api/users/\u22ef"
 	assert.Equal(t, expected, result)
 
-	// Insert a new path with the same identifier
 	result, err = analyzer.AnalyzePath("/api/users/102", "api")
 	assert.NoError(t, err)
 	expected = "/api/users/\u22ef"
 	assert.Equal(t, expected, result)
 }
 
-func TestCompareDynamic(t *testing.T) {
-	tests := []struct {
-		name        string
-		dynamicPath string
-		regularPath string
-		want        bool
-	}{
-		{
-			name:        "Equal paths",
-			dynamicPath: "/api/users/123",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "Different paths",
-			dynamicPath: "/api/users/123",
-			regularPath: "/api/users/456",
-			want:        false,
-		},
-		{
-			name:        "Dynamic segment at the end",
-			dynamicPath: "/api/users/\u22ef",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "Dynamic segment at the end",
-			dynamicPath: "/api/users/\u22ef",
-			regularPath: "/api/users/123/posts",
-			want:        false,
-		},
-		{
-			name:        "Dynamic segment at the end, no match",
-			dynamicPath: "/api/users/\u22ef",
-			regularPath: "/api/apps/123",
-			want:        false,
-		},
-		{
-			name:        "Dynamic segment in the middle",
-			dynamicPath: "/api/\u22ef/123",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "Dynamic segment in the middle, no match",
-			dynamicPath: "/api/\u22ef/123",
-			regularPath: "/api/users/456",
-			want:        false,
-		},
-		{
-			name:        "2 dynamic segments",
-			dynamicPath: "/api/\u22ef/\u22ef",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "2 dynamic segments, no match",
-			dynamicPath: "/api/\u22ef/\u22ef",
-			regularPath: "/papi/users/456",
-			want:        false,
-		},
-		{
-			name:        "2 other dynamic segments",
-			dynamicPath: "/\u22ef/users/\u22ef",
-			regularPath: "/api/users/123",
-			want:        true,
-		},
-		{
-			name:        "2 other dynamic segments, no match",
-			dynamicPath: "/\u22ef/users/\u22ef",
-			regularPath: "/api/apps/456",
-			want:        false,
-		},
+func TestDynamic(t *testing.T) {
+	threshold := dynamicpathdetector.OpenDynamicThreshold
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
+	for i := 0; i < threshold+1; i++ {
+		path := fmt.Sprintf("/api/users/%d", i)
+		_, err := analyzer.AnalyzePath(path, "api")
+		assert.NoError(t, err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := dynamicpathdetector.CompareDynamic(tt.dynamicPath, tt.regularPath); got != tt.want {
-				t.Errorf("CompareDynamic() = %v, want %v", got, tt.want)
+	result, err := analyzer.AnalyzePath(fmt.Sprintf("/api/users/%d", threshold+1), "api")
+	assert.NoError(t, err)
+	expected := "/api/users/\u22ef"
+	assert.Equal(t, expected, result)
+}
+
+func TestCollapseConfig(t *testing.T) {
+	appThreshold := configThreshold("/app")
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, []dynamicpathdetector.CollapseConfig{
+		{
+			Prefix:    "/api",
+			Threshold: appThreshold,
+		},
+		{
+			Prefix:    "/169.254.169.254",
+			Threshold: configThreshold("/etc"),
+		},
+	})
+	for i := 0; i < appThreshold+1; i++ {
+		path := fmt.Sprintf("/api/users/%d", i)
+		_, err := analyzer.AnalyzePath(path, "api")
+		assert.NoError(t, err)
+	}
+	result, err := analyzer.AnalyzePath(fmt.Sprintf("/api/users/%d", appThreshold+1), "api")
+	assert.NoError(t, err)
+	expected := "/api/*"
+	assert.Equal(t, expected, result)
+}
+
+// TestProcessSegments_WildcardWiringRegressions pins three correctness
+// properties of processSegments that were broken in the zero-alloc rewrite
+// of analyzer.go and caused node-agent component-test Test_27
+// (ApplicationProfileOpens) to fail at runtime.
+//
+// Each sub-case is small, self-contained, and would fail against the
+// broken implementation — keeping them here means a future refactor of
+// the zero-alloc hot path can't silently re-introduce any of these bugs.
+func TestProcessSegments_WildcardWiringRegressions(t *testing.T) {
+	// Bug 1: threshold=1 configured for prefix P must wildcard P's
+	// CHILDREN, not P itself. The broken code used p[:i] (path
+	// including the current segment) for the threshold lookup, so
+	// inserting segment "app" saw threshold=1 from {Prefix:"/app"}
+	// and wildcarded at the root, producing "/*/*/*" instead of
+	// "/app/*". Fix: use p[:start] (path BEFORE the current segment)
+	// for the insertion-threshold lookup so the config governs the
+	// parent's children, not the current segment's insertion.
+	t.Run("threshold_1_wildcards_children_not_prefix", func(t *testing.T) {
+		analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+			dynamicpathdetector.OpenDynamicThreshold,
+			[]dynamicpathdetector.CollapseConfig{{Prefix: "/app", Threshold: 1}},
+		)
+		got, err := analyzer.AnalyzePath("/app/service-a/config", "id")
+		assert.NoError(t, err)
+		assert.Equal(t, "/app/*", got,
+			"threshold-1 on /app must wildcard /app's children only, not collapse the /app prefix itself")
+	})
+
+	// Bug 2: once a segment has been emitted as `*`, the walk must
+	// stop appending subsequent path segments — otherwise every
+	// remaining segment re-follows the wildcard branch and emits
+	// "/*" again, producing "/a/*/*/*" where "/a/*" is correct.
+	// Fix: break out of the segment-walk loop as soon as
+	// currentNode.SegmentName == WildcardIdentifier.
+	t.Run("wildcard_absorbs_remaining_path_tail", func(t *testing.T) {
+		analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+			dynamicpathdetector.OpenDynamicThreshold,
+			[]dynamicpathdetector.CollapseConfig{{Prefix: "/short", Threshold: 1}},
+		)
+		got, err := analyzer.AnalyzePath("/short/a/b/c/d/e/f", "id")
+		assert.NoError(t, err)
+		assert.Equal(t, "/short/*", got,
+			"once the wildcard fires, the remaining 5 segments must not each emit an extra '/*'")
+	})
+
+	// Bug 3: when updateNodeStats collapses N children into a single
+	// ⋯ node, the ⋯ node's Count was left at 0. Subsequent walks
+	// descending into ⋯ then never re-triggered the collapse check,
+	// even when the absorbed grandchildren independently exceeded
+	// the threshold at the next level. Result: a grid like
+	// /a/{many}/{many}/leaf collapsed the first level but left
+	// grandchild literals visible in the output (e.g.
+	// "/a/⋯/sub0/⋯", "/a/⋯/sub1/⋯", ...). Fix: set
+	// dynamicChild.Count = len(dynamicChild.Children) after merge
+	// so the next level's updateNodeStats sees the true branching.
+	t.Run("multi_level_collapse_propagates_to_grandchildren", func(t *testing.T) {
+		threshold := 3
+		analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(threshold, nil)
+		// threshold+1 (=4) children × threshold+1 (=4) grandchildren = 16 paths.
+		// Both levels independently exceed threshold 3.
+		for i := 0; i <= threshold; i++ {
+			for j := 0; j <= threshold; j++ {
+				_, _ = analyzer.AnalyzePath(
+					fmt.Sprintf("/grid/level%d/sub%d/file", i, j), "id")
 			}
-		})
-	}
+		}
+		// Any path from the grid, re-analyzed, should be maximally
+		// collapsed — no grandchild literals should survive.
+		got, err := analyzer.AnalyzePath("/grid/level0/sub0/file", "id")
+		assert.NoError(t, err)
+		assert.NotContains(t, got, "sub0",
+			"grandchild literals must not survive in the collapsed output — got %q", got)
+		assert.NotContains(t, got, "level0",
+			"child literals must not survive in the collapsed output — got %q", got)
+	})
 }
