@@ -88,8 +88,8 @@ github.com/anchore/packageurl-go v0.1.1-0.20250220190351-d62adb6e1115 h1:ZyRCmiE
 github.com/anchore/packageurl-go v0.1.1-0.20250220190351-d62adb6e1115/go.mod h1:KoYIv7tdP5+CC9VGkeZV4/vGCKsY55VvoG+5dadg4YI=
 github.com/anchore/stereoscope v0.1.22 h1:L807G/kk0WZzOCGuRGF7knxMKzwW2PGdbPVRystryd8=
 github.com/anchore/stereoscope v0.1.22/go.mod h1:FikPtAb/WnbqwgLHAvQA9O+fWez0K4pbjxzghz++iy4=
-github.com/anchore/syft v1.42.3 h1:eIeeGyqfXm/C8wpBWU50xFbOjdL37VbLatMj9nEJ6n4=
-github.com/anchore/syft v1.42.3/go.mod h1:i2PZ+276IdPcnd/n32aeIv849iO/QqdjRknbIc39yL0=
+github.com/anchore/syft v1.32.0 h1:JcX9W+P/Xjv5DNg3TNBtwiEyZommuTaP16/NC9r0Yfo=
+github.com/anchore/syft v1.32.0/go.mod h1:E6Kd4iBM2ljUOUQvSt7hVK6vBwaHkMXwcvBZmGMSY5o=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo29Kk6CurOXKm700vrz8f0KW0JNfpkRJY/8=
 github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYUyUczH0OGQWaF5ceTx0UBShxjsH6f8oGKYe2c=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
