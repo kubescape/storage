@@ -348,13 +348,18 @@ func compareSegments(dynamic, regular []string) bool {
 		if len(dynamic) == 1 {
 			return true
 		}
-		// Otherwise try to match the rest of the dynamic pattern starting
-		// at every position in the regular tail; the wildcard greedily
-		// consumes 0+ segments as long as the remainder still matches.
-		nextDynamic := dynamic[1]
-		for i := range regular {
-			match := nextDynamic == DynamicIdentifier || regular[i] == nextDynamic
-			if match && compareSegments(dynamic[1:], regular[i:]) {
+		// Try to match the rest of the dynamic pattern starting at every
+		// position in the regular tail — including i == 0 (the wildcard
+		// consumed zero segments) and every later offset (wildcard
+		// consumed i segments). No optimistic peek at dynamic[1]: that
+		// optimization used to require regular[i] to literally equal
+		// dynamic[1], which is wrong whenever dynamic[1] is itself
+		// another `*` (consecutive wildcards like `/*/*` would never
+		// recurse and thus never match — user-authored profiles can
+		// contain literal /*/* patterns even though analyzer-generated
+		// ones are squashed by collapseAdjacentDynamicIdentifiers).
+		for i := 0; i <= len(regular); i++ {
+			if compareSegments(dynamic[1:], regular[i:]) {
 				return true
 			}
 		}

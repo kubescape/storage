@@ -736,15 +736,6 @@ func assertContainsOneOfPaths(t *testing.T, result []types.OpenCalls, alternativ
 	assert.Fail(t, fmt.Sprintf("result does not contain any of %v, got: %v", alternatives, pathsFromResult(result)))
 }
 
-func assertPathIsOneOf(t *testing.T, actual string, alternatives ...string) {
-	t.Helper()
-	for _, alt := range alternatives {
-		if actual == alt {
-			return
-		}
-	}
-	assert.Fail(t, fmt.Sprintf("path %q does not match any of %v", actual, alternatives))
-}
 
 func filterByPrefix(result []types.OpenCalls, prefix string) []types.OpenCalls {
 	var filtered []types.OpenCalls

@@ -318,3 +318,103 @@ func TestProcessSegments_WildcardWiringRegressions(t *testing.T) {
 			"child literals must not survive in the collapsed output — got %q", got)
 	})
 }
+
+// TestCompareDynamic_WildcardRegressions pins two cases that were
+// silently wrong in the original compareSegments implementation:
+//
+//  1. Consecutive wildcards (`/*/*`): the inner loop required
+//     regular[i] == nextDynamic *before* recursing, which never fires
+//     when nextDynamic is itself `*` (no real path segment literally
+//     equals "*"). A user-authored profile with `/*/*` could never
+//     match any concrete path → R0002 fires where it shouldn't.
+//
+//  2. Zero-segment wildcard consumption (`/*/foo` matching `/foo`):
+//     the wildcard should be allowed to consume zero segments and
+//     then let the next static segment match. The old optimistic
+//     peek at dynamic[1] happened to get this case right when
+//     dynamic[1] was a literal matching regular[0], but was broken
+//     for cases where the next segment was itself a wildcard.
+//
+// Both are fixed by dropping the peek: unconditionally recurse at
+// every i in [0, len(regular)] and let the recursion decide.
+func TestCompareDynamic_WildcardRegressions(t *testing.T) {
+	tests := []struct {
+		name    string
+		dynamic string
+		regular string
+		want    bool
+	}{
+		// Bug 1: consecutive wildcards.
+		{
+			name:    "consecutive_wildcards_match_two_segments",
+			dynamic: "/*/*",
+			regular: "/foo/bar",
+			want:    true,
+		},
+		{
+			name:    "consecutive_wildcards_match_one_segment",
+			dynamic: "/*/*",
+			regular: "/foo",
+			want:    true, // second * consumes zero segments
+		},
+		{
+			name:    "triple_wildcards_match_any_depth",
+			dynamic: "/*/*/*",
+			regular: "/a/b/c",
+			want:    true,
+		},
+		// Bug 2: zero-segment wildcard consumption.
+		{
+			name:    "wildcard_consumes_zero_then_literal_match",
+			dynamic: "/*/foo",
+			regular: "/foo",
+			want:    true,
+		},
+		{
+			name:    "wildcard_consumes_zero_between_literals",
+			dynamic: "/a/*/b",
+			regular: "/a/b",
+			want:    true,
+		},
+		{
+			name:    "wildcard_consumes_many_then_literal_match",
+			dynamic: "/*/foo",
+			regular: "/a/b/c/foo",
+			want:    true,
+		},
+		// Sanity: non-regressions — cases that must still return false.
+		{
+			name:    "literal_suffix_mismatch_still_false",
+			dynamic: "/*/foo",
+			regular: "/a/b/baz",
+			want:    false,
+		},
+		{
+			name:    "literal_prefix_mismatch_still_false",
+			dynamic: "/api/*",
+			regular: "/web/a",
+			want:    false,
+		},
+		{
+			name:    "empty_tail_with_unsatisfied_literal_false",
+			dynamic: "/*/x",
+			regular: "/",
+			want:    false,
+		},
+		// Interaction with DynamicIdentifier (⋯, single segment).
+		{
+			name:    "mixed_wildcard_and_dynamic_match",
+			dynamic: "/⋯/*",
+			regular: "/foo/bar/baz",
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dynamicpathdetector.CompareDynamic(tt.dynamic, tt.regular)
+			assert.Equal(t, tt.want, got,
+				"CompareDynamic(%q, %q) = %v, want %v", tt.dynamic, tt.regular, got, tt.want)
+		})
+	}
+}

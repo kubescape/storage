@@ -85,10 +85,16 @@ func TestProfileAnalyzePath(t *testing.T) {
 		}
 	}
 
+	// Read memstats immediately after the measured loop, BEFORE stopping
+	// the CPU profile and closing the output file. Both of those do
+	// non-trivial internal allocations (buffer flush, file finalization)
+	// that would otherwise land in `after.TotalAlloc` / `after.Mallocs`
+	// and inflate the reported per-call numbers — material noise for a
+	// zero-alloc target.
+	runtime.ReadMemStats(&after)
+
 	pprof.StopCPUProfile()
 	cpuFile.Close()
-
-	runtime.ReadMemStats(&after)
 
 	// Heap profile (alloc_space).
 	memPath := filepath.Join(*profileOutDir, "mem.out")
