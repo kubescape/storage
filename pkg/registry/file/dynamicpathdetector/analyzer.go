@@ -48,12 +48,18 @@ func NewPathAnalyzerWithConfigs(defaultThreshold int, configs []CollapseConfig) 
 // path prefix, picking the longest matching CollapseConfig or falling back
 // to the analyzer's default. Loop is O(len(configs)) and configs is small
 // (five entries in practice); no allocations.
+//
+// Tiebreak on equal-length prefixes: FIRST entry wins (strict `>`). This
+// must mirror FindConfigForPath so callers using FindConfigForPath to
+// introspect the active config see the same result the analyzer actually
+// uses at walk time. Mismatched comparators (`>=` vs `>`) on duplicate
+// prefixes are a silent footgun for anyone who doesn't dedupe configs.
 func (ua *PathAnalyzer) effectiveThreshold(pathPrefix string) int {
-	bestLen := 0
+	bestLen := -1
 	best := ua.threshold
 	for i := range ua.configs {
 		c := &ua.configs[i]
-		if len(c.Prefix) >= bestLen && hasPrefixAtBoundary(pathPrefix, c.Prefix) {
+		if len(c.Prefix) > bestLen && hasPrefixAtBoundary(pathPrefix, c.Prefix) {
 			bestLen = len(c.Prefix)
 			best = c.Threshold
 		}
@@ -64,6 +70,13 @@ func (ua *PathAnalyzer) effectiveThreshold(pathPrefix string) int {
 // hasPrefixAtBoundary is like strings.HasPrefix but only matches if the
 // prefix ends at a path boundary (either pathPrefix == prefix, or the next
 // rune in pathPrefix is '/'). Prevents "/etc" matching "/etcd".
+//
+// Special case: prefix == "/" — the trailing '/' already implies a boundary,
+// and any absolute path begins with '/'. Without this case, a user-supplied
+// `{Prefix:"/", Threshold:X}` config would silently never match for any
+// path past the root (e.g. "/foo" since pathPrefix[1] == 'f', not '/'),
+// which means an explicit catch-all override could not actually override
+// the analyzer's default threshold.
 func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
 	if len(pathPrefix) < len(prefix) {
 		return false
@@ -72,6 +85,9 @@ func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
 		return false
 	}
 	if len(pathPrefix) == len(prefix) {
+		return true
+	}
+	if prefix == "/" {
 		return true
 	}
 	return pathPrefix[len(prefix)] == '/'
@@ -243,10 +259,15 @@ func (ua *PathAnalyzer) handleDynamicSegment(node *SegmentNode) *SegmentNode {
 }
 
 // createWildcardNode replaces all of node's existing children with a single
-// WildcardIdentifier (*) child, absorbing the existing subtree counts into it.
-// Used for the threshold-1 short-circuit: once a prefix is configured to keep
-// at most one unique child, any second unique value collapses the whole
-// subtree to *.
+// WildcardIdentifier (*) child, absorbing any existing subtree counts into it.
+// Used for the threshold-1 short-circuit: a CollapseConfig with Threshold == 1
+// means "any new child segment under this prefix is noise", so the FIRST new
+// segment immediately wildcards (there are typically no children to absorb on
+// the first call; if the analyzer has previously seen children there, they
+// get folded into the wildcard subtree at this point). The semantics are
+// pinned by TestAnalyzeOpensThreshold1ImmediateWildcard /
+// "single path - no collapse yet" which expects /instant/only-child/data
+// to collapse to /instant/* after a single insert.
 func (ua *PathAnalyzer) createWildcardNode(node *SegmentNode) *SegmentNode {
 	wildcard := &SegmentNode{
 		SegmentName: WildcardIdentifier,
