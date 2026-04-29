@@ -449,3 +449,119 @@ func TestMergeDuplicateEndpoints_NoWildcardKeepsAllSpecificPorts(t *testing.T) {
 
 	assert.Equal(t, 3, len(result), "no wildcard sibling => all specific-port endpoints must be kept")
 }
+
+// ---------------------------------------------------------------------------
+// Internal-field isolation tests.
+//
+// `HTTPEndpoint.Equal` distinguishes endpoints by (Endpoint, Direction,
+// Internal). The merge key in `MergeDuplicateEndpoints` and the wildcard
+// sweep must therefore also distinguish Internal — otherwise an
+// internally-originating endpoint can absorb an externally-originating one
+// (or vice versa) just because they share path + direction.
+//
+// Flagged by upstream review on kubescape/storage#316 (matthyx).
+// ---------------------------------------------------------------------------
+
+// TestMergeDuplicateEndpoints_InternalFieldDistinguishesDuplicates asserts
+// that two endpoints differing ONLY in Internal are NOT collapsed by the
+// duplicate-key check at the top of the merge loop.
+func TestMergeDuplicateEndpoints_InternalFieldDistinguishesDuplicates(t *testing.T) {
+	external := &types.HTTPEndpoint{
+		Endpoint:  ":443/login",
+		Methods:   []string{"POST"},
+		Direction: "outbound",
+		Internal:  false,
+	}
+	internal := &types.HTTPEndpoint{
+		Endpoint:  ":443/login",
+		Methods:   []string{"GET"},
+		Direction: "outbound",
+		Internal:  true,
+	}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{external, internal})
+
+	assert.Equal(t, 2, len(result),
+		"endpoints with different Internal must NOT merge (HTTPEndpoint.Equal distinguishes Internal)")
+	// Each output must keep its own Internal value and methods.
+	for _, ep := range result {
+		switch ep.Internal {
+		case false:
+			assert.Equal(t, []string{"POST"}, ep.Methods, "external endpoint methods must not be polluted")
+		case true:
+			assert.Equal(t, []string{"GET"}, ep.Methods, "internal endpoint methods must not be polluted")
+		}
+	}
+}
+
+// TestMergeDuplicateEndpoints_InternalFieldGuardsWildcardAbsorbingPrior
+// pins the wildcard-after-specific path: an Internal=false :0 wildcard must
+// NOT sweep up a previously-recorded Internal=true specific-port sibling.
+func TestMergeDuplicateEndpoints_InternalFieldGuardsWildcardAbsorbingPrior(t *testing.T) {
+	specificInternal := &types.HTTPEndpoint{
+		Endpoint:  ":443/login",
+		Methods:   []string{"POST"},
+		Direction: "outbound",
+		Internal:  true,
+	}
+	wildcardExternal := &types.HTTPEndpoint{
+		Endpoint:  ":0/login",
+		Methods:   []string{"GET"},
+		Direction: "outbound",
+		Internal:  false,
+	}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{specificInternal, wildcardExternal})
+
+	assert.Equal(t, 2, len(result),
+		"wildcard with Internal=false must NOT absorb a specific-port sibling with Internal=true")
+}
+
+// TestMergeDuplicateEndpoints_InternalFieldGuardsSpecificFoldingIntoWildcard
+// pins the wildcard-first path: a previously-recorded Internal=true wildcard
+// must NOT absorb a later Internal=false specific-port sibling.
+func TestMergeDuplicateEndpoints_InternalFieldGuardsSpecificFoldingIntoWildcard(t *testing.T) {
+	wildcardInternal := &types.HTTPEndpoint{
+		Endpoint:  ":0/login",
+		Methods:   []string{"GET"},
+		Direction: "outbound",
+		Internal:  true,
+	}
+	specificExternal := &types.HTTPEndpoint{
+		Endpoint:  ":443/login",
+		Methods:   []string{"POST"},
+		Direction: "outbound",
+		Internal:  false,
+	}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{wildcardInternal, specificExternal})
+
+	assert.Equal(t, 2, len(result),
+		"specific-port with Internal=false must NOT fold into a wildcard sibling with Internal=true")
+}
+
+// TestMergeDuplicateEndpoints_InternalFieldMatching_StillFolds is the
+// positive sanity check: when Internal DOES match, the existing
+// path+direction merge contract still holds. A regression here would mean
+// the Internal guard accidentally blocks legitimate folding.
+func TestMergeDuplicateEndpoints_InternalFieldMatching_StillFolds(t *testing.T) {
+	wildcard := &types.HTTPEndpoint{
+		Endpoint:  ":0/login",
+		Methods:   []string{"GET"},
+		Direction: "outbound",
+		Internal:  true,
+	}
+	specific := &types.HTTPEndpoint{
+		Endpoint:  ":443/login",
+		Methods:   []string{"POST"},
+		Direction: "outbound",
+		Internal:  true,
+	}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{wildcard, specific})
+
+	assert.Equal(t, 1, len(result), "matching Internal => specific-port sibling still folds into wildcard")
+	assert.Equal(t, ":0/login", result[0].Endpoint)
+	assert.True(t, result[0].Internal, "merged endpoint must preserve Internal=true")
+	assert.ElementsMatch(t, []string{"GET", "POST"}, result[0].Methods)
+}

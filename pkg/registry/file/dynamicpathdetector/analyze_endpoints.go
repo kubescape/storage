@@ -109,18 +109,22 @@ func splitEndpointPortAndPath(endpoint string) (string, string) {
 }
 
 // MergeDuplicateEndpoints folds duplicates and merges same-path specific-port
-// endpoints into a wildcard-port (:0) sibling. The folding is symmetric:
+// endpoints into a wildcard-port (:0) sibling. Folding is symmetric and is
+// keyed on the same triple HTTPEndpoint.Equal compares — (Endpoint,
+// Direction, Internal). An Internal=false endpoint will therefore NOT merge
+// with an Internal=true sibling even if their path and direction match.
 //
 //   - If a specific-port endpoint is encountered AFTER its :0 sibling, the
 //     specific-port methods/headers are merged INTO the wildcard entry.
 //   - If a specific-port endpoint is encountered BEFORE its :0 sibling, it
 //     is initially recorded; when the wildcard arrives we sweep `seen` for
-//     same-(path, direction) specific-port siblings, fold them into the
-//     wildcard, and remove them from the output.
+//     same-(path, direction, Internal) specific-port siblings, fold them
+//     into the wildcard, and remove them from the output.
 //
 // This contract was tightened on the back of upstream review on
 // kubescape/storage#316 — a single :0 entry must NOT cause unrelated
-// concrete-port endpoints to be wildcarded; only same-path siblings fold.
+// concrete-port endpoints to be wildcarded; only same-path same-Internal
+// siblings fold.
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
 	seen := make(map[string]*types.HTTPEndpoint)
 	var newEndpoints []*types.HTTPEndpoint
@@ -137,30 +141,30 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 
 		if isWildcardPort(port) {
 			// Wildcard arriving after specific-port siblings — sweep `seen`
-			// for any same-(path, direction) specific-port entries already
-			// recorded, fold them into the wildcard, then drop them from
-			// the output slice.
-			absorbed := false
+			// for any same-(path, direction, Internal) specific-port entries
+			// already recorded, fold them into the wildcard, then drop them
+			// from the output slice.
 			for k, e := range seen {
 				ePort, ePath := splitEndpointPortAndPath(e.Endpoint)
-				if isWildcardPort(ePort) || ePath != pathPart || e.Direction != endpoint.Direction {
+				if isWildcardPort(ePort) || ePath != pathPart ||
+					e.Direction != endpoint.Direction || e.Internal != endpoint.Internal {
 					continue
 				}
 				endpoint.Methods = MergeStrings(endpoint.Methods, e.Methods)
 				mergeHeaders(endpoint, e)
 				delete(seen, k)
 				newEndpoints = removeEndpoint(newEndpoints, e)
-				absorbed = true
 			}
 			seen[key] = endpoint
 			newEndpoints = append(newEndpoints, endpoint)
-			_ = absorbed
 			continue
 		}
 
-		// Specific port: if a wildcard sibling for the same (path, direction)
-		// is already in `seen`, fold this entry into it.
-		wildcardKey := fmt.Sprintf(":0%s|%s", pathPart, endpoint.Direction)
+		// Specific port: if a wildcard sibling for the same
+		// (path, direction, Internal) is already in `seen`, fold this entry
+		// into it. The wildcardKey shape MUST match getEndpointKey exactly so
+		// the lookup hits the same map slot the wildcard was inserted under.
+		wildcardKey := fmt.Sprintf(":0%s|%s|%t", pathPart, endpoint.Direction, endpoint.Internal)
 		if existing, found := seen[wildcardKey]; found {
 			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
 			mergeHeaders(existing, endpoint)
@@ -186,8 +190,12 @@ func removeEndpoint(s []*types.HTTPEndpoint, target *types.HTTPEndpoint) []*type
 	return s
 }
 
+// getEndpointKey returns a key that uniquely identifies an HTTPEndpoint by
+// the same fields HTTPEndpoint.Equal compares: Endpoint, Direction, Internal.
+// Keep this in sync with the wildcardKey shape constructed in
+// MergeDuplicateEndpoints — the two MUST hash identical entries identically.
 func getEndpointKey(endpoint *types.HTTPEndpoint) string {
-	return fmt.Sprintf("%s|%s", endpoint.Endpoint, endpoint.Direction)
+	return fmt.Sprintf("%s|%s|%t", endpoint.Endpoint, endpoint.Direction, endpoint.Internal)
 }
 
 func mergeHeaders(existing, new *types.HTTPEndpoint) {
