@@ -14,42 +14,23 @@ func isWildcardPort(port string) bool {
 	return port == "0"
 }
 
-func rewritePort(endpoint, wildcardPort string) string {
-	if wildcardPort == "" {
-		return endpoint
-	}
-	port, pathPart := splitEndpointPortAndPath(endpoint)
-	if !isWildcardPort(port) {
-		return ":" + wildcardPort + pathPart
-	}
-	return endpoint
-}
-
 func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) []types.HTTPEndpoint {
 	if len(*endpoints) == 0 {
 		return nil
 	}
 
-	// Detect wildcard port in input (port 0 means any port)
-	wildcardPort := ""
-	for _, ep := range *endpoints {
-		port, _ := splitEndpointPortAndPath(ep.Endpoint)
-		if isWildcardPort(port) {
-			wildcardPort = port
-			break
-		}
-	}
-
-	// First pass: build tree, redirecting to wildcard port if needed
+	// First pass: build the analyzer trie from each endpoint's true (port,
+	// path) tuple. Each port keys a separate sub-tree, so :0/foo and
+	// :443/foo are analyzed independently — :443/foo is NOT rewritten to
+	// :0/foo just because some unrelated endpoint also uses :0.
 	for _, endpoint := range *endpoints {
-		_, _ = AnalyzeURL(rewritePort(endpoint.Endpoint, wildcardPort), analyzer)
+		_, _ = AnalyzeURL(endpoint.Endpoint, analyzer)
 	}
 
-	// Second pass: process endpoints
+	// Second pass: process endpoints with their original ports.
 	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range *endpoints {
 		ep := endpoint
-		ep.Endpoint = rewritePort(ep.Endpoint, wildcardPort)
 		processedEndpoint, err := ProcessEndpoint(&ep, analyzer, newEndpoints)
 		if processedEndpoint == nil && err == nil || err != nil {
 			continue
@@ -57,6 +38,8 @@ func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) [
 		newEndpoints = append(newEndpoints, processedEndpoint)
 	}
 
+	// Cross-port folding happens here: only same-(path, direction) siblings
+	// of an explicit :0 wildcard get absorbed into it.
 	newEndpoints = MergeDuplicateEndpoints(newEndpoints)
 
 	return convertPointerToValueSlice(newEndpoints)
@@ -125,6 +108,19 @@ func splitEndpointPortAndPath(endpoint string) (string, string) {
 	return s[:idx], s[idx:]
 }
 
+// MergeDuplicateEndpoints folds duplicates and merges same-path specific-port
+// endpoints into a wildcard-port (:0) sibling. The folding is symmetric:
+//
+//   - If a specific-port endpoint is encountered AFTER its :0 sibling, the
+//     specific-port methods/headers are merged INTO the wildcard entry.
+//   - If a specific-port endpoint is encountered BEFORE its :0 sibling, it
+//     is initially recorded; when the wildcard arrives we sweep `seen` for
+//     same-(path, direction) specific-port siblings, fold them into the
+//     wildcard, and remove them from the output.
+//
+// This contract was tightened on the back of upstream review on
+// kubescape/storage#316 — a single :0 entry must NOT cause unrelated
+// concrete-port endpoints to be wildcarded; only same-path siblings fold.
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
 	seen := make(map[string]*types.HTTPEndpoint)
 	var newEndpoints []*types.HTTPEndpoint
@@ -137,15 +133,38 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 			continue
 		}
 
-		// Check if a wildcard port variant already exists (port 0 means any port)
 		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
-		if !isWildcardPort(port) {
-			wildcardKey := fmt.Sprintf(":%s%s|%s", "0", pathPart, endpoint.Direction)
-			if existing, found := seen[wildcardKey]; found {
-				existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
-				mergeHeaders(existing, endpoint)
-				continue
+
+		if isWildcardPort(port) {
+			// Wildcard arriving after specific-port siblings — sweep `seen`
+			// for any same-(path, direction) specific-port entries already
+			// recorded, fold them into the wildcard, then drop them from
+			// the output slice.
+			absorbed := false
+			for k, e := range seen {
+				ePort, ePath := splitEndpointPortAndPath(e.Endpoint)
+				if isWildcardPort(ePort) || ePath != pathPart || e.Direction != endpoint.Direction {
+					continue
+				}
+				endpoint.Methods = MergeStrings(endpoint.Methods, e.Methods)
+				mergeHeaders(endpoint, e)
+				delete(seen, k)
+				newEndpoints = removeEndpoint(newEndpoints, e)
+				absorbed = true
 			}
+			seen[key] = endpoint
+			newEndpoints = append(newEndpoints, endpoint)
+			_ = absorbed
+			continue
+		}
+
+		// Specific port: if a wildcard sibling for the same (path, direction)
+		// is already in `seen`, fold this entry into it.
+		wildcardKey := fmt.Sprintf(":0%s|%s", pathPart, endpoint.Direction)
+		if existing, found := seen[wildcardKey]; found {
+			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
+			mergeHeaders(existing, endpoint)
+			continue
 		}
 
 		seen[key] = endpoint
@@ -153,6 +172,18 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 	}
 
 	return newEndpoints
+}
+
+// removeEndpoint returns a new slice with the first occurrence of target
+// removed (compared by pointer). Used by MergeDuplicateEndpoints when a
+// previously-recorded specific-port entry is absorbed into a later wildcard.
+func removeEndpoint(s []*types.HTTPEndpoint, target *types.HTTPEndpoint) []*types.HTTPEndpoint {
+	for i, e := range s {
+		if e == target {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
 }
 
 func getEndpointKey(endpoint *types.HTTPEndpoint) string {

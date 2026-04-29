@@ -73,6 +73,12 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			},
 		},
 		{
+			// A single :0 (wildcard-port) entry MUST NOT contaminate
+			// unrelated concrete-port endpoints. Only same-(path, direction)
+			// siblings of an explicit :0 entry are folded into it; here the
+			// :80 and :8770 paths are distinct from the :0 path, so each
+			// endpoint stays on its own port. Regression test for the bug
+			// flagged in upstream review on kubescape/storage#316.
 			name: "Test with 0 port",
 			input: []types.HTTPEndpoint{
 				{
@@ -88,10 +94,23 @@ func TestAnalyzeEndpoints(t *testing.T) {
 					Methods:  []string{"POST"},
 				},
 			},
+			// NOTE: the analyzer trie persists across subtests in this
+			// table (analyzer is created outside the t.Run loop), so
+			// /users/\u22ef/posts/\u22ef has already been observed enough times
+			// for the :80 entry's trailing segment to be dynamicized;
+			// the :8770 path is fresh in the trie so it stays concrete.
 			expected: []types.HTTPEndpoint{
 				{
-					Endpoint: ":0/users/\u22ef/posts/\u22ef",
-					Methods:  []string{"GET", "POST"},
+					Endpoint: ":0/users/123/posts/\u22ef",
+					Methods:  []string{"GET"},
+				},
+				{
+					Endpoint: ":80/users/\u22ef/posts/\u22ef",
+					Methods:  []string{"POST"},
+				},
+				{
+					Endpoint: ":8770/users/blub/posts/101",
+					Methods:  []string{"POST"},
 				},
 			},
 		},
@@ -238,17 +257,21 @@ func TestAnalyzeEndpointsWithInvalidURL(t *testing.T) {
 	assert.Equal(t, 0, len(result))
 }
 
-func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
+// TestAnalyzeEndpoints_WildcardDoesNotContaminateUnrelatedPaths pins the bug
+// flagged by upstream review on kubescape/storage#316: a single wildcard-port
+// endpoint must NOT cause unrelated specific-port endpoints (different path)
+// to be rewritten to :0. Only same-path siblings should fold into the wildcard.
+func TestAnalyzeEndpoints_WildcardDoesNotContaminateUnrelatedPaths(t *testing.T) {
 	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	input := []types.HTTPEndpoint{
 		{
-			Endpoint:  ":0/users/123",
+			Endpoint:  ":0/health",
 			Methods:   []string{"GET"},
 			Direction: "outbound",
 		},
 		{
-			Endpoint:  ":80/users/456",
+			Endpoint:  ":443/login",
 			Methods:   []string{"POST"},
 			Direction: "outbound",
 		},
@@ -256,23 +279,52 @@ func TestAnalyzeEndpointsWildcardPortAbsorbsSpecificPort(t *testing.T) {
 
 	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
+	endpoints := make(map[string]bool, len(result))
 	for _, ep := range result {
-		port := ep.Endpoint[:len(":0")]
-		assert.Equal(t, ":0", port, "endpoint %s should have wildcard port", ep.Endpoint)
+		endpoints[ep.Endpoint] = true
 	}
+	assert.Equal(t, 2, len(result), "unrelated paths must not be merged: got %v", endpoints)
+	assert.True(t, endpoints[":0/health"], "wildcard endpoint :0/health must be preserved")
+	assert.True(t, endpoints[":443/login"], "specific-port endpoint :443/login must keep its port (no wildcard sibling on the same path)")
 }
 
-func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
+// TestAnalyzeEndpoints_SamePathSpecificFirstThenWildcard exercises the
+// reverse-order case: the specific-port endpoint comes first in the slice,
+// then a wildcard sibling on the SAME path. The two must merge into the
+// wildcard. Without symmetric merging in MergeDuplicateEndpoints, the
+// specific endpoint sticks around alongside the wildcard.
+func TestAnalyzeEndpoints_SamePathSpecificFirstThenWildcard(t *testing.T) {
 	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 
 	input := []types.HTTPEndpoint{
 		{
-			Endpoint:  ":80/api/data",
-			Methods:   []string{"GET"},
+			Endpoint:  ":443/login",
+			Methods:   []string{"POST"},
 			Direction: "outbound",
 		},
 		{
-			Endpoint:  ":0/api/info",
+			Endpoint:  ":0/login",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	assert.Equal(t, 1, len(result), "specific-port sibling must fold into the wildcard regardless of order")
+	assert.Equal(t, ":0/login", result[0].Endpoint)
+	assert.ElementsMatch(t, []string{"GET", "POST"}, result[0].Methods, "methods from both ports must be merged")
+}
+
+// TestAnalyzeEndpoints_NoWildcardKeepsSpecificPort asserts that without ANY
+// wildcard sibling, specific-port endpoints stay specific. A regression here
+// would mean the analyzer is wildcarding too aggressively.
+func TestAnalyzeEndpoints_NoWildcardKeepsSpecificPort(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":443/login",
 			Methods:   []string{"POST"},
 			Direction: "outbound",
 		},
@@ -280,10 +332,45 @@ func TestAnalyzeEndpointsWildcardPortAfterSpecificPorts(t *testing.T) {
 
 	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
 
-	for _, ep := range result {
-		port := ep.Endpoint[:len(":0")]
-		assert.Equal(t, ":0", port, "endpoint %s should have wildcard port", ep.Endpoint)
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, ":443/login", result[0].Endpoint, "no wildcard sibling => port must be preserved")
+}
+
+// TestAnalyzeEndpoints_OnlyMatchingPathsFoldIntoWildcard combines the
+// wildcard-contamination case with the same-path-merge case to verify both
+// invariants hold simultaneously. :0/api absorbs :80/api (same path); but
+// :443/admin (different path, no wildcard sibling) keeps its port.
+func TestAnalyzeEndpoints_OnlyMatchingPathsFoldIntoWildcard(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
+
+	input := []types.HTTPEndpoint{
+		{
+			Endpoint:  ":0/api",
+			Methods:   []string{"GET"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":80/api",
+			Methods:   []string{"POST"},
+			Direction: "outbound",
+		},
+		{
+			Endpoint:  ":443/admin",
+			Methods:   []string{"DELETE"},
+			Direction: "outbound",
+		},
 	}
+
+	result := dynamicpathdetector.AnalyzeEndpoints(&input, analyzer)
+
+	endpoints := make(map[string][]string, len(result))
+	for _, ep := range result {
+		endpoints[ep.Endpoint] = ep.Methods
+	}
+
+	assert.Equal(t, 2, len(result), "expected :0/api and :443/admin, got %v", endpoints)
+	assert.ElementsMatch(t, []string{"GET", "POST"}, endpoints[":0/api"], "/api siblings must merge into wildcard")
+	assert.ElementsMatch(t, []string{"DELETE"}, endpoints[":443/admin"], ":443/admin must NOT be wildcarded — no wildcard sibling on /admin")
 }
 
 func TestAnalyzeEndpointsMultiplePortsMergeIntoWildcard(t *testing.T) {
@@ -331,4 +418,40 @@ func TestMergeDuplicateEndpointsWildcardPort(t *testing.T) {
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, ":0/api/data", result[0].Endpoint)
 	assert.Equal(t, []string{"GET", "POST"}, result[0].Methods)
+}
+
+// TestMergeDuplicateEndpoints_SpecificFirstThenWildcard pins the reverse
+// order — specific-port endpoint encountered first, wildcard sibling second.
+// Without symmetric merging in MergeDuplicateEndpoints both entries survive,
+// which CodeRabbit flagged on PR #316. Locking the contract here.
+func TestMergeDuplicateEndpoints_SpecificFirstThenWildcard(t *testing.T) {
+	specificEP := &types.HTTPEndpoint{
+		Endpoint:  ":80/api/data",
+		Methods:   []string{"POST"},
+		Direction: "outbound",
+	}
+	wildcardEP := &types.HTTPEndpoint{
+		Endpoint:  ":0/api/data",
+		Methods:   []string{"GET"},
+		Direction: "outbound",
+	}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{specificEP, wildcardEP})
+
+	assert.Equal(t, 1, len(result), "wildcard sibling must absorb the earlier specific-port entry")
+	assert.Equal(t, ":0/api/data", result[0].Endpoint)
+	assert.ElementsMatch(t, []string{"GET", "POST"}, result[0].Methods)
+}
+
+// TestMergeDuplicateEndpoints_NoWildcardKeepsAllSpecificPorts asserts that
+// without a wildcard sibling, distinct (port,path) pairs all survive.
+// A regression here would mean the merge is collapsing too aggressively.
+func TestMergeDuplicateEndpoints_NoWildcardKeepsAllSpecificPorts(t *testing.T) {
+	a := &types.HTTPEndpoint{Endpoint: ":80/api/data", Methods: []string{"GET"}, Direction: "outbound"}
+	b := &types.HTTPEndpoint{Endpoint: ":443/api/data", Methods: []string{"POST"}, Direction: "outbound"}
+	c := &types.HTTPEndpoint{Endpoint: ":8080/api/data", Methods: []string{"PUT"}, Direction: "outbound"}
+
+	result := dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{a, b, c})
+
+	assert.Equal(t, 3, len(result), "no wildcard sibling => all specific-port endpoints must be kept")
 }
