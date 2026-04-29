@@ -12,8 +12,6 @@ import (
 )
 
 func TestAnalyzeEndpoints(t *testing.T) {
-	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
-
 	tests := []struct {
 		name     string
 		input    []types.HTTPEndpoint
@@ -94,18 +92,13 @@ func TestAnalyzeEndpoints(t *testing.T) {
 					Methods:  []string{"POST"},
 				},
 			},
-			// NOTE: the analyzer trie persists across subtests in this
-			// table (analyzer is created outside the t.Run loop), so
-			// /users/\u22ef/posts/\u22ef has already been observed enough times
-			// for the :80 entry's trailing segment to be dynamicized;
-			// the :8770 path is fresh in the trie so it stays concrete.
 			expected: []types.HTTPEndpoint{
 				{
 					Endpoint: ":0/users/123/posts/\u22ef",
 					Methods:  []string{"GET"},
 				},
 				{
-					Endpoint: ":80/users/\u22ef/posts/\u22ef",
+					Endpoint: ":80/users/\u22ef/posts/101",
 					Methods:  []string{"POST"},
 				},
 				{
@@ -175,6 +168,7 @@ func TestAnalyzeEndpoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 			result := dynamicpathdetector.AnalyzeEndpoints(&tt.input, analyzer)
 			ja := jsonassert.New(t)
 			for i := range result {
