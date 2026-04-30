@@ -253,13 +253,17 @@ func deleteByImageId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps Reso
 func deleteByWlid(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
 	wlid, ok := metadata.Annotations[helpersv1.WlidMetadataKey]
 	kind := strings.ToLower(wlidPkg.GetKindFromWlid(wlid))
-	if !Workloads.Contains(kind) {
+	if !isCleanableWlidKind(kind) {
 		if kind != "" {
 			logger.L().Debug("skipping unknown kind", helpers.String("kind", kind))
 		}
 		return false
 	}
 	return !ok || !resourceMaps.RunningWlidsToContainerNames.Has(wlidWithoutClusterName(wlid))
+}
+
+func isCleanableWlidKind(kind string) bool {
+	return kind == "pod" || Workloads.Contains(kind)
 }
 
 func deleteByImageIdOrInstanceId(_, _ string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {

@@ -16,9 +16,11 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"zombiezen.com/go/sqlite"
 )
 
@@ -78,6 +80,43 @@ func TestCleanupTask(t *testing.T) {
 	slices.Sort(filesDeleted)
 
 	assert.Equal(t, expectedFilesToDelete, filesDeleted)
+}
+
+func TestDeleteByTemplateHashOrWlidStandalonePod(t *testing.T) {
+	t.Run("deletes pod scoped profile when pod is gone", func(t *testing.T) {
+		metadata := &metav1.ObjectMeta{
+			Labels: map[string]string{
+				helpersv1.RelatedKindMetadataKey: "Pod",
+			},
+			Annotations: map[string]string{
+				helpersv1.WlidMetadataKey: "wlid://cluster-kind-kind/namespace-default/pod-airbyte-worker",
+			},
+		}
+		resourceMaps := ResourceMaps{
+			RunningTemplateHash:          mapset.NewSet[string](),
+			RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
+		}
+
+		assert.True(t, deleteByTemplateHashOrWlid("", "", metadata, resourceMaps))
+	})
+
+	t.Run("keeps pod scoped profile while pod is running", func(t *testing.T) {
+		metadata := &metav1.ObjectMeta{
+			Labels: map[string]string{
+				helpersv1.RelatedKindMetadataKey: "Pod",
+			},
+			Annotations: map[string]string{
+				helpersv1.WlidMetadataKey: "wlid://cluster-kind-kind/namespace-default/pod-airbyte-worker",
+			},
+		}
+		resourceMaps := ResourceMaps{
+			RunningTemplateHash:          mapset.NewSet[string](),
+			RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
+		}
+		resourceMaps.RunningWlidsToContainerNames.Set("namespace-default/pod-airbyte-worker", mapset.NewSet[string]("main"))
+
+		assert.False(t, deleteByTemplateHashOrWlid("", "", metadata, resourceMaps))
+	})
 }
 
 type ResourcesFetchMock struct {
