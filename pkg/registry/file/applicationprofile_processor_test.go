@@ -344,8 +344,16 @@ func TestDeflateApplicationProfileContainer_MixedPathsCollapse(t *testing.T) {
 		})
 	}
 
-	// /etc uses the /etc config threshold from DefaultCollapseConfigs (100)
-	etcThreshold := 100
+	// /etc uses the /etc config threshold from DefaultCollapseConfigs.
+	// Derive from the live config so this test stays in sync if the
+	// production threshold for /etc ever changes — hardcoding 100 here
+	// previously meant the test would silently pass even when
+	// DefaultCollapseConfigs drifted (CodeRabbit C5).
+	etcAnalyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+		dynamicpathdetector.OpenDynamicThreshold,
+		dynamicpathdetector.DefaultCollapseConfigs(),
+	)
+	etcThreshold := etcAnalyzer.FindConfigForPath("/etc/file").Threshold
 	for i := 0; i < etcThreshold+1; i++ {
 		opens = append(opens, softwarecomposition.OpenCalls{
 			Path:  fmt.Sprintf("/etc/conf%d.cfg", i),

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // configThreshold returns the collapse threshold for the given path prefix
@@ -408,6 +409,232 @@ func TestCompareDynamic_WildcardRegressions(t *testing.T) {
 			regular: "/foo/bar/baz",
 			want:    true,
 		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dynamicpathdetector.CompareDynamic(tt.dynamic, tt.regular)
+			assert.Equal(t, tt.want, got,
+				"CompareDynamic(%q, %q) = %v, want %v", tt.dynamic, tt.regular, got, tt.want)
+		})
+	}
+}
+
+// TestCompareDynamic_AnchoringAndTrailing pins the trailing-`*` /
+// anchoring contract reported on upstream PR #316.
+//
+// The first wildcard-aware implementation made a trailing `*` match
+// zero-or-more remaining segments, so `/etc/*` silently matched the
+// bare `/etc` directory — widening R0002's blind spot to cover the
+// profiled directory's parent. Standard shell glob requires trailing
+// `*` to consume one or more segments. Anchoring rules:
+//
+//   - Anchored: leading `/` makes `/*` "any path strictly under /"
+//     and explicitly excludes the bare `/` directory.
+//   - Unanchored: a bare `*` (no leading slash) is the only way to
+//     allowlist the root path itself.
+//
+// Trailing slashes on the regular path are normalized away so
+// `/etc/passwd/` is treated as `/etc/passwd`.
+func TestCompareDynamic_AnchoringAndTrailing(t *testing.T) {
+	tests := []struct {
+		name    string
+		dynamic string
+		regular string
+		want    bool
+	}{
+		// Root-only cases — anchored vs unanchored distinction.
+		{"anchored_star_does_not_match_root", "/*", "/", false},
+		{"anchored_star_does_not_match_empty", "/*", "", false},
+		{"anchored_star_matches_top_level_child", "/*", "/foo", true},
+		{"anchored_star_matches_deeper_child", "/*", "/foo/bar", true},
+		{"unanchored_star_matches_root", "*", "/", true},
+		{"unanchored_star_matches_top_level_child", "*", "/foo", true},
+		{"unanchored_star_does_not_match_empty", "*", "", false},
+
+		// Bare-parent boundary — the original /etc/* regression.
+		{"trailing_star_does_not_match_bare_parent", "/etc/*", "/etc", false},
+		{"trailing_star_does_not_match_parent_with_slash", "/etc/*", "/etc/", false},
+		{"trailing_star_matches_immediate_child", "/etc/*", "/etc/passwd", true},
+		{"trailing_star_matches_deep_child", "/etc/*", "/etc/ssh/sshd_config", true},
+		{"trailing_star_matches_child_with_trailing_slash", "/etc/*", "/etc/passwd/", true},
+		{"deep_trailing_star_does_not_match_short_path", "/var/log/*", "/var/log", false},
+		{"deep_trailing_star_does_not_match_grandparent", "/var/log/*", "/var", false},
+		{"deep_trailing_star_matches_child", "/var/log/*", "/var/log/syslog", true},
+
+		// Multiple trailing wildcards — zero-or-more mid-* + one-or-more
+		// final-* together. The mid-* may consume zero, so /etc/*/* still
+		// matches /etc/ssh (one segment) by having the inner * consume 0
+		// and the trailing * consume the segment.
+		{"double_trailing_does_not_match_parent", "/etc/*/*", "/etc", false},
+		{"double_trailing_does_not_match_parent_slash", "/etc/*/*", "/etc/", false},
+		{"double_trailing_matches_one_child", "/etc/*/*", "/etc/ssh", true},
+		{"double_trailing_matches_two_children", "/etc/*/*", "/etc/ssh/sshd_config", true},
+		{"double_trailing_matches_deep", "/etc/*/*", "/etc/ssh/dir/file", true},
+
+		// Empty / bare-pattern edges.
+		{"empty_dynamic_does_not_match_path", "", "/foo", false},
+		{"empty_dynamic_does_not_match_root", "", "/", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dynamicpathdetector.CompareDynamic(tt.dynamic, tt.regular)
+			assert.Equal(t, tt.want, got,
+				"CompareDynamic(%q, %q) = %v, want %v", tt.dynamic, tt.regular, got, tt.want)
+		})
+	}
+}
+
+// TestCompareDynamic_EllipsisAndStar pins the interaction between the
+// two wildcard kinds:
+//
+//   - DynamicIdentifier (⋯) consumes EXACTLY ONE segment.
+//   - WildcardIdentifier (*) consumes ZERO-OR-MORE segments mid-path
+//     and ONE-OR-MORE segments when trailing.
+//
+// Mixing them (e.g. `/⋯/*`) is the analyzer's normal output for a
+// fully-collapsed grandchild branch: ⋯ pins the immediate child to
+// "any single segment" and * accepts the deeper tail.
+func TestCompareDynamic_EllipsisAndStar(t *testing.T) {
+	tests := []struct {
+		name    string
+		dynamic string
+		regular string
+		want    bool
+	}{
+		// ⋯ alone: exactly one segment.
+		{"ellipsis_matches_exactly_one", "/⋯/foo", "/x/foo", true},
+		{"ellipsis_does_not_consume_zero", "/⋯/foo", "/foo", false},
+		{"ellipsis_does_not_consume_two", "/⋯/foo", "/x/y/foo", false},
+
+		// ⋯ then trailing *: ⋯ consumes 1, * needs ≥1 more.
+		{"ellipsis_then_trailing_star_two_segments", "/⋯/*", "/x/y", true},
+		{"ellipsis_then_trailing_star_three_segments", "/⋯/*", "/x/y/z", true},
+		{"ellipsis_then_trailing_star_one_segment_fails", "/⋯/*", "/x", false},
+		{"ellipsis_then_trailing_star_root_fails", "/⋯/*", "/", false},
+
+		// Mid-* before ⋯: * may consume zero, ⋯ still needs exactly one.
+		{"star_then_ellipsis_two_segments", "/*/⋯", "/a/b", true},
+		{"star_consumed_zero_then_ellipsis_matches_one", "/*/⋯", "/b", true},
+		{"star_then_ellipsis_one_segment_fails_when_zero_consumed", "/*/⋯", "/", false},
+
+		// Nested ⋯.
+		{"nested_ellipsis_matches_two", "/⋯/⋯/foo", "/x/y/foo", true},
+		{"nested_ellipsis_does_not_match_one", "/⋯/⋯/foo", "/x/foo", false},
+
+		// * literal * pattern around a static segment.
+		{"star_literal_star_matches", "/*/etc/*", "/foo/etc/passwd", true},
+		{"star_literal_star_no_trailing_segment_fails", "/*/etc/*", "/foo/etc", false},
+		{"star_literal_star_no_leading_consumed_zero_matches", "/*/etc/*", "/etc/passwd", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dynamicpathdetector.CompareDynamic(tt.dynamic, tt.regular)
+			assert.Equal(t, tt.want, got,
+				"CompareDynamic(%q, %q) = %v, want %v", tt.dynamic, tt.regular, got, tt.want)
+		})
+	}
+}
+
+// TestCompareDynamic_MidPathStarZeroOrMore explicitly pins the
+// zero-or-more semantics for `*` when it appears mid-path. This is
+// distinct from trailing `*` (which is one-or-more) and is what allows
+// auto-generated patterns like `/foo/*/bar` to also match `/foo/bar`
+// (the wildcard consumed nothing, then the literal segment matched).
+func TestCompareDynamic_MidPathStarZeroOrMore(t *testing.T) {
+	tests := []struct {
+		name    string
+		dynamic string
+		regular string
+		want    bool
+	}{
+		{"mid_star_consumes_zero", "/a/*/b", "/a/b", true},
+		{"mid_star_consumes_one", "/a/*/b", "/a/x/b", true},
+		{"mid_star_consumes_many", "/a/*/b", "/a/x/y/b", true},
+		{"mid_star_literal_after_mismatches", "/a/*/b", "/a/x/c", false},
+		{"mid_star_literal_prefix_mismatch", "/a/*/b", "/z/x/b", false},
+
+		// Consecutive mid-stars — both can independently consume zero.
+		{"consecutive_mid_star_both_zero", "/a/*/*/b", "/a/b", true},
+		{"consecutive_mid_star_one_zero_one_one", "/a/*/*/b", "/a/x/b", true},
+		{"consecutive_mid_star_both_one", "/a/*/*/b", "/a/x/y/b", true},
+		{"consecutive_mid_star_deeper", "/a/*/*/b", "/a/x/y/z/b", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dynamicpathdetector.CompareDynamic(tt.dynamic, tt.regular)
+			assert.Equal(t, tt.want, got,
+				"CompareDynamic(%q, %q) = %v, want %v", tt.dynamic, tt.regular, got, tt.want)
+		})
+	}
+}
+
+// TestDefaultCollapseConfigs_DefensiveCopy pins the contract that the
+// public DefaultCollapseConfigs() accessor returns a fresh slice on
+// every call, so callers cannot accidentally mutate the package-level
+// state. Without this guard, a downstream consumer modifying the
+// returned slice (sorting, appending, swapping prefixes) would silently
+// affect every subsequent call, including AnalyzeOpens in the storage
+// deflate path. The unexported var is the canonical source of truth.
+func TestDefaultCollapseConfigs_DefensiveCopy(t *testing.T) {
+	first := dynamicpathdetector.DefaultCollapseConfigs()
+	require.NotEmpty(t, first, "default configs must not be empty")
+
+	// Mutate the returned slice in two ways: change a Threshold and
+	// append a junk config. Neither should leak to the next call.
+	first[0].Threshold = 999_999
+	first = append(first, dynamicpathdetector.CollapseConfig{
+		Prefix: "/poisoned", Threshold: 1,
+	})
+
+	second := dynamicpathdetector.DefaultCollapseConfigs()
+	assert.NotEqual(t, 999_999, second[0].Threshold,
+		"mutating the first call's slice must not change the package state")
+	for _, cfg := range second {
+		assert.NotEqual(t, "/poisoned", cfg.Prefix,
+			"appending to the first call's slice must not leak into the second call")
+	}
+
+	// Also assert the two slices are distinct backing arrays — without
+	// this, len(second) would happen to be safe but a future caller
+	// reading first[len-1] could observe the appended element.
+	if len(first) > 0 && len(second) > 0 {
+		// Address-of-element comparison is sufficient; if the underlying
+		// array is shared, &first[0] == &second[0].
+		assert.NotSame(t, &first[0], &second[0],
+			"DefaultCollapseConfigs must return a fresh backing array")
+	}
+}
+
+// TestCompareDynamic_PathSeparatorEdges documents how `/`-related
+// edges are normalized: trailing slashes are insignificant, the
+// regular path `""` is treated as no-path (matches nothing), and the
+// internal split-and-trim normalization is exercised on both sides.
+func TestCompareDynamic_PathSeparatorEdges(t *testing.T) {
+	tests := []struct {
+		name    string
+		dynamic string
+		regular string
+		want    bool
+	}{
+		// Trailing slash on regular — should match same as without.
+		{"trailing_slash_on_regular_matches_literal", "/etc/passwd", "/etc/passwd/", true},
+		{"trailing_slash_on_regular_for_directory_match", "/etc", "/etc/", true},
+
+		// Trailing slash on dynamic — should match same as without.
+		{"trailing_slash_on_dynamic_literal", "/etc/passwd/", "/etc/passwd", true},
+		{"trailing_slash_on_dynamic_with_star", "/etc/*/", "/etc/passwd", true},
+
+		// Empty regular path — matches nothing, including the bare star.
+		{"empty_regular_does_not_match_anchored", "/foo", "", false},
+		{"empty_regular_does_not_match_unanchored_literal", "foo", "", false},
+		{"empty_regular_does_not_match_star", "*", "", false},
+
+		// Empty dynamic — matches nothing.
+		{"empty_dynamic_does_not_match_anything", "", "/foo", false},
 	}
 
 	for _, tt := range tests {

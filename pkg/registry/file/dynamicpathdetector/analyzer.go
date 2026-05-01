@@ -347,17 +347,51 @@ func shallowChildrenCopy(src, dst *SegmentNode) {
 	}
 }
 
-// CompareDynamic checks whether `regularPath` is matched by `dynamicPath`,
-// where `dynamicPath` may contain DynamicIdentifier (⋯, single-segment
-// wildcard) or WildcardIdentifier (*, zero-or-more-segment wildcard).
-// The previous implementation only handled DynamicIdentifier, causing
-// explicit `/etc/*` profile entries to never match at runtime — the
-// node-agent R0002 rule (Files Access Anomalies) uses this to decide
-// whether a file access is in-profile.
+// CompareDynamic checks whether `regularPath` is matched by `dynamicPath`.
+// The dynamic path may contain DynamicIdentifier (⋯, exactly-one-segment
+// wildcard) or WildcardIdentifier (*, zero-or-more-segment mid-path /
+// one-or-more-segment trailing wildcard). The node-agent R0002 rule
+// (Files Access Anomalies) uses this at every file-open to decide whether
+// the access is in-profile.
+//
+// Anchoring contract:
+//   - Anchored patterns (start with `/`): `/etc/*` matches files UNDER
+//     /etc but NOT the bare `/etc` directory itself, mirroring shell
+//     glob semantics. This avoids R0002 silently allowing access to a
+//     profiled directory's parent.
+//   - Unanchored `*` (no leading slash): explicit catch-all that also
+//     matches the root path `/`. The only way to whitelist `/` itself
+//     is an explicit unanchored `*`.
+//
+// Trailing-slash insensitivity: `/etc/` is treated as `/etc`, and
+// `/etc/passwd/` as `/etc/passwd`. Trailing empty path components from
+// `strings.Split` are trimmed so `len(regular) > 0` correctly reflects
+// the presence of a real path tail when matching trailing `*`.
+//
+// The empty regular path (`""`) is treated as "no path" and matches
+// nothing — distinct from the root path `/`, which matches unanchored
+// `*` per the contract above.
 func CompareDynamic(dynamicPath, regularPath string) bool {
-	dynamicSegments := strings.Split(dynamicPath, "/")
-	regularSegments := strings.Split(regularPath, "/")
-	return compareSegments(dynamicSegments, regularSegments)
+	// Empty inputs match nothing. Note that splitPath("") and splitPath("/")
+	// both yield [""] after trim, so without this guard an empty profile
+	// entry would silently match the root path.
+	if dynamicPath == "" || regularPath == "" {
+		return false
+	}
+	return compareSegments(splitPath(dynamicPath), splitPath(regularPath))
+}
+
+// splitPath splits a path on `/` and trims trailing empty segments
+// produced by trailing slashes (e.g. `/etc/` -> ["", "etc"] not
+// ["", "etc", ""]). The leading empty segment from a leading slash is
+// preserved as the anchor marker. Single-element results are not
+// trimmed so the root path `/` retains its `[""]` shape.
+func splitPath(p string) []string {
+	s := strings.Split(p, "/")
+	for len(s) > 1 && s[len(s)-1] == "" {
+		s = s[:len(s)-1]
+	}
+	return s
 }
 
 func compareSegments(dynamic, regular []string) bool {
@@ -365,20 +399,23 @@ func compareSegments(dynamic, regular []string) bool {
 		return len(regular) == 0
 	}
 	if dynamic[0] == WildcardIdentifier {
-		// A trailing `*` matches any remaining path tail (including empty).
+		// Trailing `*` matches one OR MORE remaining segments — never
+		// zero. This is what makes `/etc/*` not match the bare `/etc`
+		// directory, while still matching `/etc/passwd` and any deeper
+		// path. The unanchored-`*` case (regular path is `/`, regular
+		// slice is [""]) returns true because len(regular) == 1.
 		if len(dynamic) == 1 {
-			return true
+			return len(regular) > 0
 		}
-		// Try to match the rest of the dynamic pattern starting at every
-		// position in the regular tail — including i == 0 (the wildcard
-		// consumed zero segments) and every later offset (wildcard
-		// consumed i segments). No optimistic peek at dynamic[1]: that
-		// optimization used to require regular[i] to literally equal
-		// dynamic[1], which is wrong whenever dynamic[1] is itself
-		// another `*` (consecutive wildcards like `/*/*` would never
-		// recurse and thus never match — user-authored profiles can
-		// contain literal /*/* patterns even though analyzer-generated
-		// ones are squashed by collapseAdjacentDynamicIdentifiers).
+		// Mid-path `*`: zero-or-more semantics. Try every offset
+		// including i == 0 (wildcard consumed zero segments). No
+		// optimistic peek at dynamic[1]: that optimization used to
+		// require regular[i] to literally equal dynamic[1], which is
+		// wrong whenever dynamic[1] is itself another `*` (consecutive
+		// wildcards like `/*/*` would never recurse and thus never
+		// match — user-authored profiles can contain literal /*/*
+		// patterns even though analyzer-generated ones are squashed by
+		// collapseAdjacentDynamicIdentifiers).
 		for i := 0; i <= len(regular); i++ {
 			if compareSegments(dynamic[1:], regular[i:]) {
 				return true

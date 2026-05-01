@@ -20,7 +20,6 @@ package dynamicpathdetectortests
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -49,7 +48,10 @@ func TestProfileAnalyzePath(t *testing.T) {
 	// Generate a representative mixed workload once, outside the measured
 	// section, so its allocations don't show up in the profile.
 	paths := generateMixedPaths(10000, 0)
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+		dynamicpathdetector.OpenDynamicThreshold,
+		dynamicpathdetector.DefaultCollapseConfigs(),
+	)
 	identifier := "profile"
 
 	// Warm up the analyzer so the trie is populated. Steady-state calls
@@ -80,7 +82,9 @@ func TestProfileAnalyzePath(t *testing.T) {
 	for i := 0; i < *profileIters; i++ {
 		if _, err := analyzer.AnalyzePath(paths[i%len(paths)], identifier); err != nil {
 			pprof.StopCPUProfile()
-			cpuFile.Close()
+			if cerr := cpuFile.Close(); cerr != nil {
+				t.Logf("close cpu profile after error: %v", cerr)
+			}
 			t.Fatalf("AnalyzePath iter %d: %v", i, err)
 		}
 	}
@@ -94,7 +98,9 @@ func TestProfileAnalyzePath(t *testing.T) {
 	runtime.ReadMemStats(&after)
 
 	pprof.StopCPUProfile()
-	cpuFile.Close()
+	if err := cpuFile.Close(); err != nil {
+		t.Fatalf("close cpu profile: %v", err)
+	}
 
 	// Heap profile (alloc_space).
 	memPath := filepath.Join(*profileOutDir, "mem.out")
@@ -105,7 +111,9 @@ func TestProfileAnalyzePath(t *testing.T) {
 	if err := pprof.Lookup("allocs").WriteTo(memFile, 0); err != nil {
 		t.Fatalf("write mem profile: %v", err)
 	}
-	memFile.Close()
+	if err := memFile.Close(); err != nil {
+		t.Fatalf("close mem profile: %v", err)
+	}
 
 	// Goroutine snapshot (useful when debugging leaks).
 	goPath := filepath.Join(*profileOutDir, "goroutine.out")
@@ -116,7 +124,9 @@ func TestProfileAnalyzePath(t *testing.T) {
 	if err := pprof.Lookup("goroutine").WriteTo(goFile, 0); err != nil {
 		t.Fatalf("write goroutine profile: %v", err)
 	}
-	goFile.Close()
+	if err := goFile.Close(); err != nil {
+		t.Fatalf("close goroutine profile: %v", err)
+	}
 
 	totalBytes := after.TotalAlloc - before.TotalAlloc
 	totalMallocs := after.Mallocs - before.Mallocs
@@ -135,7 +145,10 @@ func TestProfileAnalyzePath(t *testing.T) {
 // new SegmentNode.
 func BenchmarkAnalyzePathWarm(b *testing.B) {
 	paths := generateMixedPaths(10000, 0)
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+		dynamicpathdetector.OpenDynamicThreshold,
+		dynamicpathdetector.DefaultCollapseConfigs(),
+	)
 	identifier := "warm"
 	for _, p := range paths {
 		if _, err := analyzer.AnalyzePath(p, identifier); err != nil {
@@ -162,12 +175,12 @@ func BenchmarkAnalyzePathCold(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+		analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+			dynamicpathdetector.OpenDynamicThreshold,
+			dynamicpathdetector.DefaultCollapseConfigs(),
+		)
 		if _, err := analyzer.AnalyzePath(paths[i%len(paths)], identifier); err != nil {
 			b.Fatalf("AnalyzePath: %v", err)
 		}
 	}
 }
-
-// Ensure fmt is kept imported when future debugging prints land here.
-var _ = fmt.Sprint

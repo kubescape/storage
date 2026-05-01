@@ -26,16 +26,24 @@ type CollapseConfig struct {
 	Threshold int
 }
 
-// DefaultCollapseConfigs carries the per-prefix thresholds we've found
+// defaultCollapseConfigs carries the per-prefix thresholds we've found
 // useful in practice. These are the defaults wired into AnalyzeOpens; a
 // caller can pass a different slice via NewPathAnalyzerWithConfigs if
-// they want to tune for their workload.
-var DefaultCollapseConfigs = []CollapseConfig{
+// they want to tune for their workload. Unexported so callers cannot
+// mutate the package-level slice — access via DefaultCollapseConfigs().
+var defaultCollapseConfigs = []CollapseConfig{
 	{Prefix: "/etc", Threshold: 100},
 	{Prefix: "/etc/apache2", Threshold: 50}, // tuned for the webapp standard test
 	{Prefix: "/opt", Threshold: 50},
 	{Prefix: "/var/run", Threshold: 50},
-	{Prefix: "/app", Threshold: 50}, // any variation under /app collapses immediately
+	{Prefix: "/app", Threshold: 50}, // any variation under /app collapses at 50 unique children
+}
+
+// DefaultCollapseConfigs returns a defensive copy of the package-level
+// default per-prefix collapse thresholds. Callers that mutate the result
+// will not affect the package state or other callers.
+func DefaultCollapseConfigs() []CollapseConfig {
+	return append([]CollapseConfig(nil), defaultCollapseConfigs...)
 }
 
 // DefaultCollapseConfig is the global fallback used when no CollapseConfig

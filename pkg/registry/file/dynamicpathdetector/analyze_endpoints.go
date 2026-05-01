@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/kubescape/go-logger"
+	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
@@ -99,8 +101,26 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 	return ":" + port + path, nil
 }
 
+// splitEndpointPortAndPath splits the canonical `:<port><path>` form
+// produced by AnalyzeURL into its (port, path) parts.
+//
+// Defensive contract: AnalyzeURL guarantees a leading `:` and a port
+// segment, but callers and tests sometimes pass bare paths (e.g.
+// "/health") for ad-hoc lookups. To keep merge keys deterministic,
+// this helper returns empty port + leading-slash-normalised path for
+// any input that does not start with `:`. The empty string returns
+// ("", "/") to match the original fall-through behavior.
 func splitEndpointPortAndPath(endpoint string) (string, string) {
-	s := strings.TrimPrefix(endpoint, ":")
+	if !strings.HasPrefix(endpoint, ":") {
+		if endpoint == "" {
+			return "", "/"
+		}
+		if !strings.HasPrefix(endpoint, "/") {
+			endpoint = "/" + endpoint
+		}
+		return "", endpoint
+	}
+	s := endpoint[1:]
 	idx := strings.Index(s, "/")
 	if idx == -1 {
 		return s, "/"
@@ -220,7 +240,12 @@ func mergeHeaders(existing, new *types.HTTPEndpoint) {
 
 	rawJSON, err := json.Marshal(existingHeaders)
 	if err != nil {
-		fmt.Println("Error marshaling JSON:", err)
+		// Don't pollute stdout from a library function. The caller has
+		// no signal-back path here (mergeHeaders is a void helper) so
+		// log at Debug and bail — leaving Headers untouched is the
+		// safer choice than corrupting them with a partial marshal.
+		logger.L().Debug("mergeHeaders: failed to marshal merged headers, leaving existing untouched",
+			loggerhelpers.Error(err))
 		return
 	}
 
