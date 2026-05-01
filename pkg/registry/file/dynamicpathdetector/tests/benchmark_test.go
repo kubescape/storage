@@ -13,7 +13,7 @@ import (
 )
 
 func BenchmarkAnalyzePath(b *testing.B) {
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 	paths := generateMixedPaths(10000, 0) // 0 means use default mixed lengths
 
 	identifier := "test"
@@ -33,7 +33,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 	for _, length := range pathLengths {
 		b.Run(fmt.Sprintf("PathLength-%d", length), func(b *testing.B) {
-			analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+			analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 			paths := generateMixedPaths(10000, length)
 			identifier := "test"
 
@@ -52,7 +52,7 @@ func BenchmarkAnalyzePathWithDifferentLengths(b *testing.B) {
 
 func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 	paths := pathsToOpens(generateMixedPaths(10000, 0))
-	analyzer := dynamicpathdetector.NewPathAnalyzer(100)
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
 
 	b.Run("AnalyzeOpens", func(b *testing.B) {
 		b.ResetTimer()
@@ -72,13 +72,43 @@ func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 	})
 }
 
+// BenchmarkCompareDynamic exercises the matcher under realistic shapes.
+// Run with -benchmem; the goal is the zero-alloc target Matthias called
+// out on upstream PR #316. Until the perf rewrite lands the numbers
+// document the current cost so regressions show up. Inputs are split
+// across cases so the benchmark covers:
+//
+//   - DynamicIdentifier-only paths (auto-generated short patterns)
+//   - DynamicIdentifier-only paths (deeper, more typical R0002 traffic)
+//   - WildcardIdentifier with mid-path zero-or-more semantics
+//   - Trailing WildcardIdentifier (the regression-prone path)
+//   - Anchored / unanchored boundary cases (the new `*` vs `/*` contract)
 func BenchmarkCompareDynamic(b *testing.B) {
-	dynamicPath := "/api/\u22ef/\u22ef"
-	regularPath := "/api/users/123"
-	for i := 0; i < b.N; i++ {
-		_ = dynamicpathdetector.CompareDynamic(dynamicPath, regularPath)
+	cases := []struct {
+		name    string
+		dynamic string
+		regular string
+	}{
+		{"ellipsis_short", "/api/\u22ef/\u22ef", "/api/users/123"},
+		{"ellipsis_deep", "/api/\u22ef/\u22ef/\u22ef/\u22ef", "/api/users/123/posts/42"},
+		{"trailing_star", "/etc/*", "/etc/ssh/sshd_config"},
+		{"trailing_star_no_match_on_parent", "/etc/*", "/etc"},
+		{"mid_star_zero_consumed", "/a/*/b", "/a/b"},
+		{"mid_star_many_consumed", "/a/*/b", "/a/x/y/z/b"},
+		{"anchored_root_no_match", "/*", "/"},
+		{"unanchored_star_root", "*", "/"},
+		{"deep_literal_match", "/var/log/syslog", "/var/log/syslog"},
+		{"deep_literal_mismatch", "/var/log/syslog", "/var/log/messages"},
 	}
-	b.ReportAllocs()
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = dynamicpathdetector.CompareDynamic(c.dynamic, c.regular)
+			}
+		})
+	}
 }
 
 func generateMixedPaths(count int, fixedLength int) []string {

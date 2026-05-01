@@ -185,6 +185,11 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				return nil
 			}
 
+			// Skip user-managed resources (e.g., user-defined profiles).
+			if isUserManaged(metadata) {
+				return nil
+			}
+
 			// either run single handler, or perform OR operation on multiple handlers
 			var toDelete bool
 			if len(handlers) == 1 {
@@ -210,6 +215,19 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 		}
 	}
 	return nil
+}
+
+// isUserManaged reports whether the given resource metadata carries the
+// "user-managed" marker. The marker lives on Annotations by codebase
+// convention (see pkg/apis/softwarecomposition/networkpolicy/v2/
+// networkpolicy.go for the canonical read-site) — NOT on Labels.
+// Reading from Labels would silently miss every user-managed resource
+// and defeat the cleanup skip entirely.
+func isUserManaged(metadata *metav1.ObjectMeta) bool {
+	if metadata == nil {
+		return false
+	}
+	return metadata.Annotations[helpersv1.ManagedByMetadataKey] == helpersv1.ManagedByUserValue
 }
 
 func or(funcs []TypeCleanupHandlerFunc, kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
