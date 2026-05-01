@@ -924,11 +924,48 @@ func TestFindConfigForPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			config := analyzer.FindConfigForPath(tt.path)
-			assert.NotNil(t, config, "config should not be nil for path %q", tt.path)
 			assert.Equal(t, tt.expectedPrefix, config.Prefix,
 				"path %q should match prefix %q", tt.path, tt.expectedPrefix)
 			assert.Equal(t, tt.expectedThreshold, config.Threshold,
 				"path %q should have threshold %d", tt.path, tt.expectedThreshold)
 		})
 	}
+}
+
+// TestFindConfigForPath_DefensiveCopy pins the contract that the
+// returned CollapseConfig is a value copy, so mutating it does NOT
+// alter the analyzer's internal state. Same defensive philosophy as
+// DefaultCollapseConfigs(): the caller cannot accidentally turn an
+// introspection helper into a hidden mutator.
+func TestFindConfigForPath_DefensiveCopy(t *testing.T) {
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+		dynamicpathdetector.OpenDynamicThreshold,
+		dynamicpathdetector.DefaultCollapseConfigs(),
+	)
+
+	// Per-prefix override path: snapshot, mutate the copy, look up
+	// again, expect the analyzer to be unaffected.
+	first := analyzer.FindConfigForPath("/etc/file")
+	originalThreshold := first.Threshold
+	first.Threshold = 999_999
+	first.Prefix = "/poisoned"
+
+	second := analyzer.FindConfigForPath("/etc/file")
+	assert.Equal(t, originalThreshold, second.Threshold,
+		"mutating the first call's CollapseConfig must not change the analyzer state")
+	assert.NotEqual(t, "/poisoned", second.Prefix,
+		"mutating the first call's Prefix must not leak into the second call")
+
+	// Default-fallback path: same contract for the path that doesn't
+	// match any per-prefix override.
+	firstDefault := analyzer.FindConfigForPath("/no/match/anywhere")
+	originalDefaultThreshold := firstDefault.Threshold
+	firstDefault.Threshold = 12345
+	firstDefault.Prefix = "/poisoned-default"
+
+	secondDefault := analyzer.FindConfigForPath("/no/match/anywhere")
+	assert.Equal(t, originalDefaultThreshold, secondDefault.Threshold,
+		"mutating the default config copy must not change the analyzer state")
+	assert.NotEqual(t, "/poisoned-default", secondDefault.Prefix,
+		"mutating the default config Prefix must not leak into a future call")
 }

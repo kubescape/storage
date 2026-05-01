@@ -432,27 +432,31 @@ func compareSegments(dynamic, regular []string) bool {
 	return false
 }
 
-// FindConfigForPath returns the CollapseConfig whose Prefix matches
-// `path` with the longest match, or nil if none match. Exposed so
-// callers and tests can introspect which threshold will apply to a
-// given path without walking the trie.
-func (ua *PathAnalyzer) FindConfigForPath(path string) *CollapseConfig {
-	var best *CollapseConfig
+// FindConfigForPath returns a value copy of the CollapseConfig whose
+// Prefix matches `path` with the longest match. Falls back to the
+// analyzer's default config (Prefix:"/") when no per-prefix override
+// applies, so the result is always meaningful — there is no "no match"
+// signal.
+//
+// Returning by value keeps the analyzer's internal state immutable
+// from callers. NewPathAnalyzerWithConfigs already makes a defensive
+// inbound copy of `configs`; this is its outbound twin. Without it,
+// `cfg := analyzer.FindConfigForPath(p); cfg.Threshold = 1` would
+// silently mutate the analyzer's threshold map for every future call.
+func (ua *PathAnalyzer) FindConfigForPath(path string) CollapseConfig {
+	bestIdx := -1
 	bestLen := -1
 	for i := range ua.configs {
 		cfg := &ua.configs[i]
 		if hasPrefixAtBoundary(path, cfg.Prefix) && len(cfg.Prefix) > bestLen {
-			best = cfg
+			bestIdx = i
 			bestLen = len(cfg.Prefix)
 		}
 	}
-	// Fall back to the `/` default config if no per-prefix override
-	// matched — callers expect a non-nil result when *any* threshold
-	// applies, and the default always applies.
-	if best == nil {
-		return &ua.defaultCfg
+	if bestIdx == -1 {
+		return ua.defaultCfg
 	}
-	return best
+	return ua.configs[bestIdx]
 }
 
 // CollapseAdjacentDynamicIdentifiers replaces runs of adjacent
