@@ -127,6 +127,9 @@ func (a *ContainerProfileProcessor) userManagedConn(ctx context.Context) (*Stora
 	}
 	conn, ok := ctx.Value(connKey).(*sqlite.Conn)
 	if !ok {
+		userManagedConnWarnOnce.Do(func() {
+			logger.L().Warning("ContainerProfileProcessor.mergeUserManagedProfiles disabled - missing sqlite connection on context (WithConnection not applied)")
+		})
 		return nil, nil, false
 	}
 	return impl.GetStorageImpl(), conn, true
@@ -209,7 +212,12 @@ func overrideMerge(base, user map[string]string) map[string]string {
 // regardless of input ordering. Determinism keeps the consolidated CP's
 // SyncChecksum stable across re-merges of the same content.
 func appendDedupSortedMatchExpressions(base, user []metav1.LabelSelectorRequirement) []metav1.LabelSelectorRequirement {
-	combined := append(base, user...)
+	// Allocate a fresh backing array so the in-place dedup below cannot
+	// mutate base's storage (append(base, user...) would reuse it whenever
+	// cap(base) is large enough).
+	combined := make([]metav1.LabelSelectorRequirement, 0, len(base)+len(user))
+	combined = append(combined, base...)
+	combined = append(combined, user...)
 	if len(combined) == 0 {
 		return combined
 	}

@@ -271,6 +271,7 @@ func newE2EHarness(t *testing.T) *e2eHarness {
 	processor := &ContainerProfileProcessor{
 		DeleteThreshold:         0,
 		MaxContainerProfileSize: 40000,
+		HostType:                armotypes.HostTypeKubernetes,
 	}
 	s := &StorageImpl{
 		appFs:           afero.NewMemMapFs(),
@@ -669,6 +670,7 @@ func TestConsolidateUserManagedFanOut(t *testing.T) {
 	processor := &ContainerProfileProcessor{
 		DeleteThreshold:         0,
 		MaxContainerProfileSize: 40000,
+		HostType:                armotypes.HostTypeKubernetes,
 	}
 	s := &StorageImpl{
 		appFs:           afero.NewMemMapFs(),
