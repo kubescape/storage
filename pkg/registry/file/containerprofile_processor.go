@@ -464,7 +464,13 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		}
 	}
 
-	// Skip saving if no new data or invalid profile
+	// Skip saving if no new data or invalid profile.
+	//
+	// Note: when no new time-series data arrives, this returns before the
+	// user-managed (ug-) merge below. ug- edits to idle/Completed workloads
+	// don't propagate until the next tick that has new data. Accepted
+	// trade-off (kubescape/storage#315, "option (c)"); the 30s consolidation
+	// cadence keeps the lag bounded for active workloads.
 	if !newData {
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, skip saving profile", loggerhelpers.String("key", key))
 		return processed, nil
@@ -473,6 +479,12 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
 		return processed, nil
 	}
+
+	// Merge user-managed (ug-) AP/NN into the consolidated CP so node-agents
+	// can treat the CP as a single source of truth. Idempotent across ticks
+	// via a ResourceVersion marker stored on the CP annotations; best-effort
+	// (missing or unparseable user-managed CRDs are not an error).
+	a.mergeUserManagedProfiles(ctx, &profile, id)
 
 	// Update creation timestamp
 	if profile.CreationTimestamp.IsZero() {
