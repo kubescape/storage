@@ -140,7 +140,8 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 				return err
 			}
 			flags := cmd.Flags()
-			if err := flags.Set("feature-gates", "ServerSideApply=false"); err != nil {
+			// WatchList not yet implemented in the file-based storage backend, see https://github.com/kubescape/storage/issues/320
+			if err := flags.Set("feature-gates", "ServerSideApply=false,WatchList=false"); err != nil {
 				return err
 			}
 			return nil
