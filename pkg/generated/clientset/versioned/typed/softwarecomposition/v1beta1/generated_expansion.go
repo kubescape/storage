@@ -20,6 +20,8 @@ package v1beta1
 
 type ApplicationProfileExpansion interface{}
 
+type CollapseConfigurationExpansion interface{}
+
 type ConfigurationScanSummaryExpansion interface{}
 
 type ContainerProfileExpansion interface{}
