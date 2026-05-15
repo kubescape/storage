@@ -16,6 +16,7 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/registry/file/networkmatch"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/common"
 	"github.com/kubescape/storage/pkg/utils"
 )
@@ -104,7 +105,76 @@ func (NetworkNeighborhoodStrategy) Validate(_ context.Context, obj runtime.Objec
 		allErrors = append(allErrors, err)
 	}
 
+	allErrors = append(allErrors, validateNetworkProfileEntries(&ap.Spec)...)
+
 	return allErrors
+}
+
+// validateNetworkProfileEntries walks every NetworkNeighbor in the spec and
+// validates each IPAddresses[] and DNSNames[] entry against the v0.0.2
+// wildcard token grammar (spec §5.7, §5.8).
+//
+// This is the admission-time defence; runtime matchers also tolerate
+// malformed entries so a misconfigured profile doesn't kill the
+// detection path entirely.
+func validateNetworkProfileEntries(spec *softwarecomposition.NetworkNeighborhoodSpec) field.ErrorList {
+	var errs field.ErrorList
+	specPath := field.NewPath("spec")
+	// Ordered slice rather than a map: Go map iteration is non-deterministic,
+	// and admission errors flow back to clients via the apiserver. Stable
+	// ordering keeps error messages reproducible across requests and across
+	// test runs.
+	groups := []struct {
+		name  string
+		items []softwarecomposition.NetworkNeighborhoodContainer
+	}{
+		{name: "containers", items: spec.Containers},
+		{name: "initContainers", items: spec.InitContainers},
+		{name: "ephemeralContainers", items: spec.EphemeralContainers},
+	}
+	for _, g := range groups {
+		groupPath := specPath.Child(g.name)
+		for ci, c := range g.items {
+			containerPath := groupPath.Index(ci)
+			errs = append(errs, validateNeighborList(containerPath.Child("egress"), c.Egress)...)
+			errs = append(errs, validateNeighborList(containerPath.Child("ingress"), c.Ingress)...)
+		}
+	}
+	return errs
+}
+
+func validateNeighborList(parent *field.Path, list []softwarecomposition.NetworkNeighbor) field.ErrorList {
+	var errs field.ErrorList
+	for ni, n := range list {
+		nPath := parent.Index(ni)
+		ipsPath := nPath.Child("ipAddresses")
+		for ei, e := range n.IPAddresses {
+			if err := networkmatch.ValidateIPEntry(e); err != nil {
+				errs = append(errs, field.Invalid(ipsPath.Index(ei), e, err.Error()))
+			}
+		}
+		// Deprecated singular IPAddress is still accepted; validate it too
+		// so malformed values can't slip past admission via the old form.
+		if n.IPAddress != "" {
+			if err := networkmatch.ValidateIPEntry(n.IPAddress); err != nil {
+				errs = append(errs, field.Invalid(nPath.Child("ipAddress"), n.IPAddress, err.Error()))
+			}
+		}
+		dnsPath := nPath.Child("dnsNames")
+		for ei, e := range n.DNSNames {
+			if err := networkmatch.ValidateDNSEntry(e); err != nil {
+				errs = append(errs, field.Invalid(dnsPath.Index(ei), e, err.Error()))
+			}
+		}
+		// Deprecated singular DNS is still accepted; validate it too,
+		// mirroring the IPAddress pattern above.
+		if n.DNS != "" {
+			if err := networkmatch.ValidateDNSEntry(n.DNS); err != nil {
+				errs = append(errs, field.Invalid(nPath.Child("dns"), n.DNS, err.Error()))
+			}
+		}
+	}
+	return errs
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
@@ -135,6 +205,8 @@ func (NetworkNeighborhoodStrategy) ValidateUpdate(_ context.Context, obj, _ runt
 	if err := utils.ValidateStatusAnnotation(ap.Annotations); err != nil {
 		allErrors = append(allErrors, err)
 	}
+
+	allErrors = append(allErrors, validateNetworkProfileEntries(&ap.Spec)...)
 
 	return allErrors
 }
