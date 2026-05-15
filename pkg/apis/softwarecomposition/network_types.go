@@ -65,7 +65,11 @@ type NetworkNeighbor struct {
 	Ports             []NetworkPort
 	PodSelector       *metav1.LabelSelector
 	NamespaceSelector *metav1.LabelSelector
-	IPAddress         string
+	IPAddress         string // DEPRECATED - use IPAddresses instead.
+	// IPAddresses is the v0.0.2 list-form replacement for IPAddress.
+	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
+	// See pkg/registry/file/networkmatch for matcher semantics.
+	IPAddresses []string
 }
 
 type NetworkPort struct {

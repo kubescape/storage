@@ -61,7 +61,11 @@ type NetworkNeighbor struct {
 	Ports             []NetworkPort         `json:"ports" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,5,rep,name=ports"`
 	PodSelector       *metav1.LabelSelector `json:"podSelector" protobuf:"bytes,6,req,name=podSelector"`
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector" protobuf:"bytes,7,req,name=namespaceSelector"`
-	IPAddress         string                `json:"ipAddress" protobuf:"bytes,8,req,name=ipAddress"`
+	IPAddress         string                `json:"ipAddress" protobuf:"bytes,8,req,name=ipAddress"` // DEPRECATED - use IPAddresses instead.
+	// IPAddresses is the v0.0.2 list-form replacement for IPAddress.
+	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
+	// See pkg/registry/file/networkmatch for matcher semantics.
+	IPAddresses []string `json:"ipAddresses,omitempty" protobuf:"bytes,9,rep,name=ipAddresses"`
 }
 
 type NetworkPort struct {
