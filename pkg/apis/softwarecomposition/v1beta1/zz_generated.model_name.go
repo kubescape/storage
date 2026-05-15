@@ -72,6 +72,26 @@ func (in CallStackNode) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CollapseConfigEntry) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.CollapseConfigEntry"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CollapseConfiguration) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.CollapseConfiguration"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CollapseConfigurationList) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.CollapseConfigurationList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CollapseConfigurationSpec) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.CollapseConfigurationSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Component) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.Component"
 }

@@ -17,22 +17,38 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const (
-	OpenDynamicThreshold     = 50
-	EndpointDynamicThreshold = 100
-)
+// Thresholds are defined in dynamicpathdetector.OpenDynamicThreshold and
+// dynamicpathdetector.EndpointDynamicThreshold (single source of truth).
 
 type ApplicationProfileProcessor struct {
 	defaultNamespace          string
 	maxApplicationProfileSize int
 	storageImpl               ContainerProfileStorage
+	// collapseSettings is the lookup hook the deflate path consults for
+	// per-prefix thresholds. Defaults to dynamicpathdetector.DefaultCollapseSettings;
+	// production wiring may override via SetCollapseSettings to a provider that
+	// reads the cluster-scoped CollapseConfiguration "default" CR.
+	collapseSettings dynamicpathdetector.CollapseSettingsProvider
 }
 
 func NewApplicationProfileProcessor(cfg config.Config) *ApplicationProfileProcessor {
 	return &ApplicationProfileProcessor{
 		defaultNamespace:          cfg.DefaultNamespace,
 		maxApplicationProfileSize: cfg.MaxApplicationProfileSize,
+		collapseSettings:          dynamicpathdetector.DefaultCollapseSettings,
 	}
+}
+
+// SetCollapseSettings overrides the provider the deflate path uses to fetch
+// effective thresholds. Pass dynamicpathdetector.DefaultCollapseSettings to
+// fall back to compiled-in defaults; production wiring passes a provider
+// that reads the CollapseConfiguration CR.
+func (a *ApplicationProfileProcessor) SetCollapseSettings(p dynamicpathdetector.CollapseSettingsProvider) {
+	if p == nil {
+		a.collapseSettings = dynamicpathdetector.DefaultCollapseSettings
+		return
+	}
+	a.collapseSettings = p
 }
 
 var _ Processor = (*ApplicationProfileProcessor)(nil)
@@ -73,7 +89,7 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 			} else {
 				logger.L().Debug("failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", container.ImageTag), loggerhelpers.String("imageID", container.ImageID))
 			}
-			containers[i] = deflateApplicationProfileContainer(container, sbomSet)
+			containers[i] = deflateApplicationProfileContainer(container, sbomSet, a.collapseSettings())
 			size += len(containers[i].Execs)
 			size += len(containers[i].Opens)
 			size += len(containers[i].Syscalls)
@@ -108,13 +124,13 @@ func (a *ApplicationProfileProcessor) SetStorage(containerProfileStorage Contain
 	a.storageImpl = containerProfileStorage
 }
 
-func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string]) softwarecomposition.ApplicationProfileContainer {
-	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
+func deflateApplicationProfileContainer(container softwarecomposition.ApplicationProfileContainer, sbomSet mapset.Set[string], settings dynamicpathdetector.CollapseSettings) softwarecomposition.ApplicationProfileContainer {
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.OpenDynamicThreshold, settings.CollapseConfigs), sbomSet)
 	if err != nil {
 		logger.L().Debug("falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
-	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
+	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.EndpointDynamicThreshold, nil))
 	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
 
 	return softwarecomposition.ApplicationProfileContainer{

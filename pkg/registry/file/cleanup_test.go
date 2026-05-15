@@ -214,3 +214,71 @@ func unzipFile(f *zip.File, destination string, appFs afero.Fs) error {
 	}
 	return nil
 }
+
+// TestIsUserManaged pins the invariant that user-managed resources are
+// identified by an ANNOTATION (not a label). A previous version of the
+// cleanup skip read the marker from metadata.Labels, which silently
+// matched nothing (the marker is set as an annotation across the
+// codebase) and allowed user-defined profiles to be garbage-collected.
+// These cases would have passed with the Labels-reading implementation,
+// so keeping them green guards against re-introducing that regression.
+func TestIsUserManaged(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata *metav1.ObjectMeta
+		want     bool
+	}{
+		{
+			name: "annotation_marker_present_true",
+			metadata: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					helpersv1.ManagedByMetadataKey: helpersv1.ManagedByUserValue,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "only_label_marker_not_annotation_false",
+			metadata: &metav1.ObjectMeta{
+				Labels: map[string]string{
+					helpersv1.ManagedByMetadataKey: helpersv1.ManagedByUserValue,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "annotation_marker_different_value_false",
+			metadata: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					helpersv1.ManagedByMetadataKey: "something-else",
+				},
+			},
+			want: false,
+		},
+		{
+			name:     "no_annotations_no_labels_false",
+			metadata: &metav1.ObjectMeta{},
+			want:     false,
+		},
+		{
+			name:     "nil_metadata_false",
+			metadata: nil,
+			want:     false,
+		},
+		{
+			name: "other_annotation_without_managed_by_false",
+			metadata: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"unrelated/key": "value",
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isUserManaged(tt.metadata))
+		})
+	}
+}

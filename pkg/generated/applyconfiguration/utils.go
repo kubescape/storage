@@ -46,6 +46,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.CallStackApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("CallStackNode"):
 		return &softwarecompositionv1beta1.CallStackNodeApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("CollapseConfigEntry"):
+		return &softwarecompositionv1beta1.CollapseConfigEntryApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("CollapseConfiguration"):
+		return &softwarecompositionv1beta1.CollapseConfigurationApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("CollapseConfigurationSpec"):
+		return &softwarecompositionv1beta1.CollapseConfigurationSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Component"):
 		return &softwarecompositionv1beta1.ComponentApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Condition"):
