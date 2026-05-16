@@ -46,11 +46,23 @@ func DefaultCollapseConfigs() []CollapseConfig {
 	return append([]CollapseConfig(nil), defaultCollapseConfigs...)
 }
 
-// DefaultCollapseConfig is the global fallback used when no CollapseConfig
-// prefix matches the walked path.
-var DefaultCollapseConfig = CollapseConfig{
+// defaultCollapseConfig is the package-private global fallback used when
+// no CollapseConfig prefix matches the walked path. Exposed via the
+// DefaultCollapseConfig() accessor so callers can't mutate the package
+// state and silently corrupt every analyzer constructed afterward.
+// CodeRabbit upstream PR #323 finding #3.
+var defaultCollapseConfig = CollapseConfig{
 	Prefix:    "/",
 	Threshold: OpenDynamicThreshold,
+}
+
+// DefaultCollapseConfig returns a value copy of the package-private
+// fallback. Mutating the returned struct does not affect package state.
+// The accessor pattern matches DefaultCollapseConfigs() — both protect
+// the threshold-tuning surface from accidental cross-test or
+// cross-caller corruption.
+func DefaultCollapseConfig() CollapseConfig {
+	return defaultCollapseConfig
 }
 
 // --- Trie types ---

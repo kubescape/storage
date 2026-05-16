@@ -9,6 +9,7 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAnalyzeEndpoints(t *testing.T) {
@@ -170,6 +171,11 @@ func TestAnalyzeEndpoints(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.EndpointDynamicThreshold, nil)
 			result := dynamicpathdetector.AnalyzeEndpoints(&tt.input, analyzer)
+			// Length gate: ranging over result and indexing tt.expected[i]
+			// silently passes if result is shorter than expected (missing
+			// endpoints stay invisible). Assert equal length first.
+			// CodeRabbit upstream PR #326 outside-diff-range finding.
+			require.Len(t, result, len(tt.expected))
 			ja := jsonassert.New(t)
 			for i := range result {
 				assert.Equal(t, tt.expected[i].Endpoint, result[i].Endpoint)
