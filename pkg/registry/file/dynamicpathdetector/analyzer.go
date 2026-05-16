@@ -78,6 +78,16 @@ func (ua *PathAnalyzer) effectiveThreshold(pathPrefix string) int {
 // which means an explicit catch-all override could not actually override
 // the analyzer's default threshold.
 func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
+	// Empty-prefix guard. CodeRabbit upstream PR #323 finding #10:
+	// without this, hasPrefixAtBoundary("/foo", "") falls through to
+	// pathPrefix[0] == '/', which is true for any absolute path —
+	// effectively treating `""` as a root-matching prefix. None of the
+	// shipped configs use an empty prefix, but operators could supply
+	// one via CollapseConfiguration CR, and an explicit guard makes
+	// the invariant load-bearing rather than incidental.
+	if prefix == "" {
+		return true
+	}
 	if len(pathPrefix) < len(prefix) {
 		return false
 	}
@@ -378,7 +388,83 @@ func CompareDynamic(dynamicPath, regularPath string) bool {
 	if dynamicPath == "" || regularPath == "" {
 		return false
 	}
-	return compareSegments(splitPath(dynamicPath), splitPath(regularPath))
+	dynamic := splitPath(dynamicPath)
+	regular := splitPath(regularPath)
+	// Fast path: the recursive form is already O(n) for dynamic patterns
+	// with at most one `*`. Memoisation only earns its keep when the
+	// pattern has TWO OR MORE `*` segments — that's the multi-wildcard
+	// shape that triggers 2^n / n!-style re-entry. For the common
+	// single-`*` / no-`*` shapes the memo-map allocation is pure
+	// overhead, so we keep them on the lean recursive path.
+	// Upstream PR #326 rabbit finding #4 + the adversarial coverage in
+	// compare_dynamic_memoise_test.go drive this split.
+	if multipleWildcards(dynamic) {
+		memo := make(map[[2]int]bool, len(dynamic)*len(regular))
+		return compareSegmentsMemo(dynamic, regular, 0, 0, memo)
+	}
+	return compareSegments(dynamic, regular)
+}
+
+// multipleWildcards reports whether the dynamic-segment slice contains
+// more than one `*` segment. Single-`*` patterns can't backtrack
+// re-entrantly (the only `*` consumes monotonically from the same
+// starting point), so they're safe to keep on the non-memoised path.
+func multipleWildcards(dynamic []string) bool {
+	count := 0
+	for _, s := range dynamic {
+		if s == WildcardIdentifier {
+			count++
+			if count > 1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// compareSegmentsMemo is the DP-memoised core, reached only when the
+// dynamic pattern has two or more `*` segments. It walks (di, ri) cursor
+// pairs over the dynamic and regular slices. The semantics are identical
+// to compareSegments: only the redundant re-entry is eliminated.
+//
+// Per-state outcomes are cached in memo. On a cache hit the prior
+// boolean is returned directly; on a miss the recursive expansion runs
+// and the result is stored before return.
+func compareSegmentsMemo(dynamic, regular []string, di, ri int, memo map[[2]int]bool) bool {
+	if di == len(dynamic) {
+		return ri == len(regular)
+	}
+	key := [2]int{di, ri}
+	if v, ok := memo[key]; ok {
+		return v
+	}
+
+	var result bool
+	if dynamic[di] == WildcardIdentifier {
+		// Trailing `*` matches one OR MORE remaining segments — never
+		// zero. Identical semantics to the un-memoised form.
+		if di == len(dynamic)-1 {
+			result = ri < len(regular)
+		} else {
+			// Mid-path `*`: zero-or-more semantics. Try every offset
+			// including i == 0 (wildcard consumed zero segments). The
+			// memoisation cache absorbs the repeated work this loop
+			// would otherwise inflict on re-entrant states.
+			for i := ri; i <= len(regular); i++ {
+				if compareSegmentsMemo(dynamic, regular, di+1, i, memo) {
+					result = true
+					break
+				}
+			}
+		}
+	} else if ri == len(regular) {
+		result = false
+	} else if dynamic[di] == DynamicIdentifier || dynamic[di] == regular[ri] {
+		result = compareSegmentsMemo(dynamic, regular, di+1, ri+1, memo)
+	}
+
+	memo[key] = result
+	return result
 }
 
 // splitPath splits a path on `/` and trims trailing empty segments

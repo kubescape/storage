@@ -51,6 +51,19 @@ func (a *ApplicationProfileProcessor) SetCollapseSettings(p dynamicpathdetector.
 	a.collapseSettings = p
 }
 
+// effectiveCollapseSettings is the safe accessor for the deflate path. It
+// returns the result of the configured provider, or — when the processor
+// was constructed without using NewApplicationProfileProcessor (zero-value
+// field, no factory call) — the compiled-in defaults. Without this guard,
+// any direct struct-literal construction would nil-deref at deflate time.
+// CodeRabbit upstream PR #326 finding #3.
+func (a *ApplicationProfileProcessor) effectiveCollapseSettings() dynamicpathdetector.CollapseSettings {
+	if a.collapseSettings == nil {
+		return dynamicpathdetector.DefaultCollapseSettings()
+	}
+	return a.collapseSettings()
+}
+
 var _ Processor = (*ApplicationProfileProcessor)(nil)
 
 func (a *ApplicationProfileProcessor) AfterCreate(_ context.Context, _ runtime.Object) error {
@@ -89,7 +102,7 @@ func (a *ApplicationProfileProcessor) PreSave(ctx context.Context, object runtim
 			} else {
 				logger.L().Debug("failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", container.ImageTag), loggerhelpers.String("imageID", container.ImageID))
 			}
-			containers[i] = deflateApplicationProfileContainer(container, sbomSet, a.collapseSettings())
+			containers[i] = deflateApplicationProfileContainer(container, sbomSet, a.effectiveCollapseSettings())
 			size += len(containers[i].Execs)
 			size += len(containers[i].Opens)
 			size += len(containers[i].Syscalls)

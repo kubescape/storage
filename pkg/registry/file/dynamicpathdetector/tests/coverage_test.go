@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ func configThreshold(prefix string) int {
 			return cfg.Threshold
 		}
 	}
-	return dynamicpathdetector.DefaultCollapseConfig.Threshold
+	return dynamicpathdetector.DefaultCollapseConfig().Threshold
 }
 
 func TestNewPathAnalyzerWithConfigs(t *testing.T) {
@@ -572,6 +573,25 @@ func TestCompareDynamic_MidPathStarZeroOrMore(t *testing.T) {
 	}
 }
 
+// TestDefaultCollapseConfig_DefensiveCopy pins the same contract for
+// the singular DefaultCollapseConfig() accessor that previously lived
+// as an exported mutable var. CodeRabbit upstream PR #323 finding #3.
+// Any caller mutating the returned struct must not affect package state.
+func TestDefaultCollapseConfig_DefensiveCopy(t *testing.T) {
+	first := dynamicpathdetector.DefaultCollapseConfig()
+	original := first.Threshold
+
+	// Mutate the returned struct.
+	first.Threshold = 999_999
+	first.Prefix = "/poisoned"
+
+	second := dynamicpathdetector.DefaultCollapseConfig()
+	assert.Equal(t, original, second.Threshold,
+		"mutating the first call's struct must not change package state Threshold")
+	assert.NotEqual(t, "/poisoned", second.Prefix,
+		"mutating the first call's struct must not change package state Prefix")
+}
+
 // TestDefaultCollapseConfigs_DefensiveCopy pins the contract that the
 // public DefaultCollapseConfigs() accessor returns a fresh slice on
 // every call, so callers cannot accidentally mutate the package-level
@@ -644,4 +664,65 @@ func TestCompareDynamic_PathSeparatorEdges(t *testing.T) {
 				"CompareDynamic(%q, %q) = %v, want %v", tt.dynamic, tt.regular, got, tt.want)
 		})
 	}
+}
+
+// TestHasPrefixAtBoundary_EmptyPrefix pins CodeRabbit upstream PR #323
+// finding #10: when an operator-supplied CollapseConfig declares an
+// empty prefix (intentional or accidental), the boundary check must
+// not silently degenerate into "any absolute path is a match". The
+// explicit `prefix == ""` branch makes the invariant load-bearing.
+//
+// We exercise the matcher indirectly via lookupThreshold so the test
+// stays at the public-API surface. Constructing the analyzer with a
+// custom config that has an empty prefix must NOT cause every path to
+// claim that config's threshold; the empty-prefix config should be
+// either authoritative for ALL paths (current chosen semantics) or
+// rejected by the analyzer. Either way the behaviour is now explicit
+// rather than incidental — re-pinning will catch any silent change.
+func TestHasPrefixAtBoundary_EmptyPrefix(t *testing.T) {
+	a := dynamicpathdetector.NewPathAnalyzerWithConfigs(
+		dynamicpathdetector.OpenDynamicThreshold,
+		[]dynamicpathdetector.CollapseConfig{
+			{Prefix: "", Threshold: 1},
+		},
+	)
+	// With the empty-prefix guard returning true, this config is the
+	// longest match for every path (length 0 < any other config length,
+	// so the most-specific tie-break still favours longer prefixes).
+	// What we're pinning is that the lookup itself doesn't crash and
+	// the empty prefix is treated as universally matching.
+	require.NotNil(t, a, "analyzer must construct with an empty-prefix config")
+
+	// Pure unit on the boundary check: exposed via FindConfigForPath,
+	// which routes through hasPrefixAtBoundary.
+	cfg := a.FindConfigForPath("/anything")
+	assert.Equal(t, 1, cfg.Threshold,
+		"empty prefix must match any absolute path and yield its threshold")
+}
+
+// TestBuildEndpointKey_SharedFormat pins CodeRabbit upstream PR #323
+// finding #5: getEndpointKey and the wildcard-key construction inside
+// MergeDuplicateEndpoints must produce the same shape for the same
+// (Endpoint, Direction, Internal) tuple, so a wildcard sibling and its
+// specific-port counterpart map to the same dedup slot. Both now route
+// through buildEndpointKey — this test pins the format end-to-end via
+// MergeDuplicateEndpoints behaviour.
+//
+// Setup: feed two endpoints with the same path-part and direction but
+// different ports (one wildcard ":0/...", one ":8080/..."). After the
+// merge the specific-port entry must be absorbed into the wildcard's
+// Methods set, with no duplicate entry surviving.
+func TestBuildEndpointKey_SharedFormat(t *testing.T) {
+	in := []*types.HTTPEndpoint{
+		{Endpoint: ":0/api/v1/users", Direction: "internal", Internal: true, Methods: []string{"GET"}},
+		{Endpoint: ":8080/api/v1/users", Direction: "internal", Internal: true, Methods: []string{"POST"}},
+	}
+	merged := dynamicpathdetector.MergeDuplicateEndpoints(in)
+	assert.Len(t, merged, 1,
+		"specific-port endpoint must fold into the wildcard sibling exactly once")
+	// Methods must be merged into the surviving wildcard entry.
+	require.NotEmpty(t, merged, "merged slice must contain the wildcard entry")
+	got := merged[0].Methods
+	assert.Contains(t, got, "GET")
+	assert.Contains(t, got, "POST")
 }

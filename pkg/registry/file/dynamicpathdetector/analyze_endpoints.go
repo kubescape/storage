@@ -10,6 +10,7 @@ import (
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 )
 
 func isWildcardPort(port string) bool {
@@ -184,7 +185,9 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 		// (path, direction, Internal) is already in `seen`, fold this entry
 		// into it. The wildcardKey shape MUST match getEndpointKey exactly so
 		// the lookup hits the same map slot the wildcard was inserted under.
-		wildcardKey := fmt.Sprintf(":0%s|%s|%t", pathPart, endpoint.Direction, endpoint.Internal)
+		// CodeRabbit upstream PR #323 finding #5: the two formats are
+		// derived from the same helper to remove the duplication risk.
+		wildcardKey := buildEndpointKey(":0"+pathPart, endpoint.Direction, endpoint.Internal)
 		if existing, found := seen[wildcardKey]; found {
 			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
 			mergeHeaders(existing, endpoint)
@@ -201,6 +204,14 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 // removeEndpoint returns a new slice with the first occurrence of target
 // removed (compared by pointer). Used by MergeDuplicateEndpoints when a
 // previously-recorded specific-port entry is absorbed into a later wildcard.
+//
+// NOTE — in-place backing-array mutation: the `append(s[:i], s[i+1:]...)`
+// pattern shifts elements left within the original backing array, leaving
+// a stale pointer at s[len-1] outside the returned slice. The sole caller
+// immediately replaces `newEndpoints` with the return value, so there is
+// no live alias today. If a future refactor stores intermediate slice
+// references, swap to a copy-based removal to avoid action-at-a-distance.
+// CodeRabbit upstream PR #323 finding #9.
 func removeEndpoint(s []*types.HTTPEndpoint, target *types.HTTPEndpoint) []*types.HTTPEndpoint {
 	for i, e := range s {
 		if e == target {
@@ -212,10 +223,20 @@ func removeEndpoint(s []*types.HTTPEndpoint, target *types.HTTPEndpoint) []*type
 
 // getEndpointKey returns a key that uniquely identifies an HTTPEndpoint by
 // the same fields HTTPEndpoint.Equal compares: Endpoint, Direction, Internal.
-// Keep this in sync with the wildcardKey shape constructed in
-// MergeDuplicateEndpoints — the two MUST hash identical entries identically.
+// CodeRabbit upstream PR #323 finding #5: both this function and the
+// wildcard-key construction in MergeDuplicateEndpoints route through
+// buildEndpointKey so the format can't drift between the two callsites.
 func getEndpointKey(endpoint *types.HTTPEndpoint) string {
-	return fmt.Sprintf("%s|%s|%t", endpoint.Endpoint, endpoint.Direction, endpoint.Internal)
+	return buildEndpointKey(endpoint.Endpoint, endpoint.Direction, endpoint.Internal)
+}
+
+// buildEndpointKey is the single source of truth for the endpoint-lookup
+// key shape used by MergeDuplicateEndpoints. Inlining the fmt.Sprintf at
+// two callsites is what allowed the two formats to drift in the past
+// (e.g. one with %s|%s|%t and another with %s|%s|%v). Keep this helper
+// the only producer of the key.
+func buildEndpointKey(endpoint string, direction consts.NetworkDirection, internal bool) string {
+	return fmt.Sprintf("%s|%s|%t", endpoint, direction, internal)
 }
 
 func mergeHeaders(existing, new *types.HTTPEndpoint) {

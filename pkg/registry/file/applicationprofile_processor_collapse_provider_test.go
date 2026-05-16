@@ -24,6 +24,7 @@ import (
 	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestApplicationProfileProcessor_DefaultCollapseSettings_Wired pins that
@@ -151,6 +152,37 @@ func TestApplicationProfileProcessor_SetCollapseSettings_DefensiveSetterCopy(t *
 	result := deflateApplicationProfileContainer(container, nil, a.collapseSettings())
 	assert.Equal(t, 5, len(result.Opens),
 		"after mutating the captured slice, the provider returns the new threshold and paths stay distinct")
+}
+
+// TestApplicationProfileProcessor_ZeroValue_NoPanicOnCollapseSettings pins
+// the defensive contract that a zero-valued ApplicationProfileProcessor
+// — constructed with `&ApplicationProfileProcessor{...}` instead of via
+// the NewApplicationProfileProcessor factory — must not panic when
+// PreSave reaches the deflate path. The compiled-in defaults are an
+// acceptable fallback; a nil-function dereference is not. CodeRabbit
+// upstream PR #326 finding #3 (applicationprofile_processor.go:92).
+func TestApplicationProfileProcessor_ZeroValue_NoPanicOnCollapseSettings(t *testing.T) {
+	// Direct struct literal — collapseSettings is left as the zero value (nil).
+	a := &ApplicationProfileProcessor{}
+
+	// The safe accessor must NOT panic. The result must match the
+	// compiled-in defaults across ALL fields, not just OpenDynamicThreshold —
+	// otherwise a regression that resets EndpointDynamicThreshold (or any
+	// future field added to CollapseSettings) to its zero value would
+	// silently pass this guard. CodeRabbit follow-up review on storage PR #33.
+	require.NotPanics(t, func() {
+		got := a.effectiveCollapseSettings()
+		want := dynamicpathdetector.DefaultCollapseSettings()
+		assert.Equal(t, want, got,
+			"zero-valued processor must fall back to the FULL DefaultCollapseSettings struct, got %+v want %+v",
+			got, want)
+	})
+
+	// Direct field-call still panics — that's an "I know what I'm doing"
+	// path. The contract is only that the safe accessor (used by PreSave
+	// → deflate) is panic-free.
+	assert.Panics(t, func() { _ = a.collapseSettings() },
+		"raw field-call on zero-valued processor still panics; only the safe accessor is guarded")
 }
 
 // assertSettingsMatchProcessor is a placeholder for richer wiring assertions.

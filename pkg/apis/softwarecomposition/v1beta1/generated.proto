@@ -914,6 +914,13 @@ message NetworkNeighbor {
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector namespaceSelector = 7;
 
   optional string ipAddress = 8;
+
+  // IPAddresses is the v0.0.2 list-form replacement for the deprecated
+  // single-IP `ipAddress` field. It allows a single NetworkNeighbor entry
+  // to enumerate several remote endpoints (after dedup/coalesce) without
+  // forcing one row per IP. Existing consumers that read `ipAddress`
+  // continue to work for legacy single-IP entries.
+  repeated string ipAddresses = 9;
 }
 
 // NetworkNeighborhood represents a list of network communications for a specific workload.
