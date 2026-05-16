@@ -5,7 +5,7 @@ Wildcard-aware matchers for the `NetworkNeighbor.IPAddresses` and
 `nn.was_address_in_{egress,ingress}` and `nn.is_domain_in_{egress,ingress}`.
 
 This package is the runtime counterpart to the spec sections §5.7 (IP)
-and §5.8 (DNS) at <https://billofbehavior.com/bob/docs/drafts/spec-v0.0.2/>.
+and §5.8 (DNS) at <https://billofbehavior.fusioncore.ai/bob/docs/drafts/spec-v0.0.2/>.
 
 ## Wildcard token vocabulary
 
