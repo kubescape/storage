@@ -282,6 +282,14 @@ func TestCompareExecArgs_Argv0BareName(t *testing.T) {
 //
 // CodeRabbit flagged the unmemoised version on PR #27 (Major).
 func TestCompareExecArgs_ReDoSResistance(t *testing.T) {
+	// Skip in short mode: this test has a wall-clock budget that is
+	// inherently sensitive to runner CPU contention. The functional
+	// regression intent is preserved — the memoisation correctness is
+	// also covered by the explicit case-table tests above which always
+	// run. CodeRabbit upstream PR #326 finding #5.
+	if testing.Short() {
+		t.Skip("skip timing-sensitive ReDoS regression in short mode")
+	}
 	// 20 leading wildcards + a literal that won't match. Without
 	// memoisation, the naïve matcher tries roughly 2^20 path splits
 	// before failing — observable as a many-second test. The
