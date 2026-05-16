@@ -24,6 +24,7 @@ import (
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/collapseconfiguration"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/containerprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
@@ -160,6 +161,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	)
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
 		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
+		"collapseconfigurations":              ep(collapseconfiguration.NewREST),
 		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
 		"containerprofiles":                   ep(containerprofile.NewREST, containerProfileStorageImpl),
 		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),

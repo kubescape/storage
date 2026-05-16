@@ -41,6 +41,14 @@ func (*CallStack) ProtoMessage() {}
 
 func (*CallStackNode) ProtoMessage() {}
 
+func (*CollapseConfigEntry) ProtoMessage() {}
+
+func (*CollapseConfiguration) ProtoMessage() {}
+
+func (*CollapseConfigurationList) ProtoMessage() {}
+
+func (*CollapseConfigurationSpec) ProtoMessage() {}
+
 func (*Component) ProtoMessage() {}
 
 func (*Condition) ProtoMessage() {}

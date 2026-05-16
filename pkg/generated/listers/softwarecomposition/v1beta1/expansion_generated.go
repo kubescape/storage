@@ -26,6 +26,10 @@ type ApplicationProfileListerExpansion interface{}
 // ApplicationProfileNamespaceLister.
 type ApplicationProfileNamespaceListerExpansion interface{}
 
+// CollapseConfigurationListerExpansion allows custom methods to be added to
+// CollapseConfigurationLister.
+type CollapseConfigurationListerExpansion interface{}
+
 // ConfigurationScanSummaryListerExpansion allows custom methods to be added to
 // ConfigurationScanSummaryLister.
 type ConfigurationScanSummaryListerExpansion interface{}

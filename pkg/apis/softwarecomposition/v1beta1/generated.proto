@@ -131,6 +131,51 @@ message CallStackNode {
   optional StackFrame frame = 2;
 }
 
+// CollapseConfigEntry is one per-prefix threshold override.
+message CollapseConfigEntry {
+  // Prefix is the path prefix to match (e.g. "/etc", "/opt").
+  optional string prefix = 1;
+
+  // Threshold is the maximum number of unique children allowed at any
+  // trie node under Prefix before that node collapses to a single
+  // dynamic identifier.
+  optional int32 threshold = 2;
+}
+
+// CollapseConfiguration is a cluster-scoped resource carrying per-prefix
+// thresholds for the dynamic-path-detector's open/endpoint collapse step.
+// The storage server's deflate path reads the singleton (name "default")
+// and feeds its entries into NewPathAnalyzerWithConfigs at runtime.
+message CollapseConfiguration {
+  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
+
+  optional CollapseConfigurationSpec spec = 2;
+}
+
+// CollapseConfigurationList is a list of CollapseConfiguration objects.
+message CollapseConfigurationList {
+  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
+
+  repeated CollapseConfiguration items = 2;
+}
+
+// CollapseConfigurationSpec carries the cluster-wide collapse thresholds.
+message CollapseConfigurationSpec {
+  // OpenDynamicThreshold is the fallback threshold for AnalyzeOpens when
+  // no per-prefix entry matches the walked path.
+  optional int32 openDynamicThreshold = 1;
+
+  // EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints.
+  optional int32 endpointDynamicThreshold = 2;
+
+  // CollapseConfigs is the per-prefix threshold override list, evaluated
+  // longest-prefix-wins. Each entry is keyed by Prefix so server-side
+  // apply patches one entry at a time instead of replacing the slice.
+  // +listType=map
+  // +listMapKey=prefix
+  repeated CollapseConfigEntry collapseConfigs = 3;
+}
+
 message Component {
   // ID is an IRI identifying the component. It is optional as the component
   // can also be identified using hashes or software identifiers.

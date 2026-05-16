@@ -83,6 +83,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SBOMSyftFilteredList{},
 		&SeccompProfile{},
 		&SeccompProfileList{},
+		&CollapseConfiguration{},
+		&CollapseConfigurationList{},
 	)
 	return nil
 }
