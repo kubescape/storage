@@ -29,6 +29,7 @@ import (
 type SpdxV1beta1Interface interface {
 	RESTClient() rest.Interface
 	ApplicationProfilesGetter
+	CollapseConfigurationsGetter
 	ConfigurationScanSummariesGetter
 	ContainerProfilesGetter
 	GeneratedNetworkPoliciesGetter
@@ -52,6 +53,10 @@ type SpdxV1beta1Client struct {
 
 func (c *SpdxV1beta1Client) ApplicationProfiles(namespace string) ApplicationProfileInterface {
 	return newApplicationProfiles(c, namespace)
+}
+
+func (c *SpdxV1beta1Client) CollapseConfigurations() CollapseConfigurationInterface {
+	return newCollapseConfigurations(c)
 }
 
 func (c *SpdxV1beta1Client) ConfigurationScanSummaries(namespace string) ConfigurationScanSummaryInterface {
