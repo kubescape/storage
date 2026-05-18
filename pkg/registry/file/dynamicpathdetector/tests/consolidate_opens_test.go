@@ -24,6 +24,7 @@ import (
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // extractPathsFromOpens returns just the paths from a slice of OpenCalls,
@@ -106,7 +107,7 @@ func TestConsolidateOpens_FlagsMergeIntoPattern(t *testing.T) {
 	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, nil)
 	assert.NoError(t, err)
 
-	assert.Len(t, result, 1, "all three /tmp paths should consolidate to one pattern")
+	require.Len(t, result, 1, "all three /tmp paths should consolidate to one pattern")
 	assert.Equal(t, "/tmp/⋯", result[0].Path)
 	assert.Contains(t, result[0].Flags, "O_RDONLY")
 	assert.Contains(t, result[0].Flags, "O_WRONLY")

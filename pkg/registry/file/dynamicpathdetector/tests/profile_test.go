@@ -72,6 +72,18 @@ func TestProfileAnalyzePath(t *testing.T) {
 	if err := pprof.StartCPUProfile(cpuFile); err != nil {
 		t.Fatalf("start cpu profile: %v", err)
 	}
+	// Defensive cleanup guard: any future early-exit path (or refactor
+	// that adds one) between Start and the explicit Stop below would
+	// leak CPU-profile state without this. The flag becomes true once
+	// we've stopped explicitly so the defer is a no-op on the happy
+	// path. CodeRabbit upstream PR #323 review.
+	cpuProfileStopped := false
+	defer func() {
+		if !cpuProfileStopped {
+			pprof.StopCPUProfile()
+			_ = cpuFile.Close()
+		}
+	}()
 
 	// Force a clean GC baseline so MemStats numbers reflect only the
 	// measured section.
@@ -82,6 +94,7 @@ func TestProfileAnalyzePath(t *testing.T) {
 	for i := 0; i < *profileIters; i++ {
 		if _, err := analyzer.AnalyzePath(paths[i%len(paths)], identifier); err != nil {
 			pprof.StopCPUProfile()
+			cpuProfileStopped = true
 			if cerr := cpuFile.Close(); cerr != nil {
 				t.Logf("close cpu profile after error: %v", cerr)
 			}
@@ -98,6 +111,7 @@ func TestProfileAnalyzePath(t *testing.T) {
 	runtime.ReadMemStats(&after)
 
 	pprof.StopCPUProfile()
+	cpuProfileStopped = true
 	if err := cpuFile.Close(); err != nil {
 		t.Fatalf("close cpu profile: %v", err)
 	}
