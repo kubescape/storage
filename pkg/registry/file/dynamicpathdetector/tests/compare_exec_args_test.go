@@ -313,10 +313,13 @@ func TestCompareExecArgs_ReDoSResistance(t *testing.T) {
 		t.Errorf("expected mismatch for trailing-literal that isn't in runtime")
 	}
 	// Memoised matcher: 21 * 51 = ~1100 states, each O(R) work for
-	// the wildcard split → total bound ~50K ops. Generous budget of
-	// 100ms catches any regression to the unmemoised form (which
-	// would be measured in seconds, not milliseconds, on this input).
-	if elapsed > 100*time.Millisecond {
+	// the wildcard split → total bound ~50K ops. The unmemoised form
+	// would take many SECONDS on this input, so a 2-second budget
+	// still catches every meaningful regression while tolerating
+	// loaded CI runners — 100 ms was too tight in practice and
+	// produced false alarms on contended runners (CodeRabbit
+	// upstream PR #326 review).
+	if elapsed > 2*time.Second {
 		t.Errorf("matcher took %v on adversarial input — memoisation regression?", elapsed)
 	}
 }
