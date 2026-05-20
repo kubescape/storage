@@ -99,6 +99,14 @@ func BenchmarkCompareDynamic(b *testing.B) {
 		{"unanchored_star_root", "*", "/"},
 		{"deep_literal_match", "/var/log/syslog", "/var/log/syslog"},
 		{"deep_literal_mismatch", "/var/log/syslog", "/var/log/messages"},
+		// Consecutive `*` runs \u2014 pre-collapse experiment.
+		// These shapes used to hit the memoised path (2+ `*` segments)
+		// and allocate ~6.5 KB per call. With collapse_consecutive_stars
+		// at matcher entry they should fold to a single `*` and run
+		// through the zero-alloc linear path.
+		{"consec_two_stars_mid", "/a/*/*/b", "/a/x/y/b"},
+		{"consec_four_stars_trail", "/a/*/*/*/*", "/a/b/c/d/e"},
+		{"consec_redos_adversarial", "/*/*/*/*/sentinel", "/a/b/c/d/e/f/g/h/sentinel"},
 	}
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {

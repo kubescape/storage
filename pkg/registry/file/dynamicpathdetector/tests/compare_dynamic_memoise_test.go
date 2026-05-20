@@ -283,3 +283,49 @@ func TestCompareDynamic_MemoiseAllocCeiling(t *testing.T) {
 		})
 	}
 }
+
+// TestCompareDynamic_ZeroAllocHotPath pins Matthias's upstream PR #323
+// perf review: the 0-or-1 `*` shapes — including the R0002 hot path
+// (`/etc/*` vs `/etc/ssh/sshd_config`) — MUST execute with zero
+// allocations. The pre-PR splitPath dispatch made every call allocate
+// 2 slices (~112 B); the index-based compareSegmentsIndex path restored
+// the upstream zero-alloc target.
+//
+// This pins the contract structurally — any future refactor that
+// re-introduces splitPath on the 0/1-`*` path fails this test.
+func TestCompareDynamic_ZeroAllocHotPath(t *testing.T) {
+	cases := []struct {
+		name, dyn, reg string
+	}{
+		// 0-`*` shapes
+		{"literal_exact_match", "/etc/resolv.conf", "/etc/resolv.conf"},
+		{"literal_mismatch", "/etc/resolv.conf", "/etc/passwd"},
+		{"ellipsis_match", "/api/⋯/users", "/api/v1/users"},
+		// 1-`*` shapes — the R0002 hot path
+		{"trailing_star_match", "/etc/*", "/etc/ssh/sshd_config"},
+		{"trailing_star_no_match_on_parent", "/etc/*", "/etc"},
+		{"mid_star_zero", "/a/*/b", "/a/b"},
+		{"mid_star_many", "/a/*/b", "/a/x/y/z/b"},
+		{"unanchored_star", "*", "/"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Warm-up to absorb any one-off setup cost.
+			for i := 0; i < 100; i++ {
+				_ = dynamicpathdetector.CompareDynamic(tc.dyn, tc.reg)
+			}
+			var before, after runtime.MemStats
+			runtime.GC()
+			runtime.ReadMemStats(&before)
+			const iters = 10_000
+			for i := 0; i < iters; i++ {
+				_ = dynamicpathdetector.CompareDynamic(tc.dyn, tc.reg)
+			}
+			runtime.ReadMemStats(&after)
+			allocs := after.Mallocs - before.Mallocs
+			require.Equalf(t, uint64(0), allocs,
+				"%s: %d allocs across %d iters — 0/1-`*` shapes MUST be zero-allocation per Matthias upstream PR #323",
+				tc.name, allocs, iters)
+		})
+	}
+}
