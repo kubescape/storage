@@ -7,28 +7,42 @@ import (
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/kubescape/go-logger"
+	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 )
+
+func isWildcardPort(port string) bool {
+	return port == "0"
+}
 
 func AnalyzeEndpoints(endpoints *[]types.HTTPEndpoint, analyzer *PathAnalyzer) []types.HTTPEndpoint {
 	if len(*endpoints) == 0 {
 		return nil
 	}
 
-	var newEndpoints []*types.HTTPEndpoint
+	// First pass: build the analyzer trie from each endpoint's true (port,
+	// path) tuple. Each port keys a separate sub-tree, so :0/foo and
+	// :443/foo are analyzed independently — :443/foo is NOT rewritten to
+	// :0/foo just because some unrelated endpoint also uses :0.
 	for _, endpoint := range *endpoints {
 		_, _ = AnalyzeURL(endpoint.Endpoint, analyzer)
 	}
 
+	// Second pass: process endpoints with their original ports.
+	var newEndpoints []*types.HTTPEndpoint
 	for _, endpoint := range *endpoints {
-		processedEndpoint, err := ProcessEndpoint(&endpoint, analyzer, newEndpoints)
+		ep := endpoint
+		processedEndpoint, err := ProcessEndpoint(&ep, analyzer, newEndpoints)
 		if processedEndpoint == nil && err == nil || err != nil {
 			continue
-		} else {
-			newEndpoints = append(newEndpoints, processedEndpoint)
 		}
+		newEndpoints = append(newEndpoints, processedEndpoint)
 	}
 
+	// Cross-port folding happens here: only same-(path, direction) siblings
+	// of an explicit :0 wildcard get absorbed into it.
 	newEndpoints = MergeDuplicateEndpoints(newEndpoints)
 
 	return convertPointerToValueSlice(newEndpoints)
@@ -88,6 +102,50 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 	return ":" + port + path, nil
 }
 
+// splitEndpointPortAndPath splits the canonical `:<port><path>` form
+// produced by AnalyzeURL into its (port, path) parts.
+//
+// Defensive contract: AnalyzeURL guarantees a leading `:` and a port
+// segment, but callers and tests sometimes pass bare paths (e.g.
+// "/health") for ad-hoc lookups. To keep merge keys deterministic,
+// this helper returns empty port + leading-slash-normalised path for
+// any input that does not start with `:`. The empty string returns
+// ("", "/") to match the original fall-through behavior.
+func splitEndpointPortAndPath(endpoint string) (string, string) {
+	if !strings.HasPrefix(endpoint, ":") {
+		if endpoint == "" {
+			return "", "/"
+		}
+		if !strings.HasPrefix(endpoint, "/") {
+			endpoint = "/" + endpoint
+		}
+		return "", endpoint
+	}
+	s := endpoint[1:]
+	idx := strings.Index(s, "/")
+	if idx == -1 {
+		return s, "/"
+	}
+	return s[:idx], s[idx:]
+}
+
+// MergeDuplicateEndpoints folds duplicates and merges same-path specific-port
+// endpoints into a wildcard-port (:0) sibling. Folding is symmetric and is
+// keyed on the same triple HTTPEndpoint.Equal compares — (Endpoint,
+// Direction, Internal). An Internal=false endpoint will therefore NOT merge
+// with an Internal=true sibling even if their path and direction match.
+//
+//   - If a specific-port endpoint is encountered AFTER its :0 sibling, the
+//     specific-port methods/headers are merged INTO the wildcard entry.
+//   - If a specific-port endpoint is encountered BEFORE its :0 sibling, it
+//     is initially recorded; when the wildcard arrives we sweep `seen` for
+//     same-(path, direction, Internal) specific-port siblings, fold them
+//     into the wildcard, and remove them from the output.
+//
+// This contract was tightened on the back of upstream review on
+// kubescape/storage#316 — a single :0 entry must NOT cause unrelated
+// concrete-port endpoints to be wildcarded; only same-path same-Internal
+// siblings fold.
 func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpoint {
 	seen := make(map[string]*types.HTTPEndpoint)
 	var newEndpoints []*types.HTTPEndpoint
@@ -97,21 +155,91 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 		if existing, found := seen[key]; found {
 			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
 			mergeHeaders(existing, endpoint)
-		} else {
+			continue
+		}
+
+		port, pathPart := splitEndpointPortAndPath(endpoint.Endpoint)
+
+		if isWildcardPort(port) {
+			// Wildcard arriving after specific-port siblings — sweep `seen`
+			// for any same-(path, direction, Internal) specific-port entries
+			// already recorded, fold them into the wildcard, then drop them
+			// from the output slice.
+			for k, e := range seen {
+				ePort, ePath := splitEndpointPortAndPath(e.Endpoint)
+				if isWildcardPort(ePort) || ePath != pathPart ||
+					e.Direction != endpoint.Direction || e.Internal != endpoint.Internal {
+					continue
+				}
+				endpoint.Methods = MergeStrings(endpoint.Methods, e.Methods)
+				mergeHeaders(endpoint, e)
+				delete(seen, k)
+				newEndpoints = removeEndpoint(newEndpoints, e)
+			}
 			seen[key] = endpoint
 			newEndpoints = append(newEndpoints, endpoint)
+			continue
 		}
+
+		// Specific port: if a wildcard sibling for the same
+		// (path, direction, Internal) is already in `seen`, fold this entry
+		// into it. The wildcardKey shape MUST match getEndpointKey exactly so
+		// the lookup hits the same map slot the wildcard was inserted under.
+		// CodeRabbit upstream PR #323 finding #5: the two formats are
+		// derived from the same helper to remove the duplication risk.
+		wildcardKey := buildEndpointKey(":0"+pathPart, endpoint.Direction, endpoint.Internal)
+		if existing, found := seen[wildcardKey]; found {
+			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
+			mergeHeaders(existing, endpoint)
+			continue
+		}
+
+		seen[key] = endpoint
+		newEndpoints = append(newEndpoints, endpoint)
 	}
 
 	return newEndpoints
 }
 
+// removeEndpoint returns a new slice with the first occurrence of target
+// removed (compared by pointer). Used by MergeDuplicateEndpoints when a
+// previously-recorded specific-port entry is absorbed into a later wildcard.
+//
+// NOTE — in-place backing-array mutation: the `append(s[:i], s[i+1:]...)`
+// pattern shifts elements left within the original backing array, leaving
+// a stale pointer at s[len-1] outside the returned slice. The sole caller
+// immediately replaces `newEndpoints` with the return value, so there is
+// no live alias today. If a future refactor stores intermediate slice
+// references, swap to a copy-based removal to avoid action-at-a-distance.
+// CodeRabbit upstream PR #323 finding #9.
+func removeEndpoint(s []*types.HTTPEndpoint, target *types.HTTPEndpoint) []*types.HTTPEndpoint {
+	for i, e := range s {
+		if e == target {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
+// getEndpointKey returns a key that uniquely identifies an HTTPEndpoint by
+// the same fields HTTPEndpoint.Equal compares: Endpoint, Direction, Internal.
+// CodeRabbit upstream PR #323 finding #5: both this function and the
+// wildcard-key construction in MergeDuplicateEndpoints route through
+// buildEndpointKey so the format can't drift between the two callsites.
 func getEndpointKey(endpoint *types.HTTPEndpoint) string {
-	return fmt.Sprintf("%s|%s", endpoint.Endpoint, endpoint.Direction)
+	return buildEndpointKey(endpoint.Endpoint, endpoint.Direction, endpoint.Internal)
+}
+
+// buildEndpointKey is the single source of truth for the endpoint-lookup
+// key shape used by MergeDuplicateEndpoints. Inlining the fmt.Sprintf at
+// two callsites is what allowed the two formats to drift in the past
+// (e.g. one with %s|%s|%t and another with %s|%s|%v). Keep this helper
+// the only producer of the key.
+func buildEndpointKey(endpoint string, direction consts.NetworkDirection, internal bool) string {
+	return fmt.Sprintf("%s|%s|%t", endpoint, direction, internal)
 }
 
 func mergeHeaders(existing, new *types.HTTPEndpoint) {
-	// TODO: Find a better way to unmashal the headers
 	existingHeaders, err := existing.GetHeaders()
 	if err != nil {
 		return
@@ -133,7 +261,12 @@ func mergeHeaders(existing, new *types.HTTPEndpoint) {
 
 	rawJSON, err := json.Marshal(existingHeaders)
 	if err != nil {
-		fmt.Println("Error marshaling JSON:", err)
+		// Don't pollute stdout from a library function. The caller has
+		// no signal-back path here (mergeHeaders is a void helper) so
+		// log at Debug and bail — leaving Headers untouched is the
+		// safer choice than corrupting them with a partial marshal.
+		logger.L().Debug("mergeHeaders: failed to marshal merged headers, leaving existing untouched",
+			loggerhelpers.Error(err))
 		return
 	}
 
