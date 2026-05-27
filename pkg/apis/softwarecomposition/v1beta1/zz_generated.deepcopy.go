@@ -1963,6 +1963,11 @@ func (in *NetworkNeighbor) DeepCopyInto(out *NetworkNeighbor) {
 		*out = new(metav1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.IPAddresses != nil {
+		in, out := &in.IPAddresses, &out.IPAddresses
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

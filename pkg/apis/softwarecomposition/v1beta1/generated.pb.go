@@ -4207,6 +4207,15 @@ func (m *NetworkNeighbor) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.IPAddresses) > 0 {
+		for iNdEx := len(m.IPAddresses) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.IPAddresses[iNdEx])
+			copy(dAtA[i:], m.IPAddresses[iNdEx])
+			i = encodeVarintGenerated(dAtA, i, uint64(len(m.IPAddresses[iNdEx])))
+			i--
+			dAtA[i] = 0x4a
+		}
+	}
 	i -= len(m.IPAddress)
 	copy(dAtA[i:], m.IPAddress)
 	i = encodeVarintGenerated(dAtA, i, uint64(len(m.IPAddress)))
@@ -10302,6 +10311,12 @@ func (m *NetworkNeighbor) Size() (n int) {
 	}
 	l = len(m.IPAddress)
 	n += 1 + l + sovGenerated(uint64(l))
+	if len(m.IPAddresses) > 0 {
+		for _, s := range m.IPAddresses {
+			l = len(s)
+			n += 1 + l + sovGenerated(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -13143,6 +13158,7 @@ func (this *NetworkNeighbor) String() string {
 		`PodSelector:` + strings.Replace(fmt.Sprintf("%v", this.PodSelector), "LabelSelector", "v1.LabelSelector", 1) + `,`,
 		`NamespaceSelector:` + strings.Replace(fmt.Sprintf("%v", this.NamespaceSelector), "LabelSelector", "v1.LabelSelector", 1) + `,`,
 		`IPAddress:` + fmt.Sprintf("%v", this.IPAddress) + `,`,
+		`IPAddresses:` + fmt.Sprintf("%v", this.IPAddresses) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -26885,6 +26901,38 @@ func (m *NetworkNeighbor) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.IPAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IPAddresses", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.IPAddresses = append(m.IPAddresses, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

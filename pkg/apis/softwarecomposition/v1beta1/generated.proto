@@ -878,6 +878,12 @@ message NetworkNeighbor {
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector namespaceSelector = 7;
 
   optional string ipAddress = 8;
+
+  // IPAddresses is the v0.0.2 list-form replacement for the deprecated
+  // single-IP `ipAddress` field. Each entry MAY be a literal IP, a
+  // CIDR (a.b.c.d/n), or the "*" sentinel. See
+  // pkg/registry/file/networkmatch for matcher semantics.
+  repeated string ipAddresses = 9;
 }
 
 // NetworkNeighborhood represents a list of network communications for a specific workload.
