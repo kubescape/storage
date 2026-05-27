@@ -1,5 +1,35 @@
 package dynamicpathdetector
 
+// MatchExecArgs reports whether a runtime exec argument vector satisfies a
+// profile entry's argv contract. argsRequired carries the profile entry's
+// ExecCalls.ArgsRequired flag and disambiguates the two cases that
+// CompareExecArgs alone cannot tell apart:
+//
+//	argsRequired = false → no argv constraint; matches any runtime args.
+//	                       This is the back-compat path for profiles that
+//	                       omit Args (the common case for path-only
+//	                       Execs entries in user-authored profiles).
+//	argsRequired = true  → strict anchored match against profileArgs.
+//	                       An empty profileArgs means "argv MUST be
+//	                       empty"; a non-empty profileArgs is matched
+//	                       anchored with wildcard tokens (see below).
+//
+// This resolves the round-trip ambiguity that v1beta1.ExecCalls.Args
+// (declared `json:",omitempty"`) introduced: an explicit `args: []`
+// round-trips back as nil, so the storage layer alone cannot persist
+// the distinction between "no constraint" and "must have no args".
+// ArgsRequired persists the operator's intent explicitly.
+//
+// The match semantics for argsRequired=true are the anchored-with-
+// wildcards form documented on CompareExecArgs.
+func MatchExecArgs(profileArgs []string, argsRequired bool, runtimeArgs []string) bool {
+	if !argsRequired {
+		// No constraint expressed by the profile entry.
+		return true
+	}
+	return matchExecArgsStrict(profileArgs, runtimeArgs)
+}
+
 // CompareExecArgs reports whether a runtime exec argument vector matches a
 // profile argument vector. The profile vector may contain two wildcard
 // tokens:
@@ -16,9 +46,29 @@ package dynamicpathdetector
 // runtime arg vector. This keeps path-only Execs entries (the common case
 // in user-defined ApplicationProfiles, which omit the Args field) from
 // silently triggering R0040 just because the rule started consulting
-// was_executed_with_args. A user that wants to assert "this exec must have
-// no args" can write Args: []string{} in their profile and the empty
-// runtime vector still matches by virtue of the wildcard semantics.
+// was_executed_with_args.
+//
+// NOTE: callers that need to express "argv MUST be empty" cannot do so
+// through this API alone, because v1beta1.ExecCalls.Args is declared
+// `json:",omitempty"` and an explicit `args: []` round-trips back as
+// nil. Use MatchExecArgs with the profile entry's ArgsRequired flag for
+// that case. CompareExecArgs is preserved for back-compat with callers
+// that have not migrated to the args-required-aware API.
+func CompareExecArgs(profileArgs, runtimeArgs []string) bool {
+	// Outer-level empty profile = "no argv constraint" — wildcard match.
+	// The inner matcher keeps strict empty-empty semantics so anchoring
+	// during recursion (`profile fully consumed but runtime has more`)
+	// remains a mismatch.
+	if len(profileArgs) == 0 {
+		return true
+	}
+	return matchExecArgsStrict(profileArgs, runtimeArgs)
+}
+
+// matchExecArgsStrict is the anchored matcher shared by MatchExecArgs and
+// CompareExecArgs — neither bypass applies; the profile vector is matched
+// position-by-position with wildcard absorption. An empty profileArgs
+// matches only an empty runtimeArgs.
 //
 // Implementation is index-based recursive backtracking with memoisation
 // on (profileIndex, runtimeIndex) state pairs. The naive backtracking
@@ -29,13 +79,10 @@ package dynamicpathdetector
 // the work at O(len(profile) * len(runtime)) — i.e. quadratic in the
 // vector lengths, the standard wildcard-match complexity. CodeRabbit
 // flagged this as a Major on PR #27.
-func CompareExecArgs(profileArgs, runtimeArgs []string) bool {
-	// Outer-level empty profile = "no argv constraint" — wildcard match.
-	// The inner matcher keeps strict empty-empty semantics so anchoring
-	// during recursion (`profile fully consumed but runtime has more`)
-	// remains a mismatch.
+func matchExecArgsStrict(profileArgs, runtimeArgs []string) bool {
+	// Anchored empty-empty case.
 	if len(profileArgs) == 0 {
-		return true
+		return len(runtimeArgs) == 0
 	}
 
 	// State key for memoisation: (pi, ri) is the suffix-matching position

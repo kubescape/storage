@@ -320,3 +320,126 @@ func TestCompareExecArgs_ReDoSResistance(t *testing.T) {
 		t.Errorf("matcher took %v on adversarial input — memoisation regression?", elapsed)
 	}
 }
+
+// TestMatchExecArgs_ContractFourStates pins the four-state contract that
+// ArgsRequired makes expressible (resolves the args,omitempty round-trip
+// ambiguity matthyx blocked on PR #322):
+//
+//   1. ArgsRequired=false, profileArgs=nil  → no constraint (any runtime)
+//   2. ArgsRequired=false, profileArgs=[…]  → no constraint (back-compat)
+//   3. ArgsRequired=true,  profileArgs=[]   → MUST have empty runtime args
+//   4. ArgsRequired=true,  profileArgs=[…]  → strict anchored match
+//
+// State (3) is the case the legacy CompareExecArgs API could not express;
+// MatchExecArgs uses the explicit flag to disambiguate.
+func TestMatchExecArgs_ContractFourStates(t *testing.T) {
+	cases := []struct {
+		name         string
+		profileArgs  []string
+		argsRequired bool
+		runtimeArgs  []string
+		want         bool
+	}{
+		// State 1: ArgsRequired=false, profile nil → no constraint
+		{
+			name: "ArgsRequired=false, profile=nil, runtime=nil → true (no constraint)",
+			argsRequired: false, profileArgs: nil, runtimeArgs: nil, want: true,
+		},
+		{
+			name: "ArgsRequired=false, profile=nil, runtime=non-empty → true (no constraint)",
+			argsRequired: false, profileArgs: nil, runtimeArgs: []string{"foo", "bar"}, want: true,
+		},
+
+		// State 2: ArgsRequired=false, profile populated → no constraint (back-compat)
+		{
+			name: "ArgsRequired=false, profile=[x], runtime=anything → true (back-compat bypass)",
+			argsRequired: false, profileArgs: []string{"x"}, runtimeArgs: []string{"completely", "different"}, want: true,
+		},
+
+		// State 3: ArgsRequired=true, profile=[] → runtime MUST be empty
+		{
+			name: "ArgsRequired=true, profile=[], runtime=[] → true (anchored empty-empty)",
+			argsRequired: true, profileArgs: []string{}, runtimeArgs: []string{}, want: true,
+		},
+		{
+			name: "ArgsRequired=true, profile=[], runtime=nil → true (nil == empty for runtime)",
+			argsRequired: true, profileArgs: []string{}, runtimeArgs: nil, want: true,
+		},
+		{
+			name: "ArgsRequired=true, profile=[], runtime=[x] → false (extra runtime arg)",
+			argsRequired: true, profileArgs: []string{}, runtimeArgs: []string{"x"}, want: false,
+		},
+		{
+			name: "ArgsRequired=true, profile=nil, runtime=[x] → false (anchored, profile vector empty)",
+			argsRequired: true, profileArgs: nil, runtimeArgs: []string{"x"}, want: false,
+		},
+
+		// State 4: ArgsRequired=true, profile populated → strict anchored match
+		{
+			name: "ArgsRequired=true, exact literal match",
+			argsRequired: true, profileArgs: []string{"-c", "echo hi"}, runtimeArgs: []string{"-c", "echo hi"}, want: true,
+		},
+		{
+			name: "ArgsRequired=true, exact literal mismatch",
+			argsRequired: true, profileArgs: []string{"-c", "echo hi"}, runtimeArgs: []string{"-c", "echo bye"}, want: false,
+		},
+		{
+			name: "ArgsRequired=true, trailing wildcard absorbs",
+			argsRequired: true, profileArgs: []string{"-c", "*"}, runtimeArgs: []string{"-c", "echo", "hi"}, want: true,
+		},
+		{
+			name: "ArgsRequired=true, dynamic identifier matches one position",
+			argsRequired: true, profileArgs: []string{"-c", "⋯", "hi"}, runtimeArgs: []string{"-c", "anything", "hi"}, want: true,
+		},
+		{
+			name: "ArgsRequired=true, dynamic identifier requires exactly one — fails on missing",
+			argsRequired: true, profileArgs: []string{"-c", "⋯", "hi"}, runtimeArgs: []string{"-c", "hi"}, want: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := dynamicpathdetector.MatchExecArgs(tc.profileArgs, tc.argsRequired, tc.runtimeArgs)
+			if got != tc.want {
+				t.Errorf("MatchExecArgs(%v, argsRequired=%v, %v) = %v, want %v",
+					tc.profileArgs, tc.argsRequired, tc.runtimeArgs, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestMatchExecArgs_BackCompatVsCompareExecArgs proves the back-compat
+// path: MatchExecArgs(args, false, runtime) ≡ CompareExecArgs(args, runtime)
+// for every state where CompareExecArgs has a definite answer. This is
+// the invariant that lets bob (and other callers that haven't migrated
+// to MatchExecArgs) keep using CompareExecArgs without behavioural drift.
+func TestMatchExecArgs_BackCompatVsCompareExecArgs(t *testing.T) {
+	cases := []struct {
+		profile []string
+		runtime []string
+	}{
+		{nil, nil},
+		{nil, []string{"anything"}},
+		{[]string{}, nil},
+		{[]string{"-c", "echo"}, []string{"-c", "echo"}},
+		{[]string{"-c", "echo"}, []string{"-c", "different"}},
+		{[]string{"-c", "*"}, []string{"-c", "a", "b", "c"}},
+		{[]string{"⋯"}, []string{"x"}},
+		{[]string{"⋯"}, []string{}},
+	}
+	for _, c := range cases {
+		oldCompare := dynamicpathdetector.CompareExecArgs(c.profile, c.runtime)
+		// MatchExecArgs with argsRequired=false has the same bypass for empty
+		// profile as CompareExecArgs; for non-empty profile both go via the
+		// shared strict matcher, which gives the same answer too — UNLESS
+		// the profile is non-empty AND the caller passed argsRequired=false
+		// which is "no constraint" → MatchExecArgs returns true. So we test
+		// the CompareExecArgs-equivalent path: argsRequired = (len(profile) > 0).
+		argsRequired := len(c.profile) > 0
+		newMatch := dynamicpathdetector.MatchExecArgs(c.profile, argsRequired, c.runtime)
+		if oldCompare != newMatch {
+			t.Errorf("back-compat mismatch profile=%v runtime=%v: CompareExecArgs=%v, MatchExecArgs(argsRequired=%v)=%v",
+				c.profile, c.runtime, oldCompare, argsRequired, newMatch)
+		}
+	}
+}

@@ -2468,6 +2468,7 @@ func autoConvert_v1beta1_ExecCalls_To_softwarecomposition_ExecCalls(in *ExecCall
 	out.Path = in.Path
 	out.Args = *(*[]string)(unsafe.Pointer(&in.Args))
 	out.Envs = *(*[]string)(unsafe.Pointer(&in.Envs))
+	out.ArgsRequired = in.ArgsRequired
 	return nil
 }
 
@@ -2480,6 +2481,7 @@ func autoConvert_softwarecomposition_ExecCalls_To_v1beta1_ExecCalls(in *software
 	out.Path = in.Path
 	out.Args = *(*[]string)(unsafe.Pointer(&in.Args))
 	out.Envs = *(*[]string)(unsafe.Pointer(&in.Envs))
+	out.ArgsRequired = in.ArgsRequired
 	return nil
 }
 
