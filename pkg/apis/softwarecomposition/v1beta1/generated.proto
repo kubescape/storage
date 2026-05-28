@@ -340,6 +340,15 @@ message ExecCalls {
   repeated string args = 2;
 
   repeated string envs = 3;
+
+  // ArgsRequired declares the intent of args explicitly. When false
+  // (default) the args vector is informational and the legacy
+  // CompareExecArgs empty-bypass applies. When true the args vector
+  // is a strict constraint enforced by MatchExecArgs — empty args
+  // means "argv MUST be empty"; non-empty args is matched anchored.
+  // Resolves the args,omitempty / explicit-empty round-trip
+  // ambiguity that CompareExecArgs alone could not express.
+  optional bool argsRequired = 4;
 }
 
 message Executable {

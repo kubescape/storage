@@ -253,6 +253,13 @@ type ExecCalls struct {
 	Path string
 	Args []string
 	Envs []string
+	// ArgsRequired declares the intent of Args explicitly. When false
+	// (default and the back-compat path) the Args vector is informational
+	// and CompareExecArgs's empty-bypass applies. When true the Args vector
+	// is a strict constraint enforced by MatchExecArgs — an empty Args
+	// means "argv MUST be empty"; a non-empty Args is matched anchored
+	// (wildcard tokens still apply).
+	ArgsRequired bool
 }
 
 const sep = "␟"

@@ -21,9 +21,10 @@ package v1beta1
 // ExecCallsApplyConfiguration represents a declarative configuration of the ExecCalls type for use
 // with apply.
 type ExecCallsApplyConfiguration struct {
-	Path *string  `json:"path,omitempty"`
-	Args []string `json:"args,omitempty"`
-	Envs []string `json:"envs,omitempty"`
+	Path         *string  `json:"path,omitempty"`
+	Args         []string `json:"args,omitempty"`
+	Envs         []string `json:"envs,omitempty"`
+	ArgsRequired *bool    `json:"argsRequired,omitempty"`
 }
 
 // ExecCallsApplyConfiguration constructs a declarative configuration of the ExecCalls type for use with
@@ -57,5 +58,13 @@ func (b *ExecCallsApplyConfiguration) WithEnvs(values ...string) *ExecCallsApply
 	for i := range values {
 		b.Envs = append(b.Envs, values[i])
 	}
+	return b
+}
+
+// WithArgsRequired sets the ArgsRequired field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ArgsRequired field is set to the value of the last call.
+func (b *ExecCallsApplyConfiguration) WithArgsRequired(value bool) *ExecCallsApplyConfiguration {
+	b.ArgsRequired = &value
 	return b
 }
