@@ -51,10 +51,19 @@ func (c ContainerProfileRESTStorage) Create(ctx context.Context, key string, obj
 }
 
 func (c ContainerProfileRESTStorage) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
-	// Delete the merged sibling first (best-effort) so a deleted CP doesn't
-	// leave a stale merged artifact that the next GET would surface.
+	// Delete the merged sibling first so a deleted CP doesn't leave a stale
+	// merged artifact that the next GET would surface. A not-found here is
+	// expected (most CPs have no ug- overlay, hence no merged sibling), but any
+	// other failure is surfaced as a hard error: swallowing it would orphan the
+	// merged artifact and let the merged-first read path keep serving a profile
+	// whose observed sibling is gone. The caller (apiserver) retries the delete.
 	if _, ok := out.(*softwarecomposition.ContainerProfile); ok {
-		_ = c.realStore.Delete(ctx, MergedKeyFor(key), &softwarecomposition.ContainerProfile{}, nil, storage.ValidateAllObjectFunc, nil, storage.DeleteOptions{})
+		mergedKey := MergedKeyFor(key)
+		if mergedKey != key {
+			if err := c.realStore.Delete(ctx, mergedKey, &softwarecomposition.ContainerProfile{}, nil, storage.ValidateAllObjectFunc, nil, storage.DeleteOptions{}); err != nil && !storage.IsNotFound(err) {
+				return fmt.Errorf("delete merged container profile sibling: %w", err)
+			}
+		}
 	}
 	return c.realStore.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
 }

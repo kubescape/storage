@@ -243,9 +243,14 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	}
 	a.LastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
-		"applicationprofiles":  {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
-		"containerprofiles":    {deleteByTemplateHashOrWlid},
-		"networkneighborhoods": {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
+		"applicationprofiles": {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
+		"containerprofiles":   {deleteByTemplateHashOrWlid},
+		// The merged (effective) CP carries the same templateHash/wlid metadata
+		// as its observed sibling, so the same predicate retires orphans. This
+		// covers workloads that get age-cleaned without going through the REST
+		// Delete path (which already cascades to the merged sibling).
+		ContainerProfileMergedKind: {deleteByTemplateHashOrWlid},
+		"networkneighborhoods":     {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
 	}
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
@@ -536,10 +541,19 @@ func (a *ContainerProfileProcessor) refreshMergedProfile(ctx context.Context, ob
 		// back to observed. Probe first so the no-merged-yet path (every
 		// workload's first tick before any ug- exists) doesn't issue a futile
 		// delete that the storage layer logs at Error level.
-		if _, getErr := a.ContainerProfileStorage.GetMergedContainerProfile(ctx, observedKey); getErr == nil {
-			if delErr := a.ContainerProfileStorage.DeleteMergedContainerProfile(ctx, observedKey); delErr != nil {
-				logger.L().Debug("ContainerProfileProcessor.refreshMergedProfile - failed to delete stale merged CP", loggerhelpers.Error(delErr), loggerhelpers.String("key", observedKey))
+		if _, getErr := a.ContainerProfileStorage.GetMergedContainerProfile(ctx, observedKey); getErr != nil {
+			if storage.IsNotFound(getErr) {
+				// Nothing to retract.
+				return observed, nil
 			}
+			return observed, fmt.Errorf("failed to probe merged container profile for retraction: %w", getErr)
+		}
+		// A stale merged artifact exists and must be retracted. Surface a delete
+		// failure as a hard error so the tick rolls back and retries, rather than
+		// leaving consumers reading a merged view the ug- overlay no longer
+		// backs. DeleteMergedContainerProfile already treats not-found as success.
+		if delErr := a.ContainerProfileStorage.DeleteMergedContainerProfile(ctx, observedKey); delErr != nil {
+			return observed, fmt.Errorf("failed to delete stale merged container profile: %w", delErr)
 		}
 		return observed, nil
 	}

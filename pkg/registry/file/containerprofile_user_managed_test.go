@@ -3,12 +3,15 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/goradd/maps"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -932,6 +935,137 @@ func TestRESTWrapper_MergedFirstFallback(t *testing.T) {
 	got = softwarecomposition.ContainerProfile{}
 	require.NoError(t, rest.Get(h.ctx, observedKey, storage.GetOptions{}, &got))
 	assert.Equal(t, "merged", got.Labels["source"], "wrapper must prefer merged when present")
+}
+
+// failingDeleteStore wraps a StorageQuerier and injects an error for Delete on
+// one specific key, passing every other call straight through. It exists to
+// prove the REST wrapper surfaces merged-sibling delete failures rather than
+// swallowing them.
+type failingDeleteStore struct {
+	StorageQuerier
+	failKey string
+	err     error
+}
+
+func (f failingDeleteStore) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
+	if key == f.failKey {
+		return f.err
+	}
+	return f.StorageQuerier.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
+}
+
+// TestRESTWrapper_MergedDeleteFailurePropagates asserts that a non-NotFound
+// failure deleting the merged sibling is returned as a hard error (so the
+// apiserver retries) instead of being swallowed, which would orphan the merged
+// artifact and let the merged-first read path keep serving a profile whose
+// observed sibling is gone.
+func TestRESTWrapper_MergedDeleteFailurePropagates(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	errBoom := errors.New("storage unavailable")
+	rest := NewContainerProfileRESTStorage(failingDeleteStore{
+		StorageQuerier: h.s,
+		failKey:        e2eMergedCPKey(),
+		err:            errBoom,
+	})
+
+	var out softwarecomposition.ContainerProfile
+	err := rest.Delete(h.ctx, e2eCPKey(), &out, nil, storage.ValidateAllObjectFunc, nil, storage.DeleteOptions{})
+	require.Error(t, err, "merged-sibling delete failure must propagate")
+	assert.ErrorIs(t, err, errBoom)
+	assert.ErrorContains(t, err, "merged container profile sibling")
+}
+
+// fakeRunningFetcher reports a fixed namespace list and running-workload set,
+// standing in for the live Kubernetes discovery the production cleanup uses.
+type fakeRunningFetcher struct {
+	namespaces []string
+	running    *maps.SafeMap[string, mapset.Set[string]]
+}
+
+func (f fakeRunningFetcher) ListNamespaces(_ *sqlite.Conn) ([]string, error) {
+	return f.namespaces, nil
+}
+
+func (f fakeRunningFetcher) FetchResources(_ string) (ResourceMaps, error) {
+	return ResourceMaps{
+		RunningContainerImageIds:     mapset.NewSet[string](),
+		RunningInstanceIds:           mapset.NewSet[string](),
+		RunningTemplateHash:          mapset.NewSet[string](),
+		RunningWlidsToContainerNames: f.running,
+	}, nil
+}
+
+// TestCleanupRetiresMergedOrphan proves the merged-CP kind is wired into the
+// cleanup map (matthyx review, ask #1): a merged CP whose workload is no longer
+// running is age-cleaned, while a merged CP for a running workload survives.
+// This covers the path where a workload is retired without going through the
+// REST Delete cascade that maintains the merged sibling.
+func TestCleanupRetiresMergedOrphan(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	const ns = "cleanup-ns"
+	mergedKey := func(name string) string {
+		return MergedKeyFor(BuildContainerProfileKey(armotypes.ProfileIdentifier{
+			ProfileScope: armotypes.ProfileScope{HostType: armotypes.HostTypeKubernetes, Namespace: ns},
+			Name:         name,
+		}, "containerprofile"))
+	}
+	goneWlid := "wlid://cluster-test/namespace-" + ns + "/deployment-gone"
+	runningWlid := "wlid://cluster-test/namespace-" + ns + "/deployment-running"
+
+	// Seed two merged CPs directly through the storage layer (processor swapped
+	// out so AfterCreate doesn't intercept) so both the payload file and the
+	// SQLite metadata land where the cleanup walk + readMetadata expect them.
+	prev := h.s.processor
+	h.s.processor = DefaultProcessor{}
+	writeMerged := func(name, wlid string) {
+		cp := &softwarecomposition.ContainerProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   ns,
+				Name:        name,
+				Annotations: map[string]string{helpersv1.WlidMetadataKey: wlid},
+				Labels:      map[string]string{MergedProfileLabelKey: MergedProfileLabelValue},
+			},
+		}
+		require.NoError(t, h.s.Create(h.ctx, mergedKey(name), cp, nil, 0))
+	}
+	writeMerged("gone", goneWlid)
+	writeMerged("running", runningWlid)
+	h.s.processor = prev
+
+	// Discovery reports only the running workload as alive.
+	running := new(maps.SafeMap[string, mapset.Set[string]])
+	running.Set(wlidWithoutClusterName(runningWlid), mapset.NewSet[string]())
+
+	var deleted []string
+	handler := &ResourcesCleanupHandler{
+		appFs: h.s.appFs,
+		pool:  h.pool,
+		root:  DefaultStorageRoot,
+		// Distinct from ns so the final defaultNamespace pass (which carries an
+		// empty running-wlid set) walks an unrelated, empty directory rather than
+		// recursing back over our test namespace and sweeping the survivor.
+		defaultNamespace: "kubescape",
+		fetcher: fakeRunningFetcher{
+			namespaces: []string{ns},
+			running:    running,
+		},
+		deleteFunc: func(appFs afero.Fs, path string) {
+			require.NoError(t, appFs.Remove(path))
+			deleted = append(deleted, path)
+		},
+	}
+
+	require.NoError(t, handler.CleanupTask(h.ctx, map[string][]TypeCleanupHandlerFunc{
+		ContainerProfileMergedKind: {deleteByTemplateHashOrWlid},
+	}))
+
+	require.Len(t, deleted, 1, "exactly the orphan merged CP should be deleted")
+	assert.Contains(t, deleted[0], ContainerProfileMergedKind, "deleted file must be a merged CP")
+	assert.Contains(t, deleted[0], "/gone", "the orphan, not the running workload, must be deleted")
 }
 
 // TestE2EScenario_Walkthrough is a verbose end-to-end scenario that prints
