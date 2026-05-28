@@ -1703,6 +1703,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceC
 							},
 						},
 					},
+					"argsRequired": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ArgsRequired declares the intent of Args explicitly. When false (default and the back-compat path) the Args vector is informational and CompareExecArgs's empty-bypass applies. When true the Args vector is a strict constraint enforced by MatchExecArgs — an empty Args means \"argv MUST be empty\"; a non-empty Args is matched anchored (wildcard tokens still apply). Resolves the args,omitempty / explicit-empty round-trip ambiguity that CompareExecArgs alone could not express.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

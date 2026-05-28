@@ -229,6 +229,15 @@ type ExecCalls struct {
 	Path string   `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
 	Args []string `json:"args,omitempty" protobuf:"bytes,2,opt,name=args"`
 	Envs []string `json:"envs,omitempty" protobuf:"bytes,3,opt,name=envs"`
+	// ArgsRequired declares the intent of Args explicitly. When false
+	// (default and the back-compat path) the Args vector is informational
+	// and CompareExecArgs's empty-bypass applies. When true the Args
+	// vector is a strict constraint enforced by MatchExecArgs — an empty
+	// Args means "argv MUST be empty"; a non-empty Args is matched
+	// anchored (wildcard tokens still apply). Resolves the
+	// args,omitempty / explicit-empty round-trip ambiguity that
+	// CompareExecArgs alone could not express.
+	ArgsRequired bool `json:"argsRequired,omitempty" protobuf:"varint,4,opt,name=argsRequired"`
 }
 
 type OpenCalls struct {
