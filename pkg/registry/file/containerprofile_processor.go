@@ -464,44 +464,90 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		}
 	}
 
-	// Skip saving if no new data or invalid profile.
-	//
-	// Note: when no new time-series data arrives, this returns before the
-	// user-managed (ug-) merge below. ug- edits to idle/Completed workloads
-	// don't propagate until the next tick that has new data. Accepted
-	// trade-off (kubescape/storage#315, "option (c)"); the 30s consolidation
-	// cadence keeps the lag bounded for active workloads.
-	if !newData {
-		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, skip saving profile", loggerhelpers.String("key", key))
-		return processed, nil
-	}
 	if _, ok := profile.Annotations[helpers.InstanceIDMetadataKey]; !ok {
+		// Without an InstanceID annotation we cannot derive the workload slug,
+		// so neither the observed save nor the merged refresh have a target.
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
 		return processed, nil
 	}
 
-	// Merge user-managed (ug-) AP/NN into the consolidated CP so node-agents
-	// can treat the CP as a single source of truth. Idempotent across ticks
-	// via a ResourceVersion marker stored on the CP annotations; best-effort
-	// (missing or unparseable user-managed CRDs are not an error).
-	a.mergeUserManagedProfiles(ctx, &profile, id)
-
-	// Update creation timestamp
-	if profile.CreationTimestamp.IsZero() {
-		profile.CreationTimestamp = creationTimestamp
+	// Persist the canonical observed CP only when time-series consolidation
+	// produced new data this tick. The observed CP is the time-series-only
+	// view (kubescape/storage#315 review). It is never mutated by the ug- merge.
+	if newData {
+		if profile.CreationTimestamp.IsZero() {
+			profile.CreationTimestamp = creationTimestamp
+		}
+		if err := a.ContainerProfileStorage.SaveContainerProfile(ctx, key, &profile); err != nil {
+			return nil, err
+		}
+	} else {
+		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, observed CP unchanged", loggerhelpers.String("key", key))
 	}
 
-	// Save the container profile
-	if err := a.ContainerProfileStorage.SaveContainerProfile(ctx, key, &profile); err != nil {
+	// Refresh the merged (effective) CP every tick, even when !newData. This
+	// is what propagates user-managed (ug-) edits and deletes to idle or
+	// Completed workloads — the previous design short-circuited here and
+	// stranded the merged artifact. refreshMergedProfile rebuilds from scratch
+	// from (observed, ug-AP, ug-NN), so retractions land naturally.
+	effective, err := a.refreshMergedProfile(ctx, &profile, id, key)
+	if err != nil {
+		// Refresh failures are surfaced so the transaction rolls back; a half-
+		// applied merged write paired with a successful observed save would be
+		// worse than retrying the whole tick.
 		return nil, err
 	}
 
-	// Update aggregated profiles (application profile and network neighborhood)
-	if err := a.updateAggregatedProfiles(ctx, key, &profile, prefix, root, id, creationTimestamp); err != nil {
-		return nil, err
+	// Aggregated AP/NN derive from the effective CP so all downstream outputs
+	// stay aligned with what node-agent actually reads (step 6 of the review).
+	// Still gated on newData to preserve the existing 30s aggregation cadence —
+	// ug-only changes propagate via the merged refresh above; the AP/NN
+	// aggregator already serves a different (downstream-policy) audience.
+	if newData {
+		if err := a.updateAggregatedProfiles(ctx, key, effective, prefix, root, id, creationTimestamp); err != nil {
+			return nil, err
+		}
 	}
 
 	return processed, nil
+}
+
+// refreshMergedProfile rebuilds the merged (effective) ContainerProfile from
+// the observed CP plus the live user-managed (ug-) AP/NN overlay, and
+// reconciles the persisted merged artifact with the result:
+//
+//   - If at least one ug- input exists: write the freshly merged CP to the
+//     parallel containerprofile-merged key.
+//   - If no ug- input exists: delete the parallel key so consumers fall back
+//     to the observed CP. This is the retraction path that the previous
+//     in-place merge could not implement.
+//
+// Returns the "effective" CP — the merged one when ug- contributed, otherwise
+// the observed CP itself. Callers pass this to downstream derivations
+// (aggregated AP/NN) so all consumers see the same view node-agent will read.
+func (a *ContainerProfileProcessor) refreshMergedProfile(ctx context.Context, observed *softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier, observedKey string) (*softwarecomposition.ContainerProfile, error) {
+	merged, hasOverlay, err := a.buildMergedProfile(ctx, observed, id)
+	if err != nil {
+		return observed, err
+	}
+
+	if !hasOverlay {
+		// No ug- input. Delete any prior merged artifact so consumers fall
+		// back to observed. Probe first so the no-merged-yet path (every
+		// workload's first tick before any ug- exists) doesn't issue a futile
+		// delete that the storage layer logs at Error level.
+		if _, getErr := a.ContainerProfileStorage.GetMergedContainerProfile(ctx, observedKey); getErr == nil {
+			if delErr := a.ContainerProfileStorage.DeleteMergedContainerProfile(ctx, observedKey); delErr != nil {
+				logger.L().Debug("ContainerProfileProcessor.refreshMergedProfile - failed to delete stale merged CP", loggerhelpers.Error(delErr), loggerhelpers.String("key", observedKey))
+			}
+		}
+		return observed, nil
+	}
+
+	if saveErr := a.ContainerProfileStorage.SaveMergedContainerProfile(ctx, observedKey, merged); saveErr != nil {
+		return observed, fmt.Errorf("failed to save merged container profile: %w", saveErr)
+	}
+	return merged, nil
 }
 
 // timeSeriesProcessResult holds the results of processing a time series

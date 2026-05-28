@@ -249,6 +249,10 @@ func e2eCPKey() string {
 	}, "containerprofile")
 }
 
+func e2eMergedCPKey() string {
+	return MergedKeyFor(e2eCPKey())
+}
+
 type e2eHarness struct {
 	t         *testing.T
 	pool      *sqlitemigration.Pool
@@ -351,6 +355,31 @@ func (h *e2eHarness) loadConsolidated() softwarecomposition.ContainerProfile {
 	return cp
 }
 
+// loadMerged reads the merged (effective) CP from its parallel key. Returns
+// the profile and true on success, or a zero CP and false when no merged
+// artifact exists for this workload (the legitimate "no ug- input" case).
+func (h *e2eHarness) loadMerged() (softwarecomposition.ContainerProfile, bool) {
+	h.t.Helper()
+	var cp softwarecomposition.ContainerProfile
+	err := h.s.GetWithConn(h.ctx, h.conn, e2eMergedCPKey(), storage.GetOptions{}, &cp)
+	if err != nil {
+		if storage.IsNotFound(err) {
+			return softwarecomposition.ContainerProfile{}, false
+		}
+		require.NoError(h.t, err)
+	}
+	return cp, true
+}
+
+// requireMerged loads and requires the merged CP to exist; failing the test
+// otherwise. Use this in tests asserting the merge fired.
+func (h *e2eHarness) requireMerged() softwarecomposition.ContainerProfile {
+	h.t.Helper()
+	cp, ok := h.loadMerged()
+	require.True(h.t, ok, "expected merged CP at %s to exist", e2eMergedCPKey())
+	return cp
+}
+
 func count(s []string, v string) int {
 	n := 0
 	for _, x := range s {
@@ -383,12 +412,20 @@ func TestConsolidateMergesUserManagedAP(t *testing.T) {
 	h.seedNonCP(e2eUgAPKey(), userAP)
 
 	h.consolidate()
-	cp := h.loadConsolidated()
 
-	assert.Contains(t, cp.Spec.Capabilities, "USER_MANAGED_CAP")
-	assert.Contains(t, cp.Spec.Syscalls, "user_managed_syscall")
-	assert.NotEmpty(t, cp.Annotations[lastMergedUserAPResourceVersionKey])
-	assert.Equal(t, 1, count(cp.Spec.Capabilities, "USER_MANAGED_CAP"))
+	// Observed must not carry user-managed entries — the canonical CP stays
+	// pure time-series data (kubescape/storage#315 review).
+	observed := h.loadConsolidated()
+	assert.NotContains(t, observed.Spec.Capabilities, "USER_MANAGED_CAP",
+		"observed CP must not be mutated by ug- merge")
+
+	// Merged artifact carries the union plus provenance.
+	merged := h.requireMerged()
+	assert.Contains(t, merged.Spec.Capabilities, "USER_MANAGED_CAP")
+	assert.Contains(t, merged.Spec.Syscalls, "user_managed_syscall")
+	assert.Equal(t, 1, count(merged.Spec.Capabilities, "USER_MANAGED_CAP"))
+	assert.Equal(t, MergedProfileLabelValue, merged.Labels[MergedProfileLabelKey])
+	assert.NotEmpty(t, merged.Annotations[mergedSourceUserAPKey])
 }
 
 // TestConsolidateMergesUserManagedNN verifies a ug-<workloadSlug>
@@ -425,7 +462,7 @@ func TestConsolidateMergesUserManagedNN(t *testing.T) {
 	h.seedNonCP(e2eUgNNKey(), userNN)
 
 	h.consolidate()
-	cp := h.loadConsolidated()
+	cp := h.requireMerged()
 
 	require.NotEmpty(t, cp.Spec.Egress)
 	found := false
@@ -435,14 +472,15 @@ func TestConsolidateMergesUserManagedNN(t *testing.T) {
 			assert.Contains(t, e.DNSNames, "user.example")
 		}
 	}
-	assert.True(t, found, "expected user-managed egress neighbor in consolidated CP")
+	assert.True(t, found, "expected user-managed egress neighbor in merged CP")
 	assert.Equal(t, "edge", cp.Spec.LabelSelector.MatchLabels["user-tier"])
-	assert.NotEmpty(t, cp.Annotations[lastMergedUserNNResourceVersionKey])
+	assert.NotEmpty(t, cp.Annotations[mergedSourceUserNNKey])
 }
 
 // TestConsolidateUserManagedIdempotent verifies that a second consolidation
-// tick with the ug- AP unchanged does NOT duplicate merged entries. This is
-// the central correctness property of the RV marker.
+// tick with the ug- AP unchanged does NOT duplicate merged entries. The
+// merged artifact is rebuilt fresh from (observed, ug-AP, ug-NN) each tick,
+// so idempotency is structural rather than RV-marker driven.
 func TestConsolidateUserManagedIdempotent(t *testing.T) {
 	h := newE2EHarness(t)
 	defer h.close()
@@ -458,23 +496,22 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 	}
 	h.seedNonCP(e2eUgAPKey(), userAP)
 
-	// First tick: merges ug- AP.
 	h.consolidate()
-	first := h.loadConsolidated()
+	first := h.requireMerged()
 	require.Equal(t, 1, count(first.Spec.Capabilities, "USER_MANAGED_CAP"))
-	rvAfterFirst := first.Annotations[lastMergedUserAPResourceVersionKey]
+	rvAfterFirst := first.Annotations[mergedSourceUserAPRVKey]
 	require.NotEmpty(t, rvAfterFirst)
 
-	// Second tick: introduce a new TS profile (p2) so updateProfile saves
-	// again, but the ug- AP is unchanged. Merge must be skipped via the RV
-	// marker — capability count must remain 1.
+	// Second tick: introduce a new TS profile (p2) so updateProfile re-runs
+	// the merge with new observed data. ug- AP unchanged — merged must still
+	// contain the user capability exactly once (no duplication).
 	h.createCP("testdata/p2.json")
 	h.consolidate()
-	second := h.loadConsolidated()
+	second := h.requireMerged()
 	assert.Equal(t, 1, count(second.Spec.Capabilities, "USER_MANAGED_CAP"),
-		"RV marker should prevent duplicate merge of unchanged ug- AP")
-	assert.Equal(t, rvAfterFirst, second.Annotations[lastMergedUserAPResourceVersionKey],
-		"RV marker should remain stable when ug- AP is unchanged")
+		"unchanged ug- AP must not duplicate merged entries")
+	assert.Equal(t, rvAfterFirst, second.Annotations[mergedSourceUserAPRVKey],
+		"merged source-AP-RV annotation must remain stable when ug- AP is unchanged")
 }
 
 // TestConsolidateUserManagedRVBump verifies that updating the ug- AP (bumping
@@ -495,11 +532,14 @@ func TestConsolidateUserManagedRVBump(t *testing.T) {
 	}
 	h.seedNonCP(e2eUgAPKey(), userAP)
 	h.consolidate()
-	first := h.loadConsolidated()
+	first := h.requireMerged()
 	require.Contains(t, first.Spec.Capabilities, "V1_CAP")
-	rvAfterFirst := first.Annotations[lastMergedUserAPResourceVersionKey]
+	rvAfterFirst := first.Annotations[mergedSourceUserAPRVKey]
 
 	// Bump ug- AP: replace with a new spec carrying a different capability.
+	// Because the merged is rebuilt fresh from observed + ug- inputs, the new
+	// V2_CAP appears and V1_CAP is retracted (the maintainer's primary
+	// motivation for moving to a derived artifact).
 	h.replaceUserAP(softwarecomposition.ApplicationProfileSpec{
 		Containers: []softwarecomposition.ApplicationProfileContainer{
 			{Name: "coredns", Capabilities: []string{"V2_CAP"}},
@@ -508,12 +548,14 @@ func TestConsolidateUserManagedRVBump(t *testing.T) {
 
 	h.createCP("testdata/p2.json")
 	h.consolidate()
-	second := h.loadConsolidated()
+	second := h.requireMerged()
 
 	assert.Contains(t, second.Spec.Capabilities, "V2_CAP",
-		"new ug- entries must be merged after RV bump")
-	assert.NotEqual(t, rvAfterFirst, second.Annotations[lastMergedUserAPResourceVersionKey],
-		"RV marker must advance after ug- update")
+		"new ug- entries must appear after RV bump")
+	assert.NotContains(t, second.Spec.Capabilities, "V1_CAP",
+		"retraction: V1_CAP must not survive a ug- AP replacement")
+	assert.NotEqual(t, rvAfterFirst, second.Annotations[mergedSourceUserAPRVKey],
+		"merged source-AP-RV annotation must advance after ug- update")
 }
 
 // TestConsolidateNoUserManaged verifies the merge path is a no-op (no error,
@@ -524,10 +566,16 @@ func TestConsolidateNoUserManaged(t *testing.T) {
 
 	h.createCP("testdata/p1.json")
 	h.consolidate()
-	cp := h.loadConsolidated()
 
-	assert.NotContains(t, cp.Annotations, lastMergedUserAPResourceVersionKey)
-	assert.NotContains(t, cp.Annotations, lastMergedUserNNResourceVersionKey)
+	// Observed must exist and carry no merge metadata.
+	observed := h.loadConsolidated()
+	assert.NotContains(t, observed.Labels, MergedProfileLabelKey)
+	assert.NotContains(t, observed.Annotations, mergedSourceUserAPKey)
+	assert.NotContains(t, observed.Annotations, mergedSourceUserNNKey)
+
+	// No merged artifact should have been written when no ug- input exists.
+	_, ok := h.loadMerged()
+	assert.False(t, ok, "merged artifact must not exist when no ug- input is present")
 }
 
 // TestConsolidateUserManagedPreservesStatus verifies the additive contract:
@@ -559,7 +607,7 @@ func TestConsolidateUserManagedPreservesStatus(t *testing.T) {
 	h.seedNonCP(e2eUgAPKey(), userAP)
 
 	h.consolidate()
-	cp := h.loadConsolidated()
+	cp := h.requireMerged()
 
 	// Status/completion came from time-series flow — not from userAP.
 	assert.NotEqual(t, "should-not-overwrite", cp.Annotations[helpersv1.StatusMetadataKey])
@@ -613,9 +661,9 @@ func TestConsolidateUserManagedNNRVBump(t *testing.T) {
 	h.seedNonCP(e2eUgNNKey(), userNN)
 
 	h.consolidate()
-	first := h.loadConsolidated()
+	first := h.requireMerged()
 	require.True(t, hasNeighbor(first.Spec.Egress, "v1-egress"), "first tick: v1-egress should be merged")
-	rvAfterFirst := first.Annotations[lastMergedUserNNResourceVersionKey]
+	rvAfterFirst := first.Annotations[mergedSourceUserNNRVKey]
 	require.NotEmpty(t, rvAfterFirst)
 
 	// Bump the ug- NN: replace egress with a new identifier.
@@ -635,12 +683,14 @@ func TestConsolidateUserManagedNNRVBump(t *testing.T) {
 
 	h.createCP("testdata/p2.json")
 	h.consolidate()
-	second := h.loadConsolidated()
+	second := h.requireMerged()
 
 	assert.True(t, hasNeighbor(second.Spec.Egress, "v2-egress"),
 		"second tick: v2-egress must appear after RV bump")
-	assert.NotEqual(t, rvAfterFirst, second.Annotations[lastMergedUserNNResourceVersionKey],
-		"RV marker must advance after ug- NN update")
+	assert.False(t, hasNeighbor(second.Spec.Egress, "v1-egress"),
+		"retraction: v1-egress must not survive a ug- NN replacement")
+	assert.NotEqual(t, rvAfterFirst, second.Annotations[mergedSourceUserNNRVKey],
+		"merged source-NN-RV annotation must advance after ug- NN update")
 }
 
 func hasNeighbor(neighbors []softwarecomposition.NetworkNeighbor, identifier string) bool {
@@ -725,14 +775,15 @@ func TestConsolidateUserManagedFanOut(t *testing.T) {
 
 	require.NoError(t, processor.ConsolidateTimeSeries(ctx))
 
-	// Both per-container CPs must carry the matching merge.
+	// Both per-container CPs must carry the matching merge in the merged
+	// artifact (not on the observed CP — that one stays pure time-series).
 	loadCP := func(name string) softwarecomposition.ContainerProfile {
 		var cp softwarecomposition.ContainerProfile
-		key := BuildContainerProfileKey(armotypes.ProfileIdentifier{
+		observedKey := BuildContainerProfileKey(armotypes.ProfileIdentifier{
 			ProfileScope: armotypes.ProfileScope{HostType: armotypes.HostTypeKubernetes, Namespace: ns},
 			Name:         name,
 		}, "containerprofile")
-		require.NoError(t, s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &cp))
+		require.NoError(t, s.GetWithConn(ctx, conn, MergedKeyFor(observedKey), storage.GetOptions{}, &cp))
 		return cp
 	}
 
@@ -743,4 +794,268 @@ func TestConsolidateUserManagedFanOut(t *testing.T) {
 	assert.NotContains(t, serverCP.Spec.Capabilities, "FANOUT_NGINX", "server CP should not receive nginx's user-managed entries")
 	assert.Contains(t, nginxCP.Spec.Capabilities, "FANOUT_NGINX", "nginx CP missed user-managed merge")
 	assert.NotContains(t, nginxCP.Spec.Capabilities, "FANOUT_SERVER", "nginx CP should not receive server's user-managed entries")
+}
+
+// TestConsolidateRetractsMergedOnUgAPDelete is the central correctness test
+// for the maintainer's stale-on-delete concern. After a successful merge,
+// removing the ug- AP must cause the merged artifact to disappear so node-
+// agent falls back to the observed CP — i.e., the user's permission grant is
+// retracted.
+func TestConsolidateRetractsMergedOnUgAPDelete(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	h.createCP("testdata/p1.json")
+	userAP := &softwarecomposition.ApplicationProfile{
+		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
+		Spec: softwarecomposition.ApplicationProfileSpec{
+			Containers: []softwarecomposition.ApplicationProfileContainer{
+				{Name: "coredns", Capabilities: []string{"DOOMED_CAP"}},
+			},
+		},
+	}
+	h.seedNonCP(e2eUgAPKey(), userAP)
+
+	h.consolidate()
+	require.Contains(t, h.requireMerged().Spec.Capabilities, "DOOMED_CAP",
+		"first tick: merged should reflect ug- AP")
+
+	// Delete the ug- AP outside the consolidation path.
+	prev := h.s.processor
+	h.s.processor = DefaultProcessor{}
+	require.NoError(t, h.s.Delete(h.ctx, e2eUgAPKey(), &softwarecomposition.ApplicationProfile{},
+		nil, storage.ValidateAllObjectFunc, nil, storage.DeleteOptions{}))
+	h.s.processor = prev
+
+	// Re-consolidate with new TS data so the workload is visited again.
+	h.createCP("testdata/p2.json")
+	h.consolidate()
+
+	_, ok := h.loadMerged()
+	assert.False(t, ok, "merged artifact must be deleted after ug- AP is removed")
+
+	// Observed must still exist and never have contained DOOMED_CAP.
+	observed := h.loadConsolidated()
+	assert.NotContains(t, observed.Spec.Capabilities, "DOOMED_CAP",
+		"observed CP must never have been mutated by the ug- merge")
+}
+
+// TestConsolidateRefreshesMergedOnNoNewData verifies that updateProfile's
+// merged refresh runs even when the time-series merge produced no new data
+// this tick. The earlier !newData early-return short-circuited this path and
+// stranded the merged artifact (kubescape/storage#315 review step 5).
+//
+// Scope note: a truly idle workload with zero hasData=1 TS rows isn't visited
+// by ConsolidateTimeSeries at all — that case requires a separate trigger
+// (option a, watch-driven enqueue) and is out of scope here per matthyx's
+// "option (c)" decision. This test covers the in-tick !newData case where
+// the consolidator still visits the workload.
+func TestConsolidateRefreshesMergedOnNoNewData(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	h.createCP("testdata/p1.json")
+	// No ug- input on the first tick: consolidate to drain TS data into
+	// observed; merged should not exist.
+	h.consolidate()
+	_, ok := h.loadMerged()
+	require.False(t, ok, "preconditions: no merged before ug- is added")
+
+	// Add ug- AP, then re-run consolidation. The same workload may still be
+	// visited because there's a (possibly stale) TS row queued by createCP;
+	// even if processTimeSeries returns no new data, the merged refresh must
+	// still execute.
+	userAP := &softwarecomposition.ApplicationProfile{
+		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
+		Spec: softwarecomposition.ApplicationProfileSpec{
+			Containers: []softwarecomposition.ApplicationProfileContainer{
+				{Name: "coredns", Capabilities: []string{"LATE_ADDITION"}},
+			},
+		},
+	}
+	h.seedNonCP(e2eUgAPKey(), userAP)
+
+	// Inject a fresh TS row so the consolidator visits the workload. We're
+	// proving that the merged refresh fires even when the merge itself
+	// doesn't generate new spec entries (the data is unchanged from the prior
+	// tick) — what matters is that ug- propagation isn't gated on TS newness.
+	h.createCP("testdata/p1.json")
+	h.consolidate()
+
+	merged := h.requireMerged()
+	assert.Contains(t, merged.Spec.Capabilities, "LATE_ADDITION",
+		"merged refresh must propagate a late-added ug- AP")
+}
+
+// TestRESTWrapper_MergedFirstFallback exercises the consumer-side read path:
+// the REST wrapper prefers the merged artifact, falls back to observed when
+// no merged exists, and surfaces NotFound when both are absent.
+func TestRESTWrapper_MergedFirstFallback(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	rest := NewContainerProfileRESTStorage(h.s)
+	observedKey := e2eCPKey()
+	mergedKey := e2eMergedCPKey()
+
+	// Stage 1: neither observed nor merged exists.
+	var got softwarecomposition.ContainerProfile
+	err := rest.Get(h.ctx, observedKey, storage.GetOptions{}, &got)
+	require.Error(t, err, "expected NotFound when neither observed nor merged exists")
+	assert.True(t, storage.IsNotFound(err))
+
+	// Stage 2: only observed exists. Wrapper falls back.
+	observed := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: e2eNS, Name: e2eContainerCPName,
+			Labels: map[string]string{"source": "observed"},
+		},
+	}
+	prev := h.s.processor
+	h.s.processor = DefaultProcessor{}
+	require.NoError(t, h.s.Create(h.ctx, observedKey, observed, nil, 0))
+
+	got = softwarecomposition.ContainerProfile{}
+	require.NoError(t, rest.Get(h.ctx, observedKey, storage.GetOptions{}, &got))
+	assert.Equal(t, "observed", got.Labels["source"], "fallback must return observed when no merged exists")
+
+	// Stage 3: merged exists; wrapper prefers it.
+	merged := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: e2eNS, Name: e2eContainerCPName,
+			Labels: map[string]string{"source": "merged", MergedProfileLabelKey: MergedProfileLabelValue},
+		},
+	}
+	require.NoError(t, h.s.Create(h.ctx, mergedKey, merged, nil, 0))
+	h.s.processor = prev
+
+	got = softwarecomposition.ContainerProfile{}
+	require.NoError(t, rest.Get(h.ctx, observedKey, storage.GetOptions{}, &got))
+	assert.Equal(t, "merged", got.Labels["source"], "wrapper must prefer merged when present")
+}
+
+// TestE2EScenario_Walkthrough is a verbose end-to-end scenario that prints
+// observed-vs-merged state at every step. Run with `go test -run
+// TestE2EScenario_Walkthrough -v` to watch the new design behave: ug- adds,
+// retractions on edit and delete, and the REST wrapper's merged-first read.
+// Not an assertion-heavy test — its job is to make the behavior legible.
+func TestE2EScenario_Walkthrough(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	rest := NewContainerProfileRESTStorage(h.s)
+	getViaREST := func() (softwarecomposition.ContainerProfile, error) {
+		var cp softwarecomposition.ContainerProfile
+		err := rest.Get(h.ctx, e2eCPKey(), storage.GetOptions{}, &cp)
+		return cp, err
+	}
+
+	dumpState := func(label string) {
+		t.Logf("=== %s ===", label)
+
+		var observed softwarecomposition.ContainerProfile
+		obsErr := h.s.GetWithConn(h.ctx, h.conn, e2eCPKey(), storage.GetOptions{}, &observed)
+		if obsErr != nil {
+			t.Logf("  observed: <%s>", obsErr.Error())
+		} else {
+			t.Logf("  observed capabilities: %v", observed.Spec.Capabilities)
+			t.Logf("  observed has merge-label: %v", observed.Labels[MergedProfileLabelKey])
+		}
+
+		merged, mergedOK := h.loadMerged()
+		if !mergedOK {
+			t.Logf("  merged:   <absent>")
+		} else {
+			t.Logf("  merged capabilities:   %v", merged.Spec.Capabilities)
+			t.Logf("  merged label:          %s=%s", MergedProfileLabelKey, merged.Labels[MergedProfileLabelKey])
+			t.Logf("  merged source ug-ap:   %s (rv=%s)", merged.Annotations[mergedSourceUserAPKey], merged.Annotations[mergedSourceUserAPRVKey])
+			t.Logf("  merged source ug-nn:   %s (rv=%s)", merged.Annotations[mergedSourceUserNNKey], merged.Annotations[mergedSourceUserNNRVKey])
+		}
+
+		viaREST, restErr := getViaREST()
+		if restErr != nil {
+			t.Logf("  REST GET: <%s>", restErr.Error())
+		} else {
+			t.Logf("  REST GET capabilities: %v (label-kind=%q → %s)",
+				viaREST.Spec.Capabilities, viaREST.Labels[MergedProfileLabelKey],
+				map[bool]string{true: "served merged", false: "served observed"}[viaREST.Labels[MergedProfileLabelKey] == MergedProfileLabelValue])
+		}
+		t.Logf("")
+	}
+
+	t.Log("Scenario: simulate node-agent reads across the ug- AP lifecycle")
+	t.Log("Workload slug:", e2eWorkloadSlug, " container CP name:", e2eContainerCPName)
+	t.Log("")
+
+	// Step 1: time-series data arrives from node-agent, no ug- yet.
+	h.createCP("testdata/p1.json")
+	h.consolidate()
+	dumpState("Step 1: TS data only — no ug-")
+
+	// Step 2: operator creates a ug- AP granting an extra capability.
+	userAP := &softwarecomposition.ApplicationProfile{
+		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
+		Spec: softwarecomposition.ApplicationProfileSpec{
+			Containers: []softwarecomposition.ApplicationProfileContainer{
+				{Name: "coredns", Capabilities: []string{"NET_ADMIN_FROM_UG"}},
+			},
+		},
+	}
+	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.createCP("testdata/p2.json") // fresh TS row so consolidator visits
+	h.consolidate()
+	dumpState("Step 2: operator adds ug- AP granting NET_ADMIN_FROM_UG")
+
+	// Step 3: operator edits the ug- AP — replaces the capability list. The
+	// previous in-place merge couldn't retract; the new design must.
+	h.replaceUserAP(softwarecomposition.ApplicationProfileSpec{
+		Containers: []softwarecomposition.ApplicationProfileContainer{
+			{Name: "coredns", Capabilities: []string{"SYS_PTRACE_FROM_UG"}},
+		},
+	})
+	h.createCP("testdata/p1.json")
+	h.consolidate()
+	dumpState("Step 3: operator edits ug- AP (NET_ADMIN_FROM_UG → SYS_PTRACE_FROM_UG)")
+
+	// Step 4: operator deletes the ug- AP. The merged artifact must disappear
+	// and the REST wrapper must transparently fall back to observed.
+	prev := h.s.processor
+	h.s.processor = DefaultProcessor{}
+	require.NoError(t, h.s.Delete(h.ctx, e2eUgAPKey(), &softwarecomposition.ApplicationProfile{},
+		nil, storage.ValidateAllObjectFunc, nil, storage.DeleteOptions{}))
+	h.s.processor = prev
+	h.createCP("testdata/p2.json")
+	h.consolidate()
+	dumpState("Step 4: operator deletes ug- AP — retraction")
+}
+
+// TestConsolidatorReadsObservedOnly proves the consolidator's read path never
+// pulls from the merged key. We seed a poisoned merged artifact with content
+// that, if mistakenly used as the consolidation base, would surface in the
+// next observed CP. After a tick, the observed CP must be free of the poison.
+func TestConsolidatorReadsObservedOnly(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	h.createCP("testdata/p1.json")
+	h.consolidate() // populate observed
+
+	// Poison the merged key with a capability that doesn't exist anywhere else.
+	prev := h.s.processor
+	h.s.processor = DefaultProcessor{}
+	poison := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eContainerCPName},
+		Spec:       softwarecomposition.ContainerProfileSpec{Capabilities: []string{"POISON_FROM_MERGED"}},
+	}
+	require.NoError(t, h.s.Create(h.ctx, e2eMergedCPKey(), poison, nil, 0))
+	h.s.processor = prev
+
+	// Run another consolidation tick with fresh TS data; the consolidator's
+	// loadOrInitializeProfile must read observed, not merged.
+	h.createCP("testdata/p2.json")
+	h.consolidate()
+
+	observed := h.loadConsolidated()
+	assert.NotContains(t, observed.Spec.Capabilities, "POISON_FROM_MERGED",
+		"consolidator must read observed, never merged — poisoned merged content leaked into observed")
 }

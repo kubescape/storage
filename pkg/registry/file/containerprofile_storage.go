@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
@@ -16,6 +17,27 @@ import (
 	"zombiezen.com/go/sqlite/sqlitemigration"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
+
+// Storage kinds for container profile artifacts. ContainerProfileKind is the
+// canonical observed CP produced by time-series consolidation. MergedKind is
+// the derived "effective" CP — observed plus the user-managed ug- AP/NN
+// overlay — written under a parallel key so consumers can prefer it without
+// the consolidator ever reading it back. The split exists to preserve a
+// canonical observed CP that retracts cleanly when a user edits or deletes
+// a ug- CRD (kubescape/storage#315 review).
+const (
+	ContainerProfileKind       = "containerprofile"
+	ContainerProfileMergedKind = "containerprofile-merged"
+)
+
+// MergedKeyFor returns the merged-CP storage key corresponding to an
+// observed-CP key. Replaces the kind segment "/containerprofile/" with
+// "/containerprofile-merged/". The path layout from K8sKeysToPath / ECSKeysToPath
+// / HostKeysToPath always places kind at the same segment, so a single replace
+// is correct for every host type.
+func MergedKeyFor(observedKey string) string {
+	return strings.Replace(observedKey, "/"+ContainerProfileKind+"/", "/"+ContainerProfileMergedKind+"/", 1)
+}
 
 // ContainerProfileStorageImpl implements ContainerProfileStorage using SQLite as the backend.
 type ContainerProfileStorageImpl struct {
@@ -111,6 +133,40 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	}
 
 	return nil
+}
+
+func (c *ContainerProfileStorageImpl) SaveMergedContainerProfile(ctx context.Context, observedKey string, profile *softwarecomposition.ContainerProfile) error {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	mergedKey := MergedKeyFor(observedKey)
+
+	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		return profile, nil, nil
+	}
+
+	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cpCancel()
+
+	if err := c.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, mergedKey, &softwarecomposition.ContainerProfile{},
+		true, nil, tryUpdate, &softwarecomposition.ContainerProfile{}, ""); err != nil {
+		return fmt.Errorf("failed to update merged container profile: %w", err)
+	}
+	return nil
+}
+
+func (c *ContainerProfileStorageImpl) GetMergedContainerProfile(ctx context.Context, observedKey string) (softwarecomposition.ContainerProfile, error) {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	profile := softwarecomposition.ContainerProfile{}
+	err := c.storageImpl.GetWithConn(ctx, conn, MergedKeyFor(observedKey), storage.GetOptions{}, &profile)
+	return profile, err
+}
+
+func (c *ContainerProfileStorageImpl) DeleteMergedContainerProfile(ctx context.Context, observedKey string) error {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	err := c.storageImpl.delete(ctx, conn, MergedKeyFor(observedKey), &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
+	if err != nil && isKeyNotFoundErr(err) {
+		return nil
+	}
+	return err
 }
 
 func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {

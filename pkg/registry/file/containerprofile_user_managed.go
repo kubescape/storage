@@ -19,13 +19,30 @@ import (
 	"zombiezen.com/go/sqlite"
 )
 
-// Annotation keys used to mark which user-managed (ug-) AP/NN ResourceVersions
-// have already been merged into the consolidated ContainerProfile. They make
-// the per-tick merge idempotent: when the marker matches the live ug- RV, the
-// merge is skipped to avoid duplicate slice entries.
+// Provenance metadata stamped onto the merged (effective) ContainerProfile so
+// it is easy to identify and debug. The label is for cheap filtering; the
+// annotations carry the richer source-pointer detail (keys + ResourceVersions
+// of the ug- AP/NN and the observed CP that fed this merge).
 const (
-	lastMergedUserAPResourceVersionKey = "kubescape.io/last-merged-ug-ap-rv"
-	lastMergedUserNNResourceVersionKey = "kubescape.io/last-merged-ug-nn-rv"
+	// MergedProfileLabelKey marks an object as the derived merged CP, distinct
+	// from the canonical observed CP that lives under the containerprofile kind.
+	MergedProfileLabelKey   = "kubescape.io/profile-kind"
+	MergedProfileLabelValue = "merged"
+
+	// mergedSourceUserAPKey / mergedSourceUserNNKey record the storage keys of
+	// the ug- AP / NN that contributed to this merge. Absent annotation means
+	// no ug- of that kind was present at merge time.
+	mergedSourceUserAPKey = "kubescape.io/merged-source-ug-ap"
+	mergedSourceUserNNKey = "kubescape.io/merged-source-ug-nn"
+
+	// mergedSourceUserAPRVKey / mergedSourceUserNNRVKey / mergedSourceObservedRVKey
+	// snapshot the ResourceVersions of each input. They give matthyx a quick
+	// signal when debugging "is this merged stale vs the live ug- / observed?"
+	// without re-reading the source objects.
+	mergedSourceUserAPRVKey    = "kubescape.io/merged-source-ug-ap-rv"
+	mergedSourceUserNNRVKey    = "kubescape.io/merged-source-ug-nn-rv"
+	mergedSourceObservedRVKey  = "kubescape.io/merged-source-observed-rv"
+	mergedSourceObservedRVNote = "kubescape.io/merged-at"
 )
 
 // userManagedConnWarnOnce makes the type-assert miss in userManagedConn surface
@@ -33,49 +50,50 @@ const (
 // tests using a stub backend, but in production they would mask a config bug.
 var userManagedConnWarnOnce sync.Once
 
-// mergeUserManagedProfiles fetches the user-managed (ug-prefix) ApplicationProfile
-// and NetworkNeighborhood for the workload owning this ContainerProfile and
-// merges the matching per-container entry into profile.Spec. Best-effort:
-// missing user-managed CRDs are not an error. Status/completion annotations on
-// the base ContainerProfile are untouched — user-managed data is additive.
+// buildMergedProfile builds the effective ContainerProfile from observed plus
+// the user-managed (ug-) ApplicationProfile / NetworkNeighborhood overlay.
 //
-// This mirrors the merge math previously performed client-side in
-// node-agent/pkg/objectcache/containerprofilecache/projection.go. Centralising
-// it here lets every node-agent consume the consolidated CP as a single source
-// of truth and drop the per-tick ug- fetch.
+// Returns (merged, hasOverlay, err):
+//   - merged: a fresh DeepCopy of observed with ug- AP/NN merged in, stamped
+//     with provenance metadata. Never aliases observed.
+//   - hasOverlay: true if at least one of ug-AP or ug-NN matched the workload
+//     and contributed a container entry. When false, the caller treats the
+//     merged artifact as absent and should delete any prior merged on disk so
+//     ug- removals retract cleanly (kubescape/storage#315 review).
+//   - err: only returned for unexpected storage errors. NotFound on ug- objects
+//     is normal (most workloads have no exception) and produces hasOverlay=false
+//     with no error.
 //
-// Note: this fires once per per-container CP per consolidation tick, so a
-// workload with N containers does N×2 reads of the same ug- objects. A
-// short-lived per-tick cache was considered (kubescape/storage#315 thread)
-// but rejected — ug- objects can be large and the memory overhead isn't
-// justified at the 30s cadence. Revisit if disk I/O shows up in profiling.
-func (a *ContainerProfileProcessor) mergeUserManagedProfiles(ctx context.Context, profile *softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier) {
-	instanceIDStr, ok := profile.Annotations[helpers.InstanceIDMetadataKey]
+// The merge is a pure function of (observed, ug-AP, ug-NN). Re-running it with
+// the same inputs produces the same output, so idempotency is structural — no
+// per-tick RV markers are needed on observed (the previous PR design carried
+// kubescape.io/last-merged-ug-{ap,nn}-rv on observed, which had to be
+// reconciled with retractions; rebuilding from scratch sidesteps the problem).
+func (a *ContainerProfileProcessor) buildMergedProfile(ctx context.Context, observed *softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier) (*softwarecomposition.ContainerProfile, bool, error) {
+	instanceIDStr, ok := observed.Annotations[helpers.InstanceIDMetadataKey]
 	if !ok {
-		return
+		return nil, false, nil
 	}
 	instanceID, err := instanceidhandlerv1.GenerateInstanceIDFromString(instanceIDStr)
 	if err != nil {
-		logger.L().Debug("ContainerProfileProcessor.mergeUserManagedProfiles - failed to parse instance ID", loggerhelpers.Error(err))
-		return
+		logger.L().Debug("ContainerProfileProcessor.buildMergedProfile - failed to parse instance ID", loggerhelpers.Error(err))
+		return nil, false, nil
 	}
 	workloadSlug, err := instanceID.GetSlug(true)
 	if err != nil {
-		logger.L().Debug("ContainerProfileProcessor.mergeUserManagedProfiles - failed to derive workload slug", loggerhelpers.Error(err))
-		return
+		logger.L().Debug("ContainerProfileProcessor.buildMergedProfile - failed to derive workload slug", loggerhelpers.Error(err))
+		return nil, false, nil
 	}
 	containerName := instanceID.GetContainerName()
 	if containerName == "" {
-		return
+		return nil, false, nil
 	}
 
 	storageImpl, conn, ok := a.userManagedConn(ctx)
 	if !ok {
-		return
+		return nil, false, nil
 	}
 
-	// AP and NN have separate prefix constants for future-proofing even though
-	// they currently share the same "ug-" string.
 	apID := id
 	apID.Name = helpers.UserApplicationProfilePrefix + workloadSlug
 	apKey := BuildContainerProfileKey(apID, "applicationprofiles")
@@ -83,31 +101,79 @@ func (a *ContainerProfileProcessor) mergeUserManagedProfiles(ctx context.Context
 	nnID.Name = helpers.UserNetworkNeighborhoodPrefix + workloadSlug
 	nnKey := BuildContainerProfileKey(nnID, "networkneighborhoods")
 
-	// ApplicationProfile merge
+	// Start from a fresh copy of observed so the in-place merge cannot bleed
+	// back into the caller's pointer or onto the canonical CP.
+	merged := observed.DeepCopy()
+	hasOverlay := false
+
 	apCtx, apCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer apCancel()
 	var userAP softwarecomposition.ApplicationProfile
+	apPresent := false
 	if err := storageImpl.GetWithConn(apCtx, conn, apKey, storage.GetOptions{}, &userAP); err != nil {
 		if !storage.IsNotFound(err) {
-			logger.L().Debug("ContainerProfileProcessor.mergeUserManagedProfiles - failed to get user-managed AP", loggerhelpers.Error(err), loggerhelpers.String("key", apKey))
+			logger.L().Debug("ContainerProfileProcessor.buildMergedProfile - failed to get user-managed AP", loggerhelpers.Error(err), loggerhelpers.String("key", apKey))
 		}
-	} else if profile.Annotations[lastMergedUserAPResourceVersionKey] != userAP.ResourceVersion {
-		mergeUserAPIntoCP(profile, &userAP, containerName)
-		profile.Annotations[lastMergedUserAPResourceVersionKey] = userAP.ResourceVersion
+	} else {
+		apPresent = true
+		if findUserAPContainerByName(&userAP, containerName) != nil {
+			mergeUserAPIntoCP(merged, &userAP, containerName)
+			hasOverlay = true
+		}
 	}
 
-	// NetworkNeighborhood merge
 	nnCtx, nnCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer nnCancel()
 	var userNN softwarecomposition.NetworkNeighborhood
+	nnPresent := false
 	if err := storageImpl.GetWithConn(nnCtx, conn, nnKey, storage.GetOptions{}, &userNN); err != nil {
 		if !storage.IsNotFound(err) {
-			logger.L().Debug("ContainerProfileProcessor.mergeUserManagedProfiles - failed to get user-managed NN", loggerhelpers.Error(err), loggerhelpers.String("key", nnKey))
+			logger.L().Debug("ContainerProfileProcessor.buildMergedProfile - failed to get user-managed NN", loggerhelpers.Error(err), loggerhelpers.String("key", nnKey))
 		}
-	} else if profile.Annotations[lastMergedUserNNResourceVersionKey] != userNN.ResourceVersion {
-		mergeUserNNIntoCP(profile, &userNN, containerName)
-		profile.Annotations[lastMergedUserNNResourceVersionKey] = userNN.ResourceVersion
+	} else {
+		nnPresent = true
+		// NN's pod LabelSelector merges at the workload level even when no
+		// matching container is found — preserve that behavior so a
+		// container-name typo in the ug- still propagates the selector.
+		mergeUserNNIntoCP(merged, &userNN, containerName)
+		if findUserNNContainerByName(&userNN, containerName) != nil {
+			hasOverlay = true
+		}
 	}
+
+	if !hasOverlay && !apPresent && !nnPresent {
+		// No ug- input at all: caller should delete any stale merged artifact.
+		return nil, false, nil
+	}
+
+	// Stamp provenance.
+	if merged.Labels == nil {
+		merged.Labels = map[string]string{}
+	}
+	merged.Labels[MergedProfileLabelKey] = MergedProfileLabelValue
+	if merged.Annotations == nil {
+		merged.Annotations = map[string]string{}
+	}
+	if apPresent {
+		merged.Annotations[mergedSourceUserAPKey] = apKey
+		merged.Annotations[mergedSourceUserAPRVKey] = userAP.ResourceVersion
+	}
+	if nnPresent {
+		merged.Annotations[mergedSourceUserNNKey] = nnKey
+		merged.Annotations[mergedSourceUserNNRVKey] = userNN.ResourceVersion
+	}
+	merged.Annotations[mergedSourceObservedRVKey] = observed.ResourceVersion
+	merged.Annotations[mergedSourceObservedRVNote] = time.Now().UTC().Format(time.RFC3339)
+
+	// If neither ug- contributed a container entry but at least one ug- exists
+	// (e.g. NN selector merged but no container matched, or ug-AP present with
+	// no matching container), still treat as "has overlay" so the merged
+	// artifact reflects the selector/presence. hasOverlay is true if any
+	// container-level merge fired; otherwise we fall back here:
+	if !hasOverlay {
+		hasOverlay = apPresent || nnPresent
+	}
+	return merged, hasOverlay, nil
 }
 
 // userManagedConn extracts the StorageImpl and sqlite connection from the
