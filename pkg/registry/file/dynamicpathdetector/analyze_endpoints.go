@@ -185,8 +185,8 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 		// (path, direction, Internal) is already in `seen`, fold this entry
 		// into it. The wildcardKey shape MUST match getEndpointKey exactly so
 		// the lookup hits the same map slot the wildcard was inserted under.
-		// CodeRabbit upstream PR #323 finding #5: the two formats are
-		// derived from the same helper to remove the duplication risk.
+		// Both formats derive from buildEndpointKey to remove the
+		// duplication risk.
 		wildcardKey := buildEndpointKey(":0"+pathPart, endpoint.Direction, endpoint.Internal)
 		if existing, found := seen[wildcardKey]; found {
 			existing.Methods = MergeStrings(existing.Methods, endpoint.Methods)
@@ -211,7 +211,6 @@ func MergeDuplicateEndpoints(endpoints []*types.HTTPEndpoint) []*types.HTTPEndpo
 // immediately replaces `newEndpoints` with the return value, so there is
 // no live alias today. If a future refactor stores intermediate slice
 // references, swap to a copy-based removal to avoid action-at-a-distance.
-// CodeRabbit upstream PR #323 finding #9.
 func removeEndpoint(s []*types.HTTPEndpoint, target *types.HTTPEndpoint) []*types.HTTPEndpoint {
 	for i, e := range s {
 		if e == target {
@@ -223,9 +222,9 @@ func removeEndpoint(s []*types.HTTPEndpoint, target *types.HTTPEndpoint) []*type
 
 // getEndpointKey returns a key that uniquely identifies an HTTPEndpoint by
 // the same fields HTTPEndpoint.Equal compares: Endpoint, Direction, Internal.
-// CodeRabbit upstream PR #323 finding #5: both this function and the
-// wildcard-key construction in MergeDuplicateEndpoints route through
-// buildEndpointKey so the format can't drift between the two callsites.
+// Both this function and the wildcard-key construction in
+// MergeDuplicateEndpoints route through buildEndpointKey so the format can't
+// drift between the two callsites.
 func getEndpointKey(endpoint *types.HTTPEndpoint) string {
 	return buildEndpointKey(endpoint.Endpoint, endpoint.Direction, endpoint.Internal)
 }

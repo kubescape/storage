@@ -78,8 +78,8 @@ func (ua *PathAnalyzer) effectiveThreshold(pathPrefix string) int {
 // which means an explicit catch-all override could not actually override
 // the analyzer's default threshold.
 func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
-	// Empty-prefix guard. CodeRabbit upstream PR #323 finding #10:
-	// without this, hasPrefixAtBoundary("/foo", "") falls through to
+	// Empty-prefix guard: without this, hasPrefixAtBoundary("/foo", "")
+	// falls through to
 	// pathPrefix[0] == '/', which is true for any absolute path —
 	// effectively treating `""` as a root-matching prefix. None of the
 	// shipped configs use an empty prefix, but operators could supply
@@ -96,8 +96,7 @@ func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
 	// because `/etc/foo[:5]` = `/etc/` only when prefix is `/etc/`, which
 	// then forces the next char to be at offset 5 — but offset 5 IS the
 	// boundary slash itself; the boundary check expects another `/`
-	// AFTER that, which is `f`, not `/` → false). Matthias upstream
-	// PR #323 follow-up.
+	// AFTER that, which is `f`, not `/` → false).
 	for len(prefix) > 1 && prefix[len(prefix)-1] == '/' {
 		prefix = prefix[:len(prefix)-1]
 	}
@@ -413,8 +412,6 @@ func CompareDynamic(dynamicPath, regularPath string) bool {
 	//                 index-based walk would still hit. Allocation cost is
 	//                 acceptable because multi-`*` patterns are rare and
 	//                 author-supplied, not on the per-event hot path.
-	//
-	// Matthias's upstream PR #323 perf review drove this split.
 	if countStarSegments(dynamicPath) >= 2 {
 		// Multiple `*` segments: try collapsing consecutive runs first.
 		// Spec §5.1 makes adjacent `*`s redundant (mid `*` is 0+

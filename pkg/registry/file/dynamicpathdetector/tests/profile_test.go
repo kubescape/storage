@@ -76,7 +76,7 @@ func TestProfileAnalyzePath(t *testing.T) {
 	// that adds one) between Start and the explicit Stop below would
 	// leak CPU-profile state without this. The flag becomes true once
 	// we've stopped explicitly so the defer is a no-op on the happy
-	// path. CodeRabbit upstream PR #323 review.
+	// path.
 	cpuProfileStopped := false
 	defer func() {
 		if !cpuProfileStopped {

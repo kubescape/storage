@@ -50,7 +50,6 @@ func DefaultCollapseConfigs() []CollapseConfig {
 // no CollapseConfig prefix matches the walked path. Exposed via the
 // DefaultCollapseConfig() accessor so callers can't mutate the package
 // state and silently corrupt every analyzer constructed afterward.
-// CodeRabbit upstream PR #323 finding #3.
 var defaultCollapseConfig = CollapseConfig{
 	Prefix:    "/",
 	Threshold: OpenDynamicThreshold,

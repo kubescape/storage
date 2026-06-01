@@ -81,8 +81,7 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer, sbomSet mapse
 // (≤ a few thousand entries per container even on chatty workloads) the
 // constant factor dominates and the quadratic shape is acceptable. If
 // profiles ever balloon beyond ~10k entries, swap the inner scan to a
-// precomputed prefix-trie lookup. CodeRabbit upstream PR #323 finding
-// #6 (acknowledged, not yet optimised).
+// precomputed prefix-trie lookup (not yet optimised).
 func consolidateOpens(opens []types.OpenCalls, sbomSet mapset.Set[string]) []types.OpenCalls {
 	if len(opens) <= 1 {
 		return opens

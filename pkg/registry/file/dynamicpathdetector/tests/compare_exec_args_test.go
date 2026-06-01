@@ -101,6 +101,155 @@ func TestCompareExecArgs_WildcardIdentifier(t *testing.T) {
 	}
 }
 
+// TestCompareExecArgs_EmbeddedDynamicPath pins the path-aware token match: a
+// profile arg that EMBEDS the DynamicIdentifier (but is not the bare token) is
+// compared segment-wise with CompareDynamic, so a versioned binary path in
+// argv matches across the variable segment. This is the postgres case — the
+// container records the postgres binary as "/usr/lib/postgresql/16/bin/postgres"
+// at runtime while the user-authored profile carries the generalised
+// "/usr/lib/postgresql/⋯/bin/postgres". Before this, the strict matcher did
+// literal "==" per position and never matched such args.
+func TestCompareExecArgs_EmbeddedDynamicPath(t *testing.T) {
+	cases := []struct {
+		name    string
+		profile []string
+		runtime []string
+		want    bool
+	}{
+		{
+			"postgres versioned argv0 matches via embedded ⋯",
+			[]string{"/usr/lib/postgresql/⋯/bin/postgres", "--check", "-F"},
+			[]string{"/usr/lib/postgresql/16/bin/postgres", "--check", "-F"},
+			true,
+		},
+		{
+			"postgres full argv vector matches (the bob postgres edge case)",
+			[]string{
+				"/usr/lib/postgresql/⋯/bin/postgres", "--check", "-F", "-c", "log_checkpoints=false",
+				"-c", "max_connections=100", "-c", "shared_buffers=16384", "-c", "dynamic_shared_memory_type=posix",
+			},
+			[]string{
+				"/usr/lib/postgresql/16/bin/postgres", "--check", "-F", "-c", "log_checkpoints=false",
+				"-c", "max_connections=100", "-c", "shared_buffers=16384", "-c", "dynamic_shared_memory_type=posix",
+			},
+			true,
+		},
+		{
+			"embedded ⋯ does NOT match a different fixed segment count",
+			[]string{"/usr/lib/postgresql/⋯/bin/postgres"},
+			[]string{"/usr/lib/postgresql/16/extra/bin/postgres"},
+			false,
+		},
+		{
+			"embedded ⋯ requires the surrounding literal segments to match",
+			[]string{"/usr/lib/postgresql/⋯/bin/postgres"},
+			[]string{"/opt/postgresql/16/bin/postgres"},
+			false,
+		},
+		{
+			"trailing-segment embedded ⋯ matches",
+			[]string{"/proc/⋯"},
+			[]string{"/proc/self"},
+			true,
+		},
+		{
+			"embedded ⋯ as one positional token, surrounding literals enforced",
+			[]string{"-D", "/var/lib/postgresql/⋯/data"},
+			[]string{"-D", "/var/lib/postgresql/16/data"},
+			true,
+		},
+		{
+			"embedded ⋯ positional token with literal mismatch elsewhere",
+			[]string{"-D", "/var/lib/postgresql/⋯/data"},
+			[]string{"-X", "/var/lib/postgresql/16/data"},
+			false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := dynamicpathdetector.CompareExecArgs(tc.profile, tc.runtime); got != tc.want {
+				t.Errorf("CompareExecArgs(%v, %v) = %v, want %v", tc.profile, tc.runtime, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCompareExecArgs_EmbeddedWildcardPath pins the second dynamic-path token
+// form: a profile arg that EMBEDS WildcardIdentifier ("*", zero-or-more
+// segments) but is NOT the bare "*" token. The analyzer produces these when it
+// collapses adjacent dynamic segments — CollapseAdjacentDynamicIdentifiers maps
+// "/usr/lib/postgresql/⋯/⋯/bin/postgres" to "/usr/lib/postgresql/*/bin/postgres"
+// — so a learned argv[0] with two adjacent varying segments carries a "*", not
+// a "⋯". Before argMatches routed embedded "*" to CompareDynamic, such a token
+// fell through to literal "==" and never matched, suppressing the legit exec
+// and firing a false R0040. A bare "*" positional token is still absorbed by
+// the caller (see TestCompareExecArgs_WildcardIdentifier), not by this path.
+func TestCompareExecArgs_EmbeddedWildcardPath(t *testing.T) {
+	cases := []struct {
+		name    string
+		profile []string
+		runtime []string
+		want    bool
+	}{
+		{
+			"embedded * matches one segment",
+			[]string{"/usr/bin/*/postgres"},
+			[]string{"/usr/bin/v16/postgres"},
+			true,
+		},
+		{
+			"embedded * matches zero segments",
+			[]string{"/usr/bin/*/postgres"},
+			[]string{"/usr/bin/postgres"},
+			true,
+		},
+		{
+			"embedded * matches multiple segments",
+			[]string{"/usr/bin/*/postgres"},
+			[]string{"/usr/bin/a/b/postgres"},
+			true,
+		},
+		{
+			"embedded * still enforces the surrounding literals",
+			[]string{"/usr/bin/*/postgres"},
+			[]string{"/opt/bin/v16/postgres"},
+			false,
+		},
+		{
+			"embedded * as one positional token among literals",
+			[]string{"/usr/lib/postgresql/*/bin/postgres", "--check", "-F"},
+			[]string{"/usr/lib/postgresql/16/bin/postgres", "--check", "-F"},
+			true,
+		},
+		// Mixed in a SINGLE token: "*" (zero+) and "⋯" (one) together.
+		{
+			"mixed * then ⋯ in one path token",
+			[]string{"/usr/lib/*/⋯/postgres"},
+			[]string{"/usr/lib/a/b/16/postgres"},
+			true,
+		},
+		{
+			"mixed ⋯ then * in one path token",
+			[]string{"/usr/lib/⋯/*/postgres"},
+			[]string{"/usr/lib/16/a/b/postgres"},
+			true,
+		},
+		{
+			"mixed token still enforces literal tail",
+			[]string{"/usr/lib/*/⋯/postgres"},
+			[]string{"/usr/lib/a/b/16/mysqld"},
+			false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := dynamicpathdetector.CompareExecArgs(tc.profile, tc.runtime); got != tc.want {
+				t.Errorf("CompareExecArgs(%v, %v) = %v, want %v", tc.profile, tc.runtime, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCompareExecArgs_MixedTokens(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -278,15 +427,13 @@ func TestCompareExecArgs_Argv0BareName(t *testing.T) {
 // — every prefix * has multiple split choices and the suffix
 // mismatch only surfaces at the very end, so each path gets
 // re-explored. With memoisation this is O(P*R); without it, naïve
-// recursion would be exponential.
-//
-// CodeRabbit flagged the unmemoised version on PR #27 (Major).
+// recursion would be exponential without memoisation.
 func TestCompareExecArgs_ReDoSResistance(t *testing.T) {
 	// Skip in short mode: this test has a wall-clock budget that is
 	// inherently sensitive to runner CPU contention. The functional
 	// regression intent is preserved — the memoisation correctness is
 	// also covered by the explicit case-table tests above which always
-	// run. CodeRabbit upstream PR #326 finding #5.
+	// run.
 	if testing.Short() {
 		t.Skip("skip timing-sensitive ReDoS regression in short mode")
 	}
@@ -323,12 +470,12 @@ func TestCompareExecArgs_ReDoSResistance(t *testing.T) {
 
 // TestMatchExecArgs_ContractFourStates pins the four-state contract that
 // ArgsRequired makes expressible (resolves the args,omitempty round-trip
-// ambiguity matthyx blocked on PR #322):
+// ambiguity):
 //
-//   1. ArgsRequired=false, profileArgs=nil  → no constraint (any runtime)
-//   2. ArgsRequired=false, profileArgs=[…]  → no constraint (back-compat)
-//   3. ArgsRequired=true,  profileArgs=[]   → MUST have empty runtime args
-//   4. ArgsRequired=true,  profileArgs=[…]  → strict anchored match
+//  1. ArgsRequired=false, profileArgs=nil  → no constraint (any runtime)
+//  2. ArgsRequired=false, profileArgs=[…]  → no constraint (back-compat)
+//  3. ArgsRequired=true,  profileArgs=[]   → MUST have empty runtime args
+//  4. ArgsRequired=true,  profileArgs=[…]  → strict anchored match
 //
 // State (3) is the case the legacy CompareExecArgs API could not express;
 // MatchExecArgs uses the explicit flag to disambiguate.
@@ -342,57 +489,57 @@ func TestMatchExecArgs_ContractFourStates(t *testing.T) {
 	}{
 		// State 1: ArgsRequired=false, profile nil → no constraint
 		{
-			name: "ArgsRequired=false, profile=nil, runtime=nil → true (no constraint)",
+			name:         "ArgsRequired=false, profile=nil, runtime=nil → true (no constraint)",
 			argsRequired: false, profileArgs: nil, runtimeArgs: nil, want: true,
 		},
 		{
-			name: "ArgsRequired=false, profile=nil, runtime=non-empty → true (no constraint)",
+			name:         "ArgsRequired=false, profile=nil, runtime=non-empty → true (no constraint)",
 			argsRequired: false, profileArgs: nil, runtimeArgs: []string{"foo", "bar"}, want: true,
 		},
 
 		// State 2: ArgsRequired=false, profile populated → no constraint (back-compat)
 		{
-			name: "ArgsRequired=false, profile=[x], runtime=anything → true (back-compat bypass)",
+			name:         "ArgsRequired=false, profile=[x], runtime=anything → true (back-compat bypass)",
 			argsRequired: false, profileArgs: []string{"x"}, runtimeArgs: []string{"completely", "different"}, want: true,
 		},
 
 		// State 3: ArgsRequired=true, profile=[] → runtime MUST be empty
 		{
-			name: "ArgsRequired=true, profile=[], runtime=[] → true (anchored empty-empty)",
+			name:         "ArgsRequired=true, profile=[], runtime=[] → true (anchored empty-empty)",
 			argsRequired: true, profileArgs: []string{}, runtimeArgs: []string{}, want: true,
 		},
 		{
-			name: "ArgsRequired=true, profile=[], runtime=nil → true (nil == empty for runtime)",
+			name:         "ArgsRequired=true, profile=[], runtime=nil → true (nil == empty for runtime)",
 			argsRequired: true, profileArgs: []string{}, runtimeArgs: nil, want: true,
 		},
 		{
-			name: "ArgsRequired=true, profile=[], runtime=[x] → false (extra runtime arg)",
+			name:         "ArgsRequired=true, profile=[], runtime=[x] → false (extra runtime arg)",
 			argsRequired: true, profileArgs: []string{}, runtimeArgs: []string{"x"}, want: false,
 		},
 		{
-			name: "ArgsRequired=true, profile=nil, runtime=[x] → false (anchored, profile vector empty)",
+			name:         "ArgsRequired=true, profile=nil, runtime=[x] → false (anchored, profile vector empty)",
 			argsRequired: true, profileArgs: nil, runtimeArgs: []string{"x"}, want: false,
 		},
 
 		// State 4: ArgsRequired=true, profile populated → strict anchored match
 		{
-			name: "ArgsRequired=true, exact literal match",
+			name:         "ArgsRequired=true, exact literal match",
 			argsRequired: true, profileArgs: []string{"-c", "echo hi"}, runtimeArgs: []string{"-c", "echo hi"}, want: true,
 		},
 		{
-			name: "ArgsRequired=true, exact literal mismatch",
+			name:         "ArgsRequired=true, exact literal mismatch",
 			argsRequired: true, profileArgs: []string{"-c", "echo hi"}, runtimeArgs: []string{"-c", "echo bye"}, want: false,
 		},
 		{
-			name: "ArgsRequired=true, trailing wildcard absorbs",
+			name:         "ArgsRequired=true, trailing wildcard absorbs",
 			argsRequired: true, profileArgs: []string{"-c", "*"}, runtimeArgs: []string{"-c", "echo", "hi"}, want: true,
 		},
 		{
-			name: "ArgsRequired=true, dynamic identifier matches one position",
+			name:         "ArgsRequired=true, dynamic identifier matches one position",
 			argsRequired: true, profileArgs: []string{"-c", "⋯", "hi"}, runtimeArgs: []string{"-c", "anything", "hi"}, want: true,
 		},
 		{
-			name: "ArgsRequired=true, dynamic identifier requires exactly one — fails on missing",
+			name:         "ArgsRequired=true, dynamic identifier requires exactly one — fails on missing",
 			argsRequired: true, profileArgs: []string{"-c", "⋯", "hi"}, runtimeArgs: []string{"-c", "hi"}, want: false,
 		},
 	}

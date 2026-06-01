@@ -73,8 +73,8 @@ func BenchmarkAnalyzeOpensVsDeflateStringer(b *testing.B) {
 }
 
 // BenchmarkCompareDynamic exercises the matcher under realistic shapes.
-// Run with -benchmem; the goal is the zero-alloc target Matthias called
-// out on upstream PR #316. Until the perf rewrite lands the numbers
+// Run with -benchmem; the goal is the zero-alloc target for the hot path.
+// Until the perf rewrite lands the numbers
 // document the current cost so regressions show up. Inputs are split
 // across cases so the benchmark covers:
 //
