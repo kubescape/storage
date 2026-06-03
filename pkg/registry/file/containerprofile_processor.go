@@ -537,21 +537,14 @@ func (a *ContainerProfileProcessor) refreshMergedProfile(ctx context.Context, ob
 	}
 
 	if !hasOverlay {
-		// No ug- input. Delete any prior merged artifact so consumers fall
-		// back to observed. Probe first so the no-merged-yet path (every
-		// workload's first tick before any ug- exists) doesn't issue a futile
-		// delete that the storage layer logs at Error level.
-		if _, getErr := a.ContainerProfileStorage.GetMergedContainerProfile(ctx, observedKey); getErr != nil {
-			if storage.IsNotFound(getErr) {
-				// Nothing to retract.
-				return observed, nil
-			}
-			return observed, fmt.Errorf("failed to probe merged container profile for retraction: %w", getErr)
-		}
-		// A stale merged artifact exists and must be retracted. Surface a delete
-		// failure as a hard error so the tick rolls back and retries, rather than
-		// leaving consumers reading a merged view the ug- overlay no longer
-		// backs. DeleteMergedContainerProfile already treats not-found as success.
+		// No ug- input. Delete any prior merged artifact so consumers fall back
+		// to observed. DeleteMergedContainerProfile is idempotent (it does a
+		// lock-free existence probe and treats not-found as success), so the
+		// common no-merged-yet path is quiet — no error log and no futile
+		// delete — without a separate existence probe here. A genuine delete
+		// failure is surfaced as a hard error so the tick rolls back and retries
+		// rather than leaving consumers reading a merged view the ug- overlay no
+		// longer backs.
 		if delErr := a.ContainerProfileStorage.DeleteMergedContainerProfile(ctx, observedKey); delErr != nil {
 			return observed, fmt.Errorf("failed to delete stale merged container profile: %w", delErr)
 		}

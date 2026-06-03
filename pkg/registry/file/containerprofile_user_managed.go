@@ -39,10 +39,17 @@ const (
 	// snapshot the ResourceVersions of each input. They give matthyx a quick
 	// signal when debugging "is this merged stale vs the live ug- / observed?"
 	// without re-reading the source objects.
-	mergedSourceUserAPRVKey    = "kubescape.io/merged-source-ug-ap-rv"
-	mergedSourceUserNNRVKey    = "kubescape.io/merged-source-ug-nn-rv"
-	mergedSourceObservedRVKey  = "kubescape.io/merged-source-observed-rv"
-	mergedSourceObservedRVNote = "kubescape.io/merged-at"
+	//
+	// These RVs are deliberately content-derived (they only change when an input
+	// actually changes), so re-merging unchanged inputs reproduces the exact same
+	// annotations. We intentionally do NOT stamp a wall-clock "merged-at" here: a
+	// per-tick timestamp would make every rebuild differ, defeating the
+	// GuaranteedUpdate no-op short-circuit and churning the merged CP's
+	// ResourceVersion (and firing spurious watch events) every consolidation tick
+	// even when nothing changed (kubescape/storage#315 review).
+	mergedSourceUserAPRVKey   = "kubescape.io/merged-source-ug-ap-rv"
+	mergedSourceUserNNRVKey   = "kubescape.io/merged-source-ug-nn-rv"
+	mergedSourceObservedRVKey = "kubescape.io/merged-source-observed-rv"
 )
 
 // userManagedConnWarnOnce makes the type-assert miss in userManagedConn surface
@@ -163,7 +170,6 @@ func (a *ContainerProfileProcessor) buildMergedProfile(ctx context.Context, obse
 		merged.Annotations[mergedSourceUserNNRVKey] = userNN.ResourceVersion
 	}
 	merged.Annotations[mergedSourceObservedRVKey] = observed.ResourceVersion
-	merged.Annotations[mergedSourceObservedRVNote] = time.Now().UTC().Format(time.RFC3339)
 
 	// If neither ug- contributed a container entry but at least one ug- exists
 	// (e.g. NN selector merged but no container matched, or ug-AP present with

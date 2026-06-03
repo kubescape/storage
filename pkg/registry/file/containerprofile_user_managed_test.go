@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path"
 	"sort"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -351,6 +353,37 @@ func (h *e2eHarness) consolidate() {
 	require.NoError(h.t, h.processor.ConsolidateTimeSeries(h.ctx))
 }
 
+// watchMergedModifications registers a watcher for the merged-CP kind and
+// returns a drain function that reports how many Modified events have arrived
+// since the previous call. The exact merged key is namespaced (Watch rejects
+// namespaced keys), so we register at the namespace-less kind path; the
+// dispatcher fans events from the namespaced child up to parent-path watchers.
+// A merged write only fires through StorageImpl.saveObject (the sole Modified
+// emitter), so a count of zero is a reliable "the merged CP was not written".
+func (h *e2eHarness) watchMergedModifications() (drain func() int, stop func()) {
+	h.t.Helper()
+	mergedKindPath := path.Dir(path.Dir(e2eMergedCPKey()))
+	w, err := h.s.Watch(h.ctx, mergedKindPath, storage.ListOptions{})
+	require.NoError(h.t, err)
+	drain = func() int {
+		n := 0
+		for {
+			select {
+			case ev, ok := <-w.ResultChan():
+				if !ok {
+					return n
+				}
+				if ev.Type == watch.Modified {
+					n++
+				}
+			case <-time.After(250 * time.Millisecond):
+				return n
+			}
+		}
+	}
+	return drain, w.Stop
+}
+
 func (h *e2eHarness) loadConsolidated() softwarecomposition.ContainerProfile {
 	h.t.Helper()
 	var cp softwarecomposition.ContainerProfile
@@ -480,13 +513,28 @@ func TestConsolidateMergesUserManagedNN(t *testing.T) {
 	assert.NotEmpty(t, cp.Annotations[mergedSourceUserNNKey])
 }
 
-// TestConsolidateUserManagedIdempotent verifies that a second consolidation
-// tick with the ug- AP unchanged does NOT duplicate merged entries. The
-// merged artifact is rebuilt fresh from (observed, ug-AP, ug-NN) each tick,
-// so idempotency is structural rather than RV-marker driven.
+// TestConsolidateUserManagedIdempotent verifies that re-merging unchanged
+// inputs does NOT rewrite the merged CP, while a real change does.
+//
+// The merged CP is rebuilt from (observed, ug-AP, ug-NN) every tick. Because it
+// is a DeepCopy of the observed CP it used to carry observed's ResourceVersion +
+// SyncChecksum (and a wall-clock "merged-at" annotation), so GuaranteedUpdate's
+// "same serialized contents" short-circuit never fired and the merged CP — plus
+// a watch event to node-agent — was rewritten on every consolidation tick even
+// when nothing changed (kubescape/storage#315 review). SaveMergedContainerProfile
+// now carries the persisted merged object's identity forward (and reads the real
+// current state rather than an empty cachedExistingObject), and the merge no
+// longer stamps a per-tick timestamp, so an unchanged rebuild is recognised and
+// the write is skipped — keeping the merged CP's ResourceVersion stable.
+//
+// A positive DeleteThreshold lets the consolidator revisit the (now idle/expired)
+// workload on later ticks without new time-series data — that revisit is what
+// re-runs the merge and would expose a spurious rewrite. The p1 fixture carries
+// no report timestamp, so its consolidated TS row is always "expired".
 func TestConsolidateUserManagedIdempotent(t *testing.T) {
 	h := newE2EHarness(t)
 	defer h.close()
+	h.processor.DeleteThreshold = time.Second
 
 	h.createCP("testdata/p1.json")
 	userAP := &softwarecomposition.ApplicationProfile{
@@ -499,22 +547,56 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 	}
 	h.seedNonCP(e2eUgAPKey(), userAP)
 
+	drainMergedWrites, stopWatch := h.watchMergedModifications()
+	defer stopWatch()
+
 	h.consolidate()
 	first := h.requireMerged()
 	require.Equal(t, 1, count(first.Spec.Capabilities, "USER_MANAGED_CAP"))
-	rvAfterFirst := first.Annotations[mergedSourceUserAPRVKey]
-	require.NotEmpty(t, rvAfterFirst)
+	require.NotEmpty(t, first.ResourceVersion)
+	require.Equal(t, 1, drainMergedWrites(), "first tick must create the merged CP")
 
-	// Second tick: introduce a new TS profile (p2) so updateProfile re-runs
-	// the merge with new observed data. ug- AP unchanged — merged must still
-	// contain the user capability exactly once (no duplication).
-	h.createCP("testdata/p2.json")
+	// Cross a wall-clock second boundary before the no-data tick. The merge must
+	// be a pure function of (observed, ug-AP, ug-NN) — independent of when it
+	// runs — so a re-merge of identical inputs after time has advanced must still
+	// be a no-op. This deterministically catches any reintroduced per-tick
+	// timestamp (e.g. a "merged-at" annotation), which would otherwise only flake
+	// the assertions below when a tick happened to straddle a second.
+	time.Sleep(1100 * time.Millisecond)
+
+	// Second tick: no new time-series data and the ug- AP unchanged. The
+	// consolidator still revisits the workload (expired), re-running the merge
+	// with identical inputs. The rebuilt merged must be recognised as unchanged
+	// and NOT rewritten: no watch event fires, the persisted object is byte-for-
+	// byte identical, and its ResourceVersion is stable.
 	h.consolidate()
 	second := h.requireMerged()
+	assert.Equal(t, 0, drainMergedWrites(),
+		"unchanged inputs must not rewrite the merged CP (a write ⇒ spurious watch event to node-agent)")
+	assert.Equal(t, first.ResourceVersion, second.ResourceVersion,
+		"unchanged inputs must keep the merged CP ResourceVersion stable")
+	assert.Equal(t, first, second, "an unchanged tick must leave the merged CP byte-for-byte identical")
 	assert.Equal(t, 1, count(second.Spec.Capabilities, "USER_MANAGED_CAP"),
 		"unchanged ug- AP must not duplicate merged entries")
-	assert.Equal(t, rvAfterFirst, second.Annotations[mergedSourceUserAPRVKey],
-		"merged source-AP-RV annotation must remain stable when ug- AP is unchanged")
+
+	// Third tick: edit the ug- AP. Now an input changed, so the merged CP must
+	// be rewritten — its ResourceVersion advances and the new capability lands
+	// (and the old one is retracted, since the merge is rebuilt from scratch).
+	h.replaceUserAP(softwarecomposition.ApplicationProfileSpec{
+		Containers: []softwarecomposition.ApplicationProfileContainer{
+			{Name: "coredns", Capabilities: []string{"USER_MANAGED_CAP_V2"}},
+		},
+	})
+	h.consolidate()
+	third := h.requireMerged()
+	assert.GreaterOrEqual(t, drainMergedWrites(), 1,
+		"a changed ug- AP must rewrite the merged CP (a watch event must fire)")
+	assert.NotEqual(t, second.ResourceVersion, third.ResourceVersion,
+		"a changed ug- AP must rewrite the merged CP (RV must advance)")
+	assert.Contains(t, third.Spec.Capabilities, "USER_MANAGED_CAP_V2",
+		"merged CP must pick up the edited ug- AP capability")
+	assert.NotContains(t, third.Spec.Capabilities, "USER_MANAGED_CAP",
+		"merge is rebuilt from scratch, so the superseded capability must be retracted")
 }
 
 // TestConsolidateUserManagedRVBump verifies that updating the ug- AP (bumping
