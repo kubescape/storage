@@ -127,8 +127,22 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cpCancel()
 
+	// cachedExistingObject is deliberately nil. Passing a non-nil value (even an
+	// empty object) tells GuaranteedUpdate to treat it as the current on-disk
+	// state and skip the read-from-disk, so its "same serialized contents"
+	// short-circuit compares the freshly consolidated profile against an empty
+	// object — never equal — and rewrites the observed CP (bumping its
+	// ResourceVersion) on every consolidation tick that carries new time-series
+	// data, even when the consolidated content is byte-identical to what is
+	// already persisted. That spurious RV bump then propagates to the merged CP
+	// (whose merged-source-observed-rv annotation tracks observed.ResourceVersion),
+	// refreshing it once per node-agent report. profile already carries the
+	// persisted CP's identity (ResourceVersion, UID, creationTimestamp,
+	// SyncChecksum) from loadOrInitializeProfile, so reading the real current
+	// state lets an unchanged consolidation compare equal and skip the write
+	// (kubescape/storage#315 review).
 	err := c.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{},
-		true, nil, tryUpdate, &softwarecomposition.ContainerProfile{}, "")
+		true, nil, tryUpdate, nil, "")
 	if err != nil {
 		return fmt.Errorf("failed to update container profile: %w", err)
 	}

@@ -315,6 +315,34 @@ func (h *e2eHarness) createCP(fixture string) {
 		&profile, nil, 0))
 }
 
+// createFreshReport ingests a TS ContainerProfile for the e2e workload with a
+// *current* report timestamp, so a large DeleteThreshold keeps the workload in
+// Learning (the expired path never marks it Completed). Each call uses a fresh
+// series ID + TS suffix, modelling an independent node-agent report. The spec is
+// taken from p1.json and run through mutate, so callers can feed byte-identical
+// reports (mutate=nil) or genuinely-new content across consecutive ticks. This
+// is what lets a test drive the newData=true observed-save path more than once —
+// re-feeding the old fixtures is rejected once the observed CP is Completed.
+func (h *e2eHarness) createFreshReport(seriesID, tsSuffix string, mutate func(*softwarecomposition.ContainerProfile)) {
+	h.t.Helper()
+	content, err := os.ReadFile("testdata/p1.json")
+	require.NoError(h.t, err)
+	var profile softwarecomposition.ContainerProfile
+	require.NoError(h.t, json.Unmarshal(content, &profile))
+
+	profile.Name = e2eContainerCPName + "-" + tsSuffix
+	profile.Annotations[helpersv1.ReportSeriesIdMetadataKey] = seriesID
+	profile.Annotations[helpersv1.ReportTimestampMetadataKey] = time.Now().String()
+	profile.Annotations[helpersv1.PreviousReportTimestampMetadataKey] = "0001-01-01 00:00:00 +0000 UTC"
+	profile.Annotations[helpersv1.StatusMetadataKey] = "ready"
+	if mutate != nil {
+		mutate(&profile)
+	}
+	require.NoError(h.t, h.s.Create(h.ctx,
+		"/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name,
+		&profile, nil, 0))
+}
+
 // seedNonCP writes a non-ContainerProfile object via the storage layer, working
 // around the test harness's processor wiring (production wires
 // ContainerProfileProcessor only for the containerprofile kind via a per-kind
@@ -597,6 +625,171 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 		"merged CP must pick up the edited ug- AP capability")
 	assert.NotContains(t, third.Spec.Capabilities, "USER_MANAGED_CAP",
 		"merge is rebuilt from scratch, so the superseded capability must be retracted")
+}
+
+// TestSaveContainerProfileIdempotent verifies that persisting an observed CP
+// whose consolidated content is byte-identical to what is already stored does
+// NOT bump its ResourceVersion, while a real content change still does.
+//
+// updateProfile re-saves the observed CP on every tick that carries new
+// time-series data (newData=true), even when consolidation produced the same
+// bytes — node-agent re-reports the same observations for an idle/stable
+// workload. Before this fix SaveContainerProfile passed a non-nil *empty*
+// cachedExistingObject, which told GuaranteedUpdate to treat that empty object
+// as the current on-disk state: its "same serialized contents" short-circuit
+// then compared the freshly consolidated profile against an empty object (never
+// equal) and rewrote the observed CP — bumping its ResourceVersion — on every
+// such tick. That bump propagated to the derived merged CP (whose
+// merged-source-observed-rv annotation tracks observed.ResourceVersion),
+// refreshing the merged artifact and firing a watch event to node-agent once per
+// report. Reading the real current state (cachedExistingObject=nil) restores the
+// no-op short-circuit (kubescape/storage#315 review).
+//
+// The test mirrors the consolidation contract: updateProfile loads the persisted
+// CP (carrying its ResourceVersion / SyncChecksum) before saving, so an unchanged
+// re-save must compare equal and skip.
+func TestSaveContainerProfileIdempotent(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+
+	cpStore := h.processor.ContainerProfileStorage.(*ContainerProfileStorageImpl)
+	ctx := context.WithValue(h.ctx, connKey, h.conn)
+	key := e2eCPKey()
+
+	load := func() softwarecomposition.ContainerProfile {
+		var cp softwarecomposition.ContainerProfile
+		require.NoError(t, h.s.GetWithConn(ctx, h.conn, key, storage.GetOptions{}, &cp))
+		return cp
+	}
+
+	// Initial consolidation: build and persist a fresh observed CP.
+	initial := &softwarecomposition.ContainerProfile{
+		TypeMeta: metav1.TypeMeta{APIVersion: StorageV1Beta1ApiVersion, Kind: "ContainerProfile"},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   e2eNS,
+			Name:        e2eContainerCPName,
+			Annotations: map[string]string{helpersv1.InstanceIDMetadataKey: "x"},
+		},
+		Spec: softwarecomposition.ContainerProfileSpec{Capabilities: []string{"CAP_A"}},
+	}
+	require.NoError(t, cpStore.SaveContainerProfile(ctx, key, initial))
+	first := load()
+	require.NotEmpty(t, first.ResourceVersion)
+
+	// Re-consolidate with identical content. updateProfile reloads the persisted
+	// CP before saving, so model that by saving the freshly loaded object: an
+	// unchanged tick must be recognised as a no-op and leave the ResourceVersion
+	// untouched.
+	reloaded := first.DeepCopy()
+	require.NoError(t, cpStore.SaveContainerProfile(ctx, key, reloaded))
+	second := load()
+	assert.Equal(t, first.ResourceVersion, second.ResourceVersion,
+		"saving byte-identical consolidated content must not bump the observed CP ResourceVersion")
+	assert.Equal(t, first, second, "an unchanged re-save must leave the observed CP byte-for-byte identical")
+
+	// A genuine content change must still advance the ResourceVersion.
+	changed := second.DeepCopy()
+	changed.Spec.Capabilities = append(changed.Spec.Capabilities, "CAP_B")
+	require.NoError(t, cpStore.SaveContainerProfile(ctx, key, changed))
+	third := load()
+	assert.NotEqual(t, second.ResourceVersion, third.ResourceVersion,
+		"a real content change must advance the observed CP ResourceVersion")
+	assert.Contains(t, third.Spec.Capabilities, "CAP_B",
+		"the changed capability must be persisted")
+}
+
+// TestConsolidateObservedIdempotentE2E drives the full consolidation pipeline
+// and proves the symptom matthyx flagged is fixed end-to-end: a workload that is
+// still actively reporting (newData=true every tick) but whose observations have
+// stabilised must NOT bump the observed CP's ResourceVersion, and therefore must
+// NOT churn the derived merged CP — no spurious watch event reaches node-agent.
+//
+// Each tick ingests an independent report (fresh series ID + suffix) with a
+// current timestamp, so the large DeleteThreshold keeps the workload Learning and
+// the report is accepted. Tick 2 carries byte-identical content; tick 3 carries
+// new content. This complements the storage-level TestSaveContainerProfileIdempotent
+// (which pins the exact GuaranteedUpdate mechanism) by exercising the real
+// consolidate → observed-save → merged-refresh chain.
+func TestConsolidateObservedIdempotentE2E(t *testing.T) {
+	h := newE2EHarness(t)
+	defer h.close()
+	h.processor.DeleteThreshold = time.Hour
+
+	userAP := &softwarecomposition.ApplicationProfile{
+		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
+		Spec: softwarecomposition.ApplicationProfileSpec{
+			Containers: []softwarecomposition.ApplicationProfileContainer{
+				{Name: "coredns", Capabilities: []string{"USER_MANAGED_CAP"}},
+			},
+		},
+	}
+	h.seedNonCP(e2eUgAPKey(), userAP)
+
+	drainMergedWrites, stopWatch := h.watchMergedModifications()
+	defer stopWatch()
+
+	// Feed reports with only order-stable spec fields. The Opens / Endpoints
+	// deflate paths (dynamicpathdetector) back their flag / header lists with
+	// unordered sets, so their serialisation is non-deterministic across
+	// consolidations and would churn the observed CP independently of the save
+	// path under test. Capabilities/Syscalls go through DeflateSortString (sorted,
+	// deterministic), giving a byte-stable consolidated CP so this test isolates
+	// the observed-save idempotency fix.
+	deterministic := func(p *softwarecomposition.ContainerProfile) {
+		p.Spec.Opens = nil
+		p.Spec.Endpoints = nil
+		p.Spec.Ingress = nil
+		p.Spec.Egress = nil
+		p.Spec.PolicyByRuleId = nil
+		p.Spec.IdentifiedCallStacks = nil
+		p.Spec.Capabilities = []string{"NET_BIND_SERVICE", "SETUID"}
+		p.Spec.Syscalls = []string{"accept", "read"}
+	}
+
+	// Tick 1: first report. Observed and merged are created.
+	h.createFreshReport("series-1", "aaaa1111", deterministic)
+	h.consolidate()
+	observed1 := h.loadConsolidated()
+	merged1 := h.requireMerged()
+	require.NotEmpty(t, observed1.ResourceVersion)
+	require.Equal(t, 1, drainMergedWrites(), "first report must create the merged CP")
+
+	// Tick 2: an independent report with byte-identical observations. The
+	// consolidator runs the newData=true save path, but the consolidated content
+	// is unchanged — so the observed CP must NOT be rewritten, its ResourceVersion
+	// must hold, and the merged CP must not churn (no watch event to node-agent).
+	h.createFreshReport("series-2", "bbbb2222", deterministic)
+	h.consolidate()
+	observed2 := h.loadConsolidated()
+	merged2 := h.requireMerged()
+	assert.Equal(t, observed1.ResourceVersion, observed2.ResourceVersion,
+		"a report with no new observations must not bump the observed CP ResourceVersion")
+	assert.Equal(t, 0, drainMergedWrites(),
+		"a stable observed CP must not churn the merged CP (a write ⇒ spurious watch event to node-agent)")
+	assert.Equal(t, merged1.ResourceVersion, merged2.ResourceVersion,
+		"merged CP ResourceVersion must stay stable while the observed CP is unchanged")
+	assert.Equal(t, merged1.Annotations[mergedSourceObservedRVKey], merged2.Annotations[mergedSourceObservedRVKey],
+		"merged source-observed-rv provenance must not advance when observed is unchanged")
+
+	// Tick 3: a report carrying a genuinely new capability. Now the observed
+	// CP changes, so its ResourceVersion advances and the merged CP is rewritten.
+	h.createFreshReport("series-3", "cccc3333", func(p *softwarecomposition.ContainerProfile) {
+		deterministic(p)
+		p.Spec.Capabilities = append(p.Spec.Capabilities, "OBSERVED_NEW_CAP")
+	})
+	h.consolidate()
+	changed := h.loadConsolidated()
+	assert.NotEqual(t, observed2.ResourceVersion, changed.ResourceVersion,
+		"a report with new observations must advance the observed CP ResourceVersion")
+	assert.Contains(t, changed.Spec.Capabilities, "OBSERVED_NEW_CAP",
+		"the new observation must land in the observed CP")
+	assert.GreaterOrEqual(t, drainMergedWrites(), 1,
+		"a changed observed CP must refresh the merged CP")
+	mergedChanged := h.requireMerged()
+	assert.Contains(t, mergedChanged.Spec.Capabilities, "OBSERVED_NEW_CAP",
+		"merged CP must reflect the new observation")
+	assert.Contains(t, mergedChanged.Spec.Capabilities, "USER_MANAGED_CAP",
+		"merged CP must still carry the ug- overlay after an observed change")
 }
 
 // TestConsolidateUserManagedRVBump verifies that updating the ug- AP (bumping
