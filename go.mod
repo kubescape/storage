@@ -221,3 +221,8 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+// Temporary: build against the local k8s-interface checkout for the new
+// helpers.UnsupportedSchema status. Revert once k8s-interface is released and
+// the require above is bumped to the tagged version.
+replace github.com/kubescape/k8s-interface => ../k8s-interface
