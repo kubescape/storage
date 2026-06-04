@@ -48,6 +48,11 @@ func TestValidateStatusAnnotation(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			name:        "valid status - unsupported schema",
+			annotations: map[string]string{"kubescape.io/status": "unsupported-schema"},
+			wantErr:     false,
+		},
+		{
 			name:        "invalid status",
 			annotations: map[string]string{"kubescape.io/status": "invalid"},
 			wantErr:     true,
