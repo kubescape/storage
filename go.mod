@@ -18,7 +18,7 @@ require (
 	github.com/grafana/pyroscope-go v1.2.2
 	github.com/kinbiko/jsonassert v1.2.0
 	github.com/kubescape/go-logger v0.0.28
-	github.com/kubescape/k8s-interface v0.0.206
+	github.com/kubescape/k8s-interface v0.0.214
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
@@ -221,8 +221,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-// Temporary: build against the local k8s-interface checkout for the new
-// helpers.UnsupportedSchema status. Revert once k8s-interface is released and
-// the require above is bumped to the tagged version.
-replace github.com/kubescape/k8s-interface => ../k8s-interface
