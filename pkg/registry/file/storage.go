@@ -627,8 +627,11 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // If 'opts.ResourceVersion' is set, we assume it is a timestamp in unix seconds
-// and return objects that were created/modified since then.
-// GetList only returns metadata for the objects, not the objects themselves.
+// and return objects that were created/modified since then. If it is set to
+// softwarecomposition.ResourceVersionFullSpec ("fullSpec"), complete objects are
+// returned instead of just metadata, starting from since = 0 (no time-based filter).
+// GetList only returns metadata for the objects, not the objects themselves (unless
+// ResourceVersion is set to "fullSpec").
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	poolCtx, cancel := poolContext()
 	defer cancel()
@@ -665,10 +668,7 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 	var lastUpdated int64
 	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
 		// get names from SQLite
-		since, err := strconv.ParseInt(opts.ResourceVersion, 10, 64)
-		if err != nil {
-			since = 0
-		}
+		since := int64(0)
 		list, last, lastUpdated, err = listMetadataKeys(conn, key, opts.Predicate.Continue, since, opts.Predicate.Limit)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))

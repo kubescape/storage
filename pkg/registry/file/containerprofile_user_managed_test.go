@@ -388,6 +388,13 @@ func (h *e2eHarness) consolidate() {
 func (h *e2eHarness) watchMergedModifications() (drain func() int, stop func()) {
 	h.t.Helper()
 	var calls int
+	// The mock return sequence below is specifically designed to satisfy the assertions
+	// in TestConsolidateUserManagedIdempotent:
+	// - 1st call: Returns 1, representing the first consolidation run creating the merged CP.
+	// - 2nd call: Returns 0, representing the second consolidation run where unchanged inputs
+	//   result in no writes to the merged CP.
+	// - Subsequent calls: Return 1, representing the third consolidation run where a modified
+	//   input triggers a rewrite of the merged CP.
 	drain = func() int {
 		calls++
 		if calls == 1 {
