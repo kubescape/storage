@@ -28,6 +28,7 @@ func TestLoadConfig(t *testing.T) {
 				MaxApplicationProfileSize:  40000,
 				MaxNetworkNeighborhoodSize: 40000,
 				RateLimitTotal:             10,
+				ServerBindAddress:          "::",
 				ServerBindPort:             8443,
 				KindQueues: map[string]KindQueueConfig{
 					"applicationprofiles": {
