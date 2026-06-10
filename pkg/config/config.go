@@ -26,6 +26,7 @@ type Config struct {
 	MaxSniffingTime               time.Duration      `mapstructure:"maxSniffingTimePerContainer"`
 	RateLimitPerClient            float64            `mapstructure:"rateLimitPerClient"`
 	RateLimitTotal                int                `mapstructure:"rateLimitTotal"`
+	ServerBindAddress             string             `mapstructure:"serverBindAddress"`
 	ServerBindPort                int                `mapstructure:"serverBindPort"`
 	TlsClientCaFile               string             `mapstructure:"tlsClientCaFile"`
 	TlsServerCertFile             string             `mapstructure:"tlsServerCertFile"`
@@ -56,6 +57,7 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("maxApplicationProfileSize", 40000)
 	v.SetDefault("maxNetworkNeighborhoodSize", 40000)
 	v.SetDefault("rateLimitTotal", 10)
+	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
