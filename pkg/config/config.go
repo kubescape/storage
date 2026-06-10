@@ -38,6 +38,15 @@ type Config struct {
 	DefaultWorkerCount   int                        `mapstructure:"defaultWorkerCount"`
 	DefaultMaxObjectSize int                        `mapstructure:"defaultMaxObjectSize"`
 
+	// ProtectedOpenMatchers is the union of sensitive open matchers
+	// (exact/prefix/suffix/contains) declared by the active rules'
+	// profileDataRequired.opens. The container-profile processor pins these
+	// (and their ancestors) to literal during deflation so anomaly rules such
+	// as R0010 keep working. In cluster this is populated by the operator/helm
+	// from the versioned rule library (armotypes.UnionOpenProtection); the
+	// zero value preserves legacy collapse behaviour.
+	ProtectedOpenMatchers armotypes.OpenMatchers `mapstructure:"protectedOpenMatchers"`
+
 	// Debugging
 	QueueManagerEnabled       bool `mapstructure:"queueManagerEnabled"`
 	QueueTimeoutPrint         bool `mapstructure:"queueTimeoutPrint"`

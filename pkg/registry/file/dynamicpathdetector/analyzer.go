@@ -34,14 +34,154 @@ func NewPathAnalyzer(threshold int) *PathAnalyzer {
 // configs is copied so the caller can reuse or mutate the slice without
 // affecting the analyzer.
 func NewPathAnalyzerWithConfigs(defaultThreshold int, configs []CollapseConfig) *PathAnalyzer {
+	return NewPathAnalyzerWithConfigsAndProtection(defaultThreshold, configs, nil)
+}
+
+// NewPathAnalyzerWithConfigsAndProtection is NewPathAnalyzerWithConfigs plus a
+// set of rule-protected prefixes. Any trie node that lies on the ancestor
+// chain of — or within the subtree of — a protected prefix is pinned to
+// literal entries (never collapsed to ⋯/*), regardless of threshold. This is
+// the shared strategy behind rule-aware collapse: callers compute the protected
+// prefix set from their own rule source (CRD in-cluster, MongoDB in the
+// backend) and feed it in here, so a sensitive path declared by a rule's
+// profileDataRequired (e.g. opens prefix "/etc/shadow") survives generalisation
+// and remains exactly matchable. protected is normalised and copied.
+func NewPathAnalyzerWithConfigsAndProtection(defaultThreshold int, configs []CollapseConfig, protected []string) *PathAnalyzer {
 	copied := make([]CollapseConfig, len(configs))
 	copy(copied, configs)
+	pinAncestors, protectedRoots := buildProtectionIndex(NormalizeProtectedPrefixes(protected))
 	return &PathAnalyzer{
-		RootNodes:  make(map[string]*SegmentNode),
-		threshold:  defaultThreshold,
-		configs:    copied,
-		defaultCfg: CollapseConfig{Prefix: "/", Threshold: defaultThreshold},
+		RootNodes:      make(map[string]*SegmentNode),
+		threshold:      defaultThreshold,
+		configs:        copied,
+		defaultCfg:     CollapseConfig{Prefix: "/", Threshold: defaultThreshold},
+		pinAncestors:   pinAncestors,
+		protectedRoots: protectedRoots,
 	}
+}
+
+// buildProtectionIndex precomputes the lookup sets protectedNode uses from the
+// normalised protected prefixes. Returns (nil, nil) when there is no protection.
+func buildProtectionIndex(prefixes []string) (pinAncestors, protectedRoots map[string]struct{}) {
+	if len(prefixes) == 0 {
+		return nil, nil
+	}
+	pinAncestors = make(map[string]struct{})
+	protectedRoots = make(map[string]struct{}, len(prefixes))
+	for _, p := range prefixes {
+		protectedRoots[p] = struct{}{}
+		pinAncestors["/"] = struct{}{}
+		for i := 1; i < len(p); i++ {
+			if p[i] == '/' {
+				pinAncestors[p[:i]] = struct{}{} // each intermediate dir prefix
+			}
+		}
+		pinAncestors[p] = struct{}{} // and the prefix itself
+	}
+	return pinAncestors, protectedRoots
+}
+
+// NormalizeProtectedPrefixes cleans caller-supplied protected prefixes into the
+// boundary-comparable form protectedNode expects: absolute, path.Clean'd, no
+// trailing slash (except root). Empty/relative entries are dropped. Exported so
+// each environment's wiring can reuse the exact same normalisation.
+func NormalizeProtectedPrefixes(prefixes []string) []string {
+	if len(prefixes) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(prefixes))
+	seen := make(map[string]struct{}, len(prefixes))
+	for _, p := range prefixes {
+		if p == "" || p[0] != '/' {
+			continue // must be absolute; ignore garbage rather than mis-pin
+		}
+		c := path.Clean(p)
+		if _, ok := seen[c]; ok {
+			continue
+		}
+		seen[c] = struct{}{}
+		out = append(out, c)
+	}
+	return out
+}
+
+// protectedNode reports whether the trie node at pathPrefix must be pinned to
+// literal (never collapsed). True when pathPrefix is an ancestor-or-equal of a
+// protected prefix (so no wildcard forms ABOVE/AT the sensitive level, e.g.
+// pinning "/" and "/etc" stops /⋯ and /etc/⋯) OR a descendant-or-equal of one
+// (so the sensitive subtree itself stays literal). pathPrefix arrives as a path
+// walked so far (possibly with a trailing slash, e.g. "/etc/"); the empty
+// string denotes the root boundary and is treated as an ancestor of everything.
+func (ua *PathAnalyzer) protectedNode(pathPrefix string) bool {
+	if len(ua.pinAncestors) == 0 {
+		return false
+	}
+	norm := normalizeNodePath(pathPrefix) // "" and "/foo/" → "/" and "/foo"
+	// Case 1: norm is an ancestor-or-self of a protected prefix — O(1).
+	if _, ok := ua.pinAncestors[norm]; ok {
+		return true
+	}
+	// Fast reject: if norm's top-level dir isn't even an ancestor of a protected
+	// prefix, norm cannot lie inside a protected subtree. Makes the common node
+	// (e.g. under /usr or /proc) O(1).
+	if _, ok := ua.pinAncestors[topDir(norm)]; !ok {
+		return false
+	}
+	// Case 2: norm is inside a protected subtree — walk its proper ancestors and
+	// check against the (small) set of protected roots. Bounded by path depth,
+	// independent of the number of protected prefixes.
+	for cur := parentPath(norm); ; cur = parentPath(cur) {
+		if _, ok := ua.protectedRoots[cur]; ok {
+			return true
+		}
+		if cur == "/" {
+			return false
+		}
+	}
+}
+
+// normalizeNodePath maps a walked path prefix to its boundary-comparable form:
+// the empty string (root boundary) becomes "/", and trailing slashes are
+// stripped (e.g. "/etc/" → "/etc").
+func normalizeNodePath(p string) string {
+	if p == "" {
+		return "/"
+	}
+	for len(p) > 1 && p[len(p)-1] == '/' {
+		p = p[:len(p)-1]
+	}
+	return p
+}
+
+// parentPath returns the parent directory of a normalized absolute path; the
+// parent of "/" (or a single-segment path) is "/".
+func parentPath(p string) string {
+	i := strings.LastIndexByte(p, '/')
+	if i <= 0 {
+		return "/"
+	}
+	return p[:i]
+}
+
+// topDir returns the first-level directory of a normalized absolute path:
+// "/etc/passwd" → "/etc", "/etc" → "/etc", "/" → "/".
+func topDir(p string) string {
+	if len(p) < 2 {
+		return "/"
+	}
+	if i := strings.IndexByte(p[1:], '/'); i >= 0 {
+		return p[:i+1]
+	}
+	return p
+}
+
+// pinnedThreshold returns NeverCollapseThreshold for protected nodes, otherwise
+// the configured effective threshold for pathPrefix.
+func (ua *PathAnalyzer) pinnedThreshold(pathPrefix string) int {
+	if ua.protectedNode(pathPrefix) {
+		return NeverCollapseThreshold
+	}
+	return ua.effectiveThreshold(pathPrefix)
 }
 
 // effectiveThreshold returns the collapse threshold applicable to the given
@@ -165,8 +305,8 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 		// collapse threshold configured for this node's path?". Here we
 		// do want p[:i] — updateNodeStats then collapses the current
 		// node's children to ⋯ when Count > threshold.
-		insertThreshold := ua.effectiveThreshold(p[:start])
-		collapseThreshold := ua.effectiveThreshold(p[:i])
+		insertThreshold := ua.pinnedThreshold(p[:start])
+		collapseThreshold := ua.pinnedThreshold(p[:i])
 		currentNode = ua.processSegment(currentNode, segment, insertThreshold)
 		ua.updateNodeStats(currentNode, collapseThreshold)
 		buf = append(buf, currentNode.SegmentName...)

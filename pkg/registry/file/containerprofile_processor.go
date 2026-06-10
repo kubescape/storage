@@ -45,6 +45,12 @@ type ContainerProfileProcessor struct {
 	MaxContainerProfileSize int
 	ContainerProfileStorage ContainerProfileStorage
 	ConsolidatedSlugChannel chan ConsolidatedSlugData
+	// OpenProtection is the union of sensitive open matchers (exact/prefix/
+	// suffix/contains) declared by active rules' profileDataRequired.opens.
+	// Matched prefixes (and their ancestors) are pinned to literal during
+	// deflation so rules like R0010 keep working. In-cluster this is populated
+	// from the rules CRD; the zero value preserves legacy collapse behaviour.
+	OpenProtection dynamicpathdetector.OpenProtection
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -60,6 +66,22 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 		HostType:                hostType,
 		Interval:                30 * time.Second,
 		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
+		OpenProtection:          OpenProtectionFromMatchers(cfg.ProtectedOpenMatchers),
+	}
+}
+
+// OpenProtectionFromMatchers converts the shared armoapi-go matcher union into
+// the analyzer's collapse-protection input. It is the single conversion point
+// reused by every environment: in cluster (NewContainerProfileProcessor, from
+// config) and the backend (postgres-connector, from rules it loads out of
+// MongoDB via armotypes.UnionOpenProtection). Keeping it here means callers only
+// need armotypes + this package, not the low-level dynamicpathdetector.
+func OpenProtectionFromMatchers(m armotypes.OpenMatchers) dynamicpathdetector.OpenProtection {
+	return dynamicpathdetector.OpenProtection{
+		Exact:    m.Exact,
+		Prefix:   m.Prefix,
+		Suffix:   m.Suffix,
+		Contains: m.Contains,
 	}
 }
 
@@ -178,7 +200,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	} else {
 		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
 	}
-	profile.Spec = DeflateContainerProfileSpec(profile.Spec, sbomSet)
+	profile.Spec = DeflateContainerProfileSpec(profile.Spec, sbomSet, a.OpenProtection)
 	size += len(profile.Spec.Execs)
 	size += len(profile.Spec.Opens)
 	size += len(profile.Spec.Syscalls)
@@ -807,8 +829,27 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, key s
 	return status, completion, hash
 }
 
-func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string]) softwarecomposition.ContainerProfileSpec {
-	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
+// DeflateContainerProfileSpec generalises a profile's high-cardinality fields
+// (opens, endpoints, …) so stored profiles stay bounded. openProtection is the
+// union of sensitive open matchers that rules depend on (their
+// profileDataRequired.opens: exact/prefix/suffix/contains). The open analyzer
+// pins the matched prefixes and their ancestors to literal, so they are never
+// folded into a wildcard such as /etc/⋯ or /⋯/⋯. That keeps anomaly rules like
+// R0010 able to distinguish a never-before-seen sensitive path from a
+// generalised one. The matcher set is sourced per-environment (rules CRD
+// in-cluster, MongoDB in the backend) but applied here via the same shared
+// strategy. Pass a zero OpenProtection to disable protection (legacy behaviour).
+func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string], openProtection dynamicpathdetector.OpenProtection) softwarecomposition.ContainerProfileSpec {
+	var protectedPrefixes []string
+	if !openProtection.Empty() {
+		openPaths := make([]string, len(container.Opens))
+		for i := range container.Opens {
+			openPaths[i] = container.Opens[i].Path
+		}
+		protectedPrefixes = openProtection.ProtectedPrefixes(openPaths)
+	}
+	openAnalyzer := dynamicpathdetector.NewPathAnalyzerWithConfigsAndProtection(OpenDynamicThreshold, nil, protectedPrefixes)
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, openAnalyzer, sbomSet)
 	if err != nil {
 		logger.L().Debug("ContainerProfileProcessor.deflateContainerProfileSpec - falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
