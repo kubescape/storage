@@ -107,8 +107,18 @@ func main() {
 	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, cfg.CleanupInterval, cfg.DefaultNamespace, kubernetesAPI, relevancyEnabled)
 	go cleanupHandler.RunCleanupTask(ctx)
 
+	// Shared open-protection store: seeded from static config and, when an
+	// operator-managed ConfigMap is configured, kept in sync by a reloader so
+	// rule-binding changes adjust the pinned sensitive prefixes without a restart.
+	openProtectionStore := file.NewOpenProtectionStore(cfg.ProtectedOpenMatchers)
+	if cfg.OpenProtectionConfigMapName != "" {
+		reloader := file.NewOpenProtectionReloader(client, cfg.DefaultNamespace, cfg.OpenProtectionConfigMapName, cfg.OpenProtectionRefreshInterval, openProtectionStore)
+		go reloader.Run(ctx)
+	}
+
 	// start the server
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, cleanupHandler)
+	options.OpenProtectionStore = openProtectionStore
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)

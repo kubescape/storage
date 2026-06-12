@@ -45,18 +45,25 @@ type ContainerProfileProcessor struct {
 	MaxContainerProfileSize int
 	ContainerProfileStorage ContainerProfileStorage
 	ConsolidatedSlugChannel chan ConsolidatedSlugData
-	// OpenProtection is the union of sensitive open matchers (exact/prefix/
-	// suffix/contains) declared by active rules' profileDataRequired.opens.
-	// Matched prefixes (and their ancestors) are pinned to literal during
-	// deflation so rules like R0010 keep working. In-cluster this is populated
-	// from the rules CRD; the zero value preserves legacy collapse behaviour.
-	OpenProtection dynamicpathdetector.OpenProtection
+	// protection holds the active union of sensitive open matchers (exact/prefix/
+	// suffix/contains) declared by active rules' profileDataRequired.opens. Matched
+	// prefixes (and their ancestors) are pinned to literal during deflation so
+	// rules like R0010 keep working. It is read on every PreSave via Get and
+	// refreshed out-of-band by an OpenProtectionReloader (in cluster, fed from the
+	// operator-published ConfigMap); the zero value preserves legacy collapse
+	// behaviour.
+	protection *OpenProtectionStore
 }
 
-func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
+func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler, protection *OpenProtectionStore) *ContainerProfileProcessor {
 	hostType := cfg.HostType
 	if hostType == "" {
 		hostType = armotypes.HostTypeKubernetes
+	}
+	if protection == nil {
+		// Seed from static config when no shared store is injected (e.g. backend
+		// callers and tests that don't run a reloader).
+		protection = NewOpenProtectionStore(cfg.ProtectedOpenMatchers)
 	}
 	return &ContainerProfileProcessor{
 		CleanupHandler:          cleanupHandler,
@@ -66,8 +73,14 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 		HostType:                hostType,
 		Interval:                30 * time.Second,
 		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
-		OpenProtection:          OpenProtectionFromMatchers(cfg.ProtectedOpenMatchers),
+		protection:              protection,
 	}
+}
+
+// ProtectionStore returns the processor's shared open-protection store so callers
+// (e.g. main wiring a reloader) can refresh it after construction.
+func (a *ContainerProfileProcessor) ProtectionStore() *OpenProtectionStore {
+	return a.protection
 }
 
 // OpenProtectionFromMatchers converts the shared armoapi-go matcher union into
@@ -200,7 +213,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	} else {
 		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
 	}
-	profile.Spec = DeflateContainerProfileSpec(profile.Spec, sbomSet, a.OpenProtection)
+	profile.Spec = DeflateContainerProfileSpec(profile.Spec, sbomSet, a.protection.Get())
 	size += len(profile.Spec.Execs)
 	size += len(profile.Spec.Opens)
 	size += len(profile.Spec.Syscalls)
