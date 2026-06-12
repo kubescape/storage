@@ -27,6 +27,63 @@ func getStoredPayloadFilepath(root, key string) string {
 	return root + key + GobExt
 }
 
+func TestStorageImpl_Count(t *testing.T) {
+	keys := []string{
+		"/other/type/ns/titi",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/kubescape/titi",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds/other/toto",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+		"/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/toto",
+	}
+	tests := []struct {
+		name    string
+		key     string
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "one object",
+			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto",
+			want: 1,
+		},
+		{
+			name: "one ns",
+			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape",
+			want: 1,
+		},
+		{
+			name: "one type",
+			key:  "/spdx.softwarecomposition.kubescape.io/sbomsyfts",
+			want: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := NewTestPool(t.TempDir())
+			require.NotNil(t, pool)
+			defer func(pool *sqlitemigration.Pool) {
+				_ = pool.Close()
+			}(pool)
+
+			conn, err := pool.Take(context.TODO())
+			require.NoError(t, err)
+			for _, k := range keys {
+				_ = writeMetadata(conn, k, &v1beta1.SBOMSyft{})
+			}
+			pool.Put(conn)
+
+			s := NewStorageImpl(nil, DefaultStorageRoot, pool, nil)
+			got, err := s.(*StorageImpl).Count(tt.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Count() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Count() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 func TestStorageImpl_Create(t *testing.T) {
 	type args struct {
 		key string
@@ -99,7 +156,7 @@ func TestStorageImpl_Create(t *testing.T) {
 			}(pool)
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, sch)
+			s := NewStorageImpl(fs, DefaultStorageRoot, pool, sch)
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			err := s.Create(ctx, tt.args.key, tt.args.obj, tt.args.out, tt.args.in4)
@@ -116,7 +173,7 @@ func TestStorageImpl_Create(t *testing.T) {
 
 			conn, err := pool.Take(context.TODO())
 			require.NoError(t, err)
-			l, _, err := listMetadata(conn, tt.args.key, "", int64(500))
+			l, _, _, err := listMetadata(conn, tt.args.key, "", 0, int64(500))
 			assert.NoError(t, err)
 			assert.Len(t, l, 1)
 			pool.Put(conn)
@@ -194,7 +251,7 @@ func TestStorageImpl_Delete(t *testing.T) {
 			}
 			pool.Put(conn)
 
-			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, nil)
+			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil)
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if err := s.Delete(ctx, tt.args.key, tt.args.out, tt.args.in3, tt.args.in4, tt.args.in5, tt.args.in6); (err != nil) != tt.wantErr {
@@ -329,7 +386,7 @@ func TestStorageImpl_Get(t *testing.T) {
 			defer func(pool *sqlitemigration.Pool) {
 				_ = pool.Close()
 			}(pool)
-			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, nil)
+			s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil)
 			if tt.create {
 				conn, err := pool.Take(context.TODO())
 				require.NoError(t, err)
@@ -404,7 +461,7 @@ func TestStorageImpl_GetList(t *testing.T) {
 	}(pool)
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
-	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, sch)
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 	for k, v := range objs {
@@ -575,7 +632,7 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 			}(pool)
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, sch)
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
@@ -615,7 +672,7 @@ func TestStorageImpl_Versioner(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, nil, nil)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, nil)
 			assert.Equal(t, tt.want, s.Versioner())
 		})
 	}
@@ -629,7 +686,7 @@ func BenchmarkWriteFiles(b *testing.B) {
 	}(pool)
 	sch := scheme.Scheme
 	require.NoError(b, softwarecomposition.AddToScheme(sch))
-	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, sch).(*StorageImpl)
 	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
 	obj := &v1beta1.SBOMSyft{
 		ObjectMeta: v1.ObjectMeta{
@@ -685,7 +742,7 @@ func Test_calculateChecksum(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, nil, sch)
+			s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, sch)
 			got, err := s.CalculateChecksum(tt.obj)
 			if !tt.wantErr(t, err, fmt.Sprintf("CalculateChecksum(%v)", tt.obj)) {
 				return

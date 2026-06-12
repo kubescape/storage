@@ -38,7 +38,7 @@ func TestMemoryConn(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), count)
 	// Test list
-	list, last, err := listMetadata(conn, "/v1/pods", "", int64(500))
+	list, last, _, err := listMetadata(conn, "/v1/pods", "", 0, int64(500))
 	assert.NoError(t, err)
 	assert.Len(t, list, 3)
 	expected := []string{
@@ -49,12 +49,12 @@ func TestMemoryConn(t *testing.T) {
 	assert.Equal(t, expected, list)
 	assert.Equal(t, "3", last)
 	// Test list with limit
-	list, last, err = listMetadata(conn, "/v1/pods/default1", "", int64(1))
+	list, last, _, err = listMetadata(conn, "/v1/pods/default1", "", 0, int64(1))
 	assert.NoError(t, err)
 	assert.Len(t, list, 1)
 	assert.Equal(t, "1", last)
 	// Test list with last
-	list, last, err = listMetadata(conn, "/v1/pods/default1", last, int64(500))
+	list, last, _, err = listMetadata(conn, "/v1/pods/default1", last, 0, int64(500))
 	assert.NoError(t, err)
 	assert.Len(t, list, 1)
 	assert.Equal(t, "2", last)

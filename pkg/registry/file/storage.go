@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,14 +63,13 @@ type objState struct {
 // StorageImpl offers a common interface for object marshaling/unmarshaling operations and
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
-	appFs           afero.Fs
-	pool            *sqlitemigration.Pool
-	locks           utils.MapMutex[string]
-	processor       Processor
-	root            string
-	scheme          *runtime.Scheme
-	versioner       storage.Versioner
-	watchDispatcher *WatchDispatcher
+	appFs     afero.Fs
+	pool      *sqlitemigration.Pool
+	locks     utils.MapMutex[string]
+	processor Processor
+	root      string
+	scheme    *runtime.Scheme
+	versioner storage.Versioner
 }
 
 func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
@@ -113,23 +113,19 @@ var _ storage.Interface = (*StorageImpl)(nil)
 
 var _ StorageQuerier = (*StorageImpl)(nil)
 
-func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme) StorageQuerier {
-	return NewStorageImplWithCollector(appFs, root, pool, watchDispatcher, scheme, DefaultProcessor{})
+func NewStorageImpl(appFs afero.Fs, root string, pool *sqlitemigration.Pool, scheme *runtime.Scheme) StorageQuerier {
+	return NewStorageImplWithCollector(appFs, root, pool, scheme, DefaultProcessor{})
 }
 
-func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme, processor Processor) StorageQuerier {
-	if watchDispatcher == nil {
-		watchDispatcher = NewWatchDispatcher()
-	}
+func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigration.Pool, scheme *runtime.Scheme, processor Processor) StorageQuerier {
 	storageImpl := &StorageImpl{
-		appFs:           appFs,
-		pool:            conn,
-		locks:           utils.NewMapMutex[string](),
-		processor:       processor,
-		root:            root,
-		scheme:          scheme,
-		versioner:       storage.APIObjectVersioner{},
-		watchDispatcher: watchDispatcher,
+		appFs:     appFs,
+		pool:      conn,
+		locks:     utils.NewMapMutex[string](),
+		processor: processor,
+		root:      root,
+		scheme:    scheme,
+		versioner: storage.APIObjectVersioner{},
 	}
 	processor.SetStorage(NewContainerProfileStorageImpl(storageImpl, conn))
 	return storageImpl
@@ -322,8 +318,6 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	if err := s.processor.AfterCreate(ctx, obj); err != nil {
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
-	// publish event to watchers
-	s.watchDispatcher.Added(key, metaOut, obj)
 	return nil
 }
 
@@ -373,8 +367,6 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
-	// publish event to watchers
-	s.watchDispatcher.Deleted(key, metaOut)
 	return nil
 }
 
@@ -385,20 +377,8 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 // (e.g. reconnecting without missing any updates).
 // If resource version is "0", this interface will get current object at given key
 // and send it in an "ADDED" event, before watch starts.
-func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
-	span.SetAttributes(attribute.String("key", key))
-	defer span.End()
-	_, _, _, _, namespace, _ := K8sPathToKeys(key)
-	if namespace != "" {
-		// FIXME find an alternative to fix NS deletion
-		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
-		return watch.NewEmptyWatch(), nil
-	}
-	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
-	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
-	s.watchDispatcher.Register(key, nw)
-	return nw, nil
+func (s *StorageImpl) Watch(_ context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+	return nil, nil // watch disabled
 }
 
 // Get unmarshals object found at key into objPtr. On a not found error, will either
@@ -646,7 +626,12 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 // is true, 'key' is used as a prefix.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
-// GetList only returns metadata for the objects, not the objects themselves.
+// If 'opts.ResourceVersion' is set, we assume it is a timestamp in unix seconds
+// and return objects that were created/modified since then. If it is set to
+// softwarecomposition.ResourceVersionFullSpec ("fullSpec"), complete objects are
+// returned instead of just metadata, starting from since = 0 (no time-based filter).
+// GetList only returns metadata for the objects, not the objects themselves (unless
+// ResourceVersion is set to "fullSpec").
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	poolCtx, cancel := poolContext()
 	defer cancel()
@@ -659,6 +644,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 }
 
 func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	timeBeforeQuery := time.Now()
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -679,9 +665,11 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 	// prepare SQLite connection
 	var list []string
 	var last string
+	var lastUpdated int64
 	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
 		// get names from SQLite
-		list, last, err = listMetadataKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		since := int64(0)
+		list, last, lastUpdated, err = listMetadataKeys(conn, key, opts.Predicate.Continue, since, opts.Predicate.Limit)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
 		}
@@ -697,7 +685,11 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 		}
 	} else {
 		// get metadata from SQLite
-		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+		since, err := strconv.ParseInt(opts.ResourceVersion, 10, 64)
+		if err != nil {
+			since = 0
+		}
+		list, last, lastUpdated, err = listMetadata(conn, key, opts.Predicate.Continue, since, opts.Predicate.Limit)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
 		}
@@ -713,19 +705,20 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 		}
 	}
 	// eventually set list accessor fields
+	listAccessor, err := meta.ListAccessor(listObj)
+	if err != nil {
+		return fmt.Errorf("list accessor: %w", err)
+	}
 	if len(list) == int(opts.Predicate.Limit) {
-		listAccessor, err := meta.ListAccessor(listObj)
-		if err != nil {
-			return fmt.Errorf("list accessor: %w", err)
-		}
 		listAccessor.SetContinue(last)
 		//if rsp.RemainingItemCount > 0 {
 		//listAccessor.SetRemainingItemCount(&rsp.RemainingItemCount)
 		//}
-		//if rsp.ResourceVersion > 0 {
-		//listAccessor.SetResourceVersion(strconv.FormatInt(rsp.ResourceVersion, 10))
-		//}
 	}
+	if lastUpdated == 0 {
+		lastUpdated = timeBeforeQuery.Unix()
+	}
+	listAccessor.SetResourceVersion(strconv.FormatInt(lastUpdated, 10)) // we misuse ResourceVersion to return last updated timestamp
 	return nil
 }
 
@@ -1002,8 +995,6 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
 		}
-		// Only successful updates should produce modification events
-		s.watchDispatcher.Modified(key, metaOut, ret)
 		return nil
 	}
 }
@@ -1219,7 +1210,7 @@ func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, 
 
 // Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
 func (immutableStorage) Watch(_ context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
-	return watch.NewEmptyWatch(), nil
+	return nil, nil // watch disabled
 }
 
 // GuaranteedUpdate is not supported for immutable objects. Objects are generated on the fly and not stored.

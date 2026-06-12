@@ -145,7 +145,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			}(pool)
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
-			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
+			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, sch)
 			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage, realStorage)
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
@@ -188,8 +188,9 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 	}
 }
 
+
 func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	err := generatedNetworkPolicyStorage.Create(context.TODO(), "", nil, nil, 0)
@@ -200,7 +201,7 @@ func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
 }
 
 func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	err := generatedNetworkPolicyStorage.Delete(context.TODO(), "", nil, nil, nil, nil, storage.DeleteOptions{})
@@ -211,7 +212,7 @@ func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
 }
 
 func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	_, err := generatedNetworkPolicyStorage.Watch(context.TODO(), "", storage.ListOptions{})
@@ -219,7 +220,7 @@ func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
 }
 
 func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
-	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
+	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil)
 	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	err := generatedNetworkPolicyStorage.GuaranteedUpdate(context.TODO(), "", nil, false, nil, nil, nil)
