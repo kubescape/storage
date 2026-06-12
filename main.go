@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	utilsmetadata "github.com/armosec/utils-k8s-go/armometadata"
 	"github.com/go-logr/zapr"
@@ -40,9 +41,17 @@ import (
 func main() {
 	flag.Parse()
 
-	if logger, err := zap.NewProduction(); err == nil {
-		logger = logger.WithOptions(zap.IncreaseLevel(zap.FatalLevel))
-		klog.SetLogger(zapr.NewLogger(logger))
+	if zl, err := zap.NewProduction(); err == nil {
+		// klog carries the Kubernetes apiserver internals (serving, aggregation,
+		// informer-sync, post-start hooks). It is muted to Fatal by default to keep
+		// logs quiet, but that hides the very diagnostics needed to debug startup /
+		// readyz failures. Set KS_LOGGER_LEVEL=debug to surface them.
+		klogLevel := zap.FatalLevel
+		if strings.EqualFold(os.Getenv("KS_LOGGER_LEVEL"), "debug") {
+			klogLevel = zap.InfoLevel
+		}
+		zl = zl.WithOptions(zap.IncreaseLevel(klogLevel))
+		klog.SetLogger(zapr.NewLogger(zl))
 	}
 
 	ctx := genericapiserver.SetupSignalContext()
