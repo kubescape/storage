@@ -140,3 +140,25 @@ func TestOpenProtectionExactSuffixContains(t *testing.T) {
 		t.Fatalf("precondition: unprotected run should cover /etc/shadow.evil")
 	}
 }
+
+// TestProtectedPrefixBudgetCollapse asserts that when the number of literal children under
+// a pinned ancestor exceeds PinnedSubtreeBudget, the node falls back to collapse anyway
+// to prevent the entire profile from becoming TooLarge.
+func TestProtectedPrefixBudgetCollapse(t *testing.T) {
+	// PinnedSubtreeBudget is 500. We will open 505 files under /etc.
+	paths := []string{"/etc/shadow"}
+	for i := 0; i <= PinnedSubtreeBudget; i++ {
+		paths = append(paths, fmt.Sprintf("/etc/file%d", i))
+	}
+
+	// With protection, but exceeding the budget, the subtree should collapse.
+	got := genWith(
+		NewPathAnalyzerWithConfigsAndProtection(OpenDynamicThreshold, nil, []string{"/etc/shadow"}),
+		paths,
+	)
+
+	// Since /etc collapsed, we expect /etc/shadow.evil to be covered by /etc/⋯.
+	if by := coveredBy(got, "/etc/shadow.evil"); by == "" {
+		t.Errorf("expected /etc/shadow.evil to be covered by /etc/⋯ after exceeding PinnedSubtreeBudget, but it was not (patterns: %v)", keysOf(got))
+	}
+}

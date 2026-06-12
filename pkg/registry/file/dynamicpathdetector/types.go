@@ -18,6 +18,12 @@ const (
 // generalised wildcard like /etc/⋯ or /⋯/⋯ that would otherwise cover it.
 const NeverCollapseThreshold = math.MaxInt
 
+// PinnedSubtreeBudget is the maximum number of literal children a protected/pinned
+// node is allowed to accumulate before we fall back to collapsing it. This prevents
+// size blowup and "TooLarge" status (which clears the entire profile spec downstream)
+// when a protected directory (like /etc) receives a very high number of unique opens.
+const PinnedSubtreeBudget = 500
+
 // --- Default collapse thresholds ---
 // OpenDynamicThreshold is the fallback threshold used by AnalyzeOpens when
 // no more-specific CollapseConfig matches the walked path prefix.

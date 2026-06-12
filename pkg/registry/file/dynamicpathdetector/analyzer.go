@@ -472,7 +472,11 @@ func (ua *PathAnalyzer) createDynamicNode(node *SegmentNode) *SegmentNode {
 // Threshold is passed in by the caller so per-prefix overrides (via
 // CollapseConfig) can take effect without this function knowing about them.
 func (ua *PathAnalyzer) updateNodeStats(node *SegmentNode, threshold int) {
-	if node.Count > threshold && !node.IsNextDynamic() {
+	effectiveThreshold := threshold
+	if threshold == NeverCollapseThreshold && node.Count > PinnedSubtreeBudget {
+		effectiveThreshold = PinnedSubtreeBudget
+	}
+	if node.Count > effectiveThreshold && !node.IsNextDynamic() {
 		dynamicChild := &SegmentNode{
 			SegmentName: DynamicIdentifier,
 			Count:       0,

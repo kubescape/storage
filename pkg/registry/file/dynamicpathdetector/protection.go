@@ -37,11 +37,16 @@ func (p OpenProtection) Empty() bool {
 // collapsing the parent (e.g. /etc → /etc/⋯) and spuriously covering a
 // first-ever sensitive access.
 //
-// Suffix and Contains have no fixed location, so they are resolved against the
-// actually-opened paths: any open that matches is pinned, keeping its ancestor
-// chain (and thus that path) literal. The result feeds
-// NewPathAnalyzerWithConfigsAndProtection, which normalises it and pins each
-// prefix's ancestors and subtree.
+// CRITICAL/KNOWN LIMITATION: Suffix and Contains have no fixed location, so they
+// are resolved against the actually-opened paths. Any observed path that matches
+// is pinned, keeping its ancestor chain literal.
+// However, because this is learning-dependent, if NO path matching the matcher
+// was opened during learning, the containing directory (if high-cardinality)
+// will collapse (e.g. /etc/ssh → /etc/ssh/⋯). Consequently, a first-ever runtime
+// access to a matching path (e.g. /etc/ssh/ssh_host_ed25519_key) will be covered
+// by the wildcard and the rule will not fire. Suffix/Contains protection is
+// therefore best-effort, and rule authors should steer toward Exact/Prefix
+// matchers for paths where detection must be guaranteed.
 func (p OpenProtection) ProtectedPrefixes(openPaths []string) []string {
 	if p.Empty() {
 		return nil
