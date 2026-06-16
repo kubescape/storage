@@ -119,6 +119,46 @@ func BenchmarkCompareDynamic(b *testing.B) {
 	}
 }
 
+// BenchmarkMatchExecArgs exercises the R0040 exec-arg matcher hot path
+// (MatchExecArgs -> matchExecArgsStrict -> argMatches). argsRequired=false is
+// the no-constraint fast path that never compares; the rest run anchored strict
+// matching. matchExecArgsStrict memoises backtracking on (profileIndex,
+// runtimeIndex) and allocates two maps per call once a real comparison is
+// needed, so -benchmem documents that cost and pins it against regression.
+// Shapes mirror the argv vectors R0040 sees in practice (sh -c, flags, embedded
+// dynamic config paths) plus an adversarial leading-star case that would
+// backtrack exponentially without the memo.
+func BenchmarkMatchExecArgs(b *testing.B) {
+	star := dynamicpathdetector.WildcardIdentifier
+	ellipsis := dynamicpathdetector.DynamicIdentifier
+	cases := []struct {
+		name         string
+		profile      []string
+		argsRequired bool
+		runtime      []string
+	}{
+		{"no_constraint_fast_path", nil, false, []string{"-c", "echo hi"}},
+		{"literal_match", []string{"-c", "echo hi"}, true, []string{"-c", "echo hi"}},
+		{"literal_mismatch", []string{"-c", "echo hi"}, true, []string{"-c", "rm -rf /"}},
+		{"literal_length_mismatch", []string{"-c"}, true, []string{"-c", "echo hi"}},
+		{"single_ellipsis_mid", []string{"-c", ellipsis}, true, []string{"-c", "echo hi"}},
+		{"trailing_star_many_consumed", []string{"-c", star}, true, []string{"-c", "echo", "hi", "there"}},
+		{"trailing_star_zero_consumed", []string{"-c", star}, true, []string{"-c"}},
+		{"embedded_dynamic_path_arg", []string{"--config", "/etc/" + ellipsis + "/app.conf"}, true, []string{"--config", "/etc/myapp/app.conf"}},
+		{"long_literal_vector", []string{"-a", "-b", "-c", "-d", "-e", "-f"}, true, []string{"-a", "-b", "-c", "-d", "-e", "-f"}},
+		{"memo_stress_leading_stars", []string{star, star, star, "sentinel"}, true, []string{"a", "b", "c", "d", "e", "f", "sentinel"}},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = dynamicpathdetector.MatchExecArgs(c.profile, c.argsRequired, c.runtime)
+			}
+		})
+	}
+}
+
 func generateMixedPaths(count int, fixedLength int) []string {
 	paths := make([]string, count)
 	staticSegments := []string{"users", "profile", "settings", "api", "v1", "posts", "organizations", "departments", "employees", "projects", "tasks", "categories", "subcategories", "items", "articles"}

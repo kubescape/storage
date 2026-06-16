@@ -2,7 +2,9 @@ package file
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
@@ -16,6 +18,27 @@ import (
 	"zombiezen.com/go/sqlite/sqlitemigration"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
+
+// Storage kinds for container profile artifacts. ContainerProfileKind is the
+// canonical observed CP produced by time-series consolidation. MergedKind is
+// the derived "effective" CP — observed plus the user-managed ug- AP/NN
+// overlay — written under a parallel key so consumers can prefer it without
+// the consolidator ever reading it back. The split exists to preserve a
+// canonical observed CP that retracts cleanly when a user edits or deletes
+// a ug- CRD (kubescape/storage#315 review).
+const (
+	ContainerProfileKind       = "containerprofile"
+	ContainerProfileMergedKind = "containerprofile-merged"
+)
+
+// MergedKeyFor returns the merged-CP storage key corresponding to an
+// observed-CP key. Replaces the kind segment "/containerprofile/" with
+// "/containerprofile-merged/". The path layout from K8sKeysToPath / ECSKeysToPath
+// / HostKeysToPath always places kind at the same segment, so a single replace
+// is correct for every host type.
+func MergedKeyFor(observedKey string) string {
+	return strings.Replace(observedKey, "/"+ContainerProfileKind+"/", "/"+ContainerProfileMergedKind+"/", 1)
+}
 
 // ContainerProfileStorageImpl implements ContainerProfileStorage using SQLite as the backend.
 type ContainerProfileStorageImpl struct {
@@ -104,13 +127,106 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cpCancel()
 
+	// cachedExistingObject is deliberately nil. Passing a non-nil value (even an
+	// empty object) tells GuaranteedUpdate to treat it as the current on-disk
+	// state and skip the read-from-disk, so its "same serialized contents"
+	// short-circuit compares the freshly consolidated profile against an empty
+	// object — never equal — and rewrites the observed CP (bumping its
+	// ResourceVersion) on every consolidation tick that carries new time-series
+	// data, even when the consolidated content is byte-identical to what is
+	// already persisted. That spurious RV bump then propagates to the merged CP
+	// (whose merged-source-observed-rv annotation tracks observed.ResourceVersion),
+	// refreshing it once per node-agent report. profile already carries the
+	// persisted CP's identity (ResourceVersion, UID, creationTimestamp,
+	// SyncChecksum) from loadOrInitializeProfile, so reading the real current
+	// state lets an unchanged consolidation compare equal and skip the write
+	// (kubescape/storage#315 review).
 	err := c.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{},
-		true, nil, tryUpdate, &softwarecomposition.ContainerProfile{}, "")
+		true, nil, tryUpdate, nil, "")
 	if err != nil {
 		return fmt.Errorf("failed to update container profile: %w", err)
 	}
 
 	return nil
+}
+
+func (c *ContainerProfileStorageImpl) SaveMergedContainerProfile(ctx context.Context, observedKey string, profile *softwarecomposition.ContainerProfile) error {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	mergedKey := MergedKeyFor(observedKey)
+
+	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		// The merged CP is rebuilt from observed.DeepCopy() every tick, so it
+		// carries the *observed* CP's identity (ResourceVersion, SyncChecksum,
+		// UID, creationTimestamp) rather than this merged key's own. Left as-is
+		// that mismatch makes GuaranteedUpdate's "same serialized contents"
+		// short-circuit miss every time, rewriting the merged CP — and firing a
+		// watch event to node-agent — on every consolidation tick even when the
+		// merged content is unchanged. Carry the persisted merged object's
+		// identity forward so an unchanged rebuild compares equal and the write
+		// is skipped (kubescape/storage#315 review).
+		out := profile.DeepCopy()
+		if existing, ok := input.(*softwarecomposition.ContainerProfile); ok && existing.ResourceVersion != "" {
+			out.ResourceVersion = existing.ResourceVersion
+			out.UID = existing.UID
+			out.CreationTimestamp = existing.CreationTimestamp
+			if cs, set := existing.Annotations[helpers.SyncChecksumMetadataKey]; set {
+				if out.Annotations == nil {
+					out.Annotations = map[string]string{}
+				}
+				// Align with the persisted checksum for the equality probe only.
+				// If content actually changed the probe fails and saveObject
+				// recomputes the real checksum, so this never persists a stale one.
+				out.Annotations[helpers.SyncChecksumMetadataKey] = cs
+			}
+		}
+		return out, nil, nil
+	}
+
+	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cpCancel()
+
+	// cachedExistingObject is deliberately nil: a non-nil value (even an empty
+	// one) tells GuaranteedUpdate to treat it as the current state and skip the
+	// read-from-disk, which would make tryUpdate's `input` always empty and the
+	// no-op short-circuit never fire. We need the real persisted merged object
+	// here so an unchanged rebuild is recognised and the write is skipped.
+	if err := c.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, mergedKey, &softwarecomposition.ContainerProfile{},
+		true, nil, tryUpdate, nil, ""); err != nil {
+		return fmt.Errorf("failed to update merged container profile: %w", err)
+	}
+	return nil
+}
+
+func (c *ContainerProfileStorageImpl) GetMergedContainerProfile(ctx context.Context, observedKey string) (softwarecomposition.ContainerProfile, error) {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	profile := softwarecomposition.ContainerProfile{}
+	err := c.storageImpl.GetWithConn(ctx, conn, MergedKeyFor(observedKey), storage.GetOptions{}, &profile)
+	return profile, err
+}
+
+func (c *ContainerProfileStorageImpl) DeleteMergedContainerProfile(ctx context.Context, observedKey string) error {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	mergedKey := MergedKeyFor(observedKey)
+
+	// Lock-free existence probe (ReadMetadata takes no key lock) purely to stay
+	// quiet on the common no-merged case — every workload's early ticks before a
+	// ug- overlay exists. StorageImpl.delete logs at Error level for a missing
+	// key, so we only attempt the delete when the merged artifact actually
+	// exists; this removes the need for the caller's separate locked
+	// GetMergedContainerProfile probe (the "extra lock") without re-introducing
+	// the error-log spam.
+	if _, err := ReadMetadata(conn, mergedKey); err != nil {
+		if errors.Is(err, ErrMetadataNotFound) {
+			return nil // nothing to retract — idempotent
+		}
+		return fmt.Errorf("probe merged container profile for deletion: %w", err)
+	}
+
+	// The delete itself goes through DeleteWithConn so it stays synchronized
+	// (write-locked) with concurrent Get/Save on the same key, consistent with
+	// GetMergedContainerProfile/SaveMergedContainerProfile — an unsynchronized
+	// delete risks SQLite busy / lock contention (kubescape/storage#315 review).
+	return c.storageImpl.DeleteWithConn(ctx, conn, mergedKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
 }
 
 func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {

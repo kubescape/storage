@@ -14,6 +14,21 @@ for its operation. These custom reources might store internal Kubescape
 configuration, scan artifacts, computed snapshots etc that help the entire
 Kubescape in-cluster solution operate.
 
+## Requirements
+
+- **Kubernetes >= 1.28.** Storage is an aggregated APIServer built on recent
+  `k8s.io/apiserver` libraries. On older clusters (e.g. 1.26) the delegated
+  authentication informer never completes its cache sync against the control
+  plane, so `/readyz` stays at `[-]informer-sync` and the pod never becomes
+  Ready — surfacing as `MissingEndpoints` on the APIService. The
+  kubescape-operator Helm chart enforces this via a `kubeVersion` constraint.
+- **IPv6-only / dual-stack clusters** are supported. The server binds `::` by
+  default (`serverBindAddress`), which also serves IPv4 when `bindv6only=0`;
+  set `serverBindAddress: "0.0.0.0"` to force IPv4-only.
+- **Debugging:** set `KS_LOGGER_LEVEL=debug` to surface the underlying
+  Kubernetes apiserver logs (serving, aggregation, informer-sync); they are
+  muted to `Fatal` otherwise.
+
 ## Fetch sample-apiserver and its dependencies
 
 Like the rest of Kubernetes, sample-apiserver has used
