@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kubescape/go-logger"
-	"github.com/kubescape/go-logger/helpers"
 	helpers2 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
@@ -49,14 +47,20 @@ func NewKubernetesClient() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(clusterConfig)
 }
 
-func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) runtime.Object {
+func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) (runtime.Object, error) {
 	key := payloadPathToKey(path)
 	metaOut := &PartialObjectMetadata{}
 	err := DeleteMetadata(conn, key, metaOut)
 	if err != nil {
-		logger.L().Error("failed to delete metadata", helpers.Error(err))
+		return nil, fmt.Errorf("failed to delete metadata: %w", err)
 	}
-	return metaOut
+	_, _, kind, _, _, _ := K8sPathToKeys(key)
+	if IsContainerProfileKind(kind) {
+		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
+			return nil, fmt.Errorf("failed to delete time series entries: %w", err)
+		}
+	}
+	return metaOut, nil
 }
 
 func getConfig() (*rest.Config, error) {

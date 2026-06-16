@@ -28,6 +28,7 @@ import (
 // a ug- CRD (kubescape/storage#315 review).
 const (
 	ContainerProfileKind       = "containerprofile"
+	ContainerProfileKindPlural = "containerprofiles"
 	ContainerProfileMergedKind = "containerprofile-merged"
 )
 
@@ -369,4 +370,15 @@ func (c *ContainerProfileStorageImpl) ReplaceTimeSeriesContainerEntries(ctx cont
 func (c *ContainerProfileStorageImpl) WriteTimeSeriesEntry(ctx context.Context, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	return WriteTimeSeriesEntry(conn, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData)
+}
+
+func IsContainerProfileKind(kind string) bool {
+	return kind == ContainerProfileKind || kind == ContainerProfileKindPlural
+}
+
+func NormalizeContainerProfileKind(kind string) string {
+	if kind == ContainerProfileKindPlural {
+		return ContainerProfileKind
+	}
+	return kind
 }

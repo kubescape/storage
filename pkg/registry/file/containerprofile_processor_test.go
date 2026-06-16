@@ -27,9 +27,7 @@ func TestConsolidateData(t *testing.T) {
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
 	}(pool)
-	conn, err := pool.Take(context.TODO())
-	require.NoError(t, err)
-
+	var err error
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	processor := ContainerProfileProcessor{
@@ -82,6 +80,10 @@ func TestConsolidateData(t *testing.T) {
 	err = processor.ConsolidateTimeSeries(ctx)
 	assert.NoError(t, err)
 
+	conn, err := pool.Take(ctx)
+	require.NoError(t, err)
+	defer pool.Put(conn)
+
 	applicationProfile := softwarecomposition.ApplicationProfile{}
 	key := "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &applicationProfile)
@@ -109,9 +111,6 @@ func TestConsolidateData(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, softwarecomposition.CallID("test-call-id"), containerProfile.Spec.IdentifiedCallStacks[0].CallID)
 
-	// Clean up
-	pool.Put(conn)
-	assert.NoError(t, pool.Close())
 }
 
 func Test_isZeroTime(t *testing.T) {
@@ -298,4 +297,72 @@ func TestSendConsolidatedSlugToChannel(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateProfileStatusExpired(t *testing.T) {
+	processor := ContainerProfileProcessor{}
+
+	profile := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+	}
+
+	ts := []softwarecomposition.TimeSeriesContainers{
+		{
+			Status:   helpersv1.Learning,
+			TsSuffix: "123",
+		},
+	}
+
+	res, skip, err := processor.updateProfileStatus(context.TODO(), "key", "seriesID", profile, ts, true)
+	assert.NoError(t, err)
+	assert.False(t, skip)
+	assert.Len(t, res, 0) // should be cleared
+	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
+	assert.Equal(t, helpersv1.Partial, profile.Annotations[helpersv1.CompletionMetadataKey])
+}
+
+type mockContainerProfileStorage struct {
+	fakeStorage
+	deleteCalled bool
+	deleteKey    string
+}
+
+func (m *mockContainerProfileStorage) DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error {
+	m.deleteCalled = true
+	m.deleteKey = key
+	return nil
+}
+
+func TestUpdateProfileStatusExpiredFull(t *testing.T) {
+	mockStorage := &mockContainerProfileStorage{}
+	processor := ContainerProfileProcessor{
+		ContainerProfileStorage: mockStorage,
+	}
+
+	profile := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+	}
+
+	// For isFull to be true: len(newTimeSeries) == 1, previous report timestamp is zero, status is Completed.
+	ts := []softwarecomposition.TimeSeriesContainers{
+		{
+			Status:                  helpersv1.Completed,
+			Completion:              helpersv1.Full,
+			TsSuffix:                "123",
+			PreviousReportTimestamp: "0001-01-01 00:00:00 +0000 UTC",
+		},
+	}
+
+	res, skip, err := processor.updateProfileStatus(context.TODO(), "test-key", "seriesID", profile, ts, true)
+	assert.NoError(t, err)
+	assert.True(t, skip)
+	assert.Len(t, res, 0) // should be cleared
+	assert.True(t, mockStorage.deleteCalled)
+	assert.Equal(t, "test-key", mockStorage.deleteKey)
+	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
+	assert.Equal(t, helpersv1.Full, profile.Annotations[helpersv1.CompletionMetadataKey])
 }

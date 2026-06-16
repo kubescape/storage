@@ -197,7 +197,10 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 				h.deleteFunc(h.appFs, path)
 
-				metaOut := h.deleteMetadata(conn, path)
+				metaOut, err := h.deleteMetadata(conn, path)
+				if err != nil {
+					return fmt.Errorf("failed to delete metadata: %w", err)
+				}
 				if h.watchDispatcher != nil {
 					key := path[len(h.root) : len(path)-len(GobExt)]
 					h.watchDispatcher.Deleted(key, metaOut)

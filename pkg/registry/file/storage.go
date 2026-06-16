@@ -373,6 +373,14 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
+	// delete time series entries if this is a containerprofile
+	_, _, kind, _, _, _ := K8sPathToKeys(key)
+	if IsContainerProfileKind(kind) {
+		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
+			logger.L().Ctx(ctx).Error("Delete - delete time series entries failed", helpers.Error(err), helpers.String("key", key))
+			return fmt.Errorf("delete time series entries: %w", err)
+		}
+	}
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
 	return nil

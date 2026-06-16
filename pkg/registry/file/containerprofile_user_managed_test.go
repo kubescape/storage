@@ -315,6 +315,12 @@ func (h *e2eHarness) createCP(fixture string) {
 		&profile, nil, 0))
 }
 
+func (h *e2eHarness) writeTSEntryDirect(kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) {
+	h.t.Helper()
+	err := WriteTimeSeriesEntry(h.conn, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData)
+	require.NoError(h.t, err)
+}
+
 // createFreshReport ingests a TS ContainerProfile for the e2e workload with a
 // *current* report timestamp, so a large DeleteThreshold keeps the workload in
 // Learning (the expired path never marks it Completed). Each call uses a fresh
@@ -592,11 +598,11 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 	// the assertions below when a tick happened to straddle a second.
 	time.Sleep(1100 * time.Millisecond)
 
-	// Second tick: no new time-series data and the ug- AP unchanged. The
-	// consolidator still revisits the workload (expired), re-running the merge
-	// with identical inputs. The rebuilt merged must be recognised as unchanged
-	// and NOT rewritten: no watch event fires, the persisted object is byte-for-
-	// byte identical, and its ResourceVersion is stable.
+	// Second tick: no new time-series data and the ug- AP unchanged.
+	// Since the expired time series was cleared on the first tick, we inject a report
+	// to trigger consolidation and verify that rebuilding with identical inputs is recognized
+	// as unchanged and NOT rewritten (no watch event, stable ResourceVersion).
+	h.writeTSEntryDirect("containerprofile", "kube-system", "replicaset-coredns-5d78c9869d-coredns-185f-129c", "4580f9fc-7563-41d8-bb60-e2eeca72f495", "c68b821c86194262b389d919d1355ee6", "2025-06-24 10:29:46.810421941 +0000 UTC m=+66.976503851", "ready", "partial", "0001-01-01 00:00:00 +0000 UTC", true)
 	h.consolidate()
 	second := h.requireMerged()
 	assert.Equal(t, 0, drainMergedWrites(),
@@ -615,6 +621,7 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 			{Name: "coredns", Capabilities: []string{"USER_MANAGED_CAP_V2"}},
 		},
 	})
+	h.writeTSEntryDirect("containerprofile", "kube-system", "replicaset-coredns-5d78c9869d-coredns-185f-129c", "4580f9fc-7563-41d8-bb60-e2eeca72f495", "c68b821c86194262b389d919d1355ee6", "2025-06-24 10:29:46.810421941 +0000 UTC m=+66.976503851", "ready", "partial", "0001-01-01 00:00:00 +0000 UTC", true)
 	h.consolidate()
 	third := h.requireMerged()
 	assert.GreaterOrEqual(t, drainMergedWrites(), 1,
