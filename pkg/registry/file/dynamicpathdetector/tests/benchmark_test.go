@@ -129,7 +129,7 @@ func BenchmarkCompareDynamic(b *testing.B) {
 // dynamic config paths) plus an adversarial leading-star case that would
 // backtrack exponentially without the memo.
 func BenchmarkMatchExecArgs(b *testing.B) {
-	star := dynamicpathdetector.WildcardIdentifier
+	star := dynamicpathdetector.ExecArgsWildcard // exec-args zero-or-more ("⋯⋯")
 	ellipsis := dynamicpathdetector.DynamicIdentifier
 	cases := []struct {
 		name         string

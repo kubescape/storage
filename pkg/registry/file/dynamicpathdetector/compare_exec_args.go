@@ -34,8 +34,8 @@ func CompareExecArgs(profileArgs, runtimeArgs []string) bool {
 
 // matchExecArgsStrict matches profileArgs against runtimeArgs position by
 // position, anchored at both ends. An empty profileArgs matches only an empty
-// runtimeArgs. Tokens are matched by argMatches, except a bare
-// WildcardIdentifier ("*"), which absorbs zero or more consecutive runtime
+// runtimeArgs. Tokens are matched by argMatches, except a standalone
+// ExecArgsWildcard ("⋯⋯"), which absorbs zero or more consecutive runtime
 // args.
 //
 // Index-based backtracking memoised on (profileIndex, runtimeIndex): without
@@ -65,7 +65,7 @@ func matchExecArgsStrict(profileArgs, runtimeArgs []string) bool {
 
 		head := profileArgs[pi]
 
-		if head == WildcardIdentifier {
+		if head == ExecArgsWildcard {
 			// Absorb 0..remaining runtime args; first successful split wins.
 			for k := ri; k <= len(runtimeArgs); k++ {
 				if match(pi+1, k) {
@@ -96,20 +96,43 @@ func matchExecArgsStrict(profileArgs, runtimeArgs []string) bool {
 
 // argMatches matches one profile token against one runtime arg:
 //
-//	bare "⋯"                  — any single arg.
-//	token containing "⋯"/"*"  — a dynamic path; matched segment-wise by
-//	                            CompareDynamic ("⋯" = one segment, "*" = zero+).
-//	anything else             — literal equality.
+//	bare "⋯"              — any single arg.
+//	token containing "⋯"  — a path-shaped arg matched segment-wise, where "⋯"
+//	                        matches exactly one segment and every other segment
+//	                        (including any "*") is literal.
+//	anything else         — literal equality.
 //
-// A bare "*" never reaches here — matchExecArgsStrict consumes it as a
-// positional wildcard first — so any "*" seen is embedded in a path token (the
-// form the analyzer emits when it collapses adjacent dynamic segments).
+// Exec args use dedicated, collision-free wildcards: "⋯" (one arg / one
+// segment) and "⋯⋯" (zero-or-more whole args, consumed positionally by
+// matchExecArgsStrict). A "*" is NEVER a wildcard here — a process is routinely
+// invoked with a literal "*" (an unexpanded shell glob), so a "*" is matched as
+// data. Treating it literally is what prevents the R0040 over-broadening (a
+// recorded "/plugins/*" arg must not match "/plugins/evil.so"), and because the
+// wildcards are sentinels that cannot occur in real argv, no escaping is needed.
 func argMatches(profileArg, runtimeArg string) bool {
 	if profileArg == DynamicIdentifier {
 		return true
 	}
-	if strings.Contains(profileArg, DynamicIdentifier) || strings.Contains(profileArg, WildcardIdentifier) {
-		return CompareDynamic(profileArg, runtimeArg)
+	if strings.Contains(profileArg, DynamicIdentifier) {
+		return matchExecArgSegments(profileArg, runtimeArg)
 	}
 	return profileArg == runtimeArg
+}
+
+// matchExecArgSegments matches a "/"-segmented profile token against a runtime
+// arg. "⋯" matches exactly one segment; every other segment — "*" included — is
+// matched literally. Segment counts must be equal: "⋯" never spans more than
+// one segment (use "⋯⋯", positionally, to span whole args).
+func matchExecArgSegments(profileArg, runtimeArg string) bool {
+	p := strings.Split(profileArg, "/")
+	r := strings.Split(runtimeArg, "/")
+	if len(p) != len(r) {
+		return false
+	}
+	for i := range p {
+		if p[i] != DynamicIdentifier && p[i] != r[i] {
+			return false
+		}
+	}
+	return true
 }

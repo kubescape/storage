@@ -18,26 +18,40 @@ import (
 // across all (pi,ri) reachable states (which length-4 sequences exhaust for the
 // matcher's structure) proves the memoised matcher matches the spec.
 //
-// Token alphabet covers every argMatches branch:
-//   "a","b"  literals          (profileArg == runtimeArg)
-//   "*"      WildcardIdentifier (positional zero-or-more, in matchExecArgsStrict)
-//   "⋯"      DynamicIdentifier  (bare -> any single arg)
-//   "/x/⋯"   embedded-⋯ path    (routes to CompareDynamic)
-//   "/x/*"   embedded-* path    (routes to CompareDynamic — current behavior)
-// Runtime alphabet includes "c" and concrete paths the profile never lists.
+// Exec-arg token vocabulary covered by the alphabet:
+//   "a","b"  literals               (profileArg == runtimeArg)
+//   "*"      a LITERAL star          (NOT a wildcard in exec args — matched as data)
+//   "⋯⋯"     ExecArgsWildcard        (positional zero-or-more whole args)
+//   "⋯"      DynamicIdentifier       (bare -> any single arg)
+//   "/x/⋯"   embedded-⋯ path token   (⋯ = exactly one segment, rest literal)
+//   "/x/*"   embedded LITERAL star   (matched literally, no broadening)
+// The runtime alphabet includes "c", concrete paths, and "/x/*" so the
+// star-is-data path is exercised against both matching and non-matching inputs.
 // ============================================================================
 
 // refArgMatch mirrors the single-token contract of argMatches (intentionally —
 // we are verifying the SEQUENCE/backtracking logic, holding the per-token
-// decision fixed). CompareDynamic is the real exported matcher.
+// decision fixed). "*" is NOT special here: only "⋯" is a within-token wildcard.
 func refArgMatch(profileArg, runtimeArg string) bool {
 	if profileArg == dp.DynamicIdentifier { // bare "⋯"
 		return true
 	}
-	if strings.Contains(profileArg, dp.DynamicIdentifier) || strings.Contains(profileArg, dp.WildcardIdentifier) {
-		return dp.CompareDynamic(profileArg, runtimeArg)
+	if strings.Contains(profileArg, dp.DynamicIdentifier) {
+		// segment-wise: "⋯" matches exactly one segment, everything else
+		// (including "*") is literal; segment counts must be equal.
+		p := strings.Split(profileArg, "/")
+		r := strings.Split(runtimeArg, "/")
+		if len(p) != len(r) {
+			return false
+		}
+		for i := range p {
+			if p[i] != dp.DynamicIdentifier && p[i] != r[i] {
+				return false
+			}
+		}
+		return true
 	}
-	return profileArg == runtimeArg
+	return profileArg == runtimeArg // literal, "*" included
 }
 
 // refMatch is the naive (un-memoised) backtracking reference for the strict
@@ -46,7 +60,7 @@ func refMatch(p, r []string) bool {
 	if len(p) == 0 {
 		return len(r) == 0
 	}
-	if p[0] == dp.WildcardIdentifier { // bare "*": absorb 0..len(r)
+	if p[0] == dp.ExecArgsWildcard { // "⋯⋯": absorb 0..len(r) whole args
 		for k := 0; k <= len(r); k++ {
 			if refMatch(p[1:], r[k:]) {
 				return true
@@ -81,8 +95,8 @@ func enumerate(alphabet []string, maxLen int) [][]string {
 }
 
 func TestMatchExecArgs_DifferentialAgainstNaiveOracle(t *testing.T) {
-	profAlphabet := []string{"a", "b", dp.WildcardIdentifier, dp.DynamicIdentifier, "/x/" + dp.DynamicIdentifier, "/x/" + dp.WildcardIdentifier}
-	runAlphabet := []string{"a", "b", "c", "/x/y", "/x/y/z"}
+	profAlphabet := []string{"a", "b", "*", dp.ExecArgsWildcard, dp.DynamicIdentifier, "/x/" + dp.DynamicIdentifier, "/x/*"}
+	runAlphabet := []string{"a", "b", "c", "*", "/x/y", "/x/y/z", "/x/*"}
 
 	profiles := enumerate(profAlphabet, 4)
 	runtimes := enumerate(runAlphabet, 4)
@@ -107,8 +121,8 @@ func TestMatchExecArgs_DifferentialAgainstNaiveOracle(t *testing.T) {
 // TestMatchExecArgs_ContractInvariants pins the documented contract clauses
 // over the same input space.
 func TestMatchExecArgs_ContractInvariants(t *testing.T) {
-	profAlphabet := []string{"a", "b", dp.WildcardIdentifier, dp.DynamicIdentifier}
-	runAlphabet := []string{"a", "b", "c"}
+	profAlphabet := []string{"a", "*", dp.ExecArgsWildcard, dp.DynamicIdentifier}
+	runAlphabet := []string{"a", "b", "*"}
 	profiles := enumerate(profAlphabet, 4)
 	runtimes := enumerate(runAlphabet, 4)
 
@@ -127,7 +141,8 @@ func TestMatchExecArgs_ContractInvariants(t *testing.T) {
 			t.Fatal("empty profile must match empty runtime")
 		}
 		// Clause: a purely-literal profile is reflexive and anchored — it
-		// matches its own vector and nothing longer.
+		// matches its own vector and nothing longer. Note a "*" token is
+		// literal in exec args, so ["*"] is a literal profile here.
 		if isLiteral(p) {
 			if !dp.MatchExecArgs(p, true, p) {
 				t.Fatalf("literal profile must match itself: %q", p)
@@ -139,10 +154,12 @@ func TestMatchExecArgs_ContractInvariants(t *testing.T) {
 	}
 }
 
+// isLiteral reports whether every token is matched literally — i.e. none is a
+// wildcard. In exec args the only wildcards are "⋯" (and "⋯⋯", which contains
+// "⋯"); "*" is data.
 func isLiteral(p []string) bool {
 	for _, t := range p {
-		if t == dp.WildcardIdentifier || t == dp.DynamicIdentifier ||
-			strings.Contains(t, dp.WildcardIdentifier) || strings.Contains(t, dp.DynamicIdentifier) {
+		if strings.Contains(t, dp.DynamicIdentifier) {
 			return false
 		}
 	}
