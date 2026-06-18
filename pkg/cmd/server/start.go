@@ -42,6 +42,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
+	"k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/util/compatibility"
@@ -142,14 +143,19 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 			if skipDefaultComponentGlobalsRegistrySet {
 				return nil
 			}
+			flags := cmd.Flags()
+			// WatchList not yet implemented in the file-based storage backend, see https://github.com/kubescape/storage/issues/320
+			// Note: ServerSideApply is GA/non-gated in Kubernetes 1.35 and cannot be disabled via feature-gates;
+			// the previous "ServerSideApply=false" token was always inert and would now fail gate validation.
+			if err := flags.Set("feature-gates", "WatchList=false"); err != nil {
+				return err
+			}
+			// ComponentGlobalsRegistry.Set is the only bridge propagating the parsed feature-gates
+			// flag into the actual feature gates, so it must run after the flag value is populated.
 			if err := defaults.ComponentGlobalsRegistry.Set(); err != nil {
 				return err
 			}
-			flags := cmd.Flags()
-			// WatchList not yet implemented in the file-based storage backend, see https://github.com/kubescape/storage/issues/320
-			if err := flags.Set("feature-gates", "ServerSideApply=false,WatchList=false"); err != nil {
-				return err
-			}
+			logger.L().Debug("effective feature gates", helpers.Interface("WatchList", utilfeature.DefaultFeatureGate.Enabled(features.WatchList)))
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {

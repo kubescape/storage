@@ -4,6 +4,7 @@ import (
 	"context"
 	"path"
 	"slices"
+	"sync"
 
 	"github.com/puzpuzpuz/xsync/v2"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,6 +122,31 @@ func (w *watcher) send(e watch.Event) {
 	case <-w.ctx.Done():
 	}
 }
+
+// idleWatch is a watch.Interface that stays open without ever emitting events.
+// Its result channel is closed when the request context is cancelled (client
+// disconnect) or Stop is called, whichever comes first. Unlike a pre-closed
+// watch (watch.NewEmptyWatch), it does not send reflectors into a "very short
+// watch" tight retry loop; unlike watcher, it needs no goroutine.
+type idleWatch struct {
+	ch   chan watch.Event // never written to
+	stop func() bool      // cancels the AfterFunc registration
+	once sync.Once
+}
+
+// newIdleWatch creates a new idleWatch whose lifecycle is tied to ctx.
+func newIdleWatch(ctx context.Context) *idleWatch {
+	w := &idleWatch{ch: make(chan watch.Event)}
+	w.stop = context.AfterFunc(ctx, w.close)
+	return w
+}
+
+// Stop is idempotent and safe to call before, after, or concurrently with
+// context cancellation.
+func (w *idleWatch) Stop()                          { w.stop(); w.close() }
+func (w *idleWatch) ResultChan() <-chan watch.Event { return w.ch }
+
+func (w *idleWatch) close() { w.once.Do(func() { close(w.ch) }) }
 
 type watchersList []*watcher
 
