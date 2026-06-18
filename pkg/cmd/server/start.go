@@ -122,6 +122,12 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 	o.RecommendedOptions.SecureServing.ServerCert.CertKey.CertFile = o.StorageConfig.TlsServerCertFile
 	o.RecommendedOptions.SecureServing.ServerCert.CertKey.KeyFile = o.StorageConfig.TlsServerKeyFile
 	o.RecommendedOptions.SecureServing.BindPort = o.StorageConfig.ServerBindPort
+	// Bind address is config-driven (the binary takes no apiserver flags, see main.go's flag.Parse).
+	// Default "::" works on IPv6-only clusters and, with bindv6only=0 (Linux default), also accepts
+	// IPv4/dual-stack; set serverBindAddress: "0.0.0.0" to force IPv4-only binding.
+	if bindIP := netutils.ParseIPSloppy(o.StorageConfig.ServerBindAddress); bindIP != nil {
+		o.RecommendedOptions.SecureServing.BindAddress = bindIP
+	}
 
 	return o
 }
@@ -249,7 +255,7 @@ func (o *WardleServerOptions) Complete() error {
 // Config returns config for the api server given WardleServerOptions
 func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	// TODO have a "real" external address
-	if err := o.RecommendedOptions.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", o.AlternateDNS, []net.IP{netutils.ParseIPSloppy("127.0.0.1")}); err != nil {
+	if err := o.RecommendedOptions.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", o.AlternateDNS, []net.IP{netutils.ParseIPSloppy("127.0.0.1"), netutils.ParseIPSloppy("::1")}); err != nil {
 		return nil, fmt.Errorf("error creating self-signed certificates: %v", err)
 	}
 
