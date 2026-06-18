@@ -10,8 +10,10 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 )
 
-// NewREST returns a RESTStorage object that will work against API services.
-func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter generic.RESTOptionsGetter) (*registry.REST, error) {
+// NewREST returns a read-only RESTStorage object that will work against API services.
+// ConfigurationScanSummary objects are computed on the fly: watch and mutations are not
+// supported, so the watch and mutating verbs are deliberately not advertised in discovery.
+func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter generic.RESTOptionsGetter) (*registry.ReadOnlyREST, error) {
 	strategy := NewStrategy(scheme)
 
 	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: nil, Storage: storageImpl}
@@ -36,5 +38,5 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	if err := store.CompleteWithOptions(options); err != nil {
 		return nil, err
 	}
-	return &registry.REST{Store: store}, nil
+	return registry.NewReadOnlyREST(store), nil
 }

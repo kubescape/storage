@@ -157,12 +157,17 @@ func (c completedConfig) New() (*WardleServer, error) {
 			}
 			return sbomregistry.RESTInPeace(f(Scheme, si, c.GenericConfig.RESTOptionsGetter))
 		}
+		// epRO registers read-only REST endpoints for computed resources: watch and mutating
+		// verbs are not advertised in discovery (there is nothing to watch or mutate).
+		epRO = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.ReadOnlyREST, error), s storage.Interface) *registry.ReadOnlyREST {
+			return sbomregistry.RESTInPeace(f(Scheme, s, c.GenericConfig.RESTOptionsGetter))
+		}
 	)
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
 		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
-		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
+		"configurationscansummaries":          epRO(configurationscansummary.NewREST, configScanStorageImpl),
 		"containerprofiles":                   ep(containerprofile.NewREST, containerProfileStorageImpl),
-		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
+		"generatednetworkpolicies":            epRO(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
 		"knownservers":                        ep(knownserver.NewREST),
 		"networkneighborhoods":                ep(networkneighborhood.NewREST, networkNeighborhoodStorageImpl),
 		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
@@ -171,7 +176,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 		"seccompprofiles":                     ep(seccompprofiles.NewREST),
 		"vulnerabilitymanifests":              ep(vmstorage.NewREST),
 		"vulnerabilitymanifestsummaries":      ep(vmsumstorage.NewREST),
-		"vulnerabilitysummaries":              ep(vsumstorage.NewREST, vulnerabilitySummaryStorage),
+		"vulnerabilitysummaries":              epRO(vsumstorage.NewREST, vulnerabilitySummaryStorage),
 		"workloadconfigurationscans":          ep(wcsstorage.NewREST),
 		"workloadconfigurationscansummaries":  ep(wcssumstorage.NewREST),
 	}
