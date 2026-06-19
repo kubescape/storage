@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -199,6 +200,76 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 			assert.Equal(t, tt.want, tt.args.objPtr)
 		})
 	}
+}
+
+func TestConfigurationScanSummaryStorage_GetList_Pagination(t *testing.T) {
+	// Regression test for issue #337: the underlying store caps each page at a
+	// default limit of 500 objects and returns a continuation token. GetList must
+	// consume that token so the cluster-wide aggregation covers every object,
+	// otherwise namespaces beyond the first page silently disappear and per-namespace
+	// severity counters are wrong.
+	const (
+		alphaCount = 500 // fills the entire first page on its own
+		betaCount  = 200 // lives entirely beyond the first page
+	)
+
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 60*time.Second)
+	defer cancel()
+
+	// objects are listed ordered by creation (rowid), so creating all of "alpha"
+	// before "beta" guarantees "beta" falls entirely on the second page.
+	createWorkloadSummaries := func(namespace string, count int) {
+		for i := range count {
+			name := fmt.Sprintf("workload-%d", i)
+			wlObj := &softwarecomposition.WorkloadConfigurationScanSummary{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+				Spec: softwarecomposition.WorkloadConfigurationScanSummarySpec{
+					Severities: softwarecomposition.WorkloadConfigurationScanSeveritiesSummary{
+						High: 1,
+					},
+				},
+			}
+			key := fmt.Sprintf("/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/%s/%s", namespace, name)
+			require.NoError(t, realStorage.Create(ctx, key, wlObj, nil, 0))
+		}
+	}
+	createWorkloadSummaries("alpha", alphaCount)
+	createWorkloadSummaries("beta", betaCount)
+
+	configScanSummaryStorage := NewConfigurationScanSummaryStorage(realStorage)
+
+	listObj := &v1beta1.ConfigurationScanSummaryList{}
+	// the aggregation reads severities from the spec, so request the full spec
+	err := configScanSummaryStorage.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/configurationscansummaries", storage.ListOptions{
+		ResourceVersion: softwarecomposition.ResourceVersionFullSpec,
+		Predicate:       storage.SelectionPredicate{},
+	}, listObj)
+	require.NoError(t, err)
+
+	// Both namespaces must be present even though "beta" lives entirely on the
+	// second page. Before the fix, only the first page (500 objects) was read, so
+	// "beta" disappeared completely and the list contained a single namespace.
+	require.Len(t, listObj.Items, 2, "both namespaces must be present, including the one beyond the first page")
+
+	// The aggregated severities must cover every object, not just the first page.
+	// Before the fix this totalled only 500 (the truncated first page).
+	var totalHigh int64
+	for _, item := range listObj.Items {
+		totalHigh += item.Spec.Severities.High
+	}
+	assert.Equal(t, int64(alphaCount+betaCount), totalHigh, "severities must aggregate all objects across every page")
 }
 
 func TestGenerateConfigurationScanSummary(t *testing.T) {
