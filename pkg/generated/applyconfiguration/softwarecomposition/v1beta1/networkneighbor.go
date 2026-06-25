@@ -38,6 +38,10 @@ type NetworkNeighborApplyConfiguration struct {
 	PodSelector       *v1.LabelSelectorApplyConfiguration `json:"podSelector,omitempty"`
 	NamespaceSelector *v1.LabelSelectorApplyConfiguration `json:"namespaceSelector,omitempty"`
 	IPAddress         *string                             `json:"ipAddress,omitempty"`
+	// IPAddresses is the v0.0.2 list-form replacement for IPAddress.
+	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
+	// See pkg/registry/file/networkmatch for matcher semantics.
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 }
 
 // NetworkNeighborApplyConfiguration constructs a declarative configuration of the NetworkNeighbor type for use with
@@ -114,5 +118,15 @@ func (b *NetworkNeighborApplyConfiguration) WithNamespaceSelector(value *v1.Labe
 // If called multiple times, the IPAddress field is set to the value of the last call.
 func (b *NetworkNeighborApplyConfiguration) WithIPAddress(value string) *NetworkNeighborApplyConfiguration {
 	b.IPAddress = &value
+	return b
+}
+
+// WithIPAddresses adds the given value to the IPAddresses field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the IPAddresses field.
+func (b *NetworkNeighborApplyConfiguration) WithIPAddresses(values ...string) *NetworkNeighborApplyConfiguration {
+	for i := range values {
+		b.IPAddresses = append(b.IPAddresses, values[i])
+	}
 	return b
 }

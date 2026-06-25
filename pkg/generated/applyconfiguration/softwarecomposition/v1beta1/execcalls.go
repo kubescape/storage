@@ -21,10 +21,18 @@ package v1beta1
 // ExecCallsApplyConfiguration represents a declarative configuration of the ExecCalls type for use
 // with apply.
 type ExecCallsApplyConfiguration struct {
-	Path         *string  `json:"path,omitempty"`
-	Args         []string `json:"args,omitempty"`
-	Envs         []string `json:"envs,omitempty"`
-	ArgsRequired *bool    `json:"argsRequired,omitempty"`
+	Path *string  `json:"path,omitempty"`
+	Args []string `json:"args,omitempty"`
+	Envs []string `json:"envs,omitempty"`
+	// ArgsRequired declares the intent of Args explicitly. When false
+	// (default and the back-compat path) the Args vector is informational
+	// and CompareExecArgs's empty-bypass applies. When true the Args
+	// vector is a strict constraint enforced by MatchExecArgs — an empty
+	// Args means "argv MUST be empty"; a non-empty Args is matched
+	// anchored (wildcard tokens still apply). Resolves the
+	// args,omitempty / explicit-empty round-trip ambiguity that
+	// CompareExecArgs alone could not express.
+	ArgsRequired *bool `json:"argsRequired,omitempty"`
 }
 
 // ExecCallsApplyConfiguration constructs a declarative configuration of the ExecCalls type for use with
