@@ -174,7 +174,6 @@ func TestAnalyzeEndpoints(t *testing.T) {
 			// Length gate: ranging over result and indexing tt.expected[i]
 			// silently passes if result is shorter than expected (missing
 			// endpoints stay invisible). Assert equal length first.
-			// CodeRabbit upstream PR #326 outside-diff-range finding.
 			require.Len(t, result, len(tt.expected))
 			ja := jsonassert.New(t)
 			for i := range result {
@@ -422,8 +421,8 @@ func TestMergeDuplicateEndpointsWildcardPort(t *testing.T) {
 
 // TestMergeDuplicateEndpoints_SpecificFirstThenWildcard pins the reverse
 // order — specific-port endpoint encountered first, wildcard sibling second.
-// Without symmetric merging in MergeDuplicateEndpoints both entries survive,
-// which CodeRabbit flagged on PR #316. Locking the contract here.
+// Without symmetric merging in MergeDuplicateEndpoints both entries survive.
+// Locking the contract here.
 func TestMergeDuplicateEndpoints_SpecificFirstThenWildcard(t *testing.T) {
 	specificEP := &types.HTTPEndpoint{
 		Endpoint:  ":80/api/data",
@@ -464,8 +463,6 @@ func TestMergeDuplicateEndpoints_NoWildcardKeepsAllSpecificPorts(t *testing.T) {
 // sweep must therefore also distinguish Internal — otherwise an
 // internally-originating endpoint can absorb an externally-originating one
 // (or vice versa) just because they share path + direction.
-//
-// Flagged by upstream review on kubescape/storage#316 (matthyx).
 // ---------------------------------------------------------------------------
 
 // TestMergeDuplicateEndpoints_InternalFieldDistinguishesDuplicates asserts

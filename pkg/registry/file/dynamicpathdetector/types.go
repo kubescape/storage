@@ -1,11 +1,20 @@
 package dynamicpathdetector
 
 // --- Identifier constants ---
-// DynamicIdentifier matches exactly one path segment (single-segment wildcard).
-// WildcardIdentifier matches zero-or-more path segments (glob-style **).
+// DynamicIdentifier matches exactly one path segment (single-segment wildcard),
+// and in exec args matches exactly one whole argument.
+// WildcardIdentifier matches zero-or-more path segments (glob-style **). It is a
+// PATH/OPENS wildcard only — in exec args a "*" is a plain literal character (a
+// process is frequently invoked with a literal "*", e.g. an unexpanded glob).
+// ExecArgsWildcard is the exec-args zero-or-more wildcard: a standalone argv
+// token that absorbs zero or more whole arguments. It is a dedicated sentinel
+// (doubled U+22EF) precisely so it cannot collide with any real argv token —
+// the same collision-avoidance rationale behind DynamicIdentifier. Exec args
+// therefore need no escaping: every other byte, including "*", is literal.
 const (
-	DynamicIdentifier  string = "⋯" // U+22EF: ⋯
-	WildcardIdentifier string = "*"
+	DynamicIdentifier  string = "⋯"  // U+22EF: ⋯ (one segment / one arg)
+	WildcardIdentifier string = "*"  // zero-or-more path segments (opens only)
+	ExecArgsWildcard   string = "⋯⋯" // zero-or-more whole exec args
 )
 
 // --- Default collapse thresholds ---
@@ -50,7 +59,6 @@ func DefaultCollapseConfigs() []CollapseConfig {
 // no CollapseConfig prefix matches the walked path. Exposed via the
 // DefaultCollapseConfig() accessor so callers can't mutate the package
 // state and silently corrupt every analyzer constructed afterward.
-// CodeRabbit upstream PR #323 finding #3.
 var defaultCollapseConfig = CollapseConfig{
 	Prefix:    "/",
 	Threshold: OpenDynamicThreshold,

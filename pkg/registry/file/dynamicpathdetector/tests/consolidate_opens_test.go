@@ -159,7 +159,7 @@ func TestConsolidateOpens_NoPatternsNoConsolidation(t *testing.T) {
 // (`*`) form also drives subsumption: if a profile carries /etc/* explicitly
 // (e.g. a hand-written user-defined-profile), and the trie also yields
 // concrete /etc/foo entries from auto-discovery, the concrete entry is
-// subsumed by the wildcard. Uses CompareDynamic which (per yesterday's
+// subsumed by the wildcard. Uses CompareDynamic which (per the
 // anchoring fix) requires trailing `*` to consume one or more segments.
 func TestConsolidateOpens_TrailingStarSubsumesChild(t *testing.T) {
 	// We can't easily produce both /etc/* and /etc/foo from AnalyzeOpens

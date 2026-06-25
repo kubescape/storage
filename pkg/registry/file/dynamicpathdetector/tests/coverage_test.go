@@ -422,7 +422,7 @@ func TestCompareDynamic_WildcardRegressions(t *testing.T) {
 }
 
 // TestCompareDynamic_AnchoringAndTrailing pins the trailing-`*` /
-// anchoring contract reported on upstream PR #316.
+// anchoring contract.
 //
 // The first wildcard-aware implementation made a trailing `*` match
 // zero-or-more remaining segments, so `/etc/*` silently matched the
@@ -575,7 +575,7 @@ func TestCompareDynamic_MidPathStarZeroOrMore(t *testing.T) {
 
 // TestDefaultCollapseConfig_DefensiveCopy pins the same contract for
 // the singular DefaultCollapseConfig() accessor that previously lived
-// as an exported mutable var. CodeRabbit upstream PR #323 finding #3.
+// as an exported mutable var.
 // Any caller mutating the returned struct must not affect package state.
 func TestDefaultCollapseConfig_DefensiveCopy(t *testing.T) {
 	first := dynamicpathdetector.DefaultCollapseConfig()
@@ -666,9 +666,9 @@ func TestCompareDynamic_PathSeparatorEdges(t *testing.T) {
 	}
 }
 
-// TestHasPrefixAtBoundary_EmptyPrefix pins CodeRabbit upstream PR #323
-// finding #10: when an operator-supplied CollapseConfig declares an
-// empty prefix (intentional or accidental), the boundary check must
+// TestHasPrefixAtBoundary_EmptyPrefix: when an operator-supplied
+// CollapseConfig declares an empty prefix (intentional or accidental),
+// the boundary check must
 // not silently degenerate into "any absolute path is a match". The
 // explicit `prefix == ""` branch makes the invariant load-bearing.
 //
@@ -700,8 +700,8 @@ func TestHasPrefixAtBoundary_EmptyPrefix(t *testing.T) {
 		"empty prefix must match any absolute path and yield its threshold")
 }
 
-// TestBuildEndpointKey_SharedFormat pins CodeRabbit upstream PR #323
-// finding #5: getEndpointKey and the wildcard-key construction inside
+// TestBuildEndpointKey_SharedFormat: getEndpointKey and the
+// wildcard-key construction inside
 // MergeDuplicateEndpoints must produce the same shape for the same
 // (Endpoint, Direction, Internal) tuple, so a wildcard sibling and its
 // specific-port counterpart map to the same dedup slot. Both now route

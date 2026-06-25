@@ -78,8 +78,8 @@ func (ua *PathAnalyzer) effectiveThreshold(pathPrefix string) int {
 // which means an explicit catch-all override could not actually override
 // the analyzer's default threshold.
 func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
-	// Empty-prefix guard. CodeRabbit upstream PR #323 finding #10:
-	// without this, hasPrefixAtBoundary("/foo", "") falls through to
+	// Empty-prefix guard: without this, hasPrefixAtBoundary("/foo", "")
+	// falls through to
 	// pathPrefix[0] == '/', which is true for any absolute path —
 	// effectively treating `""` as a root-matching prefix. None of the
 	// shipped configs use an empty prefix, but operators could supply
@@ -96,8 +96,7 @@ func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
 	// because `/etc/foo[:5]` = `/etc/` only when prefix is `/etc/`, which
 	// then forces the next char to be at offset 5 — but offset 5 IS the
 	// boundary slash itself; the boundary check expects another `/`
-	// AFTER that, which is `f`, not `/` → false). Matthias upstream
-	// PR #323 follow-up.
+	// AFTER that, which is `f`, not `/` → false).
 	for len(prefix) > 1 && prefix[len(prefix)-1] == '/' {
 		prefix = prefix[:len(prefix)-1]
 	}
@@ -413,8 +412,6 @@ func CompareDynamic(dynamicPath, regularPath string) bool {
 	//                 index-based walk would still hit. Allocation cost is
 	//                 acceptable because multi-`*` patterns are rare and
 	//                 author-supplied, not on the per-event hot path.
-	//
-	// Matthias's upstream PR #323 perf review drove this split.
 	if countStarSegments(dynamicPath) >= 2 {
 		// Multiple `*` segments: try collapsing consecutive runs first.
 		// Spec §5.1 makes adjacent `*`s redundant (mid `*` is 0+
@@ -525,9 +522,9 @@ func collapseConsecutiveStars(p string) string {
 
 // countStarSegments counts the number of standalone `*` segments in a
 // path. A `*` segment is a single `*` byte bounded by `/` or string-edge
-// — distinct from literal `*` characters embedded inside other tokens
-// (which v0.0.1 does not currently distinguish but may via `\*` escaping
-// in v0.0.2 per spec §5.1).
+// — distinct from literal `*` characters embedded inside other tokens,
+// which are not path wildcards. (Opens/paths only; exec args never treat
+// `*` as a wildcard.)
 //
 // Zero-allocation: scans the string in place.
 func countStarSegments(p string) int {
@@ -607,6 +604,8 @@ func compareSegmentsIndex(dynamicPath string, di int, regularPath string, ri int
 		return false
 	}
 	rSeg, rNext := segAt(regularPath, ri)
+	// "⋯" matches any single segment; otherwise a literal segment match
+	// (a bare "*" was already handled as a zero-or-more wildcard above).
 	if dSeg == DynamicIdentifier || dSeg == rSeg {
 		return compareSegmentsIndex(dynamicPath, dNext, regularPath, rNext)
 	}
@@ -652,6 +651,7 @@ func compareSegmentsMemo(dynamic, regular []string, di, ri int, memo map[[2]int]
 	} else if ri == len(regular) {
 		result = false
 	} else if dynamic[di] == DynamicIdentifier || dynamic[di] == regular[ri] {
+		// "⋯" matches any single segment; otherwise a literal segment match.
 		result = compareSegmentsMemo(dynamic, regular, di+1, ri+1, memo)
 	}
 

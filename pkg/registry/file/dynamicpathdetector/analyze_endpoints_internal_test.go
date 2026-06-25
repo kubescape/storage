@@ -11,7 +11,7 @@ import (
 // behavior for bare-path / empty / no-leading-slash inputs that may
 // arrive via ad-hoc lookups or tests. Without the guard, "foo" was
 // returned as ("foo", "/") — silently treating an opaque token as a
-// port number. Flagged on upstream PR #316 by CodeRabbit (C7).
+// port number.
 func TestSplitEndpointPortAndPath_DefensiveContract(t *testing.T) {
 	tests := []struct {
 		name     string
