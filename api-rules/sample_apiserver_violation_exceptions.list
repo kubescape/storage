@@ -45,6 +45,7 @@ API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/soft
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Match,MatchDetails
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Match,RelatedVulnerabilities
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,NetworkNeighbor,DNSNames
+API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,NetworkNeighbor,IPAddresses
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,NetworkNeighbor,Ports
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,NetworkNeighborhoodContainer,Egress
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,NetworkNeighborhoodContainer,Ingress

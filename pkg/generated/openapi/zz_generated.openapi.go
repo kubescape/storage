@@ -3759,6 +3759,21 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 							Format:  "",
 						},
 					},
+					"ipAddresses": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IPAddresses is the v0.0.2 list-form replacement for IPAddress. Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the \"*\" sentinel. See pkg/registry/file/networkmatch for matcher semantics.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"identifier", "type", "dns", "dnsNames", "ports", "podSelector", "namespaceSelector", "ipAddress"},
 			},
