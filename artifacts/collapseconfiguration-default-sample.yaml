@@ -1,0 +1,40 @@
+# Sample CollapseConfiguration. Apply to a cluster running storage to
+# replace the compiled-in defaults at deflate time.
+#
+# The resource is cluster-scoped; the singleton "default" is the only
+# name the deflate path consults.
+#
+#   kubectl apply -f artifacts/collapseconfiguration-default-sample.yaml
+#
+# REPLACE, NOT MERGE: when this resource is present its collapseConfigs
+# REPLACE the compiled-in defaults wholesale — they are not overlaid. This
+# sample therefore lists the full default prefix set; drop or edit entries to
+# taste, but any default you omit here stops being applied. Delete the
+# resource entirely to fall back to the compiled-in defaults.
+#
+# The two global thresholds are optional: omit them (or set 0) to use the
+# compiled-in defaults. Do NOT set them to 0 expecting "no collapsing" — 0 is
+# treated as "use default", because a literal 0 would collapse everything.
+#
+apiVersion: spdx.softwarecomposition.kubescape.io/v1beta1
+kind: CollapseConfiguration
+metadata:
+  name: default
+spec:
+  # Fallback threshold for AnalyzeOpens when no per-prefix entry matches.
+  openDynamicThreshold: 50
+  # Fallback threshold for AnalyzeEndpoints.
+  endpointDynamicThreshold: 100
+  # Per-prefix overrides, evaluated longest-prefix-wins. This list replaces
+  # the compiled-in default prefixes wholesale.
+  collapseConfigs:
+    - prefix: /etc
+      threshold: 100
+    - prefix: /etc/apache2
+      threshold: 50
+    - prefix: /opt
+      threshold: 50
+    - prefix: /var/run
+      threshold: 50
+    - prefix: /app
+      threshold: 50

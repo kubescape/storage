@@ -69,6 +69,16 @@ func K8sKeysToPath(prefix, root, kind, cluster, namespace, name string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, namespace, name)
 }
 
+// K8sClusterScopedKeysToPath builds the storage key for a cluster-scoped
+// resource. Unlike K8sKeysToPath it emits no namespace segment, matching the
+// genericregistry NoNamespaceKeyFunc (<prefix>/<root>/<kind>/<name>) the REST
+// endpoint writes cluster-scoped resources under. Calling K8sKeysToPath with
+// an empty namespace would instead yield a stray empty segment
+// (<prefix>/<root>/<kind>//<name>) that does not match the stored key.
+func K8sClusterScopedKeysToPath(prefix, root, kind, name string) string {
+	return fmt.Sprintf("%s/%s/%s/%s", prefix, root, kind, name)
+}
+
 func ECSKeysToPath(prefix, root, kind, cluster, cloudAccountIdentifier, region, name string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, cloudAccountIdentifier, region, name)
 }
