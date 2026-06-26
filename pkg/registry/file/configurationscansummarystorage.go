@@ -97,9 +97,25 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 
 	workloadScanSummaryListObjPtr := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
 
-	// ask for all workloadconfigurationscansummaries in the cluster
-	if err := s.realStore.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/"+workloadConfigurationScanSummariesResource, opts, workloadScanSummaryListObjPtr); err != nil {
-		return err
+	// ask for all workloadconfigurationscansummaries in the cluster.
+	// The underlying store caps each page at a default limit and returns a
+	// continuation token, so we must page through every token to make sure the
+	// aggregation covers all objects and not just the first page (issue #337).
+	listOpts := opts
+	listOpts.Predicate.Continue = ""
+	for {
+		page := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
+		if err := s.realStore.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/"+workloadConfigurationScanSummariesResource, listOpts, page); err != nil {
+			return err
+		}
+		workloadScanSummaryListObjPtr.Items = append(workloadScanSummaryListObjPtr.Items, page.Items...)
+
+		// the store only sets a continuation token when the page was truncated;
+		// an empty token means we have read the last page.
+		listOpts.Predicate.Continue = page.Continue
+		if listOpts.Predicate.Continue == "" {
+			break
+		}
 	}
 
 	// generate a single configurationScanSummary for the cluster, with a configuration scan summary for each namespace
