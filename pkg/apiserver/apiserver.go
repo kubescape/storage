@@ -24,6 +24,7 @@ import (
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/collapseconfiguration"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/containerprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
@@ -139,15 +140,23 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(softwarecomposition.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 
+	// Construct processors first so we can wire the CollapseConfiguration
+	// CRD provider into them AFTER the application/container storage
+	// backends are built — chicken-and-egg: the provider needs storage to
+	// read the CR, processors are baked into the storage backend.
+	applicationProfileProcessor := file.NewApplicationProfileProcessor(c.ExtraConfig.StorageConfig)
+	containerProfileProcessor := file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.CleanupHandler)
+
 	var (
 		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-		applicationProfileStorageImpl  = file.NewApplicationProfileStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewApplicationProfileProcessor(c.ExtraConfig.StorageConfig)))
-		containerProfileStorageImpl    = file.NewContainerProfileRESTStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.CleanupHandler)))
-		networkNeighborhoodStorageImpl = file.NewNetworkNeighborhoodStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewNetworkNeighborhoodProcessor(c.ExtraConfig.StorageConfig)))
-		configScanStorageImpl          = file.NewConfigurationScanSummaryStorage(storageImpl)
-		vulnerabilitySummaryStorage    = file.NewVulnerabilitySummaryStorage(storageImpl)
-		generatedNetworkPolicyStorage  = file.NewGeneratedNetworkPolicyStorage(storageImpl, networkNeighborhoodStorageImpl)
+		applicationProfileStorageBackend = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, applicationProfileProcessor)
+		applicationProfileStorageImpl    = file.NewApplicationProfileStorage(applicationProfileStorageBackend)
+		containerProfileStorageImpl      = file.NewContainerProfileRESTStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor))
+		networkNeighborhoodStorageImpl   = file.NewNetworkNeighborhoodStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewNetworkNeighborhoodProcessor(c.ExtraConfig.StorageConfig)))
+		configScanStorageImpl            = file.NewConfigurationScanSummaryStorage(storageImpl)
+		vulnerabilitySummaryStorage      = file.NewVulnerabilitySummaryStorage(storageImpl)
+		generatedNetworkPolicyStorage    = file.NewGeneratedNetworkPolicyStorage(storageImpl, networkNeighborhoodStorageImpl)
 
 		// REST endpoint registration, defaults to storageImpl.
 		ep = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.REST, error), s ...storage.Interface) *registry.REST {
@@ -158,8 +167,23 @@ func (c completedConfig) New() (*WardleServer, error) {
 			return sbomregistry.RESTInPeace(f(Scheme, si, c.GenericConfig.RESTOptionsGetter))
 		}
 	)
+
+	// Wire the CollapseConfiguration CRD into the live deflate path: both
+	// processors read effective thresholds from CollapseConfiguration/default
+	// (cluster-scoped) on every compaction, falling back to compiled-in
+	// defaults when the CR is absent. Without this the CRD endpoint
+	// registered below stores the manifest but never consults it — applying
+	// the artifacts/collapseconfiguration-default-sample.yaml manifest would
+	// be a no-op (matthyx review on apiserver.go:164, 2026-05-27).
+	//
+	// One shared provider closure is wired into both processors so a single
+	// CR update affects both compaction paths consistently.
+	collapseSettingsFromCRD := file.NewCRDCollapseSettingsProvider(applicationProfileStorageBackend)
+	applicationProfileProcessor.SetCollapseSettings(collapseSettingsFromCRD)
+	containerProfileProcessor.CollapseSettings = collapseSettingsFromCRD
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
 		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
+		"collapseconfigurations":              ep(collapseconfiguration.NewREST),
 		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
 		"containerprofiles":                   ep(containerprofile.NewREST, containerProfileStorageImpl),
 		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),

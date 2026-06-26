@@ -45,6 +45,11 @@ type ContainerProfileProcessor struct {
 	MaxContainerProfileSize int
 	ContainerProfileStorage ContainerProfileStorage
 	ConsolidatedSlugChannel chan ConsolidatedSlugData
+	// CollapseSettings is the lookup hook the deflate path consults for
+	// per-prefix thresholds. Defaults to dynamicpathdetector.DefaultCollapseSettings;
+	// production wiring may swap to a provider that reads the cluster-scoped
+	// CollapseConfiguration "default" CR.
+	CollapseSettings dynamicpathdetector.CollapseSettingsProvider
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -60,6 +65,7 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 		HostType:                hostType,
 		Interval:                30 * time.Second,
 		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
+		CollapseSettings:        dynamicpathdetector.DefaultCollapseSettings,
 	}
 }
 
@@ -178,7 +184,11 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	} else {
 		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
 	}
-	profile.Spec = DeflateContainerProfileSpec(profile.Spec, sbomSet)
+	settings := dynamicpathdetector.DefaultCollapseSettings()
+	if a.CollapseSettings != nil {
+		settings = a.CollapseSettings()
+	}
+	profile.Spec = DeflateContainerProfileSpec(profile.Spec, sbomSet, settings)
 	size += len(profile.Spec.Execs)
 	size += len(profile.Spec.Opens)
 	size += len(profile.Spec.Syscalls)
@@ -807,13 +817,13 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, key s
 	return status, completion, hash
 }
 
-func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string]) softwarecomposition.ContainerProfileSpec {
-	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzer(OpenDynamicThreshold), sbomSet)
+func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileSpec, sbomSet mapset.Set[string], settings dynamicpathdetector.CollapseSettings) softwarecomposition.ContainerProfileSpec {
+	opens, err := dynamicpathdetector.AnalyzeOpens(container.Opens, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.OpenDynamicThreshold, settings.CollapseConfigs), sbomSet)
 	if err != nil {
 		logger.L().Debug("ContainerProfileProcessor.deflateContainerProfileSpec - falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
-	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzer(EndpointDynamicThreshold))
+	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.EndpointDynamicThreshold, nil))
 	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
 
 	return softwarecomposition.ContainerProfileSpec{

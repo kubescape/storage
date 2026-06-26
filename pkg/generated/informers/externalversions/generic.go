@@ -55,6 +55,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("applicationprofiles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ApplicationProfiles().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("collapseconfigurations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().CollapseConfigurations().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("configurationscansummaries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Spdx().V1beta1().ConfigurationScanSummaries().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("containerprofiles"):

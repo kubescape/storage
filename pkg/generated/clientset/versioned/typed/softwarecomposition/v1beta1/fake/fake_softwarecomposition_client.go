@@ -32,6 +32,10 @@ func (c *FakeSpdxV1beta1) ApplicationProfiles(namespace string) v1beta1.Applicat
 	return newFakeApplicationProfiles(c, namespace)
 }
 
+func (c *FakeSpdxV1beta1) CollapseConfigurations() v1beta1.CollapseConfigurationInterface {
+	return newFakeCollapseConfigurations(c)
+}
+
 func (c *FakeSpdxV1beta1) ConfigurationScanSummaries(namespace string) v1beta1.ConfigurationScanSummaryInterface {
 	return newFakeConfigurationScanSummaries(c, namespace)
 }

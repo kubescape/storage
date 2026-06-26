@@ -79,6 +79,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SBOMSyftFilteredList{},
 		&SeccompProfile{},
 		&SeccompProfileList{},
+		&CollapseConfiguration{},
+		&CollapseConfigurationList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

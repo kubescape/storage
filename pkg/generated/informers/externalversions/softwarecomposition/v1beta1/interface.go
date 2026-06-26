@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// ApplicationProfiles returns a ApplicationProfileInformer.
 	ApplicationProfiles() ApplicationProfileInformer
+	// CollapseConfigurations returns a CollapseConfigurationInformer.
+	CollapseConfigurations() CollapseConfigurationInformer
 	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
 	ConfigurationScanSummaries() ConfigurationScanSummaryInformer
 	// ContainerProfiles returns a ContainerProfileInformer.
@@ -70,6 +72,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // ApplicationProfiles returns a ApplicationProfileInformer.
 func (v *version) ApplicationProfiles() ApplicationProfileInformer {
 	return &applicationProfileInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CollapseConfigurations returns a CollapseConfigurationInformer.
+func (v *version) CollapseConfigurations() CollapseConfigurationInformer {
+	return &collapseConfigurationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
