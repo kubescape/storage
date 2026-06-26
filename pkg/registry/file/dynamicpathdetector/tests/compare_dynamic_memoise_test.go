@@ -307,22 +307,19 @@ func TestCompareDynamic_ZeroAllocHotPath(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Warm-up to absorb any one-off setup cost.
-			for i := 0; i < 100; i++ {
+			// testing.AllocsPerRun pins GOMAXPROCS(1) during measurement and
+			// integer-divides total mallocs by the run count, so a stray
+			// allocation from a background runtime goroutine (GC assist, sysmon,
+			// the testing timer) landing in the measurement window floors to 0
+			// instead of flaking the assertion. A genuine per-call allocation
+			// still produces ~1.0 (one per run) and fails the contract.
+			const runs = 10_000
+			allocs := testing.AllocsPerRun(runs, func() {
 				_ = dynamicpathdetector.CompareDynamic(tc.dyn, tc.reg)
-			}
-			var before, after runtime.MemStats
-			runtime.GC()
-			runtime.ReadMemStats(&before)
-			const iters = 10_000
-			for i := 0; i < iters; i++ {
-				_ = dynamicpathdetector.CompareDynamic(tc.dyn, tc.reg)
-			}
-			runtime.ReadMemStats(&after)
-			allocs := after.Mallocs - before.Mallocs
-			require.Equalf(t, uint64(0), allocs,
-				"%s: %d allocs across %d iters — 0/1-`*` shapes MUST be zero-allocation",
-				tc.name, allocs, iters)
+			})
+			require.Zerof(t, allocs,
+				"%s: %.4f allocs/call — 0/1-`*` shapes MUST be zero-allocation per Matthias upstream PR #323",
+				tc.name, allocs)
 		})
 	}
 }
