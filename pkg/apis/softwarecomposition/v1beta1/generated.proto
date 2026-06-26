@@ -146,6 +146,12 @@ message CollapseConfigEntry {
 // thresholds for the dynamic-path-detector's open/endpoint collapse step.
 // The storage server's deflate path reads the singleton (name "default")
 // and feeds its entries into NewPathAnalyzerWithConfigs at runtime.
+//
+// Replace, not merge: when the singleton is present it REPLACES the
+// compiled-in defaults wholesale — CollapseConfigs does not overlay the
+// built-in /etc, /opt, /var/run (etc.) entries. List every prefix you want
+// active, including any default you wish to keep. When the resource is
+// absent the deflate path uses the compiled-in DefaultCollapseSettings.
 message CollapseConfiguration {
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
 
@@ -162,15 +168,28 @@ message CollapseConfigurationList {
 // CollapseConfigurationSpec carries the cluster-wide collapse thresholds.
 message CollapseConfigurationSpec {
   // OpenDynamicThreshold is the fallback threshold for AnalyzeOpens when
-  // no per-prefix entry matches the walked path.
+  // no per-prefix entry matches the walked path. Optional: when omitted
+  // (decodes to 0) or explicitly set to 0, the deflate path uses the
+  // compiled-in default rather than a literal 0 — a 0 threshold would
+  // collapse every open to a single dynamic identifier. See
+  // CollapseSettingsFromCRD.
+  // +optional
   optional int32 openDynamicThreshold = 1;
 
   // EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints.
+  // Optional with the same omitted/0-means-compiled-default semantics as
+  // OpenDynamicThreshold.
+  // +optional
   optional int32 endpointDynamicThreshold = 2;
 
   // CollapseConfigs is the per-prefix threshold override list, evaluated
   // longest-prefix-wins. Each entry is keyed by Prefix so server-side
   // apply patches one entry at a time instead of replacing the slice.
+  //
+  // This list REPLACES the compiled-in default prefixes wholesale; it is
+  // not merged with them. A CR with a single entry therefore drops the
+  // built-in /etc, /opt, /var/run (etc.) overrides — include them
+  // explicitly if you want them to remain in effect.
   // +listType=map
   // +listMapKey=prefix
   repeated CollapseConfigEntry collapseConfigs = 3;

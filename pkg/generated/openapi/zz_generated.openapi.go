@@ -795,7 +795,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfiguration(ref commo
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CollapseConfiguration is a cluster-scoped resource carrying per-prefix thresholds for the dynamic-path-detector's open/endpoint collapse step. The storage server's deflate path reads the singleton (name \"default\") and feeds its entries into NewPathAnalyzerWithConfigs at runtime.",
+				Description: "CollapseConfiguration is a cluster-scoped resource carrying per-prefix thresholds for the dynamic-path-detector's open/endpoint collapse step. The storage server's deflate path reads the singleton (name \"default\") and feeds its entries into NewPathAnalyzerWithConfigs at runtime.\n\nReplace, not merge: when the singleton is present it REPLACES the compiled-in defaults wholesale — CollapseConfigs does not overlay the built-in /etc, /opt, /var/run (etc.) entries. List every prefix you want active, including any default you wish to keep. When the resource is absent the deflate path uses the compiled-in DefaultCollapseSettings.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -891,16 +891,14 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationSpec(ref c
 				Properties: map[string]spec.Schema{
 					"openDynamicThreshold": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OpenDynamicThreshold is the fallback threshold for AnalyzeOpens when no per-prefix entry matches the walked path.",
-							Default:     0,
+							Description: "OpenDynamicThreshold is the fallback threshold for AnalyzeOpens when no per-prefix entry matches the walked path. Optional: when omitted (decodes to 0) or explicitly set to 0, the deflate path uses the compiled-in default rather than a literal 0 — a 0 threshold would collapse every open to a single dynamic identifier. See CollapseSettingsFromCRD.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 					"endpointDynamicThreshold": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints.",
-							Default:     0,
+							Description: "EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints. Optional with the same omitted/0-means-compiled-default semantics as OpenDynamicThreshold.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -915,7 +913,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationSpec(ref c
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "CollapseConfigs is the per-prefix threshold override list, evaluated longest-prefix-wins. Each entry is keyed by Prefix so server-side apply patches one entry at a time instead of replacing the slice.",
+							Description: "CollapseConfigs is the per-prefix threshold override list, evaluated longest-prefix-wins. Each entry is keyed by Prefix so server-side apply patches one entry at a time instead of replacing the slice.\n\nThis list REPLACES the compiled-in default prefixes wholesale; it is not merged with them. A CR with a single entry therefore drops the built-in /etc, /opt, /var/run (etc.) overrides — include them explicitly if you want them to remain in effect.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -928,7 +926,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationSpec(ref c
 						},
 					},
 				},
-				Required: []string{"openDynamicThreshold", "endpointDynamicThreshold"},
 			},
 		},
 		Dependencies: []string{

@@ -26,6 +26,12 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // thresholds for the dynamic-path-detector's open/endpoint collapse step.
 // The storage server's deflate path reads the singleton (name "default")
 // and feeds its entries into NewPathAnalyzerWithConfigs at runtime.
+//
+// Replace, not merge: when the singleton is present it REPLACES the
+// compiled-in defaults wholesale — CollapseConfigs does not overlay the
+// built-in /etc, /opt, /var/run (etc.) entries. List every prefix you want
+// active, including any default you wish to keep. When the resource is
+// absent the deflate path uses the compiled-in DefaultCollapseSettings.
 type CollapseConfiguration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
@@ -36,13 +42,26 @@ type CollapseConfiguration struct {
 // CollapseConfigurationSpec carries the cluster-wide collapse thresholds.
 type CollapseConfigurationSpec struct {
 	// OpenDynamicThreshold is the fallback threshold for AnalyzeOpens when
-	// no per-prefix entry matches the walked path.
-	OpenDynamicThreshold int32 `json:"openDynamicThreshold" protobuf:"varint,1,req,name=openDynamicThreshold"`
+	// no per-prefix entry matches the walked path. Optional: when omitted
+	// (decodes to 0) or explicitly set to 0, the deflate path uses the
+	// compiled-in default rather than a literal 0 — a 0 threshold would
+	// collapse every open to a single dynamic identifier. See
+	// CollapseSettingsFromCRD.
+	// +optional
+	OpenDynamicThreshold int32 `json:"openDynamicThreshold,omitempty" protobuf:"varint,1,opt,name=openDynamicThreshold"`
 	// EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints.
-	EndpointDynamicThreshold int32 `json:"endpointDynamicThreshold" protobuf:"varint,2,req,name=endpointDynamicThreshold"`
+	// Optional with the same omitted/0-means-compiled-default semantics as
+	// OpenDynamicThreshold.
+	// +optional
+	EndpointDynamicThreshold int32 `json:"endpointDynamicThreshold,omitempty" protobuf:"varint,2,opt,name=endpointDynamicThreshold"`
 	// CollapseConfigs is the per-prefix threshold override list, evaluated
 	// longest-prefix-wins. Each entry is keyed by Prefix so server-side
 	// apply patches one entry at a time instead of replacing the slice.
+	//
+	// This list REPLACES the compiled-in default prefixes wholesale; it is
+	// not merged with them. A CR with a single entry therefore drops the
+	// built-in /etc, /opt, /var/run (etc.) overrides — include them
+	// explicitly if you want them to remain in effect.
 	// +listType=map
 	// +listMapKey=prefix
 	CollapseConfigs []CollapseConfigEntry `json:"collapseConfigs,omitempty" protobuf:"bytes,3,rep,name=collapseConfigs"`

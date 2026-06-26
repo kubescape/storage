@@ -24,13 +24,24 @@ package v1beta1
 // CollapseConfigurationSpec carries the cluster-wide collapse thresholds.
 type CollapseConfigurationSpecApplyConfiguration struct {
 	// OpenDynamicThreshold is the fallback threshold for AnalyzeOpens when
-	// no per-prefix entry matches the walked path.
+	// no per-prefix entry matches the walked path. Optional: when omitted
+	// (decodes to 0) or explicitly set to 0, the deflate path uses the
+	// compiled-in default rather than a literal 0 — a 0 threshold would
+	// collapse every open to a single dynamic identifier. See
+	// CollapseSettingsFromCRD.
 	OpenDynamicThreshold *int32 `json:"openDynamicThreshold,omitempty"`
 	// EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints.
+	// Optional with the same omitted/0-means-compiled-default semantics as
+	// OpenDynamicThreshold.
 	EndpointDynamicThreshold *int32 `json:"endpointDynamicThreshold,omitempty"`
 	// CollapseConfigs is the per-prefix threshold override list, evaluated
 	// longest-prefix-wins. Each entry is keyed by Prefix so server-side
 	// apply patches one entry at a time instead of replacing the slice.
+	//
+	// This list REPLACES the compiled-in default prefixes wholesale; it is
+	// not merged with them. A CR with a single entry therefore drops the
+	// built-in /etc, /opt, /var/run (etc.) overrides — include them
+	// explicitly if you want them to remain in effect.
 	CollapseConfigs []CollapseConfigEntryApplyConfiguration `json:"collapseConfigs,omitempty"`
 }
 

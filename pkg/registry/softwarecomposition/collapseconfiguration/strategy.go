@@ -126,13 +126,21 @@ func (CollapseConfigurationStrategy) WarningsOnUpdate(_ context.Context, _, _ ru
 // validateCollapseConfigurationSpec enforces the per-entry invariants and
 // rejects duplicate prefixes (which would silently produce a non-deterministic
 // longest-prefix-wins outcome at runtime).
+//
+// The two global thresholds are optional and only rejected when negative: 0
+// (or an omitted field) is a valid "use the compiled-in default" sentinel,
+// honored by CollapseSettingsFromCRD. This is deliberately more permissive
+// than the per-prefix entries (which require >= 1): a per-prefix entry is an
+// explicit override and has no default to fall back to, whereas an omitted
+// global threshold must not be treated as a literal 0 that collapses
+// everything.
 func validateCollapseConfigurationSpec(spec *softwarecomposition.CollapseConfigurationSpec, fp *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec.OpenDynamicThreshold < 0 {
-		errs = append(errs, field.Invalid(fp.Child("openDynamicThreshold"), spec.OpenDynamicThreshold, "must be >= 0"))
+		errs = append(errs, field.Invalid(fp.Child("openDynamicThreshold"), spec.OpenDynamicThreshold, "must be >= 0 (0 means use the compiled-in default)"))
 	}
 	if spec.EndpointDynamicThreshold < 0 {
-		errs = append(errs, field.Invalid(fp.Child("endpointDynamicThreshold"), spec.EndpointDynamicThreshold, "must be >= 0"))
+		errs = append(errs, field.Invalid(fp.Child("endpointDynamicThreshold"), spec.EndpointDynamicThreshold, "must be >= 0 (0 means use the compiled-in default)"))
 	}
 	seen := make(map[string]int, len(spec.CollapseConfigs))
 	cfgsPath := fp.Child("collapseConfigs")

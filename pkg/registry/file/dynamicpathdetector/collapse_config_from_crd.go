@@ -63,12 +63,29 @@ func DefaultCollapseSettings() CollapseSettings {
 }
 
 // CollapseSettingsFromCRD projects a CollapseConfiguration custom resource
-// into the runtime form. Both threshold fields are taken verbatim; the
-// per-prefix override slice is converted entry-by-entry. Returns a value
-// that does not alias the CRD's internal slice.
+// into the runtime form. The per-prefix override slice is converted
+// entry-by-entry; per-prefix Threshold values are validated >= 1 at
+// admission (see validateCollapseConfigurationSpec) so they are copied
+// verbatim. Returns a value that does not alias the CRD's internal slice.
+//
+// Zero-guard on the global thresholds: a partial CR may omit a global
+// threshold (or set only collapseConfigs), and JSON/proto decode leaves the
+// omitted field at 0. A literal 0 here would mean "collapse any node with
+// >= 1 child" — updateNodeStats collapses on Count > threshold — silently
+// flattening every open/endpoint in every profile to a single ⋯. Treat a
+// non-positive global threshold as "use the compiled-in default" instead,
+// matching the absent-CR fallback the provider already performs.
 func CollapseSettingsFromCRD(crd *softwarecomposition.CollapseConfiguration) CollapseSettings {
 	if crd == nil {
 		return DefaultCollapseSettings()
+	}
+	open := int(crd.Spec.OpenDynamicThreshold)
+	if open <= 0 {
+		open = OpenDynamicThreshold
+	}
+	endpoint := int(crd.Spec.EndpointDynamicThreshold)
+	if endpoint <= 0 {
+		endpoint = EndpointDynamicThreshold
 	}
 	configs := make([]CollapseConfig, len(crd.Spec.CollapseConfigs))
 	for i, entry := range crd.Spec.CollapseConfigs {
@@ -78,8 +95,8 @@ func CollapseSettingsFromCRD(crd *softwarecomposition.CollapseConfiguration) Col
 		}
 	}
 	return CollapseSettings{
-		OpenDynamicThreshold:     int(crd.Spec.OpenDynamicThreshold),
-		EndpointDynamicThreshold: int(crd.Spec.EndpointDynamicThreshold),
+		OpenDynamicThreshold:     open,
+		EndpointDynamicThreshold: endpoint,
 		CollapseConfigs:          configs,
 	}
 }

@@ -30,6 +30,10 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // NewPathAnalyzerWithConfigs(...). When the resource is absent the deflate
 // path falls back to the package-level defaultCollapseConfigs slice.
 //
+// Replace, not merge: a present singleton REPLACES the compiled-in defaults
+// wholesale. CollapseConfigs does not overlay the built-in prefixes — list
+// every prefix you want active, including defaults you wish to keep.
+//
 // Tooling (e.g. bobctl autotune) can write the singleton to push tuned
 // thresholds back into a running cluster without restarting the storage
 // server.
@@ -43,12 +47,15 @@ type CollapseConfiguration struct {
 // CollapseConfigurationSpec carries the cluster-wide collapse thresholds.
 type CollapseConfigurationSpec struct {
 	// OpenDynamicThreshold is the fallback threshold for AnalyzeOpens when
-	// no per-prefix entry matches the walked path.
+	// no per-prefix entry matches the walked path. Omitted or 0 means "use
+	// the compiled-in default" (a literal 0 would collapse everything).
 	OpenDynamicThreshold int32
-	// EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints.
+	// EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints, with
+	// the same zero-means-default semantics.
 	EndpointDynamicThreshold int32
 	// CollapseConfigs is the per-prefix threshold override list, evaluated
-	// longest-prefix-wins.
+	// longest-prefix-wins. It REPLACES the compiled-in defaults wholesale
+	// (no merge); include any default prefix you want to keep.
 	CollapseConfigs []CollapseConfigEntry
 }
 

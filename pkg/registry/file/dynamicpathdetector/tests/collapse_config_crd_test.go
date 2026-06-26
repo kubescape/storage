@@ -108,6 +108,56 @@ func TestCollapseSettingsFromCRD_RoundTrip(t *testing.T) {
 		"settings → CRD aliasing must not leak: threshold")
 }
 
+// TestCollapseSettingsFromCRD_ZeroGlobalThresholdsUseDefaults pins the
+// zero-guard release blocker: a partial CR that omits a global threshold
+// decodes it to 0, and a literal 0 makes updateNodeStats collapse any node
+// with >= 1 child — flattening every open AND endpoint in every profile to a
+// single ⋯. CollapseSettingsFromCRD must treat a non-positive global
+// threshold as "use the compiled-in default" instead of copying the 0
+// verbatim.
+func TestCollapseSettingsFromCRD_ZeroGlobalThresholdsUseDefaults(t *testing.T) {
+	want := dynamicpathdetector.DefaultCollapseSettings()
+
+	// CR with both global thresholds omitted (decoded to 0) and no entries.
+	crd := &softwarecomposition.CollapseConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+		Spec:       softwarecomposition.CollapseConfigurationSpec{},
+	}
+	got := dynamicpathdetector.CollapseSettingsFromCRD(crd)
+
+	assert.Equal(t, want.OpenDynamicThreshold, got.OpenDynamicThreshold,
+		"omitted openDynamicThreshold must use the compiled default, not 0")
+	assert.Equal(t, want.EndpointDynamicThreshold, got.EndpointDynamicThreshold,
+		"omitted endpointDynamicThreshold must use the compiled default, not 0")
+	assert.Positive(t, got.OpenDynamicThreshold, "must never be the over-collapsing 0")
+	assert.Positive(t, got.EndpointDynamicThreshold, "must never be the over-collapsing 0")
+}
+
+// TestCollapseSettingsFromCRD_OnlyCollapseConfigsKeepsGlobalDefaults pins the
+// "set only collapseConfigs" use case: the per-prefix overrides are honored
+// verbatim while the omitted global thresholds fall back to the compiled
+// defaults rather than the over-collapsing 0.
+func TestCollapseSettingsFromCRD_OnlyCollapseConfigsKeepsGlobalDefaults(t *testing.T) {
+	want := dynamicpathdetector.DefaultCollapseSettings()
+	crd := &softwarecomposition.CollapseConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+		Spec: softwarecomposition.CollapseConfigurationSpec{
+			CollapseConfigs: []softwarecomposition.CollapseConfigEntry{
+				{Prefix: "/app", Threshold: 3},
+			},
+		},
+	}
+	got := dynamicpathdetector.CollapseSettingsFromCRD(crd)
+
+	assert.Equal(t, want.OpenDynamicThreshold, got.OpenDynamicThreshold,
+		"global open threshold falls back to default when only collapseConfigs is set")
+	assert.Equal(t, want.EndpointDynamicThreshold, got.EndpointDynamicThreshold,
+		"global endpoint threshold falls back to default when only collapseConfigs is set")
+	require.Len(t, got.CollapseConfigs, 1, "explicit collapseConfigs are honored verbatim")
+	assert.Equal(t, "/app", got.CollapseConfigs[0].Prefix)
+	assert.Equal(t, 3, got.CollapseConfigs[0].Threshold)
+}
+
 // TestCRDFromCollapseSettings_RoundTrip is the inverse of the above —
 // pins that CRD construction also makes a fresh slice and is
 // faithful to the source settings.

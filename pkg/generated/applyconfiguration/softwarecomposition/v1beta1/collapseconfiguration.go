@@ -31,6 +31,12 @@ import (
 // thresholds for the dynamic-path-detector's open/endpoint collapse step.
 // The storage server's deflate path reads the singleton (name "default")
 // and feeds its entries into NewPathAnalyzerWithConfigs at runtime.
+//
+// Replace, not merge: when the singleton is present it REPLACES the
+// compiled-in defaults wholesale — CollapseConfigs does not overlay the
+// built-in /etc, /opt, /var/run (etc.) entries. List every prefix you want
+// active, including any default you wish to keep. When the resource is
+// absent the deflate path uses the compiled-in DefaultCollapseSettings.
 type CollapseConfigurationApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
