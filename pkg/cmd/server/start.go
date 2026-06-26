@@ -72,11 +72,12 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
-	CleanupHandler  *file.ResourcesCleanupHandler
-	OsFs            afero.Fs
-	Pool            *sqlitemigration.Pool
-	StorageConfig   config.Config
-	WatchDispatcher *file.WatchDispatcher
+	CleanupHandler      *file.ResourcesCleanupHandler
+	OsFs                afero.Fs
+	Pool                *sqlitemigration.Pool
+	StorageConfig       config.Config
+	WatchDispatcher     *file.WatchDispatcher
+	OpenProtectionStore *file.OpenProtectionStore
 }
 
 func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
@@ -294,11 +295,12 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	c := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
-			CleanupHandler:  o.CleanupHandler,
-			OsFs:            o.OsFs,
-			Pool:            o.Pool,
-			StorageConfig:   o.StorageConfig,
-			WatchDispatcher: o.WatchDispatcher,
+			CleanupHandler:      o.CleanupHandler,
+			OsFs:                o.OsFs,
+			Pool:                o.Pool,
+			StorageConfig:       o.StorageConfig,
+			WatchDispatcher:     o.WatchDispatcher,
+			OpenProtectionStore: o.OpenProtectionStore,
 		},
 	}
 	return c, nil

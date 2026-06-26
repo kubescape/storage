@@ -38,6 +38,24 @@ type Config struct {
 	DefaultWorkerCount   int                        `mapstructure:"defaultWorkerCount"`
 	DefaultMaxObjectSize int                        `mapstructure:"defaultMaxObjectSize"`
 
+	// ProtectedOpenMatchers is the union of sensitive open matchers
+	// (exact/prefix/suffix/contains) declared by the active rules'
+	// profileDataRequired.opens. The container-profile processor pins these
+	// (and their ancestors) to literal during deflation so anomaly rules such
+	// as R0010 keep working. In cluster this is populated by the operator/helm
+	// from the versioned rule library (armotypes.UnionOpenProtection); the
+	// zero value preserves legacy collapse behaviour.
+	ProtectedOpenMatchers armotypes.OpenMatchers `mapstructure:"protectedOpenMatchers"`
+
+	// OpenProtectionConfigMapName, when non-empty, names a ConfigMap (in
+	// DefaultNamespace) that the operator keeps in sync with the union of active
+	// rules' profileDataRequired.opens. The apiserver polls it every
+	// OpenProtectionRefreshInterval and refreshes the container-profile
+	// processor's protection, so rule-binding changes take effect without a
+	// restart. Empty disables the reader and falls back to ProtectedOpenMatchers.
+	OpenProtectionConfigMapName   string        `mapstructure:"openProtectionConfigMapName"`
+	OpenProtectionRefreshInterval time.Duration `mapstructure:"openProtectionRefreshInterval"`
+
 	// Debugging
 	QueueManagerEnabled       bool `mapstructure:"queueManagerEnabled"`
 	QueueTimeoutPrint         bool `mapstructure:"queueTimeoutPrint"`
@@ -66,6 +84,7 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("queueTimeoutPrint", false)
 	v.SetDefault("queueTimeout", 60)
 	v.SetDefault("queueProcessingStatsPrint", false)
+	v.SetDefault("openProtectionRefreshInterval", time.Minute)
 	v.SetDefault("kindQueues", map[string]KindQueueConfig{
 		"applicationprofiles": {
 			QueueLength:   50,

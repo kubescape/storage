@@ -1,5 +1,7 @@
 package dynamicpathdetector
 
+import "math"
+
 // --- Identifier constants ---
 // DynamicIdentifier matches exactly one path segment (single-segment wildcard),
 // and in exec args matches exactly one whole argument.
@@ -16,6 +18,20 @@ const (
 	WildcardIdentifier string = "*"  // zero-or-more path segments (opens only)
 	ExecArgsWildcard   string = "⋯⋯" // zero-or-more whole exec args
 )
+
+// NeverCollapseThreshold is an effective threshold so high a node's children
+// can never exceed it, i.e. the node is pinned to literal entries. Used for
+// rule-protected prefixes (see PathAnalyzer.protected): keeping a sensitive
+// prefix and its ancestors literal is what lets anomaly rules such as R0010
+// ("unexpected /etc/shadow access") distinguish a never-seen path from a
+// generalised wildcard like /etc/⋯ or /⋯/⋯ that would otherwise cover it.
+const NeverCollapseThreshold = math.MaxInt
+
+// PinnedSubtreeBudget is the maximum number of literal children a protected/pinned
+// node is allowed to accumulate before we fall back to collapsing it. This prevents
+// size blowup and "TooLarge" status (which clears the entire profile spec downstream)
+// when a protected directory (like /etc) receives a very high number of unique opens.
+const PinnedSubtreeBudget = 500
 
 // --- Default collapse thresholds ---
 // OpenDynamicThreshold is the fallback threshold used by AnalyzeOpens when
@@ -86,6 +102,18 @@ type PathAnalyzer struct {
 	threshold  int              // fallback threshold when no config matches
 	configs    []CollapseConfig // per-prefix overrides; longest prefix wins
 	defaultCfg CollapseConfig   // explicit fallback; equivalent to {Prefix:"/", Threshold: threshold}
+
+	// Rule-protected prefixes, precomputed into two sets so protectedNode is
+	// O(1) for the common (non-protected) node and never scales with the number
+	// of protected prefixes. Both nil when no protection is configured.
+	//   pinAncestors: every dir-prefix (incl. self) of every protected prefix —
+	//     e.g. "/etc/shadow" contributes {"/", "/etc", "/etc/shadow"}. A node
+	//     whose path is in here is an ancestor-or-self of a protected prefix and
+	//     must stay literal so no wildcard forms at/above the sensitive level.
+	//   protectedRoots: the protected prefixes themselves, used to detect nodes
+	//     *inside* a protected subtree (which must also stay literal).
+	pinAncestors   map[string]struct{}
+	protectedRoots map[string]struct{}
 }
 
 func (sn *SegmentNode) IsNextDynamic() bool {
