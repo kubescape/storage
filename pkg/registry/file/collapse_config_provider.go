@@ -25,15 +25,19 @@ import (
 const DefaultCollapseConfigurationName = "default"
 
 // collapseConfigurationKey is the in-storage key for the cluster-scoped
-// CollapseConfiguration/default CR. Built from the same K8sKeysToPath
-// helper the rest of this package uses, so it stays in sync with how
-// the CR is written by the apiserver's REST endpoint.
+// CollapseConfiguration/default CR. It must match exactly the key the
+// apiserver's REST endpoint writes the CR under, otherwise the provider's
+// Get misses the applied CR and silently falls back to defaults.
 //
-// CollapseConfiguration is cluster-scoped (NamespaceScoped() == false
-// in pkg/registry/softwarecomposition/collapseconfiguration/strategy.go),
-// so namespace is the empty string.
+// CollapseConfiguration is cluster-scoped (NamespaceScoped() == false in
+// pkg/registry/softwarecomposition/collapseconfiguration/strategy.go), so
+// the genericregistry NoNamespaceKeyFunc keys it as
+// /<root>/<resource>/<name> with NO namespace segment. We use the
+// cluster-scoped key helper rather than K8sKeysToPath, whose unconditional
+// namespace segment would yield a stray empty segment for a cluster-scoped
+// kind (/<root>/<resource>//<name>) that does not match the stored key.
 func collapseConfigurationKey(name string) string {
-	return K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "collapseconfigurations", "", "", name)
+	return K8sClusterScopedKeysToPath("", "spdx.softwarecomposition.kubescape.io", "collapseconfigurations", name)
 }
 
 // NewCRDCollapseSettingsProvider returns a CollapseSettingsProvider

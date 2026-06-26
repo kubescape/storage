@@ -115,6 +115,47 @@ func TestApplicationProfileProcessor_SetCollapseSettings_CustomProviderUsed(t *t
 		"after SetCollapseSettings(threshold 3), four /etc files MUST collapse to /etc/⋯ via the processor's provider")
 }
 
+// TestDeflateApplicationProfileContainer_EndpointsHonorCollapseConfigs pins
+// the blocker fix: CollapseConfiguration.collapseConfigs must drive endpoint
+// compaction, not only opens. Before the fix the endpoint analyzer was
+// constructed with a nil configs slice, so per-prefix overrides from the CRD
+// were silently ignored for endpoints.
+func TestDeflateApplicationProfileContainer_EndpointsHonorCollapseConfigs(t *testing.T) {
+	container := softwarecomposition.ApplicationProfileContainer{Name: "test"}
+	for i := 0; i < 6; i++ {
+		container.Endpoints = append(container.Endpoints, softwarecomposition.HTTPEndpoint{
+			Endpoint: fmt.Sprintf(":80/api/user%d", i),
+			Methods:  []string{"GET"},
+		})
+	}
+
+	// Default settings: EndpointDynamicThreshold 100 and no /api override —
+	// the six /api children stay distinct.
+	defResult := deflateApplicationProfileContainer(container, nil, dynamicpathdetector.DefaultCollapseSettings())
+	assert.Len(t, defResult.Endpoints, 6, "with default endpoint threshold the six /api children stay distinct")
+
+	// A tight /api CollapseConfig MUST now reach the endpoint analyzer and
+	// collapse the children to :80/api/⋯.
+	custom := dynamicpathdetector.CollapseSettings{
+		OpenDynamicThreshold:     100,
+		EndpointDynamicThreshold: 100,
+		CollapseConfigs: []dynamicpathdetector.CollapseConfig{
+			{Prefix: "/api", Threshold: 3},
+		},
+	}
+	customResult := deflateApplicationProfileContainer(container, nil, custom)
+	collapsed := false
+	for _, e := range customResult.Endpoints {
+		if e.Endpoint == ":80/api/"+dynamicpathdetector.DynamicIdentifier {
+			collapsed = true
+			break
+		}
+	}
+	assert.True(t, collapsed,
+		"endpoints under /api MUST collapse to :80/api/⋯ once collapseConfigs is honored for endpoints; got %+v", customResult.Endpoints)
+	assert.Less(t, len(customResult.Endpoints), 6, "collapsing must reduce the endpoint count")
+}
+
 // TestApplicationProfileProcessor_SetCollapseSettings_DefensiveSetterCopy
 // pins that the setter does not store a reference to a slice the caller
 // can later mutate. The provider is a function value so by Go semantics

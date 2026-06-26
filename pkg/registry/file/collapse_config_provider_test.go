@@ -64,6 +64,27 @@ func (f *fakeCollapseStorage) Watch(_ context.Context, _ string, _ storage.ListO
 	return nil, fmt.Errorf("fakeCollapseStorage: Watch not implemented")
 }
 
+// TestCollapseConfigurationKey_MatchesClusterScopedRESTKey pins the exact
+// in-storage key for the cluster-scoped CollapseConfiguration/default CR.
+// It MUST equal the key the apiserver's genericregistry REST endpoint
+// writes the CR under — NoNamespaceKeyFunc, i.e. /<root>/<resource>/<name>
+// with NO namespace segment. A stray empty namespace segment (the
+// historical bug: /<root>/<resource>//<name>) made the provider's Get miss
+// the applied CR and silently fall back to defaults.
+//
+// The other provider tests store and read through this same helper, so
+// they are self-consistent and cannot catch a key-shape regression — this
+// test asserts the literal string instead.
+func TestCollapseConfigurationKey_MatchesClusterScopedRESTKey(t *testing.T) {
+	key := collapseConfigurationKey(DefaultCollapseConfigurationName)
+	assert.Equal(t,
+		"/spdx.softwarecomposition.kubescape.io/collapseconfigurations/default",
+		key,
+		"cluster-scoped key must have no namespace segment")
+	assert.NotContains(t, key, "//",
+		"key must not contain an empty (namespace) segment")
+}
+
 // TestNewCRDCollapseSettingsProvider_FallsBackOnAbsentCR pins matthyx's
 // blocker fix: the provider must fall back to DefaultCollapseSettings when
 // the CollapseConfiguration/default CR is not present in storage, so a

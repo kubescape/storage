@@ -143,7 +143,7 @@ func deflateApplicationProfileContainer(container softwarecomposition.Applicatio
 		logger.L().Debug("falling back to DeflateStringer for opens", loggerhelpers.Error(err))
 		opens = DeflateStringer(container.Opens)
 	}
-	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.EndpointDynamicThreshold, nil))
+	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.EndpointDynamicThreshold, settings.CollapseConfigs))
 	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
 
 	return softwarecomposition.ApplicationProfileContainer{
