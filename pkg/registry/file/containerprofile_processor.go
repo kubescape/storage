@@ -678,6 +678,35 @@ func (a *ContainerProfileProcessor) consolidateContinuousTimeSeries(
 func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key, seriesID string,
 	profile *softwarecomposition.ContainerProfile, newTimeSeries []softwarecomposition.TimeSeriesContainers, expired bool) ([]softwarecomposition.TimeSeriesContainers, bool, error) {
 
+	// If the time series is expired, we finalize it as Completed/Partial (unless it is already Completed/Full)
+	// and clear the time series data so we don't leak zombie records.
+	if expired {
+		// Try to mark it as Completed/Full if we actually have a Completed status and the series is continuous
+		var isFull bool
+		if len(newTimeSeries) == 1 && isZeroTime(newTimeSeries[0].PreviousReportTimestamp) && newTimeSeries[0].Status == helpers.Completed {
+			isFull = profile.SetCompletedStatus(newTimeSeries[0])
+		}
+
+		if isFull {
+			logger.L().Debug("ContainerProfileProcessor.updateProfileStatus - expired profile is completed/full, skipping further processing",
+				loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
+
+			// Remove all time series data
+			if err := a.ContainerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, key); err != nil {
+				return newTimeSeries, false, fmt.Errorf("failed to delete time series data: %w", err)
+			}
+			return newTimeSeries[:0], true, nil
+		}
+
+		// Otherwise, mark it as Completed/Partial (unless already Completed/Full)
+		if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed || profile.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
+			profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+			profile.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
+		}
+		return newTimeSeries[:0], false, nil
+	}
+
+	// Normal active (non-expired) flow below:
 	// An aggregated series is removed only if it has one element, no previous report timestamp, and is completed or failed
 	if len(newTimeSeries) != 1 || !isZeroTime(newTimeSeries[0].PreviousReportTimestamp) {
 		profile.SetLearningStatus(newTimeSeries[0]) // series is missing some TS entries
@@ -695,15 +724,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 			if err := a.ContainerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, key); err != nil {
 				return newTimeSeries, false, fmt.Errorf("failed to delete time series data: %w", err)
 			}
-			return newTimeSeries, true, nil // skip further processing
-		}
-		// If this is an expired time series, mark it as partial completed instead of clearing it
-		if expired {
-			// Safeguard: never change a completed full profile
-			if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed || profile.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
-				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
-				profile.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
-			}
+			return newTimeSeries[:0], true, nil
 		}
 		// Clear this time series as it is finished
 		newTimeSeries = newTimeSeries[:0]
@@ -714,16 +735,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 		newTimeSeries = newTimeSeries[:0]
 
 	default:
-		// If this is an expired time series, mark it as partial completed
-		if expired {
-			// Safeguard: never change a completed full profile
-			if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed || profile.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
-				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
-				profile.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
-			}
-		} else {
-			profile.SetLearningStatus(newTimeSeries[0]) // series is complete but not finished
-		}
+		profile.SetLearningStatus(newTimeSeries[0]) // series is complete but not finished
 	}
 
 	return newTimeSeries, false, nil

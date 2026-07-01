@@ -296,6 +296,7 @@ func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 // DeleteTimeSeriesContainerEntries deletes all time series entries for a completed container.
 func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	kind = NormalizeContainerProfileKind(kind)
 	err := sqlitex.Execute(conn,
 		`DELETE FROM time_series
 					WHERE kind = ?
