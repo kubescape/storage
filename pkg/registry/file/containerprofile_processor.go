@@ -326,15 +326,18 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 		return err
 	}
 
-	processed, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, id, expired)
+	processed, aggregatedUpdated, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, id, expired)
 	if err != nil {
 		return err
 	}
 
-	// Send consolidated slug to channel before deleting processed time series
-	// This allows downstream processing even if the ingester dies after consolidation
-	// Only send for k8s host type
-	if a.HostType == armotypes.HostTypeKubernetes {
+	// Send consolidated slug to channel before deleting processed time series.
+	// This allows downstream processing even if the ingester dies after consolidation.
+	// Only send for k8s host type, and only when this run actually rewrote the
+	// aggregated AP/NN — otherwise the downstream onFinish is pure churn (it re-reads
+	// unchanged AP/NN and re-upserts identical container_statuses rows), which floods
+	// synchronizer-finished-v1 and drives the container_statuses deadlock storm.
+	if a.HostType == armotypes.HostTypeKubernetes && aggregatedUpdated {
 		if err := a.sendConsolidatedSlugToChannel(ctx, profile, id); err != nil {
 			return err
 		}
@@ -425,20 +428,20 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 // processTimeSeriesInTransaction processes time series data within a database transaction
 func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.Context,
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
-	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
+	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, bool, error) {
 
 	endFn, err := a.ContainerProfileStorage.BeginTransaction(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin nested transaction: %w", err)
+		return nil, false, fmt.Errorf("failed to begin nested transaction: %w", err)
 	}
-	processed, err := a.updateProfile(ctx, timeSeries, key, profile, prefix, root, id, expired)
+	processed, aggregatedUpdated, err := a.updateProfile(ctx, timeSeries, key, profile, prefix, root, id, expired)
 	endFn(&err)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
+		return nil, false, fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
 	}
 
-	return processed, nil
+	return processed, aggregatedUpdated, nil
 }
 
 // deleteProcessedTimeSeries removes processed time series profiles from storage.
@@ -459,8 +462,11 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Contex
 	return nil
 }
 
-func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
-	var processed []string
+// updateProfile consolidates the time series into the profile and persists the
+// derived artifacts. It returns aggregatedUpdated=true only when the aggregated
+// AP/NN were rewritten this run (i.e. new data arrived), which is the signal the
+// caller uses to decide whether a downstream onFinish is worth emitting.
+func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) (processed []string, aggregatedUpdated bool, err error) {
 	creationTimestamp := metav1.Now()
 	var newData bool
 
@@ -468,7 +474,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 	for seriesID := range timeSeries {
 		processResult, err := a.processTimeSeries(ctx, timeSeries, seriesID, key, &profile, &creationTimestamp, expired)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		processed = append(processed, processResult.processed...)
 		if processResult.hasNewData {
@@ -483,7 +489,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		// Without an InstanceID annotation we cannot derive the workload slug,
 		// so neither the observed save nor the merged refresh have a target.
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
-		return processed, nil
+		return processed, false, nil
 	}
 
 	// Persist the canonical observed CP only when time-series consolidation
@@ -494,7 +500,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 			profile.CreationTimestamp = creationTimestamp
 		}
 		if err := a.ContainerProfileStorage.SaveContainerProfile(ctx, key, &profile); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	} else {
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, observed CP unchanged", loggerhelpers.String("key", key))
@@ -510,7 +516,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		// Refresh failures are surfaced so the transaction rolls back; a half-
 		// applied merged write paired with a successful observed save would be
 		// worse than retrying the whole tick.
-		return nil, err
+		return nil, false, err
 	}
 
 	// Aggregated AP/NN derive from the effective CP so all downstream outputs
@@ -520,11 +526,13 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 	// aggregator already serves a different (downstream-policy) audience.
 	if newData {
 		if err := a.updateAggregatedProfiles(ctx, key, effective, prefix, root, id, creationTimestamp); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 
-	return processed, nil
+	// aggregatedUpdated mirrors newData: the aggregated AP/NN (what the downstream
+	// onFinish consumer reads) are only rewritten when new data arrived this run.
+	return processed, newData, nil
 }
 
 // refreshMergedProfile rebuilds the merged (effective) ContainerProfile from
