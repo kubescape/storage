@@ -23,6 +23,7 @@ import (
 	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/kubescape/storage/pkg/utils"
+	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
@@ -50,6 +51,14 @@ type ContainerProfileProcessor struct {
 	// production wiring may swap to a provider that reads the cluster-scoped
 	// CollapseConfiguration "default" CR.
 	CollapseSettings dynamicpathdetector.CollapseSettingsProvider
+	// Workers bounds how many keys ConsolidateTimeSeries processes concurrently,
+	// each on its own pool connection. Kept a fraction of the pool size so the
+	// background consolidation never starves REST traffic of connections.
+	Workers int
+	// consolidateKey is the per-key consolidation entrypoint dispatched by
+	// ConsolidateTimeSeries. nil means use consolidateKeyTimeSeries; tests
+	// override it to count invocations or inject per-key failures.
+	consolidateKey func(ctx context.Context, key string, expired bool) error
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -66,6 +75,7 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 		Interval:                30 * time.Second,
 		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
 		CollapseSettings:        dynamicpathdetector.DefaultCollapseSettings,
+		Workers:                 max(1, DefaultPoolSize/4),
 	}
 }
 
@@ -274,39 +284,78 @@ func (a *ContainerProfileProcessor) cleanup() error {
 // Expired time series are always marked as Completed/Partial unless they were already Completed/Full,
 // ensuring incomplete profiles don't remain in a Learning state indefinitely.
 func (a *ContainerProfileProcessor) ConsolidateTimeSeries(ctx context.Context) error {
-	ctx, cleanup, err := a.ContainerProfileStorage.WithConnection(ctx)
+	// Phase 0: list keys under a short-lived connection, then release it so the
+	// per-key workers below each acquire their own connection from the pool.
+	listCtx, cleanup, err := a.ContainerProfileStorage.WithConnection(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("failed to take connection for listing: %w", err)
 	}
-	defer cleanup()
-
-	// Phase 1: Process expired time series
-	// These are marked as Completed/Partial (unless already Completed/Full)
-	expired, err := a.ContainerProfileStorage.ListTimeSeriesExpired(ctx, a.DeleteThreshold)
+	// Phase 1: expired time series (past deleteThreshold), marked Completed/Partial.
+	expired, err := a.ContainerProfileStorage.ListTimeSeriesExpired(listCtx, a.DeleteThreshold)
 	if err != nil {
-		return fmt.Errorf("failed to list time: %w", err)
+		cleanup()
+		return fmt.Errorf("failed to list expired time series: %w", err)
 	}
+	// Phase 2: active time series with data, following the normal completion flow.
+	withData, err := a.ContainerProfileStorage.ListTimeSeriesWithData(listCtx)
+	if err != nil {
+		cleanup()
+		return fmt.Errorf("failed to list active time series: %w", err)
+	}
+	cleanup()
 
-	for _, key := range expired {
-		if err := a.consolidateKeyTimeSeries(ctx, key, true); err != nil {
-			return err
+	// De-duplicate into one work set keyed by storage key. The time_series table
+	// holds many rows per (kind,namespace,name) key and neither list applies
+	// DISTINCT/GROUP BY, so a key can appear multiple times within one list and
+	// in both lists. Expired precedence: a key present in both lists (or multiple
+	// times within either list) is processed EXACTLY ONCE, as expired — preserving
+	// today's expired-first semantics and avoiding two workers racing one key.
+	type workItem struct {
+		key     string
+		expired bool
+	}
+	seen := make(map[string]int, len(expired)+len(withData))
+	work := make([]workItem, 0, len(expired)+len(withData))
+	add := func(key string, exp bool) {
+		if i, ok := seen[key]; ok {
+			if exp {
+				work[i].expired = true // upgrade to expired (expired precedence)
+			}
+			return
 		}
+		seen[key] = len(work)
+		work = append(work, workItem{key: key, expired: exp})
+	}
+	for _, k := range expired {
+		add(k, true)
+	}
+	for _, k := range withData {
+		add(k, false)
 	}
 
-	// Phase 2: Process active time series with data
-	// These follow normal completion flow based on their status
-	withData, err := a.ContainerProfileStorage.ListTimeSeriesWithData(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list time: %w", err)
+	workers := a.Workers
+	if workers < 1 {
+		workers = 1
 	}
 
-	for _, key := range withData {
-		if err := a.consolidateKeyTimeSeries(ctx, key, false); err != nil {
-			return err
-		}
+	// Use a plain errgroup.Group (NOT errgroup.WithContext) and pass the PARENT
+	// ctx to every worker. WithConnection -> pool.Take binds each connection's
+	// interrupt to the passed ctx; a cancel-on-first-error group context would
+	// interrupt and roll back every other worker's in-flight transaction. A
+	// zero-value Group still returns the first error from Wait but never cancels,
+	// so each key's transaction commits or fails independently.
+	consolidate := a.consolidateKeyTimeSeries
+	if a.consolidateKey != nil {
+		consolidate = a.consolidateKey
 	}
-
-	return nil
+	var g errgroup.Group
+	g.SetLimit(workers)
+	for _, it := range work {
+		g.Go(func() error {
+			return consolidate(ctx, it.key, it.expired)
+		})
+	}
+	return g.Wait()
 }
 
 // consolidateKeyTimeSeries consolidates time series data for a single key.
@@ -315,6 +364,14 @@ func (a *ContainerProfileProcessor) ConsolidateTimeSeries(ctx context.Context) e
 // When expired=true, the resulting profile will be marked as Completed/Partial (unless already Completed/Full).
 func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context, key string, expired bool) error {
 	logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - consolidating data for key", loggerhelpers.String("key", key), loggerhelpers.Interface("expired", expired))
+
+	// Each unit of work owns its own pool connection so keys can be consolidated
+	// concurrently, each transaction running on its own *sqlite.Conn.
+	ctx, cleanup, err := a.ContainerProfileStorage.WithConnection(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to take connection for key %s: %w", key, err)
+	}
+	defer cleanup()
 
 	timeSeries, err := a.ContainerProfileStorage.ListTimeSeriesContainers(ctx, key)
 	if err != nil {

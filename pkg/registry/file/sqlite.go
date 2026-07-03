@@ -21,10 +21,19 @@ var (
 	ErrMetadataNotFound = errors.New("metadata not found")
 )
 
+// DefaultPoolSize is the SQLite connection pool capacity used when NewPool is
+// called with a non-positive size. It is made explicit (rather than relying on
+// sqlitex's implicit default) so the consolidator's worker bound can be derived
+// from a single knowable constant.
+const DefaultPoolSize = 10
+
 // NewPool creates a new SQLite connection pool at the given path.
 // It returns an error if the connection cannot be opened or the database cannot be initialized.
 // It is your responsibility to call conn.Close() when you no longer need conn.
 func NewPool(path string, size int) *sqlitemigration.Pool {
+	if size < 1 {
+		size = DefaultPoolSize
+	}
 	return sqlitemigration.NewPool(path,
 		sqlitemigration.Schema{
 			Migrations: []string{
