@@ -13,7 +13,9 @@ package file
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
@@ -32,9 +34,11 @@ type fakeCollapseStorage struct {
 	storage.Interface // nil — panics on unimplemented methods if called
 	stored            map[string]runtime.Object
 	getErr            error
+	getCalls          atomic.Int64
 }
 
 func (f *fakeCollapseStorage) Get(_ context.Context, key string, opts storage.GetOptions, out runtime.Object) error {
+	f.getCalls.Add(1)
 	if f.getErr != nil {
 		return f.getErr
 	}
@@ -166,11 +170,16 @@ func TestNewCRDCollapseSettingsProvider_GetErrorFallsBackToDefault(t *testing.T)
 	assert.Equal(t, want.OpenDynamicThreshold, got.OpenDynamicThreshold)
 }
 
-// TestNewCRDCollapseSettingsProvider_LiveUpdate pins the no-cache
-// design: edits to the CR take effect on the very next provider call,
-// without restart or manual invalidation. bobctl autotune relies on
-// this when it pushes tuned thresholds back into the cluster.
+// TestNewCRDCollapseSettingsProvider_LiveUpdate pins the eventual-consistency
+// design: edits to the CR take effect once the TTL cache expires, without
+// restart or manual invalidation. bobctl autotune relies on this when it
+// pushes tuned thresholds back into the cluster. The TTL is shrunk for the
+// duration of the test so it doesn't wait a real 10s.
 func TestNewCRDCollapseSettingsProvider_LiveUpdate(t *testing.T) {
+	oldTTL := collapseSettingsTTL
+	collapseSettingsTTL = 5 * time.Millisecond
+	defer func() { collapseSettingsTTL = oldTTL }()
+
 	v1 := &softwarecomposition.CollapseConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: DefaultCollapseConfigurationName},
 		Spec:       softwarecomposition.CollapseConfigurationSpec{OpenDynamicThreshold: 100},
@@ -190,5 +199,65 @@ func TestNewCRDCollapseSettingsProvider_LiveUpdate(t *testing.T) {
 		Spec:       softwarecomposition.CollapseConfigurationSpec{OpenDynamicThreshold: 200},
 	}
 
-	assert.Equal(t, 200, provider().OpenDynamicThreshold, "next call reflects the CR edit without invalidation")
+	// Still within the TTL window: the cached value is served.
+	assert.Equal(t, 100, provider().OpenDynamicThreshold, "within the TTL window the cached value is served")
+
+	time.Sleep(2 * collapseSettingsTTL)
+
+	assert.Equal(t, 200, provider().OpenDynamicThreshold, "after TTL expiry the next call reflects the CR edit")
+}
+
+// TestNewCRDCollapseSettingsProvider_CachesWithinTTL pins AC2: repeated
+// provider invocations inside the TTL window must serve from memory and
+// trigger exactly one backing storage Get.
+func TestNewCRDCollapseSettingsProvider_CachesWithinTTL(t *testing.T) {
+	oldTTL := collapseSettingsTTL
+	collapseSettingsTTL = time.Hour // effectively never expires during this test
+	defer func() { collapseSettingsTTL = oldTTL }()
+
+	applied := &softwarecomposition.CollapseConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: DefaultCollapseConfigurationName},
+		Spec:       softwarecomposition.CollapseConfigurationSpec{OpenDynamicThreshold: 42},
+	}
+	s := &fakeCollapseStorage{
+		stored: map[string]runtime.Object{
+			collapseConfigurationKey(DefaultCollapseConfigurationName): applied,
+		},
+	}
+	provider := NewCRDCollapseSettingsProvider(s)
+
+	const n = 10
+	for i := 0; i < n; i++ {
+		got := provider()
+		assert.Equal(t, 42, got.OpenDynamicThreshold)
+	}
+
+	assert.EqualValues(t, 1, s.getCalls.Load(), "N calls within the TTL window must trigger exactly one backing Get")
+}
+
+// TestNewCRDCollapseSettingsProvider_RefreshesAfterTTLExpiry pins AC2's
+// second half: once the TTL elapses, the very next call performs a fresh
+// Get and reflects whatever is currently stored.
+func TestNewCRDCollapseSettingsProvider_RefreshesAfterTTLExpiry(t *testing.T) {
+	oldTTL := collapseSettingsTTL
+	collapseSettingsTTL = 5 * time.Millisecond
+	defer func() { collapseSettingsTTL = oldTTL }()
+
+	s := &fakeCollapseStorage{
+		stored: map[string]runtime.Object{
+			collapseConfigurationKey(DefaultCollapseConfigurationName): &softwarecomposition.CollapseConfiguration{
+				ObjectMeta: metav1.ObjectMeta{Name: DefaultCollapseConfigurationName},
+				Spec:       softwarecomposition.CollapseConfigurationSpec{OpenDynamicThreshold: 1},
+			},
+		},
+	}
+	provider := NewCRDCollapseSettingsProvider(s)
+
+	assert.Equal(t, 1, provider().OpenDynamicThreshold)
+	assert.EqualValues(t, 1, s.getCalls.Load())
+
+	time.Sleep(2 * collapseSettingsTTL)
+
+	assert.Equal(t, 1, provider().OpenDynamicThreshold)
+	assert.EqualValues(t, 2, s.getCalls.Load(), "a call after TTL expiry must trigger a fresh Get")
 }
