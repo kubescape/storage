@@ -69,11 +69,21 @@ var lockTimeout = 5 * time.Second
 // the observability trail rather than discarded: log it at Debug with the op/key so a
 // contended-vs-cancelled acquisition can be told apart post-hoc. NewServerTimeout does not
 // take a wrapped cause, so err is logged here (not embedded in the StatusError).
+//
+// If err is context.Canceled (the caller's own ctx was cancelled, e.g. a client disconnect,
+// rather than lockTimeout's child context expiring), a Retry-After signal is misleading --
+// there is no client left to retry -- so this returns a plain InternalError without one
+// instead of ServerTimeout.
 func newLockTimeoutError(op, key string, err error) *apierrors.StatusError {
+	if errors.Is(err, context.Canceled) {
+		logger.L().Debug("lock acquisition cancelled",
+			helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
+		return apierrors.NewInternalError(fmt.Errorf("%s %s: lock acquisition cancelled: %w", op, key, err))
+	}
 	logger.L().Debug("lock acquisition timed out",
 		helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
 	return apierrors.NewServerTimeout(
-		schema.GroupResource{Group: "spdx.softwarecomposition.kubescape.io", Resource: resourceFromKey(key)},
+		schema.GroupResource{Group: softwarecomposition.GroupName, Resource: resourceFromKey(key)},
 		op, 1)
 }
 
@@ -315,11 +325,11 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
 		return newLockTimeoutError("create", key, err)
 	}
 	defer s.locks.Unlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Create", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
@@ -394,11 +404,11 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
 		return newLockTimeoutError("delete", key, err)
 	}
 	defer s.locks.Unlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
@@ -472,11 +482,11 @@ func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key st
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 	defer lockCancel()
 	err := s.locks.RLock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
 		return newLockTimeoutError("get", key, err)
 	}
 	defer s.locks.RUnlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Get", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
@@ -904,12 +914,12 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
 		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
 		return newLockTimeoutError("update", key, err)
 	}
 	defer s.locks.Unlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("GuaranteedUpdate/", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))

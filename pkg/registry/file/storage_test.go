@@ -708,6 +708,19 @@ func Test_newLockTimeoutError(t *testing.T) {
 	assert.EqualValues(t, 1, status.Details.RetryAfterSeconds)
 }
 
+// Test_newLockTimeoutError_Cancelled covers the context.Canceled branch: a caller disconnect
+// should not be reported as ServerTimeout with a Retry-After hint, since there is no client
+// left to retry.
+func Test_newLockTimeoutError_Cancelled(t *testing.T) {
+	err := newLockTimeoutError("get", "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", context.Canceled)
+	require.NotNil(t, err)
+	assert.False(t, apierrors.IsServerTimeout(err), "cancelled acquisition should not be reported as ServerTimeout, got %v", err)
+	assert.True(t, apierrors.IsInternalError(err), "expected an InternalError, got %v", err)
+	status := err.Status()
+	require.NotNil(t, status.Details)
+	assert.Zero(t, status.Details.RetryAfterSeconds, "cancelled acquisition should carry no RetryAfterSeconds hint")
+}
+
 func TestStorageImpl_LockContentionReturnsServerTimeout(t *testing.T) {
 	old := lockTimeout
 	lockTimeout = 10 * time.Millisecond
