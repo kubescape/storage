@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -697,8 +698,8 @@ func Test_calculateChecksum(t *testing.T) {
 	}
 }
 
-func Test_newLockTimeoutError(t *testing.T) {
-	err := newLockTimeoutError("get", "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", fmt.Errorf("boom"))
+func Test_newContentionTimeoutError(t *testing.T) {
+	err := newContentionTimeoutError("get", "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", fmt.Errorf("boom"))
 	require.NotNil(t, err)
 	assert.True(t, apierrors.IsServerTimeout(err), "expected a ServerTimeout error, got %v", err)
 	status := err.Status()
@@ -708,11 +709,11 @@ func Test_newLockTimeoutError(t *testing.T) {
 	assert.EqualValues(t, 1, status.Details.RetryAfterSeconds)
 }
 
-// Test_newLockTimeoutError_Cancelled covers the context.Canceled branch: a caller disconnect
-// should not be reported as ServerTimeout with a Retry-After hint, since there is no client
-// left to retry.
-func Test_newLockTimeoutError_Cancelled(t *testing.T) {
-	err := newLockTimeoutError("get", "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", context.Canceled)
+// Test_newContentionTimeoutError_Cancelled covers the context.Canceled branch: a caller
+// disconnect should not be reported as ServerTimeout with a Retry-After hint, since there is
+// no client left to retry.
+func Test_newContentionTimeoutError_Cancelled(t *testing.T) {
+	err := newContentionTimeoutError("get", "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", context.Canceled)
 	require.NotNil(t, err)
 	assert.False(t, apierrors.IsServerTimeout(err), "cancelled acquisition should not be reported as ServerTimeout, got %v", err)
 	assert.True(t, apierrors.IsInternalError(err), "expected an InternalError, got %v", err)
@@ -746,6 +747,45 @@ func TestStorageImpl_LockContentionReturnsServerTimeout(t *testing.T) {
 
 	statusErr, ok := err.(*apierrors.StatusError)
 	require.True(t, ok, "expected *apierrors.StatusError, got %T", err)
+	status := statusErr.Status()
+	assert.Equal(t, int32(http.StatusInternalServerError), status.Code)
+	require.NotNil(t, status.Details)
+	assert.EqualValues(t, 1, status.Details.RetryAfterSeconds)
+}
+
+// TestStorageImpl_PoolContentionReturnsServerTimeout is the connection-pool analogue of
+// TestStorageImpl_LockContentionReturnsServerTimeout above: it exhausts a size-1 pool by
+// holding its only connection, then asserts a Get on that starved pool fails fast (bounded by
+// the shrunk poolTimeout) as ServerTimeout+Retry-After, instead of hanging to the old ~60s
+// poolTimeout (which, in production, is long enough to blow past the k8s apiserver's own
+// outer non-long-running-request deadline before this package's own error ever fires).
+func TestStorageImpl_PoolContentionReturnsServerTimeout(t *testing.T) {
+	old := poolTimeout
+	poolTimeout = 10 * time.Millisecond
+	defer func() { poolTimeout = old }()
+
+	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1)
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
+
+	// Take the pool's only connection directly, outside of any StorageImpl call, so the
+	// pool is fully exhausted for any subsequent Take.
+	heldConn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(heldConn)
+
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
+	getErr := s.Get(context.Background(), key, storage.GetOptions{}, &v1beta1.SBOMSyft{})
+	require.Error(t, getErr)
+	assert.True(t, apierrors.IsServerTimeout(getErr), "expected a ServerTimeout error, got %v", getErr)
+
+	statusErr, ok := getErr.(*apierrors.StatusError)
+	require.True(t, ok, "expected *apierrors.StatusError, got %T", getErr)
 	status := statusErr.Status()
 	assert.Equal(t, int32(http.StatusInternalServerError), status.Code)
 	require.NotNil(t, status.Details)

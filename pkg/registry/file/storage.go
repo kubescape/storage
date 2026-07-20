@@ -44,7 +44,6 @@ const (
 	StorageV1Beta1ApiVersion = "spdx.softwarecomposition.kubescape.io/v1beta1"
 	connKey                  = "conn"
 	operationNotSupportedMsg = "operation not supported"
-	poolTimeout              = time.Minute
 )
 
 var (
@@ -61,9 +60,22 @@ var (
 // mutated at runtime; only tests override it (and restore it via defer).
 var lockTimeout = 5 * time.Second
 
-// newLockTimeoutError returns a ServerTimeout (HTTP 500, Reason=ServerTimeout) carrying a
-// positive RetryAfterSeconds so the apiserver emits a Retry-After header that client-go's
-// retry logic honors. op is "create"/"get"/"update"/"delete"/"list".
+// poolTimeout is the hardcoded backstop for acquiring a *sqlite.Conn from the pool. It used
+// to be a full minute (long enough that a pool-exhaustion stall would blow past the k8s
+// apiserver's own outer non-long-running-request timeout, typically ~34s, before this
+// package's own error ever had a chance to fire) and is now bounded the same way lockTimeout
+// bounds lock acquisition: well under that outer deadline, with the same fail-fast
+// ServerTimeout+Retry-After signal on expiry instead of an opaque "take connection" error.
+//
+// NOTE: package-level var, not const, for the same test-overridability reason as lockTimeout.
+var poolTimeout = 5 * time.Second
+
+// newContentionTimeoutError returns a ServerTimeout (HTTP 500, Reason=ServerTimeout) carrying
+// a positive RetryAfterSeconds so the apiserver emits a Retry-After header that client-go's
+// retry logic honors. It is used for both lock acquisition (s.locks.Lock/RLock) and
+// connection-pool acquisition (s.pool.Take) timeouts: both are internal contention points
+// that should fail fast with the same backoff-friendly signal rather than hang to the outer
+// request deadline. op is "create"/"get"/"update"/"delete"/"list".
 //
 // The underlying err (e.g. context.DeadlineExceeded from the child context) is folded into
 // the observability trail rather than discarded: log it at Debug with the op/key so a
@@ -71,16 +83,16 @@ var lockTimeout = 5 * time.Second
 // take a wrapped cause, so err is logged here (not embedded in the StatusError).
 //
 // If err is context.Canceled (the caller's own ctx was cancelled, e.g. a client disconnect,
-// rather than lockTimeout's child context expiring), a Retry-After signal is misleading --
-// there is no client left to retry -- so this returns a plain InternalError without one
-// instead of ServerTimeout.
-func newLockTimeoutError(op, key string, err error) *apierrors.StatusError {
+// rather than our lockTimeout/poolTimeout child context expiring), a Retry-After signal is
+// misleading -- there is no client left to retry -- so this returns a plain InternalError
+// without one instead of ServerTimeout.
+func newContentionTimeoutError(op, key string, err error) *apierrors.StatusError {
 	if errors.Is(err, context.Canceled) {
-		logger.L().Debug("lock acquisition cancelled",
+		logger.L().Debug("acquisition cancelled",
 			helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
-		return apierrors.NewInternalError(fmt.Errorf("%s %s: lock acquisition cancelled: %w", op, key, err))
+		return apierrors.NewInternalError(fmt.Errorf("%s %s: acquisition cancelled: %w", op, key, err))
 	}
-	logger.L().Debug("lock acquisition timed out",
+	logger.L().Debug("acquisition timed out",
 		helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
 	return apierrors.NewServerTimeout(
 		schema.GroupResource{Group: softwarecomposition.GroupName, Resource: resourceFromKey(key)},
@@ -310,7 +322,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 	defer cancel()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
+		return newContentionTimeoutError("create", key, err)
 	}
 	defer s.pool.Put(conn)
 	return s.CreateWithConn(ctx, conn, key, obj, metaOut, 0)
@@ -327,7 +339,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
 	if err != nil {
-		return newLockTimeoutError("create", key, err)
+		return newContentionTimeoutError("create", key, err)
 	}
 	defer s.locks.Unlock(key)
 	lockDuration := time.Since(beforeLock)
@@ -389,7 +401,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	defer cancel()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
+		return newContentionTimeoutError("delete", key, err)
 	}
 	defer s.pool.Put(conn)
 	return s.DeleteWithConn(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
@@ -406,7 +418,7 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
 	if err != nil {
-		return newLockTimeoutError("delete", key, err)
+		return newContentionTimeoutError("delete", key, err)
 	}
 	defer s.locks.Unlock(key)
 	lockDuration := time.Since(beforeLock)
@@ -475,7 +487,7 @@ func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptio
 	defer cancel()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
+		return newContentionTimeoutError("get", key, err)
 	}
 	defer s.pool.Put(conn)
 	return s.GetWithConn(ctx, conn, key, opts, objPtr)
@@ -492,7 +504,7 @@ func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key st
 	err := s.locks.RLock(lockCtx, key)
 	spanLock.End()
 	if err != nil {
-		return newLockTimeoutError("get", key, err)
+		return newContentionTimeoutError("get", key, err)
 	}
 	defer s.locks.RUnlock(key)
 	lockDuration := time.Since(beforeLock)
@@ -542,7 +554,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 		lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 		defer lockCancel()
 		if err := s.locks.RLock(lockCtx, key); err != nil {
-			return newLockTimeoutError("get", key, err)
+			return newContentionTimeoutError("get", key, err)
 		}
 		ownedRLock = true
 		defer func() {
@@ -720,7 +732,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	defer cancel()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
+		return newContentionTimeoutError("list", key, err)
 	}
 	defer s.pool.Put(conn)
 	return s.GetListWithConn(ctx, conn, key, opts, listObj)
@@ -905,7 +917,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 	defer cancel()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
-		return fmt.Errorf("take connection: %w", err)
+		return newContentionTimeoutError("update", key, err)
 	}
 	defer s.pool.Put(conn)
 	return s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "")
@@ -925,7 +937,7 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 	spanLock.End()
 	if err != nil {
 		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
-		return newLockTimeoutError("update", key, err)
+		return newContentionTimeoutError("update", key, err)
 	}
 	defer s.locks.Unlock(key)
 	lockDuration := time.Since(beforeLock)
@@ -1085,7 +1097,7 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	defer cancel()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
-		return 0, fmt.Errorf("take connection: %w", err)
+		return 0, newContentionTimeoutError("count", key, err)
 	}
 	defer s.pool.Put(conn)
 	return countMetadata(conn, key)
@@ -1126,7 +1138,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 	defer lockCancel()
 	err := s.locks.RLock(lockCtx, key)
 	if err != nil {
-		return newLockTimeoutError("list", key, err)
+		return newContentionTimeoutError("list", key, err)
 	}
 	defer s.locks.RUnlock(key)
 	payloadFile, err := s.openPayloadFileWithFallback(path, os.O_RDONLY, 0)
