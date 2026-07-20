@@ -52,6 +52,56 @@ var (
 	ObjectTooLargeError  = errors.New("object is too large")
 )
 
+// lockTimeout is the hardcoded backstop for lock acquisition. It sits well under the
+// ~60s outer apiserver request deadline so a contended request fails fast with a
+// Retry-After signal instead of hanging to the full request timeout.
+//
+// NOTE: this is a package-level var, not a const, so unit tests can shrink it to a few
+// milliseconds and exercise the real timeout path without a real 5s wait. It is never
+// mutated at runtime; only tests override it (and restore it via defer).
+var lockTimeout = 5 * time.Second
+
+// newLockTimeoutError returns a ServerTimeout (HTTP 500, Reason=ServerTimeout) carrying a
+// positive RetryAfterSeconds so the apiserver emits a Retry-After header that client-go's
+// retry logic honors. op is "create"/"get"/"update"/"delete"/"list".
+//
+// The underlying err (e.g. context.DeadlineExceeded from the child context) is folded into
+// the observability trail rather than discarded: log it at Debug with the op/key so a
+// contended-vs-cancelled acquisition can be told apart post-hoc. NewServerTimeout does not
+// take a wrapped cause, so err is logged here (not embedded in the StatusError).
+//
+// If err is context.Canceled (the caller's own ctx was cancelled, e.g. a client disconnect,
+// rather than lockTimeout's child context expiring), a Retry-After signal is misleading --
+// there is no client left to retry -- so this returns a plain InternalError without one
+// instead of ServerTimeout.
+func newLockTimeoutError(op, key string, err error) *apierrors.StatusError {
+	if errors.Is(err, context.Canceled) {
+		logger.L().Debug("lock acquisition cancelled",
+			helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
+		return apierrors.NewInternalError(fmt.Errorf("%s %s: lock acquisition cancelled: %w", op, key, err))
+	}
+	logger.L().Debug("lock acquisition timed out",
+		helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
+	return apierrors.NewServerTimeout(
+		schema.GroupResource{Group: softwarecomposition.GroupName, Resource: resourceFromKey(key)},
+		op, 1)
+}
+
+// resourceFromKey extracts an approximate plural resource name from a storage key for use
+// in the error's informational Details/message; correctness rides on RetryAfterSeconds, so
+// an approximate resource string is acceptable.
+func resourceFromKey(key string) string {
+	_, _, kind, _, _, _ := K8sPathToKeys(key)
+	kind = strings.ToLower(kind)
+	if kind == "" {
+		return "containerprofiles"
+	}
+	if !strings.HasSuffix(kind, "s") {
+		kind += "s"
+	}
+	return kind
+}
+
 type objState struct {
 	obj  runtime.Object
 	meta *storage.ResponseMeta
@@ -272,12 +322,14 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.Lock(ctx, key)
+	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+	defer lockCancel()
+	err := s.locks.Lock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
-		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
+		return newLockTimeoutError("create", key, err)
 	}
 	defer s.locks.Unlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Create", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
@@ -349,12 +401,14 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.Lock(ctx, key)
+	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+	defer lockCancel()
+	err := s.locks.Lock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
-		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
+		return newLockTimeoutError("delete", key, err)
 	}
 	defer s.locks.Unlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
@@ -433,12 +487,14 @@ func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key st
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.RLock(ctx, key)
+	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+	defer lockCancel()
+	err := s.locks.RLock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
-		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
+		return newLockTimeoutError("get", key, err)
 	}
 	defer s.locks.RUnlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Get", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
@@ -483,8 +539,10 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	// calling RUnlock itself so the defer becomes a no-op.
 	ownedRLock := false
 	if lockState == noLock {
-		if err := s.locks.RLock(ctx, key); err != nil {
-			return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
+		lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+		defer lockCancel()
+		if err := s.locks.RLock(lockCtx, key); err != nil {
+			return newLockTimeoutError("get", key, err)
 		}
 		ownedRLock = true
 		defer func() {
@@ -861,13 +919,15 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 	defer span.End()
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
-	err := s.locks.Lock(ctx, key)
+	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+	defer lockCancel()
+	err := s.locks.Lock(lockCtx, key)
+	spanLock.End()
 	if err != nil {
 		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
-		return apierrors.NewTimeoutError(fmt.Sprintf("lock: %v", err), 0)
+		return newLockTimeoutError("update", key, err)
 	}
 	defer s.locks.Unlock(key)
-	spanLock.End()
 	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("GuaranteedUpdate/", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
@@ -1062,9 +1122,11 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 // appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
 func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
-	err := s.locks.RLock(ctx, key)
+	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+	defer lockCancel()
+	err := s.locks.RLock(lockCtx, key)
 	if err != nil {
-		return apierrors.NewTimeoutError(fmt.Sprintf("rlock: %v", err), 0)
+		return newLockTimeoutError("list", key, err)
 	}
 	defer s.locks.RUnlock(key)
 	payloadFile, err := s.openPayloadFileWithFallback(path, os.O_RDONLY, 0)
