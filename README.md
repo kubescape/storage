@@ -99,7 +99,43 @@ Metadata are stored in JSON format, and should be unmarshalled to the appropriat
 GetList() operations should support pagination, we are using ROWID to sort the results and limit the number
 of rows returned. On subsequent calls, the client provides the last ROWID to get the next page.
 
-Note that `GetList()` returns the list of objects with a `nil` Spec for performance reasons, as the CRDs are quite big.
+Note that `GetList()` returns the list of objects with an empty `Spec` for
+performance reasons, as the CRDs are quite big: only the metadata blob is read
+from SQLite, the payload on disk is not loaded. This is why a `LIST` and a `GET`
+of the same object can differ over the REST API — a listed object comes back
+with its spec fields at their zero values (for example a
+`VulnerabilityManifestSummary` reports all severity counts as `0`), while a
+direct `GET` returns the real spec.
+
+#### Requesting the full spec on a LIST
+
+The behavior is controlled by two reserved `resourceVersion` values, defined in
+`pkg/apis/softwarecomposition/register.go`:
+
+| `resourceVersion` | LIST behavior |
+| --- | --- |
+| _(unset)_ or `metadata` | metadata only — spec fields come back zero-valued (default) |
+| `fullSpec` | each object is loaded with its full payload |
+
+`resourceVersion` is an ordinary list query parameter, so this works from any
+REST client, not only the Go client. For example, to get the complete severity
+counts for every `VulnerabilityManifestSummary` in a namespace:
+
+```sh
+kubectl get --raw \
+  '/apis/spdx.softwarecomposition.kubescape.io/v1beta1/namespaces/kubescape/vulnerabilitymanifestsummaries?resourceVersion=fullSpec'
+```
+
+Caveats:
+- The typed `kubectl get <resource>` path does not let you set this, so plain
+  `kubectl get ... -o json`, `jsonpath` and `custom-columns` always see the
+  metadata-only (zeroed) view. Use `kubectl get --raw` with the query
+  parameter, or a client that sets `ListOptions.ResourceVersion`.
+- `fullSpec` loads the full payload for every listed object and is queued, so it
+  is significantly more expensive than the default metadata-only LIST.
+- `fullSpec` is rejected on LIST for `applicationprofiles` and
+  `networkneighborhoods` (the server returns an error); it is honored for the
+  summary resources.
 
 ### Filesystem layout
 
