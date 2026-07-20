@@ -99,7 +99,7 @@ func main() {
 
 	// setup storage components
 	osFs := afero.NewOsFs()
-	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), 0) // If less than 1, a reasonable default is used.
+	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), file.DefaultPoolSize)
 
 	// setup watcher
 	watchDispatcher := file.NewWatchDispatcher()
