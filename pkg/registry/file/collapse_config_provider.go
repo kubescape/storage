@@ -12,11 +12,27 @@ package file
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"k8s.io/apiserver/pkg/storage"
 )
+
+// collapseSettingsTTL bounds how stale the cached CollapseConfiguration
+// settings may be before the provider re-reads storage. It is a
+// package-level var (not a const) so tests can shrink it to simulate TTL
+// expiry without a real 10s wait.
+var collapseSettingsTTL = 10 * time.Second
+
+// cachedCollapseSettings is the value stored behind the provider's
+// atomic.Pointer: the settings snapshot plus when it goes stale.
+type cachedCollapseSettings struct {
+	settings  dynamicpathdetector.CollapseSettings
+	expiresAt time.Time
+}
 
 // DefaultCollapseConfigurationName is the cluster-scoped CR name the
 // deflate path reads to learn effective collapse thresholds. Operators
@@ -55,17 +71,20 @@ func collapseConfigurationKey(name string) string {
 // consulted — applying a CollapseConfiguration manifest would be a
 // no-op (matthyx review on pkg/apiserver/apiserver.go:164, 2026-05-27).
 //
-// The closure performs a storage Get per call rather than caching, so
-// edits to the CR take effect on the next deflate without restart or
-// manual invalidation. Deflate frequency is low compared to disk Get
-// latency, so the simplicity wins; if benchmarks ever surface this
-// as hot, wrap with a watched cache.
+// The closure serves cached settings for up to collapseSettingsTTL and
+// only then re-reads storage, so edits to the CR take effect within that
+// TTL window rather than on every call. Deflate's own tolerance for
+// eventual consistency (next-deflate correctness is not critical) covers
+// this bounded staleness; if a shorter propagation is ever required,
+// wrap with a watched cache instead.
 func NewCRDCollapseSettingsProvider(s storage.Interface) dynamicpathdetector.CollapseSettingsProvider {
 	if s == nil {
 		return dynamicpathdetector.DefaultCollapseSettings
 	}
 	key := collapseConfigurationKey(DefaultCollapseConfigurationName)
-	return func() dynamicpathdetector.CollapseSettings {
+	var cache atomic.Pointer[cachedCollapseSettings]
+	var mu sync.Mutex // serializes refreshes only; reads are lock-free
+	load := func() dynamicpathdetector.CollapseSettings {
 		crd := &softwarecomposition.CollapseConfiguration{}
 		// IgnoreNotFound returns the zero-valued CR with nil error when
 		// the CR is missing — the operator hasn't applied a manifest
@@ -77,5 +96,18 @@ func NewCRDCollapseSettingsProvider(s storage.Interface) dynamicpathdetector.Col
 			return dynamicpathdetector.DefaultCollapseSettings()
 		}
 		return dynamicpathdetector.CollapseSettingsFromCRD(crd)
+	}
+	return func() dynamicpathdetector.CollapseSettings {
+		if c := cache.Load(); c != nil && time.Now().Before(c.expiresAt) {
+			return c.settings
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if c := cache.Load(); c != nil && time.Now().Before(c.expiresAt) { // re-check under lock
+			return c.settings
+		}
+		settings := load()
+		cache.Store(&cachedCollapseSettings{settings: settings, expiresAt: time.Now().Add(collapseSettingsTTL)})
+		return settings
 	}
 }
