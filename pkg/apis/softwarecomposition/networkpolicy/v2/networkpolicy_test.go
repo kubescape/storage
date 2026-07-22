@@ -253,6 +253,17 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
+								},
+								From: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.1/32",
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
 										Port:     ptr.To(int32(443)),
 										Protocol: &protocolTCP,
@@ -946,6 +957,17 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
+								},
+								From: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.1/32",
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
 										Port:     ptr.To(int32(443)),
 										Protocol: &protocolTCP,
@@ -1237,16 +1259,29 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 										Port:     ptr.To(int32(80)),
 										Protocol: &protocolTCP,
 									},
+								},
+								From: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.1/32",
+										},
+									},
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.3/32",
+										},
+									},
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.4/32",
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
 										Port:     ptr.To(int32(90)),
-										Protocol: &protocolTCP,
-									},
-									{
-										Port:     ptr.To(int32(100)),
-										Protocol: &protocolTCP,
-									},
-									{
-										Port:     ptr.To(int32(443)),
 										Protocol: &protocolTCP,
 									},
 								},
@@ -1261,9 +1296,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							{
 								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
-										Port:     ptr.To(int32(80)),
+										Port:     ptr.To(int32(100)),
 										Protocol: &protocolTCP,
 									},
+								},
+								From: []softwarecomposition.NetworkPolicyPeer{
+									{
+										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.1/32",
+										},
+									},
+								},
+							},
+							{
+								Ports: []softwarecomposition.NetworkPolicyPort{
 									{
 										Port:     ptr.To(int32(443)),
 										Protocol: &protocolTCP,
@@ -1272,23 +1318,14 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 								From: []softwarecomposition.NetworkPolicyPeer{
 									{
 										IPBlock: &softwarecomposition.IPBlock{
+											CIDR: "10.0.0.1/32",
+										},
+									},
+									{
+										IPBlock: &softwarecomposition.IPBlock{
 											CIDR: "10.0.0.3/32",
 										},
 									},
-								},
-							},
-							{
-								Ports: []softwarecomposition.NetworkPolicyPort{
-									{
-										Port:     ptr.To(int32(80)),
-										Protocol: &protocolTCP,
-									},
-									{
-										Port:     ptr.To(int32(443)),
-										Protocol: &protocolTCP,
-									},
-								},
-								From: []softwarecomposition.NetworkPolicyPeer{
 									{
 										IPBlock: &softwarecomposition.IPBlock{
 											CIDR: "10.0.0.4/32",
@@ -2824,10 +2861,10 @@ func compareNP(p1, p2 *softwarecomposition.GeneratedNetworkPolicy) error {
 		return fmt.Errorf("one of the policies is nil")
 	}
 
-	if err := compareEgress(p1.Spec.Spec.Egress, p1.Spec.Spec.Egress); err != nil {
+	if err := compareEgress(p1.Spec.Spec.Egress, p2.Spec.Spec.Egress); err != nil {
 		return fmt.Errorf("Spec is different. p1.Spec.Spec.Egress: %v, p2.Spec.Spec.Egress: %v", p1.Spec.Spec.Egress, p2.Spec.Spec.Egress)
 	}
-	if err := compareIngress(p1.Spec.Spec.Ingress, p1.Spec.Spec.Ingress); err != nil {
+	if err := compareIngress(p1.Spec.Spec.Ingress, p2.Spec.Spec.Ingress); err != nil {
 		return fmt.Errorf("Spec is different. p1.Spec.Spec.Ingress: %v, p2.Spec.Spec.Ingress: %v", p1.Spec.Spec.Ingress, p2.Spec.Spec.Ingress)
 	}
 

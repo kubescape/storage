@@ -163,6 +163,18 @@ func listEgressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []s
 
 }
 
+// containsIPBlockPeer reports whether peers already contains an entry with the given CIDR.
+// Used to avoid duplicate peer entries when merging rules that reference the same IP
+// from multiple distinct NetworkNeighbor entries (e.g. the same peer seen across containers).
+func containsIPBlockPeer(peers []softwarecomposition.NetworkPolicyPeer, cidr string) bool {
+	for _, existing := range peers {
+		if existing.IPBlock != nil && existing.IPBlock.CIDR == cidr {
+			return true
+		}
+	}
+	return false
+}
+
 func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRule) []softwarecomposition.NetworkPolicyIngressRule {
 	type PortProtocolKey struct {
 		Port     int32
@@ -196,7 +208,10 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 				keys = append(keys, key)
 			}
 			for _, peer := range rule.From {
-				if peer.IPBlock != nil {
+				if peer.IPBlock == nil {
+					continue
+				}
+				if !containsIPBlockPeer(merged[key], peer.IPBlock.CIDR) {
 					merged[key] = append(merged[key], peer)
 				}
 			}
@@ -279,7 +294,10 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 				keys = append(keys, key)
 			}
 			for _, peer := range rule.To {
-				if peer.IPBlock != nil {
+				if peer.IPBlock == nil {
+					continue
+				}
+				if !containsIPBlockPeer(merged[key], peer.IPBlock.CIDR) {
 					merged[key] = append(merged[key], peer)
 				}
 			}
