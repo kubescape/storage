@@ -1,10 +1,9 @@
 package networkpolicy
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/netip"
@@ -622,12 +621,16 @@ func IsAvailable(nn *softwarecomposition.NetworkNeighborhood) bool {
 	}
 }
 
+// hash must be a deterministic function of s's contents: gob's map encoding follows Go's
+// randomized map iteration order, so gob-encoding a struct containing a map (e.g. a
+// LabelSelector's MatchLabels) previously produced a different byte sequence - and thus a
+// different hash - across otherwise-identical calls. json.Marshal sorts map keys, giving a
+// stable encoding regardless of map iteration order.
 func hash(s any) (string, error) {
-
-	var b bytes.Buffer
-	if err := gob.NewEncoder(&b).Encode(s); err != nil {
+	b, err := json.Marshal(s)
+	if err != nil {
 		return "", err
 	}
-	vv := sha256.Sum256(b.Bytes())
+	vv := sha256.Sum256(b)
 	return hex.EncodeToString(vv[:]), nil
 }
