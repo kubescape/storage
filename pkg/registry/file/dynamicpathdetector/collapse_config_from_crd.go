@@ -47,6 +47,8 @@ type CollapseSettings struct {
 	OpenDynamicThreshold     int
 	EndpointDynamicThreshold int
 	CollapseConfigs          []CollapseConfig
+	NetworkIPGroupThreshold  int
+	NetworkCIDRFloorBits     int
 }
 
 // DefaultCollapseSettings returns the built-in baseline. The returned
@@ -59,6 +61,8 @@ func DefaultCollapseSettings() CollapseSettings {
 		OpenDynamicThreshold:     OpenDynamicThreshold,
 		EndpointDynamicThreshold: EndpointDynamicThreshold,
 		CollapseConfigs:          DefaultCollapseConfigs(),
+		NetworkIPGroupThreshold:  NetworkIPGroupThreshold,
+		NetworkCIDRFloorBits:     NetworkCIDRFloorBits,
 	}
 }
 
@@ -74,7 +78,11 @@ func DefaultCollapseSettings() CollapseSettings {
 // >= 1 child" — updateNodeStats collapses on Count > threshold — silently
 // flattening every open/endpoint in every profile to a single ⋯. Treat a
 // non-positive global threshold as "use the compiled-in default" instead,
-// matching the absent-CR fallback the provider already performs.
+// matching the absent-CR fallback the provider already performs. The same
+// non-positive-means-default guard applies to NetworkIPGroupThreshold and
+// NetworkCIDRFloorBits: a literal 0 group threshold would CIDR-collapse
+// every NetworkNeighbor group, and a literal 0 floor would forbid any
+// aggregated CIDR block.
 func CollapseSettingsFromCRD(crd *softwarecomposition.CollapseConfiguration) CollapseSettings {
 	if crd == nil {
 		return DefaultCollapseSettings()
@@ -87,6 +95,14 @@ func CollapseSettingsFromCRD(crd *softwarecomposition.CollapseConfiguration) Col
 	if endpoint <= 0 {
 		endpoint = EndpointDynamicThreshold
 	}
+	networkIPGroup := int(crd.Spec.NetworkIPGroupThreshold)
+	if networkIPGroup <= 0 {
+		networkIPGroup = NetworkIPGroupThreshold
+	}
+	networkCIDRFloor := int(crd.Spec.NetworkCIDRFloorBits)
+	if networkCIDRFloor <= 0 {
+		networkCIDRFloor = NetworkCIDRFloorBits
+	}
 	configs := make([]CollapseConfig, len(crd.Spec.CollapseConfigs))
 	for i, entry := range crd.Spec.CollapseConfigs {
 		configs[i] = CollapseConfig{
@@ -98,6 +114,8 @@ func CollapseSettingsFromCRD(crd *softwarecomposition.CollapseConfiguration) Col
 		OpenDynamicThreshold:     open,
 		EndpointDynamicThreshold: endpoint,
 		CollapseConfigs:          configs,
+		NetworkIPGroupThreshold:  networkIPGroup,
+		NetworkCIDRFloorBits:     networkCIDRFloor,
 	}
 }
 
@@ -121,6 +139,8 @@ func CRDFromCollapseSettings(name string, settings CollapseSettings) *softwareco
 			OpenDynamicThreshold:     clampInt32(settings.OpenDynamicThreshold),
 			EndpointDynamicThreshold: clampInt32(settings.EndpointDynamicThreshold),
 			CollapseConfigs:          entries,
+			NetworkIPGroupThreshold:  clampInt32(settings.NetworkIPGroupThreshold),
+			NetworkCIDRFloorBits:     clampInt32(settings.NetworkCIDRFloorBits),
 		},
 	}
 }

@@ -146,6 +146,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// read the CR, processors are baked into the storage backend.
 	applicationProfileProcessor := file.NewApplicationProfileProcessor(c.ExtraConfig.StorageConfig)
 	containerProfileProcessor := file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.CleanupHandler)
+	networkNeighborhoodProcessor := file.NewNetworkNeighborhoodProcessor(c.ExtraConfig.StorageConfig)
 
 	var (
 		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
@@ -153,7 +154,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 		applicationProfileStorageBackend = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, applicationProfileProcessor)
 		applicationProfileStorageImpl    = file.NewApplicationProfileStorage(applicationProfileStorageBackend)
 		containerProfileStorageImpl      = file.NewContainerProfileRESTStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor))
-		networkNeighborhoodStorageImpl   = file.NewNetworkNeighborhoodStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, file.NewNetworkNeighborhoodProcessor(c.ExtraConfig.StorageConfig)))
+		networkNeighborhoodStorageImpl   = file.NewNetworkNeighborhoodStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, networkNeighborhoodProcessor))
 		configScanStorageImpl            = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage      = file.NewVulnerabilitySummaryStorage(storageImpl)
 		generatedNetworkPolicyStorage    = file.NewGeneratedNetworkPolicyStorage(storageImpl, networkNeighborhoodStorageImpl)
@@ -181,6 +182,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	collapseSettingsFromCRD := file.NewCRDCollapseSettingsProvider(applicationProfileStorageBackend)
 	applicationProfileProcessor.SetCollapseSettings(collapseSettingsFromCRD)
 	containerProfileProcessor.CollapseSettings = collapseSettingsFromCRD
+	networkNeighborhoodProcessor.SetCollapseSettings(collapseSettingsFromCRD)
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
 		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
 		"collapseconfigurations":              ep(collapseconfiguration.NewREST),

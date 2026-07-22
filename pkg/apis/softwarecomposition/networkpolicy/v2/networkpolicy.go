@@ -7,12 +7,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
+	"github.com/kubescape/storage/pkg/registry/file/networkmatch"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -337,7 +339,15 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 		}
 	}
 
-	if neighbor.IPAddress != "" {
+	skipPorts := false
+	if len(neighbor.IPAddresses) > 0 {
+		peers, refs := buildIPAddressesPeers(neighbor.IPAddresses, neighbor.DNS, knownServers)
+		egressRule.To = append(egressRule.To, peers...)
+		policyRefs = append(policyRefs, refs...)
+		if len(peers) == 0 && neighbor.PodSelector == nil && neighbor.NamespaceSelector == nil {
+			skipPorts = true
+		}
+	} else if neighbor.IPAddress != "" {
 		// look if this IP is part of any known server
 		if entries, contains := knownServers.Contains(net.ParseIP(neighbor.IPAddress)); contains {
 			for _, entry := range entries {
@@ -375,6 +385,10 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 				})
 			}
 		}
+	}
+
+	if skipPorts {
+		return egressRule, policyRefs
 	}
 
 	portMap := make(map[PortProtocolKey]bool)
@@ -416,7 +430,15 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 		}
 	}
 
-	if neighbor.IPAddress != "" {
+	skipPorts := false
+	if len(neighbor.IPAddresses) > 0 {
+		peers, refs := buildIPAddressesPeers(neighbor.IPAddresses, neighbor.DNS, knownServers)
+		ingressRule.From = append(ingressRule.From, peers...)
+		policyRefs = append(policyRefs, refs...)
+		if len(peers) == 0 && neighbor.PodSelector == nil && neighbor.NamespaceSelector == nil {
+			skipPorts = true
+		}
+	} else if neighbor.IPAddress != "" {
 		// look if this IP is part of any known server
 		if entries, ok := knownServers.Contains(net.ParseIP(neighbor.IPAddress)); ok {
 			for _, entry := range entries {
@@ -455,6 +477,10 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 		}
 	}
 
+	if skipPorts {
+		return ingressRule, policyRefs
+	}
+
 	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
@@ -471,6 +497,86 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 	}
 
 	return ingressRule, policyRefs
+}
+
+// buildIPAddressesPeers builds NetworkPolicyPeer/PolicyRef pairs from the plural
+// NetworkNeighbor.IPAddresses field, shared by generateEgressRule/generateIngressRule.
+func buildIPAddressesPeers(ipAddresses []string, dns string, knownServers softwarecomposition.IKnownServersFinder) ([]softwarecomposition.NetworkPolicyPeer, []softwarecomposition.PolicyRef) {
+	var peers []softwarecomposition.NetworkPolicyPeer
+	var policyRefs []softwarecomposition.PolicyRef
+
+	for _, entry := range ipAddresses {
+		if prefix, err := netip.ParsePrefix(entry); err == nil {
+			if !prefix.Addr().Is4() {
+				continue // IPv6 CIDR, out of scope (AC9)
+			}
+			peers = append(peers, softwarecomposition.NetworkPolicyPeer{
+				IPBlock: &softwarecomposition.IPBlock{CIDR: entry},
+			})
+			if dns != "" {
+				// no single original IP for a CIDR range
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
+					DNS:        dns,
+					IPBlock:    entry,
+					OriginalIP: "",
+				})
+			}
+			continue
+		}
+
+		if entry == networkmatch.AnyIPSentinel {
+			const anyCIDR = "0.0.0.0/0"
+			peers = append(peers, softwarecomposition.NetworkPolicyPeer{
+				IPBlock: &softwarecomposition.IPBlock{CIDR: anyCIDR},
+			})
+			if dns != "" {
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
+					DNS:        dns,
+					IPBlock:    anyCIDR,
+					OriginalIP: "",
+				})
+			}
+			continue
+		}
+
+		addr, err := netip.ParseAddr(entry)
+		if err != nil || !addr.Is4() {
+			continue // IPv6 or unparseable, out of scope (AC9)
+		}
+
+		// bare IPv4: mirror the singular IPAddress path exactly, including known-server enrichment
+		if entries, contains := knownServers.Contains(net.ParseIP(entry)); contains {
+			for _, ks := range entries {
+				peers = append(peers, softwarecomposition.NetworkPolicyPeer{
+					IPBlock: &softwarecomposition.IPBlock{CIDR: ks.GetIPBlock()},
+				})
+
+				policyRef := softwarecomposition.PolicyRef{
+					Name:       ks.GetName(),
+					OriginalIP: entry,
+					IPBlock:    ks.GetIPBlock(),
+					Server:     ks.GetServer(),
+				}
+				if dns != "" {
+					policyRef.DNS = dns
+				}
+				policyRefs = append(policyRefs, policyRef)
+			}
+		} else {
+			ipBlock := getSingleIP(entry)
+			peers = append(peers, softwarecomposition.NetworkPolicyPeer{IPBlock: ipBlock})
+
+			if dns != "" {
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
+					DNS:        dns,
+					IPBlock:    ipBlock.CIDR,
+					OriginalIP: entry,
+				})
+			}
+		}
+	}
+
+	return peers, policyRefs
 }
 
 func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {

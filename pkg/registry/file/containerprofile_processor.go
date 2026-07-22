@@ -911,8 +911,8 @@ func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileS
 			MatchLabels:      container.MatchLabels,
 			MatchExpressions: DeflateLabelSelectorRequirement(container.MatchExpressions),
 		},
-		Ingress: deflateNetworkNeighbors(container.Ingress),
-		Egress:  deflateNetworkNeighbors(container.Egress),
+		Ingress: deflateNetworkNeighbors(container.Ingress, settings),
+		Egress:  deflateNetworkNeighbors(container.Egress, settings),
 	}
 }
 

@@ -2026,6 +2026,228 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 	}
 }
 
+func TestGenerateEgressRule_IPAddresses(t *testing.T) {
+	tcpPort80 := []softwarecomposition.NetworkPort{
+		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+	}
+
+	tests := []struct {
+		name          string
+		neighbor      softwarecomposition.NetworkNeighbor
+		knownServers  []softwarecomposition.KnownServer
+		expectedTo    []softwarecomposition.NetworkPolicyPeer
+		expectedRefs  []softwarecomposition.PolicyRef
+		expectNoPorts bool
+	}{
+		{
+			name: "CIDR only produces IPBlock peer",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"10.0.0.0/16"},
+				Ports:       tcpPort80,
+			},
+			expectedTo: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.0.0.0/16"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{},
+		},
+		{
+			name: "any sentinel produces 0.0.0.0/0",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"*"},
+				Ports:       tcpPort80,
+			},
+			expectedTo: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "0.0.0.0/0"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{},
+		},
+		{
+			name: "bare IPv4 with known server match gets enrichment",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"1.2.3.4"},
+				Ports:       tcpPort80,
+			},
+			knownServers: []softwarecomposition.KnownServer{
+				{Spec: softwarecomposition.KnownServerSpec{
+					{IPBlock: "1.2.3.0/24", Name: "known-server", Server: "server-1"},
+				}},
+			},
+			expectedTo: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "1.2.3.0/24"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{
+				{Name: "known-server", OriginalIP: "1.2.3.4", IPBlock: "1.2.3.0/24", Server: "server-1"},
+			},
+		},
+		{
+			name: "bare IPv4 without known server match behaves like singular path",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"5.6.7.8"},
+				DNS:         "example.com",
+				Ports:       tcpPort80,
+			},
+			expectedTo: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "5.6.7.8/32"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{
+				{DNS: "example.com", IPBlock: "5.6.7.8/32", OriginalIP: "5.6.7.8"},
+			},
+		},
+		{
+			name: "all-IPv6 with no selector yields zero peers and no ports",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"2001:db8::1"},
+				Ports:       tcpPort80,
+			},
+			expectedTo:    nil,
+			expectedRefs:  []softwarecomposition.PolicyRef{},
+			expectNoPorts: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			knownServers := softwarecomposition.NewKnownServersFinderImpl(tt.knownServers)
+			rule, refs := generateEgressRule(tt.neighbor, knownServers)
+
+			assert.Equal(t, tt.expectedTo, rule.To)
+			assert.Equal(t, tt.expectedRefs, refs)
+			if tt.expectNoPorts {
+				assert.Empty(t, rule.Ports)
+			} else {
+				assert.NotEmpty(t, rule.Ports)
+			}
+		})
+	}
+}
+
+func TestGenerateIngressRule_IPAddresses(t *testing.T) {
+	tcpPort80 := []softwarecomposition.NetworkPort{
+		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+	}
+
+	tests := []struct {
+		name          string
+		neighbor      softwarecomposition.NetworkNeighbor
+		knownServers  []softwarecomposition.KnownServer
+		expectedFrom  []softwarecomposition.NetworkPolicyPeer
+		expectedRefs  []softwarecomposition.PolicyRef
+		expectNoPorts bool
+	}{
+		{
+			name: "CIDR only produces IPBlock peer",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"10.0.0.0/16"},
+				Ports:       tcpPort80,
+			},
+			expectedFrom: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.0.0.0/16"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{},
+		},
+		{
+			name: "any sentinel produces 0.0.0.0/0",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"*"},
+				Ports:       tcpPort80,
+			},
+			expectedFrom: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "0.0.0.0/0"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{},
+		},
+		{
+			name: "bare IPv4 with known server match gets enrichment",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"1.2.3.4"},
+				Ports:       tcpPort80,
+			},
+			knownServers: []softwarecomposition.KnownServer{
+				{Spec: softwarecomposition.KnownServerSpec{
+					{IPBlock: "1.2.3.0/24", Name: "known-server", Server: "server-1"},
+				}},
+			},
+			expectedFrom: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "1.2.3.0/24"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{
+				{Name: "known-server", OriginalIP: "1.2.3.4", IPBlock: "1.2.3.0/24", Server: "server-1"},
+			},
+		},
+		{
+			name: "bare IPv4 without known server match behaves like singular path",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"5.6.7.8"},
+				DNS:         "example.com",
+				Ports:       tcpPort80,
+			},
+			expectedFrom: []softwarecomposition.NetworkPolicyPeer{
+				{IPBlock: &softwarecomposition.IPBlock{CIDR: "5.6.7.8/32"}},
+			},
+			expectedRefs: []softwarecomposition.PolicyRef{
+				{DNS: "example.com", IPBlock: "5.6.7.8/32", OriginalIP: "5.6.7.8"},
+			},
+		},
+		{
+			name: "all-IPv6 with no selector yields zero peers and no ports",
+			neighbor: softwarecomposition.NetworkNeighbor{
+				IPAddresses: []string{"2001:db8::1"},
+				Ports:       tcpPort80,
+			},
+			expectedFrom:  nil,
+			expectedRefs:  []softwarecomposition.PolicyRef{},
+			expectNoPorts: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			knownServers := softwarecomposition.NewKnownServersFinderImpl(tt.knownServers)
+			rule, refs := generateIngressRule(tt.neighbor, knownServers)
+
+			assert.Equal(t, tt.expectedFrom, rule.From)
+			assert.Equal(t, tt.expectedRefs, refs)
+			if tt.expectNoPorts {
+				assert.Empty(t, rule.Ports)
+			} else {
+				assert.NotEmpty(t, rule.Ports)
+			}
+		})
+	}
+}
+
+// TestGenerateEgressRule_IPAddressVsIPAddresses confirms a bare-IP element of the
+// plural IPAddresses field produces the same peer/PolicyRef shape as an equivalent
+// singular IPAddress entry, including known-server enrichment (AC12).
+func TestGenerateEgressRule_IPAddressVsIPAddresses(t *testing.T) {
+	knownServers := softwarecomposition.NewKnownServersFinderImpl([]softwarecomposition.KnownServer{
+		{Spec: softwarecomposition.KnownServerSpec{
+			{IPBlock: "1.2.3.0/24", Name: "known-server", Server: "server-1"},
+		}},
+	})
+
+	singular := softwarecomposition.NetworkNeighbor{
+		IPAddress: "1.2.3.4",
+		DNS:       "example.com",
+		Ports: []softwarecomposition.NetworkPort{
+			{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+		},
+	}
+	plural := softwarecomposition.NetworkNeighbor{
+		IPAddresses: []string{"1.2.3.4"},
+		DNS:         "example.com",
+		Ports: []softwarecomposition.NetworkPort{
+			{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+		},
+	}
+
+	singularRule, singularRefs := generateEgressRule(singular, knownServers)
+	pluralRule, pluralRefs := generateEgressRule(plural, knownServers)
+
+	assert.Equal(t, singularRule.To, pluralRule.To)
+	assert.Equal(t, singularRefs, pluralRefs)
+}
+
 func TestGetSingleIP(t *testing.T) {
 	ipAddress := "192.168.1.1"
 	expected := &softwarecomposition.IPBlock{CIDR: "192.168.1.1/32"}

@@ -65,6 +65,19 @@ type CollapseConfigurationSpec struct {
 	// +listType=map
 	// +listMapKey=prefix
 	CollapseConfigs []CollapseConfigEntry `json:"collapseConfigs,omitempty" protobuf:"bytes,3,rep,name=collapseConfigs"`
+	// NetworkIPGroupThreshold is the count threshold above which a group of
+	// NetworkNeighbor entries (sharing Type/DNS/selectors, differing only by
+	// IP) gets CIDR-collapsed. Optional: when omitted (decodes to 0) or
+	// explicitly set to 0, the deflate path uses the compiled-in default
+	// rather than a literal 0 — a 0 threshold would collapse every group of
+	// size 1. See CollapseSettingsFromCRD.
+	// +optional
+	NetworkIPGroupThreshold int32 `json:"networkIPGroupThreshold,omitempty" protobuf:"varint,4,opt,name=networkIPGroupThreshold"`
+	// NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum
+	// breadth) a single aggregated block may have. Optional with the same
+	// omitted/0-means-compiled-default semantics as NetworkIPGroupThreshold.
+	// +optional
+	NetworkCIDRFloorBits int32 `json:"networkCIDRFloorBits,omitempty" protobuf:"varint,5,opt,name=networkCIDRFloorBits"`
 }
 
 // CollapseConfigEntry is one per-prefix threshold override.

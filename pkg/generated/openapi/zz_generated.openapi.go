@@ -925,6 +925,20 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationSpec(ref c
 							},
 						},
 					},
+					"networkIPGroupThreshold": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkIPGroupThreshold is the count threshold above which a group of NetworkNeighbor entries (sharing Type/DNS/selectors, differing only by IP) gets CIDR-collapsed. Optional: when omitted (decodes to 0) or explicitly set to 0, the deflate path uses the compiled-in default rather than a literal 0 — a 0 threshold would collapse every group of size 1. See CollapseSettingsFromCRD.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"networkCIDRFloorBits": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum breadth) a single aggregated block may have. Optional with the same omitted/0-means-compiled-default semantics as NetworkIPGroupThreshold.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},
