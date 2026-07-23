@@ -198,6 +198,8 @@ func TestCollapseSettings_FullRoundTrip(t *testing.T) {
 		Spec: softwarecomposition.CollapseConfigurationSpec{
 			OpenDynamicThreshold:     50,
 			EndpointDynamicThreshold: 100,
+			NetworkIPGroupThreshold:  50,
+			NetworkCIDRFloorBits:     16,
 			CollapseConfigs: []softwarecomposition.CollapseConfigEntry{
 				{Prefix: "/etc", Threshold: 100},
 				{Prefix: "/var/run", Threshold: 50},

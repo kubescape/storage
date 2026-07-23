@@ -21,9 +21,15 @@ const (
 // OpenDynamicThreshold is the fallback threshold used by AnalyzeOpens when
 // no more-specific CollapseConfig matches the walked path prefix.
 // EndpointDynamicThreshold is the counterpart for AnalyzeEndpoints.
+// NetworkIPGroupThreshold is the count threshold above which a group of
+// NetworkNeighbor entries differing only by IP gets CIDR-collapsed.
+// NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum breadth)
+// a single aggregated block may have.
 const (
 	OpenDynamicThreshold     = 50
 	EndpointDynamicThreshold = 100
+	NetworkIPGroupThreshold  = 50
+	NetworkCIDRFloorBits     = 24
 )
 
 // --- Collapse configuration ---

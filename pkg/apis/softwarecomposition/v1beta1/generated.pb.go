@@ -1058,6 +1058,12 @@ func (m *CollapseConfigurationSpec) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	_ = i
 	var l int
 	_ = l
+	i = encodeVarintGenerated(dAtA, i, uint64(m.NetworkCIDRFloorBits))
+	i--
+	dAtA[i] = 0x28
+	i = encodeVarintGenerated(dAtA, i, uint64(m.NetworkIPGroupThreshold))
+	i--
+	dAtA[i] = 0x20
 	if len(m.CollapseConfigs) > 0 {
 		for iNdEx := len(m.CollapseConfigs) - 1; iNdEx >= 0; iNdEx-- {
 			{
@@ -9260,6 +9266,8 @@ func (m *CollapseConfigurationSpec) Size() (n int) {
 			n += 1 + l + sovGenerated(uint64(l))
 		}
 	}
+	n += 1 + sovGenerated(uint64(m.NetworkIPGroupThreshold))
+	n += 1 + sovGenerated(uint64(m.NetworkCIDRFloorBits))
 	return n
 }
 
@@ -12447,6 +12455,8 @@ func (this *CollapseConfigurationSpec) String() string {
 		`OpenDynamicThreshold:` + fmt.Sprintf("%v", this.OpenDynamicThreshold) + `,`,
 		`EndpointDynamicThreshold:` + fmt.Sprintf("%v", this.EndpointDynamicThreshold) + `,`,
 		`CollapseConfigs:` + repeatedStringForCollapseConfigs + `,`,
+		`NetworkIPGroupThreshold:` + fmt.Sprintf("%v", this.NetworkIPGroupThreshold) + `,`,
+		`NetworkCIDRFloorBits:` + fmt.Sprintf("%v", this.NetworkCIDRFloorBits) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -16848,6 +16858,44 @@ func (m *CollapseConfigurationSpec) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NetworkIPGroupThreshold", wireType)
+			}
+			m.NetworkIPGroupThreshold = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NetworkIPGroupThreshold |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NetworkCIDRFloorBits", wireType)
+			}
+			m.NetworkCIDRFloorBits = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NetworkCIDRFloorBits |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenerated(dAtA[iNdEx:])

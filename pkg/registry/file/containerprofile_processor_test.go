@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
+	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +24,43 @@ import (
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
+
+func TestDeflateContainerProfileSpec_NetworkNeighborsCollapse(t *testing.T) {
+	const hostCount = 60
+	newIngress := func() []softwarecomposition.NetworkNeighbor {
+		ingress := make([]softwarecomposition.NetworkNeighbor, 0, hostCount)
+		for i := 1; i <= hostCount; i++ {
+			ingress = append(ingress, softwarecomposition.NetworkNeighbor{
+				Identifier: fmt.Sprintf("external-%d", i),
+				Type:       "external",
+				IPAddress:  fmt.Sprintf("10.0.0.%d", i),
+				Ports:      []softwarecomposition.NetworkPort{{Name: "80"}},
+			})
+		}
+		return ingress
+	}
+
+	settings := dynamicpathdetector.CollapseSettings{
+		NetworkIPGroupThreshold: 10,
+		NetworkCIDRFloorBits:    24,
+	}
+
+	container := softwarecomposition.ContainerProfileSpec{
+		Ingress: newIngress(),
+	}
+
+	result := DeflateContainerProfileSpec(container, nil, settings)
+
+	assert.Len(t, result.Ingress, 1, "expected all same-group host IPs to collapse into a single CIDR entry")
+	assert.Empty(t, result.Ingress[0].IPAddress)
+	assert.Equal(t, []string{"10.0.0.0/26"}, result.Ingress[0].IPAddresses)
+	assert.Equal(t, []softwarecomposition.NetworkPort{{Name: "80"}}, result.Ingress[0].Ports)
+
+	// Confirm both call sites (NetworkNeighborhoodProcessor's deflateNetworkNeighbors
+	// and DeflateContainerProfileSpec's) collapse identically given the same settings.
+	directResult := deflateNetworkNeighbors(newIngress(), settings)
+	assert.Equal(t, directResult, result.Ingress)
+}
 
 func TestConsolidateData(t *testing.T) {
 	// Prepare pool and connection

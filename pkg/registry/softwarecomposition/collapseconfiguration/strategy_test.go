@@ -45,6 +45,8 @@ func TestValidate_Valid(t *testing.T) {
 		Spec: softwarecomposition.CollapseConfigurationSpec{
 			OpenDynamicThreshold:     50,
 			EndpointDynamicThreshold: 100,
+			NetworkIPGroupThreshold:  50,
+			NetworkCIDRFloorBits:     16,
 			CollapseConfigs: []softwarecomposition.CollapseConfigEntry{
 				{Prefix: "/etc", Threshold: 100},
 				{Prefix: "/var/log", Threshold: 50},
@@ -68,6 +70,62 @@ func TestValidate_NegativeThresholds(t *testing.T) {
 	errs := s.Validate(context.Background(), cc)
 	if len(errs) != 2 {
 		t.Fatalf("expected 2 errors for the two negative defaults, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_NetworkFieldsZeroMeansDefault(t *testing.T) {
+	s := NewStrategy(newScheme())
+	cc := &softwarecomposition.CollapseConfiguration{
+		Spec: softwarecomposition.CollapseConfigurationSpec{
+			NetworkIPGroupThreshold: 0,
+			NetworkCIDRFloorBits:    0,
+		},
+	}
+	if errs := s.Validate(context.Background(), cc); len(errs) != 0 {
+		t.Fatalf("expected zero network fields to be accepted as use-default, got: %v", errs)
+	}
+}
+
+func TestValidate_NetworkIPGroupThresholdNegative(t *testing.T) {
+	s := NewStrategy(newScheme())
+	cc := &softwarecomposition.CollapseConfiguration{
+		Spec: softwarecomposition.CollapseConfigurationSpec{
+			NetworkIPGroupThreshold: -1,
+		},
+	}
+	errs := s.Validate(context.Background(), cc)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error for negative NetworkIPGroupThreshold, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_NetworkCIDRFloorBitsRange(t *testing.T) {
+	s := NewStrategy(newScheme())
+	for _, tc := range []struct {
+		name    string
+		value   int32
+		wantErr bool
+	}{
+		{"zero-is-default", 0, false},
+		{"min-valid", 1, false},
+		{"max-valid", 32, false},
+		{"negative", -1, true},
+		{"above-32", 33, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cc := &softwarecomposition.CollapseConfiguration{
+				Spec: softwarecomposition.CollapseConfigurationSpec{
+					NetworkCIDRFloorBits: tc.value,
+				},
+			}
+			errs := s.Validate(context.Background(), cc)
+			if tc.wantErr && len(errs) == 0 {
+				t.Fatalf("expected an error for NetworkCIDRFloorBits=%d, got none", tc.value)
+			}
+			if !tc.wantErr && len(errs) != 0 {
+				t.Fatalf("expected no error for NetworkCIDRFloorBits=%d, got: %v", tc.value, errs)
+			}
+		})
 	}
 }
 

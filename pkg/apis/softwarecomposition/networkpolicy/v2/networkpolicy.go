@@ -1,18 +1,19 @@
 package networkpolicy
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy"
+	"github.com/kubescape/storage/pkg/registry/file/networkmatch"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -161,6 +162,18 @@ func listEgressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []s
 
 }
 
+// containsIPBlockPeer reports whether peers already contains an entry with the given CIDR.
+// Used to avoid duplicate peer entries when merging rules that reference the same IP
+// from multiple distinct NetworkNeighbor entries (e.g. the same peer seen across containers).
+func containsIPBlockPeer(peers []softwarecomposition.NetworkPolicyPeer, cidr string) bool {
+	for _, existing := range peers {
+		if existing.IPBlock != nil && existing.IPBlock.CIDR == cidr {
+			return true
+		}
+	}
+	return false
+}
+
 func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRule) []softwarecomposition.NetworkPolicyIngressRule {
 	type PortProtocolKey struct {
 		Port     int32
@@ -194,7 +207,10 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 				keys = append(keys, key)
 			}
 			for _, peer := range rule.From {
-				if peer.IPBlock != nil {
+				if peer.IPBlock == nil {
+					continue
+				}
+				if !containsIPBlockPeer(merged[key], peer.IPBlock.CIDR) {
 					merged[key] = append(merged[key], peer)
 				}
 			}
@@ -277,7 +293,10 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 				keys = append(keys, key)
 			}
 			for _, peer := range rule.To {
-				if peer.IPBlock != nil {
+				if peer.IPBlock == nil {
+					continue
+				}
+				if !containsIPBlockPeer(merged[key], peer.IPBlock.CIDR) {
 					merged[key] = append(merged[key], peer)
 				}
 			}
@@ -337,7 +356,15 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 		}
 	}
 
-	if neighbor.IPAddress != "" {
+	skipPorts := false
+	if len(neighbor.IPAddresses) > 0 {
+		peers, refs := buildIPAddressesPeers(neighbor.IPAddresses, neighbor.DNS, knownServers)
+		egressRule.To = append(egressRule.To, peers...)
+		policyRefs = append(policyRefs, refs...)
+		if len(peers) == 0 && neighbor.PodSelector == nil && neighbor.NamespaceSelector == nil {
+			skipPorts = true
+		}
+	} else if neighbor.IPAddress != "" {
 		// look if this IP is part of any known server
 		if entries, contains := knownServers.Contains(net.ParseIP(neighbor.IPAddress)); contains {
 			for _, entry := range entries {
@@ -375,6 +402,10 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 				})
 			}
 		}
+	}
+
+	if skipPorts {
+		return egressRule, policyRefs
 	}
 
 	portMap := make(map[PortProtocolKey]bool)
@@ -416,7 +447,15 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 		}
 	}
 
-	if neighbor.IPAddress != "" {
+	skipPorts := false
+	if len(neighbor.IPAddresses) > 0 {
+		peers, refs := buildIPAddressesPeers(neighbor.IPAddresses, neighbor.DNS, knownServers)
+		ingressRule.From = append(ingressRule.From, peers...)
+		policyRefs = append(policyRefs, refs...)
+		if len(peers) == 0 && neighbor.PodSelector == nil && neighbor.NamespaceSelector == nil {
+			skipPorts = true
+		}
+	} else if neighbor.IPAddress != "" {
 		// look if this IP is part of any known server
 		if entries, ok := knownServers.Contains(net.ParseIP(neighbor.IPAddress)); ok {
 			for _, entry := range entries {
@@ -455,6 +494,10 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 		}
 	}
 
+	if skipPorts {
+		return ingressRule, policyRefs
+	}
+
 	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
@@ -471,6 +514,86 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 	}
 
 	return ingressRule, policyRefs
+}
+
+// buildIPAddressesPeers builds NetworkPolicyPeer/PolicyRef pairs from the plural
+// NetworkNeighbor.IPAddresses field, shared by generateEgressRule/generateIngressRule.
+func buildIPAddressesPeers(ipAddresses []string, dns string, knownServers softwarecomposition.IKnownServersFinder) ([]softwarecomposition.NetworkPolicyPeer, []softwarecomposition.PolicyRef) {
+	var peers []softwarecomposition.NetworkPolicyPeer
+	var policyRefs []softwarecomposition.PolicyRef
+
+	for _, entry := range ipAddresses {
+		if prefix, err := netip.ParsePrefix(entry); err == nil {
+			if !prefix.Addr().Is4() {
+				continue // IPv6 CIDR, out of scope (AC9)
+			}
+			peers = append(peers, softwarecomposition.NetworkPolicyPeer{
+				IPBlock: &softwarecomposition.IPBlock{CIDR: entry},
+			})
+			if dns != "" {
+				// no single original IP for a CIDR range
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
+					DNS:        dns,
+					IPBlock:    entry,
+					OriginalIP: "",
+				})
+			}
+			continue
+		}
+
+		if entry == networkmatch.AnyIPSentinel {
+			const anyCIDR = "0.0.0.0/0"
+			peers = append(peers, softwarecomposition.NetworkPolicyPeer{
+				IPBlock: &softwarecomposition.IPBlock{CIDR: anyCIDR},
+			})
+			if dns != "" {
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
+					DNS:        dns,
+					IPBlock:    anyCIDR,
+					OriginalIP: "",
+				})
+			}
+			continue
+		}
+
+		addr, err := netip.ParseAddr(entry)
+		if err != nil || !addr.Is4() {
+			continue // IPv6 or unparseable, out of scope (AC9)
+		}
+
+		// bare IPv4: mirror the singular IPAddress path exactly, including known-server enrichment
+		if entries, contains := knownServers.Contains(net.ParseIP(entry)); contains {
+			for _, ks := range entries {
+				peers = append(peers, softwarecomposition.NetworkPolicyPeer{
+					IPBlock: &softwarecomposition.IPBlock{CIDR: ks.GetIPBlock()},
+				})
+
+				policyRef := softwarecomposition.PolicyRef{
+					Name:       ks.GetName(),
+					OriginalIP: entry,
+					IPBlock:    ks.GetIPBlock(),
+					Server:     ks.GetServer(),
+				}
+				if dns != "" {
+					policyRef.DNS = dns
+				}
+				policyRefs = append(policyRefs, policyRef)
+			}
+		} else {
+			ipBlock := getSingleIP(entry)
+			peers = append(peers, softwarecomposition.NetworkPolicyPeer{IPBlock: ipBlock})
+
+			if dns != "" {
+				policyRefs = append(policyRefs, softwarecomposition.PolicyRef{
+					DNS:        dns,
+					IPBlock:    ipBlock.CIDR,
+					OriginalIP: entry,
+				})
+			}
+		}
+	}
+
+	return peers, policyRefs
 }
 
 func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
@@ -498,12 +621,16 @@ func IsAvailable(nn *softwarecomposition.NetworkNeighborhood) bool {
 	}
 }
 
+// hash must be a deterministic function of s's contents: gob's map encoding follows Go's
+// randomized map iteration order, so gob-encoding a struct containing a map (e.g. a
+// LabelSelector's MatchLabels) previously produced a different byte sequence - and thus a
+// different hash - across otherwise-identical calls. json.Marshal sorts map keys, giving a
+// stable encoding regardless of map iteration order.
 func hash(s any) (string, error) {
-
-	var b bytes.Buffer
-	if err := gob.NewEncoder(&b).Encode(s); err != nil {
+	b, err := json.Marshal(s)
+	if err != nil {
 		return "", err
 	}
-	vv := sha256.Sum256(b.Bytes())
+	vv := sha256.Sum256(b)
 	return hex.EncodeToString(vv[:]), nil
 }

@@ -127,13 +127,16 @@ func (CollapseConfigurationStrategy) WarningsOnUpdate(_ context.Context, _, _ ru
 // rejects duplicate prefixes (which would silently produce a non-deterministic
 // longest-prefix-wins outcome at runtime).
 //
-// The two global thresholds are optional and only rejected when negative: 0
+// The global thresholds (OpenDynamicThreshold, EndpointDynamicThreshold,
+// NetworkIPGroupThreshold) are optional and only rejected when negative: 0
 // (or an omitted field) is a valid "use the compiled-in default" sentinel,
 // honored by CollapseSettingsFromCRD. This is deliberately more permissive
 // than the per-prefix entries (which require >= 1): a per-prefix entry is an
 // explicit override and has no default to fall back to, whereas an omitted
 // global threshold must not be treated as a literal 0 that collapses
-// everything.
+// everything. NetworkCIDRFloorBits shares the same 0-means-default sentinel
+// but additionally caps the valid non-zero range at [1,32], since it encodes
+// a CIDR prefix length rather than an unbounded count.
 func validateCollapseConfigurationSpec(spec *softwarecomposition.CollapseConfigurationSpec, fp *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec.OpenDynamicThreshold < 0 {
@@ -141,6 +144,12 @@ func validateCollapseConfigurationSpec(spec *softwarecomposition.CollapseConfigu
 	}
 	if spec.EndpointDynamicThreshold < 0 {
 		errs = append(errs, field.Invalid(fp.Child("endpointDynamicThreshold"), spec.EndpointDynamicThreshold, "must be >= 0 (0 means use the compiled-in default)"))
+	}
+	if spec.NetworkIPGroupThreshold < 0 {
+		errs = append(errs, field.Invalid(fp.Child("networkIPGroupThreshold"), spec.NetworkIPGroupThreshold, "must be >= 0 (0 means use the compiled-in default)"))
+	}
+	if spec.NetworkCIDRFloorBits < 0 || spec.NetworkCIDRFloorBits > 32 {
+		errs = append(errs, field.Invalid(fp.Child("networkCIDRFloorBits"), spec.NetworkCIDRFloorBits, "must be 0 (use the compiled-in default) or in the range [1,32]"))
 	}
 	seen := make(map[string]int, len(spec.CollapseConfigs))
 	cfgsPath := fp.Child("collapseConfigs")
