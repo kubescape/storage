@@ -79,8 +79,12 @@ func collapseIPGroups(entries []softwarecomposition.NetworkNeighbor, settings dy
 		}
 
 		cidrs := aggregateHosts(hosts, floorBits)
-		values := append(cidrs, passthrough...)
-		sort.Strings(values)
+		// Merge the freshly aggregated CIDR(s) with the group's already-collapsed
+		// pass-through CIDRs into a minimal set. Without this, incremental
+		// learning re-collapses newly observed hosts to a CIDR that duplicates or
+		// nests inside a block already held from an earlier save, producing garbage
+		// like [52.216.0.0/26, 52.216.0.0/26, 52.216.0.0/27].
+		values := minimizeCIDRs(append(cidrs, passthrough...))
 
 		var dnsNames []string
 		var ports []softwarecomposition.NetworkPort
@@ -169,6 +173,60 @@ func aggregateHosts(hosts []netip.Addr, floorBits int) []string {
 			out = append(out, cidr)
 		}
 	}
+	return out
+}
+
+// minimizeCIDRs reduces a set of address values to the smallest equivalent set:
+// CIDR values are deduplicated and any prefix wholly contained in a broader
+// prefix of the set is dropped. This keeps incremental re-collapsing a fixpoint
+// on the CIDR set — freshly aggregated blocks that duplicate or nest inside a
+// group's already-collapsed pass-through CIDRs are absorbed rather than
+// accumulated. Non-CIDR values (the "*" sentinel, IPv6, unparseable) are held
+// verbatim and deduplicated. The result is sorted.
+func minimizeCIDRs(values []string) []string {
+	seenPfx := map[string]struct{}{}
+	seenOther := map[string]struct{}{}
+	var prefixes []netip.Prefix
+	var others []string
+	for _, v := range values {
+		if p, err := netip.ParsePrefix(v); err == nil {
+			m := p.Masked()
+			key := m.String()
+			if _, ok := seenPfx[key]; ok {
+				continue
+			}
+			seenPfx[key] = struct{}{}
+			prefixes = append(prefixes, m)
+			continue
+		}
+		if _, ok := seenOther[v]; ok {
+			continue
+		}
+		seenOther[v] = struct{}{}
+		others = append(others, v)
+	}
+
+	out := make([]string, 0, len(prefixes)+len(others))
+	for i, a := range prefixes {
+		contained := false
+		for j, b := range prefixes {
+			if i == j {
+				continue
+			}
+			// A broader prefix (fewer bits) that covers a's network address
+			// subsumes a; drop a. Equal-width prefixes never subsume each other
+			// and identical prefixes are already deduplicated above.
+			if b.Bits() < a.Bits() && b.Contains(a.Addr()) {
+				contained = true
+				break
+			}
+		}
+		if !contained {
+			out = append(out, a.String())
+		}
+	}
+	out = append(out, others...)
+	sort.Strings(out)
 	return out
 }
 

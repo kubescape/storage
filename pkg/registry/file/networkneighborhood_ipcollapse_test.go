@@ -256,3 +256,52 @@ func TestCollapseIPGroups_IPv6PassThrough(t *testing.T) {
 func TestCollapseIPGroups_NilInput(t *testing.T) {
 	assert.Nil(t, collapseIPGroups(nil, testSettings()))
 }
+
+func TestCollapseIPGroups_IncrementalReCollapseDeduplicatesAndAbsorbs(t *testing.T) {
+	// Regression for the incremental-learning garbage [/26, /26, /27]: a group
+	// that already holds collapsed CIDRs from earlier saves (a /27 and a /26)
+	// plus freshly observed hosts that re-aggregate to 52.216.0.0/26 must
+	// converge to exactly one 52.216.0.0/26 — the duplicate /26 deduplicated and
+	// the nested /27 absorbed — instead of accumulating all three entries.
+	settings := dynamicpathdetector.CollapseSettings{
+		NetworkIPGroupThreshold: 5,
+		NetworkCIDRFloorBits:    16,
+	}
+	cidr := func(c string) softwarecomposition.NetworkNeighbor {
+		return softwarecomposition.NetworkNeighbor{
+			Type:        softwarecomposition.CommunicationTypeEgress,
+			DNS:         "example.com",
+			IPAddresses: []string{c},
+		}
+	}
+	in := []softwarecomposition.NetworkNeighbor{
+		cidr("52.216.0.0/27"),
+		cidr("52.216.0.0/26"),
+	}
+	for _, h := range []string{"52.216.0.1", "52.216.0.10", "52.216.0.20", "52.216.0.40", "52.216.0.55", "52.216.0.60"} {
+		in = append(in, hostNeighbor(h))
+	}
+
+	out := collapseIPGroups(in, settings)
+
+	var cidrs []string
+	for _, e := range out {
+		cidrs = append(cidrs, e.IPAddresses...)
+		assert.Empty(t, e.IPAddress)
+	}
+	assert.Equal(t, []string{"52.216.0.0/26"}, cidrs, "must converge to a single covering /26, not [/26 /26 /27]")
+}
+
+func TestMinimizeCIDRs_DropsDuplicatesAndSubsumed(t *testing.T) {
+	// exact duplicate + nested prefix + an unrelated block + non-CIDR sentinel
+	got := minimizeCIDRs([]string{
+		"52.216.0.0/26", "52.216.0.0/27", "52.216.0.0/26",
+		"10.0.0.0/24", "*",
+	})
+	assert.Equal(t, []string{"*", "10.0.0.0/24", "52.216.0.0/26"}, got)
+}
+
+func TestMinimizeCIDRs_KeepsDisjointEqualWidth(t *testing.T) {
+	got := minimizeCIDRs([]string{"10.1.0.0/24", "10.2.0.0/24"})
+	assert.Equal(t, []string{"10.1.0.0/24", "10.2.0.0/24"}, got)
+}
