@@ -8,7 +8,7 @@ The collapsing pass groups `NetworkNeighbor` entries that differ only by IP (sam
 
 Two new fields in the `CollapseConfiguration` CRD control this:
 - `NetworkIPGroupThreshold` (default 50): group size threshold above which IP collapsing is triggered.
-- `NetworkCIDRFloorBits` (default 16): minimum CIDR prefix length — no emitted block is ever broader than `/<floorBits>`.
+- `NetworkCIDRFloorBits` (default 24): minimum CIDR prefix length — no emitted block is ever broader than `/<floorBits>`.
 
 The pass is a **fixpoint**: running it twice on the same input is guaranteed to produce the same output, so collapsed entries remain stable across successive saves without oscillation or duplication.
 
@@ -29,8 +29,8 @@ Collapsing reduces entry count by orders of magnitude for traffic aimed at cloud
 
 **Aggregation**: If a group's count of aggregatable IPv4 host addresses exceeds `NetworkIPGroupThreshold`:
 1. Compute the smallest covering prefix (common leading bits across all hosts).
-2. If that prefix's length is at least `NetworkCIDRFloorBits` (e.g., `/16` or longer), emit it as-is.
-3. If it would be broader than `NetworkCIDRFloorBits`, split the group into floor-length buckets (e.g., `/16` buckets) and emit one CIDR entry per non-empty bucket.
+2. If that prefix's length is at least `NetworkCIDRFloorBits` (e.g., `/24` or longer), emit it as-is.
+3. If it would be broader than `NetworkCIDRFloorBits`, split the group into floor-length buckets (e.g., `/24` buckets) and emit one CIDR entry per non-empty bucket.
 
 **Output entries**: Each emitted CIDR entry carries:
 - The computed CIDR block(s) in `IPAddresses`.
@@ -47,9 +47,9 @@ Collapsing reduces entry count by orders of magnitude for traffic aimed at cloud
 
 ## Scope / limitations
 
-**Held-stable CIDRs do not retroactively re-narrow when floor is tightened**: If an operator later changes `NetworkCIDRFloorBits` from 16 to 24 (smaller blocks, higher precision), already-emitted `/16` blocks are held stable for idempotency and won't be split retroactively. They persist until that group naturally re-collapses (e.g., new IPs arrive, triggering re-aggregation). This is an intentional trade-off: predictable idempotency wins over floor freshness for held entries.
+**Held-stable CIDRs do not retroactively re-narrow when floor is tightened**: If an operator later changes `NetworkCIDRFloorBits` from 24 to 28 (smaller blocks, higher precision), already-emitted `/24` blocks are held stable for idempotency and won't be split retroactively. They persist until that group naturally re-collapses (e.g., new IPs arrive, triggering re-aggregation). This is an intentional trade-off: predictable idempotency wins over floor freshness for held entries.
 
-**New host IPs inside an already-held CIDR are not immediately absorbed**: If a `/16` block covers `192.168.0.0/16` and new traffic arrives to `192.168.5.100` (which falls inside that CIDR), the new IP persists as a separate entry until its own group independently exceeds the threshold. Entry-count creep is bounded by `NetworkIPGroupThreshold` and the existing merge logic, so this is not unbounded.
+**New host IPs inside an already-held CIDR are not immediately absorbed**: If a `/24` block covers `192.168.0.0/24` and new traffic arrives to `192.168.0.200` (which falls inside that CIDR), the new IP persists as a separate entry until its own group independently exceeds the threshold. Entry-count creep is bounded by `NetworkIPGroupThreshold` and the existing merge logic, so this is not unbounded.
 
 **CIDR/`"*"` peers skip known-server enrichment**: A CIDR block is a range, not a single IP, so it cannot be looked up in the known-servers registry. CIDR and `"*"` entries produce bare `IPBlock` peers without the `PolicyRef` name/server enrichment that singular IPs enjoy. Bare-IP elements of the plural `IPAddresses` field retain full known-server matching identical to the singular-field path.
 
@@ -69,16 +69,18 @@ spec:
 
   # IP collapsing thresholds (optional; omit or set to 0 for defaults)
   networkIPGroupThreshold: 50     # Collapse groups of 50+ hosts
-  networkCIDRFloorBits: 16        # No block narrower than /16
+  networkCIDRFloorBits: 24        # No block narrower than /24
 ```
 
-Zero or omitted values use the compiled-in defaults (50 and 16 respectively). No operator restart is required; the provider reads the singleton at each request.
+Zero or omitted values use the compiled-in defaults (50 and 24 respectively). No operator restart is required; the provider reads the singleton at each request.
+
+The default floor was chosen to favor precision over maximum compaction: on the real-world 8,687-entry case that motivated this feature, a `/24` floor collapses it to ~341 entries (a `/16` floor would collapse to ~10, but at the cost of much broader, less precise CIDR blocks). Lower `networkCIDRFloorBits` (e.g. `16`) for more aggressive compaction if entry count matters more than block precision in your environment.
 
 ## Verifying
 
 **Entry count**: Compare entry counts before and after enabling the feature on a real profile with external traffic. A profile with 8,687 external-traffic entries should drop to a small number (typically hundreds or fewer CIDR entries, depending on traffic distribution).
 
-**CIDR breadth**: Inspect emitted `NetworkNeighbor` entries; no single `IPAddresses` CIDR block should exceed the configured floor (default `/16`).
+**CIDR breadth**: Inspect emitted `NetworkNeighbor` entries; no single `IPAddresses` CIDR block should exceed the configured floor (default `/24`).
 
 **Idempotency**: Run the collapse pass twice in succession (e.g., two sequential saves) on the same profile and assert the second pass's output is byte-identical to the first (fixpoint).
 

@@ -29,7 +29,7 @@ const (
 	OpenDynamicThreshold     = 50
 	EndpointDynamicThreshold = 100
 	NetworkIPGroupThreshold  = 50
-	NetworkCIDRFloorBits     = 16
+	NetworkCIDRFloorBits     = 24
 )
 
 // --- Collapse configuration ---
