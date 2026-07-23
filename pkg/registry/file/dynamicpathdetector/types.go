@@ -25,11 +25,21 @@ const (
 // NetworkNeighbor entries differing only by IP gets CIDR-collapsed.
 // NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum breadth)
 // a single aggregated block may have.
+// NetworkMaxCIDRSplitBits caps, PER prefix, how far a single cover block broader
+// than the floor is split into floor-width children: up to 2^NetworkMaxCIDRSplitBits
+// blocks (4096 here). A prefix whose split would exceed that is kept as-is rather
+// than exploding the entry list. This bounds ONE block's fan-out (not the sum
+// across a group — the whole neighborhood is separately capped by
+// MaxNetworkNeighborhoodSize); it only bites when a held pass-through block is
+// much broader than a tightened floor (e.g. a /16 under a /28 floor -> 4096
+// children; a /16 under a /24 floor is only 256). Not currently exposed as a
+// CollapseConfiguration field.
 const (
 	OpenDynamicThreshold     = 50
 	EndpointDynamicThreshold = 100
 	NetworkIPGroupThreshold  = 50
 	NetworkCIDRFloorBits     = 24
+	NetworkMaxCIDRSplitBits  = 12
 )
 
 // --- Collapse configuration ---

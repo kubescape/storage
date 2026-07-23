@@ -133,9 +133,9 @@ func TestNetworkNeighborhoodProcessor_PreSave(t *testing.T) {
 }
 
 func TestNetworkNeighborhoodProcessor_PreSave_IPCollapse(t *testing.T) {
-	const hostCount = 60
+	const hostCount = 64 // a fully-observed /26 (10.0.0.0..10.0.0.63)
 	ingress := make([]softwarecomposition.NetworkNeighbor, 0, hostCount)
-	for i := 1; i <= hostCount; i++ {
+	for i := 0; i < hostCount; i++ {
 		ingress = append(ingress, softwarecomposition.NetworkNeighbor{
 			Identifier: fmt.Sprintf("external-%d", i),
 			Type:       "external",
