@@ -9,6 +9,7 @@ import (
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
+	"go4.org/netipx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,14 +19,15 @@ const ipCollapseFieldSep = "\x00"
 // into a small number of CIDR-bearing entries. Entries are grouped by
 // (Type, DNS, NamespaceSelector, PodSelector); within a group whose count of
 // aggregatable IPv4 host addresses exceeds settings.NetworkIPGroupThreshold,
-// those hosts are replaced by covering CIDR block(s) no broader than
-// settings.NetworkCIDRFloorBits.
+// those hosts plus any already-collapsed pass-through CIDRs are replaced by the
+// minimal EXACT CIDR cover of exactly those addresses (see coverPrefixes), with
+// no block broader than settings.NetworkCIDRFloorBits. The cover never
+// over-approximates to a block the workload did not actually reach.
 //
-// The pass is a fixpoint (AC10): already-collapsed CIDR values and the "*"
-// sentinel / IPv6 values are treated as pass-through and are never re-parsed as
-// host IPs or re-tightened, and collapsed output carries a deterministic
-// Identifier, so a second run — whose groups now hold only CIDRs and thus have
-// zero aggregatable hosts — leaves everything untouched.
+// The pass is a fixpoint: an exact cover re-covered is itself, and the "*"
+// sentinel / bare IPv6 values are pass-through held verbatim, so a second run —
+// whose groups now hold only CIDRs and thus have zero aggregatable hosts —
+// leaves everything untouched.
 func collapseIPGroups(entries []softwarecomposition.NetworkNeighbor, settings dynamicpathdetector.CollapseSettings) []softwarecomposition.NetworkNeighbor {
 	if entries == nil {
 		return nil
@@ -78,13 +80,25 @@ func collapseIPGroups(entries []softwarecomposition.NetworkNeighbor, settings dy
 			continue
 		}
 
-		cidrs := aggregateHosts(hosts, floorBits)
-		// Merge the freshly aggregated CIDR(s) with the group's already-collapsed
-		// pass-through CIDRs into a minimal set. Without this, incremental
-		// learning re-collapses newly observed hosts to a CIDR that duplicates or
-		// nests inside a block already held from an earlier save, producing garbage
-		// like [52.216.0.0/26, 52.216.0.0/26, 52.216.0.0/27].
-		values := minimizeCIDRs(append(cidrs, passthrough...))
+		// Split pass-through into already-collapsed CIDRs (folded into the cover)
+		// and non-CIDR sentinels ("*", bare IPv6, unparseable) held verbatim.
+		var cidrPass []netip.Prefix
+		var sentinels []string
+		for _, v := range passthrough {
+			if p, err := netip.ParsePrefix(v); err == nil {
+				cidrPass = append(cidrPass, p.Masked())
+			} else {
+				sentinels = append(sentinels, v)
+			}
+		}
+
+		// Exact minimal CIDR cover of the hosts plus already-held CIDRs, capped at
+		// the floor. Because it is an exact cover, incremental re-collapsing is a
+		// fixpoint and never accumulates duplicate or nested blocks — the bug that
+		// produced [52.216.0.0/26, 52.216.0.0/26, 52.216.0.0/27].
+		values := coverPrefixes(hosts, cidrPass, floorBits)
+		values = append(values, sentinels...)
+		sort.Strings(values)
 
 		var dnsNames []string
 		var ports []softwarecomposition.NetworkPort
@@ -112,12 +126,13 @@ func collapseIPGroups(entries []softwarecomposition.NetworkNeighbor, settings dy
 	return out
 }
 
-// classifyGroupAddresses splits a group's address values into aggregatable IPv4
-// host addresses (deduped) and pass-through values held verbatim. An entry's
-// value comes from the singular IPAddress when set, otherwise from each element
-// of IPAddresses. CIDRs, the "*" sentinel, IPv6 and unparseable values are
-// pass-through and are never fed to aggregation, which is what makes the pass a
-// fixpoint on already-collapsed input.
+// classifyGroupAddresses splits a group's address values into aggregatable host
+// addresses (bare IPv4 or IPv6, deduped) and pass-through values held verbatim.
+// An entry's value comes from the singular IPAddress when set, otherwise from
+// each element of IPAddresses. The "*" sentinel and unparseable values are
+// pass-through; already-collapsed CIDRs are pass-through here but the caller
+// folds them back into the exact cover. Both address families are aggregated —
+// netipx covers IPv4 and IPv6 alike.
 func classifyGroupAddresses(entries []softwarecomposition.NetworkNeighbor) ([]netip.Addr, []string) {
 	seenHost := map[netip.Addr]struct{}{}
 	seenPass := map[string]struct{}{}
@@ -128,7 +143,7 @@ func classifyGroupAddresses(entries []softwarecomposition.NetworkNeighbor) ([]ne
 		if v == "" {
 			return
 		}
-		if addr, err := netip.ParseAddr(v); err == nil && addr.Is4() {
+		if addr, err := netip.ParseAddr(v); err == nil {
 			if _, ok := seenHost[addr]; !ok {
 				seenHost[addr] = struct{}{}
 				hosts = append(hosts, addr)
@@ -153,110 +168,72 @@ func classifyGroupAddresses(entries []softwarecomposition.NetworkNeighbor) ([]ne
 	return hosts, passthrough
 }
 
-// aggregateHosts returns the CIDR block(s) covering the given IPv4 hosts. If the
-// hosts share a common prefix at least as long as floorBits it is emitted as a
-// single block; otherwise each host is bucketed into a floorBits-length prefix
-// so no emitted block is ever broader than the floor.
-func aggregateHosts(hosts []netip.Addr, floorBits int) []string {
-	if len(hosts) == 0 {
+// coverPrefixes returns the minimal set of CIDR strings that covers EXACTLY the
+// given IPv4 host addresses together with the group's already-collapsed
+// pass-through CIDRs, capped so no prefix is broader than floorBits. netipx does
+// the aggregation — deduplicating, dropping subsumed prefixes and merging
+// adjacent siblings into the minimal exact cover in near-linear time — and any
+// resulting prefix broader than the floor is then split into floorBits-wide
+// children (all fully covered, since the parent lies wholly within the set).
+//
+// Because the cover is exact, it never over-approximates to a block the workload
+// did not actually reach, and re-running on already-collapsed input is a
+// fixpoint: no duplicate or nested blocks can accumulate across incremental
+// saves. The result is sorted.
+func coverPrefixes(hosts []netip.Addr, cidrPass []netip.Prefix, floorBits int) []string {
+	if len(hosts) == 0 && len(cidrPass) == 0 {
 		return nil
 	}
-	if commonLen := commonPrefixLen(hosts); commonLen >= floorBits {
-		return []string{netip.PrefixFrom(hosts[0], commonLen).Masked().String()}
+	var b netipx.IPSetBuilder
+	for _, h := range hosts {
+		b.Add(h)
 	}
-	seen := map[string]struct{}{}
+	for _, p := range cidrPass {
+		b.AddPrefix(p)
+	}
+	set, err := b.IPSet()
+	if err != nil || set == nil {
+		return nil
+	}
+
 	var out []string
-	for _, addr := range hosts {
-		cidr := netip.PrefixFrom(addr, floorBits).Masked().String()
-		if _, ok := seen[cidr]; !ok {
-			seen[cidr] = struct{}{}
-			out = append(out, cidr)
-		}
-	}
-	return out
-}
-
-// minimizeCIDRs reduces a set of address values to the smallest equivalent set:
-// CIDR values are deduplicated and any prefix wholly contained in a broader
-// prefix of the set is dropped. This keeps incremental re-collapsing a fixpoint
-// on the CIDR set — freshly aggregated blocks that duplicate or nest inside a
-// group's already-collapsed pass-through CIDRs are absorbed rather than
-// accumulated. Non-CIDR values (the "*" sentinel, IPv6, unparseable) are held
-// verbatim and deduplicated. The result is sorted.
-func minimizeCIDRs(values []string) []string {
-	seenPfx := map[string]struct{}{}
-	seenOther := map[string]struct{}{}
-	var prefixes []netip.Prefix
-	var others []string
-	for _, v := range values {
-		if p, err := netip.ParsePrefix(v); err == nil {
-			m := p.Masked()
-			key := m.String()
-			if _, ok := seenPfx[key]; ok {
-				continue
-			}
-			seenPfx[key] = struct{}{}
-			prefixes = append(prefixes, m)
+	for _, p := range set.Prefixes() {
+		// The floor is an IPv4 breadth cap; IPv6 covers are emitted as-is (a /24
+		// floor is meaningless for v6, whose covers are already narrow).
+		if p.Addr().Is4() && p.Bits() < floorBits {
+			out = append(out, splitToFloor(p, floorBits)...)
 			continue
 		}
-		if _, ok := seenOther[v]; ok {
-			continue
-		}
-		seenOther[v] = struct{}{}
-		others = append(others, v)
+		out = append(out, p.String())
 	}
-
-	out := make([]string, 0, len(prefixes)+len(others))
-	for i, a := range prefixes {
-		contained := false
-		for j, b := range prefixes {
-			if i == j {
-				continue
-			}
-			// A broader prefix (fewer bits) that covers a's network address
-			// subsumes a; drop a. Equal-width prefixes never subsume each other
-			// and identical prefixes are already deduplicated above.
-			if b.Bits() < a.Bits() && b.Contains(a.Addr()) {
-				contained = true
-				break
-			}
-		}
-		if !contained {
-			out = append(out, a.String())
-		}
-	}
-	out = append(out, others...)
 	sort.Strings(out)
 	return out
 }
 
-// commonPrefixLen returns the number of leading bits shared by every address in
-// the set. All addresses are assumed to be IPv4.
-func commonPrefixLen(addrs []netip.Addr) int {
-	base := addrs[0].As4()
-	common := 32
-	for _, addr := range addrs[1:] {
-		b := addr.As4()
-		n := 0
-		for i := 0; i < 4 && n < common; i++ {
-			x := base[i] ^ b[i]
-			if x == 0 {
-				n += 8
-				continue
-			}
-			for bit := 7; bit >= 0; bit-- {
-				if x&(1<<uint(bit)) != 0 {
-					break
-				}
-				n++
-			}
+// splitToFloor divides a prefix broader than floorBits into its floorBits-wide
+// children. If the fan-out would exceed 2^NetworkMaxCIDRSplitBits blocks the
+// prefix is returned unsplit, trading a strictly-honored floor for a bounded
+// entry count.
+func splitToFloor(p netip.Prefix, floorBits int) []string {
+	shift := floorBits - p.Bits()
+	if shift <= 0 {
+		return []string{p.String()}
+	}
+	if shift > dynamicpathdetector.NetworkMaxCIDRSplitBits {
+		return []string{p.String()}
+	}
+	count := 1 << shift
+	out := make([]string, 0, count)
+	child := netip.PrefixFrom(p.Addr(), floorBits).Masked()
+	for i := 0; i < count; i++ {
+		out = append(out, child.String())
+		next := netipx.RangeOfPrefix(child).To().Next()
+		if !next.IsValid() {
 			break
 		}
-		if n < common {
-			common = n
-		}
+		child = netip.PrefixFrom(next, floorBits).Masked()
 	}
-	return common
+	return out
 }
 
 func neighborGroupKey(n softwarecomposition.NetworkNeighbor) string {

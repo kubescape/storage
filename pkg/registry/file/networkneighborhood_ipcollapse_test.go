@@ -44,23 +44,23 @@ func TestCollapseIPGroups_BelowThresholdUntouched(t *testing.T) {
 }
 
 func TestCollapseIPGroups_AboveThresholdSingleCoveringCIDR(t *testing.T) {
-	// 60 hosts spread across the full third octet of 10.1.0.0/16 (0..236,
-	// spanning the top bit) -> common prefix exactly the floor (16) -> one block.
+	// A fully-observed /24 (all 256 hosts) exact-covers to exactly one /24 block.
 	var in []softwarecomposition.NetworkNeighbor
-	for i := 0; i < 60; i++ {
-		in = append(in, hostNeighbor(fmt.Sprintf("10.1.%d.0", i*4)))
+	for i := 0; i < 256; i++ {
+		in = append(in, hostNeighbor(fmt.Sprintf("10.1.5.%d", i)))
 	}
 
 	out := collapseIPGroups(in, testSettings())
 
 	require.Len(t, out, 1)
-	assert.Equal(t, []string{"10.1.0.0/16"}, out[0].IPAddresses)
+	assert.Equal(t, []string{"10.1.5.0/24"}, out[0].IPAddresses)
 	assert.Empty(t, out[0].IPAddress)
 }
 
-func TestCollapseIPGroups_AboveThresholdBroaderThanFloorBuckets(t *testing.T) {
-	// 60 hosts spread across many /16s -> common prefix broader than floor ->
-	// floor-bucket into distinct /16 blocks, none broader than the floor.
+func TestCollapseIPGroups_ScatteredHostsStayGranularAndCappedAtFloor(t *testing.T) {
+	// 60 lone hosts, each in its own /16 -> exact cover keeps them granular (one
+	// /32 apiece, since none are adjacent); no emitted block is broader than the
+	// floor, and the cover never over-approximates to a covering block.
 	var in []softwarecomposition.NetworkNeighbor
 	for i := 0; i < 60; i++ {
 		in = append(in, hostNeighbor(fmt.Sprintf("%d.%d.0.1", 10+i, i)))
@@ -110,12 +110,12 @@ func TestCollapseIPGroups_DifferentSelectorsNotMerged(t *testing.T) {
 		return &metav1.LabelSelector{MatchLabels: map[string]string{"app": v}}
 	}
 	var in []softwarecomposition.NetworkNeighbor
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 64; i++ { // a full /26 per selector -> one exact block each
 		e := hostNeighbor(fmt.Sprintf("10.3.0.%d", i))
 		e.PodSelector = sel("a")
 		in = append(in, e)
 	}
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 64; i++ {
 		e := hostNeighbor(fmt.Sprintf("10.3.0.%d", i))
 		e.PodSelector = sel("b")
 		in = append(in, e)
@@ -135,17 +135,18 @@ func TestCollapseIPGroups_DifferentSelectorsNotMerged(t *testing.T) {
 
 func TestCollapseIPGroups_RealWorldShapeOrdersOfMagnitude(t *testing.T) {
 	var in []softwarecomposition.NetworkNeighbor
-	// ~500 IPs clustered in 100.68.x.x
-	for i := 0; i < 250; i++ {
-		in = append(in, hostNeighbor(fmt.Sprintf("100.68.%d.%d", i/256, i%256)))
+	// 256 IPs fully covering 100.68.0.0/24
+	for i := 0; i < 256; i++ {
+		in = append(in, hostNeighbor(fmt.Sprintf("100.68.0.%d", i)))
 	}
-	// ~250 IPs clustered in 16.15.183.x plus neighboring /24s
-	for i := 0; i < 250; i++ {
-		in = append(in, hostNeighbor(fmt.Sprintf("16.15.%d.%d", 180+i/256, i%256)))
+	// 256 IPs fully covering 16.15.180.0/24
+	for i := 0; i < 256; i++ {
+		in = append(in, hostNeighbor(fmt.Sprintf("16.15.180.%d", i)))
 	}
 
 	out := collapseIPGroups(in, testSettings())
 
+	// 512 contiguous hosts exact-cover to a handful of blocks (two /24s here).
 	assert.Less(t, len(out), 10)
 	assert.Less(t, len(out), len(in)/50)
 	for _, e := range out {
@@ -175,7 +176,7 @@ func TestCollapseIPGroups_Idempotent(t *testing.T) {
 		DNS:         "example.com",
 		IPAddresses: []string{"*"},
 	})
-	// IPv6 entry
+	// IPv6 entry — a lone v6 host exact-covers to its /128
 	in = append(in, softwarecomposition.NetworkNeighbor{
 		Type:      softwarecomposition.CommunicationTypeEgress,
 		DNS:       "example.com",
@@ -187,14 +188,14 @@ func TestCollapseIPGroups_Idempotent(t *testing.T) {
 
 	assert.Equal(t, once, twice, "collapseIPGroups must be a fixpoint")
 
-	// pass-through values survived
+	// pass-through + covered values survived
 	var values []string
 	for _, e := range once {
 		values = append(values, e.IPAddresses...)
 	}
 	assert.Contains(t, values, "*")
 	assert.Contains(t, values, "200.0.0.0/16")
-	assert.Contains(t, values, "2001:db8::1")
+	assert.Contains(t, values, "2001:db8::1/128")
 }
 
 func TestCollapseIPGroups_FieldContract(t *testing.T) {
@@ -233,16 +234,17 @@ func TestCollapseIPGroups_MultiBucketReplicatesDNSNamesAndPorts(t *testing.T) {
 	}
 }
 
-func TestCollapseIPGroups_IPv6PassThrough(t *testing.T) {
+func TestCollapseIPGroups_IPv6Aggregated(t *testing.T) {
+	// A full IPv6 /120 (256 contiguous v6 hosts) exact-covers to that /120, and a
+	// lone v6 host to its /128 — alongside a v4 group, in one mixed-family pass.
 	var in []softwarecomposition.NetworkNeighbor
+	for i := 0; i < 256; i++ {
+		in = append(in, hostNeighbor(fmt.Sprintf("2606:4700:0:1::%x", i)))
+	}
+	in = append(in, hostNeighbor("2001:db8::42"))
 	for i := 0; i < 60; i++ {
 		in = append(in, hostNeighbor(fmt.Sprintf("10.5.0.%d", i)))
 	}
-	in = append(in, softwarecomposition.NetworkNeighbor{
-		Type:      softwarecomposition.CommunicationTypeEgress,
-		DNS:       "example.com",
-		IPAddress: "2001:db8::42",
-	})
 
 	out := collapseIPGroups(in, testSettings())
 
@@ -250,7 +252,45 @@ func TestCollapseIPGroups_IPv6PassThrough(t *testing.T) {
 	for _, e := range out {
 		values = append(values, e.IPAddresses...)
 	}
-	assert.Contains(t, values, "2001:db8::42")
+	assert.Contains(t, values, "2606:4700:0:1::/120", "contiguous v6 hosts aggregate")
+	assert.Contains(t, values, "2001:db8::42/128", "lone v6 host covers to /128")
+}
+
+func TestCoverPrefixes_IPv6ExactAndMerge(t *testing.T) {
+	// Two adjacent v6 /33 halves merge into the parent /32 (Cloudflare 2606:4700::/32),
+	// independent of any IPv4 floor.
+	got := coverPrefixes(nil, []netip.Prefix{
+		netip.MustParsePrefix("2606:4700::/33"),
+		netip.MustParsePrefix("2606:4700:8000::/33"),
+	}, 24)
+	assert.Equal(t, []string{"2606:4700::/32"}, got)
+}
+
+// TestCoverPrefixes_RealCloudRangesDedupAndMerge feeds netipx the kind of messy,
+// overlapping, non-aggregated CIDR lists cloud providers publish (a subsumed
+// range, two adjacent siblings that merge, and disjoint blocks across families)
+// and asserts the minimal exact cover.
+func TestCoverPrefixes_RealCloudRangesDedupAndMerge(t *testing.T) {
+	pass := []netip.Prefix{
+		// AWS S3 us-east-1: 52.216.0.0/15 subsumes the more specific 52.216.4.0/24
+		netip.MustParsePrefix("52.216.0.0/15"),
+		netip.MustParsePrefix("52.216.4.0/24"),
+		// Cloudflare: 104.16.0.0/13 subsumes 104.16.0.0/14
+		netip.MustParsePrefix("104.16.0.0/13"),
+		netip.MustParsePrefix("104.16.0.0/14"),
+		// Cloudflare v6 siblings that merge to a /31
+		netip.MustParsePrefix("2606:4700::/32"),
+		netip.MustParsePrefix("2606:4701::/32"),
+	}
+	// Permissive floor (/8) so the cap does not split these broad blocks — this
+	// isolates the dedup/merge behavior (the floor cap has its own test).
+	got := coverPrefixes(nil, pass, 8)
+	// sorted lexicographically (the collapse output order)
+	assert.Equal(t, []string{
+		"104.16.0.0/13",
+		"2606:4700::/31",
+		"52.216.0.0/15",
+	}, got)
 }
 
 func TestCollapseIPGroups_NilInput(t *testing.T) {
@@ -292,16 +332,30 @@ func TestCollapseIPGroups_IncrementalReCollapseDeduplicatesAndAbsorbs(t *testing
 	assert.Equal(t, []string{"52.216.0.0/26"}, cidrs, "must converge to a single covering /26, not [/26 /26 /27]")
 }
 
-func TestMinimizeCIDRs_DropsDuplicatesAndSubsumed(t *testing.T) {
-	// exact duplicate + nested prefix + an unrelated block + non-CIDR sentinel
-	got := minimizeCIDRs([]string{
-		"52.216.0.0/26", "52.216.0.0/27", "52.216.0.0/26",
-		"10.0.0.0/24", "*",
-	})
-	assert.Equal(t, []string{"*", "10.0.0.0/24", "52.216.0.0/26"}, got)
+func TestCoverPrefixes_ExactNoOverApproximation(t *testing.T) {
+	// Three non-adjacent hosts cover exactly {.1,.2,.3} — never a single /30
+	// (which would admit the unobserved .0).
+	hosts := []netip.Addr{
+		netip.MustParseAddr("52.216.0.1"),
+		netip.MustParseAddr("52.216.0.2"),
+		netip.MustParseAddr("52.216.0.3"),
+	}
+	got := coverPrefixes(hosts, nil, 16)
+	assert.Equal(t, []string{"52.216.0.1/32", "52.216.0.2/31"}, got)
 }
 
-func TestMinimizeCIDRs_KeepsDisjointEqualWidth(t *testing.T) {
-	got := minimizeCIDRs([]string{"10.1.0.0/24", "10.2.0.0/24"})
-	assert.Equal(t, []string{"10.1.0.0/24", "10.2.0.0/24"}, got)
+func TestCoverPrefixes_MergesAdjacentSiblings(t *testing.T) {
+	// The two /25 halves of a /24 merge into the single parent /24.
+	got := coverPrefixes(nil, []netip.Prefix{
+		netip.MustParsePrefix("10.0.0.0/25"),
+		netip.MustParsePrefix("10.0.0.128/25"),
+	}, 16)
+	assert.Equal(t, []string{"10.0.0.0/24"}, got)
+}
+
+func TestCoverPrefixes_FloorCapSplitsBroadBlock(t *testing.T) {
+	// A pass-through /22 under a /24 floor splits into its four /24 children;
+	// none is broader than the floor.
+	got := coverPrefixes(nil, []netip.Prefix{netip.MustParsePrefix("10.9.0.0/22")}, 24)
+	assert.Equal(t, []string{"10.9.0.0/24", "10.9.1.0/24", "10.9.2.0/24", "10.9.3.0/24"}, got)
 }
