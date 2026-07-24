@@ -57,10 +57,11 @@ func TestCollapseIPGroups_AboveThresholdSingleCoveringCIDR(t *testing.T) {
 	assert.Empty(t, out[0].IPAddress)
 }
 
-func TestCollapseIPGroups_ScatteredHostsStayGranularAndCappedAtFloor(t *testing.T) {
-	// 60 lone hosts, each in its own /16 -> exact cover keeps them granular (one
-	// /32 apiece, since none are adjacent); no emitted block is broader than the
-	// floor, and the cover never over-approximates to a covering block.
+func TestCollapseIPGroups_ScatteredHostsBucketedToFloor(t *testing.T) {
+	// 60 lone hosts, each in its own /16, do not share a common prefix as long as
+	// the floor, so each is bucketed into its floor-length (/16) network. Output
+	// is one block per distinct floor network — bounded by the number of networks
+	// reached, not the host count — and no block is broader than the floor.
 	var in []softwarecomposition.NetworkNeighbor
 	for i := 0; i < 60; i++ {
 		in = append(in, hostNeighbor(fmt.Sprintf("%d.%d.0.1", 10+i, i)))
@@ -68,12 +69,12 @@ func TestCollapseIPGroups_ScatteredHostsStayGranularAndCappedAtFloor(t *testing.
 
 	out := collapseIPGroups(in, testSettings())
 
-	assert.Greater(t, len(out), 1)
+	require.Len(t, out, 60, "one bucket per distinct /16")
 	for _, e := range out {
 		require.Len(t, e.IPAddresses, 1)
 		p, err := netip.ParsePrefix(e.IPAddresses[0])
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, p.Bits(), 16, "no emitted block may be broader than the floor")
+		assert.Equal(t, 16, p.Bits(), "each lone host is bucketed into its floor-length network")
 	}
 }
 
@@ -146,7 +147,9 @@ func TestCollapseIPGroups_RealWorldShapeOrdersOfMagnitude(t *testing.T) {
 
 	out := collapseIPGroups(in, testSettings())
 
-	// 512 contiguous hosts exact-cover to a handful of blocks (two /24s here).
+	// The two /24s fall in different /16s and share no common prefix as long as
+	// the /16 floor, so each is bucketed into its floor network: a handful of
+	// blocks (two /16s here), orders of magnitude below the host count.
 	assert.Less(t, len(out), 10)
 	assert.Less(t, len(out), len(in)/50)
 	for _, e := range out {
@@ -176,7 +179,8 @@ func TestCollapseIPGroups_Idempotent(t *testing.T) {
 		DNS:         "example.com",
 		IPAddresses: []string{"*"},
 	})
-	// IPv6 entry — a lone v6 host exact-covers to its /128
+	// IPv6 entry — held as a pass-through value verbatim (IPv6 is not aggregated,
+	// since policy generation consumes only IPv4 collapsed entries)
 	in = append(in, softwarecomposition.NetworkNeighbor{
 		Type:      softwarecomposition.CommunicationTypeEgress,
 		DNS:       "example.com",
@@ -195,7 +199,7 @@ func TestCollapseIPGroups_Idempotent(t *testing.T) {
 	}
 	assert.Contains(t, values, "*")
 	assert.Contains(t, values, "200.0.0.0/16")
-	assert.Contains(t, values, "2001:db8::1/128")
+	assert.Contains(t, values, "2001:db8::1")
 }
 
 func TestCollapseIPGroups_FieldContract(t *testing.T) {
@@ -234,9 +238,13 @@ func TestCollapseIPGroups_MultiBucketReplicatesDNSNamesAndPorts(t *testing.T) {
 	}
 }
 
-func TestCollapseIPGroups_IPv6Aggregated(t *testing.T) {
-	// A full IPv6 /120 (256 contiguous v6 hosts) exact-covers to that /120, and a
-	// lone v6 host to its /128 — alongside a v4 group, in one mixed-family pass.
+func TestCollapseIPGroups_IPv6NotAggregatedHeldPassThrough(t *testing.T) {
+	// IPv6 hosts are NOT aggregated into CIDRs: policy generation
+	// (buildIPAddressesPeers) consumes only IPv4 collapsed entries, so folding
+	// IPv6 hosts into an IPv6 CIDR would silently drop them — and their ports —
+	// from the derived NetworkPolicy. They are held as individual pass-through
+	// values instead, even when contiguous, while the co-located v4 group still
+	// collapses normally.
 	var in []softwarecomposition.NetworkNeighbor
 	for i := 0; i < 256; i++ {
 		in = append(in, hostNeighbor(fmt.Sprintf("2606:4700:0:1::%x", i)))
@@ -252,8 +260,12 @@ func TestCollapseIPGroups_IPv6Aggregated(t *testing.T) {
 	for _, e := range out {
 		values = append(values, e.IPAddresses...)
 	}
-	assert.Contains(t, values, "2606:4700:0:1::/120", "contiguous v6 hosts aggregate")
-	assert.Contains(t, values, "2001:db8::42/128", "lone v6 host covers to /128")
+	// v6 hosts survive verbatim, never merged into a /120 or /128 CIDR
+	assert.Contains(t, values, "2606:4700:0:1::0", "contiguous v6 hosts stay individual")
+	assert.Contains(t, values, "2001:db8::42", "lone v6 host stays verbatim")
+	assert.NotContains(t, values, "2606:4700:0:1::/120", "v6 must not be aggregated into a CIDR")
+	// the co-located IPv4 group still collapses (a fully-observed /26)
+	assert.Contains(t, values, "10.5.0.0/26", "co-located IPv4 group still collapses")
 }
 
 func TestCoverPrefixes_IPv6ExactAndMerge(t *testing.T) {
@@ -332,16 +344,19 @@ func TestCollapseIPGroups_IncrementalReCollapseDeduplicatesAndAbsorbs(t *testing
 	assert.Equal(t, []string{"52.216.0.0/26"}, cidrs, "must converge to a single covering /26, not [/26 /26 /27]")
 }
 
-func TestCoverPrefixes_ExactNoOverApproximation(t *testing.T) {
-	// Three non-adjacent hosts cover exactly {.1,.2,.3} — never a single /30
-	// (which would admit the unobserved .0).
+func TestCoverPrefixes_HostsCollapseToCommonPrefixWhenTighterThanFloor(t *testing.T) {
+	// Hosts sharing a common prefix at least as long as the floor collapse to that
+	// single common block. {.1,.2,.3} share a /30, which is tighter than the /16
+	// floor, so they aggregate to 52.216.0.0/30 (bounding the entry count to one
+	// rather than emitting a /32 and a /31). The block is capped at the floor, but
+	// the workload's own common prefix is honored when it is already narrower.
 	hosts := []netip.Addr{
 		netip.MustParseAddr("52.216.0.1"),
 		netip.MustParseAddr("52.216.0.2"),
 		netip.MustParseAddr("52.216.0.3"),
 	}
 	got := coverPrefixes(hosts, nil, 16)
-	assert.Equal(t, []string{"52.216.0.1/32", "52.216.0.2/31"}, got)
+	assert.Equal(t, []string{"52.216.0.0/30"}, got)
 }
 
 func TestCoverPrefixes_MergesAdjacentSiblings(t *testing.T) {
