@@ -57,6 +57,15 @@ type CollapseConfigurationSpec struct {
 	// longest-prefix-wins. It REPLACES the compiled-in defaults wholesale
 	// (no merge); include any default prefix you want to keep.
 	CollapseConfigs []CollapseConfigEntry
+	// NetworkIPGroupThreshold is the count threshold above which a group of
+	// NetworkNeighbor entries (sharing Type/DNS/selectors, differing only by
+	// IP) gets CIDR-collapsed. Omitted or 0 means "use the compiled-in
+	// default" (a literal 0 would collapse every group of size 1).
+	NetworkIPGroupThreshold int32
+	// NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum
+	// breadth) a single aggregated block may have. Omitted or 0 means "use
+	// the compiled-in default".
+	NetworkCIDRFloorBits int32
 }
 
 // CollapseConfigEntry is one per-prefix threshold override.

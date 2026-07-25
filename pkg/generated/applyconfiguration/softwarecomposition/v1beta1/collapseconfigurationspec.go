@@ -43,6 +43,17 @@ type CollapseConfigurationSpecApplyConfiguration struct {
 	// built-in /etc, /opt, /var/run (etc.) overrides — include them
 	// explicitly if you want them to remain in effect.
 	CollapseConfigs []CollapseConfigEntryApplyConfiguration `json:"collapseConfigs,omitempty"`
+	// NetworkIPGroupThreshold is the count threshold above which a group of
+	// NetworkNeighbor entries (sharing Type/DNS/selectors, differing only by
+	// IP) gets CIDR-collapsed. Optional: when omitted (decodes to 0) or
+	// explicitly set to 0, the deflate path uses the compiled-in default
+	// rather than a literal 0 — a 0 threshold would collapse every group of
+	// size 1. See CollapseSettingsFromCRD.
+	NetworkIPGroupThreshold *int32 `json:"networkIPGroupThreshold,omitempty"`
+	// NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum
+	// breadth) a single aggregated block may have. Optional with the same
+	// omitted/0-means-compiled-default semantics as NetworkIPGroupThreshold.
+	NetworkCIDRFloorBits *int32 `json:"networkCIDRFloorBits,omitempty"`
 }
 
 // CollapseConfigurationSpecApplyConfiguration constructs a declarative configuration of the CollapseConfigurationSpec type for use with
@@ -77,5 +88,21 @@ func (b *CollapseConfigurationSpecApplyConfiguration) WithCollapseConfigs(values
 		}
 		b.CollapseConfigs = append(b.CollapseConfigs, *values[i])
 	}
+	return b
+}
+
+// WithNetworkIPGroupThreshold sets the NetworkIPGroupThreshold field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NetworkIPGroupThreshold field is set to the value of the last call.
+func (b *CollapseConfigurationSpecApplyConfiguration) WithNetworkIPGroupThreshold(value int32) *CollapseConfigurationSpecApplyConfiguration {
+	b.NetworkIPGroupThreshold = &value
+	return b
+}
+
+// WithNetworkCIDRFloorBits sets the NetworkCIDRFloorBits field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NetworkCIDRFloorBits field is set to the value of the last call.
+func (b *CollapseConfigurationSpecApplyConfiguration) WithNetworkCIDRFloorBits(value int32) *CollapseConfigurationSpecApplyConfiguration {
+	b.NetworkCIDRFloorBits = &value
 	return b
 }
