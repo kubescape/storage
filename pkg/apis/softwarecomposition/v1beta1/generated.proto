@@ -35,71 +35,6 @@ message Advisory {
   optional string link = 2;
 }
 
-message ApplicationProfile {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
-
-  optional ApplicationProfileSpec spec = 2;
-
-  optional ApplicationProfileStatus status = 3;
-}
-
-message ApplicationProfileContainer {
-  optional string name = 1;
-
-  repeated string capabilities = 2;
-
-  // +patchMergeKey=path
-  // +patchStrategy=merge
-  repeated ExecCalls execs = 3;
-
-  // +patchMergeKey=path
-  // +patchStrategy=merge
-  repeated OpenCalls opens = 4;
-
-  repeated string syscalls = 5;
-
-  optional SingleSeccompProfile seccompProfile = 6;
-
-  // +patchStrategy=merge
-  // +patchMergeKey=endpoint
-  repeated HTTPEndpoint endpoints = 7;
-
-  optional string imageID = 8;
-
-  optional string imageTag = 9;
-
-  // +patchStrategy=merge
-  // +patchMergeKey=ruleId
-  map<string, RulePolicy> rulePolicies = 10;
-
-  repeated IdentifiedCallStack identifiedCallStacks = 11;
-}
-
-message ApplicationProfileList {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
-
-  repeated ApplicationProfile items = 2;
-}
-
-message ApplicationProfileSpec {
-  repeated string architectures = 1;
-
-  // +patchMergeKey=name
-  // +patchStrategy=merge
-  repeated ApplicationProfileContainer containers = 2;
-
-  // +patchMergeKey=name
-  // +patchStrategy=merge
-  repeated ApplicationProfileContainer initContainers = 3;
-
-  // +patchMergeKey=name
-  // +patchStrategy=merge
-  repeated ApplicationProfileContainer ephemeralContainers = 4;
-}
-
-message ApplicationProfileStatus {
-}
-
 // Arg defines the specific syscall in seccomp.
 message Arg {
   // the index for syscall arguments in seccomp
@@ -963,38 +898,6 @@ message NetworkNeighbor {
   // Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
   // See pkg/registry/file/networkmatch for matcher semantics.
   repeated string ipAddresses = 9;
-}
-
-// NetworkNeighborhood represents a list of network communications for a specific workload.
-message NetworkNeighborhood {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
-
-  optional NetworkNeighborhoodSpec spec = 2;
-}
-
-message NetworkNeighborhoodContainer {
-  optional string name = 1;
-
-  repeated NetworkNeighbor ingress = 2;
-
-  repeated NetworkNeighbor egress = 3;
-}
-
-// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
-message NetworkNeighborhoodList {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
-
-  repeated NetworkNeighborhood items = 2;
-}
-
-message NetworkNeighborhoodSpec {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector labelSelector = 3;
-
-  repeated NetworkNeighborhoodContainer containers = 4;
-
-  repeated NetworkNeighborhoodContainer initContainers = 5;
-
-  repeated NetworkNeighborhoodContainer ephemeralContainers = 6;
 }
 
 message NetworkPolicy {

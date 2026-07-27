@@ -263,14 +263,12 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	}
 	a.LastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
-		"applicationprofiles": {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
-		"containerprofiles":   {deleteByTemplateHashOrWlid},
+		"containerprofiles": {deleteByTemplateHashOrWlid},
 		// The merged (effective) CP carries the same templateHash/wlid metadata
 		// as its observed sibling, so the same predicate retires orphans. This
 		// covers workloads that get age-cleaned without going through the REST
 		// Delete path (which already cascades to the merged sibling).
 		ContainerProfileMergedKind: {deleteByTemplateHashOrWlid},
-		"networkneighborhoods":     {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
 	}
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
@@ -562,23 +560,11 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 	// Completed workloads — the previous design short-circuited here and
 	// stranded the merged artifact. refreshMergedProfile rebuilds from scratch
 	// from (observed, ug-AP, ug-NN), so retractions land naturally.
-	effective, err := a.refreshMergedProfile(ctx, &profile, id, key)
-	if err != nil {
+	if _, err := a.refreshMergedProfile(ctx, &profile, id, key); err != nil {
 		// Refresh failures are surfaced so the transaction rolls back; a half-
 		// applied merged write paired with a successful observed save would be
 		// worse than retrying the whole tick.
 		return nil, err
-	}
-
-	// Aggregated AP/NN derive from the effective CP so all downstream outputs
-	// stay aligned with what node-agent actually reads (step 6 of the review).
-	// Still gated on newData to preserve the existing 30s aggregation cadence —
-	// ug-only changes propagate via the merged refresh above; the AP/NN
-	// aggregator already serves a different (downstream-policy) audience.
-	if newData {
-		if err := a.updateAggregatedProfiles(ctx, key, effective, prefix, root, id, creationTimestamp); err != nil {
-			return nil, err
-		}
 	}
 
 	return processed, nil
@@ -796,36 +782,6 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 	}
 
 	return newTimeSeries, false, nil
-}
-
-// updateAggregatedProfiles updates the application profile and network neighborhood
-func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context,
-	key string, profile *softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier,
-	creationTimestamp metav1.Time) error {
-
-	instanceID, err := instanceidhandlerv1.GenerateInstanceIDFromString(profile.Annotations[helpers.InstanceIDMetadataKey])
-	if err != nil {
-		return fmt.Errorf("failed to create instance ID: %w", err)
-	}
-
-	slug, err := instanceID.GetSlug(true)
-	if err != nil {
-		return fmt.Errorf("failed to get slug: %w", err)
-	}
-
-	wlid := profile.Annotations[helpers.WlidMetadataKey]
-
-	// Update application profile
-	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, id, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
-		return err
-	}
-
-	// Update network neighborhood
-	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, id, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // getAggregatedData computes various data of the aggregated profile.

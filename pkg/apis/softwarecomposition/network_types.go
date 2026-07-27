@@ -18,29 +18,14 @@ const (
 	CommunicationTypeEgress  CommunicationType = "external"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
-type NetworkNeighborhoodList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []NetworkNeighborhood
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhood represents a list of network communications for a specific workload.
+// NetworkNeighborhood is an in-process, non-CRD intermediate used only to feed
+// the GeneratedNetworkPolicy generation. It is projected from ContainerProfile
+// data at request time and is never stored or served as an API object.
 type NetworkNeighborhood struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	// +k8s:conversion-gen=false
-	Parts map[string]string
-	// +k8s:conversion-gen=false
-	SchemaVersion int64
-	Spec          NetworkNeighborhoodSpec
+	Spec NetworkNeighborhoodSpec
 }
 
 type NetworkNeighborhoodSpec struct {

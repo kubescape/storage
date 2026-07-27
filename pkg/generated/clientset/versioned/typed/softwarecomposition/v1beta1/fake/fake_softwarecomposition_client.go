@@ -28,10 +28,6 @@ type FakeSpdxV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeSpdxV1beta1) ApplicationProfiles(namespace string) v1beta1.ApplicationProfileInterface {
-	return newFakeApplicationProfiles(c, namespace)
-}
-
 func (c *FakeSpdxV1beta1) CollapseConfigurations() v1beta1.CollapseConfigurationInterface {
 	return newFakeCollapseConfigurations(c)
 }
@@ -50,10 +46,6 @@ func (c *FakeSpdxV1beta1) GeneratedNetworkPolicies(namespace string) v1beta1.Gen
 
 func (c *FakeSpdxV1beta1) KnownServers(namespace string) v1beta1.KnownServerInterface {
 	return newFakeKnownServers(c, namespace)
-}
-
-func (c *FakeSpdxV1beta1) NetworkNeighborhoods(namespace string) v1beta1.NetworkNeighborhoodInterface {
-	return newFakeNetworkNeighborhoods(c, namespace)
 }
 
 func (c *FakeSpdxV1beta1) OpenVulnerabilityExchangeContainers(namespace string) v1beta1.OpenVulnerabilityExchangeContainerInterface {

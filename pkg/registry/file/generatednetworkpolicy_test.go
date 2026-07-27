@@ -37,7 +37,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
 			},
-			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", 0),
+			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", 0),
 		},
 		{
 			name: "existing object is returned",
@@ -146,13 +146,17 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
-			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage, realStorage)
+			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage)
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
-				wlObj := &softwarecomposition.NetworkNeighborhood{
+				// The GeneratedNetworkPolicy is now generated from the
+				// ContainerProfile with the matching key (projected in-process
+				// into the network-neighborhood-shaped intermediate the
+				// generator consumes).
+				wlObj := &softwarecomposition.ContainerProfile{
 					TypeMeta: v1.TypeMeta{
-						Kind:       "NetworkNeighborhood",
+						Kind:       "ContainerProfile",
 						APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 					},
 					ObjectMeta: v1.ObjectMeta{
@@ -170,7 +174,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 				if tt.noWorkloadName {
 					delete(wlObj.ObjectMeta.Labels, helpersv1.RelatedNameMetadataKey)
 				}
-				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", wlObj, nil, 0)
+				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", wlObj, nil, 0)
 				require.NoError(t, err)
 			}
 
@@ -190,7 +194,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
 
 	err := generatedNetworkPolicyStorage.Create(context.TODO(), "", nil, nil, 0)
 
@@ -201,7 +205,7 @@ func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
 
 	err := generatedNetworkPolicyStorage.Delete(context.TODO(), "", nil, nil, nil, nil, storage.DeleteOptions{})
 
@@ -212,7 +216,7 @@ func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
 
 	_, err := generatedNetworkPolicyStorage.Watch(context.TODO(), "", storage.ListOptions{})
 	assert.NoError(t, err)
@@ -220,7 +224,7 @@ func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
 
 	err := generatedNetworkPolicyStorage.GuaranteedUpdate(context.TODO(), "", nil, false, nil, nil, nil)
 

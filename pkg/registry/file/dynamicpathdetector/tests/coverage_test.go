@@ -246,8 +246,8 @@ func TestCollapseConfig(t *testing.T) {
 
 // TestProcessSegments_WildcardWiringRegressions pins three correctness
 // properties of processSegments that were broken in the zero-alloc rewrite
-// of analyzer.go and caused node-agent component-test Test_27
-// (ApplicationProfileOpens) to fail at runtime.
+// of analyzer.go and caused a node-agent component-test covering recorded
+// container opens to fail at runtime.
 //
 // Each sub-case is small, self-contained, and would fail against the
 // broken implementation — keeping them here means a future refactor of

@@ -56,8 +56,8 @@ func TestDeflateContainerProfileSpec_NetworkNeighborsCollapse(t *testing.T) {
 	assert.Equal(t, []string{"10.0.0.0/26"}, result.Ingress[0].IPAddresses)
 	assert.Equal(t, []softwarecomposition.NetworkPort{{Name: "80"}}, result.Ingress[0].Ports)
 
-	// Confirm both call sites (NetworkNeighborhoodProcessor's deflateNetworkNeighbors
-	// and DeflateContainerProfileSpec's) collapse identically given the same settings.
+	// Confirm both call sites (the deflateNetworkNeighbors helper and
+	// DeflateContainerProfileSpec) collapse identically given the same settings.
 	directResult := deflateNetworkNeighbors(newIngress(), settings)
 	assert.Equal(t, directResult, result.Ingress)
 }
@@ -126,29 +126,8 @@ func TestConsolidateData(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Put(conn)
 
-	applicationProfile := softwarecomposition.ApplicationProfile{}
-	key := "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
-	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &applicationProfile)
-	assert.NoError(t, err)
-	delete(applicationProfile.Annotations, helpersv1.SyncChecksumMetadataKey) // checksum depends on creation time
-	assert.Equal(t, map[string]string{
-		helpersv1.CompletionMetadataKey: helpersv1.Full,
-		helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd",
-		helpersv1.StatusMetadataKey:     helpersv1.Completed,
-		helpersv1.WlidMetadataKey:       "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
-	}, applicationProfile.Annotations)
-	assert.Equal(t, map[string]string{
-		helpersv1.TemplateHashKey:             "d4b8dd5fd",
-		helpersv1.ApiGroupMetadataKey:         "apps",
-		helpersv1.ApiVersionMetadataKey:       "v1",
-		helpersv1.RelatedKindMetadataKey:      "Deployment",
-		helpersv1.RelatedNameMetadataKey:      "multiple-containers-deployment",
-		helpersv1.RelatedNamespaceMetadataKey: "node-agent-test-hjjz",
-		helpersv1.ResourceVersionMetadataKey:  "1448",
-	}, applicationProfile.Labels)
-
 	containerProfile := softwarecomposition.ContainerProfile{}
-	key = "/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &containerProfile)
 	assert.NoError(t, err)
 	assert.Equal(t, softwarecomposition.CallID("test-call-id"), containerProfile.Spec.IdentifiedCallStacks[0].CallID)
@@ -247,21 +226,6 @@ func TestConsolidateTimeSeries_Concurrent_NoDeadlock(t *testing.T) {
 	create("testdata/p11.json")
 	create("testdata/p12.json")
 	consolidate()
-
-	// The multiple-containers workload consolidated correctly into one application profile.
-	ap := softwarecomposition.ApplicationProfile{}
-	conn, err := pool.Take(ctx)
-	require.NoError(t, err)
-	err = s.GetWithConn(ctx, conn, "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd", storage.GetOptions{}, &ap)
-	pool.Put(conn)
-	require.NoError(t, err)
-	delete(ap.Annotations, helpersv1.SyncChecksumMetadataKey)
-	assert.Equal(t, map[string]string{
-		helpersv1.CompletionMetadataKey: helpersv1.Full,
-		helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd",
-		helpersv1.StatusMetadataKey:     helpersv1.Completed,
-		helpersv1.WlidMetadataKey:       "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
-	}, ap.Annotations)
 
 	// No connection leak: every pool connection must be re-acquirable promptly.
 	acqCtx, acqCancel := context.WithTimeout(ctx, 3*time.Second)

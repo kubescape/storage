@@ -16,40 +16,6 @@ const (
 	CommunicationTypeEgress  CommunicationType = "external"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
-type NetworkNeighborhoodList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []NetworkNeighborhood `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhood represents a list of network communications for a specific workload.
-type NetworkNeighborhood struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec NetworkNeighborhoodSpec `json:"spec" protobuf:"bytes,2,req,name=spec"`
-}
-
-type NetworkNeighborhoodSpec struct {
-	metav1.LabelSelector `json:",inline" protobuf:"bytes,3,opt,name=labelSelector"`
-	Containers           []NetworkNeighborhoodContainer `json:"containers" protobuf:"bytes,4,rep,name=containers"`
-	InitContainers       []NetworkNeighborhoodContainer `json:"initContainers" protobuf:"bytes,5,rep,name=initContainers"`
-	EphemeralContainers  []NetworkNeighborhoodContainer `json:"ephemeralContainers" protobuf:"bytes,6,rep,name=ephemeralContainers"`
-}
-
-type NetworkNeighborhoodContainer struct {
-	Name    string            `json:"name" protobuf:"bytes,1,req,name=name"`
-	Ingress []NetworkNeighbor `json:"ingress" protobuf:"bytes,2,rep,name=ingress"`
-	Egress  []NetworkNeighbor `json:"egress" protobuf:"bytes,3,rep,name=egress"`
-}
-
 // NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighbor struct {
 	Identifier string            `json:"identifier" protobuf:"bytes,1,req,name=identifier"` // A unique identifier for this entry

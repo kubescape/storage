@@ -7,11 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
@@ -228,116 +225,6 @@ func (c *ContainerProfileStorageImpl) DeleteMergedContainerProfile(ctx context.C
 	// GetMergedContainerProfile/SaveMergedContainerProfile — an unsynchronized
 	// delete risks SQLite busy / lock contention (kubescape/storage#315 review).
 	return c.storageImpl.DeleteWithConn(ctx, conn, mergedKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
-}
-
-func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-
-	id.Name = slug
-	apKey := BuildContainerProfileKey(id, "applicationprofiles")
-	var apChecksum string
-
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		output := input.DeepCopyObject()
-		ap, ok := output.(*softwarecomposition.ApplicationProfile)
-		if !ok {
-			return nil, nil, fmt.Errorf("given object is not an ApplicationProfile")
-		}
-
-		ap.Name = slug
-		if id.HostType == armotypes.HostTypeKubernetes {
-			ap.Namespace = id.Namespace
-		}
-		if ap.CreationTimestamp.IsZero() {
-			ap.CreationTimestamp = creationTimestamp
-		}
-		ap.SchemaVersion = SchemaVersion
-		if ap.Parts == nil {
-			ap.Parts = map[string]string{}
-		}
-		ap.Parts[key] = "" // checksum will be updated by getAggregatedData
-
-		status, completion, checksum := ComputeAggregatedData(c, ctx, key, ap.Parts)
-		apChecksum = checksum
-
-		ap.Annotations = map[string]string{
-			helpers.CompletionMetadataKey: completion,
-			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
-			helpers.StatusMetadataKey:     status,
-			helpers.WlidMetadataKey:       wlid,
-		}
-		ap.Labels = map[string]string{}
-		utils.MergeMaps(ap.Labels, profile.Labels)
-		delete(ap.Labels, helpers.ContainerNameMetadataKey)
-
-		return output, nil, nil
-	}
-
-	apCtx, apCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer apCancel()
-
-	err := c.storageImpl.GuaranteedUpdateWithConn(apCtx, conn, apKey, &softwarecomposition.ApplicationProfile{},
-		true, nil, tryUpdate, nil, apChecksum)
-	if err != nil {
-		return fmt.Errorf("failed to update application profile: %w", err)
-	}
-
-	return nil
-}
-
-func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-
-	id.Name = slug
-	nnKey := BuildContainerProfileKey(id, "networkneighborhoods")
-	var nnChecksum string
-
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		output := input.DeepCopyObject()
-		nn, ok := output.(*softwarecomposition.NetworkNeighborhood)
-		if !ok {
-			return nil, nil, fmt.Errorf("given object is not an NetworkNeighborhood")
-		}
-
-		nn.Name = slug
-		if id.HostType == armotypes.HostTypeKubernetes {
-			nn.Namespace = id.Namespace
-		}
-		if nn.CreationTimestamp.IsZero() {
-			nn.CreationTimestamp = creationTimestamp
-		}
-		nn.SchemaVersion = SchemaVersion
-		if nn.Parts == nil {
-			nn.Parts = map[string]string{}
-		}
-		nn.Parts[key] = "" // checksum will be updated by getAggregatedData
-
-		status, completion, checksum := ComputeAggregatedData(c, ctx, key, nn.Parts)
-		nnChecksum = checksum
-
-		nn.Annotations = map[string]string{
-			helpers.CompletionMetadataKey: completion,
-			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
-			helpers.StatusMetadataKey:     status,
-			helpers.WlidMetadataKey:       wlid,
-		}
-		nn.Labels = map[string]string{}
-		utils.MergeMaps(nn.Labels, profile.Labels)
-		delete(nn.Labels, helpers.ContainerNameMetadataKey)
-
-		return output, nil, nil
-	}
-
-	nnCtx, nnCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer nnCancel()
-
-	err := c.storageImpl.GuaranteedUpdateWithConn(nnCtx, conn, nnKey, &softwarecomposition.NetworkNeighborhood{},
-		true, nil, tryUpdate, nil, nnChecksum)
-	if err != nil {
-		return fmt.Errorf("failed to update network neighborhood: %w", err)
-	}
-
-	return nil
 }
 
 // Time Series Operations

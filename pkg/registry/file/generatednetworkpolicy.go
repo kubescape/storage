@@ -7,6 +7,7 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy/v2"
 	"go.opentelemetry.io/otel"
@@ -17,15 +18,14 @@ import (
 )
 
 const (
-	networkNeighborhoodResource = "networkneighborhoods"
-	knownServersResource        = "knownservers"
+	containerProfilesResource = "containerprofiles"
+	knownServersResource      = "knownservers"
 )
 
 // GeneratedNetworkPolicyStorage offers a storage solution for GeneratedNetworkPolicy objects, implementing custom business logic for these objects and using the underlying default storage implementation.
 type GeneratedNetworkPolicyStorage struct {
 	immutableStorage
 	realStore StorageQuerier
-	nnStore   storage.Interface
 }
 
 func (s *GeneratedNetworkPolicyStorage) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
@@ -44,15 +44,45 @@ func (s *GeneratedNetworkPolicyStorage) CompactRevision() int64 {
 
 var _ storage.Interface = (*GeneratedNetworkPolicyStorage)(nil)
 
-func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier, nnStore storage.Interface) storage.Interface {
+func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier) storage.Interface {
 	return &GeneratedNetworkPolicyStorage{
-		nnStore:   nnStore,
 		realStore: realStore,
 	}
 }
 
 func (s *GeneratedNetworkPolicyStorage) GetCurrentResourceVersion(_ context.Context) (uint64, error) {
 	return 0, nil
+}
+
+// containerProfileToNetworkNeighborhood projects a ContainerProfile into the
+// in-process NetworkNeighborhood-shaped intermediate consumed by the network
+// policy generator. This is the projection that previously lived in the (now
+// removed) NetworkNeighborhoodStorage: the container's ingress/egress and the
+// workload label selector are copied into a single-container neighborhood,
+// bucketed by the container type annotation.
+func containerProfileToNetworkNeighborhood(cp *softwarecomposition.ContainerProfile) *softwarecomposition.NetworkNeighborhood {
+	nn := &softwarecomposition.NetworkNeighborhood{
+		TypeMeta:   cp.TypeMeta,
+		ObjectMeta: *cp.ObjectMeta.DeepCopy(),
+	}
+	nn.Spec.MatchLabels = cp.Spec.MatchLabels
+	nn.Spec.MatchExpressions = cp.Spec.MatchExpressions
+
+	container := softwarecomposition.NetworkNeighborhoodContainer{
+		Name:    cp.Labels[helpersv1.ContainerNameMetadataKey],
+		Ingress: cp.Spec.Ingress,
+		Egress:  cp.Spec.Egress,
+	}
+	switch cp.Annotations[helpersv1.ContainerTypeMetadataKey] {
+	case "initContainers":
+		nn.Spec.InitContainers = append(nn.Spec.InitContainers, container)
+	case "ephemeralContainers":
+		nn.Spec.EphemeralContainers = append(nn.Spec.EphemeralContainers, container)
+	default:
+		// "containers" and the empty/back-compat case both land here.
+		nn.Spec.Containers = append(nn.Spec.Containers, container)
+	}
+	return nn
 }
 
 // Get generates and returns a single GeneratedNetworkPolicy object
@@ -63,14 +93,17 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 
 	logger.L().Debug("GeneratedNetworkPolicyStorage.Get", helpers.String("key", key))
 
-	// retrieve network neighbor with the same name
-	networkNeighborhoodObjPtr := &softwarecomposition.NetworkNeighborhood{}
+	// retrieve the container profile with the same name and project it into a
+	// NetworkNeighborhood-shaped intermediate in-process.
+	containerProfileObjPtr := &softwarecomposition.ContainerProfile{}
 
-	key = replaceKeyForKind(key, networkNeighborhoodResource)
+	key = replaceKeyForKind(key, containerProfilesResource)
 
-	if err := s.nnStore.Get(ctx, key, opts, networkNeighborhoodObjPtr); err != nil {
+	if err := s.realStore.Get(ctx, key, opts, containerProfileObjPtr); err != nil {
 		return err
 	}
+
+	networkNeighborhoodObjPtr := containerProfileToNetworkNeighborhood(containerProfileObjPtr)
 
 	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
 
@@ -105,14 +138,15 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		},
 	}
 
-	// get all network neighborhood on namespace
-	networkNeighborhoodObjListPtr := &softwarecomposition.NetworkNeighborhoodList{}
-	if err := s.realStore.GetList(ctx, replaceKeyForKind(key, networkNeighborhoodResource), opts, networkNeighborhoodObjListPtr); err != nil {
+	// get all container profiles on namespace
+	containerProfileObjListPtr := &softwarecomposition.ContainerProfileList{}
+	if err := s.realStore.GetList(ctx, replaceKeyForKind(key, containerProfilesResource), opts, containerProfileObjListPtr); err != nil {
 		return err
 	}
 
-	for _, nn := range networkNeighborhoodObjListPtr.Items {
-		if !networkpolicy.IsAvailable(&nn) {
+	for i := range containerProfileObjListPtr.Items {
+		nn := containerProfileToNetworkNeighborhood(&containerProfileObjListPtr.Items[i])
+		if !networkpolicy.IsAvailable(nn) {
 			continue
 		}
 		generatedNetworkPolicyList.Items = append(generatedNetworkPolicyList.Items, softwarecomposition.GeneratedNetworkPolicy{

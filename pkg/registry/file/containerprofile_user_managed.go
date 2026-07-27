@@ -34,13 +34,6 @@ const (
 	// present at merge time.
 	mergedSourceUserCPKey = "kubescape.io/merged-source-ug-cp"
 
-	// Deprecated: the ug- overlay is now a single ContainerProfile; use
-	// mergedSourceUserCPKey. mergedSourceUserAPKey / mergedSourceUserNNKey recorded
-	// the storage keys of the ug- AP / NN that contributed to the merge under the
-	// legacy AP+NN overlay model. Retained for backward-compatibility views.
-	mergedSourceUserAPKey = "kubescape.io/merged-source-ug-ap"
-	mergedSourceUserNNKey = "kubescape.io/merged-source-ug-nn"
-
 	// mergedSourceUserCPRVKey / mergedSourceObservedRVKey snapshot the
 	// ResourceVersions of each input. They give a quick signal when debugging
 	// "is this merged stale vs the live ug- / observed?" without re-reading the
@@ -54,12 +47,6 @@ const (
 	// ResourceVersion (and firing spurious watch events) every consolidation tick
 	// even when nothing changed (kubescape/storage#315 review).
 	mergedSourceUserCPRVKey = "kubescape.io/merged-source-ug-cp-rv"
-
-	// Deprecated: use mergedSourceUserCPRVKey. mergedSourceUserAPRVKey /
-	// mergedSourceUserNNRVKey snapshotted the ResourceVersions of the legacy ug-
-	// AP / NN inputs. Retained for backward-compatibility views.
-	mergedSourceUserAPRVKey = "kubescape.io/merged-source-ug-ap-rv"
-	mergedSourceUserNNRVKey = "kubescape.io/merged-source-ug-nn-rv"
 
 	mergedSourceObservedRVKey = "kubescape.io/merged-source-observed-rv"
 )
@@ -231,67 +218,6 @@ func mergeUserCPIntoCP(cp *softwarecomposition.ContainerProfile, userCP *softwar
 	cp.Spec.LabelSelector.MatchExpressions = appendDedupSortedMatchExpressions(cp.Spec.LabelSelector.MatchExpressions, u.Spec.LabelSelector.MatchExpressions)
 }
 
-// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
-// ContainerProfile. Retained for backward-compatibility views and tests.
-//
-// mergeUserAPIntoCP locates the ApplicationProfileContainer in userAP whose
-// Name matches containerName and appends its fields onto cp.Spec. PolicyByRuleId
-// entries are merged via mergePolicies on collision (same union semantics as
-// the time-series merge).
-//
-// IdentifiedCallStacks is intentionally NOT merged — node-agent's
-// projection.go (the reference implementation) does not project them either,
-// so server- and client-side merges stay in sync.
-func mergeUserAPIntoCP(cp *softwarecomposition.ContainerProfile, userAP *softwarecomposition.ApplicationProfile, containerName string) {
-	matched := findUserAPContainerByName(userAP, containerName)
-	if matched == nil {
-		return
-	}
-	// Defensive copy: the returned matched.* slices alias userAP, which is
-	// the caller's CRD object. DeepCopy isolates the merge from concurrent
-	// reads of the same cached object.
-	c := matched.DeepCopy()
-	cp.Spec.Capabilities = append(cp.Spec.Capabilities, c.Capabilities...)
-	cp.Spec.Execs = append(cp.Spec.Execs, c.Execs...)
-	cp.Spec.Opens = append(cp.Spec.Opens, c.Opens...)
-	cp.Spec.Syscalls = append(cp.Spec.Syscalls, c.Syscalls...)
-	cp.Spec.Endpoints = append(cp.Spec.Endpoints, c.Endpoints...)
-	if cp.Spec.PolicyByRuleId == nil && len(c.PolicyByRuleId) > 0 {
-		cp.Spec.PolicyByRuleId = make(map[string]softwarecomposition.RulePolicy, len(c.PolicyByRuleId))
-	}
-	for k, v := range c.PolicyByRuleId {
-		if existing, ok := cp.Spec.PolicyByRuleId[k]; ok {
-			cp.Spec.PolicyByRuleId[k] = mergePolicies(existing, v)
-		} else {
-			cp.Spec.PolicyByRuleId[k] = v
-		}
-	}
-}
-
-// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
-// ContainerProfile. Retained for backward-compatibility views and tests.
-//
-// mergeUserNNIntoCP merges the matching NetworkNeighborhoodContainer's
-// Ingress/Egress and the NN's pod LabelSelector into cp.Spec. Ingress/Egress
-// entries are unioned by Identifier; matching entries are deep-merged via
-// mergeUserNetworkNeighbor (DNS names are set-unioned and sorted, ports are
-// keyed by Name with user values winning on collision, selectors are
-// field-merged with user keys overriding base).
-func mergeUserNNIntoCP(cp *softwarecomposition.ContainerProfile, userNN *softwarecomposition.NetworkNeighborhood, containerName string) {
-	matched := findUserNNContainerByName(userNN, containerName)
-	if matched != nil {
-		c := matched.DeepCopy()
-		cp.Spec.Ingress = mergeUserNetworkNeighbors(cp.Spec.Ingress, c.Ingress)
-		cp.Spec.Egress = mergeUserNetworkNeighbors(cp.Spec.Egress, c.Egress)
-	}
-
-	// NetworkNeighborhoodSpec embeds metav1.LabelSelector; ContainerProfileSpec
-	// stores the same selector denormalised as MatchLabels/MatchExpressions
-	// inside Spec.LabelSelector.
-	cp.Spec.LabelSelector.MatchLabels = overrideMerge(cp.Spec.LabelSelector.MatchLabels, userNN.Spec.LabelSelector.MatchLabels)
-	cp.Spec.LabelSelector.MatchExpressions = appendDedupSortedMatchExpressions(cp.Spec.LabelSelector.MatchExpressions, userNN.Spec.LabelSelector.MatchExpressions)
-}
-
 // overrideMerge returns base extended with user's keys; on key collision the
 // user value wins. Distinct from utils.MergeMaps which preserves base on
 // collision (other callers depend on that semantic, so we don't change it).
@@ -368,56 +294,6 @@ func joinSorted(vs []string) string {
 		b.WriteString(v)
 	}
 	return b.String()
-}
-
-// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
-// ContainerProfile with no per-container lookup. Retained for the deprecated
-// AP/NN merge helpers and their tests.
-func findUserAPContainerByName(userAP *softwarecomposition.ApplicationProfile, name string) *softwarecomposition.ApplicationProfileContainer {
-	if userAP == nil {
-		return nil
-	}
-	for i := range userAP.Spec.Containers {
-		if userAP.Spec.Containers[i].Name == name {
-			return &userAP.Spec.Containers[i]
-		}
-	}
-	for i := range userAP.Spec.InitContainers {
-		if userAP.Spec.InitContainers[i].Name == name {
-			return &userAP.Spec.InitContainers[i]
-		}
-	}
-	for i := range userAP.Spec.EphemeralContainers {
-		if userAP.Spec.EphemeralContainers[i].Name == name {
-			return &userAP.Spec.EphemeralContainers[i]
-		}
-	}
-	return nil
-}
-
-// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
-// ContainerProfile with no per-container lookup. Retained for the deprecated
-// AP/NN merge helpers and their tests.
-func findUserNNContainerByName(userNN *softwarecomposition.NetworkNeighborhood, name string) *softwarecomposition.NetworkNeighborhoodContainer {
-	if userNN == nil {
-		return nil
-	}
-	for i := range userNN.Spec.Containers {
-		if userNN.Spec.Containers[i].Name == name {
-			return &userNN.Spec.Containers[i]
-		}
-	}
-	for i := range userNN.Spec.InitContainers {
-		if userNN.Spec.InitContainers[i].Name == name {
-			return &userNN.Spec.InitContainers[i]
-		}
-	}
-	for i := range userNN.Spec.EphemeralContainers {
-		if userNN.Spec.EphemeralContainers[i].Name == name {
-			return &userNN.Spec.EphemeralContainers[i]
-		}
-	}
-	return nil
 }
 
 func mergeUserNetworkNeighbors(base, user []softwarecomposition.NetworkNeighbor) []softwarecomposition.NetworkNeighbor {

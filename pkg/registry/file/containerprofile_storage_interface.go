@@ -4,9 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ContainerProfileStorage defines the storage operations for container profiles.
@@ -75,12 +73,6 @@ type ContainerProfileStorage interface {
 	// DeleteMergedContainerProfile removes the merged container profile that
 	// corresponds to observedKey. Idempotent: not-found is not an error.
 	DeleteMergedContainerProfile(ctx context.Context, observedKey string) error
-
-	// UpdateApplicationProfile updates the application profile associated with a container profile.
-	UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
-
-	// UpdateNetworkNeighborhood updates the network neighborhood associated with a container profile.
-	UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
 }
 
 // TransactionManager handles database connection and transaction lifecycle.

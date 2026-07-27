@@ -208,42 +208,6 @@ func (v *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSumm
 	v.Spec.WorkloadVulnerabilitiesObj = append(v.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
 }
 
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfile struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	// +k8s:conversion-gen=false
-	Parts map[string]string
-	// +k8s:conversion-gen=false
-	SchemaVersion int64
-	Spec          ApplicationProfileSpec
-	Status        ApplicationProfileStatus
-}
-
-type ApplicationProfileSpec struct {
-	Architectures       []string
-	Containers          []ApplicationProfileContainer
-	InitContainers      []ApplicationProfileContainer
-	EphemeralContainers []ApplicationProfileContainer
-}
-
-type ApplicationProfileContainer struct {
-	Name                 string
-	Capabilities         []string
-	Execs                []ExecCalls
-	Opens                []OpenCalls
-	Syscalls             []string
-	SeccompProfile       SingleSeccompProfile
-	Endpoints            []HTTPEndpoint
-	ImageID              string
-	ImageTag             string
-	PolicyByRuleId       map[string]RulePolicy
-	IdentifiedCallStacks []IdentifiedCallStack
-}
-
 type RulePolicy struct {
 	AllowedProcesses []string
 	AllowedContainer bool
@@ -315,18 +279,6 @@ type CallStackNode struct {
 
 type CallStack struct {
 	Root CallStackNode
-}
-
-type ApplicationProfileStatus struct {
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfileList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []ApplicationProfile
 }
 
 // +genclient
