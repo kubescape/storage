@@ -29,16 +29,22 @@ const (
 	MergedProfileLabelKey   = "kubescape.io/profile-kind"
 	MergedProfileLabelValue = "merged"
 
-	// mergedSourceUserAPKey / mergedSourceUserNNKey record the storage keys of
-	// the ug- AP / NN that contributed to this merge. Absent annotation means
-	// no ug- of that kind was present at merge time.
+	// mergedSourceUserCPKey records the storage key of the ug- ContainerProfile
+	// that contributed to this merge. Absent annotation means no ug- CP was
+	// present at merge time.
+	mergedSourceUserCPKey = "kubescape.io/merged-source-ug-cp"
+
+	// Deprecated: the ug- overlay is now a single ContainerProfile; use
+	// mergedSourceUserCPKey. mergedSourceUserAPKey / mergedSourceUserNNKey recorded
+	// the storage keys of the ug- AP / NN that contributed to the merge under the
+	// legacy AP+NN overlay model. Retained for backward-compatibility views.
 	mergedSourceUserAPKey = "kubescape.io/merged-source-ug-ap"
 	mergedSourceUserNNKey = "kubescape.io/merged-source-ug-nn"
 
-	// mergedSourceUserAPRVKey / mergedSourceUserNNRVKey / mergedSourceObservedRVKey
-	// snapshot the ResourceVersions of each input. They give matthyx a quick
-	// signal when debugging "is this merged stale vs the live ug- / observed?"
-	// without re-reading the source objects.
+	// mergedSourceUserCPRVKey / mergedSourceObservedRVKey snapshot the
+	// ResourceVersions of each input. They give a quick signal when debugging
+	// "is this merged stale vs the live ug- / observed?" without re-reading the
+	// source objects.
 	//
 	// These RVs are deliberately content-derived (they only change when an input
 	// actually changes), so re-merging unchanged inputs reproduces the exact same
@@ -47,8 +53,14 @@ const (
 	// GuaranteedUpdate no-op short-circuit and churning the merged CP's
 	// ResourceVersion (and firing spurious watch events) every consolidation tick
 	// even when nothing changed (kubescape/storage#315 review).
-	mergedSourceUserAPRVKey   = "kubescape.io/merged-source-ug-ap-rv"
-	mergedSourceUserNNRVKey   = "kubescape.io/merged-source-ug-nn-rv"
+	mergedSourceUserCPRVKey = "kubescape.io/merged-source-ug-cp-rv"
+
+	// Deprecated: use mergedSourceUserCPRVKey. mergedSourceUserAPRVKey /
+	// mergedSourceUserNNRVKey snapshotted the ResourceVersions of the legacy ug-
+	// AP / NN inputs. Retained for backward-compatibility views.
+	mergedSourceUserAPRVKey = "kubescape.io/merged-source-ug-ap-rv"
+	mergedSourceUserNNRVKey = "kubescape.io/merged-source-ug-nn-rv"
+
 	mergedSourceObservedRVKey = "kubescape.io/merged-source-observed-rv"
 )
 
@@ -58,24 +70,24 @@ const (
 var userManagedConnWarnOnce sync.Once
 
 // buildMergedProfile builds the effective ContainerProfile from observed plus
-// the user-managed (ug-) ApplicationProfile / NetworkNeighborhood overlay.
+// the user-managed (ug-) ContainerProfile overlay.
 //
 // Returns (merged, hasOverlay, err):
-//   - merged: a fresh DeepCopy of observed with ug- AP/NN merged in, stamped
-//     with provenance metadata. Never aliases observed.
-//   - hasOverlay: true if at least one of ug-AP or ug-NN matched the workload
-//     and contributed a container entry. When false, the caller treats the
-//     merged artifact as absent and should delete any prior merged on disk so
-//     ug- removals retract cleanly (kubescape/storage#315 review).
-//   - err: only returned for unexpected storage errors. NotFound on ug- objects
-//     is normal (most workloads have no exception) and produces hasOverlay=false
-//     with no error.
+//   - merged: a fresh DeepCopy of observed with the ug- ContainerProfile merged
+//     in, stamped with provenance metadata. Never aliases observed.
+//   - hasOverlay: true if a ug- ContainerProfile matched the workload and was
+//     merged in. When false, the caller treats the merged artifact as absent and
+//     should delete any prior merged on disk so ug- removals retract cleanly
+//     (kubescape/storage#315 review).
+//   - err: only returned for unexpected storage errors. NotFound on the ug-
+//     object is normal (most workloads have no exception) and produces
+//     hasOverlay=false with no error.
 //
-// The merge is a pure function of (observed, ug-AP, ug-NN). Re-running it with
-// the same inputs produces the same output, so idempotency is structural — no
-// per-tick RV markers are needed on observed (the previous PR design carried
-// kubescape.io/last-merged-ug-{ap,nn}-rv on observed, which had to be
-// reconciled with retractions; rebuilding from scratch sidesteps the problem).
+// The merge is a pure function of (observed, ug-CP). Re-running it with the same
+// inputs produces the same output, so idempotency is structural — no per-tick RV
+// markers are needed on observed (the previous PR design carried
+// kubescape.io/last-merged-ug-*-rv on observed, which had to be reconciled with
+// retractions; rebuilding from scratch sidesteps the problem).
 func (a *ContainerProfileProcessor) buildMergedProfile(ctx context.Context, observed *softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier) (*softwarecomposition.ContainerProfile, bool, error) {
 	instanceIDStr, ok := observed.Annotations[helpers.InstanceIDMetadataKey]
 	if !ok {
@@ -101,54 +113,33 @@ func (a *ContainerProfileProcessor) buildMergedProfile(ctx context.Context, obse
 		return nil, false, nil
 	}
 
-	apID := id
-	apID.Name = helpers.UserApplicationProfilePrefix + workloadSlug
-	apKey := BuildContainerProfileKey(apID, "applicationprofiles")
-	nnID := id
-	nnID.Name = helpers.UserNetworkNeighborhoodPrefix + workloadSlug
-	nnKey := BuildContainerProfileKey(nnID, "networkneighborhoods")
+	// The ug- overlay is a single ContainerProfile keyed by the shared "ug-"
+	// prefix. A ContainerProfile spec is already flat/single-container, so there
+	// is no per-container lookup.
+	cpID := id
+	cpID.Name = helpers.UserApplicationProfilePrefix + workloadSlug
+	cpKey := BuildContainerProfileKey(cpID, "containerprofiles")
 
 	// Start from a fresh copy of observed so the in-place merge cannot bleed
 	// back into the caller's pointer or onto the canonical CP.
 	merged := observed.DeepCopy()
 	hasOverlay := false
 
-	apCtx, apCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer apCancel()
-	var userAP softwarecomposition.ApplicationProfile
-	apPresent := false
-	if err := storageImpl.GetWithConn(apCtx, conn, apKey, storage.GetOptions{}, &userAP); err != nil {
+	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cpCancel()
+	var userCP softwarecomposition.ContainerProfile
+	cpPresent := false
+	if err := storageImpl.GetWithConn(cpCtx, conn, cpKey, storage.GetOptions{}, &userCP); err != nil {
 		if !storage.IsNotFound(err) {
-			logger.L().Debug("ContainerProfileProcessor.buildMergedProfile - failed to get user-managed AP", loggerhelpers.Error(err), loggerhelpers.String("key", apKey))
+			logger.L().Debug("ContainerProfileProcessor.buildMergedProfile - failed to get user-managed CP", loggerhelpers.Error(err), loggerhelpers.String("key", cpKey))
 		}
 	} else {
-		apPresent = true
-		if findUserAPContainerByName(&userAP, containerName) != nil {
-			mergeUserAPIntoCP(merged, &userAP, containerName)
-			hasOverlay = true
-		}
+		cpPresent = true
+		mergeUserCPIntoCP(merged, &userCP)
+		hasOverlay = true
 	}
 
-	nnCtx, nnCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer nnCancel()
-	var userNN softwarecomposition.NetworkNeighborhood
-	nnPresent := false
-	if err := storageImpl.GetWithConn(nnCtx, conn, nnKey, storage.GetOptions{}, &userNN); err != nil {
-		if !storage.IsNotFound(err) {
-			logger.L().Debug("ContainerProfileProcessor.buildMergedProfile - failed to get user-managed NN", loggerhelpers.Error(err), loggerhelpers.String("key", nnKey))
-		}
-	} else {
-		nnPresent = true
-		// NN's pod LabelSelector merges at the workload level even when no
-		// matching container is found — preserve that behavior so a
-		// container-name typo in the ug- still propagates the selector.
-		mergeUserNNIntoCP(merged, &userNN, containerName)
-		if findUserNNContainerByName(&userNN, containerName) != nil {
-			hasOverlay = true
-		}
-	}
-
-	if !hasOverlay && !apPresent && !nnPresent {
+	if !cpPresent {
 		// No ug- input at all: caller should delete any stale merged artifact.
 		return nil, false, nil
 	}
@@ -161,24 +152,10 @@ func (a *ContainerProfileProcessor) buildMergedProfile(ctx context.Context, obse
 	if merged.Annotations == nil {
 		merged.Annotations = map[string]string{}
 	}
-	if apPresent {
-		merged.Annotations[mergedSourceUserAPKey] = apKey
-		merged.Annotations[mergedSourceUserAPRVKey] = userAP.ResourceVersion
-	}
-	if nnPresent {
-		merged.Annotations[mergedSourceUserNNKey] = nnKey
-		merged.Annotations[mergedSourceUserNNRVKey] = userNN.ResourceVersion
-	}
+	merged.Annotations[mergedSourceUserCPKey] = cpKey
+	merged.Annotations[mergedSourceUserCPRVKey] = userCP.ResourceVersion
 	merged.Annotations[mergedSourceObservedRVKey] = observed.ResourceVersion
 
-	// If neither ug- contributed a container entry but at least one ug- exists
-	// (e.g. NN selector merged but no container matched, or ug-AP present with
-	// no matching container), still treat as "has overlay" so the merged
-	// artifact reflects the selector/presence. hasOverlay is true if any
-	// container-level merge fired; otherwise we fall back here:
-	if !hasOverlay {
-		hasOverlay = apPresent || nnPresent
-	}
 	return merged, hasOverlay, nil
 }
 
@@ -207,6 +184,56 @@ func (a *ContainerProfileProcessor) userManagedConn(ctx context.Context) (*Stora
 	return impl.GetStorageImpl(), conn, true
 }
 
+// mergeUserCPIntoCP unions userCP.Spec into cp.Spec. It is the single-object
+// successor to the legacy mergeUserAPIntoCP + mergeUserNNIntoCP overlay: a
+// ContainerProfile spec is already flat/single-container, so there is no
+// per-container lookup.
+//
+// Field semantics mirror the legacy helpers: Capabilities / Execs / Opens /
+// Syscalls / Endpoints are appended; Ingress / Egress are unioned by Identifier
+// via mergeUserNetworkNeighbors (matching entries deep-merged); PolicyByRuleId
+// entries are merged via mergePolicies on collision; and the embedded
+// LabelSelector is field-merged (MatchLabels via overrideMerge with user keys
+// winning, MatchExpressions via appendDedupSortedMatchExpressions).
+//
+// IdentifiedCallStacks is intentionally NOT merged — node-agent's projection.go
+// (the reference implementation) does not project them either, so server- and
+// client-side merges stay in sync.
+func mergeUserCPIntoCP(cp *softwarecomposition.ContainerProfile, userCP *softwarecomposition.ContainerProfile) {
+	if userCP == nil {
+		return
+	}
+	// Defensive copy: userCP's slices/maps alias the caller's cached CRD object.
+	// DeepCopy isolates the merge from concurrent reads of that object.
+	u := userCP.DeepCopy()
+
+	cp.Spec.Capabilities = append(cp.Spec.Capabilities, u.Spec.Capabilities...)
+	cp.Spec.Execs = append(cp.Spec.Execs, u.Spec.Execs...)
+	cp.Spec.Opens = append(cp.Spec.Opens, u.Spec.Opens...)
+	cp.Spec.Syscalls = append(cp.Spec.Syscalls, u.Spec.Syscalls...)
+	cp.Spec.Endpoints = append(cp.Spec.Endpoints, u.Spec.Endpoints...)
+
+	if cp.Spec.PolicyByRuleId == nil && len(u.Spec.PolicyByRuleId) > 0 {
+		cp.Spec.PolicyByRuleId = make(map[string]softwarecomposition.RulePolicy, len(u.Spec.PolicyByRuleId))
+	}
+	for k, v := range u.Spec.PolicyByRuleId {
+		if existing, ok := cp.Spec.PolicyByRuleId[k]; ok {
+			cp.Spec.PolicyByRuleId[k] = mergePolicies(existing, v)
+		} else {
+			cp.Spec.PolicyByRuleId[k] = v
+		}
+	}
+
+	cp.Spec.Ingress = mergeUserNetworkNeighbors(cp.Spec.Ingress, u.Spec.Ingress)
+	cp.Spec.Egress = mergeUserNetworkNeighbors(cp.Spec.Egress, u.Spec.Egress)
+
+	cp.Spec.LabelSelector.MatchLabels = overrideMerge(cp.Spec.LabelSelector.MatchLabels, u.Spec.LabelSelector.MatchLabels)
+	cp.Spec.LabelSelector.MatchExpressions = appendDedupSortedMatchExpressions(cp.Spec.LabelSelector.MatchExpressions, u.Spec.LabelSelector.MatchExpressions)
+}
+
+// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
+// ContainerProfile. Retained for backward-compatibility views and tests.
+//
 // mergeUserAPIntoCP locates the ApplicationProfileContainer in userAP whose
 // Name matches containerName and appends its fields onto cp.Spec. PolicyByRuleId
 // entries are merged via mergePolicies on collision (same union semantics as
@@ -241,6 +268,9 @@ func mergeUserAPIntoCP(cp *softwarecomposition.ContainerProfile, userAP *softwar
 	}
 }
 
+// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
+// ContainerProfile. Retained for backward-compatibility views and tests.
+//
 // mergeUserNNIntoCP merges the matching NetworkNeighborhoodContainer's
 // Ingress/Egress and the NN's pod LabelSelector into cp.Spec. Ingress/Egress
 // entries are unioned by Identifier; matching entries are deep-merged via
@@ -340,6 +370,9 @@ func joinSorted(vs []string) string {
 	return b.String()
 }
 
+// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
+// ContainerProfile with no per-container lookup. Retained for the deprecated
+// AP/NN merge helpers and their tests.
 func findUserAPContainerByName(userAP *softwarecomposition.ApplicationProfile, name string) *softwarecomposition.ApplicationProfileContainer {
 	if userAP == nil {
 		return nil
@@ -362,6 +395,9 @@ func findUserAPContainerByName(userAP *softwarecomposition.ApplicationProfile, n
 	return nil
 }
 
+// Deprecated: superseded by mergeUserCPIntoCP; the ug- overlay is now a single
+// ContainerProfile with no per-container lookup. Retained for the deprecated
+// AP/NN merge helpers and their tests.
 func findUserNNContainerByName(userNN *softwarecomposition.NetworkNeighborhood, name string) *softwarecomposition.NetworkNeighborhoodContainer {
 	if userNN == nil {
 		return nil

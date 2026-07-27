@@ -247,6 +247,16 @@ func e2eUgNNKey() string {
 	}, "networkneighborhoods")
 }
 
+// e2eUgCPKey is the key of the single user-managed (ug-) ContainerProfile
+// overlay for the e2e workload. buildMergedProfile fetches this object under the
+// "containerprofiles" kind, keyed by the shared "ug-" prefix + workload slug.
+func e2eUgCPKey() string {
+	return BuildContainerProfileKey(armotypes.ProfileIdentifier{
+		ProfileScope: armotypes.ProfileScope{HostType: armotypes.HostTypeKubernetes, Namespace: e2eNS},
+		Name:         e2eWorkloadUg,
+	}, "containerprofiles")
+}
+
 func e2eCPKey() string {
 	return BuildContainerProfileKey(armotypes.ProfileIdentifier{
 		ProfileScope: armotypes.ProfileScope{HostType: armotypes.HostTypeKubernetes, Namespace: e2eNS},
@@ -382,6 +392,27 @@ func (h *e2eHarness) replaceUserAP(spec softwarecomposition.ApplicationProfileSp
 		false, nil, tryUpdate, nil, ""))
 }
 
+// replaceUserCP swaps the spec of an existing ug- ContainerProfile via
+// GuaranteedUpdate so the versioner bumps the object's ResourceVersion (the CP
+// analogue of replaceUserAP). This mirrors how a kube-apiserver-driven update
+// lands in storage; a fresh Create after Delete would reset RV to 1, defeating
+// the RV-marker assertions.
+func (h *e2eHarness) replaceUserCP(spec softwarecomposition.ContainerProfileSpec) {
+	h.t.Helper()
+	prev := h.s.processor
+	h.s.processor = DefaultProcessor{}
+	defer func() { h.s.processor = prev }()
+
+	tryUpdate := func(input runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		out := input.DeepCopyObject().(*softwarecomposition.ContainerProfile)
+		out.Spec = spec
+		return out, nil, nil
+	}
+	require.NoError(h.t, h.s.GuaranteedUpdateWithConn(
+		h.ctx, h.conn, e2eUgCPKey(), &softwarecomposition.ContainerProfile{},
+		false, nil, tryUpdate, nil, ""))
+}
+
 func (h *e2eHarness) consolidate() {
 	h.t.Helper()
 	require.NoError(h.t, h.processor.ConsolidateTimeSeries(h.ctx))
@@ -460,26 +491,25 @@ func count(s []string, v string) int {
 	return n
 }
 
-// TestConsolidateMergesUserManagedAP exercises the full consolidation flow
-// with a ug-<workloadSlug> ApplicationProfile pre-seeded into storage.
-func TestConsolidateMergesUserManagedAP(t *testing.T) {
+// TestConsolidateMergesUserManagedCP exercises the full consolidation flow
+// with a single ug-<workloadSlug> ContainerProfile pre-seeded into storage.
+func TestConsolidateMergesUserManagedCP(t *testing.T) {
 	h := newE2EHarness(t)
 	defer h.close()
 
 	h.createCP("testdata/p1.json")
 
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: e2eNS, Name: e2eWorkloadUg,
 			Annotations: map[string]string{helpersv1.ManagedByMetadataKey: helpersv1.ManagedByUserValue},
 		},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "coredns", Capabilities: []string{"USER_MANAGED_CAP"}, Syscalls: []string{"user_managed_syscall"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"USER_MANAGED_CAP"},
+			Syscalls:     []string{"user_managed_syscall"},
 		},
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	h.consolidate()
 
@@ -495,41 +525,36 @@ func TestConsolidateMergesUserManagedAP(t *testing.T) {
 	assert.Contains(t, merged.Spec.Syscalls, "user_managed_syscall")
 	assert.Equal(t, 1, count(merged.Spec.Capabilities, "USER_MANAGED_CAP"))
 	assert.Equal(t, MergedProfileLabelValue, merged.Labels[MergedProfileLabelKey])
-	assert.NotEmpty(t, merged.Annotations[mergedSourceUserAPKey])
+	assert.NotEmpty(t, merged.Annotations[mergedSourceUserCPKey])
 }
 
-// TestConsolidateMergesUserManagedNN verifies a ug-<workloadSlug>
-// NetworkNeighborhood is also merged into the consolidated CP, including
-// container Ingress/Egress and the workload-level pod LabelSelector.
-func TestConsolidateMergesUserManagedNN(t *testing.T) {
+// TestConsolidateMergesUserManagedCPNetwork verifies a ug-<workloadSlug>
+// ContainerProfile's network fields are merged into the consolidated CP,
+// including Egress neighbors and the workload-level pod LabelSelector.
+func TestConsolidateMergesUserManagedCPNetwork(t *testing.T) {
 	h := newE2EHarness(t)
 	defer h.close()
 
 	h.createCP("testdata/p1.json")
 
 	port443 := int32(443)
-	userNN := &softwarecomposition.NetworkNeighborhood{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: e2eNS, Name: e2eWorkloadUg,
 			Annotations: map[string]string{helpersv1.ManagedByMetadataKey: helpersv1.ManagedByUserValue},
 		},
-		Spec: softwarecomposition.NetworkNeighborhoodSpec{
+		Spec: softwarecomposition.ContainerProfileSpec{
 			LabelSelector: metav1.LabelSelector{MatchLabels: map[string]string{"user-tier": "edge"}},
-			Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+			Egress: []softwarecomposition.NetworkNeighbor{
 				{
-					Name: "coredns",
-					Egress: []softwarecomposition.NetworkNeighbor{
-						{
-							Identifier: "user-egress-1",
-							DNSNames:   []string{"user.example"},
-							Ports:      []softwarecomposition.NetworkPort{{Name: "tcp-443", Port: &port443}},
-						},
-					},
+					Identifier: "user-egress-1",
+					DNSNames:   []string{"user.example"},
+					Ports:      []softwarecomposition.NetworkPort{{Name: "tcp-443", Port: &port443}},
 				},
 			},
 		},
 	}
-	h.seedNonCP(e2eUgNNKey(), userNN)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	h.consolidate()
 	cp := h.requireMerged()
@@ -544,13 +569,13 @@ func TestConsolidateMergesUserManagedNN(t *testing.T) {
 	}
 	assert.True(t, found, "expected user-managed egress neighbor in merged CP")
 	assert.Equal(t, "edge", cp.Spec.LabelSelector.MatchLabels["user-tier"])
-	assert.NotEmpty(t, cp.Annotations[mergedSourceUserNNKey])
+	assert.NotEmpty(t, cp.Annotations[mergedSourceUserCPKey])
 }
 
 // TestConsolidateUserManagedIdempotent verifies that re-merging unchanged
 // inputs does NOT rewrite the merged CP, while a real change does.
 //
-// The merged CP is rebuilt from (observed, ug-AP, ug-NN) every tick. Because it
+// The merged CP is rebuilt from (observed, ug-CP) every tick. Because it
 // is a DeepCopy of the observed CP it used to carry observed's ResourceVersion +
 // SyncChecksum (and a wall-clock "merged-at" annotation), so GuaranteedUpdate's
 // "same serialized contents" short-circuit never fired and the merged CP — plus
@@ -571,15 +596,13 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 	h.processor.DeleteThreshold = time.Second
 
 	h.createCP("testdata/p1.json")
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "coredns", Capabilities: []string{"USER_MANAGED_CAP"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"USER_MANAGED_CAP"},
 		},
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	drainMergedWrites, stopWatch := h.watchMergedModifications()
 	defer stopWatch()
@@ -591,14 +614,14 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 	require.Equal(t, 1, drainMergedWrites(), "first tick must create the merged CP")
 
 	// Cross a wall-clock second boundary before the no-data tick. The merge must
-	// be a pure function of (observed, ug-AP, ug-NN) — independent of when it
+	// be a pure function of (observed, ug-CP) — independent of when it
 	// runs — so a re-merge of identical inputs after time has advanced must still
 	// be a no-op. This deterministically catches any reintroduced per-tick
 	// timestamp (e.g. a "merged-at" annotation), which would otherwise only flake
 	// the assertions below when a tick happened to straddle a second.
 	time.Sleep(1100 * time.Millisecond)
 
-	// Second tick: no new time-series data and the ug- AP unchanged.
+	// Second tick: no new time-series data and the ug- CP unchanged.
 	// Since the expired time series was cleared on the first tick, we inject a report
 	// to trigger consolidation and verify that rebuilding with identical inputs is recognized
 	// as unchanged and NOT rewritten (no watch event, stable ResourceVersion).
@@ -611,25 +634,23 @@ func TestConsolidateUserManagedIdempotent(t *testing.T) {
 		"unchanged inputs must keep the merged CP ResourceVersion stable")
 	assert.Equal(t, first, second, "an unchanged tick must leave the merged CP byte-for-byte identical")
 	assert.Equal(t, 1, count(second.Spec.Capabilities, "USER_MANAGED_CAP"),
-		"unchanged ug- AP must not duplicate merged entries")
+		"unchanged ug- CP must not duplicate merged entries")
 
-	// Third tick: edit the ug- AP. Now an input changed, so the merged CP must
+	// Third tick: edit the ug- CP. Now an input changed, so the merged CP must
 	// be rewritten — its ResourceVersion advances and the new capability lands
 	// (and the old one is retracted, since the merge is rebuilt from scratch).
-	h.replaceUserAP(softwarecomposition.ApplicationProfileSpec{
-		Containers: []softwarecomposition.ApplicationProfileContainer{
-			{Name: "coredns", Capabilities: []string{"USER_MANAGED_CAP_V2"}},
-		},
+	h.replaceUserCP(softwarecomposition.ContainerProfileSpec{
+		Capabilities: []string{"USER_MANAGED_CAP_V2"},
 	})
 	h.writeTSEntryDirect("containerprofile", "kube-system", "replicaset-coredns-5d78c9869d-coredns-185f-129c", "4580f9fc-7563-41d8-bb60-e2eeca72f495", "c68b821c86194262b389d919d1355ee6", "2025-06-24 10:29:46.810421941 +0000 UTC m=+66.976503851", "ready", "partial", "0001-01-01 00:00:00 +0000 UTC", true)
 	h.consolidate()
 	third := h.requireMerged()
 	assert.GreaterOrEqual(t, drainMergedWrites(), 1,
-		"a changed ug- AP must rewrite the merged CP (a watch event must fire)")
+		"a changed ug- CP must rewrite the merged CP (a watch event must fire)")
 	assert.NotEqual(t, second.ResourceVersion, third.ResourceVersion,
-		"a changed ug- AP must rewrite the merged CP (RV must advance)")
+		"a changed ug- CP must rewrite the merged CP (RV must advance)")
 	assert.Contains(t, third.Spec.Capabilities, "USER_MANAGED_CAP_V2",
-		"merged CP must pick up the edited ug- AP capability")
+		"merged CP must pick up the edited ug- CP capability")
 	assert.NotContains(t, third.Spec.Capabilities, "USER_MANAGED_CAP",
 		"merge is rebuilt from scratch, so the superseded capability must be retracted")
 }
@@ -706,7 +727,7 @@ func TestSaveContainerProfileIdempotent(t *testing.T) {
 }
 
 // TestConsolidateObservedIdempotentE2E drives the full consolidation pipeline
-// and proves the symptom matthyx flagged is fixed end-to-end: a workload that is
+// and proves the reported symptom is fixed end-to-end: a workload that is
 // still actively reporting (newData=true every tick) but whose observations have
 // stabilised must NOT bump the observed CP's ResourceVersion, and therefore must
 // NOT churn the derived merged CP — no spurious watch event reaches node-agent.
@@ -722,15 +743,13 @@ func TestConsolidateObservedIdempotentE2E(t *testing.T) {
 	defer h.close()
 	h.processor.DeleteThreshold = time.Hour
 
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "coredns", Capabilities: []string{"USER_MANAGED_CAP"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"USER_MANAGED_CAP"},
 		},
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	drainMergedWrites, stopWatch := h.watchMergedModifications()
 	defer stopWatch()
@@ -799,7 +818,7 @@ func TestConsolidateObservedIdempotentE2E(t *testing.T) {
 		"merged CP must still carry the ug- overlay after an observed change")
 }
 
-// TestConsolidateUserManagedRVBump verifies that updating the ug- AP (bumping
+// TestConsolidateUserManagedRVBump verifies that updating the ug- CP (bumping
 // its ResourceVersion) causes the next consolidation to apply the new content.
 // New entries appear, and the RV marker advances.
 func TestConsolidateUserManagedRVBump(t *testing.T) {
@@ -807,28 +826,24 @@ func TestConsolidateUserManagedRVBump(t *testing.T) {
 	defer h.close()
 
 	h.createCP("testdata/p1.json")
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "coredns", Capabilities: []string{"V1_CAP"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"V1_CAP"},
 		},
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 	h.consolidate()
 	first := h.requireMerged()
 	require.Contains(t, first.Spec.Capabilities, "V1_CAP")
-	rvAfterFirst := first.Annotations[mergedSourceUserAPRVKey]
+	rvAfterFirst := first.Annotations[mergedSourceUserCPRVKey]
 
-	// Bump ug- AP: replace with a new spec carrying a different capability.
+	// Bump ug- CP: replace with a new spec carrying a different capability.
 	// Because the merged is rebuilt fresh from observed + ug- inputs, the new
-	// V2_CAP appears and V1_CAP is retracted (the maintainer's primary
-	// motivation for moving to a derived artifact).
-	h.replaceUserAP(softwarecomposition.ApplicationProfileSpec{
-		Containers: []softwarecomposition.ApplicationProfileContainer{
-			{Name: "coredns", Capabilities: []string{"V2_CAP"}},
-		},
+	// V2_CAP appears and V1_CAP is retracted (the primary motivation for moving
+	// to a derived artifact).
+	h.replaceUserCP(softwarecomposition.ContainerProfileSpec{
+		Capabilities: []string{"V2_CAP"},
 	})
 
 	h.createCP("testdata/p2.json")
@@ -838,13 +853,13 @@ func TestConsolidateUserManagedRVBump(t *testing.T) {
 	assert.Contains(t, second.Spec.Capabilities, "V2_CAP",
 		"new ug- entries must appear after RV bump")
 	assert.NotContains(t, second.Spec.Capabilities, "V1_CAP",
-		"retraction: V1_CAP must not survive a ug- AP replacement")
-	assert.NotEqual(t, rvAfterFirst, second.Annotations[mergedSourceUserAPRVKey],
-		"merged source-AP-RV annotation must advance after ug- update")
+		"retraction: V1_CAP must not survive a ug- CP replacement")
+	assert.NotEqual(t, rvAfterFirst, second.Annotations[mergedSourceUserCPRVKey],
+		"merged source-CP-RV annotation must advance after ug- update")
 }
 
 // TestConsolidateNoUserManaged verifies the merge path is a no-op (no error,
-// no marker annotations) when no ug- AP/NN exists for the workload.
+// no marker annotations) when no ug- ContainerProfile exists for the workload.
 func TestConsolidateNoUserManaged(t *testing.T) {
 	h := newE2EHarness(t)
 	defer h.close()
@@ -855,8 +870,7 @@ func TestConsolidateNoUserManaged(t *testing.T) {
 	// Observed must exist and carry no merge metadata.
 	observed := h.loadConsolidated()
 	assert.NotContains(t, observed.Labels, MergedProfileLabelKey)
-	assert.NotContains(t, observed.Annotations, mergedSourceUserAPKey)
-	assert.NotContains(t, observed.Annotations, mergedSourceUserNNKey)
+	assert.NotContains(t, observed.Annotations, mergedSourceUserCPKey)
 
 	// No merged artifact should have been written when no ug- input exists.
 	_, ok := h.loadMerged()
@@ -871,25 +885,23 @@ func TestConsolidateUserManagedPreservesStatus(t *testing.T) {
 	defer h.close()
 
 	h.createCP("testdata/p1.json")
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				// Set values that, if naively copied, would clobber base CP
-				// status/completion. The merge must ignore these and only
-				// touch Spec slices.
-				{Name: "coredns", Capabilities: []string{"X"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			// Set values that, if naively copied, would clobber base CP
+			// status/completion. The merge must ignore these and only
+			// touch Spec slices.
+			Capabilities: []string{"X"},
 		},
 	}
 	// Adding annotations that look like base-CP status/completion to the ug-
-	// AP itself — these live on userAP.Annotations, never on its Spec, and
+	// CP itself — these live on userCP.Annotations, never on its Spec, and
 	// must not bleed into the consolidated CP's annotations.
-	userAP.Annotations = map[string]string{
+	userCP.Annotations = map[string]string{
 		helpersv1.StatusMetadataKey:     "should-not-overwrite",
 		helpersv1.CompletionMetadataKey: "should-not-overwrite",
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	h.consolidate()
 	cp := h.requireMerged()
@@ -922,49 +934,36 @@ func TestMergeUserNNIntoCP_LabelSelectorUserOverridesBase(t *testing.T) {
 	assert.Equal(t, map[string]string{"app": "y", "keep": "me", "tier": "backend"}, cp.Spec.LabelSelector.MatchLabels)
 }
 
-// TestConsolidateUserManagedNNRVBump mirrors TestConsolidateUserManagedRVBump
-// for NetworkNeighborhood: bumping the ug- NN's ResourceVersion must cause the
-// next consolidation to re-merge.
-func TestConsolidateUserManagedNNRVBump(t *testing.T) {
+// TestConsolidateUserManagedCPNetworkRVBump mirrors TestConsolidateUserManagedRVBump
+// for the ug- ContainerProfile's network fields: bumping the ug- CP's
+// ResourceVersion must cause the next consolidation to re-merge the egress set.
+func TestConsolidateUserManagedCPNetworkRVBump(t *testing.T) {
 	h := newE2EHarness(t)
 	defer h.close()
 
 	h.createCP("testdata/p1.json")
-	userNN := &softwarecomposition.NetworkNeighborhood{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.NetworkNeighborhoodSpec{
-			Containers: []softwarecomposition.NetworkNeighborhoodContainer{
-				{
-					Name: "coredns",
-					Egress: []softwarecomposition.NetworkNeighbor{
-						{Identifier: "v1-egress", DNSNames: []string{"v1.example"}},
-					},
-				},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Egress: []softwarecomposition.NetworkNeighbor{
+				{Identifier: "v1-egress", DNSNames: []string{"v1.example"}},
 			},
 		},
 	}
-	h.seedNonCP(e2eUgNNKey(), userNN)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	h.consolidate()
 	first := h.requireMerged()
 	require.True(t, hasNeighbor(first.Spec.Egress, "v1-egress"), "first tick: v1-egress should be merged")
-	rvAfterFirst := first.Annotations[mergedSourceUserNNRVKey]
+	rvAfterFirst := first.Annotations[mergedSourceUserCPRVKey]
 	require.NotEmpty(t, rvAfterFirst)
 
-	// Bump the ug- NN: replace egress with a new identifier.
-	tryUpdate := func(input runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		out := input.DeepCopyObject().(*softwarecomposition.NetworkNeighborhood)
-		out.Spec.Containers[0].Egress = []softwarecomposition.NetworkNeighbor{
+	// Bump the ug- CP: replace egress with a new identifier.
+	h.replaceUserCP(softwarecomposition.ContainerProfileSpec{
+		Egress: []softwarecomposition.NetworkNeighbor{
 			{Identifier: "v2-egress", DNSNames: []string{"v2.example"}},
-		}
-		return out, nil, nil
-	}
-	prev := h.s.processor
-	h.s.processor = DefaultProcessor{}
-	require.NoError(t, h.s.GuaranteedUpdateWithConn(
-		h.ctx, h.conn, e2eUgNNKey(), &softwarecomposition.NetworkNeighborhood{},
-		false, nil, tryUpdate, nil, ""))
-	h.s.processor = prev
+		},
+	})
 
 	h.createCP("testdata/p2.json")
 	h.consolidate()
@@ -973,9 +972,9 @@ func TestConsolidateUserManagedNNRVBump(t *testing.T) {
 	assert.True(t, hasNeighbor(second.Spec.Egress, "v2-egress"),
 		"second tick: v2-egress must appear after RV bump")
 	assert.False(t, hasNeighbor(second.Spec.Egress, "v1-egress"),
-		"retraction: v1-egress must not survive a ug- NN replacement")
-	assert.NotEqual(t, rvAfterFirst, second.Annotations[mergedSourceUserNNRVKey],
-		"merged source-NN-RV annotation must advance after ug- NN update")
+		"retraction: v1-egress must not survive a ug- CP replacement")
+	assert.NotEqual(t, rvAfterFirst, second.Annotations[mergedSourceUserCPRVKey],
+		"merged source-CP-RV annotation must advance after ug- CP update")
 }
 
 func hasNeighbor(neighbors []softwarecomposition.NetworkNeighbor, identifier string) bool {
@@ -988,10 +987,12 @@ func hasNeighbor(neighbors []softwarecomposition.NetworkNeighbor, identifier str
 }
 
 // TestConsolidateUserManagedFanOut exercises slug fan-out: a single
-// ug-<workloadSlug> AP listing two containers must be merged into BOTH
-// per-container CPs the consolidation flow produces. Uses the fixture
-// workload "multiple-containers-deployment-d4b8dd5fd" which has separate
-// per-container TS profiles for "server" and "nginx".
+// ug-<workloadSlug> ContainerProfile must be merged into BOTH per-container CPs
+// the consolidation flow produces for that workload. Uses the fixture workload
+// "multiple-containers-deployment-d4b8dd5fd" which has separate per-container TS
+// profiles for "server" and "nginx". The ug- overlay is now flat (single
+// container), so the same overlay applies to every per-container CP of the
+// workload rather than being split per container name.
 func TestConsolidateUserManagedFanOut(t *testing.T) {
 	pool := NewTestPool(t.TempDir())
 	require.NotNil(t, pool)
@@ -1042,26 +1043,24 @@ func TestConsolidateUserManagedFanOut(t *testing.T) {
 	ugKey := BuildContainerProfileKey(armotypes.ProfileIdentifier{
 		ProfileScope: armotypes.ProfileScope{HostType: armotypes.HostTypeKubernetes, Namespace: ns},
 		Name:         ugName,
-	}, "applicationprofiles")
+	}, "containerprofiles")
 
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: ugName},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "server", Capabilities: []string{"FANOUT_SERVER"}},
-				{Name: "nginx", Capabilities: []string{"FANOUT_NGINX"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"FANOUT_SHARED"},
 		},
 	}
 	prev := s.processor
 	s.processor = DefaultProcessor{}
-	require.NoError(t, s.Create(ctx, ugKey, userAP, nil, 0))
+	require.NoError(t, s.Create(ctx, ugKey, userCP, nil, 0))
 	s.processor = prev
 
 	require.NoError(t, processor.ConsolidateTimeSeries(ctx))
 
-	// Both per-container CPs must carry the matching merge in the merged
-	// artifact (not on the observed CP — that one stays pure time-series).
+	// Both per-container CPs of the workload must carry the shared ug- overlay in
+	// the merged artifact (not on the observed CP — that one stays pure
+	// time-series). The overlay is flat, so it fans out to every per-container CP.
 	loadCP := func(name string) softwarecomposition.ContainerProfile {
 		var cp softwarecomposition.ContainerProfile
 		observedKey := BuildContainerProfileKey(armotypes.ProfileIdentifier{
@@ -1075,40 +1074,38 @@ func TestConsolidateUserManagedFanOut(t *testing.T) {
 	serverCP := loadCP("replicaset-multiple-containers-deployment-d4b8dd5fd-server-5cad-76b6")
 	nginxCP := loadCP("replicaset-multiple-containers-deployment-d4b8dd5fd-nginx-42c9-63c3")
 
-	assert.Contains(t, serverCP.Spec.Capabilities, "FANOUT_SERVER", "server CP missed user-managed merge")
-	assert.NotContains(t, serverCP.Spec.Capabilities, "FANOUT_NGINX", "server CP should not receive nginx's user-managed entries")
-	assert.Contains(t, nginxCP.Spec.Capabilities, "FANOUT_NGINX", "nginx CP missed user-managed merge")
-	assert.NotContains(t, nginxCP.Spec.Capabilities, "FANOUT_SERVER", "nginx CP should not receive server's user-managed entries")
+	assert.Contains(t, serverCP.Spec.Capabilities, "FANOUT_SHARED", "server CP missed user-managed merge")
+	assert.Equal(t, 1, count(serverCP.Spec.Capabilities, "FANOUT_SHARED"), "server CP must not duplicate the overlay entry")
+	assert.Contains(t, nginxCP.Spec.Capabilities, "FANOUT_SHARED", "nginx CP missed user-managed merge")
+	assert.Equal(t, 1, count(nginxCP.Spec.Capabilities, "FANOUT_SHARED"), "nginx CP must not duplicate the overlay entry")
 }
 
-// TestConsolidateRetractsMergedOnUgAPDelete is the central correctness test
-// for the maintainer's stale-on-delete concern. After a successful merge,
-// removing the ug- AP must cause the merged artifact to disappear so node-
-// agent falls back to the observed CP — i.e., the user's permission grant is
+// TestConsolidateRetractsMergedOnUgCPDelete is the central correctness test
+// for the stale-on-delete concern. After a successful merge, removing the ug-
+// ContainerProfile must cause the merged artifact to disappear so node-agent
+// falls back to the observed CP — i.e., the user's permission grant is
 // retracted.
-func TestConsolidateRetractsMergedOnUgAPDelete(t *testing.T) {
+func TestConsolidateRetractsMergedOnUgCPDelete(t *testing.T) {
 	h := newE2EHarness(t)
 	defer h.close()
 
 	h.createCP("testdata/p1.json")
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "coredns", Capabilities: []string{"DOOMED_CAP"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"DOOMED_CAP"},
 		},
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	h.consolidate()
 	require.Contains(t, h.requireMerged().Spec.Capabilities, "DOOMED_CAP",
-		"first tick: merged should reflect ug- AP")
+		"first tick: merged should reflect ug- CP")
 
-	// Delete the ug- AP outside the consolidation path.
+	// Delete the ug- CP outside the consolidation path.
 	prev := h.s.processor
 	h.s.processor = DefaultProcessor{}
-	require.NoError(t, h.s.Delete(h.ctx, e2eUgAPKey(), &softwarecomposition.ApplicationProfile{},
+	require.NoError(t, h.s.Delete(h.ctx, e2eUgCPKey(), &softwarecomposition.ContainerProfile{},
 		nil, storage.ValidateAllObjectFunc, nil, storage.DeleteOptions{}))
 	h.s.processor = prev
 
@@ -1117,7 +1114,7 @@ func TestConsolidateRetractsMergedOnUgAPDelete(t *testing.T) {
 	h.consolidate()
 
 	_, ok := h.loadMerged()
-	assert.False(t, ok, "merged artifact must be deleted after ug- AP is removed")
+	assert.False(t, ok, "merged artifact must be deleted after ug- CP is removed")
 
 	// Observed must still exist and never have contained DOOMED_CAP.
 	observed := h.loadConsolidated()
@@ -1132,7 +1129,7 @@ func TestConsolidateRetractsMergedOnUgAPDelete(t *testing.T) {
 //
 // Scope note: a truly idle workload with zero hasData=1 TS rows isn't visited
 // by ConsolidateTimeSeries at all — that case requires a separate trigger
-// (option a, watch-driven enqueue) and is out of scope here per matthyx's
+// (option a, watch-driven enqueue) and is out of scope here per the review's
 // "option (c)" decision. This test covers the in-tick !newData case where
 // the consolidator still visits the workload.
 func TestConsolidateRefreshesMergedOnNoNewData(t *testing.T) {
@@ -1146,19 +1143,17 @@ func TestConsolidateRefreshesMergedOnNoNewData(t *testing.T) {
 	_, ok := h.loadMerged()
 	require.False(t, ok, "preconditions: no merged before ug- is added")
 
-	// Add ug- AP, then re-run consolidation. The same workload may still be
+	// Add ug- CP, then re-run consolidation. The same workload may still be
 	// visited because there's a (possibly stale) TS row queued by createCP;
 	// even if processTimeSeries returns no new data, the merged refresh must
 	// still execute.
-	userAP := &softwarecomposition.ApplicationProfile{
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "coredns", Capabilities: []string{"LATE_ADDITION"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"LATE_ADDITION"},
 		},
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 
 	// Inject a fresh TS row so the consolidator visits the workload. We're
 	// proving that the merged refresh fires even when the merge itself
@@ -1169,7 +1164,7 @@ func TestConsolidateRefreshesMergedOnNoNewData(t *testing.T) {
 
 	merged := h.requireMerged()
 	assert.Contains(t, merged.Spec.Capabilities, "LATE_ADDITION",
-		"merged refresh must propagate a late-added ug- AP")
+		"merged refresh must propagate a late-added ug- CP")
 }
 
 // TestRESTWrapper_MergedFirstFallback exercises the consumer-side read path:
@@ -1280,8 +1275,8 @@ func (f fakeRunningFetcher) FetchResources(_ string) (ResourceMaps, error) {
 }
 
 // TestCleanupRetiresMergedOrphan proves the merged-CP kind is wired into the
-// cleanup map (matthyx review, ask #1): a merged CP whose workload is no longer
-// running is age-cleaned, while a merged CP for a running workload survives.
+// cleanup map: a merged CP whose workload is no longer running is age-cleaned,
+// while a merged CP for a running workload survives.
 // This covers the path where a workload is retired without going through the
 // REST Delete cascade that maintains the merged sibling.
 func TestCleanupRetiresMergedOrphan(t *testing.T) {
@@ -1384,8 +1379,7 @@ func TestE2EScenario_Walkthrough(t *testing.T) {
 		} else {
 			t.Logf("  merged capabilities:   %v", merged.Spec.Capabilities)
 			t.Logf("  merged label:          %s=%s", MergedProfileLabelKey, merged.Labels[MergedProfileLabelKey])
-			t.Logf("  merged source ug-ap:   %s (rv=%s)", merged.Annotations[mergedSourceUserAPKey], merged.Annotations[mergedSourceUserAPRVKey])
-			t.Logf("  merged source ug-nn:   %s (rv=%s)", merged.Annotations[mergedSourceUserNNKey], merged.Annotations[mergedSourceUserNNRVKey])
+			t.Logf("  merged source ug-cp:   %s (rv=%s)", merged.Annotations[mergedSourceUserCPKey], merged.Annotations[mergedSourceUserCPRVKey])
 		}
 
 		viaREST, restErr := getViaREST()
@@ -1399,7 +1393,7 @@ func TestE2EScenario_Walkthrough(t *testing.T) {
 		t.Logf("")
 	}
 
-	t.Log("Scenario: simulate node-agent reads across the ug- AP lifecycle")
+	t.Log("Scenario: simulate node-agent reads across the ug- CP lifecycle")
 	t.Log("Workload slug:", e2eWorkloadSlug, " container CP name:", e2eContainerCPName)
 	t.Log("")
 
@@ -1408,41 +1402,37 @@ func TestE2EScenario_Walkthrough(t *testing.T) {
 	h.consolidate()
 	dumpState("Step 1: TS data only — no ug-")
 
-	// Step 2: operator creates a ug- AP granting an extra capability.
-	userAP := &softwarecomposition.ApplicationProfile{
+	// Step 2: operator creates a ug- CP granting an extra capability.
+	userCP := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{Namespace: e2eNS, Name: e2eWorkloadUg},
-		Spec: softwarecomposition.ApplicationProfileSpec{
-			Containers: []softwarecomposition.ApplicationProfileContainer{
-				{Name: "coredns", Capabilities: []string{"NET_ADMIN_FROM_UG"}},
-			},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Capabilities: []string{"NET_ADMIN_FROM_UG"},
 		},
 	}
-	h.seedNonCP(e2eUgAPKey(), userAP)
+	h.seedNonCP(e2eUgCPKey(), userCP)
 	h.createCP("testdata/p2.json") // fresh TS row so consolidator visits
 	h.consolidate()
-	dumpState("Step 2: operator adds ug- AP granting NET_ADMIN_FROM_UG")
+	dumpState("Step 2: operator adds ug- CP granting NET_ADMIN_FROM_UG")
 
-	// Step 3: operator edits the ug- AP — replaces the capability list. The
+	// Step 3: operator edits the ug- CP — replaces the capability list. The
 	// previous in-place merge couldn't retract; the new design must.
-	h.replaceUserAP(softwarecomposition.ApplicationProfileSpec{
-		Containers: []softwarecomposition.ApplicationProfileContainer{
-			{Name: "coredns", Capabilities: []string{"SYS_PTRACE_FROM_UG"}},
-		},
+	h.replaceUserCP(softwarecomposition.ContainerProfileSpec{
+		Capabilities: []string{"SYS_PTRACE_FROM_UG"},
 	})
 	h.createCP("testdata/p1.json")
 	h.consolidate()
-	dumpState("Step 3: operator edits ug- AP (NET_ADMIN_FROM_UG → SYS_PTRACE_FROM_UG)")
+	dumpState("Step 3: operator edits ug- CP (NET_ADMIN_FROM_UG → SYS_PTRACE_FROM_UG)")
 
-	// Step 4: operator deletes the ug- AP. The merged artifact must disappear
+	// Step 4: operator deletes the ug- CP. The merged artifact must disappear
 	// and the REST wrapper must transparently fall back to observed.
 	prev := h.s.processor
 	h.s.processor = DefaultProcessor{}
-	require.NoError(t, h.s.Delete(h.ctx, e2eUgAPKey(), &softwarecomposition.ApplicationProfile{},
+	require.NoError(t, h.s.Delete(h.ctx, e2eUgCPKey(), &softwarecomposition.ContainerProfile{},
 		nil, storage.ValidateAllObjectFunc, nil, storage.DeleteOptions{}))
 	h.s.processor = prev
 	h.createCP("testdata/p2.json")
 	h.consolidate()
-	dumpState("Step 4: operator deletes ug- AP — retraction")
+	dumpState("Step 4: operator deletes ug- CP — retraction")
 }
 
 // TestConsolidatorReadsObservedOnly proves the consolidator's read path never
