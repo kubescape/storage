@@ -343,7 +343,7 @@ func (p *ContainerProfile) SetLearningStatus(ts TimeSeriesContainers) {
 }
 
 type ContainerProfileSpec struct {
-	// WARNING report fields from ApplicationProfileContainer here
+	// WARNING report the execution/profile fields here
 	Architectures        []string
 	Capabilities         []string
 	Execs                []ExecCalls
@@ -355,7 +355,7 @@ type ContainerProfileSpec struct {
 	ImageTag             string
 	PolicyByRuleId       map[string]RulePolicy
 	IdentifiedCallStacks []IdentifiedCallStack
-	// WARNING report fields from NetworkNeighborhoodContainer here
+	// WARNING report the network fields here
 	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
 	Ingress              []NetworkNeighbor
 	Egress               []NetworkNeighbor

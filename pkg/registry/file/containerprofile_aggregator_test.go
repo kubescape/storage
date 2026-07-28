@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,12 +74,6 @@ func (f *fakeStorage) GetMergedContainerProfile(ctx context.Context, observedKey
 	return softwarecomposition.ContainerProfile{}, storage.NewKeyNotFoundError(observedKey, 0)
 }
 func (f *fakeStorage) DeleteMergedContainerProfile(ctx context.Context, observedKey string) error {
-	return nil
-}
-func (f *fakeStorage) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-	return nil
-}
-func (f *fakeStorage) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	return nil
 }
 func (f *fakeStorage) GetStorageImpl() *StorageImpl {

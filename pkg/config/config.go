@@ -21,7 +21,7 @@ type Config struct {
 	DisableVirtualCRDs            bool               `mapstructure:"disableVirtualCRDs"`
 	DisableSeccompProfileEndpoint bool               `mapstructure:"disableSeccompProfileEndpoint"`
 	ExcludeJsonPaths              []string           `mapstructure:"excludeJsonPaths"`
-	MaxApplicationProfileSize     int                `mapstructure:"maxApplicationProfileSize"`
+	MaxContainerProfileSize       int                `mapstructure:"maxContainerProfileSize"`
 	MaxSniffingTime               time.Duration      `mapstructure:"maxSniffingTimePerContainer"`
 	RateLimitPerClient            float64            `mapstructure:"rateLimitPerClient"`
 	RateLimitTotal                int                `mapstructure:"rateLimitTotal"`
@@ -53,7 +53,7 @@ func LoadConfig(path string) (Config, error) {
 
 	v.SetDefault("cleanupInterval", 24*time.Hour)
 	v.SetDefault("defaultNamespace", "kubescape")
-	v.SetDefault("maxApplicationProfileSize", 40000)
+	v.SetDefault("maxContainerProfileSize", 40000)
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)

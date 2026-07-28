@@ -233,7 +233,7 @@ type ContainerProfile struct {
 }
 
 type ContainerProfileSpec struct {
-	// WARNING report fields from ApplicationProfileContainer here
+	// WARNING report the execution/profile fields here
 	Architectures []string `json:"architectures" protobuf:"bytes,1,rep,name=architectures"`
 	Capabilities  []string `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
 	// +patchMergeKey=path
@@ -253,7 +253,7 @@ type ContainerProfileSpec struct {
 	// +patchMergeKey=ruleId
 	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
 	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
-	// WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
+	// WARNING report the network fields here, increment proto IDs by 100
 	metav1.LabelSelector `json:",inline" protobuf:"bytes,101,opt,name=labelSelector"`
 	Ingress              []NetworkNeighbor `json:"ingress" protobuf:"bytes,102,rep,name=ingress"`
 	Egress               []NetworkNeighbor `json:"egress" protobuf:"bytes,103,rep,name=egress"`

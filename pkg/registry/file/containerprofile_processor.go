@@ -73,7 +73,7 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 		DeleteThreshold:         2 * cfg.MaxSniffingTime,
 		HostType:                hostType,
 		Interval:                30 * time.Second,
-		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
+		MaxContainerProfileSize: cfg.MaxContainerProfileSize,
 		CollapseSettings:        dynamicpathdetector.DefaultCollapseSettings,
 		Workers:                 max(1, DefaultPoolSize/4),
 	}
@@ -404,7 +404,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 }
 
 // sendConsolidatedSlugToChannel calculates the slug from the profile and sends it to the channel
-// The slug is calculated for both ApplicationProfile and NetworkNeighborhood
+// The slug is calculated from the ContainerProfile
 // Format: "namespace/name" to allow the ingester to extract both namespace and name
 func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Context, profile softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier) error {
 	if a.ConsolidatedSlugChannel == nil {
