@@ -65,20 +65,10 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("queueTimeout", 60)
 	v.SetDefault("queueProcessingStatsPrint", false)
 	v.SetDefault("kindQueues", map[string]KindQueueConfig{
-		"applicationprofiles": {
-			QueueLength:   50,
-			WorkerCount:   1,
-			MaxObjectSize: 20000000,
-		},
 		"containerprofiles": {
 			QueueLength:   50,
 			WorkerCount:   1,
 			MaxObjectSize: 2500000,
-		},
-		"networkneighborhoods": {
-			QueueLength:   50,
-			WorkerCount:   1,
-			MaxObjectSize: 10000000,
 		},
 		"openvulnerabilityexchangecontainers": {
 			QueueLength:   50,
