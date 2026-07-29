@@ -40,9 +40,11 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", 0),
 		},
 		{
+			// A single-container workload is requested by its WORKLOAD-level name
+			// <lower(kind)>-<workload-name> (not the per-container profile name).
 			name: "existing object is returned",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
+				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/deployment-totowl",
 				objPtr: &softwarecomposition.GeneratedNetworkPolicy{},
 			},
 			expectedError: nil,
@@ -53,7 +55,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:              "toto",
+					Name:              "deployment-totowl",
 					Namespace:         "kubescape",
 					CreationTimestamp: v1.Time{},
 					Labels: map[string]string{
@@ -88,9 +90,11 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			},
 		},
 		{
+			// Without a workload-name label the workload name falls back to the
+			// profile name, so the workload-level key is <lower(kind)>-<profile-name>.
 			name: "missing workload name label",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
+				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/deployment-toto",
 				objPtr: &softwarecomposition.GeneratedNetworkPolicy{},
 			},
 			expectedError:  nil,
@@ -102,7 +106,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:              "toto",
+					Name:              "deployment-toto",
 					Namespace:         "kubescape",
 					CreationTimestamp: v1.Time{},
 					Labels: map[string]string{
