@@ -56,23 +56,6 @@ type ContainerProfileStorage interface {
 
 	// SaveContainerProfile creates or updates a container profile.
 	SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error
-
-	// SaveMergedContainerProfile creates or updates the merged (effective) container
-	// profile derived from the observed CP plus the user-managed ug- AP/NN overlay.
-	// observedKey is the canonical containerprofile key; the merged artifact is
-	// stored under a parallel key (kind: containerprofile-merged) and consumers
-	// read it preferentially via the REST wrapper.
-	SaveMergedContainerProfile(ctx context.Context, observedKey string, profile *softwarecomposition.ContainerProfile) error
-
-	// GetMergedContainerProfile retrieves the merged container profile that
-	// corresponds to observedKey. Returns storage.ErrCodeKeyNotFound when no
-	// merged artifact exists (the consumer-side fallback is to read the
-	// observed CP at observedKey).
-	GetMergedContainerProfile(ctx context.Context, observedKey string) (softwarecomposition.ContainerProfile, error)
-
-	// DeleteMergedContainerProfile removes the merged container profile that
-	// corresponds to observedKey. Idempotent: not-found is not an error.
-	DeleteMergedContainerProfile(ctx context.Context, observedKey string) error
 }
 
 // TransactionManager handles database connection and transaction lifecycle.

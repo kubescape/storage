@@ -147,7 +147,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	var (
 		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-		containerProfileStorageImpl   = file.NewContainerProfileRESTStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor))
+		containerProfileStorageImpl   = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
 		configScanStorageImpl         = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage   = file.NewVulnerabilitySummaryStorage(storageImpl)
 		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl)

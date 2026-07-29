@@ -264,11 +264,6 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	a.LastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
 		"containerprofiles": {deleteByTemplateHashOrWlid},
-		// The merged (effective) CP carries the same templateHash/wlid metadata
-		// as its observed sibling, so the same predicate retires orphans. This
-		// covers workloads that get age-cleaned without going through the REST
-		// Delete path (which already cascades to the merged sibling).
-		ContainerProfileMergedKind: {deleteByTemplateHashOrWlid},
 	}
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
@@ -536,14 +531,14 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 
 	if _, ok := profile.Annotations[helpers.InstanceIDMetadataKey]; !ok {
 		// Without an InstanceID annotation we cannot derive the workload slug,
-		// so neither the observed save nor the merged refresh have a target.
+		// so the observed save has no target.
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
 		return processed, nil
 	}
 
 	// Persist the canonical observed CP only when time-series consolidation
 	// produced new data this tick. The observed CP is the time-series-only
-	// view (kubescape/storage#315 review). It is never mutated by the ug- merge.
+	// view (kubescape/storage#315 review).
 	if newData {
 		if profile.CreationTimestamp.IsZero() {
 			profile.CreationTimestamp = creationTimestamp
@@ -555,59 +550,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, observed CP unchanged", loggerhelpers.String("key", key))
 	}
 
-	// Refresh the merged (effective) CP every tick, even when !newData. This
-	// is what propagates user-managed (ug-) edits and deletes to idle or
-	// Completed workloads — the previous design short-circuited here and
-	// stranded the merged artifact. refreshMergedProfile rebuilds from scratch
-	// from (observed, ug-AP, ug-NN), so retractions land naturally.
-	if _, err := a.refreshMergedProfile(ctx, &profile, id, key); err != nil {
-		// Refresh failures are surfaced so the transaction rolls back; a half-
-		// applied merged write paired with a successful observed save would be
-		// worse than retrying the whole tick.
-		return nil, err
-	}
-
 	return processed, nil
-}
-
-// refreshMergedProfile rebuilds the merged (effective) ContainerProfile from
-// the observed CP plus the live user-managed (ug-) AP/NN overlay, and
-// reconciles the persisted merged artifact with the result:
-//
-//   - If at least one ug- input exists: write the freshly merged CP to the
-//     parallel containerprofile-merged key.
-//   - If no ug- input exists: delete the parallel key so consumers fall back
-//     to the observed CP. This is the retraction path that the previous
-//     in-place merge could not implement.
-//
-// Returns the "effective" CP — the merged one when ug- contributed, otherwise
-// the observed CP itself. Callers pass this to downstream derivations
-// (aggregated AP/NN) so all consumers see the same view node-agent will read.
-func (a *ContainerProfileProcessor) refreshMergedProfile(ctx context.Context, observed *softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier, observedKey string) (*softwarecomposition.ContainerProfile, error) {
-	merged, hasOverlay, err := a.buildMergedProfile(ctx, observed, id)
-	if err != nil {
-		return observed, err
-	}
-
-	if !hasOverlay {
-		// No ug- input. Delete any prior merged artifact so consumers fall back
-		// to observed. DeleteMergedContainerProfile is idempotent (it does a
-		// lock-free existence probe and treats not-found as success), so the
-		// common no-merged-yet path is quiet — no error log and no futile
-		// delete — without a separate existence probe here. A genuine delete
-		// failure is surfaced as a hard error so the tick rolls back and retries
-		// rather than leaving consumers reading a merged view the ug- overlay no
-		// longer backs.
-		if delErr := a.ContainerProfileStorage.DeleteMergedContainerProfile(ctx, observedKey); delErr != nil {
-			return observed, fmt.Errorf("failed to delete stale merged container profile: %w", delErr)
-		}
-		return observed, nil
-	}
-
-	if saveErr := a.ContainerProfileStorage.SaveMergedContainerProfile(ctx, observedKey, merged); saveErr != nil {
-		return observed, fmt.Errorf("failed to save merged container profile: %w", saveErr)
-	}
-	return merged, nil
 }
 
 // timeSeriesProcessResult holds the results of processing a time series
