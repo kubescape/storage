@@ -7,7 +7,6 @@ import (
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
-	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy/v2"
 	"go.opentelemetry.io/otel"
@@ -54,37 +53,6 @@ func (s *GeneratedNetworkPolicyStorage) GetCurrentResourceVersion(_ context.Cont
 	return 0, nil
 }
 
-// containerProfileToNetworkNeighborhood projects a ContainerProfile into the
-// in-process NetworkNeighborhood-shaped intermediate consumed by the network
-// policy generator. This is the projection that previously lived in the (now
-// removed) NetworkNeighborhoodStorage: the container's ingress/egress and the
-// workload label selector are copied into a single-container neighborhood,
-// bucketed by the container type annotation.
-func containerProfileToNetworkNeighborhood(cp *softwarecomposition.ContainerProfile) *softwarecomposition.NetworkNeighborhood {
-	nn := &softwarecomposition.NetworkNeighborhood{
-		TypeMeta:   cp.TypeMeta,
-		ObjectMeta: *cp.ObjectMeta.DeepCopy(),
-	}
-	nn.Spec.MatchLabels = cp.Spec.MatchLabels
-	nn.Spec.MatchExpressions = cp.Spec.MatchExpressions
-
-	container := softwarecomposition.NetworkNeighborhoodContainer{
-		Name:    cp.Labels[helpersv1.ContainerNameMetadataKey],
-		Ingress: cp.Spec.Ingress,
-		Egress:  cp.Spec.Egress,
-	}
-	switch cp.Annotations[helpersv1.ContainerTypeMetadataKey] {
-	case "initContainers":
-		nn.Spec.InitContainers = append(nn.Spec.InitContainers, container)
-	case "ephemeralContainers":
-		nn.Spec.EphemeralContainers = append(nn.Spec.EphemeralContainers, container)
-	default:
-		// "containers" and the empty/back-compat case both land here.
-		nn.Spec.Containers = append(nn.Spec.Containers, container)
-	}
-	return nn
-}
-
 // Get generates and returns a single GeneratedNetworkPolicy object
 func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "GeneratedNetworkPolicyStorage.Get")
@@ -93,8 +61,8 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 
 	logger.L().Debug("GeneratedNetworkPolicyStorage.Get", helpers.String("key", key))
 
-	// retrieve the container profile with the same name and project it into a
-	// NetworkNeighborhood-shaped intermediate in-process.
+	// retrieve the container profile with the same name and generate the policy
+	// directly from it.
 	containerProfileObjPtr := &softwarecomposition.ContainerProfile{}
 
 	key = replaceKeyForKind(key, containerProfilesResource)
@@ -103,15 +71,13 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 		return err
 	}
 
-	networkNeighborhoodObjPtr := containerProfileToNetworkNeighborhood(containerProfileObjPtr)
-
 	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
 
 	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
 		return err
 	}
 
-	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighborhoodObjPtr, softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items), metav1.Now())
+	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(containerProfileObjPtr, softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items), metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -145,8 +111,8 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	}
 
 	for i := range containerProfileObjListPtr.Items {
-		nn := containerProfileToNetworkNeighborhood(&containerProfileObjListPtr.Items[i])
-		if !networkpolicy.IsAvailable(nn) {
+		cp := &containerProfileObjListPtr.Items[i]
+		if !networkpolicy.IsAvailable(cp) {
 			continue
 		}
 		generatedNetworkPolicyList.Items = append(generatedNetworkPolicyList.Items, softwarecomposition.GeneratedNetworkPolicy{
@@ -155,9 +121,9 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 				APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:              nn.Name,
-				Namespace:         nn.Namespace,
-				Labels:            nn.Labels,
+				Name:              cp.Name,
+				Namespace:         cp.Namespace,
+				Labels:            cp.Labels,
 				CreationTimestamp: metav1.Now(),
 			},
 			PoliciesRef: []softwarecomposition.PolicyRef{},

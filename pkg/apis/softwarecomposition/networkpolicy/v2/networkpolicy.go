@@ -21,33 +21,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
-	if !IsAvailable(nn) {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s status annotation is not ready nor completed", nn.Namespace, nn.Name)
+func GenerateNetworkPolicy(cp *softwarecomposition.ContainerProfile, knownServers softwarecomposition.IKnownServersFinder, timeProvider metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+	if !IsAvailable(cp) {
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("container profile %s/%s status annotation is not ready nor completed", cp.Namespace, cp.Name)
 	}
 
 	// get name from labels and clean labels
-	kind, ok := nn.Labels[helpersv1.RelatedKindMetadataKey]
+	kind, ok := cp.Labels[helpersv1.RelatedKindMetadataKey]
 	if !ok {
-		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("nn %s/%s does not have a kind label", nn.Namespace, nn.Name)
+		return softwarecomposition.GeneratedNetworkPolicy{}, fmt.Errorf("container profile %s/%s does not have a kind label", cp.Namespace, cp.Name)
 	}
-	name, ok := nn.Labels[helpersv1.RelatedNameMetadataKey]
+	name, ok := cp.Labels[helpersv1.RelatedNameMetadataKey]
 	if !ok {
-		logger.L().Debug("nn does not have a workload-name label, falling back to nn.Name", helpers.String("name", nn.Name), helpers.String("namespace", nn.Namespace))
-		name = nn.Name
+		logger.L().Debug("container profile does not have a workload-name label, falling back to cp.Name", helpers.String("name", cp.Name), helpers.String("namespace", cp.Namespace))
+		name = cp.Name
 	}
-	delete(nn.Labels, helpersv1.TemplateHashKey)
+	delete(cp.Labels, helpersv1.TemplateHashKey)
 
 	networkPolicy := softwarecomposition.NetworkPolicy{
 		Kind:       "NetworkPolicy",
 		APIVersion: "networking.k8s.io/v1",
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", strings.ToLower(kind), name),
-			Namespace: nn.Namespace,
+			Namespace: cp.Namespace,
 			Annotations: map[string]string{
 				"generated-by": "kubescape",
 			},
-			Labels: nn.Labels,
+			Labels: cp.Labels,
 		},
 		Spec: softwarecomposition.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -58,12 +58,12 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 		},
 	}
 
-	if nn.Spec.MatchLabels != nil {
-		networkPolicy.Spec.PodSelector.MatchLabels = nn.Spec.MatchLabels
+	if cp.Spec.MatchLabels != nil {
+		networkPolicy.Spec.PodSelector.MatchLabels = cp.Spec.MatchLabels
 	}
 
-	if nn.Spec.MatchExpressions != nil {
-		networkPolicy.Spec.PodSelector.MatchExpressions = nn.Spec.MatchExpressions
+	if cp.Spec.MatchExpressions != nil {
+		networkPolicy.Spec.PodSelector.MatchExpressions = cp.Spec.MatchExpressions
 	}
 
 	generatedNetworkPolicy := softwarecomposition.GeneratedNetworkPolicy{
@@ -72,9 +72,9 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 			APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              nn.Name,
-			Namespace:         nn.Namespace,
-			Labels:            nn.Labels,
+			Name:              cp.Name,
+			Namespace:         cp.Namespace,
+			Labels:            cp.Labels,
 			CreationTimestamp: timeProvider,
 		},
 		PoliciesRef: []softwarecomposition.PolicyRef{},
@@ -82,7 +82,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 
 	ingressHash := make(map[string]bool)
 	ingressPolicyRefsHash := make(map[string]bool)
-	for _, neighbor := range listIngressNetworkNeighbors(nn) {
+	for _, neighbor := range listIngressNetworkNeighbors(cp) {
 
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
@@ -104,7 +104,7 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 
 	egressHash := make(map[string]bool)
 	egressPolicyRefsHash := make(map[string]bool)
-	for _, neighbor := range listEgressNetworkNeighbors(nn) {
+	for _, neighbor := range listEgressNetworkNeighbors(cp) {
 
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
@@ -132,34 +132,17 @@ func GenerateNetworkPolicy(nn *softwarecomposition.NetworkNeighborhood, knownSer
 	return generatedNetworkPolicy, nil
 }
 
-func listIngressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {
-	var neighbors []softwarecomposition.NetworkNeighbor
-	for i := range nn.Spec.Containers {
-		neighbors = append(neighbors, nn.Spec.Containers[i].Ingress...)
-	}
-	for i := range nn.Spec.InitContainers {
-		neighbors = append(neighbors, nn.Spec.InitContainers[i].Ingress...)
-	}
-	for i := range nn.Spec.EphemeralContainers {
-		neighbors = append(neighbors, nn.Spec.EphemeralContainers[i].Ingress...)
-	}
-	return neighbors
-
+// listIngressNetworkNeighbors returns the ingress neighbors for the container
+// profile. A ContainerProfile describes a single container, so its Spec.Ingress
+// is the exact equivalent of the previously-flattened per-container ingress list.
+func listIngressNetworkNeighbors(cp *softwarecomposition.ContainerProfile) []softwarecomposition.NetworkNeighbor {
+	return cp.Spec.Ingress
 }
 
-func listEgressNetworkNeighbors(nn *softwarecomposition.NetworkNeighborhood) []softwarecomposition.NetworkNeighbor {
-	var neighbors []softwarecomposition.NetworkNeighbor
-	for i := range nn.Spec.Containers {
-		neighbors = append(neighbors, nn.Spec.Containers[i].Egress...)
-	}
-	for i := range nn.Spec.InitContainers {
-		neighbors = append(neighbors, nn.Spec.InitContainers[i].Egress...)
-	}
-	for i := range nn.Spec.EphemeralContainers {
-		neighbors = append(neighbors, nn.Spec.EphemeralContainers[i].Egress...)
-	}
-	return neighbors
-
+// listEgressNetworkNeighbors returns the egress neighbors for the container
+// profile. See listIngressNetworkNeighbors for the single-container rationale.
+func listEgressNetworkNeighbors(cp *softwarecomposition.ContainerProfile) []softwarecomposition.NetworkNeighbor {
+	return cp.Spec.Egress
 }
 
 // containsIPBlockPeer reports whether peers already contains an entry with the given CIDR.
@@ -609,11 +592,11 @@ func removeLabels(labels map[string]string) {
 	}
 }
 
-func IsAvailable(nn *softwarecomposition.NetworkNeighborhood) bool {
-	if nn.GetAnnotations()[helpersv1.ManagedByMetadataKey] == helpersv1.ManagedByUserValue {
+func IsAvailable(cp *softwarecomposition.ContainerProfile) bool {
+	if cp.GetAnnotations()[helpersv1.ManagedByMetadataKey] == helpersv1.ManagedByUserValue {
 		return true
 	}
-	switch nn.GetAnnotations()[helpersv1.StatusMetadataKey] {
+	switch cp.GetAnnotations()[helpersv1.StatusMetadataKey] {
 	case helpersv1.Learning, helpersv1.Completed:
 		return true
 	default:

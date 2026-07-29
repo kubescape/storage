@@ -22,14 +22,14 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 
 	tests := []struct {
 		name                  string
-		networkNeighborhood   softwarecomposition.NetworkNeighborhood
+		containerProfile      softwarecomposition.ContainerProfile
 		knownServers          []softwarecomposition.KnownServer
 		expectedNetworkPolicy softwarecomposition.GeneratedNetworkPolicy
 		expectError           bool
 	}{
 		{
 			name: "basic ingress rule",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
@@ -41,28 +41,25 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "nginx",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "nginx",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "nginx",
+								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									PodSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"app": "nginx",
-										},
-									},
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(80),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptrToInt32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
 						},
@@ -128,7 +125,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "network neighborhood not ready",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-nginx",
 					Namespace: "kubescape",
@@ -140,14 +137,14 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "nginx",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{},
+				Spec: softwarecomposition.ContainerProfileSpec{},
 			},
 			expectedNetworkPolicy: softwarecomposition.GeneratedNetworkPolicy{},
 			expectError:           true,
 		},
 		{
 			name: "network_policy_with_multiple_ports_and_labels",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-multi",
 					Namespace: "kubescape",
@@ -159,7 +156,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "multi",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app":  "multi-app",
@@ -173,35 +170,32 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							},
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(80)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-										{
-											Port:     ptr.To(int32(443)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
+									Port:     ptr.To(int32(80)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+								{
+									Port:     ptr.To(int32(443)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{
+						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
+						{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8080)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptr.To(int32(8080)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
@@ -302,7 +296,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "policy_with_known_servers",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-known-servers",
 					Namespace: "kubescape",
@@ -314,38 +308,33 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "known-servers",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "known-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(80),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptrToInt32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
 						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Egress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(8080),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptrToInt32(8080),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
@@ -453,7 +442,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "policy_with_known_servers",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-known-servers",
 					Namespace: "kubescape",
@@ -465,38 +454,33 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "known-servers",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "known-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(80),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptrToInt32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
 						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Egress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(8080),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptrToInt32(8080),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
@@ -604,7 +588,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "policy_with_dns_neighbors",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-dns",
 					Namespace: "kubescape",
@@ -616,25 +600,21 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "dns",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "dns-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Egress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "192.168.1.1",
+							DNS:       "example.com",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									DNS:       "example.com",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(80)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptr.To(int32(80)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
 						},
@@ -704,7 +684,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "network_policy_with_multiple_containers",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-multi-container",
 					Namespace: "kubescape",
@@ -716,46 +696,40 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "multi-container",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "multi-container",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "nginx",
+								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									PodSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"app": "nginx",
-										},
-									},
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(80),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptrToInt32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
 						},
+
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "nginx",
+								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									PodSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"app": "nginx",
-										},
-									},
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(443),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
+									Port:     ptrToInt32(443),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
 						},
@@ -838,7 +812,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "network_policy_with_multiple_containers_with_same_ip",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-multi-containers",
 					Namespace: "kubescape",
@@ -850,69 +824,60 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "multi-containers",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "multi-container-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Name: "container-1",
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(80)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-										{
-											Port:     ptr.To(int32(443)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
+									Port:     ptr.To(int32(80)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
-							},
-							Egress: []softwarecomposition.NetworkNeighbor{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8080)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptr.To(int32(443)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
 						},
+
 						{
-							Name: "container-2",
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(80)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptr.To(int32(80)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{
+						},
+					},
+					Egress: []softwarecomposition.NetworkNeighbor{
+						{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8080)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptr.To(int32(8080)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
+								},
+							},
+						},
+
+						{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     ptr.To(int32(8080)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
@@ -1006,7 +971,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "network_policy_with_multiple_different_containers",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-multi-containers",
 					Namespace: "kubescape",
@@ -1018,203 +983,177 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "multi-containers",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "multi-container-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(80)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-										{
-											Port:     ptr.To(int32(443)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
+									Port:     ptr.To(int32(80)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+								{
+									Port:     ptr.To(int32(443)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{
+						},
+
+						{
+							IPAddress: "10.0.0.2",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8080)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptr.To(int32(8081)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8081",
+								},
+							},
+						},
+
+						{
+							IPAddress: "10.0.0.3",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     ptr.To(int32(80)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+								{
+									Port:     ptr.To(int32(443)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
 						},
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.2",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8081)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8081",
-										},
-									},
+									Port:     ptr.To(int32(90)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-90",
 								},
-							},
-							Egress: []softwarecomposition.NetworkNeighbor{
 								{
-									IPAddress: "192.168.1.2",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8082)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8082",
-										},
-									},
+									Port:     ptr.To(int32(443)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
 						},
-					},
-					InitContainers: []softwarecomposition.NetworkNeighborhoodContainer{
+
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.2",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.3",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(80)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-										{
-											Port:     ptr.To(int32(443)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
-								},
-								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(90)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-90",
-										},
-										{
-											Port:     ptr.To(int32(443)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
+									Port:     ptr.To(int32(8081)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8081",
 								},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{
+						},
+
+						{
+							IPAddress: "10.0.0.4",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8080)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptr.To(int32(80)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
+								},
+								{
+									Port:     ptr.To(int32(443)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
 						},
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.2",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8081)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8081",
-										},
-									},
+									Port:     ptr.To(int32(100)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-100",
+								},
+								{
+									Port:     ptr.To(int32(443)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-443",
 								},
 							},
-							Egress: []softwarecomposition.NetworkNeighbor{
+						},
+
+						{
+							IPAddress: "10.0.0.2",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.2",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8082)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8082",
-										},
-									},
+									Port:     ptr.To(int32(8081)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8081",
 								},
 							},
 						},
 					},
-					EphemeralContainers: []softwarecomposition.NetworkNeighborhoodContainer{
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.4",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(80)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-										{
-											Port:     ptr.To(int32(443)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
-								},
-								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(100)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-100",
-										},
-										{
-											Port:     ptr.To(int32(443)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-443",
-										},
-									},
-								},
-							},
-							Egress: []softwarecomposition.NetworkNeighbor{
-								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8080)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptr.To(int32(8080)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
+
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "192.168.1.2",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.2",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptr.To(int32(8081)),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8081",
-										},
-									},
+									Port:     ptr.To(int32(8082)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8082",
+								},
+							},
+						},
+
+						{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     ptr.To(int32(8080)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
+								},
+							},
+						},
+
+						{
+							IPAddress: "192.168.1.2",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     ptr.To(int32(8082)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8082",
+								},
+							},
+						},
+
+						{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     ptr.To(int32(8080)),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
@@ -1388,7 +1327,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "real_duplicate_bug_test",
-			networkNeighborhood: func() softwarecomposition.NetworkNeighborhood {
+			containerProfile: func() softwarecomposition.ContainerProfile {
 				sharedPodSelector := &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"app.kubernetes.io/component": "master",
@@ -1401,7 +1340,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 					Name:     "TCP-6379",
 				}
 
-				return softwarecomposition.NetworkNeighborhood{
+				return softwarecomposition.ContainerProfile{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "deployment-real-bug",
 						Namespace: "kubescape",
@@ -1413,24 +1352,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 							helpersv1.RelatedNameMetadataKey: "real-bug",
 						},
 					},
-					Spec: softwarecomposition.NetworkNeighborhoodSpec{
+					Spec: softwarecomposition.ContainerProfileSpec{
 						LabelSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "real-bug-app",
 							},
 						},
-						Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+						Egress: []softwarecomposition.NetworkNeighbor{
 							{
-								Egress: []softwarecomposition.NetworkNeighbor{
-									{
-										PodSelector: sharedPodSelector,
-										Ports:       []softwarecomposition.NetworkPort{sharedPort},
-									},
-									{
-										PodSelector: sharedPodSelector,
-										Ports:       []softwarecomposition.NetworkPort{sharedPort},
-									},
-								},
+								PodSelector: sharedPodSelector,
+								Ports:       []softwarecomposition.NetworkPort{sharedPort},
+							},
+							{
+								PodSelector: sharedPodSelector,
+								Ports:       []softwarecomposition.NetworkPort{sharedPort},
 							},
 						},
 					},
@@ -1495,7 +1430,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "duplicate_ports_within_single_neighbor",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-duplicate-ports",
 					Namespace: "kubescape",
@@ -1507,29 +1442,25 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "duplicate-ports",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "duplicate-ports-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Egress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(8080),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-										{
-											Port:     ptrToInt32(8080),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptrToInt32(8080),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
+								},
+								{
+									Port:     ptrToInt32(8080),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
@@ -1592,7 +1523,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "duplicate_ports_with_pod_selector",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-duplicate-ports-pod",
 					Namespace: "kubescape",
@@ -1604,33 +1535,29 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "duplicate-ports-pod",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "duplicate-ports-pod-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Egress: []softwarecomposition.NetworkNeighbor{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "redis",
+								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									PodSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"app": "redis",
-										},
-									},
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(6379),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-6379",
-										},
-										{
-											Port:     ptrToInt32(6379),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-6379",
-										},
-									},
+									Port:     ptrToInt32(6379),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-6379",
+								},
+								{
+									Port:     ptrToInt32(6379),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-6379",
 								},
 							},
 						},
@@ -1695,7 +1622,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "selector_based_rules_not_merged",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-selector-rules",
 					Namespace: "kubescape",
@@ -1707,42 +1634,38 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "selector-rules",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "selector-rules-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Egress: []softwarecomposition.NetworkNeighbor{
-								{
-									PodSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"app": "redis",
-										},
-									},
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(6379),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-6379",
-										},
-									},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "redis",
 								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									PodSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"app": "postgres",
-										},
-									},
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(6379),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-6379",
-										},
-									},
+									Port:     ptrToInt32(6379),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-6379",
+								},
+							},
+						},
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "postgres",
+								},
+							},
+							Ports: []softwarecomposition.NetworkPort{
+								{
+									Port:     ptrToInt32(6379),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-6379",
 								},
 							},
 						},
@@ -1824,7 +1747,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "network neighborhood with managed by user annotation should generate policy",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-managed-by-user",
 					Namespace: "kubescape",
@@ -1836,24 +1759,21 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "managed-by-user",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "managed-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(80),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptrToInt32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
 						},
@@ -1916,7 +1836,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "network neighborhood with completed status should generate policy",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-completed",
 					Namespace: "kubescape",
@@ -1928,24 +1848,20 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "completed",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "completed-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+					Egress: []softwarecomposition.NetworkNeighbor{
 						{
-							Egress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "192.168.1.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "192.168.1.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(8080),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-8080",
-										},
-									},
+									Port:     ptrToInt32(8080),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-8080",
 								},
 							},
 						},
@@ -2008,7 +1924,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 		},
 		{
 			name: "network neighborhood with not ready status should return error",
-			networkNeighborhood: softwarecomposition.NetworkNeighborhood{
+			containerProfile: softwarecomposition.ContainerProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment-not-ready",
 					Namespace: "kubescape",
@@ -2020,24 +1936,21 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 						helpersv1.RelatedNameMetadataKey: "not-ready",
 					},
 				},
-				Spec: softwarecomposition.NetworkNeighborhoodSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "not-ready-app",
 						},
 					},
-					Containers: []softwarecomposition.NetworkNeighborhoodContainer{
+
+					Ingress: []softwarecomposition.NetworkNeighbor{
 						{
-							Ingress: []softwarecomposition.NetworkNeighbor{
+							IPAddress: "10.0.0.1",
+							Ports: []softwarecomposition.NetworkPort{
 								{
-									IPAddress: "10.0.0.1",
-									Ports: []softwarecomposition.NetworkPort{
-										{
-											Port:     ptrToInt32(80),
-											Protocol: softwarecomposition.ProtocolTCP,
-											Name:     "TCP-80",
-										},
-									},
+									Port:     ptrToInt32(80),
+									Protocol: softwarecomposition.ProtocolTCP,
+									Name:     "TCP-80",
 								},
 							},
 						},
@@ -2051,7 +1964,7 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateNetworkPolicy(&tt.networkNeighborhood, softwarecomposition.NewKnownServersFinderImpl(tt.knownServers), timeProvider)
+			got, err := GenerateNetworkPolicy(&tt.containerProfile, softwarecomposition.NewKnownServersFinderImpl(tt.knownServers), timeProvider)
 
 			if tt.expectError {
 				assert.Error(t, err)

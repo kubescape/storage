@@ -18,29 +18,6 @@ const (
 	CommunicationTypeEgress  CommunicationType = "external"
 )
 
-// NetworkNeighborhood is an in-process, non-CRD intermediate used only to feed
-// the GeneratedNetworkPolicy generation. It is projected from ContainerProfile
-// data at request time and is never stored or served as an API object.
-type NetworkNeighborhood struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	Spec NetworkNeighborhoodSpec
-}
-
-type NetworkNeighborhoodSpec struct {
-	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
-	Containers           []NetworkNeighborhoodContainer
-	InitContainers       []NetworkNeighborhoodContainer
-	EphemeralContainers  []NetworkNeighborhoodContainer
-}
-
-type NetworkNeighborhoodContainer struct {
-	Name    string
-	Ingress []NetworkNeighbor
-	Egress  []NetworkNeighbor
-}
-
 // NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighbor struct {
 	Identifier        string

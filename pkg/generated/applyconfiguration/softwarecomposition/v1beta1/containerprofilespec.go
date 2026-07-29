@@ -37,7 +37,7 @@ type ContainerProfileSpecApplyConfiguration struct {
 	ImageTag             *string                                 `json:"imageTag,omitempty"`
 	PolicyByRuleId       map[string]RulePolicyApplyConfiguration `json:"rulePolicies,omitempty"`
 	IdentifiedCallStacks []IdentifiedCallStackApplyConfiguration `json:"identifiedCallStacks,omitempty"`
-	// WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
+	// WARNING report the network fields here, increment proto IDs by 100
 	v1.LabelSelectorApplyConfiguration `json:",inline"`
 	Ingress                            []NetworkNeighborApplyConfiguration `json:"ingress,omitempty"`
 	Egress                             []NetworkNeighborApplyConfiguration `json:"egress,omitempty"`

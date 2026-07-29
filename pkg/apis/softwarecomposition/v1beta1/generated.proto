@@ -255,7 +255,7 @@ message ContainerProfileSpec {
 
   repeated IdentifiedCallStack identifiedCallStacks = 11;
 
-  // WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
+  // WARNING report the network fields here, increment proto IDs by 100
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector labelSelector = 101;
 
   repeated NetworkNeighbor ingress = 102;
