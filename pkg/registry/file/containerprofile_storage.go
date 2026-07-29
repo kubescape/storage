@@ -79,6 +79,20 @@ func (c *ContainerProfileStorageImpl) GetContainerProfileMetadata(ctx context.Co
 	return profile, err
 }
 
+// GetContainerProfileMetadataNoLock reads container profile metadata without
+// acquiring the per-key lock. GetContainerProfileMetadata takes a read lock via
+// GetWithConn; when PreSave runs from inside GuaranteedUpdate, the write lock for
+// the same key is already held, so a read lock there would self-deadlock. The
+// metadata branch of get() reads straight from SQLite and takes no lock of its
+// own, so hasWriteLock (caller already holds the lock) is passed to skip any
+// lock management.
+func (c *ContainerProfileStorageImpl) GetContainerProfileMetadataNoLock(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error) {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	profile := softwarecomposition.ContainerProfile{}
+	err := c.storageImpl.get(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile, hasWriteLock)
+	return profile, err
+}
+
 func (c *ContainerProfileStorageImpl) GetSbom(ctx context.Context, key string) (softwarecomposition.SBOMSyft, error) {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	sbom := softwarecomposition.SBOMSyft{}

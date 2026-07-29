@@ -162,6 +162,44 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 
 	}
 
+	// Consolidated (non-TS) profile path: enforce completed-immutability.
+	// A direct patch of the consolidated ContainerProfile carries no
+	// ReportSeriesId, so it skips the TS branch above. If the stored
+	// consolidated profile is already Completed, a regression of the incoming
+	// status back to Learning/Ready (helpers.Learning == "ready") must be
+	// reverted so the profile cannot leave the completed state. The update
+	// still proceeds (no error) with the reverted status. A Completed->Completed
+	// amendment (partial->full completion) and TooLarge handling are left
+	// untouched.
+	{
+		id := armotypes.ProfileIdentifier{
+			ProfileScope: armotypes.ProfileScope{
+				HostType:               a.HostType,
+				Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:              profile.Namespace,
+				CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+				Region:                 profile.Annotations[helpers.RegionMetadataKey],
+				HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
+			},
+			Name: profile.Name,
+		}
+		key := BuildContainerProfileKey(id, "containerprofile")
+		// Use the no-lock metadata read: PreSave is invoked from within
+		// GuaranteedUpdate, which already holds the write lock for this key, so
+		// GetContainerProfileMetadata (which takes a read lock) would self-deadlock.
+		// If the consolidated profile does not exist yet (or cannot be loaded),
+		// this is a create and there is nothing to guard.
+		if existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadataNoLock(ctx, key); err == nil {
+			if existingProfile.Annotations[helpers.StatusMetadataKey] == helpers.Completed &&
+				profile.Annotations[helpers.StatusMetadataKey] == helpers.Learning {
+				if profile.Annotations == nil {
+					profile.Annotations = make(map[string]string)
+				}
+				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+			}
+		}
+	}
+
 	// size is the sum of all fields in all containers
 	var size int
 

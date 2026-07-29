@@ -46,6 +46,14 @@ type ContainerProfileStorage interface {
 	// This is more efficient when only metadata is needed.
 	GetContainerProfileMetadata(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
 
+	// GetContainerProfileMetadataNoLock retrieves only the metadata of a container
+	// profile without acquiring the per-key lock. It is intended for callers that
+	// already hold the write lock for that key (e.g. a Processor.PreSave hook invoked
+	// from within GuaranteedUpdate), where re-acquiring a read lock on the same key
+	// would self-deadlock. The metadata read performs no file I/O and takes no lock
+	// of its own.
+	GetContainerProfileMetadataNoLock(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
+
 	// GetSbom retrieves an SBOM by key.
 	// Returns storage.ErrCodeKeyNotFound if not found or not implemented.
 	GetSbom(ctx context.Context, key string) (softwarecomposition.SBOMSyft, error)
