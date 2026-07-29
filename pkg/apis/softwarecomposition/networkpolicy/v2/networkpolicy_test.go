@@ -1976,6 +1976,129 @@ func TestGenerateNetworkPolicy(t *testing.T) {
 	}
 }
 
+// egressCIDRs collects the egress IPBlock CIDRs of a generated policy.
+func egressCIDRs(gnp softwarecomposition.GeneratedNetworkPolicy) []string {
+	var out []string
+	for _, rule := range gnp.Spec.Spec.Egress {
+		for _, peer := range rule.To {
+			if peer.IPBlock != nil {
+				out = append(out, peer.IPBlock.CIDR)
+			}
+		}
+	}
+	return out
+}
+
+// ingressPorts collects the ingress port numbers of a generated policy.
+func ingressPorts(gnp softwarecomposition.GeneratedNetworkPolicy) []int32 {
+	var out []int32
+	for _, rule := range gnp.Spec.Spec.Ingress {
+		for _, port := range rule.Ports {
+			if port.Port != nil {
+				out = append(out, *port.Port)
+			}
+		}
+	}
+	return out
+}
+
+// TestGenerateNetworkPolicy_PerContainerProfiles pins the per-container naming
+// contract: a workload with multiple containers is described by one
+// ContainerProfile per container, named "<label>-<containerName>" and carrying the
+// container-name metadata. Storage stores each verbatim and generates one policy
+// per profile; each generated policy reflects ONLY that container's network, with
+// no cross-container merge. This mirrors the node-agent multi-container naming test.
+func TestGenerateNetworkPolicy_PerContainerProfiles(t *testing.T) {
+	timeProvider := metav1.Now()
+
+	newProfile := func(objName, containerName string, ingress, egress []softwarecomposition.NetworkNeighbor) softwarecomposition.ContainerProfile {
+		return softwarecomposition.ContainerProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      objName,
+				Namespace: "kubescape",
+				Annotations: map[string]string{
+					helpersv1.StatusMetadataKey:        helpersv1.Learning,
+					helpersv1.ContainerTypeMetadataKey: "containers",
+				},
+				Labels: map[string]string{
+					helpersv1.RelatedKindMetadataKey:   "Deployment",
+					helpersv1.RelatedNameMetadataKey:   "mc",
+					helpersv1.ContainerNameMetadataKey: containerName,
+				},
+			},
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": "mc-app"},
+				},
+				Ingress: ingress,
+				Egress:  egress,
+			},
+		}
+	}
+
+	// One profile per container, each with a DISTINCT ingress port and egress peer.
+	appProfile := newProfile("mc-app", "app",
+		[]softwarecomposition.NetworkNeighbor{
+			{
+				IPAddress: "10.0.0.10",
+				Ports: []softwarecomposition.NetworkPort{
+					{Port: ptrToInt32(8080), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-8080"},
+				},
+			},
+		},
+		[]softwarecomposition.NetworkNeighbor{
+			{
+				IPAddress: "10.0.0.1",
+				Ports: []softwarecomposition.NetworkPort{
+					{Port: ptrToInt32(443), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-443"},
+				},
+			},
+		},
+	)
+	sidecarProfile := newProfile("mc-sidecar", "sidecar",
+		[]softwarecomposition.NetworkNeighbor{
+			{
+				IPAddress: "10.0.0.20",
+				Ports: []softwarecomposition.NetworkPort{
+					{Port: ptrToInt32(9090), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-9090"},
+				},
+			},
+		},
+		[]softwarecomposition.NetworkNeighbor{
+			{
+				IPAddress: "10.0.0.2",
+				Ports: []softwarecomposition.NetworkPort{
+					{Port: ptrToInt32(8125), Protocol: softwarecomposition.ProtocolUDP, Name: "UDP-8125"},
+				},
+			},
+		},
+	)
+
+	finder := softwarecomposition.NewKnownServersFinderImpl(nil)
+
+	appPolicy, err := GenerateNetworkPolicy(&appProfile, finder, timeProvider)
+	assert.NoError(t, err)
+	sidecarPolicy, err := GenerateNetworkPolicy(&sidecarProfile, finder, timeProvider)
+	assert.NoError(t, err)
+
+	// Each per-container profile keeps the workload identity, so both policies are
+	// named for the workload, not the individual container.
+	assert.Equal(t, "deployment-mc", appPolicy.Spec.ObjectMeta.Name)
+	assert.Equal(t, "deployment-mc", sidecarPolicy.Spec.ObjectMeta.Name)
+
+	// The app policy reflects ONLY the app container's network.
+	assert.ElementsMatch(t, []int32{8080}, ingressPorts(appPolicy))
+	assert.ElementsMatch(t, []string{"10.0.0.1/32"}, egressCIDRs(appPolicy))
+	assert.NotContains(t, ingressPorts(appPolicy), int32(9090))
+	assert.NotContains(t, egressCIDRs(appPolicy), "10.0.0.2/32")
+
+	// The sidecar policy reflects ONLY the sidecar container's network.
+	assert.ElementsMatch(t, []int32{9090}, ingressPorts(sidecarPolicy))
+	assert.ElementsMatch(t, []string{"10.0.0.2/32"}, egressCIDRs(sidecarPolicy))
+	assert.NotContains(t, ingressPorts(sidecarPolicy), int32(8080))
+	assert.NotContains(t, egressCIDRs(sidecarPolicy), "10.0.0.1/32")
+}
+
 func TestGenerateEgressRule_IPAddresses(t *testing.T) {
 	tcpPort80 := []softwarecomposition.NetworkPort{
 		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
