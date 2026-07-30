@@ -37,7 +37,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
 			},
-			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", 0),
+			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/toto", 0),
 		},
 		{
 			// A single-container workload is requested by its WORKLOAD-level name
@@ -178,7 +178,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 				if tt.noWorkloadName {
 					delete(wlObj.ObjectMeta.Labels, helpersv1.RelatedNameMetadataKey)
 				}
-				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", wlObj, nil, 0)
+				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/toto", wlObj, nil, 0)
 				require.NoError(t, err)
 			}
 

@@ -112,8 +112,8 @@ func TestGeneratedNetworkPolicyStorage_Get_MultiContainerWorkload(t *testing.T) 
 	containerA := makeContainerProfile("Deployment", "nginx", "replicaset-nginx-bd5db6555-web-1111-2222", "web", "10.0.0.1", 80)
 	containerB := makeContainerProfile("Deployment", "nginx", "replicaset-nginx-bd5db6555-sidecar-3333-4444", "sidecar", "10.0.0.2", 443)
 
-	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/replicaset-nginx-bd5db6555-web-1111-2222", containerA, nil, 0))
-	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/replicaset-nginx-bd5db6555-sidecar-3333-4444", containerB, nil, 0))
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-nginx-bd5db6555-web-1111-2222", containerA, nil, 0))
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-nginx-bd5db6555-sidecar-3333-4444", containerB, nil, 0))
 
 	// A consumer requests the GeneratedNetworkPolicy by the workload-level name
 	// <lower(kind)>-<workload-name>, matching pre-migration NetworkNeighborhood naming.
@@ -145,9 +145,9 @@ func TestGeneratedNetworkPolicyStorage_GetList_OnePolicyPerWorkload(t *testing.T
 	// Workload 2: Deployment "redis" with a single container.
 	redis := makeContainerProfile("Deployment", "redis", "replicaset-redis-7c9f8d4b6-redis-5555-6666", "redis", "10.0.0.3", 6379)
 
-	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/replicaset-nginx-bd5db6555-web-1111-2222", nginxWeb, nil, 0))
-	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/replicaset-nginx-bd5db6555-sidecar-3333-4444", nginxSidecar, nil, 0))
-	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/replicaset-redis-7c9f8d4b6-redis-5555-6666", redis, nil, 0))
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-nginx-bd5db6555-web-1111-2222", nginxWeb, nil, 0))
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-nginx-bd5db6555-sidecar-3333-4444", nginxSidecar, nil, 0))
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-redis-7c9f8d4b6-redis-5555-6666", redis, nil, 0))
 
 	list := &softwarecomposition.GeneratedNetworkPolicyList{}
 	opts := storage.ListOptions{Predicate: storage.SelectionPredicate{Limit: 500}}
