@@ -27,16 +27,6 @@ var (
 // from a single knowable constant.
 const DefaultPoolSize = 10
 
-// sqliteBusyTimeout is how long a contended write waits for SQLite's
-// single-writer lock before failing with "database is locked". The pool already
-// opens connections in WAL mode (sqlitex defaults Flags=0 to include OpenWAL),
-// which also sets a 10s busy timeout by default — but under sustained concurrent
-// writes (many container profiles consolidating at once, on slow emptyDir I/O) a
-// writer can still wait longer than that and drop the insert, so the affected
-// profile never reaches Completed. Raise the ceiling so contended writes wait it
-// out instead of failing.
-const sqliteBusyTimeout = 60 * time.Second
-
 // NewPool creates a new SQLite connection pool at the given path.
 // It returns an error if the connection cannot be opened or the database cannot be initialized.
 // It is your responsibility to call conn.Close() when you no longer need conn.
@@ -71,21 +61,6 @@ func NewPool(path string, size int) *sqlitemigration.Pool {
 		},
 		sqlitemigration.Options{
 			PoolSize: size,
-			// Under concurrent writes (many container profiles consolidating at
-			// once) SQLite's single-writer lock otherwise fails inserts
-			// immediately with "database is locked", dropping the write so the
-			// profile never reaches Completed and consumers (e.g. the component
-			// tests) wait forever. WAL lets readers run alongside the writer; the
-			// busy timeout makes a contended write wait for the lock instead of
-			// failing; synchronous=NORMAL is the recommended durability level
-			// under WAL.
-			PrepareConn: func(conn *sqlite.Conn) error {
-				conn.SetBusyTimeout(sqliteBusyTimeout)
-				if err := sqlitex.Execute(conn, "PRAGMA journal_mode=WAL;", nil); err != nil {
-					return err
-				}
-				return sqlitex.Execute(conn, "PRAGMA synchronous=NORMAL;", nil)
-			},
 		})
 }
 
