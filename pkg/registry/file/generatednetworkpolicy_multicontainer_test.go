@@ -173,3 +173,58 @@ func TestGeneratedNetworkPolicyStorage_GetList_OnePolicyPerWorkload(t *testing.T
 
 	assert.Contains(t, egressCIDRs(redisPol), "10.0.0.3/32", "redis policy must include its single container")
 }
+
+// TestGeneratedNetworkPolicyStorage_ExcludesNonAvailableProfiles pins the
+// availability filter (networkpolicy.IsAvailable) that both Get and GetList apply
+// before aggregation: a ContainerProfile whose status is neither "ready"
+// (Learning) nor "completed" is not yet policy-ready and MUST be excluded.
+//
+// NOTE: the audit note framed the excluded case as "Learning-status", but
+// IsAvailable treats BOTH Learning ("ready") and Completed as available; the real
+// non-available branch is a status outside that set. This test exercises the real
+// branch with a TooLarge-status profile (and confirms a Learning-status profile is
+// NOT excluded, documenting the actual contract).
+func TestGeneratedNetworkPolicyStorage_ExcludesNonAvailableProfiles(t *testing.T) {
+	realStorage, gnpStorage, pool := newGNPTestStorage(t)
+	defer func() { _ = pool.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	// Available workload: Completed.
+	nginx := makeContainerProfile("Deployment", "nginx", "replicaset-nginx-bd5db6555-web-1111-2222", "web", "10.0.0.1", 80)
+	// Available workload: Learning ("ready") is ALSO available per IsAvailable.
+	api := makeContainerProfile("Deployment", "api", "replicaset-api-aaa-api-1212-3434", "api", "10.0.0.9", 8080)
+	api.Annotations[helpersv1.StatusMetadataKey] = helpersv1.Learning
+	// Non-available workload: TooLarge => excluded.
+	redis := makeContainerProfile("Deployment", "redis", "replicaset-redis-7c9f8d4b6-redis-5555-6666", "redis", "10.0.0.3", 6379)
+	redis.Annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
+
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-nginx-bd5db6555-web-1111-2222", nginx, nil, 0))
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-api-aaa-api-1212-3434", api, nil, 0))
+	require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/replicaset-redis-7c9f8d4b6-redis-5555-6666", redis, nil, 0))
+
+	// GetList: only the two available workloads produce policies.
+	list := &softwarecomposition.GeneratedNetworkPolicyList{}
+	opts := storage.ListOptions{Predicate: storage.SelectionPredicate{Limit: 500}}
+	require.NoError(t, gnpStorage.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape", opts, list))
+
+	names := map[string]bool{}
+	for i := range list.Items {
+		names[list.Items[i].Spec.Name] = true
+	}
+	assert.True(t, names["deployment-nginx"], "Completed workload must be included")
+	assert.True(t, names["deployment-api"], "Learning workload must be included (Learning is available)")
+	assert.False(t, names["deployment-redis"], "TooLarge (non-available) workload must be excluded from GetList")
+	assert.Len(t, list.Items, 2, "exactly the two available workloads produce policies")
+
+	// Get by the non-available workload's name must be NotFound (its only
+	// container profile is filtered out, leaving an empty group).
+	gnp := &softwarecomposition.GeneratedNetworkPolicy{}
+	err := gnpStorage.Get(ctx, "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/deployment-redis", storage.GetOptions{}, gnp)
+	require.Error(t, err, "non-available workload must not resolve via Get")
+	assert.True(t, storage.IsNotFound(err), "expected a NotFound error, got %v", err)
+
+	// Sanity: the available workload still resolves.
+	require.NoError(t, gnpStorage.Get(ctx, "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/deployment-nginx", storage.GetOptions{}, &softwarecomposition.GeneratedNetworkPolicy{}))
+}
