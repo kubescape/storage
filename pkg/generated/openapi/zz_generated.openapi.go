@@ -2093,9 +2093,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref common.Referen
 						},
 					},
 					"headers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
+						},
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Type: []string{"object"},
 						},
 					},
 				},
