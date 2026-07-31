@@ -197,6 +197,13 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 				}
 				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
 			}
+		} else if !storage.IsNotFound(err) {
+			// A genuine read error (not "does not exist yet") means we could
+			// not verify whether the consolidated profile is already Completed.
+			// Leave the incoming status untouched, but leave a diagnostic trail
+			// so a Completed->Learning regression that slips through here is not
+			// silent.
+			logger.L().Debug("ContainerProfileProcessor.PreSave - failed to check consolidated completed status", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 		}
 	}
 

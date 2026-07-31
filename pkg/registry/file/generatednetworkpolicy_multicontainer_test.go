@@ -27,9 +27,9 @@ import (
 // NetworkNeighborhood per workload. Post-migration the storage reads
 // per-container ContainerProfiles (one object per container, slug-named
 // <lower(kind)>-<workload-name>-<container-name>-<hash>-<hash>, e.g.
-// "replicaset-coredns-5d78c9869d-coredns-185f-129c") but still does a single
-// literal-key Get and emits one item per ContainerProfile in GetList — so the
-// per-workload aggregation is lost. These tests fail on that gap.
+// "replicaset-coredns-5d78c9869d-coredns-185f-129c"). Get therefore lists the
+// namespace's profiles, selects the ones belonging to the requested workload,
+// and unions their neighbors into one policy. These tests pin that aggregation.
 
 // makeContainerProfile builds a per-container ContainerProfile for a workload,
 // mirroring the real per-container slug naming and workload-identifying labels.

@@ -45,7 +45,7 @@ func buildMigrationBinary(t *testing.T) string {
 		bin := filepath.Join(dir, "migration")
 		// Build the current package (cmd/migration). The test's working
 		// directory is the package directory.
-		cmd := exec.Command("go", "build", "-mod=mod", "-o", bin, ".")
+		cmd := exec.CommandContext(t.Context(), "go", "build", "-mod=mod", "-o", bin, ".")
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		if err := cmd.Run(); err != nil {
@@ -84,7 +84,7 @@ func writeGobFixture(t *testing.T, v interface{}) string {
 // stdout, stderr, and the process exit code.
 func runMigration(t *testing.T, bin string, args ...string) (string, string, int) {
 	t.Helper()
-	cmd := exec.Command(bin, args...)
+	cmd := exec.CommandContext(t.Context(), bin, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

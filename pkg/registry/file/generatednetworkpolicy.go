@@ -147,11 +147,24 @@ func aggregateWorkloadPolicy(name string, group []*softwarecomposition.Container
 // needs each profile's Spec (ingress/egress neighbors, pod selector).
 func (s *GeneratedNetworkPolicyStorage) listNamespaceContainerProfiles(ctx context.Context, listKey string, opts storage.ListOptions) ([]softwarecomposition.ContainerProfile, error) {
 	opts.ResourceVersion = softwarecomposition.ResourceVersionFullSpec
-	cpList := &softwarecomposition.ContainerProfileList{}
-	if err := s.realStore.GetList(ctx, listKey, opts, cpList); err != nil {
-		return nil, err
+	// Page through the whole namespace: GetList caps a single response at the
+	// predicate Limit and returns a Continue token when more remain. A single
+	// fixed-limit read would silently drop every profile past the limit, so a
+	// workload whose containers sort beyond it would be missed and the policy
+	// returned NotFound. Follow the continuation until it is exhausted.
+	var items []softwarecomposition.ContainerProfile
+	for {
+		cpList := &softwarecomposition.ContainerProfileList{}
+		if err := s.realStore.GetList(ctx, listKey, opts, cpList); err != nil {
+			return nil, err
+		}
+		items = append(items, cpList.Items...)
+		if cpList.Continue == "" {
+			break
+		}
+		opts.Predicate.Continue = cpList.Continue
 	}
-	return cpList.Items, nil
+	return items, nil
 }
 
 // Get generates and returns a single workload-level GeneratedNetworkPolicy.
