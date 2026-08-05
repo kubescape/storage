@@ -6,6 +6,40 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestAnalyzeURL_IPv6Hosts pins AnalyzeURL's handling of scheme-less input
+// whose authority is an IPv6 address. Before this, a bare IPv6 host was
+// mis-parsed because "http://" was prepended blindly, and url.Parse then
+// split on every colon in the address instead of just the port separator.
+// The host itself is discarded downstream (only the port and path make it
+// into the ":<port><path>" output), so these cases assert on that, not on
+// the parsed host.
+func TestAnalyzeURL_IPv6Hosts(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"bare_loopback", "::1/health", ":/health"},
+		{"bare_ipv6_no_port", "2001:db8::1/health", ":/health"},
+		{"trailing_hextet_not_a_port", "2001:db8::8080/x", ":/x"},
+		{"already_bracketed_with_port", "[2001:db8::1]:8080/x", ":8080/x"},
+		{"unbracketed_ipv6_with_trailing_group", "2001:db8::1:8080/x", ":/x"},
+		{"ipv4_host_with_port_regression", "example.com:80/users/123", ":80/users/123"},
+		{"canonical_form_regression", ":80/users/123", ":80/users/123"},
+		{"scheme_pass_through_regression", "http://example.com:80/x", ":80/x"},
+		{"ipv4_with_port_regression", "192.168.1.1:8080/path", ":8080/path"},
+	}
+
+	analyzer := NewPathAnalyzer(10)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := AnalyzeURL(tt.input, analyzer)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got, "AnalyzeURL(%q)", tt.input)
+		})
+	}
+}
+
 // TestSplitEndpointPortAndPath_DefensiveContract pins the inputs that
 // AnalyzeURL is supposed to produce (`:<port><path>`) AND the defensive
 // behavior for bare-path / empty / no-leading-slash inputs that may
