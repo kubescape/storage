@@ -2286,13 +2286,24 @@ func TestGenerateEgressRule_IPAddressVsIPAddresses(t *testing.T) {
 }
 
 func TestGetSingleIP(t *testing.T) {
-	ipAddress := "192.168.1.1"
-	expected := &softwarecomposition.IPBlock{CIDR: "192.168.1.1/32"}
+	tests := []struct {
+		name      string
+		ipAddress string
+		expected  string
+	}{
+		{"IPv4", "192.168.1.1", "192.168.1.1/32"},
+		{"IPv6", "2001:db8::1", "2001:db8::1/128"},
+		{"IPv4-mapped IPv6", "::ffff:1.2.3.4", "::ffff:1.2.3.4/32"},
+		{"malformed", "not-an-ip", "not-an-ip/32"},
+	}
 
-	result := getSingleIP(ipAddress)
-
-	if result.CIDR != expected.CIDR {
-		t.Errorf("getSingleIP() = %v, want %v", result, expected)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getSingleIP(tt.ipAddress)
+			if result.CIDR != tt.expected {
+				t.Errorf("getSingleIP(%q) = %v, want %v", tt.ipAddress, result.CIDR, tt.expected)
+			}
+		})
 	}
 }
 func TestRemoveLabels(t *testing.T) {

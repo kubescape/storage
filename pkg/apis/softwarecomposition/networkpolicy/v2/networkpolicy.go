@@ -597,7 +597,11 @@ func buildIPAddressesPeers(ipAddresses []string, dns string, knownServers softwa
 }
 
 func getSingleIP(ipAddress string) *softwarecomposition.IPBlock {
-	ipBlock := &softwarecomposition.IPBlock{CIDR: ipAddress + "/32"}
+	suffix := "/32"
+	if ip := net.ParseIP(ipAddress); ip != nil && ip.To4() == nil {
+		suffix = "/128"
+	}
+	ipBlock := &softwarecomposition.IPBlock{CIDR: ipAddress + suffix}
 	return ipBlock
 }
 
