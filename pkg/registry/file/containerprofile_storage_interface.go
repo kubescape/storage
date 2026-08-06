@@ -4,9 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ContainerProfileStorage defines the storage operations for container profiles.
@@ -48,6 +46,14 @@ type ContainerProfileStorage interface {
 	// This is more efficient when only metadata is needed.
 	GetContainerProfileMetadata(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
 
+	// GetContainerProfileMetadataNoLock retrieves only the metadata of a container
+	// profile without acquiring the per-key lock. It is intended for callers that
+	// already hold the write lock for that key (e.g. a Processor.PreSave hook invoked
+	// from within GuaranteedUpdate), where re-acquiring a read lock on the same key
+	// would self-deadlock. The metadata read performs no file I/O and takes no lock
+	// of its own.
+	GetContainerProfileMetadataNoLock(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
+
 	// GetSbom retrieves an SBOM by key.
 	// Returns storage.ErrCodeKeyNotFound if not found or not implemented.
 	GetSbom(ctx context.Context, key string) (softwarecomposition.SBOMSyft, error)
@@ -58,29 +64,6 @@ type ContainerProfileStorage interface {
 
 	// SaveContainerProfile creates or updates a container profile.
 	SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error
-
-	// SaveMergedContainerProfile creates or updates the merged (effective) container
-	// profile derived from the observed CP plus the user-managed ug- AP/NN overlay.
-	// observedKey is the canonical containerprofile key; the merged artifact is
-	// stored under a parallel key (kind: containerprofile-merged) and consumers
-	// read it preferentially via the REST wrapper.
-	SaveMergedContainerProfile(ctx context.Context, observedKey string, profile *softwarecomposition.ContainerProfile) error
-
-	// GetMergedContainerProfile retrieves the merged container profile that
-	// corresponds to observedKey. Returns storage.ErrCodeKeyNotFound when no
-	// merged artifact exists (the consumer-side fallback is to read the
-	// observed CP at observedKey).
-	GetMergedContainerProfile(ctx context.Context, observedKey string) (softwarecomposition.ContainerProfile, error)
-
-	// DeleteMergedContainerProfile removes the merged container profile that
-	// corresponds to observedKey. Idempotent: not-found is not an error.
-	DeleteMergedContainerProfile(ctx context.Context, observedKey string) error
-
-	// UpdateApplicationProfile updates the application profile associated with a container profile.
-	UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
-
-	// UpdateNetworkNeighborhood updates the network neighborhood associated with a container profile.
-	UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error
 }
 
 // TransactionManager handles database connection and transaction lifecycle.

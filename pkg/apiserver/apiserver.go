@@ -23,13 +23,11 @@ import (
 	"github.com/kubescape/storage/pkg/registry"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
-	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/collapseconfiguration"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/containerprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	knownserver "github.com/kubescape/storage/pkg/registry/softwarecomposition/knownservers"
-	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighborhood"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/openvulnerabilityexchange"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyftfiltereds"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyfts"
@@ -144,20 +142,15 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// CRD provider into them AFTER the application/container storage
 	// backends are built — chicken-and-egg: the provider needs storage to
 	// read the CR, processors are baked into the storage backend.
-	applicationProfileProcessor := file.NewApplicationProfileProcessor(c.ExtraConfig.StorageConfig)
 	containerProfileProcessor := file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.CleanupHandler)
-	networkNeighborhoodProcessor := file.NewNetworkNeighborhoodProcessor(c.ExtraConfig.StorageConfig)
 
 	var (
 		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-		applicationProfileStorageBackend = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, applicationProfileProcessor)
-		applicationProfileStorageImpl    = file.NewApplicationProfileStorage(applicationProfileStorageBackend)
-		containerProfileStorageImpl      = file.NewContainerProfileRESTStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor))
-		networkNeighborhoodStorageImpl   = file.NewNetworkNeighborhoodStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, networkNeighborhoodProcessor))
-		configScanStorageImpl            = file.NewConfigurationScanSummaryStorage(storageImpl)
-		vulnerabilitySummaryStorage      = file.NewVulnerabilitySummaryStorage(storageImpl)
-		generatedNetworkPolicyStorage    = file.NewGeneratedNetworkPolicyStorage(storageImpl, networkNeighborhoodStorageImpl)
+		containerProfileStorageImpl   = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
+		configScanStorageImpl         = file.NewConfigurationScanSummaryStorage(storageImpl)
+		vulnerabilitySummaryStorage   = file.NewVulnerabilitySummaryStorage(storageImpl)
+		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl)
 
 		// REST endpoint registration, defaults to storageImpl.
 		ep = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.REST, error), s ...storage.Interface) *registry.REST {
@@ -179,18 +172,14 @@ func (c completedConfig) New() (*WardleServer, error) {
 	//
 	// One shared provider closure is wired into both processors so a single
 	// CR update affects both compaction paths consistently.
-	collapseSettingsFromCRD := file.NewCRDCollapseSettingsProvider(applicationProfileStorageBackend)
-	applicationProfileProcessor.SetCollapseSettings(collapseSettingsFromCRD)
+	collapseSettingsFromCRD := file.NewCRDCollapseSettingsProvider(storageImpl)
 	containerProfileProcessor.CollapseSettings = collapseSettingsFromCRD
-	networkNeighborhoodProcessor.SetCollapseSettings(collapseSettingsFromCRD)
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
-		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
 		"collapseconfigurations":              ep(collapseconfiguration.NewREST),
 		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
 		"containerprofiles":                   ep(containerprofile.NewREST, containerProfileStorageImpl),
 		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
 		"knownservers":                        ep(knownserver.NewREST),
-		"networkneighborhoods":                ep(networkneighborhood.NewREST, networkNeighborhoodStorageImpl),
 		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
 		"sbomsyftfiltereds":                   ep(sbomsyftfiltereds.NewREST),
 		"sbomsyfts":                           ep(sbomsyfts.NewREST),

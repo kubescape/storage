@@ -155,7 +155,7 @@ func TestValidate_EntryRules(t *testing.T) {
 func TestValidate_RejectsNonCC(t *testing.T) {
 	s := NewStrategy(newScheme())
 	// Pass a different type to confirm the type assertion fails cleanly.
-	notACC := &softwarecomposition.ApplicationProfile{}
+	notACC := &softwarecomposition.ContainerProfile{}
 	errs := s.Validate(context.Background(), notACC)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 internal error for type mismatch, got: %v", errs)
@@ -198,7 +198,7 @@ func TestSelectableFieldsAndAttrs(t *testing.T) {
 }
 
 func TestGetAttrs_RejectsNonCC(t *testing.T) {
-	notACC := &softwarecomposition.ApplicationProfile{}
+	notACC := &softwarecomposition.ContainerProfile{}
 	_, _, err := GetAttrs(notACC)
 	if err == nil {
 		t.Fatalf("GetAttrs should reject non-CollapseConfiguration objects")

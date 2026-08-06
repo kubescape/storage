@@ -21,15 +21,14 @@ func TestLoadConfig(t *testing.T) {
 			name: "TestLoadConfig",
 			path: "../../configuration",
 			want: Config{
-				CleanupInterval:            24 * time.Hour,
-				DefaultNamespace:           "kubescape",
-				HostType:                   armotypes.HostTypeKubernetes,
-				ExcludeJsonPaths:           []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
-				MaxApplicationProfileSize:  40000,
-				MaxNetworkNeighborhoodSize: 40000,
-				RateLimitTotal:             10,
-				ServerBindAddress:          "::",
-				ServerBindPort:             8443,
+				CleanupInterval:         24 * time.Hour,
+				DefaultNamespace:        "kubescape",
+				HostType:                armotypes.HostTypeKubernetes,
+				ExcludeJsonPaths:        []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
+				MaxContainerProfileSize: 40000,
+				RateLimitTotal:          10,
+				ServerBindAddress:       "::",
+				ServerBindPort:          8443,
 				KindQueues: map[string]KindQueueConfig{
 					"applicationprofiles": {
 						QueueLength:   50,

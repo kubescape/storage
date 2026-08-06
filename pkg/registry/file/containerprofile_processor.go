@@ -73,7 +73,7 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 		DeleteThreshold:         2 * cfg.MaxSniffingTime,
 		HostType:                hostType,
 		Interval:                30 * time.Second,
-		MaxContainerProfileSize: cfg.MaxApplicationProfileSize,
+		MaxContainerProfileSize: cfg.MaxContainerProfileSize,
 		CollapseSettings:        dynamicpathdetector.DefaultCollapseSettings,
 		Workers:                 max(1, DefaultPoolSize/4),
 	}
@@ -160,6 +160,51 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		}
 		return nil
 
+	}
+
+	// Consolidated (non-TS) profile path: enforce completed-immutability.
+	// A direct patch of the consolidated ContainerProfile carries no
+	// ReportSeriesId, so it skips the TS branch above. If the stored
+	// consolidated profile is already Completed, a regression of the incoming
+	// status back to Learning/Ready (helpers.Learning == "ready") must be
+	// reverted so the profile cannot leave the completed state. The update
+	// still proceeds (no error) with the reverted status. A Completed->Completed
+	// amendment (partial->full completion) and TooLarge handling are left
+	// untouched.
+	{
+		id := armotypes.ProfileIdentifier{
+			ProfileScope: armotypes.ProfileScope{
+				HostType:               a.HostType,
+				Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+				Namespace:              profile.Namespace,
+				CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+				Region:                 profile.Annotations[helpers.RegionMetadataKey],
+				HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
+			},
+			Name: profile.Name,
+		}
+		key := BuildContainerProfileKey(id, "containerprofile")
+		// Use the no-lock metadata read: PreSave is invoked from within
+		// GuaranteedUpdate, which already holds the write lock for this key, so
+		// GetContainerProfileMetadata (which takes a read lock) would self-deadlock.
+		// If the consolidated profile does not exist yet (or cannot be loaded),
+		// this is a create and there is nothing to guard.
+		if existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadataNoLock(ctx, key); err == nil {
+			if existingProfile.Annotations[helpers.StatusMetadataKey] == helpers.Completed &&
+				profile.Annotations[helpers.StatusMetadataKey] == helpers.Learning {
+				if profile.Annotations == nil {
+					profile.Annotations = make(map[string]string)
+				}
+				profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
+			}
+		} else if !storage.IsNotFound(err) {
+			// A genuine read error (not "does not exist yet") means we could
+			// not verify whether the consolidated profile is already Completed.
+			// Leave the incoming status untouched, but leave a diagnostic trail
+			// so a Completed->Learning regression that slips through here is not
+			// silent.
+			logger.L().Debug("ContainerProfileProcessor.PreSave - failed to check consolidated completed status", loggerhelpers.Error(err), loggerhelpers.String("key", key))
+		}
 	}
 
 	// size is the sum of all fields in all containers
@@ -263,14 +308,7 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	}
 	a.LastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
-		"applicationprofiles": {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
-		"containerprofiles":   {deleteByTemplateHashOrWlid},
-		// The merged (effective) CP carries the same templateHash/wlid metadata
-		// as its observed sibling, so the same predicate retires orphans. This
-		// covers workloads that get age-cleaned without going through the REST
-		// Delete path (which already cascades to the merged sibling).
-		ContainerProfileMergedKind: {deleteByTemplateHashOrWlid},
-		"networkneighborhoods":     {deleteWrongSchemaVersion, deleteByTemplateHashOrWlid},
+		"containerprofiles": {deleteByTemplateHashOrWlid},
 	}
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
@@ -406,7 +444,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 }
 
 // sendConsolidatedSlugToChannel calculates the slug from the profile and sends it to the channel
-// The slug is calculated for both ApplicationProfile and NetworkNeighborhood
+// The slug is calculated from the ContainerProfile
 // Format: "namespace/name" to allow the ingester to extract both namespace and name
 func (a *ContainerProfileProcessor) sendConsolidatedSlugToChannel(ctx context.Context, profile softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier) error {
 	if a.ConsolidatedSlugChannel == nil {
@@ -538,14 +576,14 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 
 	if _, ok := profile.Annotations[helpers.InstanceIDMetadataKey]; !ok {
 		// Without an InstanceID annotation we cannot derive the workload slug,
-		// so neither the observed save nor the merged refresh have a target.
+		// so the observed save has no target.
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
 		return processed, nil
 	}
 
 	// Persist the canonical observed CP only when time-series consolidation
 	// produced new data this tick. The observed CP is the time-series-only
-	// view (kubescape/storage#315 review). It is never mutated by the ug- merge.
+	// view (kubescape/storage#315 review).
 	if newData {
 		if profile.CreationTimestamp.IsZero() {
 			profile.CreationTimestamp = creationTimestamp
@@ -557,71 +595,7 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - no new data, observed CP unchanged", loggerhelpers.String("key", key))
 	}
 
-	// Refresh the merged (effective) CP every tick, even when !newData. This
-	// is what propagates user-managed (ug-) edits and deletes to idle or
-	// Completed workloads — the previous design short-circuited here and
-	// stranded the merged artifact. refreshMergedProfile rebuilds from scratch
-	// from (observed, ug-AP, ug-NN), so retractions land naturally.
-	effective, err := a.refreshMergedProfile(ctx, &profile, id, key)
-	if err != nil {
-		// Refresh failures are surfaced so the transaction rolls back; a half-
-		// applied merged write paired with a successful observed save would be
-		// worse than retrying the whole tick.
-		return nil, err
-	}
-
-	// Aggregated AP/NN derive from the effective CP so all downstream outputs
-	// stay aligned with what node-agent actually reads (step 6 of the review).
-	// Still gated on newData to preserve the existing 30s aggregation cadence —
-	// ug-only changes propagate via the merged refresh above; the AP/NN
-	// aggregator already serves a different (downstream-policy) audience.
-	if newData {
-		if err := a.updateAggregatedProfiles(ctx, key, effective, prefix, root, id, creationTimestamp); err != nil {
-			return nil, err
-		}
-	}
-
 	return processed, nil
-}
-
-// refreshMergedProfile rebuilds the merged (effective) ContainerProfile from
-// the observed CP plus the live user-managed (ug-) AP/NN overlay, and
-// reconciles the persisted merged artifact with the result:
-//
-//   - If at least one ug- input exists: write the freshly merged CP to the
-//     parallel containerprofile-merged key.
-//   - If no ug- input exists: delete the parallel key so consumers fall back
-//     to the observed CP. This is the retraction path that the previous
-//     in-place merge could not implement.
-//
-// Returns the "effective" CP — the merged one when ug- contributed, otherwise
-// the observed CP itself. Callers pass this to downstream derivations
-// (aggregated AP/NN) so all consumers see the same view node-agent will read.
-func (a *ContainerProfileProcessor) refreshMergedProfile(ctx context.Context, observed *softwarecomposition.ContainerProfile, id armotypes.ProfileIdentifier, observedKey string) (*softwarecomposition.ContainerProfile, error) {
-	merged, hasOverlay, err := a.buildMergedProfile(ctx, observed, id)
-	if err != nil {
-		return observed, err
-	}
-
-	if !hasOverlay {
-		// No ug- input. Delete any prior merged artifact so consumers fall back
-		// to observed. DeleteMergedContainerProfile is idempotent (it does a
-		// lock-free existence probe and treats not-found as success), so the
-		// common no-merged-yet path is quiet — no error log and no futile
-		// delete — without a separate existence probe here. A genuine delete
-		// failure is surfaced as a hard error so the tick rolls back and retries
-		// rather than leaving consumers reading a merged view the ug- overlay no
-		// longer backs.
-		if delErr := a.ContainerProfileStorage.DeleteMergedContainerProfile(ctx, observedKey); delErr != nil {
-			return observed, fmt.Errorf("failed to delete stale merged container profile: %w", delErr)
-		}
-		return observed, nil
-	}
-
-	if saveErr := a.ContainerProfileStorage.SaveMergedContainerProfile(ctx, observedKey, merged); saveErr != nil {
-		return observed, fmt.Errorf("failed to save merged container profile: %w", saveErr)
-	}
-	return merged, nil
 }
 
 // timeSeriesProcessResult holds the results of processing a time series
@@ -796,36 +770,6 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 	}
 
 	return newTimeSeries, false, nil
-}
-
-// updateAggregatedProfiles updates the application profile and network neighborhood
-func (a *ContainerProfileProcessor) updateAggregatedProfiles(ctx context.Context,
-	key string, profile *softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier,
-	creationTimestamp metav1.Time) error {
-
-	instanceID, err := instanceidhandlerv1.GenerateInstanceIDFromString(profile.Annotations[helpers.InstanceIDMetadataKey])
-	if err != nil {
-		return fmt.Errorf("failed to create instance ID: %w", err)
-	}
-
-	slug, err := instanceID.GetSlug(true)
-	if err != nil {
-		return fmt.Errorf("failed to get slug: %w", err)
-	}
-
-	wlid := profile.Annotations[helpers.WlidMetadataKey]
-
-	// Update application profile
-	if err := a.ContainerProfileStorage.UpdateApplicationProfile(ctx, key, prefix, root, id, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
-		return err
-	}
-
-	// Update network neighborhood
-	if err := a.ContainerProfileStorage.UpdateNetworkNeighborhood(ctx, key, prefix, root, id, slug, wlid, instanceID, profile, creationTimestamp); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // getAggregatedData computes various data of the aggregated profile.

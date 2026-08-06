@@ -1,0 +1,185 @@
+{
+  "Architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "Capabilities": [
+    "NET_BIND_SERVICE",
+    "SYS_ADMIN"
+  ],
+  "Execs": [
+    {
+      "Path": "/bin/sh",
+      "Args": [
+        "-c",
+        "echo hi"
+      ],
+      "Envs": null,
+      "ArgsRequired": false
+    },
+    {
+      "Path": "/usr/bin/curl",
+      "Args": [
+        "https://example.com"
+      ],
+      "Envs": null,
+      "ArgsRequired": false
+    },
+    {
+      "Path": "/usr/bin/wget",
+      "Args": [
+        "https://example.org"
+      ],
+      "Envs": null,
+      "ArgsRequired": false
+    }
+  ],
+  "Opens": [
+    {
+      "Path": "/etc/config",
+      "Flags": [
+        "O_WRONLY"
+      ]
+    },
+    {
+      "Path": "/var/log/pods/⋯/app.log",
+      "Flags": [
+        "O_CLOEXEC",
+        "O_RDONLY"
+      ]
+    }
+  ],
+  "Syscalls": [
+    "close",
+    "epoll_wait",
+    "futex",
+    "openat",
+    "read",
+    "write"
+  ],
+  "SeccompProfile": {
+    "Name": "",
+    "Path": "",
+    "Spec": {
+      "Disabled": false,
+      "BaseProfileName": "",
+      "DefaultAction": "",
+      "Architectures": null,
+      "ListenerPath": "",
+      "ListenerMetadata": "",
+      "Syscalls": null,
+      "Flags": null
+    }
+  },
+  "Endpoints": [
+    {
+      "Endpoint": ":8080/api/v1/users",
+      "Methods": [
+        "GET",
+        "POST"
+      ],
+      "Internal": false,
+      "Direction": "inbound",
+      "Headers": {
+        "Accept": [
+          "application/json"
+        ],
+        "Content-Type": [
+          "application/json"
+        ]
+      }
+    },
+    {
+      "Endpoint": ":8080/api/v1/health",
+      "Methods": [
+        "GET"
+      ],
+      "Internal": false,
+      "Direction": "inbound",
+      "Headers": {}
+    }
+  ],
+  "ImageID": "",
+  "ImageTag": "",
+  "PolicyByRuleId": {
+    "R100": {
+      "AllowedProcesses": [
+        "/bin/sh",
+        "/usr/bin/curl"
+      ],
+      "AllowedContainer": true
+    },
+    "R200": {
+      "AllowedProcesses": [
+        "/usr/bin/wget"
+      ],
+      "AllowedContainer": false
+    }
+  },
+  "IdentifiedCallStacks": [
+    {
+      "CallID": "cs-1",
+      "CallStack": {
+        "Root": {
+          "Children": [
+            {
+              "Children": [],
+              "Frame": {
+                "FileID": "10",
+                "Lineno": "1",
+                "FrameType": 0
+              }
+            }
+          ],
+          "Frame": {
+            "FileID": "",
+            "Lineno": "",
+            "FrameType": 0
+          }
+        }
+      }
+    }
+  ],
+  "Ingress": [
+    {
+      "Identifier": "81ae1c7d0b0a7d694e9dce6ef1c0f24132194e08d0cebbf67b058e42aa862d96",
+      "Type": "external",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-80",
+          "Protocol": "TCP",
+          "Port": 80
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": [
+        "10.0.0.0/29"
+      ]
+    }
+  ],
+  "Egress": [
+    {
+      "Identifier": "dns",
+      "Type": "external",
+      "DNS": "",
+      "DNSNames": [
+        "kubernetes.default.svc.cluster.local"
+      ],
+      "Ports": [
+        {
+          "Name": "UDP-53",
+          "Protocol": "UDP",
+          "Port": 53
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null
+    }
+  ]
+}

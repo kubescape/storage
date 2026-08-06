@@ -29,9 +29,8 @@ func TestCompareExecArgs_LiteralMatch(t *testing.T) {
 	}{
 		// Empty profileArgs = "no argv constraint" — matches any runtime.
 		// Pinned this way so path-only Execs entries in user-defined
-		// ApplicationProfiles don't silently trigger R0040 when the rule
-		// consults was_executed_with_args. See storage/node-agent issue
-		// where Test_28 (and others using path-only entries) failed because
+		// profiles don't silently trigger R0040 when the rule consults
+		// was_executed_with_args. Path-only entries previously failed because
 		// the strict empty-empty match was firing R0040 on every legit exec.
 		{"both empty", nil, nil, true},
 		{"empty profile, non-empty runtime", nil, []string{"a"}, true},

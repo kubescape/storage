@@ -69,10 +69,11 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 		"workloadconfigurationscansummaries":  {deleteByWlid},
 	}
 
-	// only if relevancy is enabled, we need to delete application profiles with missing instanceId or wlid annotations
+	// only if relevancy is enabled, delete container profiles with missing
+	// instanceId or wlid annotations.
 	if relevancyEnabled {
 		logger.L().Debug("relevancy is enabled, adding additional cleanup handlers")
-		resourceKindToHandler["applicationprofiles"] = append(resourceKindToHandler["applicationprofiles"], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
+		resourceKindToHandler["containerprofiles"] = append(resourceKindToHandler["containerprofiles"], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
 	}
 	return resourceKindToHandler
 }

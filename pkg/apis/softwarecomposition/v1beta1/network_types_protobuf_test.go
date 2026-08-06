@@ -7,7 +7,7 @@ import (
 
 // TestNetworkNeighbor_IPAddresses_ProtobufRoundtrip pins the v0.0.2
 // protobuf wire contract for the new IPAddresses field. Storage persists
-// NetworkNeighborhood objects to etcd via this protobuf encoding; if
+// network neighbor entries to etcd via this protobuf encoding; if
 // the field is dropped on round-trip, the spec field is silently lost
 // and runtime matchers see an empty list.
 //

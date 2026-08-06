@@ -672,10 +672,8 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 		}
 	}
 
-	typeName := "ApplicationProfile"
-	if _, ok := objPtr.(*softwarecomposition.ContainerProfile); ok {
-		typeName = "ContainerProfile"
-	} else if _, ok := objPtr.(*softwarecomposition.SeccompProfile); ok {
+	typeName := "ContainerProfile"
+	if _, ok := objPtr.(*softwarecomposition.SeccompProfile); ok {
 		typeName = "SeccompProfile"
 	}
 
@@ -1186,10 +1184,8 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 				}
 			}
 
-			typeName := "ApplicationProfile"
-			if _, ok := obj.(*softwarecomposition.ContainerProfile); ok {
-				typeName = "ContainerProfile"
-			} else if _, ok := obj.(*softwarecomposition.SeccompProfile); ok {
+			typeName := "ContainerProfile"
+			if _, ok := obj.(*softwarecomposition.SeccompProfile); ok {
 				typeName = "SeccompProfile"
 			}
 

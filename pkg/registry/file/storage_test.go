@@ -661,8 +661,8 @@ func Test_calculateChecksum(t *testing.T) {
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			name: "applicationprofile",
-			obj: &softwarecomposition.ApplicationProfile{
+			name: "containerprofile",
+			obj: &softwarecomposition.ContainerProfile{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "toto",
 					Namespace: "default",
@@ -670,17 +670,14 @@ func Test_calculateChecksum(t *testing.T) {
 						"key": "value",
 					},
 				},
-				Spec: softwarecomposition.ApplicationProfileSpec{
+				Spec: softwarecomposition.ContainerProfileSpec{
 					Architectures: []string{"amd64"},
-					Containers: []softwarecomposition.ApplicationProfileContainer{{
-						Name: "nginx",
-						Execs: []softwarecomposition.ExecCalls{{
-							Path: "/usr/sbin/nginx",
-						}},
+					Execs: []softwarecomposition.ExecCalls{{
+						Path: "/usr/sbin/nginx",
 					}},
 				},
 			},
-			want:    "cd4905299d95f0cf9d2337b7e674ea7ccff116e47ec6aa036f29a691a063a4ed",
+			want:    "264ce846e489f0e32634241e41ecbd96d53a8c52331fc02db13b0f627aed9a25",
 			wantErr: assert.NoError,
 		},
 	}

@@ -394,17 +394,17 @@ func TestHTTPEndpoint_String(t *testing.T) {
 	}
 }
 
-func TestApplicationProfileContainer_PolicyValidation(t *testing.T) {
+func TestContainerProfile_PolicyValidation(t *testing.T) {
 	tests := []struct {
 		name         string
-		container    ApplicationProfileContainer
+		container    ContainerProfileSpec
 		wantPolicy   RulePolicy
 		policyRuleID string
 		wantExists   bool
 	}{
 		{
 			name: "Empty container",
-			container: ApplicationProfileContainer{
+			container: ContainerProfileSpec{
 				PolicyByRuleId: map[string]RulePolicy{},
 			},
 			policyRuleID: "rule1",
@@ -412,8 +412,7 @@ func TestApplicationProfileContainer_PolicyValidation(t *testing.T) {
 		},
 		{
 			name: "Container with policies",
-			container: ApplicationProfileContainer{
-				Name:         "nginx",
+			container: ContainerProfileSpec{
 				Capabilities: []string{"NET_BIND_SERVICE", "CHOWN"},
 				ImageID:      "sha256:abc123",
 				ImageTag:     "1.21-alpine",
@@ -437,8 +436,7 @@ func TestApplicationProfileContainer_PolicyValidation(t *testing.T) {
 		},
 		{
 			name: "Non-existent rule",
-			container: ApplicationProfileContainer{
-				Name: "nginx",
+			container: ContainerProfileSpec{
 				PolicyByRuleId: map[string]RulePolicy{
 					"rule1": {
 						AllowedProcesses: []string{"nginx"},

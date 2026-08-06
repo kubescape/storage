@@ -1,0 +1,52 @@
+{
+  "name": "replicaset-web-abc-web-0002",
+  "namespace": "default",
+  "labels": {
+    "kubescape.io/workload-container-name": "web"
+  },
+  "annotations": {
+    "kubescape.io/report-series-id": "series-1",
+    "kubescape.io/status": "ready"
+  },
+  "Spec": {
+    "Architectures": ["amd64"],
+    "Capabilities": ["NET_BIND_SERVICE"],
+    "Execs": [
+      {"Path": "/bin/sh", "Args": ["-c", "echo hi"]},
+      {"Path": "/usr/bin/wget", "Args": ["https://example.org"]}
+    ],
+    "Opens": [
+      {"Path": "/etc/config", "Flags": ["O_WRONLY"]},
+      {"Path": "/var/log/pods/pod-d/app.log", "Flags": ["O_RDONLY"]},
+      {"Path": "/var/log/pods/pod-e/app.log", "Flags": ["O_RDONLY"]},
+      {"Path": "/var/log/pods/pod-f/app.log", "Flags": ["O_RDONLY"]}
+    ],
+    "Syscalls": ["read", "futex", "epoll_wait"],
+    "Endpoints": [
+      {
+        "Endpoint": ":8080/api/v1/users",
+        "Methods": ["POST"],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {"Content-Type": ["application/json"]}
+      },
+      {
+        "Endpoint": ":8080/api/v1/health",
+        "Methods": ["GET"],
+        "Internal": false,
+        "Direction": "inbound",
+        "Headers": {}
+      }
+    ],
+    "PolicyByRuleId": {
+      "R100": {"AllowedProcesses": ["/usr/bin/curl"], "AllowedContainer": true}
+    },
+    "Ingress": [
+      {"Identifier": "h3", "Type": "external", "IPAddress": "10.0.0.3", "Ports": [{"Name": "TCP-80", "Protocol": "TCP", "Port": 80}]},
+      {"Identifier": "h4", "Type": "external", "IPAddress": "10.0.0.4", "Ports": [{"Name": "TCP-80", "Protocol": "TCP", "Port": 80}]}
+    ],
+    "Egress": [
+      {"Identifier": "dns", "Type": "external", "DNSNames": ["kubernetes.default.svc.cluster.local"], "Ports": [{"Name": "UDP-53", "Protocol": "UDP", "Port": 53}]}
+    ]
+  }
+}
