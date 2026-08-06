@@ -3,6 +3,7 @@ package dynamicpathdetector
 import (
 	"encoding/json"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"strings"
 
@@ -81,7 +82,7 @@ func ProcessEndpoint(endpoint *types.HTTPEndpoint, analyzer *PathAnalyzer, newEn
 
 func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 	if !strings.HasPrefix(urlString, "http://") && !strings.HasPrefix(urlString, "https://") {
-		urlString = "http://" + urlString
+		urlString = "http://" + addBracketsIfIPv6(urlString)
 	}
 
 	if err := isValidURL(urlString); err != nil {
@@ -100,6 +101,50 @@ func AnalyzeURL(urlString string, analyzer *PathAnalyzer) (string, error) {
 		path = "/"
 	}
 	return ":" + port + path, nil
+}
+
+// addBracketsIfIPv6 looks at the authority part (before the first "/") of a
+// scheme-less input and brackets it if it is a bare IPv6 address, so that
+// url.Parse reads it as a host instead of splitting on every colon in the
+// address. Non-IPv6 input, and input that is already bracketed, is returned
+// unchanged.
+func addBracketsIfIPv6(urlString string) string {
+	authority := urlString
+	rest := ""
+	if idx := strings.IndexByte(urlString, '/'); idx >= 0 {
+		authority = urlString[:idx]
+		rest = urlString[idx:]
+	}
+
+	if strings.HasPrefix(authority, "[") {
+		return urlString
+	}
+
+	if addr, err := netip.ParseAddr(authority); err == nil && addr.Is6() {
+		return "[" + authority + "]" + rest
+	}
+
+	if idx := strings.LastIndex(authority, ":"); idx >= 0 {
+		host := authority[:idx]
+		port := authority[idx+1:]
+		if addr, err := netip.ParseAddr(host); err == nil && addr.Is6() && isAllDigits(port) {
+			return "[" + host + "]:" + port + rest
+		}
+	}
+
+	return urlString
+}
+
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // splitEndpointPortAndPath splits the canonical `:<port><path>` form
