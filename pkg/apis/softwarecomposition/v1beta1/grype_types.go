@@ -94,6 +94,17 @@ type IgnoreRule struct {
 	Vulnerability string             `json:"vulnerability,omitempty" protobuf:"bytes,1,opt,name=vulnerability"`
 	FixState      string             `json:"fix-state,omitempty" protobuf:"bytes,2,opt,name=fixstate"`
 	Package       *IgnoreRulePackage `json:"package,omitempty" protobuf:"bytes,3,opt,name=package"`
+
+	// SourceKind, SourceName and SourceNamespace identify the object that
+	// caused this suppression (e.g. "SecurityException", its name, and
+	// namespace for a namespaced object).
+	SourceKind      string `json:"sourceKind,omitempty" protobuf:"bytes,4,opt,name=sourcekind"`
+	SourceName      string `json:"sourceName,omitempty" protobuf:"bytes,5,opt,name=sourcename"`
+	SourceNamespace string `json:"sourceNamespace,omitempty" protobuf:"bytes,6,opt,name=sourcenamespace"`
+	// Justification and ImpactStatement carry the stated reason for the
+	// suppression, in VEX vocabulary.
+	Justification   string `json:"justification,omitempty" protobuf:"bytes,7,opt,name=justification"`
+	ImpactStatement string `json:"impactStatement,omitempty" protobuf:"bytes,8,opt,name=impactstatement"`
 }
 
 type IgnoreRulePackage struct {
