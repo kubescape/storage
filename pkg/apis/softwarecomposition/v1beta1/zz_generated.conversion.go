@@ -4619,6 +4619,9 @@ func Convert_softwarecomposition_SBOMSyftSpec_To_v1beta1_SBOMSyftSpec(in *softwa
 }
 
 func autoConvert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(in *SBOMSyftStatus, out *softwarecomposition.SBOMSyftStatus, s conversion.Scope) error {
+	out.Status = in.Status
+	out.StatusReason = in.StatusReason
+	out.Limit = in.Limit
 	return nil
 }
 
@@ -4628,6 +4631,9 @@ func Convert_v1beta1_SBOMSyftStatus_To_softwarecomposition_SBOMSyftStatus(in *SB
 }
 
 func autoConvert_softwarecomposition_SBOMSyftStatus_To_v1beta1_SBOMSyftStatus(in *softwarecomposition.SBOMSyftStatus, out *SBOMSyftStatus, s conversion.Scope) error {
+	out.Status = in.Status
+	out.StatusReason = in.StatusReason
+	out.Limit = in.Limit
 	return nil
 }
 

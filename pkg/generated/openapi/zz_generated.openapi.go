@@ -5358,6 +5358,26 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftStatus(ref common.Refer
 			SchemaProps: spec.SchemaProps{
 				Description: "SBOMSyftStatus is the status of a Syft SBOM.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"statusReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}

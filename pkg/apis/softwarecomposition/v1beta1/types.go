@@ -497,6 +497,9 @@ type OpenVulnerabilityExchangeContainerList struct {
 
 // SBOMSyftStatus is the status of a Syft SBOM.
 type SBOMSyftStatus struct {
+	Status       string `json:"status,omitempty" protobuf:"bytes,1,opt,name=status"`
+	StatusReason string `json:"statusReason,omitempty" protobuf:"bytes,2,opt,name=statusReason"`
+	Limit        string `json:"limit,omitempty" protobuf:"bytes,3,opt,name=limit"`
 }
 
 // SBOMSyftSpec is the specification of a Syft SBOM
