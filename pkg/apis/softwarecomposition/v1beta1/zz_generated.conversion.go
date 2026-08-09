@@ -3014,6 +3014,11 @@ func autoConvert_v1beta1_IgnoreRule_To_softwarecomposition_IgnoreRule(in *Ignore
 	out.Vulnerability = in.Vulnerability
 	out.FixState = in.FixState
 	out.Package = (*softwarecomposition.IgnoreRulePackage)(unsafe.Pointer(in.Package))
+	out.SourceKind = in.SourceKind
+	out.SourceName = in.SourceName
+	out.SourceNamespace = in.SourceNamespace
+	out.Justification = in.Justification
+	out.ImpactStatement = in.ImpactStatement
 	return nil
 }
 
@@ -3026,6 +3031,11 @@ func autoConvert_softwarecomposition_IgnoreRule_To_v1beta1_IgnoreRule(in *softwa
 	out.Vulnerability = in.Vulnerability
 	out.FixState = in.FixState
 	out.Package = (*IgnoreRulePackage)(unsafe.Pointer(in.Package))
+	out.SourceKind = in.SourceKind
+	out.SourceName = in.SourceName
+	out.SourceNamespace = in.SourceNamespace
+	out.Justification = in.Justification
+	out.ImpactStatement = in.ImpactStatement
 	return nil
 }
 

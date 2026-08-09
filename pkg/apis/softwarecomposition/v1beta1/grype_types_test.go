@@ -37,3 +37,25 @@ func TestIgnoreRuleProvenanceFields(t *testing.T) {
 		assert.Equal(t, "allow-log4j", rule.SourceName, "mutating the clone must not affect the original")
 	})
 }
+
+
+func TestIgnoreRuleProtobufRoundTrip(t *testing.T) {
+	rule := IgnoreRule{
+		Vulnerability:   "CVE-2021-44228",
+		FixState:        "not-fixed",
+		Package:         &IgnoreRulePackage{Name: "log4j", Version: "2.14.0"},
+		SourceKind:      "SecurityException",
+		SourceName:      "allow-log4j",
+		SourceNamespace: "production",
+		Justification:   "vulnerable_code_not_present",
+		ImpactStatement: "Vulnerable component is not loaded into the memory",
+	}
+
+	data, err := rule.Marshal()
+	require.NoError(t, err)
+
+	var got IgnoreRule
+	require.NoError(t, got.Unmarshal(data))
+
+	assert.Equal(t, rule, got)
+}
