@@ -2908,6 +2908,31 @@ func (m *IgnoreRule) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	i -= len(m.ImpactStatement)
+	copy(dAtA[i:], m.ImpactStatement)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.ImpactStatement)))
+	i--
+	dAtA[i] = 0x42
+	i -= len(m.Justification)
+	copy(dAtA[i:], m.Justification)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.Justification)))
+	i--
+	dAtA[i] = 0x3a
+	i -= len(m.SourceNamespace)
+	copy(dAtA[i:], m.SourceNamespace)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.SourceNamespace)))
+	i--
+	dAtA[i] = 0x32
+	i -= len(m.SourceName)
+	copy(dAtA[i:], m.SourceName)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.SourceName)))
+	i--
+	dAtA[i] = 0x2a
+	i -= len(m.SourceKind)
+	copy(dAtA[i:], m.SourceKind)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.SourceKind)))
+	i--
+	dAtA[i] = 0x22
 	if m.Package != nil {
 		{
 			size, err := m.Package.MarshalToSizedBuffer(dAtA[:i])
@@ -9965,6 +9990,16 @@ func (m *IgnoreRule) Size() (n int) {
 	l = len(m.Vulnerability)
 	n += 1 + l + sovGenerated(uint64(l))
 	l = len(m.FixState)
+	n += 1 + l + sovGenerated(uint64(l))
+	l = len(m.SourceKind)
+	n += 1 + l + sovGenerated(uint64(l))
+	l = len(m.SourceName)
+	n += 1 + l + sovGenerated(uint64(l))
+	l = len(m.SourceNamespace)
+	n += 1 + l + sovGenerated(uint64(l))
+	l = len(m.Justification)
+	n += 1 + l + sovGenerated(uint64(l))
+	l = len(m.ImpactStatement)
 	n += 1 + l + sovGenerated(uint64(l))
 	if m.Package != nil {
 		l = m.Package.Size()
@@ -22681,6 +22716,166 @@ func (m *IgnoreRule) Unmarshal(dAtA []byte) error {
 			if err := m.Package.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceKind", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceKind = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceNamespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SourceNamespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Justification", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Justification = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ImpactStatement", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ImpactStatement = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
