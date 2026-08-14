@@ -181,5 +181,8 @@
       "IPAddress": "",
       "IPAddresses": null
     }
-  ]
+  ],
+  "Containers": null,
+  "InitContainers": null,
+  "EphemeralContainers": null
 }

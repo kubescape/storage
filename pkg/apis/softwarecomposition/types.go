@@ -359,6 +359,34 @@ type ContainerProfileSpec struct {
 	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
 	Ingress              []NetworkNeighbor
 	Egress               []NetworkNeighbor
+	// Container subtype groups for user-authored multi-container documents.
+	// One authored ContainerProfile per pod can describe every container,
+	// keyed by name within its subtype group - the same contract the legacy
+	// ApplicationProfile/NetworkNeighborhood specs expressed. Learned
+	// (agent-written) profiles stay one object per container and leave these
+	// empty.
+	Containers          []ContainerProfileContainer
+	InitContainers      []ContainerProfileContainer
+	EphemeralContainers []ContainerProfileContainer
+}
+
+// ContainerProfileContainer is one container's profile inside a user-authored
+// multi-container ContainerProfile document: the union of the legacy
+// ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
+type ContainerProfileContainer struct {
+	Name                 string
+	Capabilities         []string
+	Execs                []ExecCalls
+	Opens                []OpenCalls
+	Syscalls             []string
+	SeccompProfile       SingleSeccompProfile
+	Endpoints            []HTTPEndpoint
+	ImageID              string
+	ImageTag             string
+	PolicyByRuleId       map[string]RulePolicy
+	IdentifiedCallStacks []IdentifiedCallStack
+	Ingress              []NetworkNeighbor
+	Egress               []NetworkNeighbor
 }
 
 type ContainerProfileStatus struct {

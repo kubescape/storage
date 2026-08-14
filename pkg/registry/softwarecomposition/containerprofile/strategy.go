@@ -125,6 +125,27 @@ func validateNetworkProfileEntries(spec *softwarecomposition.ContainerProfileSpe
 	specPath := field.NewPath("spec")
 	errs = append(errs, validateNeighborList(specPath.Child("ingress"), spec.Ingress)...)
 	errs = append(errs, validateNeighborList(specPath.Child("egress"), spec.Egress)...)
+	// User-authored multi-container documents carry per-container subtype
+	// groups; validate their network entries with the same grammar. Ordered
+	// slice rather than a map: Go map iteration is non-deterministic, and
+	// admission errors flow back to clients via the apiserver - stable
+	// ordering keeps error messages reproducible.
+	groups := []struct {
+		name  string
+		items []softwarecomposition.ContainerProfileContainer
+	}{
+		{name: "containers", items: spec.Containers},
+		{name: "initContainers", items: spec.InitContainers},
+		{name: "ephemeralContainers", items: spec.EphemeralContainers},
+	}
+	for _, g := range groups {
+		groupPath := specPath.Child(g.name)
+		for ci, c := range g.items {
+			containerPath := groupPath.Index(ci)
+			errs = append(errs, validateNeighborList(containerPath.Child("ingress"), c.Ingress)...)
+			errs = append(errs, validateNeighborList(containerPath.Child("egress"), c.Egress)...)
+		}
+	}
 	return errs
 }
 

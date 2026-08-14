@@ -25,7 +25,7 @@ import (
 // ContainerProfileSpecApplyConfiguration represents a declarative configuration of the ContainerProfileSpec type for use
 // with apply.
 type ContainerProfileSpecApplyConfiguration struct {
-	// WARNING report fields from ApplicationProfileContainer here
+	// WARNING report the execution/profile fields here
 	Architectures        []string                                `json:"architectures,omitempty"`
 	Capabilities         []string                                `json:"capabilities,omitempty"`
 	Execs                []ExecCallsApplyConfiguration           `json:"execs,omitempty"`
@@ -41,6 +41,15 @@ type ContainerProfileSpecApplyConfiguration struct {
 	v1.LabelSelectorApplyConfiguration `json:",inline"`
 	Ingress                            []NetworkNeighborApplyConfiguration `json:"ingress,omitempty"`
 	Egress                             []NetworkNeighborApplyConfiguration `json:"egress,omitempty"`
+	// Container subtype groups for user-authored multi-container documents.
+	// One authored ContainerProfile per pod can describe every container,
+	// keyed by name within its subtype group - the same contract the legacy
+	// ApplicationProfile/NetworkNeighborhood specs expressed. Learned
+	// (agent-written) profiles stay one object per container and leave these
+	// empty.
+	Containers          []ContainerProfileContainerApplyConfiguration `json:"containers,omitempty"`
+	InitContainers      []ContainerProfileContainerApplyConfiguration `json:"initContainers,omitempty"`
+	EphemeralContainers []ContainerProfileContainerApplyConfiguration `json:"ephemeralContainers,omitempty"`
 }
 
 // ContainerProfileSpecApplyConfiguration constructs a declarative configuration of the ContainerProfileSpec type for use with
@@ -218,6 +227,45 @@ func (b *ContainerProfileSpecApplyConfiguration) WithEgress(values ...*NetworkNe
 			panic("nil value passed to WithEgress")
 		}
 		b.Egress = append(b.Egress, *values[i])
+	}
+	return b
+}
+
+// WithContainers adds the given value to the Containers field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Containers field.
+func (b *ContainerProfileSpecApplyConfiguration) WithContainers(values ...*ContainerProfileContainerApplyConfiguration) *ContainerProfileSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithContainers")
+		}
+		b.Containers = append(b.Containers, *values[i])
+	}
+	return b
+}
+
+// WithInitContainers adds the given value to the InitContainers field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the InitContainers field.
+func (b *ContainerProfileSpecApplyConfiguration) WithInitContainers(values ...*ContainerProfileContainerApplyConfiguration) *ContainerProfileSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithInitContainers")
+		}
+		b.InitContainers = append(b.InitContainers, *values[i])
+	}
+	return b
+}
+
+// WithEphemeralContainers adds the given value to the EphemeralContainers field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the EphemeralContainers field.
+func (b *ContainerProfileSpecApplyConfiguration) WithEphemeralContainers(values ...*ContainerProfileContainerApplyConfiguration) *ContainerProfileSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithEphemeralContainers")
+		}
+		b.EphemeralContainers = append(b.EphemeralContainers, *values[i])
 	}
 	return b
 }

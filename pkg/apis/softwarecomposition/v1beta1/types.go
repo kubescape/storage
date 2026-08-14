@@ -257,6 +257,49 @@ type ContainerProfileSpec struct {
 	metav1.LabelSelector `json:",inline" protobuf:"bytes,101,opt,name=labelSelector"`
 	Ingress              []NetworkNeighbor `json:"ingress" protobuf:"bytes,102,rep,name=ingress"`
 	Egress               []NetworkNeighbor `json:"egress" protobuf:"bytes,103,rep,name=egress"`
+	// Container subtype groups for user-authored multi-container documents.
+	// One authored ContainerProfile per pod can describe every container,
+	// keyed by name within its subtype group - the same contract the legacy
+	// ApplicationProfile/NetworkNeighborhood specs expressed. Learned
+	// (agent-written) profiles stay one object per container and leave these
+	// empty.
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Containers []ContainerProfileContainer `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,201,rep,name=containers"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	InitContainers []ContainerProfileContainer `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,202,rep,name=initContainers"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	EphemeralContainers []ContainerProfileContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,203,rep,name=ephemeralContainers"`
+}
+
+// ContainerProfileContainer is one container's profile inside a user-authored
+// multi-container ContainerProfile document: the union of the legacy
+// ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
+type ContainerProfileContainer struct {
+	Name         string   `json:"name" protobuf:"bytes,1,req,name=name"`
+	Capabilities []string `json:"capabilities,omitempty" protobuf:"bytes,2,rep,name=capabilities"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Execs []ExecCalls `json:"execs,omitempty" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Opens          []OpenCalls          `json:"opens,omitempty" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
+	Syscalls       []string             `json:"syscalls,omitempty" protobuf:"bytes,5,rep,name=syscalls"`
+	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
+	// +patchStrategy=merge
+	// +patchMergeKey=endpoint
+	Endpoints []HTTPEndpoint `json:"endpoints,omitempty" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	ImageID   string         `json:"imageID,omitempty" protobuf:"bytes,8,opt,name=imageID"`
+	ImageTag  string         `json:"imageTag,omitempty" protobuf:"bytes,9,opt,name=imageTag"`
+	// +patchStrategy=merge
+	// +patchMergeKey=ruleId
+	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies,omitempty" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
+	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks,omitempty" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
+	// WARNING report the network fields here, increment proto IDs by 100
+	Ingress []NetworkNeighbor `json:"ingress,omitempty" protobuf:"bytes,102,rep,name=ingress"`
+	Egress  []NetworkNeighbor `json:"egress,omitempty" protobuf:"bytes,103,rep,name=egress"`
 }
 
 type ContainerProfileStatus struct {

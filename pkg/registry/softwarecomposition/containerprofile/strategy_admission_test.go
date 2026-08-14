@@ -124,6 +124,36 @@ func TestValidate_RejectsMalformedNetworkEntries(t *testing.T) {
 	assert.Len(t, updErrs, 3)
 }
 
+func TestValidate_WalksContainerSubtypeGroups(t *testing.T) {
+	s := NewStrategy(nil)
+	cp := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "mc", Namespace: "default"},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			Containers: []softwarecomposition.ContainerProfileContainer{
+				{Name: "app", Egress: []softwarecomposition.NetworkNeighbor{
+					{Identifier: "ok", DNSNames: []string{"db.example.com."}},
+				}},
+			},
+			InitContainers: []softwarecomposition.ContainerProfileContainer{
+				{Name: "setup", Egress: []softwarecomposition.NetworkNeighbor{
+					{Identifier: "bad", DNSNames: []string{"foo..bar"}},
+				}},
+			},
+			EphemeralContainers: []softwarecomposition.ContainerProfileContainer{
+				{Name: "debug", Ingress: []softwarecomposition.NetworkNeighbor{
+					{Identifier: "bad-ip", IPAddresses: []string{"not-an-ip"}},
+				}},
+			},
+		},
+	}
+
+	errs := s.Validate(context.TODO(), cp)
+	require.Len(t, errs, 2)
+	fieldsSeen := []string{errs[0].Field, errs[1].Field}
+	assert.Contains(t, fieldsSeen, "spec.initContainers[0].egress[0].dnsNames[0]")
+	assert.Contains(t, fieldsSeen, "spec.ephemeralContainers[0].ingress[0].ipAddresses[0]")
+}
+
 func TestValidate_AcceptsWildcardGrammar(t *testing.T) {
 	s := NewStrategy(nil)
 	cp := &softwarecomposition.ContainerProfile{

@@ -53,3 +53,40 @@ kube::codegen::gen_client \
     --output-pkg "${THIS_PKG}/pkg/generated" \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
     "${SCRIPT_ROOT}/pkg/apis"
+
+# Post-generation fix-up: HTTPEndpoint.Headers is a json.RawMessage carrying a
+# JSON OBJECT, but openapi-gen types json.RawMessage as {type: string, format:
+# byte}. The apiserver's server-side-apply TypeConverter is built from this
+# OpenAPI, and converting a profile whose endpoints carry headers then fails
+# ("expected string, got <object>"), which keeps profiles from completing.
+# Re-type the published schema as a preserve-unknown-fields object.
+# TestHTTPEndpointHeaders_SMDConversion (pkg/registry/file) pins this and goes
+# red if a regeneration loses the fix-up.
+python3 - "${SCRIPT_ROOT}/pkg/generated/openapi/zz_generated.openapi.go" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+src = open(path).read()
+old = '''					"headers": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},'''
+new = '''					"headers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+						},
+					},'''
+if old in src:
+    open(path, "w").write(src.replace(old, new))
+    print("headers schema fix-up applied")
+elif new in src:
+    print("headers schema fix-up already present")
+else:
+    sys.exit("headers schema fix-up anchor not found - update hack/update-codegen.sh")
+PYEOF

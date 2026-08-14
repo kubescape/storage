@@ -102,6 +102,11 @@ func (in ContainerProfile) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ContainerProfileContainer) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ContainerProfileContainer"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ContainerProfileList) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ContainerProfileList"
 }

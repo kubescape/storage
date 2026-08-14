@@ -49,6 +49,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1beta1.ConfigurationScanSummaryList{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
 		v1beta1.ConfigurationScanSummarySpec{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
 		v1beta1.ContainerProfile{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfile(ref),
+		v1beta1.ContainerProfileContainer{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileContainer(ref),
 		v1beta1.ContainerProfileList{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref),
 		v1beta1.ContainerProfileSpec{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref),
 		v1beta1.ContainerProfileStatus{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileStatus(ref),
@@ -898,6 +899,192 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfile(ref common.Ref
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ContainerProfileContainer is one container's profile inside a user-authored multi-container ContainerProfile document: the union of the legacy ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"execs": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "path",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.ExecCalls{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"opens": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "path",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.OpenCalls{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"syscalls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"seccompProfile": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
+						},
+					},
+					"endpoints": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "endpoint",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.HTTPEndpoint{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"imageID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"imageTag": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"rulePolicies": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "ruleId",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.RulePolicy{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"identifiedCallStacks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.IdentifiedCallStack{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"ingress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WARNING report the network fields here, increment proto IDs by 100",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"egress": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName()},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -954,7 +1141,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 				Properties: map[string]spec.Schema{
 					"architectures": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WARNING report fields from ApplicationProfileContainer here",
+							Description: "WARNING report the execution/profile fields here",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1166,12 +1353,70 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							},
 						},
 					},
+					"containers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Container subtype groups for user-authored multi-container documents. One authored ContainerProfile per pod can describe every container, keyed by name within its subtype group - the same contract the legacy ApplicationProfile/NetworkNeighborhood specs expressed. Learned (agent-written) profiles stay one object per container and leave these empty.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.ContainerProfileContainer{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"initContainers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.ContainerProfileContainer{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"ephemeralContainers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.ContainerProfileContainer{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"architectures", "capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag", "rulePolicies", "identifiedCallStacks", "ingress", "egress"},
 			},
 		},
 		Dependencies: []string{
-			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
+			v1beta1.ContainerProfileContainer{}.OpenAPIModelName(), v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
 	}
 }
 

@@ -58,6 +58,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.ConfigurationScanSummarySpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfile"):
 		return &softwarecompositionv1beta1.ContainerProfileApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfileContainer"):
+		return &softwarecompositionv1beta1.ContainerProfileContainerApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfileSpec"):
 		return &softwarecompositionv1beta1.ContainerProfileSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ControlSeverity"):
