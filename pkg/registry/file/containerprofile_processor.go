@@ -857,7 +857,47 @@ func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileS
 		},
 		Ingress: deflateNetworkNeighbors(container.Ingress, settings),
 		Egress:  deflateNetworkNeighbors(container.Egress, settings),
+		// User-authored multi-container documents carry per-subtype container
+		// groups. Rebuilding the spec without them silently strips every group
+		// on write (learned profiles leave them empty, so this only affects
+		// authored documents). Deflate each section's surfaces with the same
+		// treatment as the flat spec.
+		Containers:          deflateContainerProfileContainers(container.Containers, sbomSet, settings),
+		InitContainers:      deflateContainerProfileContainers(container.InitContainers, sbomSet, settings),
+		EphemeralContainers: deflateContainerProfileContainers(container.EphemeralContainers, sbomSet, settings),
 	}
+}
+
+// deflateContainerProfileContainers applies the per-surface deflation to each
+// container section of a user-authored multi-container document.
+func deflateContainerProfileContainers(sections []softwarecomposition.ContainerProfileContainer, sbomSet mapset.Set[string], settings dynamicpathdetector.CollapseSettings) []softwarecomposition.ContainerProfileContainer {
+	if len(sections) == 0 {
+		return nil
+	}
+	out := make([]softwarecomposition.ContainerProfileContainer, 0, len(sections))
+	for _, s := range sections {
+		opens, err := dynamicpathdetector.AnalyzeOpens(s.Opens, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.OpenDynamicThreshold, settings.CollapseConfigs), sbomSet)
+		if err != nil {
+			opens = DeflateStringer(s.Opens)
+		}
+		endpoints := dynamicpathdetector.AnalyzeEndpoints(&s.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.EndpointDynamicThreshold, settings.CollapseConfigs))
+		out = append(out, softwarecomposition.ContainerProfileContainer{
+			Name:                 s.Name,
+			Capabilities:         DeflateSortString(s.Capabilities),
+			Execs:                DeflateStringer(s.Execs),
+			Opens:                opens,
+			Syscalls:             DeflateSortString(s.Syscalls),
+			SeccompProfile:       s.SeccompProfile,
+			Endpoints:            endpoints,
+			ImageTag:             s.ImageTag,
+			ImageID:              s.ImageID,
+			PolicyByRuleId:       DeflateRulePolicies(s.PolicyByRuleId),
+			IdentifiedCallStacks: callstack.UnifyIdentifiedCallStacks(s.IdentifiedCallStacks),
+			Ingress:              deflateNetworkNeighbors(s.Ingress, settings),
+			Egress:               deflateNetworkNeighbors(s.Egress, settings),
+		})
+	}
+	return out
 }
 
 func isZeroTime(s string) bool {
