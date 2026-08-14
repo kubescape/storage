@@ -217,6 +217,46 @@ message ContainerProfile {
   optional ContainerProfileStatus status = 3;
 }
 
+// ContainerProfileContainer is one container's profile inside a user-authored
+// multi-container ContainerProfile document: the union of the legacy
+// ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
+message ContainerProfileContainer {
+  optional string name = 1;
+
+  repeated string capabilities = 2;
+
+  // +patchMergeKey=path
+  // +patchStrategy=merge
+  repeated ExecCalls execs = 3;
+
+  // +patchMergeKey=path
+  // +patchStrategy=merge
+  repeated OpenCalls opens = 4;
+
+  repeated string syscalls = 5;
+
+  optional SingleSeccompProfile seccompProfile = 6;
+
+  // +patchStrategy=merge
+  // +patchMergeKey=endpoint
+  repeated HTTPEndpoint endpoints = 7;
+
+  optional string imageID = 8;
+
+  optional string imageTag = 9;
+
+  // +patchStrategy=merge
+  // +patchMergeKey=ruleId
+  map<string, RulePolicy> rulePolicies = 10;
+
+  repeated IdentifiedCallStack identifiedCallStacks = 11;
+
+  // WARNING report the network fields here, increment proto IDs by 100
+  repeated NetworkNeighbor ingress = 102;
+
+  repeated NetworkNeighbor egress = 103;
+}
+
 message ContainerProfileList {
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
 
@@ -224,7 +264,7 @@ message ContainerProfileList {
 }
 
 message ContainerProfileSpec {
-  // WARNING report fields from ApplicationProfileContainer here
+  // WARNING report the execution/profile fields here
   repeated string architectures = 1;
 
   repeated string capabilities = 2;
@@ -261,6 +301,24 @@ message ContainerProfileSpec {
   repeated NetworkNeighbor ingress = 102;
 
   repeated NetworkNeighbor egress = 103;
+
+  // Container subtype groups for user-authored multi-container documents.
+  // One authored ContainerProfile per pod can describe every container,
+  // keyed by name within its subtype group - the same contract the legacy
+  // ApplicationProfile/NetworkNeighborhood specs expressed. Learned
+  // (agent-written) profiles stay one object per container and leave these
+  // empty.
+  // +patchMergeKey=name
+  // +patchStrategy=merge
+  repeated ContainerProfileContainer containers = 201;
+
+  // +patchMergeKey=name
+  // +patchStrategy=merge
+  repeated ContainerProfileContainer initContainers = 202;
+
+  // +patchMergeKey=name
+  // +patchStrategy=merge
+  repeated ContainerProfileContainer ephemeralContainers = 203;
 }
 
 message ContainerProfileStatus {

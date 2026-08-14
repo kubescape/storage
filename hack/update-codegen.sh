@@ -90,3 +90,23 @@ elif new in src:
 else:
     sys.exit("headers schema fix-up anchor not found - update hack/update-codegen.sh")
 PYEOF
+
+# Protobuf marshallers are NOT covered by kube_codegen.sh. The aggregated
+# apiserver serves protobuf to clients that negotiate it, so a stale
+# generated.pb.go silently drops any field added after its last generation
+# while JSON clients still see it. Regenerate whenever the v1beta1 types
+# change (requires protoc + go-to-protobuf + protoc-gen-gogo; see the
+# invocation below). TestContainerProfile_SubtypeGroups_ProtobufRoundTrip
+# pins one such field family and goes red if this is skipped.
+#
+#   go-to-protobuf \
+#     --packages="-k8s.io/api/core/v1,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1" \
+#     --apimachinery-packages="-k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/apimachinery/pkg/apis/meta/v1beta1" \
+#     --output-dir="${GOPATH}/src" \
+#     --go-header-file="${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+#     --proto-import=<dir with unversioned k8s.io/{api,apimachinery} + github.com/gogo/protobuf trees>
+if command -v go-to-protobuf >/dev/null 2>&1; then
+    echo "go-to-protobuf found - remember it needs the GOPATH-style layout + proto include tree described above"
+else
+    echo "WARNING: go-to-protobuf not on PATH - protobuf marshallers NOT regenerated. If you changed pkg/apis types, the protobuf wire will silently drop the new fields for protobuf-negotiating clients."
+fi
