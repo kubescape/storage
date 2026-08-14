@@ -43,14 +43,17 @@ type ResourcesCleanupHandler struct {
 
 func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {
 	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
-		// applicationprofiles are handled by containerprofile_processor
 		// configurationscansummaries are virtual
 		// containerprofiles are handled by containerprofile_processor
-		// networkneighborhoods are handled by containerprofile_processor
 		// vulnerabilitysummaries are virtual
 		// DEPRECATED resources
+		// applicationprofiles and networkneighborhoods were replaced by
+		// containerprofiles; without an entry here their payload files and
+		// sqlite rows would be kept forever on every upgraded cluster.
 		"applicationactivities":       {deleteDeprecated},
+		"applicationprofiles":         {deleteDeprecated},
 		"applicationprofilesummaries": {deleteDeprecated},
+		"networkneighborhoods":        {deleteDeprecated},
 		"networkneighborses":          {deleteDeprecated},
 		"sbomspdxv2p3filtereds":       {deleteDeprecated},
 		"sbomspdxv2p3filtered":        {deleteDeprecated},
