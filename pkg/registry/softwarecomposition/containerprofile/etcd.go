@@ -35,7 +35,7 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.ContainerProfile{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.ContainerProfileList{} },
-		PredicateFunc:             MatchWorkloadConfigurationScan,
+		PredicateFunc:             MatchContainerProfile,
 		DefaultQualifiedResource:  softwarecomposition.Resource("containerprofile"),
 		SingularQualifiedResource: softwarecomposition.Resource("containerprofiles"),
 

@@ -69,11 +69,11 @@ func TestSelectableFields(t *testing.T) {
 	assert.Equal(t, cp.Name, fs["metadata.name"])
 }
 
-// TestMatchWorkloadConfigurationScan wires GetAttrs into a SelectionPredicate and
+// TestMatchContainerProfile wires GetAttrs into a SelectionPredicate and
 // asserts a label+field selector matches the profile it describes.
-func TestMatchWorkloadConfigurationScan(t *testing.T) {
+func TestMatchContainerProfile(t *testing.T) {
 	cp := newContainerProfile()
-	pred := MatchWorkloadConfigurationScan(nil, nil)
+	pred := MatchContainerProfile(nil, nil)
 	require.NotNil(t, pred.GetAttrs)
 
 	gotLabels, gotFields, err := pred.GetAttrs(cp)
@@ -121,4 +121,4 @@ func TestStrategy_CreateUpdateValidate(t *testing.T) {
 var _ interface {
 	NamespaceScoped() bool
 	PrepareForCreate(context.Context, runtime.Object)
-} = SbomSyftStrategy{}
+} = ContainerProfileStrategy{}
