@@ -69,9 +69,14 @@ type LegacyContainerProfileSpec struct {
 	ImageTag             string                                    `json:"ImageTag"`
 	PolicyByRuleId       map[string]softwarecomposition.RulePolicy `json:"PolicyByRuleId"`
 	IdentifiedCallStacks []softwarecomposition.IdentifiedCallStack `json:"IdentifiedCallStacks"`
-	metav1.LabelSelector `json:"LabelSelector"`
-	Ingress              []LegacyNetworkNeighbor `json:"Ingress"`
-	Egress               []LegacyNetworkNeighbor `json:"Egress"`
+	// Embedded WITHOUT a json tag, exactly like the destination
+	// softwarecomposition.ContainerProfileSpec: encoding/json then promotes
+	// MatchLabels/MatchExpressions to the Spec level, which is the shape the
+	// storage Get path unmarshals (a nested "LabelSelector" key would be
+	// silently dropped there, emptying the workload selector on rewrite).
+	metav1.LabelSelector
+	Ingress []LegacyNetworkNeighbor `json:"Ingress"`
+	Egress  []LegacyNetworkNeighbor `json:"Egress"`
 }
 
 type LegacyContainerProfile struct {
