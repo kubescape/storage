@@ -18,9 +18,13 @@ limitations under the License.
 
 package v1beta1
 
-// ApplicationProfileContainerApplyConfiguration represents a declarative configuration of the ApplicationProfileContainer type for use
+// ContainerProfileContainerApplyConfiguration represents a declarative configuration of the ContainerProfileContainer type for use
 // with apply.
-type ApplicationProfileContainerApplyConfiguration struct {
+//
+// ContainerProfileContainer is one container's profile inside a user-authored
+// multi-container ContainerProfile document: the union of the legacy
+// ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
+type ContainerProfileContainerApplyConfiguration struct {
 	Name                 *string                                 `json:"name,omitempty"`
 	Capabilities         []string                                `json:"capabilities,omitempty"`
 	Execs                []ExecCallsApplyConfiguration           `json:"execs,omitempty"`
@@ -32,18 +36,21 @@ type ApplicationProfileContainerApplyConfiguration struct {
 	ImageTag             *string                                 `json:"imageTag,omitempty"`
 	PolicyByRuleId       map[string]RulePolicyApplyConfiguration `json:"rulePolicies,omitempty"`
 	IdentifiedCallStacks []IdentifiedCallStackApplyConfiguration `json:"identifiedCallStacks,omitempty"`
+	// WARNING report the network fields here, increment proto IDs by 100
+	Ingress []NetworkNeighborApplyConfiguration `json:"ingress,omitempty"`
+	Egress  []NetworkNeighborApplyConfiguration `json:"egress,omitempty"`
 }
 
-// ApplicationProfileContainerApplyConfiguration constructs a declarative configuration of the ApplicationProfileContainer type for use with
+// ContainerProfileContainerApplyConfiguration constructs a declarative configuration of the ContainerProfileContainer type for use with
 // apply.
-func ApplicationProfileContainer() *ApplicationProfileContainerApplyConfiguration {
-	return &ApplicationProfileContainerApplyConfiguration{}
+func ContainerProfileContainer() *ContainerProfileContainerApplyConfiguration {
+	return &ContainerProfileContainerApplyConfiguration{}
 }
 
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *ApplicationProfileContainerApplyConfiguration) WithName(value string) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithName(value string) *ContainerProfileContainerApplyConfiguration {
 	b.Name = &value
 	return b
 }
@@ -51,7 +58,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithName(value string) *
 // WithCapabilities adds the given value to the Capabilities field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Capabilities field.
-func (b *ApplicationProfileContainerApplyConfiguration) WithCapabilities(values ...string) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithCapabilities(values ...string) *ContainerProfileContainerApplyConfiguration {
 	for i := range values {
 		b.Capabilities = append(b.Capabilities, values[i])
 	}
@@ -61,7 +68,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithCapabilities(values 
 // WithExecs adds the given value to the Execs field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Execs field.
-func (b *ApplicationProfileContainerApplyConfiguration) WithExecs(values ...*ExecCallsApplyConfiguration) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithExecs(values ...*ExecCallsApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithExecs")
@@ -74,7 +81,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithExecs(values ...*Exe
 // WithOpens adds the given value to the Opens field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Opens field.
-func (b *ApplicationProfileContainerApplyConfiguration) WithOpens(values ...*OpenCallsApplyConfiguration) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithOpens(values ...*OpenCallsApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithOpens")
@@ -87,7 +94,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithOpens(values ...*Ope
 // WithSyscalls adds the given value to the Syscalls field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Syscalls field.
-func (b *ApplicationProfileContainerApplyConfiguration) WithSyscalls(values ...string) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithSyscalls(values ...string) *ContainerProfileContainerApplyConfiguration {
 	for i := range values {
 		b.Syscalls = append(b.Syscalls, values[i])
 	}
@@ -97,7 +104,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithSyscalls(values ...s
 // WithSeccompProfile sets the SeccompProfile field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the SeccompProfile field is set to the value of the last call.
-func (b *ApplicationProfileContainerApplyConfiguration) WithSeccompProfile(value *SingleSeccompProfileApplyConfiguration) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithSeccompProfile(value *SingleSeccompProfileApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
 	b.SeccompProfile = value
 	return b
 }
@@ -105,7 +112,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithSeccompProfile(value
 // WithEndpoints adds the given value to the Endpoints field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Endpoints field.
-func (b *ApplicationProfileContainerApplyConfiguration) WithEndpoints(values ...*HTTPEndpointApplyConfiguration) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithEndpoints(values ...*HTTPEndpointApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithEndpoints")
@@ -118,7 +125,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithEndpoints(values ...
 // WithImageID sets the ImageID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ImageID field is set to the value of the last call.
-func (b *ApplicationProfileContainerApplyConfiguration) WithImageID(value string) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithImageID(value string) *ContainerProfileContainerApplyConfiguration {
 	b.ImageID = &value
 	return b
 }
@@ -126,7 +133,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithImageID(value string
 // WithImageTag sets the ImageTag field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ImageTag field is set to the value of the last call.
-func (b *ApplicationProfileContainerApplyConfiguration) WithImageTag(value string) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithImageTag(value string) *ContainerProfileContainerApplyConfiguration {
 	b.ImageTag = &value
 	return b
 }
@@ -135,7 +142,7 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithImageTag(value strin
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the PolicyByRuleId field,
 // overwriting an existing map entries in PolicyByRuleId field with the same key.
-func (b *ApplicationProfileContainerApplyConfiguration) WithPolicyByRuleId(entries map[string]RulePolicyApplyConfiguration) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithPolicyByRuleId(entries map[string]RulePolicyApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
 	if b.PolicyByRuleId == nil && len(entries) > 0 {
 		b.PolicyByRuleId = make(map[string]RulePolicyApplyConfiguration, len(entries))
 	}
@@ -148,12 +155,38 @@ func (b *ApplicationProfileContainerApplyConfiguration) WithPolicyByRuleId(entri
 // WithIdentifiedCallStacks adds the given value to the IdentifiedCallStacks field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the IdentifiedCallStacks field.
-func (b *ApplicationProfileContainerApplyConfiguration) WithIdentifiedCallStacks(values ...*IdentifiedCallStackApplyConfiguration) *ApplicationProfileContainerApplyConfiguration {
+func (b *ContainerProfileContainerApplyConfiguration) WithIdentifiedCallStacks(values ...*IdentifiedCallStackApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithIdentifiedCallStacks")
 		}
 		b.IdentifiedCallStacks = append(b.IdentifiedCallStacks, *values[i])
+	}
+	return b
+}
+
+// WithIngress adds the given value to the Ingress field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Ingress field.
+func (b *ContainerProfileContainerApplyConfiguration) WithIngress(values ...*NetworkNeighborApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithIngress")
+		}
+		b.Ingress = append(b.Ingress, *values[i])
+	}
+	return b
+}
+
+// WithEgress adds the given value to the Egress field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Egress field.
+func (b *ContainerProfileContainerApplyConfiguration) WithEgress(values ...*NetworkNeighborApplyConfiguration) *ContainerProfileContainerApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithEgress")
+		}
+		b.Egress = append(b.Egress, *values[i])
 	}
 	return b
 }

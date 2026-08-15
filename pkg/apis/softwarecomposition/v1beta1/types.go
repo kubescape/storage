@@ -179,52 +179,6 @@ type VulnerabilitySummaryList struct {
 	Items []VulnerabilitySummary `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfile struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec   ApplicationProfileSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	Status ApplicationProfileStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-type ApplicationProfileSpec struct {
-	Architectures []string `json:"architectures" protobuf:"bytes,1,rep,name=architectures"`
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	Containers []ApplicationProfileContainer `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	InitContainers []ApplicationProfileContainer `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,3,rep,name=initContainers"`
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	EphemeralContainers []ApplicationProfileContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,4,rep,name=ephemeralContainers"`
-}
-
-type ApplicationProfileContainer struct {
-	Name         string   `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
-	Capabilities []string `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
-	// +patchMergeKey=path
-	// +patchStrategy=merge
-	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
-	// +patchMergeKey=path
-	// +patchStrategy=merge
-	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
-	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
-	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
-	// +patchStrategy=merge
-	// +patchMergeKey=endpoint
-	Endpoints []HTTPEndpoint `json:"endpoints" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
-	ImageID   string         `json:"imageID" protobuf:"bytes,8,opt,name=imageID"`
-	ImageTag  string         `json:"imageTag" protobuf:"bytes,9,opt,name=imageTag"`
-	// +patchStrategy=merge
-	// +patchMergeKey=ruleId
-	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
-	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
-}
-
 type ExecCalls struct {
 	Path string   `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
 	Args []string `json:"args,omitempty" protobuf:"bytes,2,opt,name=args"`
@@ -267,18 +221,6 @@ type CallStack struct {
 	Root CallStackNode `json:"root" protobuf:"bytes,1,opt,name=root"`
 }
 
-type ApplicationProfileStatus struct {
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfileList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []ApplicationProfile `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -291,7 +233,7 @@ type ContainerProfile struct {
 }
 
 type ContainerProfileSpec struct {
-	// WARNING report fields from ApplicationProfileContainer here
+	// WARNING report the execution/profile fields here
 	Architectures []string `json:"architectures" protobuf:"bytes,1,rep,name=architectures"`
 	Capabilities  []string `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
 	// +patchMergeKey=path
@@ -311,10 +253,53 @@ type ContainerProfileSpec struct {
 	// +patchMergeKey=ruleId
 	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
 	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
-	// WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
+	// WARNING report the network fields here, increment proto IDs by 100
 	metav1.LabelSelector `json:",inline" protobuf:"bytes,101,opt,name=labelSelector"`
 	Ingress              []NetworkNeighbor `json:"ingress" protobuf:"bytes,102,rep,name=ingress"`
 	Egress               []NetworkNeighbor `json:"egress" protobuf:"bytes,103,rep,name=egress"`
+	// Container subtype groups for user-authored multi-container documents.
+	// One authored ContainerProfile per pod can describe every container,
+	// keyed by name within its subtype group - the same contract the legacy
+	// ApplicationProfile/NetworkNeighborhood specs expressed. Learned
+	// (agent-written) profiles stay one object per container and leave these
+	// empty.
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Containers []ContainerProfileContainer `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,201,rep,name=containers"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	InitContainers []ContainerProfileContainer `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,202,rep,name=initContainers"`
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	EphemeralContainers []ContainerProfileContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,203,rep,name=ephemeralContainers"`
+}
+
+// ContainerProfileContainer is one container's profile inside a user-authored
+// multi-container ContainerProfile document: the union of the legacy
+// ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
+type ContainerProfileContainer struct {
+	Name         string   `json:"name" protobuf:"bytes,1,req,name=name"`
+	Capabilities []string `json:"capabilities,omitempty" protobuf:"bytes,2,rep,name=capabilities"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Execs []ExecCalls `json:"execs,omitempty" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
+	// +patchMergeKey=path
+	// +patchStrategy=merge
+	Opens          []OpenCalls          `json:"opens,omitempty" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
+	Syscalls       []string             `json:"syscalls,omitempty" protobuf:"bytes,5,rep,name=syscalls"`
+	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
+	// +patchStrategy=merge
+	// +patchMergeKey=endpoint
+	Endpoints []HTTPEndpoint `json:"endpoints,omitempty" patchStrategy:"merge" patchMergeKey:"endpoint" protobuf:"bytes,7,rep,name=endpoints"`
+	ImageID   string         `json:"imageID,omitempty" protobuf:"bytes,8,opt,name=imageID"`
+	ImageTag  string         `json:"imageTag,omitempty" protobuf:"bytes,9,opt,name=imageTag"`
+	// +patchStrategy=merge
+	// +patchMergeKey=ruleId
+	PolicyByRuleId       map[string]RulePolicy `json:"rulePolicies,omitempty" protobuf:"bytes,10,rep,name=rulePolicies" patchStrategy:"merge" patchMergeKey:"ruleId"`
+	IdentifiedCallStacks []IdentifiedCallStack `json:"identifiedCallStacks,omitempty" protobuf:"bytes,11,rep,name=identifiedCallStacks"`
+	// WARNING report the network fields here, increment proto IDs by 100
+	Ingress []NetworkNeighbor `json:"ingress,omitempty" protobuf:"bytes,102,rep,name=ingress"`
+	Egress  []NetworkNeighbor `json:"egress,omitempty" protobuf:"bytes,103,rep,name=egress"`
 }
 
 type ContainerProfileStatus struct {

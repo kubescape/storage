@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"go4.org/netipx"
@@ -14,6 +15,36 @@ import (
 )
 
 const ipCollapseFieldSep = "\x00"
+
+// deflateNetworkNeighbors merges NetworkNeighbor entries on Identifier
+// (DNSNames deduplicated, Ports merged on Name), then collapses groups of
+// entries differing only by IP into CIDR-bearing entries once their count
+// exceeds settings.NetworkIPGroupThreshold (see collapseIPGroups). The second
+// pass is a fixpoint, so repeated saves are idempotent. Shared by the container
+// profile deflate path.
+func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor, settings dynamicpathdetector.CollapseSettings) []softwarecomposition.NetworkNeighbor {
+	if in == nil {
+		return nil
+	}
+	out := make([]softwarecomposition.NetworkNeighbor, 0)
+	seen := map[string]int{}
+	toDeflate := mapset.NewThreadUnsafeSet[int]()
+	for _, item := range in {
+		if index, ok := seen[item.Identifier]; ok {
+			out[index].DNSNames = append(out[index].DNSNames, item.DNSNames...)
+			out[index].Ports = append(out[index].Ports, item.Ports...)
+			toDeflate.Add(index)
+		} else {
+			out = append(out, item)
+			seen[item.Identifier] = len(out) - 1 // index of the appended item
+		}
+	}
+	for _, i := range mapset.Sorted(toDeflate) {
+		out[i].DNSNames = DeflateSortString(out[i].DNSNames)
+		out[i].Ports = DeflateStringer(out[i].Ports)
+	}
+	return collapseIPGroups(out, settings)
+}
 
 // collapseIPGroups aggregates NetworkNeighbor entries that differ only by IP
 // into a small number of CIDR-bearing entries. Entries are grouped by

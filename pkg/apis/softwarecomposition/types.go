@@ -208,42 +208,6 @@ func (v *VulnerabilitySummary) Merge(vulnManifestSumm *VulnerabilityManifestSumm
 	v.Spec.WorkloadVulnerabilitiesObj = append(v.Spec.WorkloadVulnerabilitiesObj, workloadVulnerabilitiesObj)
 }
 
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfile struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	// +k8s:conversion-gen=false
-	Parts map[string]string
-	// +k8s:conversion-gen=false
-	SchemaVersion int64
-	Spec          ApplicationProfileSpec
-	Status        ApplicationProfileStatus
-}
-
-type ApplicationProfileSpec struct {
-	Architectures       []string
-	Containers          []ApplicationProfileContainer
-	InitContainers      []ApplicationProfileContainer
-	EphemeralContainers []ApplicationProfileContainer
-}
-
-type ApplicationProfileContainer struct {
-	Name                 string
-	Capabilities         []string
-	Execs                []ExecCalls
-	Opens                []OpenCalls
-	Syscalls             []string
-	SeccompProfile       SingleSeccompProfile
-	Endpoints            []HTTPEndpoint
-	ImageID              string
-	ImageTag             string
-	PolicyByRuleId       map[string]RulePolicy
-	IdentifiedCallStacks []IdentifiedCallStack
-}
-
 type RulePolicy struct {
 	AllowedProcesses []string
 	AllowedContainer bool
@@ -317,18 +281,6 @@ type CallStack struct {
 	Root CallStackNode
 }
 
-type ApplicationProfileStatus struct {
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ApplicationProfileList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []ApplicationProfile
-}
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -391,7 +343,7 @@ func (p *ContainerProfile) SetLearningStatus(ts TimeSeriesContainers) {
 }
 
 type ContainerProfileSpec struct {
-	// WARNING report fields from ApplicationProfileContainer here
+	// WARNING report the execution/profile fields here
 	Architectures        []string
 	Capabilities         []string
 	Execs                []ExecCalls
@@ -403,8 +355,36 @@ type ContainerProfileSpec struct {
 	ImageTag             string
 	PolicyByRuleId       map[string]RulePolicy
 	IdentifiedCallStacks []IdentifiedCallStack
-	// WARNING report fields from NetworkNeighborhoodContainer here
+	// WARNING report the network fields here
 	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
+	Ingress              []NetworkNeighbor
+	Egress               []NetworkNeighbor
+	// Container subtype groups for user-authored multi-container documents.
+	// One authored ContainerProfile per pod can describe every container,
+	// keyed by name within its subtype group - the same contract the legacy
+	// ApplicationProfile/NetworkNeighborhood specs expressed. Learned
+	// (agent-written) profiles stay one object per container and leave these
+	// empty.
+	Containers          []ContainerProfileContainer
+	InitContainers      []ContainerProfileContainer
+	EphemeralContainers []ContainerProfileContainer
+}
+
+// ContainerProfileContainer is one container's profile inside a user-authored
+// multi-container ContainerProfile document: the union of the legacy
+// ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
+type ContainerProfileContainer struct {
+	Name                 string
+	Capabilities         []string
+	Execs                []ExecCalls
+	Opens                []OpenCalls
+	Syscalls             []string
+	SeccompProfile       SingleSeccompProfile
+	Endpoints            []HTTPEndpoint
+	ImageID              string
+	ImageTag             string
+	PolicyByRuleId       map[string]RulePolicy
+	IdentifiedCallStacks []IdentifiedCallStack
 	Ingress              []NetworkNeighbor
 	Egress               []NetworkNeighbor
 }

@@ -43,14 +43,17 @@ type ResourcesCleanupHandler struct {
 
 func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {
 	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
-		// applicationprofiles are handled by containerprofile_processor
 		// configurationscansummaries are virtual
 		// containerprofiles are handled by containerprofile_processor
-		// networkneighborhoods are handled by containerprofile_processor
 		// vulnerabilitysummaries are virtual
 		// DEPRECATED resources
+		// applicationprofiles and networkneighborhoods were replaced by
+		// containerprofiles; without an entry here their payload files and
+		// sqlite rows would be kept forever on every upgraded cluster.
 		"applicationactivities":       {deleteDeprecated},
+		"applicationprofiles":         {deleteDeprecated},
 		"applicationprofilesummaries": {deleteDeprecated},
+		"networkneighborhoods":        {deleteDeprecated},
 		"networkneighborses":          {deleteDeprecated},
 		"sbomspdxv2p3filtereds":       {deleteDeprecated},
 		"sbomspdxv2p3filtered":        {deleteDeprecated},
@@ -69,10 +72,11 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 		"workloadconfigurationscansummaries":  {deleteByWlid},
 	}
 
-	// only if relevancy is enabled, we need to delete application profiles with missing instanceId or wlid annotations
+	// only if relevancy is enabled, delete container profiles with missing
+	// instanceId or wlid annotations.
 	if relevancyEnabled {
 		logger.L().Debug("relevancy is enabled, adding additional cleanup handlers")
-		resourceKindToHandler["applicationprofiles"] = append(resourceKindToHandler["applicationprofiles"], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
+		resourceKindToHandler["containerprofiles"] = append(resourceKindToHandler["containerprofiles"], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
 	}
 	return resourceKindToHandler
 }

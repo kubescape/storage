@@ -34,12 +34,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	// Group=spdx.softwarecomposition.kubescape.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithKind("Advisory"):
 		return &softwarecompositionv1beta1.AdvisoryApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("ApplicationProfile"):
-		return &softwarecompositionv1beta1.ApplicationProfileApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("ApplicationProfileContainer"):
-		return &softwarecompositionv1beta1.ApplicationProfileContainerApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("ApplicationProfileSpec"):
-		return &softwarecompositionv1beta1.ApplicationProfileSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Arg"):
 		return &softwarecompositionv1beta1.ArgApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("CallStack"):
@@ -64,6 +58,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.ConfigurationScanSummarySpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfile"):
 		return &softwarecompositionv1beta1.ContainerProfileApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfileContainer"):
+		return &softwarecompositionv1beta1.ContainerProfileContainerApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ContainerProfileSpec"):
 		return &softwarecompositionv1beta1.ContainerProfileSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ControlSeverity"):
@@ -134,12 +130,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.MetadataApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("NetworkNeighbor"):
 		return &softwarecompositionv1beta1.NetworkNeighborApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("NetworkNeighborhood"):
-		return &softwarecompositionv1beta1.NetworkNeighborhoodApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("NetworkNeighborhoodContainer"):
-		return &softwarecompositionv1beta1.NetworkNeighborhoodContainerApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("NetworkNeighborhoodSpec"):
-		return &softwarecompositionv1beta1.NetworkNeighborhoodSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("NetworkPolicy"):
 		return &softwarecompositionv1beta1.NetworkPolicyApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("NetworkPolicyEgressRule"):

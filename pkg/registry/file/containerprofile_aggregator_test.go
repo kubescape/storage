@@ -7,11 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apiserver/pkg/storage"
 )
 
 // fakeStorage implements ContainerProfileStorage with minimal behavior for tests.
@@ -59,6 +57,9 @@ func (f *fakeStorage) GetContainerProfileMetadata(ctx context.Context, key strin
 	var empty softwarecomposition.ContainerProfile
 	return empty, nil
 }
+func (f *fakeStorage) GetContainerProfileMetadataNoLock(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error) {
+	return f.GetContainerProfileMetadata(ctx, key)
+}
 func (f *fakeStorage) GetSbom(ctx context.Context, key string) (softwarecomposition.SBOMSyft, error) {
 	return softwarecomposition.SBOMSyft{}, nil
 }
@@ -66,21 +67,6 @@ func (f *fakeStorage) GetTsContainerProfile(ctx context.Context, key string) (so
 	return softwarecomposition.ContainerProfile{}, nil
 }
 func (f *fakeStorage) SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error {
-	return nil
-}
-func (f *fakeStorage) SaveMergedContainerProfile(ctx context.Context, observedKey string, profile *softwarecomposition.ContainerProfile) error {
-	return nil
-}
-func (f *fakeStorage) GetMergedContainerProfile(ctx context.Context, observedKey string) (softwarecomposition.ContainerProfile, error) {
-	return softwarecomposition.ContainerProfile{}, storage.NewKeyNotFoundError(observedKey, 0)
-}
-func (f *fakeStorage) DeleteMergedContainerProfile(ctx context.Context, observedKey string) error {
-	return nil
-}
-func (f *fakeStorage) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-	return nil
-}
-func (f *fakeStorage) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
 	return nil
 }
 func (f *fakeStorage) GetStorageImpl() *StorageImpl {
