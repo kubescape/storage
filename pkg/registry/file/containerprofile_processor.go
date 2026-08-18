@@ -682,9 +682,14 @@ func (a *ContainerProfileProcessor) consolidateContinuousTimeSeries(
 
 	for i := 0; i < len(timeSeries)-1; i++ {
 		// time series are in reverse chronological order
-		if timeSeries[j].PreviousReportTimestamp == timeSeries[i+1].ReportTimestamp {
+		switch {
+		case timeSeries[j].PreviousReportTimestamp == timeSeries[i+1].ReportTimestamp:
 			timeSeries[j].PreviousReportTimestamp = timeSeries[i+1].PreviousReportTimestamp
-		} else {
+		case timeSeries[j].ReportTimestamp == timeSeries[i+1].ReportTimestamp &&
+			timeSeries[j].PreviousReportTimestamp == timeSeries[i+1].PreviousReportTimestamp:
+			// same logical report split across two rows (e.g. a chunk too large for the
+			// queue got resent as two halves) - not a new link in the chain, so don't fork.
+		default:
 			newTimeSeries = append(newTimeSeries, timeSeries[j])
 			j = i + 1
 		}
