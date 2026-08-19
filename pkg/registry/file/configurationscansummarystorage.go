@@ -12,6 +12,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -103,6 +105,10 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	// aggregation covers all objects and not just the first page (issue #337).
 	listOpts := opts
 	listOpts.Predicate.Continue = ""
+	// Selectors for the aggregated resource cannot be applied to its source objects.
+	// TODO: Apply the original predicate after aggregation.
+	listOpts.Predicate.Label = labels.Everything()
+	listOpts.Predicate.Field = fields.Everything()
 	for {
 		page := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
 		if err := s.realStore.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/"+workloadConfigurationScanSummariesResource, listOpts, page); err != nil {

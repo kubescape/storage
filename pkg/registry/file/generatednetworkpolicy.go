@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -241,7 +243,17 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		},
 	}
 
-	items, err := s.listNamespaceContainerProfiles(ctx, replaceKeyForKind(key, containerProfileResource), opts)
+	// ask for all workloadconfigurationscansummaries in the cluster.
+	// The underlying store caps each page at a default limit and returns a
+	// continuation token, so we must page through every token to make sure the
+	// aggregation covers all objects and not just the first page (issue #337).
+	listOpts := opts
+	listOpts.Predicate.Continue = ""
+	// Selectors for the aggregated resource cannot be applied to its source objects.
+	// TODO: Apply the original predicate after aggregation.
+	listOpts.Predicate.Label = labels.Everything()
+	listOpts.Predicate.Field = fields.Everything()
+	items, err := s.listNamespaceContainerProfiles(ctx, replaceKeyForKind(key, containerProfileResource), listOpts)
 	if err != nil {
 		return err
 	}

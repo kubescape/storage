@@ -740,6 +740,14 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+
+	predicate, err := normalizeSelectionPredicate(opts.Predicate)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GetList - normalize selection predicate failed", helpers.Error(err))
+		return err
+	}
+	opts.Predicate = predicate
+
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("GetList - get items ptr failed", helpers.Error(err), helpers.String("key", key))
@@ -751,52 +759,71 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 		return fmt.Errorf("need ptr to slice: %v", err)
 	}
 	// set default limit
-	if opts.Predicate.Limit == 0 {
-		opts.Predicate.Limit = 500
+	limit := opts.Predicate.Limit
+	if limit == 0 {
+		limit = 500
 	}
-	// prepare SQLite connection
-	var list []string
-	var last string
-	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
-		// get names from SQLite
-		list, last, err = listMetadataKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
+	// populate list object
+	elem := v.Type().Elem()
+	pageLast := ""
+	cursor := opts.Predicate.Continue
+	v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+	isFullSpec := opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
+
+	for int64(v.Len()) < limit {
+		remaining := limit - int64(v.Len())
+		var entries []string
+
+		if isFullSpec {
+			// get names from SQLite
+			entries, pageLast, err = listMetadataKeys(conn, key, cursor, remaining)
+		} else {
+			// get metadata from SQLite
+			entries, pageLast, err = listMetadata(conn, key, cursor, remaining)
+		}
 		if err != nil {
-			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
+			return fmt.Errorf("list objects for %q: %w", key, err)
 		}
-		// populate list object
-		elem := v.Type().Elem()
-		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
-		for _, k := range list {
+
+		v.Grow(len(entries))
+
+		for _, entry := range entries {
 			obj := reflect.New(elem).Interface().(runtime.Object)
-			if err := s.get(ctx, conn, k, storage.GetOptions{}, obj, noLock); err != nil {
-				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", k))
+			if isFullSpec {
+				if err := s.get(ctx, conn, entry, storage.GetOptions{}, obj, noLock); err != nil {
+					logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", entry))
+					continue
+				}
+			} else {
+				if err := json.Unmarshal([]byte(entry), obj); err != nil {
+					logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+					continue
+				}
 			}
-			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
-		}
-	} else {
-		// get metadata from SQLite
-		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
-		if err != nil {
-			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
-		}
-		// populate list object
-		elem := v.Type().Elem()
-		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
-		for _, metadataJSON := range list {
-			obj := reflect.New(elem).Interface().(runtime.Object)
-			if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
-				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+
+			matched, err := opts.Predicate.Matches(obj)
+			if err != nil {
+				return fmt.Errorf("match selection predicate: %w", err)
 			}
-			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+			if matched {
+				v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+			}
 		}
+
+		if int64(len(entries)) < remaining {
+			pageLast = ""
+			break
+		}
+		cursor = pageLast
 	}
+
 	// eventually set list accessor fields
-	if len(list) == int(opts.Predicate.Limit) {
+	if pageLast != "" {
 		listAccessor, err := meta.ListAccessor(listObj)
 		if err != nil {
 			return fmt.Errorf("list accessor: %w", err)
 		}
-		listAccessor.SetContinue(last)
+		listAccessor.SetContinue(pageLast)
 		//if rsp.RemainingItemCount > 0 {
 		//listAccessor.SetRemainingItemCount(&rsp.RemainingItemCount)
 		//}
