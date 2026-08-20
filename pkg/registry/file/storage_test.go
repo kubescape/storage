@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/utils/ptr"
@@ -787,4 +789,74 @@ func TestStorageImpl_PoolContentionReturnsServerTimeout(t *testing.T) {
 	assert.Equal(t, int32(http.StatusInternalServerError), status.Code)
 	require.NotNil(t, status.Details)
 	assert.EqualValues(t, 1, status.Details.RetryAfterSeconds)
+}
+
+func TestStorageImpl_GetList_LabelSelectorWithPagination(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+
+	ctx := context.Background()
+	for i := range 10 {
+		label := "bar"
+		if i%2 == 0 {
+			label = "foo"
+		}
+
+		name := fmt.Sprintf("sbom-%02d", i)
+		key := fmt.Sprintf("/spdx.softwarecomposition.kubescape.io/sbomsyfts/default/%s", name)
+
+		obj := &v1beta1.SBOMSyft{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				Labels: map[string]string{
+					"app": label,
+				},
+			},
+		}
+		require.NoError(t, s.Create(ctx, key, obj, nil, 0))
+	}
+
+	predicate := storage.SelectionPredicate{
+		Label: labels.SelectorFromSet(
+			labels.Set{
+				"app": "foo",
+			},
+		),
+		Field:    fields.Everything(),
+		GetAttrs: storage.DefaultNamespaceScopedAttr,
+		Limit:    5,
+	}
+
+	var names []string
+	continueToken := ""
+	predicate.Continue = continueToken
+
+	opts := storage.ListOptions{
+		Predicate: predicate,
+	}
+	list := &v1beta1.SBOMSyftList{}
+	err := s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/default", opts, list)
+	require.NoError(t, err)
+
+	for _, item := range list.Items {
+		require.Equal(t, "foo", item.Labels["app"])
+		names = append(names, item.Name)
+	}
+
+	assert.ElementsMatch(t,
+		[]string{
+			"sbom-00",
+			"sbom-02",
+			"sbom-04",
+			"sbom-06",
+			"sbom-08",
+		},
+		names,
+	)
 }
