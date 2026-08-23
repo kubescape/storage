@@ -70,15 +70,24 @@ func collapseIPGroups(entries []softwarecomposition.NetworkNeighbor, settings dy
 	// only IP/DNS/selector fields, so collapsing one would silently drop its
 	// serviceRef/entity. Hold such neighbors out of the collapse entirely.
 	var held []softwarecomposition.NetworkNeighbor
-	var toCollapse []softwarecomposition.NetworkNeighbor
-	for _, e := range entries {
-		if e.ServiceRefNamespace != "" || e.ServiceRefName != "" || e.ServiceSelector != nil || e.Entity != "" {
-			held = append(held, e)
-		} else {
-			toCollapse = append(toCollapse, e)
+	hasServiceFields := false
+	for i := range entries {
+		if e := &entries[i]; e.ServiceRefNamespace != "" || e.ServiceRefName != "" || e.ServiceSelector != nil || e.Entity != "" {
+			hasServiceFields = true
+			break
 		}
 	}
-	entries = toCollapse
+	if hasServiceFields {
+		var toCollapse []softwarecomposition.NetworkNeighbor
+		for _, e := range entries {
+			if e.ServiceRefNamespace != "" || e.ServiceRefName != "" || e.ServiceSelector != nil || e.Entity != "" {
+				held = append(held, e)
+			} else {
+				toCollapse = append(toCollapse, e)
+			}
+		}
+		entries = toCollapse
+	}
 
 	threshold := settings.NetworkIPGroupThreshold
 	if threshold <= 0 {
