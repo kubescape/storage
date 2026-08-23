@@ -158,7 +158,11 @@
       "IPAddress": "",
       "IPAddresses": [
         "10.0.0.0/29"
-      ]
+      ],
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
     }
   ],
   "Egress": [
@@ -179,7 +183,11 @@
       "PodSelector": null,
       "NamespaceSelector": null,
       "IPAddress": "",
-      "IPAddresses": null
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
     }
   ],
   "Containers": null,

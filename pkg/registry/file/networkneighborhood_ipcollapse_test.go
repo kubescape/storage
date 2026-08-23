@@ -57,6 +57,42 @@ func TestCollapseIPGroups_AboveThresholdSingleCoveringCIDR(t *testing.T) {
 	assert.Empty(t, out[0].IPAddress)
 }
 
+func TestCollapseIPGroups_ServiceRefAndEntityPreserved(t *testing.T) {
+	// A collapsing IP group must not take serviceRef/entity neighbors with it:
+	// they carry no aggregatable IPs and the group rebuild would drop their
+	// fields (regression guard for the silent-data-loss bug).
+	var in []softwarecomposition.NetworkNeighbor
+	for i := 0; i < 256; i++ {
+		in = append(in, hostNeighbor(fmt.Sprintf("10.1.5.%d", i)))
+	}
+	port := int32(9093)
+	in = append(in,
+		softwarecomposition.NetworkNeighbor{
+			Identifier: "alertmanager", Type: "internal",
+			ServiceRefNamespace: "honey", ServiceRefName: "alertmanager",
+			Ports: []softwarecomposition.NetworkPort{{Name: "TCP-9093", Protocol: "TCP", Port: &port}},
+		},
+		softwarecomposition.NetworkNeighbor{Identifier: "probes", Type: "internal", Entity: "host"},
+	)
+
+	out := collapseIPGroups(in, testSettings())
+
+	var svc, host *softwarecomposition.NetworkNeighbor
+	for i := range out {
+		if out[i].ServiceRefName == "alertmanager" {
+			svc = &out[i]
+		}
+		if out[i].Entity == "host" {
+			host = &out[i]
+		}
+	}
+	require.NotNil(t, svc, "serviceRef neighbor must survive collapse")
+	require.NotNil(t, host, "entity neighbor must survive collapse")
+	assert.Equal(t, "honey", svc.ServiceRefNamespace)
+	require.Len(t, svc.Ports, 1)
+	assert.Equal(t, int32(9093), *svc.Ports[0].Port)
+}
+
 func TestCollapseIPGroups_ScatteredHostsBucketedToFloor(t *testing.T) {
 	// 60 lone hosts, each in its own /16, do not share a common prefix as long as
 	// the floor, so each is bucketed into its floor-length (/16) network. Output

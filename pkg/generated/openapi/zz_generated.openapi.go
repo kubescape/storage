@@ -3885,6 +3885,32 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 							},
 						},
 					},
+					"serviceRefNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceRefNamespace and ServiceRefName reference a single Service, resolved per-cluster to its ClusterIP(s) and endpoint IPs.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceRefName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serviceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceSelector selects Services by label, resolved like ServiceRef.",
+							Ref:         ref(v1.LabelSelector{}.OpenAPIModelName()),
+						},
+					},
+					"entity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Entity is a reserved peer identity not backed by a Service object. Supported value: \"host\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"identifier", "type", "dns", "dnsNames", "ports", "podSelector", "namespaceSelector", "ipAddress"},
 			},
