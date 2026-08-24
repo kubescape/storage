@@ -446,6 +446,72 @@ func TestDeflateNetworkNeighbors_ServiceFieldsNotCrossMerged(t *testing.T) {
 	assert.Equal(t, in, out)
 }
 
+func TestDeflateNetworkNeighbors_FixpointWithServiceNeighborsAndCollapse(t *testing.T) {
+	// Repeated PreSave cycles run the full deflate on its own output; with service
+	// neighbors mixed into a collapsing IP group the held-out entries must reach a
+	// stable fixpoint too — no loss, no duplication, no field stripping.
+	p9093 := int32(9093)
+	var in []softwarecomposition.NetworkNeighbor
+	for i := 0; i < 80; i++ {
+		e := hostNeighbor(fmt.Sprintf("100.68.%d.%d", i/64, i%64))
+		e.Identifier = fmt.Sprintf("host-%d", i)
+		in = append(in, e)
+	}
+	in = append(in,
+		softwarecomposition.NetworkNeighbor{Type: softwarecomposition.CommunicationTypeEgress, DNS: "example.com", Identifier: "cidr", IPAddresses: []string{"200.0.0.0/16"}},
+		softwarecomposition.NetworkNeighbor{Type: softwarecomposition.CommunicationTypeEgress, DNS: "example.com", Identifier: "star", IPAddresses: []string{"*"}},
+		softwarecomposition.NetworkNeighbor{
+			Identifier: "collide", Type: "internal",
+			ServiceRefNamespace: "honey", ServiceRefName: "alertmanager",
+			Ports: []softwarecomposition.NetworkPort{{Name: "TCP-9093", Protocol: "TCP", Port: &p9093}},
+		},
+		softwarecomposition.NetworkNeighbor{
+			Identifier: "collide", Type: "internal",
+			ServiceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "guestbook"}},
+		},
+		softwarecomposition.NetworkNeighbor{Identifier: "collide", Type: "internal", Entity: "host"},
+		// same group key (Type+DNS+selectors) as the collapsing host group: the
+		// group rebuild would swallow it and strip its serviceRef if it were not
+		// held out of the collapse.
+		softwarecomposition.NetworkNeighbor{
+			Identifier: "gw", Type: softwarecomposition.CommunicationTypeEgress, DNS: "example.com",
+			ServiceRefNamespace: "infra", ServiceRefName: "s3-gateway",
+		},
+	)
+
+	settings := dynamicpathdetector.CollapseSettings{NetworkIPGroupThreshold: 50, NetworkCIDRFloorBits: 16}
+	once := deflateNetworkNeighbors(in, settings)
+	twice := deflateNetworkNeighbors(once, settings)
+	thrice := deflateNetworkNeighbors(twice, settings)
+
+	assert.Equal(t, once, twice, "deflateNetworkNeighbors must be a fixpoint with service neighbors present")
+	assert.Equal(t, twice, thrice)
+
+	var svc, sel, ent, gw int
+	for _, e := range once {
+		if e.ServiceRefName == "alertmanager" {
+			svc++
+			assert.Equal(t, "honey", e.ServiceRefNamespace)
+			require.Len(t, e.Ports, 1)
+		}
+		if e.ServiceRefName == "s3-gateway" {
+			gw++
+			assert.Equal(t, "infra", e.ServiceRefNamespace)
+		}
+		if e.ServiceSelector != nil {
+			sel++
+			assert.Equal(t, map[string]string{"app": "guestbook"}, e.ServiceSelector.MatchLabels)
+		}
+		if e.Entity == "host" {
+			ent++
+		}
+	}
+	assert.Equal(t, 1, svc, "serviceRef neighbor survives exactly once")
+	assert.Equal(t, 1, sel, "serviceSelector neighbor survives exactly once")
+	assert.Equal(t, 1, ent, "entity neighbor survives exactly once")
+	assert.Equal(t, 1, gw, "serviceRef neighbor sharing the collapsing group's key must be held out, not swallowed by the CIDR rebuild")
+}
+
 func TestDeflateNetworkNeighbors_IdenticalServiceNeighborsStillMerge(t *testing.T) {
 	// Counterpart of the not-cross-merged test: a genuine duplicate (same
 	// Identifier AND same service fields) must still dedup, or repeated saves

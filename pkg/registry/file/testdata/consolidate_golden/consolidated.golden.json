@@ -188,6 +188,82 @@
       "ServiceRefName": "",
       "ServiceSelector": null,
       "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-9093",
+          "Protocol": "TCP",
+          "Port": 9093
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "honey",
+      "ServiceRefName": "alertmanager",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": null,
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": "host"
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-5432",
+          "Protocol": "TCP",
+          "Port": 5432
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "db",
+      "ServiceRefName": "postgres",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": null,
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": {
+        "matchLabels": {
+          "app": "guestbook"
+        }
+      },
+      "Entity": ""
     }
   ],
   "Containers": null,
