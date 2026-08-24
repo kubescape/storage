@@ -60,26 +60,38 @@
     },
     "Ingress": [
       {
-        "Identifier": "h5",
-        "Type": "external",
-        "IPAddress": "10.0.0.5",
+        "Identifier": "pod-e",
+        "Type": "internal",
+        "IPAddress": "10.244.1.31",
         "Ports": [
           {
-            "Name": "TCP-80",
+            "Name": "TCP-8080",
             "Protocol": "TCP",
-            "Port": 80
+            "Port": 8080
           }
         ]
       },
       {
-        "Identifier": "h6",
-        "Type": "external",
-        "IPAddress": "10.0.0.6",
+        "Identifier": "pod-f",
+        "Type": "internal",
+        "IPAddress": "10.244.1.44",
         "Ports": [
           {
-            "Name": "TCP-80",
+            "Name": "TCP-8080",
             "Protocol": "TCP",
-            "Port": 80
+            "Port": 8080
+          }
+        ]
+      },
+      {
+        "Identifier": "pod-a",
+        "Type": "internal",
+        "IPAddress": "10.244.1.7",
+        "Ports": [
+          {
+            "Name": "TCP-8080",
+            "Protocol": "TCP",
+            "Port": 8080
           }
         ]
       }
@@ -88,63 +100,49 @@
       {
         "Identifier": "collide",
         "Type": "internal",
-        "DNS": "",
-        "DNSNames": null,
+        "ServiceRefNamespace": "honey",
+        "ServiceRefName": "alertmanager",
         "Ports": [
           {
             "Name": "TCP-9093",
             "Protocol": "TCP",
             "Port": 9093
           }
-        ],
-        "PodSelector": null,
-        "NamespaceSelector": null,
-        "IPAddress": "",
-        "IPAddresses": null,
-        "ServiceRefNamespace": "honey",
-        "ServiceRefName": "alertmanager",
-        "ServiceSelector": null,
-        "Entity": ""
+        ]
       },
       {
         "Identifier": "collide",
         "Type": "internal",
-        "DNS": "",
-        "DNSNames": null,
+        "ServiceRefNamespace": "db",
+        "ServiceRefName": "postgres",
         "Ports": [
           {
             "Name": "TCP-5432",
             "Protocol": "TCP",
             "Port": 5432
           }
-        ],
-        "PodSelector": null,
-        "NamespaceSelector": null,
-        "IPAddress": "",
-        "IPAddresses": null,
-        "ServiceRefNamespace": "db",
-        "ServiceRefName": "postgres",
-        "ServiceSelector": null,
-        "Entity": ""
+        ]
       },
       {
         "Identifier": "collide",
         "Type": "internal",
-        "DNS": "",
-        "DNSNames": null,
-        "Ports": null,
-        "PodSelector": null,
-        "NamespaceSelector": null,
-        "IPAddress": "",
-        "IPAddresses": null,
-        "ServiceRefNamespace": "",
-        "ServiceRefName": "",
         "ServiceSelector": {
           "matchLabels": {
-            "app": "guestbook"
+            "role": "helm-repo"
           }
         },
-        "Entity": ""
+        "NamespaceSelector": {
+          "matchLabels": {
+            "kubernetes.io/metadata.name": "default"
+          }
+        },
+        "Ports": [
+          {
+            "Name": "TCP-80",
+            "Protocol": "TCP",
+            "Port": 80
+          }
+        ]
       }
     ]
   }

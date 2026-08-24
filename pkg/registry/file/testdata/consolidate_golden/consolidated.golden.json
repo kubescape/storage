@@ -142,22 +142,45 @@
   ],
   "Ingress": [
     {
-      "Identifier": "81ae1c7d0b0a7d694e9dce6ef1c0f24132194e08d0cebbf67b058e42aa862d96",
-      "Type": "external",
+      "Identifier": "a7d8ef4c9cdf3635da32d1c6ecc0b49c1dc61dacfc05efaca4585d9eaf8d810f",
+      "Type": "internal",
       "DNS": "",
       "DNSNames": null,
       "Ports": [
         {
-          "Name": "TCP-80",
+          "Name": "TCP-8080",
           "Protocol": "TCP",
-          "Port": 80
+          "Port": 8080
         }
       ],
       "PodSelector": null,
       "NamespaceSelector": null,
       "IPAddress": "",
       "IPAddresses": [
-        "10.0.0.0/29"
+        "10.244.1.0/24"
+      ],
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "db3315e15091361a7c33b1de7d7c0027d042e4d5535c2574b60ed4423b446366",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-8080",
+          "Protocol": "TCP",
+          "Port": 8080
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": [
+        "10.250.0.0/24"
       ],
       "ServiceRefNamespace": "",
       "ServiceRefName": "",
@@ -167,22 +190,96 @@
   ],
   "Egress": [
     {
-      "Identifier": "dns",
-      "Type": "external",
+      "Identifier": "dns-kube-dns",
+      "Type": "internal",
       "DNS": "",
       "DNSNames": [
-        "kubernetes.default.svc.cluster.local"
+        "kube-dns.kube-system.svc.cluster.local."
       ],
       "Ports": [
         {
           "Name": "UDP-53",
           "Protocol": "UDP",
           "Port": 53
+        },
+        {
+          "Name": "TCP-53",
+          "Protocol": "TCP",
+          "Port": 53
         }
       ],
       "PodSelector": null,
       "NamespaceSelector": null,
-      "IPAddress": "",
+      "IPAddress": "10.96.0.10",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "apiserver",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": [
+        "kubernetes.default.svc.cluster.local."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "10.96.0.1",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "github-1",
+      "Type": "external",
+      "DNS": "",
+      "DNSNames": [
+        "github.com."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "140.82.121.3",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "github-2",
+      "Type": "external",
+      "DNS": "",
+      "DNSNames": [
+        "github.com."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "140.82.121.4",
       "IPAddresses": null,
       "ServiceRefNamespace": "",
       "ServiceRefName": "",
@@ -251,16 +348,26 @@
       "Type": "internal",
       "DNS": "",
       "DNSNames": null,
-      "Ports": null,
+      "Ports": [
+        {
+          "Name": "TCP-80",
+          "Protocol": "TCP",
+          "Port": 80
+        }
+      ],
       "PodSelector": null,
-      "NamespaceSelector": null,
+      "NamespaceSelector": {
+        "matchLabels": {
+          "kubernetes.io/metadata.name": "default"
+        }
+      },
       "IPAddress": "",
       "IPAddresses": null,
       "ServiceRefNamespace": "",
       "ServiceRefName": "",
       "ServiceSelector": {
         "matchLabels": {
-          "app": "guestbook"
+          "role": "helm-repo"
         }
       },
       "Entity": ""

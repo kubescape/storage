@@ -95,79 +95,94 @@
     },
     "Ingress": [
       {
-        "Identifier": "h3",
-        "Type": "external",
-        "IPAddress": "10.0.0.3",
+        "Identifier": "pod-c",
+        "Type": "internal",
+        "IPAddress": "10.244.1.12",
         "Ports": [
           {
-            "Name": "TCP-80",
+            "Name": "TCP-8080",
             "Protocol": "TCP",
-            "Port": 80
+            "Port": 8080
           }
         ]
       },
       {
-        "Identifier": "h4",
-        "Type": "external",
-        "IPAddress": "10.0.0.4",
+        "Identifier": "pod-d",
+        "Type": "internal",
+        "IPAddress": "10.244.1.23",
         "Ports": [
           {
-            "Name": "TCP-80",
+            "Name": "TCP-8080",
             "Protocol": "TCP",
-            "Port": 80
+            "Port": 8080
+          }
+        ]
+      },
+      {
+        "Identifier": "kubelet-probe",
+        "Type": "internal",
+        "IPAddress": "10.250.0.2",
+        "Ports": [
+          {
+            "Name": "TCP-8080",
+            "Protocol": "TCP",
+            "Port": 8080
           }
         ]
       }
     ],
     "Egress": [
       {
-        "Identifier": "dns",
-        "Type": "external",
+        "Identifier": "dns-kube-dns",
+        "Type": "internal",
         "DNSNames": [
-          "kubernetes.default.svc.cluster.local"
+          "kube-dns.kube-system.svc.cluster.local."
         ],
+        "IPAddress": "10.96.0.10",
         "Ports": [
           {
             "Name": "UDP-53",
             "Protocol": "UDP",
             "Port": 53
+          },
+          {
+            "Name": "TCP-53",
+            "Protocol": "TCP",
+            "Port": 53
+          }
+        ]
+      },
+      {
+        "Identifier": "github-2",
+        "Type": "external",
+        "DNSNames": [
+          "github.com."
+        ],
+        "IPAddress": "140.82.121.4",
+        "Ports": [
+          {
+            "Name": "TCP-443",
+            "Protocol": "TCP",
+            "Port": 443
           }
         ]
       },
       {
         "Identifier": "collide",
         "Type": "internal",
-        "DNS": "",
-        "DNSNames": null,
+        "ServiceRefNamespace": "honey",
+        "ServiceRefName": "alertmanager",
         "Ports": [
           {
             "Name": "TCP-9093",
             "Protocol": "TCP",
             "Port": 9093
           }
-        ],
-        "PodSelector": null,
-        "NamespaceSelector": null,
-        "IPAddress": "",
-        "IPAddresses": null,
-        "ServiceRefNamespace": "honey",
-        "ServiceRefName": "alertmanager",
-        "ServiceSelector": null,
-        "Entity": ""
+        ]
       },
       {
         "Identifier": "collide",
         "Type": "internal",
-        "DNS": "",
-        "DNSNames": null,
-        "Ports": null,
-        "PodSelector": null,
-        "NamespaceSelector": null,
-        "IPAddress": "",
-        "IPAddresses": null,
-        "ServiceRefNamespace": "",
-        "ServiceRefName": "",
-        "ServiceSelector": null,
         "Entity": "host"
       }
     ]
