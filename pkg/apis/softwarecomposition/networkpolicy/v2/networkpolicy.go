@@ -86,6 +86,9 @@ func GenerateNetworkPolicy(cp *softwarecomposition.ContainerProfile, knownServer
 
 		rule, policyRefs := generateIngressRule(neighbor, knownServers)
 
+		if len(rule.From) == 0 && len(rule.Ports) == 0 {
+			continue
+		}
 		if ruleHash, err := hash(rule); err == nil {
 			if ok := ingressHash[ruleHash]; !ok {
 				networkPolicy.Spec.Ingress = append(networkPolicy.Spec.Ingress, rule)
@@ -108,6 +111,9 @@ func GenerateNetworkPolicy(cp *softwarecomposition.ContainerProfile, knownServer
 
 		rule, policyRefs := generateEgressRule(neighbor, knownServers)
 
+		if len(rule.To) == 0 && len(rule.Ports) == 0 {
+			continue
+		}
 		if ruleHash, err := hash(rule); err == nil {
 			if ok := egressHash[ruleHash]; !ok {
 				networkPolicy.Spec.Egress = append(networkPolicy.Spec.Egress, rule)
@@ -317,9 +323,26 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 	return mergedRules
 }
 
+// unresolvedServiceNeighbor reports whether a neighbor names a Service or host
+// entity and carries no peer this package can express. Those selectors are
+// resolved against the live cluster by the agent, which this package has no
+// view of; emitting the neighbor's ports with no peer would produce a
+// NetworkPolicy rule whose empty peer list means every destination.
+func unresolvedServiceNeighbor(neighbor softwarecomposition.NetworkNeighbor) bool {
+	if neighbor.ServiceRefName == "" && neighbor.ServiceSelector == nil && neighbor.Entity == "" {
+		return false
+	}
+	return neighbor.PodSelector == nil && neighbor.NamespaceSelector == nil &&
+		len(neighbor.IPAddresses) == 0 && neighbor.IPAddress == "" && len(neighbor.DNSNames) == 0
+}
+
 func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers softwarecomposition.IKnownServersFinder) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
 	egressRule := softwarecomposition.NetworkPolicyEgressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
+
+	if unresolvedServiceNeighbor(neighbor) {
+		return egressRule, policyRefs
+	}
 
 	if neighbor.PodSelector != nil {
 		removeLabels(neighbor.PodSelector.MatchLabels)
@@ -412,6 +435,10 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers softwarecomposition.IKnownServersFinder) (softwarecomposition.NetworkPolicyIngressRule, []softwarecomposition.PolicyRef) {
 	ingressRule := softwarecomposition.NetworkPolicyIngressRule{}
 	policyRefs := []softwarecomposition.PolicyRef{}
+
+	if unresolvedServiceNeighbor(neighbor) {
+		return ingressRule, policyRefs
+	}
 
 	if neighbor.PodSelector != nil {
 		removeLabels(neighbor.PodSelector.MatchLabels)

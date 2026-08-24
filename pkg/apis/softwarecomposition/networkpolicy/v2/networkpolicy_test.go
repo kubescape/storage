@@ -2958,3 +2958,57 @@ func compareEgress(a, b []softwarecomposition.NetworkPolicyEgressRule) error {
 	}
 	return nil
 }
+
+// TestGenerateNetworkPolicy_UnresolvedServiceNeighborsAreDropped guards the
+// blast radius of the serviceRef/serviceSelector/entity selectors: this package
+// has no cluster view, so it cannot turn them into peers. A NetworkPolicy rule
+// carrying ports but an empty peer list matches EVERY destination, so emitting
+// such a neighbor's ports would silently widen the generated policy from "this
+// Service" to "anywhere".
+func TestGenerateNetworkPolicy_UnresolvedServiceNeighborsAreDropped(t *testing.T) {
+	timeProvider := metav1.Now()
+	tcp80 := []softwarecomposition.NetworkPort{
+		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+	}
+
+	for _, tc := range []struct {
+		name     string
+		neighbor softwarecomposition.NetworkNeighbor
+	}{
+		{"serviceRef", softwarecomposition.NetworkNeighbor{Identifier: "svc", ServiceRefNamespace: "default", ServiceRefName: "kubernetes", Ports: tcp80}},
+		{"serviceSelector", softwarecomposition.NetworkNeighbor{Identifier: "sel", ServiceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"role": "repo"}}, Ports: tcp80}},
+		{"entity", softwarecomposition.NetworkNeighbor{Identifier: "host", Entity: "host", Ports: tcp80}},
+		{"serviceRef-noports", softwarecomposition.NetworkNeighbor{Identifier: "svc2", ServiceRefNamespace: "default", ServiceRefName: "kubernetes"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cp := &softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mc",
+					Namespace: "kubescape",
+					Annotations: map[string]string{
+						helpersv1.StatusMetadataKey:        helpersv1.Learning,
+						helpersv1.ContainerTypeMetadataKey: "containers",
+					},
+					Labels: map[string]string{
+						helpersv1.RelatedKindMetadataKey:   "Deployment",
+						helpersv1.RelatedNameMetadataKey:   "mc",
+						helpersv1.ContainerNameMetadataKey: "app",
+					},
+				},
+				Spec: softwarecomposition.ContainerProfileSpec{
+					LabelSelector: metav1.LabelSelector{MatchLabels: map[string]string{"app": "mc-app"}},
+					Egress:        []softwarecomposition.NetworkNeighbor{tc.neighbor},
+					Ingress:       []softwarecomposition.NetworkNeighbor{tc.neighbor},
+				},
+			}
+			got, err := GenerateNetworkPolicy(cp, softwarecomposition.NewKnownServersFinderImpl(nil), timeProvider)
+			assert.NoError(t, err)
+			for _, r := range got.Spec.Spec.Egress {
+				assert.NotEmptyf(t, r.To, "egress rule with ports %v has no peer — an empty peer list allows every destination", r.Ports)
+			}
+			for _, r := range got.Spec.Spec.Ingress {
+				assert.NotEmptyf(t, r.From, "ingress rule with ports %v has no peer — an empty peer list allows every source", r.Ports)
+			}
+		})
+	}
+}
