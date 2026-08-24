@@ -410,3 +410,57 @@ func TestCoverPrefixes_FloorCapSplitsBroadBlock(t *testing.T) {
 	got := coverPrefixes(nil, []netip.Prefix{netip.MustParsePrefix("10.9.0.0/22")}, 24)
 	assert.Equal(t, []string{"10.9.0.0/24", "10.9.1.0/24", "10.9.2.0/24", "10.9.3.0/24"}, got)
 }
+
+func TestDeflateNetworkNeighbors_ServiceFieldsNotCrossMerged(t *testing.T) {
+	// The agent's Identifier hash covers Type/IPAddress/DNS/selectors only, so
+	// serviceRef/serviceSelector/entity neighbors — whose hash inputs are all
+	// empty — share one Identifier. Merging on Identifier alone would keep only
+	// the first entry's service fields, silently dropping the other allowlist
+	// entries and grafting their ports onto the survivor.
+	p9093, p5432, p10250 := int32(9093), int32(5432), int32(10250)
+	in := []softwarecomposition.NetworkNeighbor{
+		{
+			Identifier: "collide", Type: "internal",
+			ServiceRefNamespace: "honey", ServiceRefName: "alertmanager",
+			Ports: []softwarecomposition.NetworkPort{{Name: "TCP-9093", Protocol: "TCP", Port: &p9093}},
+		},
+		{
+			Identifier: "collide", Type: "internal",
+			ServiceRefNamespace: "db", ServiceRefName: "postgres",
+			Ports: []softwarecomposition.NetworkPort{{Name: "TCP-5432", Protocol: "TCP", Port: &p5432}},
+		},
+		{
+			Identifier: "collide", Type: "internal",
+			ServiceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "guestbook"}},
+			Ports:           []softwarecomposition.NetworkPort{{Name: "TCP-5432", Protocol: "TCP", Port: &p5432}},
+		},
+		{
+			Identifier: "collide", Type: "internal", Entity: "host",
+			Ports: []softwarecomposition.NetworkPort{{Name: "TCP-10250", Protocol: "TCP", Port: &p10250}},
+		},
+	}
+
+	out := deflateNetworkNeighbors(in, testSettings())
+
+	require.Len(t, out, 4, "neighbors differing only by service fields must not be merged")
+	assert.Equal(t, in, out)
+}
+
+func TestDeflateNetworkNeighbors_IdenticalServiceNeighborsStillMerge(t *testing.T) {
+	// Counterpart of the not-cross-merged test: a genuine duplicate (same
+	// Identifier AND same service fields) must still dedup, or repeated saves
+	// would grow the profile unboundedly.
+	p9093 := int32(9093)
+	entry := softwarecomposition.NetworkNeighbor{
+		Identifier: "collide", Type: "internal",
+		ServiceRefNamespace: "honey", ServiceRefName: "alertmanager",
+		DNSNames: []string{"alertmanager.honey.svc.cluster.local."},
+		Ports:    []softwarecomposition.NetworkPort{{Name: "TCP-9093", Protocol: "TCP", Port: &p9093}},
+	}
+
+	out := deflateNetworkNeighbors([]softwarecomposition.NetworkNeighbor{entry, entry}, testSettings())
+
+	require.Len(t, out, 1)
+	assert.Equal(t, []string{"alertmanager.honey.svc.cluster.local."}, out[0].DNSNames)
+	require.Len(t, out[0].Ports, 1)
+}

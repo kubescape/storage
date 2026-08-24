@@ -16,12 +16,13 @@ import (
 
 const ipCollapseFieldSep = "\x00"
 
-// deflateNetworkNeighbors merges NetworkNeighbor entries on Identifier
-// (DNSNames deduplicated, Ports merged on Name), then collapses groups of
-// entries differing only by IP into CIDR-bearing entries once their count
-// exceeds settings.NetworkIPGroupThreshold (see collapseIPGroups). The second
-// pass is a fixpoint, so repeated saves are idempotent. Shared by the container
-// profile deflate path.
+// deflateNetworkNeighbors merges NetworkNeighbor entries on Identifier plus
+// the service/entity selector fields (DNSNames deduplicated, Ports merged on
+// Name), then collapses groups of entries differing only by IP into
+// CIDR-bearing entries once their count exceeds
+// settings.NetworkIPGroupThreshold (see collapseIPGroups). The second pass is a
+// fixpoint, so repeated saves are idempotent. Shared by the container profile
+// deflate path.
 func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor, settings dynamicpathdetector.CollapseSettings) []softwarecomposition.NetworkNeighbor {
 	if in == nil {
 		return nil
@@ -30,13 +31,13 @@ func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor, settings 
 	seen := map[string]int{}
 	toDeflate := mapset.NewThreadUnsafeSet[int]()
 	for _, item := range in {
-		if index, ok := seen[item.Identifier]; ok {
+		if index, ok := seen[neighborMergeKey(item)]; ok {
 			out[index].DNSNames = append(out[index].DNSNames, item.DNSNames...)
 			out[index].Ports = append(out[index].Ports, item.Ports...)
 			toDeflate.Add(index)
 		} else {
 			out = append(out, item)
-			seen[item.Identifier] = len(out) - 1 // index of the appended item
+			seen[neighborMergeKey(item)] = len(out) - 1 // index of the appended item
 		}
 	}
 	for _, i := range mapset.Sorted(toDeflate) {
@@ -364,6 +365,25 @@ func splitToFloor(p netip.Prefix, floorBits int) []string {
 		child = netip.PrefixFrom(next, floorBits).Masked()
 	}
 	return out
+}
+
+// neighborMergeKey is the identity the Identifier-merge pass dedups on. The
+// agent's Identifier hash predates the service/entity selector fields and does
+// not cover them, so distinct serviceRef/serviceSelector/entity neighbors —
+// whose IP/DNS/selector hash inputs are all empty — collide on Identifier
+// alone; merging them would keep only the first entry's service fields and
+// silently graft the others' ports onto it.
+func neighborMergeKey(n softwarecomposition.NetworkNeighbor) string {
+	if n.ServiceRefNamespace == "" && n.ServiceRefName == "" && n.ServiceSelector == nil && n.Entity == "" {
+		return n.Identifier
+	}
+	return strings.Join([]string{
+		n.Identifier,
+		n.ServiceRefNamespace,
+		n.ServiceRefName,
+		metav1.FormatLabelSelector(n.ServiceSelector),
+		n.Entity,
+	}, ipCollapseFieldSep)
 }
 
 func neighborGroupKey(n softwarecomposition.NetworkNeighbor) string {

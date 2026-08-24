@@ -18,8 +18,13 @@ func TestNetworkNeighbor_ServiceSelectors_ProtobufRoundtrip(t *testing.T) {
 		Type:                "internal",
 		ServiceRefNamespace: "honey",
 		ServiceRefName:      "alertmanager",
-		ServiceSelector:     &metav1.LabelSelector{MatchLabels: map[string]string{"app": "guestbook"}},
-		Entity:              "host",
+		ServiceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "guestbook"},
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "tier", Operator: metav1.LabelSelectorOpIn, Values: []string{"frontend", "backend"}},
+			},
+		},
+		Entity: "host",
 		Ports:               []NetworkPort{{Name: "TCP-9093", Protocol: "TCP", Port: ptr(int32(9093))}},
 	}
 

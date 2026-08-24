@@ -3012,3 +3012,155 @@ func TestGenerateNetworkPolicy_UnresolvedServiceNeighborsAreDropped(t *testing.T
 		})
 	}
 }
+
+// serviceNeighborProfile builds a minimal generatable profile carrying the
+// given neighbors on both directions, shared by the service-selector tests.
+func serviceNeighborProfile(neighbors ...softwarecomposition.NetworkNeighbor) *softwarecomposition.ContainerProfile {
+	return &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mc",
+			Namespace: "kubescape",
+			Annotations: map[string]string{
+				helpersv1.StatusMetadataKey:        helpersv1.Learning,
+				helpersv1.ContainerTypeMetadataKey: "containers",
+			},
+			Labels: map[string]string{
+				helpersv1.RelatedKindMetadataKey:   "Deployment",
+				helpersv1.RelatedNameMetadataKey:   "mc",
+				helpersv1.ContainerNameMetadataKey: "app",
+			},
+		},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			LabelSelector: metav1.LabelSelector{MatchLabels: map[string]string{"app": "mc-app"}},
+			Egress:        neighbors,
+			Ingress:       neighbors,
+		},
+	}
+}
+
+// TestGenerateNetworkPolicy_ServiceNeighborsWithResolvedPeersAreKept is the
+// counterpart of the dropped-neighbor test: once the agent (or a user) has
+// attached a concrete peer — ipAddresses or a podSelector — alongside a
+// serviceRef, the neighbor is resolvable and dropping it would silently strip
+// a learned allowlist entry from the generated policy.
+func TestGenerateNetworkPolicy_ServiceNeighborsWithResolvedPeersAreKept(t *testing.T) {
+	timeProvider := metav1.Now()
+	tcp80 := []softwarecomposition.NetworkPort{
+		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+	}
+
+	t.Run("serviceRef with ipAddresses keeps IP peers", func(t *testing.T) {
+		cp := serviceNeighborProfile(softwarecomposition.NetworkNeighbor{
+			Identifier:          "svc-ip",
+			ServiceRefNamespace: "honey",
+			ServiceRefName:      "alertmanager",
+			IPAddresses:         []string{"10.1.2.3"},
+			Ports:               tcp80,
+		})
+		got, err := GenerateNetworkPolicy(cp, softwarecomposition.NewKnownServersFinderImpl(nil), timeProvider)
+		assert.NoError(t, err)
+
+		assert.Len(t, got.Spec.Spec.Egress, 1)
+		assert.Equal(t, []softwarecomposition.NetworkPolicyPeer{
+			{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.1.2.3/32"}},
+		}, got.Spec.Spec.Egress[0].To)
+		assert.Len(t, got.Spec.Spec.Egress[0].Ports, 1)
+		assert.Equal(t, int32(80), *got.Spec.Spec.Egress[0].Ports[0].Port)
+
+		assert.Len(t, got.Spec.Spec.Ingress, 1)
+		assert.Equal(t, []softwarecomposition.NetworkPolicyPeer{
+			{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.1.2.3/32"}},
+		}, got.Spec.Spec.Ingress[0].From)
+		assert.Len(t, got.Spec.Spec.Ingress[0].Ports, 1)
+		assert.Equal(t, int32(80), *got.Spec.Spec.Ingress[0].Ports[0].Port)
+	})
+
+	t.Run("serviceSelector with podSelector keeps selector peer", func(t *testing.T) {
+		podSel := func() *metav1.LabelSelector {
+			return &metav1.LabelSelector{MatchLabels: map[string]string{"app": "alertmanager"}}
+		}
+		cp := serviceNeighborProfile(softwarecomposition.NetworkNeighbor{
+			Identifier:      "svc-sel",
+			ServiceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"role": "monitoring"}},
+			PodSelector:     podSel(),
+			Ports:           tcp80,
+		})
+		got, err := GenerateNetworkPolicy(cp, softwarecomposition.NewKnownServersFinderImpl(nil), timeProvider)
+		assert.NoError(t, err)
+
+		assert.Len(t, got.Spec.Spec.Egress, 1)
+		assert.Equal(t, []softwarecomposition.NetworkPolicyPeer{{PodSelector: podSel()}}, got.Spec.Spec.Egress[0].To)
+		assert.Len(t, got.Spec.Spec.Egress[0].Ports, 1)
+
+		assert.Len(t, got.Spec.Spec.Ingress, 1)
+		assert.Equal(t, []softwarecomposition.NetworkPolicyPeer{{PodSelector: podSel()}}, got.Spec.Spec.Ingress[0].From)
+		assert.Len(t, got.Spec.Spec.Ingress[0].Ports, 1)
+	})
+}
+
+// TestGenerateNetworkPolicy_ServiceNeighborWithOnlyDNSNamesIsDropped pins the
+// dnsNames edge: NetworkPolicy has no DNS peer and buildIPAddressesPeers only
+// consumes IPs, so dnsNames contribute NO peer here. A serviceRef neighbor
+// whose only companion data is dnsNames therefore still has no expressible
+// peer; letting it through emits its ports with an empty peer list, which a
+// NetworkPolicy interprets as every destination.
+func TestGenerateNetworkPolicy_ServiceNeighborWithOnlyDNSNamesIsDropped(t *testing.T) {
+	timeProvider := metav1.Now()
+	tcp80 := []softwarecomposition.NetworkPort{
+		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+	}
+	cp := serviceNeighborProfile(softwarecomposition.NetworkNeighbor{
+		Identifier:          "svc-dns",
+		ServiceRefNamespace: "honey",
+		ServiceRefName:      "alertmanager",
+		DNSNames:            []string{"alertmanager.honey.svc.cluster.local."},
+		Ports:               tcp80,
+	})
+	got, err := GenerateNetworkPolicy(cp, softwarecomposition.NewKnownServersFinderImpl(nil), timeProvider)
+	assert.NoError(t, err)
+	assert.Empty(t, got.Spec.Spec.Egress, "dnsNames produce no peer, so the neighbor is still unresolved and must be dropped")
+	assert.Empty(t, got.Spec.Spec.Ingress, "dnsNames produce no peer, so the neighbor is still unresolved and must be dropped")
+}
+
+// TestGenerateNetworkPolicy_MixedResolvableAndUnresolvedNeighbors guards the
+// blast radius of the drop itself: an unresolved serviceRef neighbor must
+// vanish alone, not take the profile's resolvable neighbors — or the whole
+// policy — with it.
+func TestGenerateNetworkPolicy_MixedResolvableAndUnresolvedNeighbors(t *testing.T) {
+	timeProvider := metav1.Now()
+	tcp80 := []softwarecomposition.NetworkPort{
+		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+	}
+	tcp443 := []softwarecomposition.NetworkPort{
+		{Port: ptrToInt32(443), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-443"},
+	}
+	cp := serviceNeighborProfile(
+		softwarecomposition.NetworkNeighbor{
+			Identifier:          "svc-unresolved",
+			ServiceRefNamespace: "honey",
+			ServiceRefName:      "alertmanager",
+			Ports:               tcp443,
+		},
+		softwarecomposition.NetworkNeighbor{
+			Identifier:  "plain-ip",
+			IPAddresses: []string{"10.1.2.3"},
+			Ports:       tcp80,
+		},
+	)
+	got, err := GenerateNetworkPolicy(cp, softwarecomposition.NewKnownServersFinderImpl(nil), timeProvider)
+	assert.NoError(t, err)
+
+	assert.Len(t, got.Spec.Spec.Egress, 1, "resolvable neighbor must survive the unresolved one being dropped")
+	assert.Equal(t, []softwarecomposition.NetworkPolicyPeer{
+		{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.1.2.3/32"}},
+	}, got.Spec.Spec.Egress[0].To)
+	assert.Len(t, got.Spec.Spec.Egress[0].Ports, 1)
+	assert.Equal(t, int32(80), *got.Spec.Spec.Egress[0].Ports[0].Port)
+
+	assert.Len(t, got.Spec.Spec.Ingress, 1, "resolvable neighbor must survive the unresolved one being dropped")
+	assert.Equal(t, []softwarecomposition.NetworkPolicyPeer{
+		{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.1.2.3/32"}},
+	}, got.Spec.Spec.Ingress[0].From)
+	assert.Len(t, got.Spec.Spec.Ingress[0].Ports, 1)
+	assert.Equal(t, int32(80), *got.Spec.Spec.Ingress[0].Ports[0].Port)
+}

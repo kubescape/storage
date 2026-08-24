@@ -33,36 +33,107 @@ func serviceSelectorNeighbor() *NetworkNeighbor {
 	return n
 }
 
-// TestNetworkNeighbor_EmptyNewFields_WireOverhead pins the wire-size cost the
-// four new fields add to a neighbor that does NOT use them (the 99% case).
-// go-to-protobuf marshals scalar string fields unconditionally (tag byte +
-// zero-length varint), so the expected overhead is exactly 2 bytes per string
-// field = 6 bytes; the nil ServiceSelector pointer adds 0.
-func TestNetworkNeighbor_EmptyNewFields_WireOverhead(t *testing.T) {
+// scanWireFields decodes the top-level protobuf frame of wire and returns, per
+// field number, the payload length of each occurrence. Every NetworkNeighbor
+// field is length-delimited (wiretype 2), so any other wiretype is a contract
+// violation.
+func scanWireFields(t *testing.T, wire []byte) map[int][]int {
+	t.Helper()
+	readVarint := func(i int) (uint64, int) {
+		var v uint64
+		for shift := uint(0); ; shift += 7 {
+			if i >= len(wire) {
+				t.Fatalf("truncated varint at offset %d", i)
+			}
+			b := wire[i]
+			i++
+			v |= uint64(b&0x7f) << shift
+			if b < 0x80 {
+				return v, i
+			}
+		}
+	}
+	fields := map[int][]int{}
+	for i := 0; i < len(wire); {
+		key, next := readVarint(i)
+		field, wiretype := int(key>>3), int(key&7)
+		if wiretype != 2 {
+			t.Fatalf("field %d has wiretype %d, want 2 (length-delimited)", field, wiretype)
+		}
+		length, next := readVarint(next)
+		if next+int(length) > len(wire) {
+			t.Fatalf("field %d payload overruns buffer", field)
+		}
+		fields[field] = append(fields[field], int(length))
+		i = next + int(length)
+	}
+	return fields
+}
+
+// TestNetworkNeighbor_EmptyNewFields_WireEncoding pins the exact wire encoding
+// the four new fields (10-13) produce on a neighbor that does NOT use them —
+// the overwhelmingly common case. The generated marshaller emits the scalar
+// string fields 10/11/13 unconditionally (tag + zero-length varint, 2 bytes
+// each) and omits the nil ServiceSelector pointer entirely; if a regeneration
+// changes a field number, drops a field, or starts encoding an empty selector
+// message, this fails instead of silently changing what peers decode.
+func TestNetworkNeighbor_EmptyNewFields_WireEncoding(t *testing.T) {
 	n := plainNeighbor()
-	full := n.Size()
-
-	// Reconstruct what the pre-feature size would have been: subtract the
-	// unconditional empty-string encodings for fields 10, 11, 13.
-	const emptyStringFieldBytes = 2 // 1 tag byte + 1 zero-length varint
-	withoutNew := full - 3*emptyStringFieldBytes
-
 	wire, err := n.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(wire) != full {
-		t.Fatalf("Size()=%d but Marshal produced %d bytes", full, len(wire))
+	// Hard-coded from the current generated marshaller; any drift is a wire
+	// contract change and must be a deliberate decision, not an accident.
+	const plainWireSize = 149
+	if len(wire) != plainWireSize {
+		t.Errorf("plain neighbor wire size = %d bytes, want %d — the encoding changed", len(wire), plainWireSize)
 	}
-	t.Logf("plain neighbor wire size: %d bytes (pre-feature equivalent: %d, overhead: %d bytes = %.1f%%)",
-		full, withoutNew, full-withoutNew, 100*float64(full-withoutNew)/float64(withoutNew))
+	if n.Size() != len(wire) {
+		t.Errorf("Size()=%d but Marshal produced %d bytes", n.Size(), len(wire))
+	}
 
+	fields := scanWireFields(t, wire)
+	for _, f := range []int{10, 11, 13} {
+		occ := fields[f]
+		if len(occ) != 1 || occ[0] != 0 {
+			t.Errorf("unset string field %d: want exactly one zero-length occurrence, got lengths %v", f, occ)
+		}
+	}
+	if occ, present := fields[12]; present {
+		t.Errorf("nil ServiceSelector must be absent from the wire, got field 12 with lengths %v", occ)
+	}
+
+	// Set fields must land on their declared numbers with their exact payloads.
 	ref := serviceRefNeighbor()
-	refWire, _ := ref.Marshal()
-	t.Logf("serviceRef neighbor wire size: %d bytes", len(refWire))
+	refWire, err := ref.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref.Size() != len(refWire) {
+		t.Errorf("serviceRef neighbor: Size()=%d but Marshal produced %d bytes", ref.Size(), len(refWire))
+	}
+	refFields := scanWireFields(t, refWire)
+	if got := refFields[10]; len(got) != 1 || got[0] != len("honey") {
+		t.Errorf("field 10 (ServiceRefNamespace): want one occurrence of %d bytes, got %v", len("honey"), got)
+	}
+	if got := refFields[11]; len(got) != 1 || got[0] != len("alertmanager") {
+		t.Errorf("field 11 (ServiceRefName): want one occurrence of %d bytes, got %v", len("alertmanager"), got)
+	}
+
 	sel := serviceSelectorNeighbor()
-	selWire, _ := sel.Marshal()
-	t.Logf("serviceSelector neighbor wire size: %d bytes", len(selWire))
+	selWire, err := sel.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sel.Size() != len(selWire) {
+		t.Errorf("serviceSelector neighbor: Size()=%d but Marshal produced %d bytes", sel.Size(), len(selWire))
+	}
+	selFields := scanWireFields(t, selWire)
+	wantSel := sel.ServiceSelector.Size()
+	if got := selFields[12]; len(got) != 1 || got[0] != wantSel {
+		t.Errorf("field 12 (ServiceSelector): want one occurrence of %d bytes, got %v", wantSel, got)
+	}
 	t.Logf("sizeof(NetworkNeighbor) in-memory struct: %d bytes", unsafe.Sizeof(NetworkNeighbor{}))
 }
 

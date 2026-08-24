@@ -327,13 +327,16 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 // entity and carries no peer this package can express. Those selectors are
 // resolved against the live cluster by the agent, which this package has no
 // view of; emitting the neighbor's ports with no peer would produce a
-// NetworkPolicy rule whose empty peer list means every destination.
+// NetworkPolicy rule whose empty peer list means every destination. DNSNames
+// deliberately do not count as a peer: NetworkPolicy has no DNS peer and
+// buildIPAddressesPeers only consumes IPs, so a service neighbor with only
+// dnsNames is just as unexpressible as one with nothing.
 func unresolvedServiceNeighbor(neighbor softwarecomposition.NetworkNeighbor) bool {
 	if neighbor.ServiceRefName == "" && neighbor.ServiceSelector == nil && neighbor.Entity == "" {
 		return false
 	}
 	return neighbor.PodSelector == nil && neighbor.NamespaceSelector == nil &&
-		len(neighbor.IPAddresses) == 0 && neighbor.IPAddress == "" && len(neighbor.DNSNames) == 0
+		len(neighbor.IPAddresses) == 0 && neighbor.IPAddress == ""
 }
 
 func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServers softwarecomposition.IKnownServersFinder) (softwarecomposition.NetworkPolicyEgressRule, []softwarecomposition.PolicyRef) {
