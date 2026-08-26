@@ -34,6 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 const (
@@ -131,6 +132,9 @@ type StorageImpl struct {
 	// writeMetadataFn is the metadata persistence step of saveObject; a field so
 	// tests can inject failures to pin the atomic write order (issue #44).
 	writeMetadataFn func(conn *sqlite.Conn, path string, metadata runtime.Object) error
+	// renamePayloadFn is the payload visibility step of saveObject; a field so
+	// tests can inject rename failures and pin the rollback contract.
+	renamePayloadFn func(oldpath, newpath string) error
 	root            string
 	scheme          *runtime.Scheme
 	versioner       storage.Versioner
@@ -307,18 +311,32 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 
 	// extract metadata
 	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
-	// store metadata in SQLite BEFORE the payload becomes visible
+	// Metadata and payload visibility commit together: the metadata write runs
+	// in a savepoint that is rolled back if the payload rename fails, so
+	// neither side can outlive the other. The staged file is removed on any
+	// failure.
 	writeMeta := s.writeMetadataFn
 	if writeMeta == nil {
 		writeMeta = writeMetadata
 	}
-	err = writeMeta(conn, key, metadata)
+	renamePayload := s.renamePayloadFn
+	if renamePayload == nil {
+		renamePayload = s.appFs.Rename
+	}
+	release := sqlitex.Save(conn)
+	err = func() error {
+		if werr := writeMeta(conn, key, metadata); werr != nil {
+			return fmt.Errorf("write metadata: %w", werr)
+		}
+		if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
+			return fmt.Errorf("rename payload into place: %w", rerr)
+		}
+		return nil
+	}()
+	release(&err)
 	if err != nil {
 		_ = s.appFs.Remove(tmpPayloadPath)
-		return fmt.Errorf("write metadata: %w", err)
-	}
-	if err := s.appFs.Rename(tmpPayloadPath, finalPayloadPath); err != nil {
-		return fmt.Errorf("rename payload into place: %w", err)
+		return err
 	}
 	// eventually fill metaOut
 	if metaOut != nil {

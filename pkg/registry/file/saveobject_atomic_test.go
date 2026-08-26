@@ -3,6 +3,8 @@ package file
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,4 +74,64 @@ func TestSaveObject_MetadataFailureLeavesPayloadUntouched(t *testing.T) {
 	got2 := &softwarecomposition.ContainerProfile{}
 	require.NoError(t, si.Get(ctx, key, storage.GetOptions{}, got2))
 	require.Equal(t, "healed", got2.Labels["test.kubescape.io/state"], "recovered write must land normally")
+}
+
+// TestSaveObject_RenameFailureRollsBackMetadata pins the rollback contract: if
+// the payload rename fails after the metadata write, the metadata is rolled
+// back (no inverse divergence) and the staged temp file is removed.
+func TestSaveObject_RenameFailureRollsBackMetadata(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func() { _ = pool.Close() }()
+	sch := scheme.Scheme
+	install.Install(sch)
+	fs := afero.NewMemMapFs()
+	si := NewStorageImplWithCollector(fs, "/", pool, nil, sch, DefaultProcessor{}).(*StorageImpl)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/ns1/atomic-r"
+
+	mk := func(state string) *softwarecomposition.ContainerProfile {
+		return &softwarecomposition.ContainerProfile{
+			ObjectMeta: metav1.ObjectMeta{Name: "atomic-r", Namespace: "ns1",
+				Labels: map[string]string{"test.kubescape.io/state": state}},
+		}
+	}
+	require.NoError(t, si.Create(ctx, key, mk("rogue"), &softwarecomposition.ContainerProfile{}, 0))
+
+	si.renamePayloadFn = func(oldpath, newpath string) error {
+		return errors.New("rename failed (injected)")
+	}
+	out := &softwarecomposition.ContainerProfile{}
+	uerr := si.GuaranteedUpdate(ctx, key, out, false, nil,
+		func(input runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+			cur := input.(*softwarecomposition.ContainerProfile).DeepCopy()
+			cur.Labels["test.kubescape.io/state"] = "healed"
+			return cur, nil, nil
+		}, nil)
+	require.Error(t, uerr, "update must fail when the payload rename fails")
+	si.renamePayloadFn = nil
+
+	// Payload unchanged.
+	got := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, si.Get(ctx, key, storage.GetOptions{}, got))
+	require.Equal(t, "rogue", got.Labels["test.kubescape.io/state"], "payload must be unchanged")
+
+	// METADATA rolled back too: the namespace-scoped List reads metadata.
+	list := &softwarecomposition.ContainerProfileList{}
+	require.NoError(t, si.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/ns1", storage.ListOptions{Recursive: true, Predicate: storage.Everything}, list))
+	require.Len(t, list.Items, 1)
+	require.Equal(t, "rogue", list.Items[0].Labels["test.kubescape.io/state"],
+		"metadata must be ROLLED BACK when the rename fails — no inverse divergence")
+
+	// No staged temp file left behind.
+	leaked := false
+	_ = afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
+		if err == nil && info != nil && !info.IsDir() && strings.HasSuffix(path, ".t") {
+			leaked = true
+		}
+		return nil
+	})
+	require.False(t, leaked, "no staged .t payload file may remain after a failed write")
 }
