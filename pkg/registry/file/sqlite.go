@@ -61,6 +61,14 @@ func NewPool(path string, size int) *sqlitemigration.Pool {
 		},
 		sqlitemigration.Options{
 			PoolSize: size,
+			// Under write bursts (per-container profile churn plus the
+			// RogueArtifact class) a writer can hold the lock beyond the
+			// driver's 10s default busy timeout on slow disks, surfacing raw
+			// "database is locked" to API clients. Wait instead of failing.
+			PrepareConn: func(conn *sqlite.Conn) error {
+				conn.SetBusyTimeout(60 * time.Second)
+				return nil
+			},
 		})
 }
 
