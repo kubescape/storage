@@ -76,7 +76,7 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 	// instanceId or wlid annotations.
 	if relevancyEnabled {
 		logger.L().Debug("relevancy is enabled, adding additional cleanup handlers")
-		resourceKindToHandler["containerprofiles"] = append(resourceKindToHandler["containerprofiles"], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
+		resourceKindToHandler[ContainerProfileKind] = append(resourceKindToHandler[ContainerProfileKind], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
 	}
 	return resourceKindToHandler
 }
