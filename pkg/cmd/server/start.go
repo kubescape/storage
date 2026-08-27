@@ -111,7 +111,23 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 		StorageConfig:   cfg,
 		WatchDispatcher: watchDispatcher,
 	}
-	o.RecommendedOptions.Admission = nil
+	// Admission: lifecycle-only. Upstream f9a16e2e ("upgrade sample api-server")
+	// set Admission = nil, which silently disabled the ENTIRE admission chain —
+	// NamespaceLifecycle included — so writes into non-existent namespaces
+	// persisted (issue #43). Restore admission but narrow the plugin order to
+	// NamespaceLifecycle: the webhook/policy plugins stay off the profile write
+	// hot path. CoreAPI is already enabled, so the kube client + namespace
+	// informer this plugin needs are built by RecommendedOptions.ApplyTo.
+	// NOTE: the storage ServiceAccount needs namespaces get/list/watch or the
+	// plugin's ready-gate rejects every request.
+	// Keep the default RecommendedPluginOrder (options.Validate REQUIRES every
+	// registered plugin to be listed there) and turn the webhook/policy plugins
+	// off instead — NamespaceLifecycle is the only one left enabled.
+	o.RecommendedOptions.Admission = genericoptions.NewAdmissionOptions()
+	o.RecommendedOptions.Admission.DefaultOffPlugins.Insert(
+		"MutatingAdmissionPolicy", "MutatingAdmissionWebhook",
+		"ValidatingAdmissionPolicy", "ValidatingAdmissionWebhook",
+	)
 	o.RecommendedOptions.Etcd = nil
 
 	// Disable authorization since we are publishing an internal endpoint (that only answers the API server)

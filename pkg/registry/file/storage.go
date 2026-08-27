@@ -34,6 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 const (
@@ -124,10 +125,16 @@ type objState struct {
 // StorageImpl offers a common interface for object marshaling/unmarshaling operations and
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
-	appFs           afero.Fs
-	pool            *sqlitemigration.Pool
-	locks           utils.MapMutex[string]
-	processor       Processor
+	appFs     afero.Fs
+	pool      *sqlitemigration.Pool
+	locks     utils.MapMutex[string]
+	processor Processor
+	// writeMetadataFn is the metadata persistence step of saveObject; a field so
+	// tests can inject failures to pin the atomic write order (issue #44).
+	writeMetadataFn func(conn *sqlite.Conn, path string, metadata runtime.Object) error
+	// renamePayloadFn is the payload visibility step of saveObject; a field so
+	// tests can inject rename failures and pin the rollback contract.
+	renamePayloadFn func(oldpath, newpath string) error
 	root            string
 	scheme          *runtime.Scheme
 	versioner       storage.Versioner
@@ -188,6 +195,7 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		pool:            conn,
 		locks:           utils.NewMapMutex[string](),
 		processor:       processor,
+		writeMetadataFn: writeMetadata,
 		root:            root,
 		scheme:          scheme,
 		versioner:       storage.APIObjectVersioner{},
@@ -272,8 +280,15 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
 		return fmt.Errorf("mkdir: %w", err)
 	}
-	// prepare payload file
-	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	// Atomic write order (issue #44): stage the payload in a temp file, commit
+	// the metadata, and only then rename the payload into place. A failing
+	// metadata step must leave the served payload untouched — the old code
+	// truncated the real payload first, so a lock/interrupt during the metadata
+	// insert left GET (new payload) and LIST/RV (old metadata) permanently
+	// divergent.
+	finalPayloadPath := makePayloadPath(p)
+	tmpPayloadPath := finalPayloadPath + ".t"
+	payloadFile, err := s.openPayloadFileWithFallback(tmpPayloadPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open payload file: %w", err)
 	}
@@ -296,10 +311,32 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 
 	// extract metadata
 	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
-	// store metadata in SQLite
-	err = writeMetadata(conn, key, metadata)
+	// Metadata and payload visibility commit together: the metadata write runs
+	// in a savepoint that is rolled back if the payload rename fails, so
+	// neither side can outlive the other. The staged file is removed on any
+	// failure.
+	writeMeta := s.writeMetadataFn
+	if writeMeta == nil {
+		writeMeta = writeMetadata
+	}
+	renamePayload := s.renamePayloadFn
+	if renamePayload == nil {
+		renamePayload = s.appFs.Rename
+	}
+	release := sqlitex.Save(conn)
+	err = func() error {
+		if werr := writeMeta(conn, key, metadata); werr != nil {
+			return fmt.Errorf("write metadata: %w", werr)
+		}
+		if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
+			return fmt.Errorf("rename payload into place: %w", rerr)
+		}
+		return nil
+	}()
+	release(&err)
 	if err != nil {
-		return fmt.Errorf("write metadata: %w", err)
+		_ = s.appFs.Remove(tmpPayloadPath)
+		return err
 	}
 	// eventually fill metaOut
 	if metaOut != nil {
