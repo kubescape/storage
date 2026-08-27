@@ -308,7 +308,9 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	}
 	a.LastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
-		"containerprofiles": {deleteByTemplateHashOrWlid},
+		// keyed by the storage kind segment, not the REST resource name:
+		// container profiles live under the singular "containerprofile"
+		ContainerProfileKind: {deleteByTemplateHashOrWlid},
 	}
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
