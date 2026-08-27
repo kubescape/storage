@@ -32,6 +32,18 @@ type NetworkNeighbor struct {
 	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
 	// See pkg/registry/file/networkmatch for matcher semantics.
 	IPAddresses []string `json:"ipAddresses,omitempty" protobuf:"bytes,9,rep,name=ipAddresses"`
+	// ServiceRefNamespace and ServiceRefName reference a single Service; the
+	// resolver expands it to that Service's ClusterIP(s) and backing endpoint
+	// IPs. Portable (a name, resolved per-cluster) and narrow, unlike a
+	// serviceCIDR ipAddresses entry. See k8sstormcenter/node-agent#92.
+	ServiceRefNamespace string `json:"serviceRefNamespace,omitempty" protobuf:"bytes,10,opt,name=serviceRefNamespace"`
+	ServiceRefName      string `json:"serviceRefName,omitempty" protobuf:"bytes,11,opt,name=serviceRefName"`
+	// ServiceSelector selects Services by label, resolved like ServiceRef.
+	ServiceSelector *metav1.LabelSelector `json:"serviceSelector,omitempty" protobuf:"bytes,12,opt,name=serviceSelector"`
+	// Entity is a reserved peer identity not backed by a Service object.
+	// Supported value: "host" (node InternalIP + CNI gateway) — kubelet/health
+	// probes and node-sourced traffic.
+	Entity string `json:"entity,omitempty" protobuf:"bytes,13,opt,name=entity"`
 }
 
 type NetworkPort struct {

@@ -9,32 +9,141 @@
     "kubescape.io/status": "completed"
   },
   "Spec": {
-    "Architectures": ["arm64"],
+    "Architectures": [
+      "arm64"
+    ],
     "Capabilities": [],
     "Execs": [
-      {"Path": "/usr/bin/curl", "Args": ["https://example.com"]}
+      {
+        "Path": "/usr/bin/curl",
+        "Args": [
+          "https://example.com"
+        ]
+      }
     ],
     "Opens": [
-      {"Path": "/var/log/pods/pod-g/app.log", "Flags": ["O_RDONLY"]},
-      {"Path": "/var/log/pods/pod-h/app.log", "Flags": ["O_RDONLY"]}
+      {
+        "Path": "/var/log/pods/pod-g/app.log",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      },
+      {
+        "Path": "/var/log/pods/pod-h/app.log",
+        "Flags": [
+          "O_RDONLY"
+        ]
+      }
     ],
-    "Syscalls": ["openat", "close"],
+    "Syscalls": [
+      "openat",
+      "close"
+    ],
     "Endpoints": [
       {
         "Endpoint": ":8080/api/v1/health",
-        "Methods": ["GET"],
+        "Methods": [
+          "GET"
+        ],
         "Internal": false,
         "Direction": "inbound",
         "Headers": {}
       }
     ],
     "PolicyByRuleId": {
-      "R200": {"AllowedProcesses": ["/usr/bin/wget"], "AllowedContainer": false}
+      "R200": {
+        "AllowedProcesses": [
+          "/usr/bin/wget"
+        ],
+        "AllowedContainer": false
+      }
     },
     "Ingress": [
-      {"Identifier": "h5", "Type": "external", "IPAddress": "10.0.0.5", "Ports": [{"Name": "TCP-80", "Protocol": "TCP", "Port": 80}]},
-      {"Identifier": "h6", "Type": "external", "IPAddress": "10.0.0.6", "Ports": [{"Name": "TCP-80", "Protocol": "TCP", "Port": 80}]}
+      {
+        "Identifier": "pod-e",
+        "Type": "internal",
+        "IPAddress": "10.244.1.31",
+        "Ports": [
+          {
+            "Name": "TCP-8080",
+            "Protocol": "TCP",
+            "Port": 8080
+          }
+        ]
+      },
+      {
+        "Identifier": "pod-f",
+        "Type": "internal",
+        "IPAddress": "10.244.1.44",
+        "Ports": [
+          {
+            "Name": "TCP-8080",
+            "Protocol": "TCP",
+            "Port": 8080
+          }
+        ]
+      },
+      {
+        "Identifier": "pod-a",
+        "Type": "internal",
+        "IPAddress": "10.244.1.7",
+        "Ports": [
+          {
+            "Name": "TCP-8080",
+            "Protocol": "TCP",
+            "Port": 8080
+          }
+        ]
+      }
     ],
-    "Egress": []
+    "Egress": [
+      {
+        "Identifier": "collide",
+        "Type": "internal",
+        "ServiceRefNamespace": "honey",
+        "ServiceRefName": "alertmanager",
+        "Ports": [
+          {
+            "Name": "TCP-9093",
+            "Protocol": "TCP",
+            "Port": 9093
+          }
+        ]
+      },
+      {
+        "Identifier": "collide",
+        "Type": "internal",
+        "ServiceRefNamespace": "db",
+        "ServiceRefName": "postgres",
+        "Ports": [
+          {
+            "Name": "TCP-5432",
+            "Protocol": "TCP",
+            "Port": 5432
+          }
+        ]
+      },
+      {
+        "Identifier": "collide",
+        "Type": "internal",
+        "ServiceSelector": {
+          "matchLabels": {
+            "role": "helm-repo"
+          }
+        },
+        "NamespaceSelector": {
+          "matchLabels": {
+            "kubernetes.io/metadata.name": "default"
+          }
+        },
+        "Ports": [
+          {
+            "Name": "TCP-80",
+            "Protocol": "TCP",
+            "Port": 80
+          }
+        ]
+      }
+    ]
   }
 }

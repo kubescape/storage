@@ -32,6 +32,14 @@ type NetworkNeighbor struct {
 	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
 	// See pkg/registry/file/networkmatch for matcher semantics.
 	IPAddresses []string
+	// ServiceRefNamespace/ServiceRefName reference a single Service; the
+	// resolver expands it to that Service's ClusterIP(s) + endpoint IPs.
+	ServiceRefNamespace string
+	ServiceRefName      string
+	// ServiceSelector selects Services by label, resolved like ServiceRef.
+	ServiceSelector *metav1.LabelSelector
+	// Entity is a reserved peer identity not backed by a Service ("host").
+	Entity string
 }
 
 type NetworkPort struct {

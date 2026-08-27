@@ -956,6 +956,19 @@ message NetworkNeighbor {
   // Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
   // See pkg/registry/file/networkmatch for matcher semantics.
   repeated string ipAddresses = 9;
+
+  // ServiceRefNamespace and ServiceRefName reference a single Service,
+  // resolved per-cluster to its ClusterIP(s) and endpoint IPs
+  // (k8sstormcenter/node-agent#92).
+  optional string serviceRefNamespace = 10;
+
+  optional string serviceRefName = 11;
+
+  // ServiceSelector selects Services by label, resolved like ServiceRef.
+  optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector serviceSelector = 12;
+
+  // Entity is a reserved peer identity not backed by a Service ("host").
+  optional string entity = 13;
 }
 
 message NetworkPolicy {

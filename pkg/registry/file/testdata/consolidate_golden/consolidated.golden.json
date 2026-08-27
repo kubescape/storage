@@ -142,8 +142,210 @@
   ],
   "Ingress": [
     {
-      "Identifier": "81ae1c7d0b0a7d694e9dce6ef1c0f24132194e08d0cebbf67b058e42aa862d96",
+      "Identifier": "a7d8ef4c9cdf3635da32d1c6ecc0b49c1dc61dacfc05efaca4585d9eaf8d810f",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-8080",
+          "Protocol": "TCP",
+          "Port": 8080
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": [
+        "10.244.1.0/24"
+      ],
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "db3315e15091361a7c33b1de7d7c0027d042e4d5535c2574b60ed4423b446366",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-8080",
+          "Protocol": "TCP",
+          "Port": 8080
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": [
+        "10.250.0.0/24"
+      ],
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    }
+  ],
+  "Egress": [
+    {
+      "Identifier": "dns-kube-dns",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": [
+        "kube-dns.kube-system.svc.cluster.local."
+      ],
+      "Ports": [
+        {
+          "Name": "UDP-53",
+          "Protocol": "UDP",
+          "Port": 53
+        },
+        {
+          "Name": "TCP-53",
+          "Protocol": "TCP",
+          "Port": 53
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "10.96.0.10",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "apiserver",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": [
+        "kubernetes.default.svc.cluster.local."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "10.96.0.1",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "github-1",
       "Type": "external",
+      "DNS": "",
+      "DNSNames": [
+        "github.com."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "140.82.121.3",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "github-2",
+      "Type": "external",
+      "DNS": "",
+      "DNSNames": [
+        "github.com."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "140.82.121.4",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-9093",
+          "Protocol": "TCP",
+          "Port": 9093
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "honey",
+      "ServiceRefName": "alertmanager",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": null,
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": "host"
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-5432",
+          "Protocol": "TCP",
+          "Port": 5432
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "db",
+      "ServiceRefName": "postgres",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
       "DNS": "",
       "DNSNames": null,
       "Ports": [
@@ -154,32 +356,21 @@
         }
       ],
       "PodSelector": null,
-      "NamespaceSelector": null,
-      "IPAddress": "",
-      "IPAddresses": [
-        "10.0.0.0/29"
-      ]
-    }
-  ],
-  "Egress": [
-    {
-      "Identifier": "dns",
-      "Type": "external",
-      "DNS": "",
-      "DNSNames": [
-        "kubernetes.default.svc.cluster.local"
-      ],
-      "Ports": [
-        {
-          "Name": "UDP-53",
-          "Protocol": "UDP",
-          "Port": 53
+      "NamespaceSelector": {
+        "matchLabels": {
+          "kubernetes.io/metadata.name": "default"
         }
-      ],
-      "PodSelector": null,
-      "NamespaceSelector": null,
+      },
       "IPAddress": "",
-      "IPAddresses": null
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": {
+        "matchLabels": {
+          "role": "helm-repo"
+        }
+      },
+      "Entity": ""
     }
   ],
   "Containers": null,
