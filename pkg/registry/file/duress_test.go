@@ -451,15 +451,22 @@ func TestDuress_SameKeyHammer(t *testing.T) {
 
 // duressPartTemplate builds chained time-series part profiles from the
 // committed testdata template so consolidation runs against realistic data.
-func duressParts(t *testing.T, ns string, seriesID string, n int) []*softwarecomposition.ContainerProfile {
-	t.Helper()
+// duressParts builds n time-series part profiles. It returns errors instead
+// of failing the test so it is safe to call from worker goroutines —
+// (*testing.T).FailNow (which require uses) must only run on the goroutine
+// executing the test function.
+func duressParts(ns string, seriesID string, n int) ([]*softwarecomposition.ContainerProfile, error) {
 	raw, err := os.ReadFile("testdata/p1.json")
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	parts := make([]*softwarecomposition.ContainerProfile, 0, n)
 	for i := 0; i < n; i++ {
 		var p softwarecomposition.ContainerProfile
-		require.NoError(t, json.Unmarshal(raw, &p))
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
 		p.Namespace = ns
 		p.UID = ""
 		p.ResourceVersion = ""
@@ -482,7 +489,7 @@ func duressParts(t *testing.T, ns string, seriesID string, n int) []*softwarecom
 		}
 		parts = append(parts, &p)
 	}
-	return parts
+	return parts, nil
 }
 
 // TestDuress_MixedWorkload is the main storm: parallel creates/updates/deletes
@@ -490,6 +497,9 @@ func duressParts(t *testing.T, ns string, seriesID string, n int) []*softwarecom
 // a concurrently running consolidation loop. Pins rows 1, 3, 12, 13, 14, 15:
 // no BUSY, no interrupts, reads never starve, everything converges.
 func TestDuress_MixedWorkload(t *testing.T) {
+	if testing.Short() {
+		t.Skip("8s storm — skipped under -short")
+	}
 	e := newDuressEnv(t)
 	stop := make(chan struct{})
 	var forbidden, uncontracted, readerErrs atomic.Int64
@@ -617,7 +627,11 @@ func TestDuress_MixedWorkload(t *testing.T) {
 			default:
 			}
 			series++
-			parts := duressParts(t, "ns-mw", fmt.Sprintf("series-%04d", series), 4)
+			parts, perr := duressParts("ns-mw", fmt.Sprintf("series-%04d", series), 4)
+			if perr != nil {
+				note(perr)
+				continue
+			}
 			for _, p := range parts {
 				key := cpKey("ns-mw", p.Name)
 				if err := e.s.Create(context.Background(), key, p, &softwarecomposition.ContainerProfile{}, 0); err != nil {
@@ -666,7 +680,8 @@ func TestDuress_MixedWorkload(t *testing.T) {
 func TestDuress_ConsolidationVsAPI(t *testing.T) {
 	e := newDuressEnv(t)
 	seriesID := "series-cvapi"
-	parts := duressParts(t, "ns-cv", seriesID, 6)
+	parts, perr := duressParts("ns-cv", seriesID, 6)
+	require.NoError(t, perr)
 	consolidatedName, _ := SplitProfileName(parts[0].Name)
 	consolidatedKey := cpKey("ns-cv", consolidatedName)
 

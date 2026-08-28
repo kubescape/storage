@@ -46,6 +46,12 @@ func gateForPool(pool *sqlitemigration.Pool) *writeGate {
 // acquire takes the gate for conn, or re-enters if conn already holds it.
 // The returned release must be called exactly once. ctx bounds the wait.
 func (g *writeGate) acquire(ctx context.Context, conn *sqlite.Conn) (release func(), err error) {
+	// A canceled context must never enter (or re-enter) the gate: with a free
+	// slot both select cases are ready and Go may pick acquisition, letting a
+	// canceled caller start a savepoint it can no longer complete cleanly.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if g.owner.Load() == conn && conn != nil {
 		return func() {}, nil // re-entry: enclosing transaction on this conn holds the gate
 	}

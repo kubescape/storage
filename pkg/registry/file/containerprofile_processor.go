@@ -95,8 +95,9 @@ func (a *ContainerProfileProcessor) PreCommitSQL(ctx context.Context, conn *sqli
 		return nil
 	}
 	seriesID, ok := profile.Annotations[helpers.ReportSeriesIdMetadataKey]
-	if !ok {
-		// not a TS part profile: nothing to commit alongside
+	if !ok || seriesID == "" {
+		// not a TS part profile (absent or blank series id): nothing to commit
+		// alongside — a blank seriesID row would pollute consolidation.
 		return nil
 	}
 	name, tsSuffix := SplitProfileName(profile.Name)

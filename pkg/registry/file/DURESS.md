@@ -9,8 +9,8 @@ every cell to the test that pins it. `duress_test.go` executes the table.
 Operations (columns):
 
 - **C** — `Create` (API): per-key lock → PreSave → payload stage → SQL commit
-  step (metadata insert + payload rename) → time-series row (container-profile
-  parts only) → watch event.
+  step (metadata insert + time-series row for container-profile parts +
+  payload rename, one savepoint) → watch event.
 - **U** — `GuaranteedUpdate` (API): per-key lock → read current → tryUpdate →
   same commit step.
 - **D** — `Delete` (API): per-key lock → metadata delete + time-series delete +
