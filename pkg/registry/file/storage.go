@@ -249,6 +249,19 @@ func (s *StorageImpl) keyFromPath(path string) string {
 	return strings.TrimPrefix(strings.TrimSuffix(path, extension), s.root)
 }
 
+// saveObjectBusyRetries bounds the in-place retries of the metadata+rename
+// commit step on SQLite write-lock contention. Total added latency is at most
+// 50+100+200ms — well inside any API request budget.
+const saveObjectBusyRetries = 3
+
+// isRetryableSQLiteErr reports whether an error is write-lock contention
+// (SQLITE_BUSY / SQLITE_LOCKED) — the only class the commit step retries in
+// place. A variable so tests can inject sentinel errors.
+var isRetryableSQLiteErr = func(err error) bool {
+	code := sqlite.ErrCode(err)
+	return code == sqlite.ResultBusy || code == sqlite.ResultLocked
+}
+
 func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string) error {
 	// increment resourceVersion
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
@@ -323,20 +336,33 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	if renamePayload == nil {
 		renamePayload = s.appFs.Rename
 	}
-	release := sqlitex.Save(conn)
-	err = func() error {
-		if werr := writeMeta(conn, key, metadata); werr != nil {
-			return fmt.Errorf("write metadata: %w", werr)
+	// Bounded retry on write-lock contention (issue #365): SQLITE_BUSY /
+	// SQLITE_LOCKED from the metadata write means another writer held the
+	// lock past the busy timeout. The savepoint has rolled back and the
+	// staged payload is untouched, so the whole commit step is safe to
+	// retry in place instead of surfacing a 500 to the API client. Anything
+	// else — including an interrupt from a canceled request context —
+	// surfaces immediately.
+	for attempt := 0; ; attempt++ {
+		release := sqlitex.Save(conn)
+		err = func() error {
+			if werr := writeMeta(conn, key, metadata); werr != nil {
+				return fmt.Errorf("write metadata: %w", werr)
+			}
+			if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
+				return fmt.Errorf("rename payload into place: %w", rerr)
+			}
+			return nil
+		}()
+		release(&err)
+		if err == nil {
+			break
 		}
-		if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
-			return fmt.Errorf("rename payload into place: %w", rerr)
+		if attempt >= saveObjectBusyRetries || !isRetryableSQLiteErr(err) {
+			_ = s.appFs.Remove(tmpPayloadPath)
+			return err
 		}
-		return nil
-	}()
-	release(&err)
-	if err != nil {
-		_ = s.appFs.Remove(tmpPayloadPath)
-		return err
+		time.Sleep(time.Duration(50*(1<<attempt)) * time.Millisecond)
 	}
 	// eventually fill metaOut
 	if metaOut != nil {

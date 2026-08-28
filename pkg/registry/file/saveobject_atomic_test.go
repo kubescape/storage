@@ -135,3 +135,64 @@ func TestSaveObject_RenameFailureRollsBackMetadata(t *testing.T) {
 	})
 	require.False(t, leaked, "no staged .t payload file may remain after a failed write")
 }
+
+// TestSaveObject_RetriesBusyThenSucceeds pins the bounded in-place retry on
+// write-lock contention (issue #365): a metadata write dying on BUSY/LOCKED
+// has rolled back its savepoint and left the staged payload untouched, so the
+// commit step retries instead of surfacing a 500 — while any other error
+// class still fails fast.
+func TestSaveObject_RetriesBusyThenSucceeds(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func() { _ = pool.Close() }()
+	sch := scheme.Scheme
+	install.Install(sch)
+	si := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch).(*StorageImpl)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+
+	sentinel := errors.New("simulated write-lock contention")
+	prevPredicate := isRetryableSQLiteErr
+	isRetryableSQLiteErr = func(err error) bool { return errors.Is(err, sentinel) }
+	defer func() { isRetryableSQLiteErr = prevPredicate }()
+
+	attempts := 0
+	si.writeMetadataFn = func(conn *sqlite.Conn, key string, obj runtime.Object) error {
+		attempts++
+		if attempts <= 2 {
+			return sentinel
+		}
+		return writeMetadata(conn, key, obj)
+	}
+
+	ra := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "cp-retry-b", Namespace: "ns1",
+			Labels: map[string]string{"test.kubescape.io/state": "initial"}},
+		Spec: softwarecomposition.ContainerProfileSpec{Architectures: []string{"amd64"}},
+	}
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns1/cp-retry-b"
+	require.NoError(t, si.Create(ctx, key, ra, &softwarecomposition.ContainerProfile{}, 0),
+		"two contention failures must be retried in place and the third attempt must commit")
+	require.Equal(t, 3, attempts, "exactly the failing attempts plus one successful retry")
+
+	got := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, si.Get(ctx, key, storage.GetOptions{}, got))
+	require.Equal(t, "initial", got.Labels["test.kubescape.io/state"], "the retried write must be fully visible")
+
+	// A non-retryable error keeps failing fast: one attempt, error surfaced.
+	attempts = 0
+	si.writeMetadataFn = func(*sqlite.Conn, string, runtime.Object) error {
+		attempts++
+		return errors.New("sqlite: clear bindings: interrupted (injected)")
+	}
+	rc := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "cp-retry-c", Namespace: "ns1",
+			Labels: map[string]string{"test.kubescape.io/state": "initial"}},
+		Spec: softwarecomposition.ContainerProfileSpec{Architectures: []string{"amd64"}},
+	}
+	err := si.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns1/cp-retry-c",
+		rc, &softwarecomposition.ContainerProfile{}, 0)
+	require.Error(t, err, "a non-contention failure must surface")
+	require.Equal(t, 1, attempts, "non-retryable errors must not be retried")
+}
