@@ -107,7 +107,12 @@ func (c *ContainerProfileStorageImpl) GetStorageImpl() *StorageImpl {
 func (c *ContainerProfileStorageImpl) GetTsContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error) {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	tsProfile := softwarecomposition.ContainerProfile{}
-	err := c.storageImpl.get(ctx, conn, key, storage.GetOptions{}, &tsProfile, noLock) // get instead of GetWithConn to bypass locking
+	// hasWriteLock = no lock management. Part reads run inside the gated
+	// consolidation transaction; taking even a transient read lock there would
+	// invert the (per-key lock → gate) ordering against an API writer of the
+	// part key. Lock-free is safe under the gate: payload renames only happen
+	// inside gated sections, so no rename can land while this read runs.
+	err := c.storageImpl.get(ctx, conn, key, storage.GetOptions{}, &tsProfile, hasWriteLock)
 	return tsProfile, err
 }
 

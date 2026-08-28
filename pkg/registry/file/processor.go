@@ -7,6 +7,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"zombiezen.com/go/sqlite"
 )
 
 type Processor interface {
@@ -76,4 +77,13 @@ func DeflateSortString(in []string) []string {
 		return nil
 	}
 	return mapset.Sorted(mapset.NewThreadUnsafeSet(in...))
+}
+
+// PreCommitProcessor is an optional Processor extension: SQL that must commit
+// atomically with the object itself (inside saveObject's savepoint, before the
+// payload rename). A part profile's time-series row is the canonical example —
+// committing it separately allowed a part to exist without its row, invisible
+// to consolidation and expiry forever (DURESS.md row 8).
+type PreCommitProcessor interface {
+	PreCommitSQL(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error
 }

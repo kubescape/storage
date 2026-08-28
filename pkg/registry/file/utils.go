@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"context"
 	helpers2 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/olvrng/ujson"
 	"github.com/spf13/afero"
@@ -16,7 +17,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+
 	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 // PartialObjectMetadata is a generic representation of any object with ObjectMeta. It allows clients
@@ -50,15 +53,31 @@ func NewKubernetesClient() (*kubernetes.Clientset, error) {
 func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) (runtime.Object, error) {
 	key := payloadPathToKey(path)
 	metaOut := &PartialObjectMetadata{}
-	err := DeleteMetadata(conn, key, metaOut)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete metadata: %w", err)
+	// Cleanup writes take the process-wide write gate like every other SQLite
+	// write section, and commit metadata+time-series removal as one savepoint.
+	gateCtx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+	defer cancel()
+	releaseGate, gerr := gateForPool(h.pool).acquire(gateCtx, conn)
+	if gerr != nil {
+		return nil, fmt.Errorf("write gate: %w", gerr)
 	}
-	_, _, kind, _, _, _ := K8sPathToKeys(key)
-	if IsContainerProfileKind(kind) {
-		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
-			return nil, fmt.Errorf("failed to delete time series entries: %w", err)
+	defer releaseGate()
+	release := sqlitex.Save(conn)
+	err := func() error {
+		if merr := DeleteMetadata(conn, key, metaOut); merr != nil {
+			return fmt.Errorf("failed to delete metadata: %w", merr)
 		}
+		_, _, kind, _, _, _ := K8sPathToKeys(key)
+		if IsContainerProfileKind(kind) {
+			if terr := DeleteTimeSeriesContainerEntries(conn, key); terr != nil {
+				return fmt.Errorf("failed to delete time series entries: %w", terr)
+			}
+		}
+		return nil
+	}()
+	release(&err)
+	if err != nil {
+		return nil, err
 	}
 	return metaOut, nil
 }
@@ -153,8 +172,15 @@ func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePat
 		h.deleteFunc(h.appFs, payloadFilePath)
 		return nil, fmt.Errorf("failed to read metadata file: %w", err)
 	}
-	// write to SQLite
+	// write to SQLite (gated like every write section)
+	gateCtx, gateCancel := context.WithTimeout(context.Background(), lockTimeout)
+	defer gateCancel()
+	releaseGate, gerr := gateForPool(h.pool).acquire(gateCtx, conn)
+	if gerr != nil {
+		return nil, fmt.Errorf("write gate: %w", gerr)
+	}
 	err = WriteJSON(conn, key, metadataJSON)
+	releaseGate()
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate metadata to SQLite: %w", err)
 	}

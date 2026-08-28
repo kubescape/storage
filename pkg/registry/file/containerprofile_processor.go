@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite"
 )
 
 // ConsolidatedSlugData contains the slug (name) and namespace of a consolidated profile
@@ -82,40 +83,43 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 var _ Processor = (*ContainerProfileProcessor)(nil)
 
 // AfterCreate is called after a TS ContainerProfile is created to store metadata.
-func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, object runtime.Object) error {
+// PreCommitSQL writes a part profile's time-series row INSIDE the same
+// savepoint that commits the part itself (invoked by saveObject via the
+// PreCommitProcessor extension). Committing the row separately allowed a part
+// to exist without it — invisible to consolidation and to expiry (both scan
+// the time_series table) while a client retry died on KeyExists: a silent
+// permanent data hole (DURESS.md row 8).
+func (a *ContainerProfileProcessor) PreCommitSQL(ctx context.Context, conn *sqlite.Conn, object runtime.Object) error {
 	profile, ok := object.(*softwarecomposition.ContainerProfile)
 	if !ok {
-		return fmt.Errorf("given object is not an ContainerProfile")
+		return nil
 	}
 	seriesID, ok := profile.Annotations[helpers.ReportSeriesIdMetadataKey]
 	if !ok {
-		// if the container ID annotation is not set, it's not a TS ContainerProfile and we skip it
+		// not a TS part profile: nothing to commit alongside
 		return nil
 	}
-	// parse name and namespace
-	// remove the suffix from the name after the last hyphen
 	name, tsSuffix := SplitProfileName(profile.Name)
 	namespace := profile.Namespace
-	// parse annotations
 	completion := profile.Annotations[helpers.CompletionMetadataKey]
 	previousReportTimestamp := profile.Annotations[helpers.PreviousReportTimestampMetadataKey]
 	reportTimestamp := profile.Annotations[helpers.ReportTimestampMetadataKey]
 	status := profile.Annotations[helpers.StatusMetadataKey]
-	// add sequence info via storage interface
-	err := a.ContainerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.AfterCreate - failed to write time series data for container profile",
+	if err := WriteTimeSeriesEntry(conn, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true); err != nil {
+		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.PreCommitSQL - failed to write time series data for container profile",
 			loggerhelpers.Error(err),
 			loggerhelpers.String("name", profile.Name),
 			loggerhelpers.String("namespace", namespace),
-			loggerhelpers.String("completion", completion),
 			loggerhelpers.String("seriesID", seriesID),
-			loggerhelpers.String("tsSuffix", tsSuffix),
-			loggerhelpers.Interface("previousReportTimestamp", previousReportTimestamp),
-			loggerhelpers.Interface("reportTimestamp", reportTimestamp),
-			loggerhelpers.String("status", status))
+			loggerhelpers.String("tsSuffix", tsSuffix))
 		return fmt.Errorf("write time series data: %w", err)
 	}
+	return nil
+}
+
+func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, object runtime.Object) error {
+	// The time-series row commits with the object in PreCommitSQL; nothing to
+	// do after the create.
 	return nil
 }
 
@@ -524,6 +528,30 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
 	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
 
+	// Lock ordering for the consolidation transaction (DURESS.md rows 4/11/14):
+	// per-key write lock first — serializing with API writers on the SAME
+	// consolidated key — then the process-wide write gate for the duration of
+	// the SQL transaction. The lock-held marker lets the inner consolidated-
+	// profile save skip re-acquiring the key lock; part reads inside the
+	// transaction run lock-free (no rename can land while the gate is held).
+	if impl, ok := a.ContainerProfileStorage.(*ContainerProfileStorageImpl); ok {
+		si := impl.GetStorageImpl()
+		conn := ctx.Value(connKey).(*sqlite.Conn)
+		lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+		defer lockCancel()
+		if lerr := si.locks.Lock(lockCtx, key); lerr != nil {
+			return nil, fmt.Errorf("lock key for consolidation: %w", lerr)
+		}
+		defer si.locks.Unlock(key)
+		ctx = context.WithValue(ctx, lockHeldCtxKey, key)
+		gateCtx, gateCancel := context.WithTimeout(ctx, lockTimeout)
+		defer gateCancel()
+		releaseGate, gerr := gateForPool(si.pool).acquire(gateCtx, conn)
+		if gerr != nil {
+			return nil, fmt.Errorf("write gate for consolidation: %w", gerr)
+		}
+		defer releaseGate()
+	}
 	endFn, err := a.ContainerProfileStorage.BeginTransaction(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin nested transaction: %w", err)

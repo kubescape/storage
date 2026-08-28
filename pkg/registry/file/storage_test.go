@@ -649,7 +649,7 @@ func BenchmarkWriteFiles(b *testing.B) {
 	metaOut := &v1beta1.SBOMSyft{}
 	conn, _ := s.pool.Take(context.Background())
 	for i := 0; i < b.N; i++ {
-		_ = s.saveObject(conn, key, obj, metaOut, "")
+		_ = s.saveObject(context.TODO(), conn, key, obj, metaOut, "", nil)
 	}
 	s.pool.Put(conn)
 	b.ReportAllocs()

@@ -115,6 +115,15 @@ func resourceFromKey(key string) string {
 	return kind
 }
 
+// ctxKey is the private type for context keys in this package (conn, held
+// per-key lock).
+type ctxKey string
+
+// lockHeldCtxKey marks that the per-key write lock for its value (the key) is
+// already held by an enclosing caller (the consolidation transaction), so
+// GuaranteedUpdateWithConn must not re-acquire it.
+const lockHeldCtxKey = ctxKey("lockHeld")
+
 type objState struct {
 	obj  runtime.Object
 	meta *storage.ResponseMeta
@@ -201,8 +210,31 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		versioner:       storage.APIObjectVersioner{},
 		watchDispatcher: watchDispatcher,
 	}
+	storageImpl.sweepStagedPayloads()
 	processor.SetStorage(NewContainerProfileStorageImpl(storageImpl, conn))
 	return storageImpl
+}
+
+// sweepStagedPayloads removes orphan staged payload files ("*.g.t") left by a
+// crash between the payload stage and the commit step. The stage is invisible
+// until the rename inside the committed savepoint, so removing orphans cannot
+// lose committed data (DURESS.md row 10).
+func (s *StorageImpl) sweepStagedPayloads() {
+	swept := 0
+	_ = afero.Walk(s.appFs, s.root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil //nolint:nilerr // best-effort sweep
+		}
+		if strings.HasSuffix(path, GobExt+".t") {
+			if s.appFs.Remove(path) == nil {
+				swept++
+			}
+		}
+		return nil
+	})
+	if swept > 0 {
+		logger.L().Info("swept orphan staged payload files", helpers.Int("count", swept))
+	}
 }
 
 func (s *StorageImpl) GetCurrentResourceVersion(_ context.Context) (uint64, error) {
@@ -240,8 +272,58 @@ func IsPayloadFile(path string) bool {
 	return strings.HasSuffix(path, GobExt)
 }
 
-func poolContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), poolTimeout)
+// poolContext bounds POOL ACQUISITION only. The returned context must not be
+// used as the connection's execution lifetime: Pool.Take binds the conn's
+// interrupt channel to the ctx it is given, so a timeout here would kill any
+// statement still running poolTimeout after acquisition (the production
+// "sqlite: step: interrupted" / "clear bindings: interrupted" class). Callers
+// rebind the interrupt to the request context right after Take (see
+// takeConn).
+func poolContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	return context.WithTimeout(parent, poolTimeout)
+}
+
+// takeConn acquires a pool connection with a bounded acquisition deadline and
+// then separates the connection's execution lifetime from that deadline: the
+// interrupt follows the REQUEST context, so only a genuine client
+// cancellation interrupts a statement (DURESS.md row 2).
+func (s *StorageImpl) takeConn(reqCtx context.Context) (*sqlite.Conn, func(), error) {
+	acqCtx, cancel := poolContext(reqCtx)
+	conn, err := s.pool.Take(acqCtx)
+	if err != nil {
+		cancel()
+		return nil, nil, err
+	}
+	var done <-chan struct{}
+	if reqCtx != nil {
+		done = reqCtx.Done()
+	}
+	conn.SetInterrupt(done)
+	return conn, func() {
+		conn.SetInterrupt(nil)
+		s.pool.Put(conn)
+		cancel()
+	}, nil
+}
+
+// gatedDeleteMetadata is the write-gated form of the read-path self-heal
+// deletes (missing/corrupt payload). Best-effort like before, but never
+// competing with another writer on the SQLite lock.
+func (s *StorageImpl) gatedDeleteMetadata(ctx context.Context, conn *sqlite.Conn, key string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	gateCtx, cancel := context.WithTimeout(ctx, lockTimeout)
+	defer cancel()
+	releaseGate, err := gateForPool(s.pool).acquire(gateCtx, conn)
+	if err != nil {
+		return
+	}
+	defer releaseGate()
+	_ = DeleteMetadata(conn, key, nil)
 }
 
 func (s *StorageImpl) keyFromPath(path string) string {
@@ -262,7 +344,12 @@ var isRetryableSQLiteErr = func(err error) bool {
 	return code == sqlite.ResultBusy || code == sqlite.ResultLocked
 }
 
-func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string) error {
+// saveObject persists obj: payload staged to a temp file, then metadata
+// insert + optional preCommit SQL + payload rename committed as one savepoint
+// under the process-wide write gate. preCommit runs inside the savepoint so
+// auxiliary rows (a part's time-series row) commit or roll back together with
+// the object itself (DURESS.md row 8).
+func (s *StorageImpl) saveObject(ctx context.Context, conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string, preCommit func(*sqlite.Conn) error) error {
 	// increment resourceVersion
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
 		if err := s.versioner.UpdateObject(obj, version+1); err != nil {
@@ -343,21 +430,54 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	// retry in place instead of surfacing a 500 to the API client. Anything
 	// else — including an interrupt from a canceled request context —
 	// surfaces immediately.
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	for attempt := 0; ; attempt++ {
-		release := sqlitex.Save(conn)
 		err = func() error {
-			if werr := writeMeta(conn, key, metadata); werr != nil {
-				return fmt.Errorf("write metadata: %w", werr)
+			// The gate is held for exactly one savepoint. Re-entrant for a
+			// connection already inside a gated transaction (consolidation).
+			gateCtx, gateCancel := context.WithTimeout(ctx, lockTimeout)
+			defer gateCancel()
+			releaseGate, gerr := gateForPool(s.pool).acquire(gateCtx, conn)
+			if gerr != nil {
+				return newContentionTimeoutError("update", key, gerr)
 			}
-			if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
-				return fmt.Errorf("rename payload into place: %w", rerr)
+			defer releaseGate()
+			if cerr := ctx.Err(); cerr != nil {
+				return cerr
 			}
-			return nil
+			// The savepoint spans a filesystem rename, which no ROLLBACK can
+			// undo. An interrupt firing between the rename and the savepoint
+			// RELEASE would roll the SQL back while the rename persists —
+			// torn payload/metadata. The commit section is short and bounded,
+			// so cancellation waits it out instead of tearing it.
+			oldInterrupt := conn.SetInterrupt(nil)
+			defer conn.SetInterrupt(oldInterrupt)
+			release := sqlitex.Save(conn)
+			serr := func() error {
+				if werr := writeMeta(conn, key, metadata); werr != nil {
+					return fmt.Errorf("write metadata: %w", werr)
+				}
+				if preCommit != nil {
+					if perr := preCommit(conn); perr != nil {
+						return fmt.Errorf("pre-commit: %w", perr)
+					}
+				}
+				if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
+					return fmt.Errorf("rename payload into place: %w", rerr)
+				}
+				return nil
+			}()
+			release(&serr)
+			return serr
 		}()
-		release(&err)
 		if err == nil {
 			break
 		}
+		// Backstop only: with the write gate, contention between this
+		// process's writers cannot produce BUSY; this covers hypothetical
+		// extra-process writers. Backoff never sleeps holding the gate.
 		if attempt >= saveObjectBusyRetries || !isRetryableSQLiteErr(err) {
 			_ = s.appFs.Remove(tmpPayloadPath)
 			return err
@@ -377,18 +497,32 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	return nil
 }
 
+// mapCancellation folds an error produced after the request context died into
+// the context's own error. Once the caller cancels, the connection interrupt
+// kills in-flight statements and the failure would otherwise surface as raw
+// "sqlite: ...: interrupted" — not a contracted error class (DURESS.md row 2).
+// The savepoint has already rolled the write back; the cancellation is the
+// only fact the caller needs.
+func mapCancellation(ctx context.Context, err error) error {
+	if err == nil || ctx == nil {
+		return err
+	}
+	if cerr := ctx.Err(); cerr != nil {
+		return cerr
+	}
+	return err
+}
+
 // Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, putConn, err := s.takeConn(ctx)
 	if err != nil {
 		return newContentionTimeoutError("create", key, err)
 	}
-	defer s.pool.Put(conn)
-	return s.CreateWithConn(ctx, conn, key, obj, metaOut, 0)
+	defer putConn()
+	return mapCancellation(ctx, s.CreateWithConn(ctx, conn, key, obj, metaOut, 0))
 }
 
 func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key string, obj, metaOut runtime.Object, _ uint64) error {
@@ -440,8 +574,16 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 			return err
 		}
 	}
-	// save object
-	if err := s.saveObject(conn, key, obj, metaOut, ""); err != nil {
+	// save object; a processor that maintains auxiliary SQL rows for the
+	// object (a part's time-series row) commits them inside the SAME
+	// savepoint, so the object can never exist without its rows (DURESS.md
+	// row 8: a part without a time-series row is invisible to consolidation
+	// and expiry forever, and the client's retry dies on KeyExists).
+	var preCommit func(*sqlite.Conn) error
+	if pc, ok := s.processor.(PreCommitProcessor); ok {
+		preCommit = func(c *sqlite.Conn) error { return pc.PreCommitSQL(ctx, c, obj) }
+	}
+	if err := s.saveObject(ctx, conn, key, obj, metaOut, "", preCommit); err != nil {
 		logger.L().Ctx(ctx).Error("Create - save object failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
@@ -460,14 +602,12 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, putConn, err := s.takeConn(ctx)
 	if err != nil {
 		return newContentionTimeoutError("delete", key, err)
 	}
-	defer s.pool.Put(conn)
-	return s.DeleteWithConn(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+	defer putConn()
+	return mapCancellation(ctx, s.DeleteWithConn(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{}))
 }
 
 func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
@@ -491,24 +631,51 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
 }
 
+// delete removes metadata, time-series rows and the payload file as ONE unit:
+// SQL runs in a savepoint under the write gate and the payload removal happens
+// inside it, so a failure on any step rolls the SQL back and leaves the object
+// fully intact (DURESS.md row 9 — the previous code logged-and-continued on a
+// failed metadata delete while removing the payload regardless, leaving LIST
+// ghosts that GET could not see).
 func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	p := filepath.Join(s.root, key)
-	// delete metadata in SQLite
-	err := DeleteMetadata(conn, key, metaOut)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
+	gateCtx, gateCancel := context.WithTimeout(ctx, lockTimeout)
+	defer gateCancel()
+	releaseGate, gerr := gateForPool(s.pool).acquire(gateCtx, conn)
+	if gerr != nil {
+		return newContentionTimeoutError("delete", key, gerr)
 	}
-	// delete payload file
-	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
-		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
+	defer releaseGate()
+	if cerr := ctx.Err(); cerr != nil {
+		return cerr
 	}
-	// delete time series entries if this is a containerprofile
-	_, _, kind, _, _, _ := K8sPathToKeys(key)
-	if IsContainerProfileKind(kind) {
-		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
-			logger.L().Ctx(ctx).Error("Delete - delete time series entries failed", helpers.Error(err), helpers.String("key", key))
-			return fmt.Errorf("delete time series entries: %w", err)
+	// Same rationale as saveObject: the savepoint spans a payload removal no
+	// ROLLBACK can undo, so the short commit section is not interruptible.
+	oldInterrupt := conn.SetInterrupt(nil)
+	defer conn.SetInterrupt(oldInterrupt)
+	release := sqlitex.Save(conn)
+	err := func() error {
+		if merr := DeleteMetadata(conn, key, metaOut); merr != nil {
+			return fmt.Errorf("delete metadata: %w", merr)
 		}
+		_, _, kind, _, _, _ := K8sPathToKeys(key)
+		if IsContainerProfileKind(kind) {
+			if terr := DeleteTimeSeriesContainerEntries(conn, key); terr != nil {
+				return fmt.Errorf("delete time series entries: %w", terr)
+			}
+		}
+		if ferr := s.appFs.Remove(makePayloadPath(p)); ferr != nil && !errors.Is(ferr, afero.ErrFileNotFound) && !os.IsNotExist(ferr) {
+			return fmt.Errorf("remove payload: %w", ferr)
+		}
+		return nil
+	}()
+	release(&err)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("Delete - rolled back", helpers.Error(err), helpers.String("key", key))
+		return err
 	}
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
@@ -546,14 +713,12 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, putConn, err := s.takeConn(ctx)
 	if err != nil {
 		return newContentionTimeoutError("get", key, err)
 	}
-	defer s.pool.Put(conn)
-	return s.GetWithConn(ctx, conn, key, opts, objPtr)
+	defer putConn()
+	return mapCancellation(ctx, s.GetWithConn(ctx, conn, key, opts, objPtr))
 }
 
 func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.GetOptions, objPtr runtime.Object) error {
@@ -631,7 +796,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
 			// file not found, delete corresponding metadata
-			_ = DeleteMetadata(conn, key, nil)
+			s.gatedDeleteMetadata(ctx, conn, key)
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {
@@ -705,7 +870,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 
 	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 		// irrecoverable error, delete corresponding data
-		_ = DeleteMetadata(conn, key, nil)
+		s.gatedDeleteMetadata(ctx, conn, key)
 		_ = s.appFs.Remove(makePayloadPath(p))
 		logger.L().Ctx(ctx).Error("Get - gob error, treating as corrupted and removing files", helpers.Error(err), helpers.String("key", key))
 		if opts.IgnoreNotFound {
@@ -755,7 +920,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 		}
 		logger.L().Ctx(ctx).Error("Get - migration tool failed", helpers.Error(runErr), helpers.String("stderr", stderr.String()), helpers.String("key", key))
 		// If migration tool fails, treat as corrupted and delete
-		_ = DeleteMetadata(conn, key, nil)
+		s.gatedDeleteMetadata(ctx, conn, key)
 		_ = s.appFs.Remove(makePayloadPath(path))
 		if opts.IgnoreNotFound {
 			return runtime.SetZeroValue(objPtr)
@@ -772,7 +937,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 
 	logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
 
-	if saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+	if saveErr := s.saveObject(ctx, conn, key, objPtr, nil, "", nil); saveErr != nil {
 		logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
 	} else {
 		logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
@@ -789,14 +954,12 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, putConn, err := s.takeConn(ctx)
 	if err != nil {
 		return newContentionTimeoutError("list", key, err)
 	}
-	defer s.pool.Put(conn)
-	return s.GetListWithConn(ctx, conn, key, opts, listObj)
+	defer putConn()
+	return mapCancellation(ctx, s.GetListWithConn(ctx, conn, key, opts, listObj))
 }
 
 func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
@@ -1001,14 +1164,12 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 func (s *StorageImpl) GuaranteedUpdate(
 	ctx context.Context, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, putConn, err := s.takeConn(ctx)
 	if err != nil {
 		return newContentionTimeoutError("update", key, err)
 	}
-	defer s.pool.Put(conn)
-	return s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "")
+	defer putConn()
+	return mapCancellation(ctx, s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, ""))
 }
 
 func (s *StorageImpl) GuaranteedUpdateWithConn(
@@ -1017,20 +1178,26 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
-	beforeLock := time.Now()
-	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
-	defer lockCancel()
-	err := s.locks.Lock(lockCtx, key)
-	spanLock.End()
-	if err != nil {
-		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
-		return newContentionTimeoutError("update", key, err)
-	}
-	defer s.locks.Unlock(key)
-	lockDuration := time.Since(beforeLock)
-	if lockDuration > time.Second {
-		logger.L().Debug("GuaranteedUpdate/", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+	// The consolidation transaction already holds this key's write lock (and
+	// the write gate) when it saves the consolidated profile; re-acquiring
+	// would self-deadlock (lock ordering: per-key lock → gate, never the
+	// reverse).
+	if held, _ := ctx.Value(lockHeldCtxKey).(string); held != key {
+		_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+		beforeLock := time.Now()
+		lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+		defer lockCancel()
+		err := s.locks.Lock(lockCtx, key)
+		spanLock.End()
+		if err != nil {
+			logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
+			return newContentionTimeoutError("update", key, err)
+		}
+		defer s.locks.Unlock(key)
+		lockDuration := time.Since(beforeLock)
+		if lockDuration > time.Second {
+			logger.L().Debug("GuaranteedUpdate/", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+		}
 	}
 
 	// key preparation is skipped
@@ -1168,7 +1335,7 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// save to disk and fill into metaOut
-		if err := s.saveObject(conn, key, ret, metaOut, checksum); err != nil {
+		if err := s.saveObject(ctx, conn, key, ret, metaOut, checksum, nil); err != nil {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
 		}
@@ -1181,13 +1348,11 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 // Count returns number of different entries under the key (generally being path prefix).
 func (s *StorageImpl) Count(key string) (int64, error) {
 	logger.L().Debug("Custom storage count", helpers.String("key", key))
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, putConn, err := s.takeConn(context.Background())
 	if err != nil {
 		return 0, newContentionTimeoutError("count", key, err)
 	}
-	defer s.pool.Put(conn)
+	defer putConn()
 	return countMetadata(conn, key)
 }
 
@@ -1307,14 +1472,12 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			logger.L().Ctx(ctx).Info("appendGobObjectFromFile - external migration successful", helpers.String("path", path))
 
 			// Write modern format back to disk to finish migration
-			poolCtx, cancel := poolContext()
-			defer cancel()
-			conn, err := s.pool.Take(poolCtx)
+			conn, putConn, err := s.takeConn(ctx)
 			if err != nil {
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to take connection for migration save", helpers.Error(err), helpers.String("path", path))
 			} else {
-				defer s.pool.Put(conn)
-				if saveErr := s.saveObject(conn, key, obj, nil, ""); saveErr != nil {
+				defer putConn()
+				if saveErr := s.saveObject(ctx, conn, key, obj, nil, "", nil); saveErr != nil {
 					logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("path", path))
 				} else {
 					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - successfully migrated object to modern format", helpers.String("path", path))

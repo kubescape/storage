@@ -92,7 +92,7 @@ func TestFileSystemStorageWatchReturnsDistinctWatchers(t *testing.T) {
 			got2, _ := s.Watch(context.TODO(), tt.args.key, tt.args.opts)
 			got2chan := got2.ResultChan()
 
-			assert.NotEqual(t, got1, got2, "Should not return the same watcher object")
+			assert.NotSame(t, got1, got2, "Should not return the same watcher object")
 			assert.NotEqual(t, got1chan, got2chan, "Channels from the watches should not be the same")
 		})
 	}
