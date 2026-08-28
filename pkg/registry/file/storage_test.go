@@ -763,7 +763,7 @@ func TestStorageImpl_PoolContentionReturnsServerTimeout(t *testing.T) {
 	poolTimeout = 10 * time.Millisecond
 	defer func() { poolTimeout = old }()
 
-	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1)
+	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1, 0)
 	require.NotNil(t, pool)
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
@@ -789,6 +789,23 @@ func TestStorageImpl_PoolContentionReturnsServerTimeout(t *testing.T) {
 	assert.Equal(t, int32(http.StatusInternalServerError), status.Code)
 	require.NotNil(t, status.Details)
 	assert.EqualValues(t, 1, status.Details.RetryAfterSeconds)
+}
+
+// TestSetPoolTimeout verifies the config-driven setter mirrors NewPool's fallback
+// convention: a positive duration is applied verbatim, and a non-positive one resets
+// poolTimeout to DefaultPoolTimeout rather than being applied literally.
+func TestSetPoolTimeout(t *testing.T) {
+	old := poolTimeout
+	defer func() { poolTimeout = old }()
+
+	SetPoolTimeout(250 * time.Millisecond)
+	assert.Equal(t, 250*time.Millisecond, poolTimeout)
+
+	SetPoolTimeout(0)
+	assert.Equal(t, DefaultPoolTimeout, poolTimeout)
+
+	SetPoolTimeout(-time.Second)
+	assert.Equal(t, DefaultPoolTimeout, poolTimeout)
 }
 
 func TestStorageImpl_GetList_LabelSelectorWithPagination(t *testing.T) {

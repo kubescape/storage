@@ -99,7 +99,8 @@ func main() {
 
 	// setup storage components
 	osFs := afero.NewOsFs()
-	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), file.DefaultPoolSize)
+	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), cfg.SqlitePoolSize, cfg.SqliteBusyTimeout)
+	file.SetPoolTimeout(cfg.PoolTimeout)
 
 	// setup watcher
 	watchDispatcher := file.NewWatchDispatcher()

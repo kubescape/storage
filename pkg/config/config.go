@@ -31,6 +31,23 @@ type Config struct {
 	TlsServerCertFile             string             `mapstructure:"tlsServerCertFile"`
 	TlsServerKeyFile              string             `mapstructure:"tlsServerKeyFile"`
 
+	// SqlitePoolSize is the capacity of the SQLite connection pool. Defaults
+	// to file.DefaultPoolSize (10) when unset. This is a cheap, reversible
+	// tuning knob for Phase 0 of the storage-locking investigation (see
+	// docs/features/storage-lock-pool-metrics.md) — it does not change any
+	// lock/connection acquisition ordering.
+	SqlitePoolSize int `mapstructure:"sqlitePoolSize"`
+	// SqliteBusyTimeout is the busy-timeout applied to every pooled SQLite
+	// connection. Defaults to file.DefaultBusyTimeout (60s) when unset.
+	SqliteBusyTimeout time.Duration `mapstructure:"sqliteBusyTimeout"`
+	// PoolTimeout bounds how long a caller blocks in pool.Take() waiting for a free
+	// connection from the SQLite connection pool, before failing fast with a
+	// ServerTimeout+Retry-After signal. Defaults to file.DefaultPoolTimeout (5s) when
+	// unset. This is distinct from SqliteBusyTimeout, which governs SQLite's own
+	// internal busy-handler on a single already-acquired connection. See
+	// docs/features/storage-lock-pool-metrics.md.
+	PoolTimeout time.Duration `mapstructure:"poolTimeout"`
+
 	// New fields for per-kind queue/worker/object size config
 	KindQueues           map[string]KindQueueConfig `mapstructure:"kindQueues"`
 	DefaultQueueLength   int                        `mapstructure:"defaultQueueLength"`
@@ -64,6 +81,15 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("queueTimeoutPrint", false)
 	v.SetDefault("queueTimeout", 60)
 	v.SetDefault("queueProcessingStatsPrint", false)
+	// Keep in sync with file.DefaultPoolSize / file.DefaultBusyTimeout
+	// (pkg/registry/file/sqlite.go) — these are the values already hardcoded
+	// there today; making them config-driven must be a no-op by default.
+	v.SetDefault("sqlitePoolSize", 10)
+	v.SetDefault("sqliteBusyTimeout", 60*time.Second)
+	// Keep in sync with file.DefaultPoolTimeout (pkg/registry/file/storage.go) — this is
+	// the value already hardcoded there today; making it config-driven must be a no-op
+	// by default.
+	v.SetDefault("poolTimeout", 5*time.Second)
 	v.SetDefault("kindQueues", map[string]KindQueueConfig{
 		"containerprofiles": {
 			QueueLength:   50,
