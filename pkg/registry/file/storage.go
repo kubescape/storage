@@ -249,11 +249,22 @@ func (s *StorageImpl) keyFromPath(path string) string {
 	return strings.TrimPrefix(strings.TrimSuffix(path, extension), s.root)
 }
 
-func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string) error {
+// saveObject persists obj (payload + SQLite metadata row) and, on success,
+// fills metaOut with the full post-mutation obj (resourceVersion bumped,
+// managedFields cleared, checksum annotation set) -- metaOut is the REST
+// layer's "out" parameter (e.g. the object returned from Create/Update), so
+// it must carry the same Spec/etc. that was actually persisted, not just the
+// metadata subset written to SQLite.
+//
+// It also returns a metadata-only copy (ObjectMeta/SchemaVersion, no Spec)
+// for callers to use as the lightweight watch-event object: watchers created
+// without ResourceVersionFullSpec receive this reduced object instead of the
+// full one, to avoid bloating watch traffic with large Spec payloads.
+func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string) (runtime.Object, error) {
 	// increment resourceVersion
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
 		if err := s.versioner.UpdateObject(obj, version+1); err != nil {
-			return fmt.Errorf("set resourceVersion: %w", err)
+			return nil, fmt.Errorf("set resourceVersion: %w", err)
 		}
 	}
 	// remove managed fields
@@ -266,7 +277,7 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 		var err error
 		checksum, err = s.CalculateChecksum(obj)
 		if err != nil {
-			return fmt.Errorf("calculate checksum: %w", err)
+			return nil, fmt.Errorf("calculate checksum: %w", err)
 		}
 	}
 	// add checksum to annotations
@@ -278,7 +289,7 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	// prepare path
 	p := filepath.Join(s.root, key)
 	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
+		return nil, fmt.Errorf("mkdir: %w", err)
 	}
 	// Atomic write order (issue #44): stage the payload in a temp file, commit
 	// the metadata, and only then rename the payload into place. A failing
@@ -290,7 +301,7 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	tmpPayloadPath := finalPayloadPath + ".t"
 	payloadFile, err := s.openPayloadFileWithFallback(tmpPayloadPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("open payload file: %w", err)
+		return nil, fmt.Errorf("open payload file: %w", err)
 	}
 	directIOWriter := NewDirectIOWriter(payloadFile)
 
@@ -299,17 +310,17 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	if err := payloadEncoder.Encode(obj); err != nil {
 		_ = directIOWriter.Close()
 		_ = payloadFile.Close()
-		return fmt.Errorf("encode payload: %w", err)
+		return nil, fmt.Errorf("encode payload: %w", err)
 	}
 	if err := directIOWriter.Close(); err != nil {
 		_ = payloadFile.Close()
-		return fmt.Errorf("close directIOWriter: %w", err)
+		return nil, fmt.Errorf("close directIOWriter: %w", err)
 	}
 	if err := payloadFile.Close(); err != nil {
-		return fmt.Errorf("close payload file: %w", err)
+		return nil, fmt.Errorf("close payload file: %w", err)
 	}
 
-	// extract metadata
+	// extract metadata (for the SQLite row and as the lightweight watch-event object)
 	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
 	// Metadata and payload visibility commit together: the metadata write runs
 	// in a savepoint that is rolled back if the payload rename fails, so
@@ -336,19 +347,29 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	release(&err)
 	if err != nil {
 		_ = s.appFs.Remove(tmpPayloadPath)
-		return err
+		return nil, err
 	}
-	// eventually fill metaOut
+	// eventually fill metaOut with the full persisted object (Spec included) --
+	// see the doc comment above for why this must NOT be the metadata-only copy.
+	//
+	// This is a shallow struct copy: metaOut and obj end up sharing any
+	// reference-typed data reachable from Spec (slices, maps, pointers), not
+	// just ObjectMeta as before. That's harmless as long as nothing mutates
+	// either in place afterward expecting the other to stay untouched -- every
+	// current caller either doesn't touch obj again after this point, or only
+	// reads it (see saveObject's callers and WatchDispatcher.notify, which
+	// fans the same obj/metaOut references out to multiple watchers without
+	// copying). If a future caller ever needs to mutate one post-save, it
+	// must deep-copy first.
 	if metaOut != nil {
 		val := reflect.ValueOf(metaOut)
 		if val.Kind() == reflect.Ptr {
 			// Dereference the pointer
 			val = val.Elem()
 		}
-		// metadata obj into metaOut
-		val.Set(reflect.ValueOf(metadata).Elem())
+		val.Set(reflect.ValueOf(obj).Elem())
 	}
-	return nil
+	return metadata, nil
 }
 
 // Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
@@ -415,7 +436,8 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		}
 	}
 	// save object
-	if err := s.saveObject(conn, key, obj, metaOut, ""); err != nil {
+	metaEvent, err := s.saveObject(conn, key, obj, metaOut, "")
+	if err != nil {
 		logger.L().Ctx(ctx).Error("Create - save object failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
@@ -424,7 +446,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
 	// publish event to watchers
-	s.watchDispatcher.Added(key, metaOut, obj)
+	s.watchDispatcher.Added(key, metaEvent, obj)
 	return nil
 }
 
@@ -500,14 +522,13 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	_, _, _, _, namespace, _ := K8sPathToKeys(key)
-	if namespace != "" {
-		// FIXME find an alternative to fix NS deletion
-		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
-		// Return an idle (open, event-free) watch instead of a pre-closed one:
-		// a pre-closed channel sends reflectors into a "very short watch" tight retry loop.
-		return newIdleWatch(ctx), nil
-	}
+	// Namespace-scoped watches used to be rejected here (returning an idle,
+	// event-free watch instead) to work around namespaces getting stuck in
+	// Terminating -- but WatchDispatcher.Register/notify (watch.go) match
+	// purely on path-prefix strings and have never treated a namespaced key
+	// any differently from a cluster-scoped one, so a namespaced watch is
+	// dispatched through the exact same code already proven correct for
+	// cluster-scoped resources. See docs/features/namespace-watch-enabled.md.
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
 	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
 	s.watchDispatcher.Register(key, nw)
@@ -746,7 +767,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 
 	logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
 
-	if saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+	if _, saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
 		logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
 	} else {
 		logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
@@ -1152,12 +1173,13 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// save to disk and fill into metaOut
-		if err := s.saveObject(conn, key, ret, metaOut, checksum); err != nil {
+		metaEvent, err := s.saveObject(conn, key, ret, metaOut, checksum)
+		if err != nil {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
 		}
 		// Only successful updates should produce modification events
-		s.watchDispatcher.Modified(key, metaOut, ret)
+		s.watchDispatcher.Modified(key, metaEvent, ret)
 		return nil
 	}
 }
@@ -1298,7 +1320,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to take connection for migration save", helpers.Error(err), helpers.String("path", path))
 			} else {
 				defer s.pool.Put(conn)
-				if saveErr := s.saveObject(conn, key, obj, nil, ""); saveErr != nil {
+				if _, saveErr := s.saveObject(conn, key, obj, nil, ""); saveErr != nil {
 					logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("path", path))
 				} else {
 					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - successfully migrated object to modern format", helpers.String("path", path))
