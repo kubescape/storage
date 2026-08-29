@@ -991,6 +991,12 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+	// add conn to context now (rather than only once tryUpdate has succeeded,
+	// as before): the "before" snapshot's PreSave call (below, taken ahead of
+	// tryUpdate) needs the same conn-bearing context that the "after" (ret)
+	// PreSave call gets, or a processor that reads the connection out of ctx
+	// (e.g. ContainerProfileProcessor.PreSave) panics on the orig snapshot.
+	ctx = context.WithValue(ctx, connKey, conn)
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
@@ -1069,6 +1075,15 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			continue
 		}
 
+		// Snapshot the "before" state now, before tryUpdate runs. tryUpdate may
+		// mutate origState.obj in place and return that same reference (this is
+		// exactly what genericregistry.Store's own finalizer-delete tryUpdate
+		// does, via markAsDeleting) -- capturing this snapshot after tryUpdate
+		// ran would observe the already-mutated state, making the no-op-update
+		// check below spuriously always-equal and silently dropping the write.
+		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
+		_ = s.processor.PreSave(ctx, orig)
+
 		// run tryUpdate
 		ret, _, err := tryUpdate(origState.obj, storage.ResponseMeta{})
 		if err != nil {
@@ -1107,9 +1122,6 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			continue
 		}
 
-		// add conn to context
-		ctx = context.WithValue(ctx, connKey, conn)
-
 		// call processor on object to be saved
 		if err := s.processor.PreSave(ctx, ret); err != nil {
 			if errors.Is(err, ObjectTooLargeError) {
@@ -1132,8 +1144,6 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// check if the object is the same as the original
-		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
-		_ = s.processor.PreSave(ctx, orig)
 		if reflect.DeepEqual(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object

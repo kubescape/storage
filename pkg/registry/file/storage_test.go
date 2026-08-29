@@ -608,6 +608,58 @@ func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
 	}
 }
 
+// TestStorageImpl_GuaranteedUpdate_MutateInPlacePersists is the regression
+// test for the GuaranteedUpdateWithConn "before" snapshot bug: a tryUpdate
+// closure that mutates its `existing` argument in place and returns that
+// same object reference -- exactly what genericregistry.Store's own
+// finalizer-delete tryUpdate does (vendor store.go's markAsDeleting,
+// followed by `return existing, nil`) -- used to fool the no-op-update
+// detection. The "before" snapshot (`orig := origState.obj.DeepCopyObject()`)
+// used to be taken AFTER tryUpdate ran, so it observed the already-mutated
+// state and reflect.DeepEqual(orig, ret) was spuriously true, silently
+// skipping saveObject. The fix takes the snapshot before tryUpdate runs, on
+// every retry-loop iteration. This test mutates the existing object in place
+// (mirroring a finalizer-based Delete setting deletionTimestamp) and confirms
+// a fresh Get genuinely observes the change.
+func TestStorageImpl_GuaranteedUpdate_MutateInPlacePersists(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/mutate-in-place"
+	original := &v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{
+			Name:       "mutate-in-place",
+			Finalizers: []string{"test/finalizer"},
+		},
+	}
+	require.NoError(t, s.Create(ctx, key, original.DeepCopyObject(), nil, 0))
+
+	now := v1.Now()
+	err := s.GuaranteedUpdate(ctx, key, &v1beta1.SBOMSyft{}, false, nil,
+		func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+			// Mutate `input` (== origState.obj) in place and return the SAME
+			// reference, exactly like genericregistry.Store's markAsDeleting-based
+			// finalizer-delete tryUpdate does.
+			obj := input.(*v1beta1.SBOMSyft)
+			obj.DeletionTimestamp = &now
+			return obj, nil, nil
+		}, nil)
+	require.NoError(t, err)
+
+	fresh := &v1beta1.SBOMSyft{}
+	require.NoError(t, s.Get(ctx, key, storage.GetOptions{}, fresh))
+	require.NotNil(t, fresh.DeletionTimestamp, "mutate-in-place update must be genuinely persisted, not silently dropped as a spurious no-op")
+	assert.True(t, now.Time.Equal(fresh.DeletionTimestamp.Time))
+}
+
 func TestStorageImpl_Versioner(t *testing.T) {
 	tests := []struct {
 		name string
