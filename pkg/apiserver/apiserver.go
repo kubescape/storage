@@ -17,6 +17,8 @@ limitations under the License.
 package apiserver
 
 import (
+	"fmt"
+
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/config"
@@ -190,6 +192,35 @@ func (c completedConfig) New() (*WardleServer, error) {
 		"workloadconfigurationscans":          ep(wcsstorage.NewREST),
 		"workloadconfigurationscansummaries":  ep(wcssumstorage.NewREST),
 	}
+	// Phase 4 (per-resource rest.Storage migration, see
+	// .omc/plans/storage-locking-rewrite.md): gated, no-op-by-default swap of
+	// knownservers' REST implementation for the hand-written CustomREST. The
+	// OLD genericregistry.Store-based knownserver.NewREST above stays the
+	// default and remains the reference implementation for differential
+	// testing regardless of this flag.
+	if c.ExtraConfig.StorageConfig.CustomKnownServersRestEnabled {
+		customKnownServersRest, err := knownserver.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for knownservers due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["knownservers"] = customKnownServersRest
+	}
+
+	// Phase 4 (per-resource rest.Storage migration, see
+	// .omc/plans/storage-locking-rewrite.md): gated, no-op-by-default swap of
+	// openvulnerabilityexchangecontainers' REST implementation for the
+	// hand-written CustomREST. The OLD genericregistry.Store-based
+	// openvulnerabilityexchange.NewREST above stays the default and remains
+	// the reference implementation for differential testing regardless of
+	// this flag.
+	if c.ExtraConfig.StorageConfig.CustomOpenVulnerabilityExchangeRestEnabled {
+		customOpenVulnerabilityExchangeRest, err := openvulnerabilityexchange.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for openvulnerabilityexchangecontainers due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["openvulnerabilityexchangecontainers"] = customOpenVulnerabilityExchangeRest
+	}
+
 	if c.ExtraConfig.StorageConfig.DisableVirtualCRDs {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "configurationscansummaries")
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "generatednetworkpolicies")

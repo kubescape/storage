@@ -56,6 +56,32 @@ type Config struct {
 	// validated for production use.
 	SingleWriterEnabled bool `mapstructure:"singleWriterEnabled"`
 
+	// CustomKnownServersRestEnabled gates the hand-written rest.Storage
+	// implementation for the knownservers resource (see
+	// pkg/registry/softwarecomposition/knownservers/custom_rest.go), built as
+	// Phase 4's first per-resource migration off genericregistry.Store (see
+	// docs/features/generic-rest-storage-phase4.md). Defaults to false: when unset,
+	// pkg/apiserver/apiserver.go registers knownservers via the OLD
+	// genericregistry.Store-based knownservers.NewREST, exactly as before
+	// this flag existed. The old implementation is kept alive as the
+	// reference implementation for differential testing regardless of this
+	// flag's value.
+	CustomKnownServersRestEnabled bool `mapstructure:"customKnownServersRestEnabled"`
+
+	// CustomOpenVulnerabilityExchangeRestEnabled gates the hand-written
+	// rest.Storage implementation for the openvulnerabilityexchangecontainers
+	// resource (see
+	// pkg/registry/softwarecomposition/openvulnerabilityexchange/custom_rest.go),
+	// built as Phase 4's second per-resource migration off
+	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
+	// Defaults to false: when unset, pkg/apiserver/apiserver.go registers
+	// openvulnerabilityexchangecontainers via the OLD
+	// genericregistry.Store-based openvulnerabilityexchange.NewREST, exactly
+	// as before this flag existed. The old implementation is kept alive as
+	// the reference implementation for differential testing regardless of
+	// this flag's value.
+	CustomOpenVulnerabilityExchangeRestEnabled bool `mapstructure:"customOpenVulnerabilityExchangeRestEnabled"`
+
 	// New fields for per-kind queue/worker/object size config
 	KindQueues           map[string]KindQueueConfig `mapstructure:"kindQueues"`
 	DefaultQueueLength   int                        `mapstructure:"defaultQueueLength"`
@@ -82,6 +108,14 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)
+	// The custom knownservers rest.Storage is a Phase 4 spike/prototype, not
+	// yet validated for production use; the OLD genericregistry.Store-based
+	// implementation remains the default.
+	v.SetDefault("customKnownServersRestEnabled", false)
+	// The custom openvulnerabilityexchange rest.Storage is a Phase 4
+	// spike/prototype, not yet validated for production use; the OLD
+	// genericregistry.Store-based implementation remains the default.
+	v.SetDefault("customOpenVulnerabilityExchangeRestEnabled", false)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
 	v.SetDefault("defaultMaxObjectSize", 400000)
