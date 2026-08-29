@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -913,6 +914,237 @@ func TestStorageImpl_PoolContentionReturnsServerTimeout(t *testing.T) {
 	assert.Equal(t, int32(http.StatusInternalServerError), status.Code)
 	require.NotNil(t, status.Details)
 	assert.EqualValues(t, 1, status.Details.RetryAfterSeconds)
+}
+
+// TestStorageImpl_Get_StalledLockWaitDoesNotPinPoolConnection is RC1's dedicated
+// regression test (see .omc/plans/storage-locking-rewrite.md, Phase 1 step 1):
+// Get used to take a pool connection *before* acquiring the per-key lock, so a
+// stalled lock wait held that connection idle for the whole wait. With a
+// size-1 pool, this proves the opposite: while Get is genuinely blocked
+// waiting for a contended key lock, the pool's only connection remains free
+// for an unrelated caller to take.
+func TestStorageImpl_Get_StalledLockWaitDoesNotPinPoolConnection(t *testing.T) {
+	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1)
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
+
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
+
+	// Hold the write lock on key, as a concurrent writer would, so Get's
+	// RLock call genuinely blocks rather than succeeding immediately.
+	require.NoError(t, s.locks.Lock(context.Background(), key))
+
+	getDone := make(chan error, 1)
+	go func() {
+		getDone <- s.Get(context.Background(), key, storage.GetOptions{}, &v1beta1.SBOMSyft{})
+	}()
+
+	// Give Get time to reach and genuinely block on the lock wait.
+	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-getDone:
+		t.Fatal("Get returned before the key lock was released -- it should still be blocked on the lock wait")
+	default:
+	}
+
+	// The pool's only connection must still be available: a stalled Get
+	// lock-wait must not have taken it first.
+	takeCtx, takeCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer takeCancel()
+	conn, err := pool.Take(takeCtx)
+	require.NoError(t, err, "pool connection must remain available while Get is blocked waiting for a contended key lock")
+	pool.Put(conn)
+
+	// Release the lock and let the blocked Get complete.
+	s.locks.Unlock(key)
+	select {
+	case err := <-getDone:
+		assert.True(t, storage.IsNotFound(err), "expected NotFound for a key that was never created, got %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Get did not complete after the key lock was released")
+	}
+}
+
+// installFakeMigrationTool points migrationBinaryPath (execMigrationTool's
+// binary, used by the RC3 unlocked-exec path only) at a fixture shell script
+// for the duration of the test, restoring the original afterward. The script
+// sleeps briefly -- long enough for a test to perform a concurrent operation
+// during the exec's unlocked window -- before either failing (if
+// MIGRATION_FAKE_FAIL is set) or emitting the contents of
+// MIGRATION_FAKE_OUTPUT_FILE to stdout.
+func installFakeMigrationTool(t *testing.T) {
+	t.Helper()
+	scriptPath := filepath.Join(t.TempDir(), "fake-migration.sh")
+	script := "#!/bin/sh\nsleep 0.3\nif [ -n \"$MIGRATION_FAKE_FAIL\" ]; then\n  echo \"fake migration failure\" >&2\n  exit 1\nfi\ncat \"$MIGRATION_FAKE_OUTPUT_FILE\"\n"
+	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0755))
+
+	old := migrationBinaryPath
+	migrationBinaryPath = scriptPath
+	t.Cleanup(func() { migrationBinaryPath = old })
+}
+
+// gobPayloadNeedingMigration returns bytes that gob-encode successfully but
+// fail with a "gob: wrong type" error when decoded into *v1beta1.SBOMSyft --
+// exactly the trigger get() uses to detect an object needing external
+// migration (a nested scalar type mismatch on a same-named field triggers
+// gob's per-field "wrong type" error; a struct-vs-non-struct mismatch at the
+// top level instead triggers a different, non-matching "type mismatch"
+// message, so the mismatch must be one level deep).
+func gobPayloadNeedingMigration(t *testing.T) []byte {
+	t.Helper()
+	type fakeMeta struct {
+		Name int // real ObjectMeta.Name is a string -- scalar type mismatch
+	}
+	type fakeTop struct {
+		ObjectMeta fakeMeta
+	}
+	var buf bytes.Buffer
+	require.NoError(t, gob.NewEncoder(&buf).Encode(fakeTop{ObjectMeta: fakeMeta{Name: 42}}))
+	return buf.Bytes()
+}
+
+// TestStorageImpl_MigrateObjectUnlocked_ConcurrentWriteWins is RC3's first
+// dedicated regression test (N11, see .omc/plans/storage-locking-rewrite.md,
+// Phase 1 step 3): a concurrent write landing during migration's unlocked
+// exec window must win over the migration's own (now-stale) save branch,
+// not be silently clobbered by it.
+func TestStorageImpl_MigrateObjectUnlocked_ConcurrentWriteWins(t *testing.T) {
+	installFakeMigrationTool(t)
+
+	fs := afero.NewMemMapFs()
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
+
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
+	require.NoError(t, afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, key), gobPayloadNeedingMigration(t), 0644))
+
+	outFile := filepath.Join(t.TempDir(), "migrated.json")
+	migratedJSON, err := json.Marshal(&v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{Name: "toto"},
+		Spec:       v1beta1.SBOMSyftSpec{Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "stale-migrated"}}},
+	})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(outFile, migratedJSON, 0644))
+	t.Setenv("MIGRATION_FAKE_OUTPUT_FILE", outFile)
+
+	getDone := make(chan error, 1)
+	out := &v1beta1.SBOMSyft{}
+	go func() {
+		getDone <- s.Get(context.Background(), key, storage.GetOptions{}, out)
+	}()
+
+	// Land inside the fake tool's sleep window, while the write lock is
+	// released for the exec: acquire it, write a new valid object directly
+	// (simulating a concurrent writer's full Create/Update cycle), then
+	// release it.
+	time.Sleep(100 * time.Millisecond)
+	lockAcquired := make(chan struct{})
+	go func() {
+		require.NoError(t, s.locks.Lock(context.Background(), key))
+		close(lockAcquired)
+		conn, connErr := pool.Take(context.Background())
+		require.NoError(t, connErr)
+		newObj := &v1beta1.SBOMSyft{
+			ObjectMeta: v1.ObjectMeta{Name: "toto"},
+			Spec:       v1beta1.SBOMSyftSpec{Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "concurrent-writer"}}},
+		}
+		require.NoError(t, s.saveObject(conn, key, newObj, nil, ""))
+		pool.Put(conn)
+		s.locks.Unlock(key)
+	}()
+	select {
+	case <-lockAcquired:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("concurrent writer could not acquire the key lock -- migration did not release it during the exec")
+	}
+
+	select {
+	case err := <-getDone:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Get did not complete")
+	}
+
+	assert.Equal(t, "concurrent-writer", out.Spec.Metadata.Tool.Name, "Get must return the concurrent writer's object, not the stale migration result")
+
+	onDisk := &v1beta1.SBOMSyft{}
+	require.NoError(t, s.Get(context.Background(), key, storage.GetOptions{}, onDisk))
+	assert.Equal(t, "concurrent-writer", onDisk.Spec.Metadata.Tool.Name, "the migration save branch must not have overwritten the concurrent writer's object on disk")
+}
+
+// TestStorageImpl_MigrateObjectUnlocked_ConcurrentDeleteNotResurrected is
+// RC3's second dedicated regression test (N11): a concurrent Delete landing
+// during migration's unlocked exec window must not be resurrected by the
+// migration's own (stale) save branch once the lock is re-acquired.
+func TestStorageImpl_MigrateObjectUnlocked_ConcurrentDeleteNotResurrected(t *testing.T) {
+	installFakeMigrationTool(t)
+
+	fs := afero.NewMemMapFs()
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(fs, DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
+
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
+	require.NoError(t, afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, key), gobPayloadNeedingMigration(t), 0644))
+
+	outFile := filepath.Join(t.TempDir(), "migrated.json")
+	migratedJSON, err := json.Marshal(&v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{Name: "toto"},
+		Spec:       v1beta1.SBOMSyftSpec{Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "stale-migrated"}}},
+	})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(outFile, migratedJSON, 0644))
+	t.Setenv("MIGRATION_FAKE_OUTPUT_FILE", outFile)
+
+	getDone := make(chan error, 1)
+	out := &v1beta1.SBOMSyft{}
+	go func() {
+		getDone <- s.Get(context.Background(), key, storage.GetOptions{}, out)
+	}()
+
+	// Land inside the fake tool's sleep window, while the write lock is
+	// released for the exec: delete the key directly, simulating a
+	// concurrent Delete winning the race.
+	time.Sleep(100 * time.Millisecond)
+	deleteDone := make(chan error, 1)
+	go func() {
+		deleteDone <- s.Delete(context.Background(), key, &v1beta1.SBOMSyft{}, nil, nil, nil, storage.DeleteOptions{})
+	}()
+	select {
+	case err := <-deleteDone:
+		require.NoError(t, err, "concurrent Delete must succeed -- migration must have released the key lock during the exec")
+	case <-time.After(2 * time.Second):
+		t.Fatal("concurrent Delete did not complete -- migration may still be holding the key lock")
+	}
+
+	select {
+	case err := <-getDone:
+		assert.True(t, storage.IsNotFound(err), "expected NotFound: a concurrent Delete during migration must not be resurrected by the save branch, got %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Get did not complete")
+	}
+
+	// Confirm the object stays gone: the migration's save branch must not
+	// have resurrected it after the fact either.
+	fresh := &v1beta1.SBOMSyft{}
+	freshErr := s.Get(context.Background(), key, storage.GetOptions{}, fresh)
+	assert.True(t, storage.IsNotFound(freshErr), "object must remain deleted, got err=%v obj=%+v", freshErr, fresh)
 }
 
 func TestStorageImpl_GetList_LabelSelectorWithPagination(t *testing.T) {

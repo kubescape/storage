@@ -100,6 +100,92 @@ func newContentionTimeoutError(op, key string, err error) *apierrors.StatusError
 		op, 1)
 }
 
+// connAttemptTimeout bounds a single pool.Take attempt inside
+// acquireLockedConn's lock-then-connection retry loop. It must stay well
+// under lockTimeout so a lock can be released and retried several times
+// within the overall poolTimeout budget, rather than pinning the lock while
+// blocking indefinitely on pool.Take -- see .omc/plans/storage-locking-rewrite.md,
+// Phase 1 step 1 (RC1: connection-before-lock ordering).
+//
+// NOTE: package-level var, not const, for the same test-overridability reason
+// as lockTimeout/poolTimeout.
+var connAttemptTimeout = 250 * time.Millisecond
+
+// acquireLockedConn implements RC1's corrected lock-then-connection ordering
+// for the single-key, connection-less REST entry points (Get, Delete): it
+// acquires the per-key lock via acquire first, then attempts a pool
+// connection within a short, bounded sub-window (connAttemptTimeout). If no
+// connection is available in that window, it releases the lock (via
+// release) and retries from lock acquisition -- it never blocks
+// indefinitely on a connection while holding the lock, which is what let a
+// stalled lock wait pin an idle pool connection before this fix (previously,
+// these wrappers took a connection first and only acquired the lock inside
+// the *WithConn core, so the connection sat idle for the whole lock wait).
+//
+// The overall retry budget is ctx's own deadline -- callers must pass a
+// context derived from poolContext()/poolTimeout, not their own request
+// context, matching today's connection-acquisition budget exactly. This is
+// required, not optional: TestStorageImpl_PoolContentionReturnsServerTimeout
+// calls with context.Background() (no deadline); if the retry loop's total
+// budget were tied to the caller's own context instead, that test would hang
+// forever rather than time out. Each lock-acquisition attempt is separately
+// bounded by lockTimeout (nested under ctx, so it can only ever be shorter,
+// never longer, than the remaining overall budget) -- this keeps
+// TestStorageImpl_LockContentionReturnsServerTimeout's shrunk lockTimeout
+// still failing fast on a genuinely contended key lock.
+//
+// A retrying goroutine re-enters lock acquisition through acquire's normal
+// path on every attempt; it relies on pkg/utils/mutex.go's MapMutex.Lock
+// fast-path fix (checking pendingWriters, mirroring RLock's own check) so
+// that a rapid stream of retries here cannot barge ahead of another,
+// already-queued writer indefinitely (e.g. the consolidation path, which
+// holds a connection while blocked on the same key's write lock).
+//
+// On success, the caller owns both the lock (must call release(key)) and
+// the connection (must call s.pool.Put(conn)).
+func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acquire func(context.Context, string) error, release func(string)) (*sqlite.Conn, error) {
+	for {
+		_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+		beforeLock := time.Now()
+		lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+		lockErr := acquire(lockCtx, key)
+		lockCancel()
+		spanLock.End()
+		if lockErr != nil {
+			return nil, newContentionTimeoutError(op, key, lockErr)
+		}
+		lockDuration := time.Since(beforeLock)
+		if lockDuration > time.Second {
+			logger.L().Debug(op, helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+		}
+
+		connCtx, connCancel := context.WithTimeout(ctx, connAttemptTimeout)
+		conn, connErr := s.pool.Take(connCtx)
+		if connErr == nil {
+			// Pool.Take binds the returned conn's interrupt source to
+			// connCtx (see sqlitex.Pool.Take/sqlite.Conn.SetInterrupt) --
+			// cancelling connCtx immediately below would otherwise mark
+			// conn permanently interrupted for its entire subsequent use.
+			// Rebind to the caller's own longer-lived ctx (alive for as
+			// long as the caller holds the connection) before releasing it.
+			conn.SetInterrupt(ctx.Done())
+			connCancel()
+			return conn, nil
+		}
+		connCancel()
+
+		release(key)
+		if ctx.Err() != nil {
+			return nil, newContentionTimeoutError(op, key, connErr)
+		}
+		// Overall budget not yet exhausted: loop back to lock acquisition.
+		// connAttemptTimeout's own wait (pool.Take blocks up to its context
+		// deadline when the pool is genuinely exhausted, per
+		// sqlitemigration.Pool.Take) provides natural pacing between
+		// retries, so no additional backoff is added here.
+	}
+}
+
 // resourceFromKey extracts an approximate plural resource name from a storage key for use
 // in the error's informational Details/message; correctness rides on RetryAfterSeconds, so
 // an approximate resource string is acceptable.
@@ -455,15 +541,25 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 // If 'cachedExistingObject' is non-nil, it can be used as a suggestion about the
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
+// Delete implements RC1's lock-then-connection ordering directly (see
+// acquireLockedConn): it does not call DeleteWithConn, which keeps its own,
+// unchanged connection-then-lock internal acquisition for its direct
+// callers (none currently, but its signature/behavior is preserved as
+// documented Phase 1 scope).
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	poolCtx, cancel := poolContext()
 	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, err := s.acquireLockedConn(poolCtx, "delete", key, s.locks.Lock, s.locks.Unlock)
 	if err != nil {
-		return newContentionTimeoutError("delete", key, err)
+		return err
 	}
 	defer s.pool.Put(conn)
-	return s.DeleteWithConn(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+	defer s.locks.Unlock(key)
+
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
 }
 
 func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
@@ -540,15 +636,26 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // Treats empty responses and nil response nodes exactly like a not found error.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
+// Get implements RC1's lock-then-connection ordering directly (see
+// acquireLockedConn): it does not call GetWithConn, which keeps its own,
+// unchanged connection-then-lock internal acquisition for its direct
+// callers (the consolidation path in containerprofile_storage.go, which
+// already holds a connection before calling it -- see that fix's
+// documented exception).
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	poolCtx, cancel := poolContext()
 	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, err := s.acquireLockedConn(poolCtx, "get", key, s.locks.RLock, s.locks.RUnlock)
 	if err != nil {
-		return newContentionTimeoutError("get", key, err)
+		return err
 	}
 	defer s.pool.Put(conn)
-	return s.GetWithConn(ctx, conn, key, opts, objPtr)
+	defer s.locks.RUnlock(key)
+
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Get")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+	return s.get(ctx, conn, key, opts, objPtr, hasReadLock)
 }
 
 func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.GetOptions, objPtr runtime.Object) error {
@@ -671,7 +778,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 				}
 				return fmt.Errorf("failed to acquire write lock for migration: %w", lockErr)
 			}
-			migErr = s.migrateObject(ctx, conn, p, key, opts, objPtr)
+			migErr = s.migrateObjectUnlocked(ctx, conn, p, key, opts, objPtr)
 			s.locks.Unlock(key)
 			if rlockErr := s.locks.RLock(ctx, key); rlockErr != nil {
 				logger.L().Ctx(ctx).Error("Get - failed to restore read lock after migration", helpers.Error(rlockErr), helpers.String("key", key))
@@ -688,7 +795,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 				logger.L().Ctx(ctx).Error("Get - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("key", key))
 				return fmt.Errorf("failed to acquire write lock for migration: %w", lockErr)
 			}
-			migErr = s.migrateObject(ctx, conn, p, key, opts, objPtr)
+			migErr = s.migrateObjectUnlocked(ctx, conn, p, key, opts, objPtr)
 			s.locks.Unlock(key)
 
 		case hasWriteLock:
@@ -774,6 +881,146 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 	}
 
 	return nil
+}
+
+// tryDecodePayload attempts to gob-decode the payload file at path into
+// objPtr. It returns (true, nil) on a successful decode, (false, nil) if the
+// file opened but is still undecodable, or (false, err) if the file could
+// not even be opened -- err wraps afero.ErrFileNotFound when the file is
+// simply gone (checkable via errors.Is), distinguishing "still needs
+// migration" from "a concurrent Delete already removed it".
+func (s *StorageImpl) tryDecodePayload(path string, objPtr runtime.Object) (bool, error) {
+	f, err := s.openPayloadFileWithFallback(makePayloadPath(path), os.O_RDONLY, 0)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = f.Close() }()
+	decoder := gob.NewDecoder(NewDirectIOReader(f))
+	if decodeErr := decoder.Decode(objPtr); decodeErr != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+// migrationBinaryPath is the external migration tool invoked by
+// execMigrationTool (the hasReadLock/noLock, unlocked-exec path only --
+// migrateObject's own, unchanged exec call for the hasWriteLock path keeps
+// its hardcoded path). Package-level var, not const, so tests can point it
+// at a fixture script instead of the real /usr/bin/migration binary.
+var migrationBinaryPath = "/usr/bin/migration"
+
+// execMigrationTool runs the external migration binary against path and
+// returns its JSON output on success. A timeout is distinguished from any
+// other tool failure via errors.Is(err, context.DeadlineExceeded) on the
+// returned error, matching migrateObject's original error-handling shape.
+func execMigrationTool(ctx context.Context, path, typeName string) ([]byte, error) {
+	migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer migrationCancel()
+
+	cmd := exec.CommandContext(migrationCtx, migrationBinaryPath, "-file", makePayloadPath(path), "-type", typeName)
+	var out, stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	if runErr := cmd.Run(); runErr != nil {
+		if errors.Is(migrationCtx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("migration tool timed out: %w", migrationCtx.Err())
+		}
+		return nil, fmt.Errorf("migration tool failed (stderr=%q): %w", stderr.String(), runErr)
+	}
+	return out.Bytes(), nil
+}
+
+// migrateObjectUnlocked implements RC3's fix for get()'s hasReadLock/noLock
+// caller states (see .omc/plans/storage-locking-rewrite.md, Phase 1 step 3):
+// it releases the write lock around the migration tool's up-to-30s exec,
+// then re-acquires it and performs a three-way re-verify before committing,
+// rather than holding the write lock for the whole exec as migrateObject
+// does. This must NOT be used for the hasWriteLock caller state (reached
+// from inside GuaranteedUpdate's read-modify-write transaction): dropping a
+// lock that call didn't itself acquire would break that transaction's
+// exclusivity, since StorageImpl has no resourceVersion conflict check to
+// catch a concurrent write landing in the gap -- migrateObject stays
+// unchanged and fully locked for that path.
+//
+// The three-way re-verify (N11) distinguishes: (a) the payload now decodes
+// successfully -- a concurrent writer already handled it; objPtr holds that
+// current, valid object, and neither the save nor delete branch fires; (b)
+// the payload open fails specifically because the file no longer exists --
+// a concurrent Delete won, so this aborts without resurrecting it (neither
+// branch fires); (c) the file is present and still genuinely undecodable --
+// commit the precomputed exec outcome (save on success, delete on
+// migration-tool failure, plain error on timeout), exactly as migrateObject
+// does today.
+//
+// The caller must hold the write lock for key before calling this. It is
+// guaranteed to still hold the write lock when this returns, by any path --
+// the internal unlock/exec/relock is transparent to the caller. Re-acquiring
+// the lock after the exec uses a context detached from ctx's cancellation
+// (context.WithoutCancel) so a caller-context cancellation during the
+// (bounded, 30s) exec cannot leave this function returning without the lock
+// its caller's own unlock logic expects -- this mirrors an already-accepted
+// residual elsewhere in this file (get()'s own migration-upgrade lock
+// acquisitions use the caller's context with no lockTimeout child either).
+func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Conn, path, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+	// Fast path, still locked: another goroutine may have already migrated
+	// the object while we were waiting for the write lock.
+	if decoded, decodeErr := s.tryDecodePayload(path, objPtr); decodeErr == nil && decoded {
+		logger.L().Ctx(ctx).Info("Get - migration already completed by another thread", helpers.String("key", key))
+		return nil
+	}
+
+	typeName := "ContainerProfile"
+	if _, ok := objPtr.(*softwarecomposition.SeccompProfile); ok {
+		typeName = "SeccompProfile"
+	}
+
+	s.locks.Unlock(key)
+	migratedJSON, execErr := execMigrationTool(ctx, path, typeName)
+	if lockErr := s.locks.Lock(context.WithoutCancel(ctx), key); lockErr != nil {
+		logger.L().Ctx(ctx).Error("Get - failed to re-acquire write lock after migration exec", helpers.Error(lockErr), helpers.String("key", key))
+		return fmt.Errorf("failed to re-acquire write lock after migration exec: %w", lockErr)
+	}
+
+	reDecoded, reErr := s.tryDecodePayload(path, objPtr)
+	switch {
+	case reErr == nil && reDecoded:
+		// (a) a concurrent writer already fixed it; objPtr now holds the
+		// current, valid object.
+		return nil
+	case errors.Is(reErr, afero.ErrFileNotFound):
+		// (b) a concurrent Delete won while we were unlocked; abort without
+		// resurrecting it.
+		if opts.IgnoreNotFound {
+			return runtime.SetZeroValue(objPtr)
+		}
+		return storage.NewKeyNotFoundError(key, 0)
+	default:
+		// (c) still genuinely undecodable; commit the precomputed outcome.
+		if execErr != nil {
+			if errors.Is(execErr, context.DeadlineExceeded) {
+				logger.L().Ctx(ctx).Error("Get - migration tool timed out", helpers.String("key", key))
+				return execErr
+			}
+			logger.L().Ctx(ctx).Error("Get - migration tool failed", helpers.Error(execErr), helpers.String("key", key))
+			_ = DeleteMetadata(conn, key, nil)
+			_ = s.appFs.Remove(makePayloadPath(path))
+			if opts.IgnoreNotFound {
+				return runtime.SetZeroValue(objPtr)
+			}
+			return storage.NewKeyNotFoundError(key, 0)
+		}
+		if unmarshalErr := json.Unmarshal(migratedJSON, objPtr); unmarshalErr != nil {
+			logger.L().Ctx(ctx).Error("Get - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("key", key))
+			return unmarshalErr
+		}
+		logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
+		if saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+			logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
+		} else {
+			logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
+		}
+		return nil
+	}
 }
 
 // GetList unmarshalls objects found at key into a *List api object (an object
