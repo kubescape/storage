@@ -63,11 +63,20 @@ func testContext() context.Context {
 }
 
 // TestStore_ConcurrentAccess runs concurrent Create/Get/Update/Delete calls
-// (a mix of distinct keys and, for Update, repeated contention on the same
-// key to force GuaranteedUpdate's retry-on-conflict path) against one shared
-// *genericrest.Store, under -race. It asserts no data races and that every
-// operation's own success/failure is internally consistent -- not a
-// specific interleaving, since none is guaranteed.
+// (a mix of distinct keys, and repeated Update contention on one shared key)
+// against one shared *genericrest.Store, under -race. It asserts no data
+// races and that every operation's own success/failure is internally
+// consistent -- not a specific interleaving, since none is guaranteed.
+//
+// Note: the contended-key Updates below do NOT exercise
+// GuaranteedUpdate's optimistic-concurrency retry loop -- StorageImpl
+// serializes all writers to a given key on a single per-key mutex held for
+// the whole GuaranteedUpdate call, so concurrent Update calls for the same
+// key never actually interleave; each one completes with exactly one
+// tryUpdate invocation and no conflict. What this still genuinely covers:
+// concurrent access to a single shared Store instance (Store itself has no
+// mutable state after construction) and Update's own correctness under
+// contention (no torn writes, no data race), just not conflict-retry.
 func TestStore_ConcurrentAccess(t *testing.T) {
 	store := newTestStore(t)
 	ctx := testContext()
@@ -102,16 +111,17 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Contended key: every worker updates the same object. The
-			// transformer carries the current resourceVersion over from
-			// oldObj on every GuaranteedUpdate retry attempt (mimicking a
-			// real client's read-modify-write), rather than resubmitting a
-			// stale one that would just fail validation instead of
-			// exercising the conflict-retry path. GuaranteedUpdate's
-			// conflict-retry must resolve this without corrupting the
-			// object or racing internally, but a given attempt can
-			// legitimately still lose to another writer and return a
-			// conflict error after retries -- both outcomes are acceptable,
-			// only a panic/race or a non-conflict error is not.
+			// transformer builds the new object from oldObj (carrying over
+			// its current resourceVersion) rather than submitting a
+			// pre-built static object with no resourceVersion, which the
+			// strategy's AllowUnconditionalUpdate()==false would just
+			// reject as invalid. In practice each worker's Update is fully
+			// serialized by StorageImpl's per-key mutex (see the doc
+			// comment above), so no worker should ever actually see a
+			// conflict here -- but tolerate one anyway rather than assert
+			// zero-conflict, since that's not a contract this test needs to
+			// pin down; only a panic/race or a non-conflict error is not
+			// acceptable.
 			newServer := fmt.Sprintf("server-%02d", i)
 			_, _, err = store.Update(ctx, contendedName,
 				rest.DefaultUpdatedObjectInfo(nil, func(_ context.Context, _, oldObj runtime.Object) (runtime.Object, error) {

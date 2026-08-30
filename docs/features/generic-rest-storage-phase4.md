@@ -118,8 +118,11 @@ A second pass through the review's non-blocking findings:
   via each resource package's differential suite; there was no test proving the "no mutable state
   after construction" claim under real concurrent access. Added
   `pkg/registry/genericrest/store_test.go`'s `TestStore_ConcurrentAccess`, exercising concurrent
-  Create/Get/Update/Delete (including deliberate same-key contention forcing
-  `GuaranteedUpdate`'s conflict-retry path) against one shared `Store` instance, run under `-race`.
+  Create/Get/Update/Delete (including deliberate same-key Update contention) against one shared
+  `Store` instance, run under `-race`. Note this does not exercise `GuaranteedUpdate`'s
+  optimistic-concurrency retry loop -- `StorageImpl` serializes all writers to a given key on a
+  single per-key mutex, so concurrent same-key Updates never actually interleave -- it covers
+  concurrent access to a shared `Store` and `Update`'s correctness under contention instead.
 - Several source comments cited `.omc/plans/storage-locking-rewrite.md`, a local planning doc that
   is gitignored and was never tracked in this repo -- a dead link for any other contributor.
   Repointed to this doc instead, in every file this PR touches.

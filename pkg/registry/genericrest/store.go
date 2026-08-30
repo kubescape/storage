@@ -896,6 +896,16 @@ func (r *Store) DeleteCollection(ctx context.Context, deleteValidation rest.Vali
 	var deleted []runtime.Object
 	var originalList runtime.Object
 	for {
+		// Mirrors vendor store.go's own ctx.Done() check at the top of its
+		// DeleteCollection pagination loop: without it, a client disconnecting
+		// mid-delete on a large collection would run the delete to full
+		// exhaustion instead of stopping early.
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		listObj, err := r.List(ctx, listOptions)
 		if err != nil {
 			return nil, err
