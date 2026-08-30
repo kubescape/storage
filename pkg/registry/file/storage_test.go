@@ -129,6 +129,39 @@ func TestStorageImpl_Create(t *testing.T) {
 	}
 }
 
+// TestStorageImpl_Create_MetaOutContainsSpec is a regression test: Create's out param used to
+// only ever contain ObjectMeta/SchemaVersion (the metadata-only object also written to SQLite),
+// silently zeroing Spec -- a client chaining an Update off this response without an
+// intervening Get would see an empty spec even though the actual persisted object was correct.
+func TestStorageImpl_Create_MetaOutContainsSpec(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
+	obj := &v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{Name: "toto"},
+		Spec: v1beta1.SBOMSyftSpec{
+			Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "titi"}},
+		},
+	}
+	out := &v1beta1.SBOMSyft{}
+	require.NoError(t, s.Create(ctx, key, obj, out, 0))
+
+	assert.Equal(t, "titi", out.Spec.Metadata.Tool.Name, "Create's out param must contain the persisted Spec, not just ObjectMeta")
+
+	onDisk := &v1beta1.SBOMSyft{}
+	require.NoError(t, s.Get(ctx, key, storage.GetOptions{}, onDisk))
+	assert.Equal(t, onDisk, out, "Create's out param must match what was actually persisted")
+}
+
 func TestStorageImpl_Delete(t *testing.T) {
 	empty := v1beta1.SBOMSyft{}
 	toto := v1beta1.SBOMSyft{
@@ -660,6 +693,45 @@ func TestStorageImpl_GuaranteedUpdate_MutateInPlacePersists(t *testing.T) {
 	assert.True(t, now.Time.Equal(fresh.DeletionTimestamp.Time))
 }
 
+// TestStorageImpl_GuaranteedUpdate_MetaOutContainsSpec is a regression test: GuaranteedUpdate's
+// out param (metaOut) used to only ever contain ObjectMeta/SchemaVersion, silently zeroing
+// Spec -- see TestStorageImpl_Create_MetaOutContainsSpec for the client-impact scenario.
+func TestStorageImpl_GuaranteedUpdate_MetaOutContainsSpec(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/toto"
+	toto := &v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{Name: "toto"},
+		Spec: v1beta1.SBOMSyftSpec{
+			Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "titi"}},
+		},
+	}
+	require.NoError(t, s.Create(ctx, key, toto.DeepCopyObject(), nil, 0))
+
+	destination := &v1beta1.SBOMSyft{}
+	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		obj := *input.(*v1beta1.SBOMSyft)
+		obj.Spec.Metadata.Tool.Name = "tutu"
+		return &obj, nil, nil
+	}
+	require.NoError(t, s.GuaranteedUpdate(ctx, key, destination, false, nil, tryUpdate, toto.DeepCopyObject()))
+
+	assert.Equal(t, "tutu", destination.Spec.Metadata.Tool.Name, "GuaranteedUpdate's out param must contain the persisted Spec, not just ObjectMeta")
+
+	onDisk := &v1beta1.SBOMSyft{}
+	require.NoError(t, s.Get(ctx, key, storage.GetOptions{}, onDisk))
+	assert.Equal(t, onDisk, destination, "GuaranteedUpdate's out param must match what was actually persisted")
+}
+
 func TestStorageImpl_Versioner(t *testing.T) {
 	tests := []struct {
 		name string
@@ -701,7 +773,7 @@ func BenchmarkWriteFiles(b *testing.B) {
 	metaOut := &v1beta1.SBOMSyft{}
 	conn, _ := s.pool.Take(context.Background())
 	for i := 0; i < b.N; i++ {
-		_ = s.saveObject(conn, key, obj, metaOut, "")
+		_, _ = s.saveObject(conn, key, obj, metaOut, "")
 	}
 	s.pool.Put(conn)
 	b.ReportAllocs()

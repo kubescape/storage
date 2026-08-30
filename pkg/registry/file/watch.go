@@ -228,7 +228,13 @@ func (wd *WatchDispatcher) Modified(key string, metaOut, obj runtime.Object) {
 	wd.notify(key, eventFull, eventMeta)
 }
 
-// notify notifies the listeners of a given key about an event of a given eventType about a given obj
+// notify notifies the listeners of a given key about an event of a given eventType about a given obj.
+//
+// eventFull.Object and eventMeta.Object are handed to every matching watcher
+// without copying, and (since saveObject fills metaOut with a shallow copy of
+// obj) may share reference-typed Spec data with each other too. Only pass
+// events here that nothing downstream mutates in place -- watchers today only
+// encode/forward them.
 func (wd *WatchDispatcher) notify(key string, eventFull, eventMeta watch.Event) {
 	// Notify calls do not block normally, unless the client-side is messed up.
 	for _, part := range extractKeysToNotify(key) {
