@@ -61,10 +61,38 @@ first namespaced one — proving out namespace-aware key derivation.
   `TestDifferential_KeyDerivationMatches`) and validation-specific cases exercising the
   `spec.Author` required check in `openvulnerabilityexchange/strategy.go`.
 
+## Fixes applied after review
+
+Code review turned up two real behavioral divergences from the `genericregistry.Store`
+reference this package is meant to be a faithful, gated alternative to:
+
+- **`DeleteCollection` silently truncated at `StorageImpl.GetList`'s default page size (500
+  objects)**: it issued a single `List` call and never followed the returned continue token, unlike
+  vendor's `DeleteCollection` (vendor store.go:1298-1362), which pages through until exhausted
+  unless the caller explicitly set their own `Limit`. `DeleteCollection` now loops on the continue
+  token the same way, deleting the whole collection regardless of size; an explicit caller-supplied
+  `Limit` is still honored as a request for just that one page, matching vendor. Covered by
+  `TestDifferential_DeleteCollection_PaginatesBeyondDefaultPageSize` (510 objects across both
+  implementations) in `openvulnerabilityexchange/custom_rest_test.go` — confirmed to fail against
+  the pre-fix code (truncates at 500) before the fix and pass after.
+- **Dry-run `Delete` never invoked `deleteValidation`**, in both the hard-delete and the
+  graceful/finalizer-preview branches. Vendor's `DryRunnableStorage.Delete` (vendor
+  registry/dryrun.go:49-58) always re-validates against the current object under dry-run before
+  skipping the actual write; this package's dry-run branches returned early without ever calling
+  it, so a validating webhook that would deny the delete was silently bypassed under
+  `--dry-run=server`. Both branches now call `deleteValidation` against the pre-mutation object
+  and propagate its error, mirroring vendor. Covered by
+  `TestDifferential_DryRunDeleteRejectedByValidation` and
+  `TestDifferential_DryRunDeleteWithFinalizerRejectedByValidation` (one per branch, using a
+  rejecting `deleteValidation` -- `rest.ValidateAllObjectFunc`, used by every other test in this
+  suite, can never fail and so cannot exercise this path) -- both confirmed to fail against the
+  pre-fix code and pass after.
+
 ## Verification
 
 Full test suite passes under `-race` (excluding the pre-existing, unrelated `watch.go` flaky
 test); the `knownservers` and `openvulnerabilityexchange` differential suites re-run 3x under
 `-race` with zero flakiness. `knownservers`' refactor from a 777-line hand-written
-implementation to a thin wrapper over `genericrest.Store` is a zero-regression change — all 15
-pre-existing differential tests pass unchanged.
+implementation to a thin wrapper over `genericrest.Store` is a zero-regression change — all 13
+pre-existing differential tests in that package pass unchanged (`openvulnerabilityexchange`'s
+suite has 22, after the 3 tests added above).

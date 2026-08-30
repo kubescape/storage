@@ -708,6 +708,15 @@ func (r *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 
 	if graceful || pendingFinalizers {
 		if dryRun {
+			// Mirrors vendor DryRunnableStorage.Delete's dry-run branch (vendor
+			// registry/dryrun.go:49-58): dry-run must still run deleteValidation
+			// against the current object -- skipping it would let a validating
+			// webhook that denies the delete pass silently under --dry-run=server.
+			if deleteValidation != nil {
+				if err := deleteValidation(ctx, obj); err != nil {
+					return nil, false, err
+				}
+			}
 			preview := obj.DeepCopyObject()
 			previewAccessor, err := meta.Accessor(preview)
 			if err != nil {
@@ -764,6 +773,15 @@ func (r *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	// *metav1.Status, not the deleted object itself, for BOTH dry-run and
 	// real hard deletes.
 	if dryRun {
+		// Mirrors vendor DryRunnableStorage.Delete's dry-run branch (vendor
+		// registry/dryrun.go:49-58): still run deleteValidation against the
+		// current object before returning, for the same reason as the
+		// graceful/pendingFinalizers dry-run branch above.
+		if deleteValidation != nil {
+			if err := deleteValidation(ctx, obj); err != nil {
+				return nil, false, err
+			}
+		}
 		return r.finalizeDeleteStatus(obj)
 	}
 	out := r.New()
@@ -817,40 +835,82 @@ func markAsDeleting(accessor metav1.Object) {
 
 // DeleteCollection implements checklist item 10. Unlike
 // genericregistry.Store.DeleteCollection (vendor store.go:1237-1382), this
-// is a simple sequential implementation (no worker pool, no pagination
-// beyond what List's own defaulting provides) -- every resource using this
-// package so far is low-traffic enough that a bulk delete is not expected to
-// need parallelism. This is a deliberate simplification, not a behavioral
-// gap: every matched object is still individually deleted through the same
-// Delete path above (so finalizers/dry-run/etc. behave identically
-// per-item), and the returned list mirrors what was deleted.
+// is a simple sequential implementation (no worker pool) -- every resource
+// using this package so far is low-traffic enough that a bulk delete is not
+// expected to need parallelism. It does still paginate through List's
+// continue token like vendor does (vendor store.go:1298-1362), though:
+// List's own default page size (500, see StorageImpl.GetList) is well below
+// realistic collection sizes, and silently stopping at one page would delete
+// only part of the collection while reporting success. As in vendor, a
+// caller-supplied explicit Limit is honored as a request for just that one
+// page rather than paginated through. Every matched object is still
+// individually deleted through the same Delete path above (so
+// finalizers/dry-run/etc. behave identically per-item), and the returned
+// list mirrors everything that was deleted across all pages.
 func (r *Store) DeleteCollection(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
-	listObj, err := r.List(ctx, listOptions)
-	if err != nil {
-		return nil, err
+	if listOptions == nil {
+		listOptions = &metainternalversion.ListOptions{}
+	} else {
+		listOptions = listOptions.DeepCopy()
 	}
-	items, err := meta.ExtractList(listObj)
-	if err != nil {
-		return nil, err
-	}
+	hasLimit := listOptions.Limit > 0
 
-	deleted := make([]runtime.Object, 0, len(items))
-	for _, item := range items {
-		accessor, err := meta.Accessor(item)
+	var deleted []runtime.Object
+	var originalList runtime.Object
+	for {
+		listObj, err := r.List(ctx, listOptions)
 		if err != nil {
 			return nil, err
 		}
-		var perItemOptions *metav1.DeleteOptions
-		if options != nil {
-			perItemOptions = options.DeepCopy()
-		}
-		if _, _, err := r.Delete(ctx, accessor.GetName(), deleteValidation, perItemOptions); err != nil && !apierrors.IsNotFound(err) {
+		items, err := meta.ExtractList(listObj)
+		if err != nil {
 			return nil, err
 		}
-		deleted = append(deleted, item)
+
+		for _, item := range items {
+			accessor, err := meta.Accessor(item)
+			if err != nil {
+				return nil, err
+			}
+			var perItemOptions *metav1.DeleteOptions
+			if options != nil {
+				perItemOptions = options.DeepCopy()
+			}
+			if _, _, err := r.Delete(ctx, accessor.GetName(), deleteValidation, perItemOptions); err != nil && !apierrors.IsNotFound(err) {
+				return nil, err
+			}
+			deleted = append(deleted, item)
+		}
+
+		if hasLimit {
+			// The original request was itself asking for a single page; honor
+			// just that page rather than continuing on, mirroring vendor.
+			if err := meta.SetList(listObj, deleted); err != nil {
+				return nil, err
+			}
+			return listObj, nil
+		}
+
+		if originalList == nil {
+			originalList = listObj
+			if err := meta.SetList(originalList, nil); err != nil {
+				return nil, err
+			}
+		}
+
+		listAccessor, err := meta.ListAccessor(listObj)
+		if err != nil {
+			return nil, err
+		}
+		if listAccessor.GetContinue() == "" {
+			if err := meta.SetList(originalList, deleted); err != nil {
+				return nil, err
+			}
+			return originalList, nil
+		}
+
+		listOptions.Continue = listAccessor.GetContinue()
+		listOptions.ResourceVersion = ""
+		listOptions.ResourceVersionMatch = ""
 	}
-	if err := meta.SetList(listObj, deleted); err != nil {
-		return nil, err
-	}
-	return listObj, nil
 }
