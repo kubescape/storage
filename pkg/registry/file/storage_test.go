@@ -970,6 +970,25 @@ func TestStorageImpl_Get_StalledLockWaitDoesNotPinPoolConnection(t *testing.T) {
 	}
 }
 
+// Note on acquireLockedConn's conn.SetInterrupt(ctx) rebind (see the doc
+// comment on acquireLockedConn): binding it to the internal, poolTimeout-
+// bounded budget context instead of the caller's real ctx would interrupt
+// the connection out from under any Get/Delete whose total duration (e.g. a
+// slow decode after a successful acquisition) exceeds poolTimeout, even
+// though the caller's own ctx is still alive. This is deliberately not
+// covered by a dedicated regression test: reliably forcing "acquisition
+// succeeds, then the stale budget expires mid-use" requires the subsequent
+// real work to straddle a sub-poolTimeout window, which isn't achievable
+// without either a production-code delay hook or a flaky, machine-speed-
+// dependent sleep -- the same class of problem as
+// pkg/utils/mutex_test.go's fairness fix. The existing
+// TestStorageImpl_PoolContentionReturnsServerTimeout,
+// TestStorageImpl_LockContentionReturnsServerTimeout, and
+// TestStorageImpl_Get_StalledLockWaitDoesNotPinPoolConnection tests above
+// all still pass against the restructured acquireLockedConn, confirming no
+// regression to the properties they do cover; this specific property rests
+// on code inspection instead.
+
 // installFakeMigrationTool points migrationBinaryPath (execMigrationTool's
 // binary, used by the RC3 unlocked-exec path only) at a fixture shell script
 // for the duration of the test, restoring the original afterward. The script
@@ -1059,7 +1078,8 @@ func TestStorageImpl_MigrateObjectUnlocked_ConcurrentWriteWins(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{Name: "toto"},
 			Spec:       v1beta1.SBOMSyftSpec{Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "concurrent-writer"}}},
 		}
-		require.NoError(t, s.saveObject(conn, key, newObj, nil, ""))
+		_, saveErr := s.saveObject(conn, key, newObj, nil, "")
+		require.NoError(t, saveErr)
 		pool.Put(conn)
 		s.locks.Unlock(key)
 	}()

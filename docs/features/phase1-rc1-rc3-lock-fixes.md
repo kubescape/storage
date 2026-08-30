@@ -59,6 +59,50 @@ change while unlocked:
 - `pkg/utils/mutex.go`'s `MapMutex.Lock` fast path now additionally requires
   `pendingWriters == 0`, matching `RLock`'s existing fast-path check.
 
+## Fixes applied after review
+
+Code review found two issues worth addressing before merge:
+
+- **`migrateObjectUnlocked` could return without the write lock it promises to still hold.** Its
+  doc comment guarantees the caller's write lock is held on every return path, but the re-`Lock`
+  call after the unlocked migration exec had an error branch that returned early without it.
+  Both call sites in `get()` unlock unconditionally right after this function returns, without
+  checking for that error — `MapMutex.Unlock` doesn't verify ownership, so returning here without
+  the lock would have the caller either nil-deref (if the key's state had since been evicted) or
+  release a *different* goroutine's legitimately-held lock for the same key. In practice this
+  branch is dead code today (`context.WithoutCancel(ctx)`'s `Err()` is always `nil`, and `ctx` is
+  never `nil` here, so the re-`Lock` call cannot currently fail), but it's live code that would
+  silently corrupt lock state the moment that assumption changes. Fixed by looping until
+  reacquired instead of returning on the first failure, making the doc comment's guarantee
+  airtight rather than incidentally true.
+- **`Get`/`Delete`'s lock acquisition ran entirely detached from the caller's real request
+  context**, only ever using a `poolContext()`-derived, `context.Background()`-rooted context.
+  Beyond losing the caller's own cancellation for the lock-wait phase, this also meant the
+  connection's final `conn.SetInterrupt(ctx.Done())` rebind (see "How it works" above) was bound
+  to that same 5-second-bounded context — not "the caller's own longer-lived ctx" the comment
+  claimed — so a `Get`/`Delete` call whose total duration (lock wait + connection take + actual
+  work) exceeded `poolTimeout` would have had its connection interrupted mid-operation even while
+  still legitimately in use. Fixed by threading the real `ctx` through: `acquireLockedConn` now
+  derives its own internal, `poolTimeout`-bounded budget context from it (for the lock-wait
+  span, per-phase timeouts, and the overall retry-loop cutoff -- `context.WithTimeout` always
+  imposes its own deadline regardless of the parent's, so
+  `TestStorageImpl_PoolContentionReturnsServerTimeout`'s `context.Background()` call still times
+  out correctly), while using the real `ctx` directly for the trace span's parent and the
+  connection's interrupt rebind. Net effect: the lock-wait span now nests under the request trace
+  instead of showing up as an orphaned root, a disconnecting client's stalled lock wait can abort
+  early instead of always running the full `poolTimeout`, and the connection now genuinely
+  survives for as long as the caller holds it.
+
+The second fix's specific "connection survives past `poolTimeout`" property isn't covered by a
+dedicated regression test: reliably forcing "acquisition succeeds, then the stale budget expires
+mid-use" requires the subsequent real work to straddle a sub-`poolTimeout` window, which isn't
+achievable without either a production-code delay hook or a flaky, machine-speed-dependent sleep
+-- the same class of problem as `pkg/utils/mutex.go`'s fairness fix. It rests on code inspection
+instead; the existing `TestStorageImpl_PoolContentionReturnsServerTimeout`,
+`TestStorageImpl_LockContentionReturnsServerTimeout`, and
+`TestStorageImpl_Get_StalledLockWaitDoesNotPinPoolConnection` tests all still pass against the
+restructured `acquireLockedConn`, confirming no regression to the properties they do cover.
+
 ## Verification
 
 Full test suite passes under `-race` (excluding the pre-existing, unrelated
@@ -67,11 +111,12 @@ and `TestStorageImpl_PoolContentionReturnsServerTimeout` pass unmodified. New de
 `TestStorageImpl_Get_StalledLockWaitDoesNotPinPoolConnection`,
 `TestStorageImpl_MigrateObjectUnlocked_ConcurrentWriteWins`, and
 `TestStorageImpl_MigrateObjectUnlocked_ConcurrentDeleteNotResurrected` — were each confirmed to
-fail against the pre-fix code and pass with the fix.
+fail against the pre-fix code and pass with the fix. Full package suite re-run 3x under `-race`
+with zero flakiness after the review-response fixes above.
 
 ## Known residual scope, not covered by this change
 
 `GetListWithConn`'s per-page pagination nuance (only its `ResourceVersionFullSpec` branch takes
-a per-key lock per object) is a narrower, lower-impact restatement of RC1 from the same plan
-section, deliberately deferred rather than bundled into this change — tracked in the plan
-document for a future pass.
+a per-key lock per object) was the same narrower, lower-impact restatement of RC1 from the same
+plan section -- since fixed separately in
+[PR #380](https://github.com/kubescape/storage/pull/380).

@@ -122,15 +122,28 @@ var connAttemptTimeout = 250 * time.Millisecond
 // these wrappers took a connection first and only acquired the lock inside
 // the *WithConn core, so the connection sat idle for the whole lock wait).
 //
-// The overall retry budget is ctx's own deadline -- callers must pass a
-// context derived from poolContext()/poolTimeout, not their own request
-// context, matching today's connection-acquisition budget exactly. This is
+// ctx is the caller's real request context, used for two independent
+// purposes with different lifetimes:
+//   - It parents the "waiting for lock" trace span (so it nests under the
+//     caller's own request span rather than showing up as an orphaned root)
+//     and, via the internal budgetCtx below, lets a caller's own
+//     cancellation (client disconnect) abort a stalled lock/connection wait
+//     early instead of always running the full poolTimeout budget.
+//   - It is the interrupt source rebound onto the returned connection (see
+//     below), so the connection stays valid for as long as the caller
+//     actually holds it -- which can outlast the bounded acquisition budget
+//     itself (e.g. a slow decode after a long lock wait).
+//
+// The overall lock+connection retry budget is internally bounded to
+// poolTimeout via budgetCtx (context.WithTimeout(ctx, poolTimeout)), not tied
+// to ctx's own (possibly absent, possibly much longer) deadline. This is
 // required, not optional: TestStorageImpl_PoolContentionReturnsServerTimeout
-// calls with context.Background() (no deadline); if the retry loop's total
-// budget were tied to the caller's own context instead, that test would hang
-// forever rather than time out. Each lock-acquisition attempt is separately
-// bounded by lockTimeout (nested under ctx, so it can only ever be shorter,
-// never longer, than the remaining overall budget) -- this keeps
+// calls with context.Background() (no deadline); context.WithTimeout always
+// adds its own deadline regardless of the parent's, so the shrunk poolTimeout
+// still applies and that test still times out rather than hanging forever.
+// Each lock-acquisition attempt is separately bounded by lockTimeout (nested
+// under budgetCtx, so it can only ever be shorter, never longer, than the
+// remaining overall budget) -- this keeps
 // TestStorageImpl_LockContentionReturnsServerTimeout's shrunk lockTimeout
 // still failing fast on a genuinely contended key lock.
 //
@@ -144,10 +157,12 @@ var connAttemptTimeout = 250 * time.Millisecond
 // On success, the caller owns both the lock (must call release(key)) and
 // the connection (must call s.pool.Put(conn)).
 func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acquire func(context.Context, string) error, release func(string)) (*sqlite.Conn, error) {
+	budgetCtx, budgetCancel := context.WithTimeout(ctx, poolTimeout)
+	defer budgetCancel()
 	for {
 		_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 		beforeLock := time.Now()
-		lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+		lockCtx, lockCancel := context.WithTimeout(budgetCtx, lockTimeout)
 		lockErr := acquire(lockCtx, key)
 		lockCancel()
 		spanLock.End()
@@ -159,15 +174,18 @@ func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acq
 			logger.L().Debug(op, helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 		}
 
-		connCtx, connCancel := context.WithTimeout(ctx, connAttemptTimeout)
+		connCtx, connCancel := context.WithTimeout(budgetCtx, connAttemptTimeout)
 		conn, connErr := s.pool.Take(connCtx)
 		if connErr == nil {
 			// Pool.Take binds the returned conn's interrupt source to
 			// connCtx (see sqlitex.Pool.Take/sqlite.Conn.SetInterrupt) --
 			// cancelling connCtx immediately below would otherwise mark
 			// conn permanently interrupted for its entire subsequent use.
-			// Rebind to the caller's own longer-lived ctx (alive for as
-			// long as the caller holds the connection) before releasing it.
+			// Rebind to the caller's real, full-lifetime ctx (alive for as
+			// long as the caller holds the connection -- unlike budgetCtx,
+			// which expires at poolTimeout regardless of whether the caller
+			// is still legitimately using the connection) before releasing
+			// connCtx.
 			conn.SetInterrupt(ctx.Done())
 			connCancel()
 			return conn, nil
@@ -175,7 +193,7 @@ func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acq
 		connCancel()
 
 		release(key)
-		if ctx.Err() != nil {
+		if budgetCtx.Err() != nil {
 			return nil, newContentionTimeoutError(op, key, connErr)
 		}
 		// Overall budget not yet exhausted: loop back to lock acquisition.
@@ -547,9 +565,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 // callers (none currently, but its signature/behavior is preserved as
 // documented Phase 1 scope).
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.acquireLockedConn(poolCtx, "delete", key, s.locks.Lock, s.locks.Unlock)
+	conn, err := s.acquireLockedConn(ctx, "delete", key, s.locks.Lock, s.locks.Unlock)
 	if err != nil {
 		return err
 	}
@@ -643,9 +659,7 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // already holds a connection before calling it -- see that fix's
 // documented exception).
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.acquireLockedConn(poolCtx, "get", key, s.locks.RLock, s.locks.RUnlock)
+	conn, err := s.acquireLockedConn(ctx, "get", key, s.locks.RLock, s.locks.RUnlock)
 	if err != nil {
 		return err
 	}
@@ -976,9 +990,26 @@ func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Co
 
 	s.locks.Unlock(key)
 	migratedJSON, execErr := execMigrationTool(ctx, path, typeName)
-	if lockErr := s.locks.Lock(context.WithoutCancel(ctx), key); lockErr != nil {
-		logger.L().Ctx(ctx).Error("Get - failed to re-acquire write lock after migration exec", helpers.Error(lockErr), helpers.String("key", key))
-		return fmt.Errorf("failed to re-acquire write lock after migration exec: %w", lockErr)
+	// Re-acquire no matter what: this function is guaranteed to still hold
+	// the write lock on return (see the doc comment above), and callers
+	// unlock unconditionally right after it returns without checking for an
+	// error -- MapMutex.Unlock doesn't verify ownership, so returning here
+	// without the lock would have the caller release a lock it never
+	// reacquired, corrupting lock state for this key (or, if another
+	// goroutine has since legitimately acquired it, releasing *their* lock).
+	// relockCtx (context.WithoutCancel) already implies "keep trying rather
+	// than give up": today Lock genuinely cannot fail for it (its only error
+	// paths require either a nil ctx, which this never is, or the ctx's own
+	// cancellation, which a detached context never observes), but loop
+	// instead of relying on that, so the guarantee holds even if Lock's
+	// error semantics change later.
+	relockCtx := context.WithoutCancel(ctx)
+	for {
+		if lockErr := s.locks.Lock(relockCtx, key); lockErr == nil {
+			break
+		} else {
+			logger.L().Ctx(ctx).Error("Get - failed to re-acquire write lock after migration exec, retrying", helpers.Error(lockErr), helpers.String("key", key))
+		}
 	}
 
 	reDecoded, reErr := s.tryDecodePayload(path, objPtr)
@@ -1014,7 +1045,7 @@ func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Co
 			return unmarshalErr
 		}
 		logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
-		if saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+		if _, saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
 			logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
 		} else {
 			logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
