@@ -762,112 +762,185 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
+//
+// GetList acquires and releases a pool connection separately for each internal
+// SQLite-level page of results, rather than holding one connection for the whole
+// call: the ResourceVersionFullSpec branch takes a per-key read lock per object,
+// and a connection held idle while stalled on one of those locks would otherwise
+// stay pinned through every subsequent page too. Callers that already hold their
+// own connection and want the whole list in one call should use GetListWithConn
+// instead, which keeps that single connection for its entire duration.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	ctx, predicate, v, elem, limit, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
 	if err != nil {
-		return newContentionTimeoutError("list", key, err)
-	}
-	defer s.pool.Put(conn)
-	return s.GetListWithConn(ctx, conn, key, opts, listObj)
-}
-
-func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
-	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
-	span.SetAttributes(attribute.String("key", key))
-	defer span.End()
-
-	predicate, err := normalizeSelectionPredicate(opts.Predicate)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("GetList - normalize selection predicate failed", helpers.Error(err))
 		return err
 	}
-	opts.Predicate = predicate
 
-	listPtr, err := meta.GetItemsPtr(listObj)
-	if err != nil {
-		logger.L().Ctx(ctx).Error("GetList - get items ptr failed", helpers.Error(err), helpers.String("key", key))
-		return err
-	}
-	v, err := conversion.EnforcePtr(listPtr)
-	if err != nil || v.Kind() != reflect.Slice {
-		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
-		return fmt.Errorf("need ptr to slice: %v", err)
-	}
-	// set default limit
-	limit := opts.Predicate.Limit
-	if limit == 0 {
-		limit = 500
-	}
-	// populate list object
-	elem := v.Type().Elem()
 	pageLast := ""
-	cursor := opts.Predicate.Continue
-	v.Set(reflect.MakeSlice(v.Type(), 0, 0))
-	isFullSpec := opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
-
 	for int64(v.Len()) < limit {
 		remaining := limit - int64(v.Len())
-		var entries []string
 
-		if isFullSpec {
-			// get names from SQLite
-			entries, pageLast, err = listMetadataKeys(conn, key, cursor, remaining)
-		} else {
-			// get metadata from SQLite
-			entries, pageLast, err = listMetadata(conn, key, cursor, remaining)
-		}
+		poolCtx, cancel := poolContext()
+		conn, err := s.pool.Take(poolCtx)
 		if err != nil {
-			return fmt.Errorf("list objects for %q: %w", key, err)
+			cancel()
+			return newContentionTimeoutError("list", key, err)
 		}
-
-		v.Grow(len(entries))
-
-		for _, entry := range entries {
-			obj := reflect.New(elem).Interface().(runtime.Object)
-			if isFullSpec {
-				if err := s.get(ctx, conn, entry, storage.GetOptions{}, obj, noLock); err != nil {
-					logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", entry))
-					continue
-				}
-			} else {
-				if err := json.Unmarshal([]byte(entry), obj); err != nil {
-					logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
-					continue
-				}
-			}
-
-			matched, err := opts.Predicate.Matches(obj)
-			if err != nil {
-				return fmt.Errorf("match selection predicate: %w", err)
-			}
-			if matched {
-				v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
-			}
+		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
+		s.pool.Put(conn)
+		cancel()
+		if err != nil {
+			return err
 		}
+		pageLast = fetched.pageLast
 
-		if int64(len(entries)) < remaining {
+		if int64(fetched.count) < remaining {
 			pageLast = ""
 			break
 		}
 		cursor = pageLast
 	}
 
-	// eventually set list accessor fields
-	if pageLast != "" {
-		listAccessor, err := meta.ListAccessor(listObj)
-		if err != nil {
-			return fmt.Errorf("list accessor: %w", err)
-		}
-		listAccessor.SetContinue(pageLast)
-		//if rsp.RemainingItemCount > 0 {
-		//listAccessor.SetRemainingItemCount(&rsp.RemainingItemCount)
-		//}
-		//if rsp.ResourceVersion > 0 {
-		//listAccessor.SetResourceVersion(strconv.FormatInt(rsp.ResourceVersion, 10))
-		//}
+	return setListContinue(listObj, pageLast)
+}
+
+// GetListWithConn is the same as GetList, but reuses a single, caller-supplied
+// connection for the entire (possibly multi-page) call, instead of acquiring and
+// releasing a connection separately per internal page. Use this only when the
+// caller already holds its own connection for other reasons; it pins that
+// connection across any per-key lock waits that occur along the way.
+func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	ctx, predicate, v, elem, limit, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
+	if err != nil {
+		return err
 	}
+
+	pageLast := ""
+	for int64(v.Len()) < limit {
+		remaining := limit - int64(v.Len())
+
+		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
+		if err != nil {
+			return err
+		}
+		pageLast = fetched.pageLast
+
+		if int64(fetched.count) < remaining {
+			pageLast = ""
+			break
+		}
+		cursor = pageLast
+	}
+
+	return setListContinue(listObj, pageLast)
+}
+
+// prepareGetList performs the (connection-independent) setup shared by GetList
+// and GetListWithConn: predicate normalization and pulling the destination slice,
+// element type, page limit, starting cursor and full-spec flag out of listObj/opts.
+// It returns the normalized predicate for the caller to reuse across pages -- opts
+// is passed by value, so mutating opts.Predicate here does not propagate back to
+// the caller's own copy.
+func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) (_ context.Context, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type, limit int64, cursor string, isFullSpec bool, err error) {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+
+	predicate, err = normalizeSelectionPredicate(opts.Predicate)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GetList - normalize selection predicate failed", helpers.Error(err))
+		return ctx, predicate, v, elem, 0, "", false, err
+	}
+	opts.Predicate = predicate
+
+	listPtr, err := meta.GetItemsPtr(listObj)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GetList - get items ptr failed", helpers.Error(err), helpers.String("key", key))
+		return ctx, predicate, v, elem, 0, "", false, err
+	}
+	v, err = conversion.EnforcePtr(listPtr)
+	if err != nil || v.Kind() != reflect.Slice {
+		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
+		return ctx, predicate, v, elem, 0, "", false, fmt.Errorf("need ptr to slice: %v", err)
+	}
+	// set default limit
+	limit = opts.Predicate.Limit
+	if limit == 0 {
+		limit = 500
+	}
+	// populate list object
+	elem = v.Type().Elem()
+	v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+	isFullSpec = opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
+
+	return ctx, predicate, v, elem, limit, opts.Predicate.Continue, isFullSpec, nil
+}
+
+// listPageResult is the outcome of fetching one internal SQLite-level page.
+type listPageResult struct {
+	pageLast string
+	count    int // raw entries fetched from SQLite, before predicate filtering
+}
+
+// fetchListPage fetches one internal page (up to `remaining` entries from SQLite
+// starting at cursor) and appends predicate-matching objects to v. The returned
+// count is how many raw entries were fetched (as opposed to how many matched and
+// were appended) -- the caller uses it to decide whether more entries might still
+// exist upstream.
+func (s *StorageImpl) fetchListPage(ctx context.Context, conn *sqlite.Conn, key string, cursor string, remaining int64, isFullSpec bool, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type) (listPageResult, error) {
+	var entries []string
+	var pageLast string
+	var err error
+	if isFullSpec {
+		// get names from SQLite
+		entries, pageLast, err = listMetadataKeys(conn, key, cursor, remaining)
+	} else {
+		// get metadata from SQLite
+		entries, pageLast, err = listMetadata(conn, key, cursor, remaining)
+	}
+	if err != nil {
+		return listPageResult{}, fmt.Errorf("list objects for %q: %w", key, err)
+	}
+
+	v.Grow(len(entries))
+
+	for _, entry := range entries {
+		obj := reflect.New(elem).Interface().(runtime.Object)
+		if isFullSpec {
+			if err := s.get(ctx, conn, entry, storage.GetOptions{}, obj, noLock); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", entry))
+				continue
+			}
+		} else {
+			if err := json.Unmarshal([]byte(entry), obj); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+				continue
+			}
+		}
+
+		matched, err := predicate.Matches(obj)
+		if err != nil {
+			return listPageResult{}, fmt.Errorf("match selection predicate: %w", err)
+		}
+		if matched {
+			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		}
+	}
+
+	return listPageResult{pageLast: pageLast, count: len(entries)}, nil
+}
+
+// setListContinue sets listObj's continue token, mirroring what GetList/
+// GetListWithConn used to do inline at the end of their pagination loop.
+func setListContinue(listObj runtime.Object, pageLast string) error {
+	if pageLast == "" {
+		return nil
+	}
+	listAccessor, err := meta.ListAccessor(listObj)
+	if err != nil {
+		return fmt.Errorf("list accessor: %w", err)
+	}
+	listAccessor.SetContinue(pageLast)
 	return nil
 }
 

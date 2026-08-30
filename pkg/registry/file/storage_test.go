@@ -912,3 +912,167 @@ func TestStorageImpl_GetList_LabelSelectorWithPagination(t *testing.T) {
 		names,
 	)
 }
+
+// TestStorageImpl_GetList_FullSpec_MultiPage verifies that the ResourceVersionFullSpec
+// branch (which fetches full objects via s.get() rather than just SQLite metadata)
+// still returns correct results when a single GetList call needs multiple internal
+// pages to fill the requested limit.
+func TestStorageImpl_GetList_FullSpec_MultiPage(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+
+	ctx := context.Background()
+	keyPrefix := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/default"
+	for i := range 4 {
+		label := "bar"
+		if i%2 == 1 {
+			label = "foo"
+		}
+		name := fmt.Sprintf("sbom-%02d", i)
+		key := fmt.Sprintf("%s/%s", keyPrefix, name)
+		obj := &v1beta1.SBOMSyft{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				Labels:    map[string]string{"app": label},
+			},
+		}
+		require.NoError(t, s.Create(ctx, key, obj.DeepCopyObject(), nil, 0))
+	}
+
+	predicate := storage.SelectionPredicate{
+		Label:    labels.SelectorFromSet(labels.Set{"app": "foo"}),
+		Field:    fields.Everything(),
+		GetAttrs: storage.DefaultNamespaceScopedAttr,
+		Limit:    1,
+	}
+	opts := storage.ListOptions{
+		Predicate:       predicate,
+		ResourceVersion: softwarecomposition.ResourceVersionFullSpec,
+	}
+	list := &v1beta1.SBOMSyftList{}
+	require.NoError(t, s.GetList(ctx, keyPrefix, opts, list))
+
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "sbom-01", list.Items[0].Name)
+	assert.Equal(t, "foo", list.Items[0].Labels["app"])
+}
+
+// TestStorageImpl_GetList_ReleasesConnectionBetweenPages proves the fix for the
+// GetListWithConn per-page pagination nuance: GetList (the connection-less wrapper)
+// must not hold a pool connection across an internal page boundary while stalled on
+// a per-key read lock for a later page's ResourceVersionFullSpec object fetch.
+//
+// With a size-1 connection pool, a single GetList call needing two internal pages
+// is forced to stall on a held write lock while fetching page 1's object. A second
+// goroutine blocks trying to Take() the pool's only connection throughout. Because
+// Go delivers a channel send directly to an already-waiting receiver, that second
+// goroutine is guaranteed to win the connection the instant page 1's Put() happens
+// -- strictly before GetList's own goroutine can re-Take() it for page 2 -- if and
+// only if GetList releases the connection after each page rather than holding it
+// for the whole call. A second, independently-controlled lock stall on page 2's
+// object proves the point isn't a fluke of scheduling: releasing the connection
+// happens well before page 2 (and the whole call) is done.
+func TestStorageImpl_GetList_ReleasesConnectionBetweenPages(t *testing.T) {
+	dir := t.TempDir()
+	pool := NewPool(filepath.Join(dir, "test.sq3"), 1)
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch).(*StorageImpl)
+
+	ctx := context.Background()
+	keyPrefix := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/default"
+	keyPage1 := keyPrefix + "/sbom-00" // label "bar" -- fetched but filtered out on page 1
+	keyPage2 := keyPrefix + "/sbom-01" // label "foo" -- matches, fetched on page 2
+	for i, label := range []string{"bar", "foo"} {
+		name := fmt.Sprintf("sbom-%02d", i)
+		key := fmt.Sprintf("%s/%s", keyPrefix, name)
+		obj := &v1beta1.SBOMSyft{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				Labels:    map[string]string{"app": label},
+			},
+		}
+		require.NoError(t, s.Create(ctx, key, obj.DeepCopyObject(), nil, 0))
+	}
+
+	// Hold both objects' write locks up front so GetList's page-1 and page-2 full-spec
+	// fetches each stall until explicitly released below.
+	require.NoError(t, s.locks.Lock(ctx, keyPage1))
+	require.NoError(t, s.locks.Lock(ctx, keyPage2))
+
+	predicate := storage.SelectionPredicate{
+		Label:    labels.SelectorFromSet(labels.Set{"app": "foo"}),
+		Field:    fields.Everything(),
+		GetAttrs: storage.DefaultNamespaceScopedAttr,
+		Limit:    1,
+	}
+	opts := storage.ListOptions{
+		Predicate:       predicate,
+		ResourceVersion: softwarecomposition.ResourceVersionFullSpec,
+	}
+
+	listErrCh := make(chan error, 1)
+	list := &v1beta1.SBOMSyftList{}
+	go func() {
+		listErrCh <- s.GetList(ctx, keyPrefix, opts, list)
+	}()
+
+	// Give GetList's goroutine time to Take() the pool's only connection for page 1
+	// and block inside s.get() waiting on keyPage1's lock.
+	time.Sleep(50 * time.Millisecond)
+
+	watcherGotConnAt := make(chan time.Time, 1)
+	go func() {
+		conn, err := pool.Take(ctx)
+		if err != nil {
+			return
+		}
+		watcherGotConnAt <- time.Now()
+		pool.Put(conn)
+	}()
+
+	// Give the watcher time to block on Take() (the pool is exhausted by page 1)
+	// before we release page 1's lock.
+	time.Sleep(50 * time.Millisecond)
+
+	unlockedPage1At := time.Now()
+	s.locks.Unlock(keyPage1)
+
+	var gotConnAt time.Time
+	select {
+	case gotConnAt = <-watcherGotConnAt:
+	case <-time.After(2 * time.Second):
+		t.Fatal("watcher never acquired the pool connection after page 1's lock was released")
+	}
+
+	// Page 2 is still stalled on its own lock at this point, and stays that way for
+	// a further 200ms. If GetList had held the connection across the page boundary
+	// (the pre-fix behavior), the watcher could not have gotten it until page 2 (and
+	// the whole call) finished releasing it. A generous 300ms bound comfortably
+	// separates "handed over right after page 1" from "held through page 2".
+	assert.Less(t, gotConnAt.Sub(unlockedPage1At), 300*time.Millisecond,
+		"pool connection was not released promptly after page 1 -- GetList may be holding it across the page boundary")
+
+	time.Sleep(200 * time.Millisecond)
+	s.locks.Unlock(keyPage2)
+
+	select {
+	case err := <-listErrCh:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("GetList never completed after page 2's lock was released")
+	}
+
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "sbom-01", list.Items[0].Name)
+}
