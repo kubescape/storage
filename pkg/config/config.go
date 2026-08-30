@@ -82,6 +82,18 @@ type Config struct {
 	// this flag's value.
 	CustomOpenVulnerabilityExchangeRestEnabled bool `mapstructure:"customOpenVulnerabilityExchangeRestEnabled"`
 
+	// CustomContainerProfileRestEnabled gates the hand-written rest.Storage
+	// implementation for the containerprofiles resource (see
+	// pkg/registry/softwarecomposition/containerprofile/custom_rest.go),
+	// built as Phase 4's third per-resource migration off
+	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
+	// Defaults to false: when unset, pkg/apiserver/apiserver.go registers
+	// containerprofiles via the OLD genericregistry.Store-based
+	// containerprofile.NewREST, exactly as before this flag existed. The old
+	// implementation is kept alive as the reference implementation for
+	// differential testing regardless of this flag's value.
+	CustomContainerProfileRestEnabled bool `mapstructure:"customContainerProfileRestEnabled"`
+
 	// New fields for per-kind queue/worker/object size config
 	KindQueues           map[string]KindQueueConfig `mapstructure:"kindQueues"`
 	DefaultQueueLength   int                        `mapstructure:"defaultQueueLength"`
@@ -116,6 +128,10 @@ func LoadConfig(path string) (Config, error) {
 	// spike/prototype, not yet validated for production use; the OLD
 	// genericregistry.Store-based implementation remains the default.
 	v.SetDefault("customOpenVulnerabilityExchangeRestEnabled", false)
+	// The custom containerprofile rest.Storage is a Phase 4 spike/prototype,
+	// not yet validated for production use; the OLD genericregistry.Store-based
+	// implementation remains the default.
+	v.SetDefault("customContainerProfileRestEnabled", false)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
 	v.SetDefault("defaultMaxObjectSize", 400000)

@@ -229,6 +229,25 @@ func (c completedConfig) New() (*WardleServer, error) {
 		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["openvulnerabilityexchangecontainers"] = customOpenVulnerabilityExchangeRest
 	}
 
+	// Phase 4 (per-resource rest.Storage migration, see
+	// docs/features/generic-rest-storage-phase4.md): gated, no-op-by-default swap of
+	// containerprofiles' REST implementation for the hand-written CustomREST.
+	// The OLD genericregistry.Store-based containerprofile.NewREST above
+	// stays the default and remains the reference implementation for
+	// differential testing regardless of this flag. Wired with the same
+	// non-default containerProfileStorageImpl (the consolidation-processor
+	// wired storage.Interface) NewREST itself uses above -- not the plain
+	// storageImpl the first two Phase 4 resources use.
+	if c.ExtraConfig.StorageConfig.CustomContainerProfileRestEnabled {
+		customContainerProfileRest, err := containerprofile.NewCustomREST(Scheme, containerProfileStorageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for containerprofiles due to %v, will die", err))
+		}
+		// See the matching Destroy() call above for knownservers.
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["containerprofiles"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["containerprofiles"] = customContainerProfileRest
+	}
+
 	if c.ExtraConfig.StorageConfig.DisableVirtualCRDs {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "configurationscansummaries")
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "generatednetworkpolicies")
