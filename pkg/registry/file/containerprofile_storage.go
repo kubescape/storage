@@ -112,8 +112,6 @@ func (c *ContainerProfileStorageImpl) GetTsContainerProfile(ctx context.Context,
 }
 
 func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 		return profile, nil, nil
 	}
@@ -135,6 +133,23 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	// SyncChecksum) from loadOrInitializeProfile, so reading the real current
 	// state lets an unchanged consolidation compare equal and skip the write
 	// (kubescape/storage#315 review).
+	//
+	// singleWriterEnabled (spike/single-writer-priority-queue): route this
+	// consolidation write through the single writer's LOW priority lane
+	// instead of GuaranteedUpdateWithConn's caller-supplied-connection,
+	// per-key-lock path. The prepare phase (PreSave, resourceVersion bump,
+	// payload encode) still needs its own connection internally, but not the
+	// one this method's caller already holds via WithConnection -- see
+	// guaranteedUpdateSingleWriter.
+	if singleWriterEnabled {
+		if err := c.storageImpl.guaranteedUpdateSingleWriter(cpCtx, key, &softwarecomposition.ContainerProfile{},
+			true, nil, tryUpdate, nil, "", priorityLow); err != nil {
+			return fmt.Errorf("failed to update container profile: %w", err)
+		}
+		return nil
+	}
+
+	conn := ctx.Value(connKey).(*sqlite.Conn)
 	err := c.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{},
 		true, nil, tryUpdate, nil, "")
 	if err != nil {

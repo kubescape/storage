@@ -24,15 +24,30 @@ var (
 // DefaultPoolSize is the SQLite connection pool capacity used when NewPool is
 // called with a non-positive size. It is made explicit (rather than relying on
 // sqlitex's implicit default) so the consolidator's worker bound can be derived
-// from a single knowable constant.
+// from a single knowable constant. It is also the default value of the
+// config.Config.SqlitePoolSize knob when unset.
 const DefaultPoolSize = 10
+
+// DefaultBusyTimeout is the SQLite busy-timeout applied to every pooled
+// connection when NewPool is called with a non-positive busyTimeout. It is
+// also the default value of the config.Config.SqliteBusyTimeout knob when
+// unset.
+const DefaultBusyTimeout = 60 * time.Second
 
 // NewPool creates a new SQLite connection pool at the given path.
 // It returns an error if the connection cannot be opened or the database cannot be initialized.
 // It is your responsibility to call conn.Close() when you no longer need conn.
-func NewPool(path string, size int) *sqlitemigration.Pool {
+//
+// size and busyTimeout are the pool capacity and per-connection busy-timeout;
+// a non-positive value for either falls back to DefaultPoolSize /
+// DefaultBusyTimeout respectively. Both are operator-tunable via
+// config.Config (SqlitePoolSize / SqliteBusyTimeout) — see pkg/config.
+func NewPool(path string, size int, busyTimeout time.Duration) *sqlitemigration.Pool {
 	if size < 1 {
 		size = DefaultPoolSize
+	}
+	if busyTimeout <= 0 {
+		busyTimeout = DefaultBusyTimeout
 	}
 	return sqlitemigration.NewPool(path,
 		sqlitemigration.Schema{
@@ -66,7 +81,7 @@ func NewPool(path string, size int) *sqlitemigration.Pool {
 			// driver's 10s default busy timeout on slow disks, surfacing raw
 			// "database is locked" to API clients. Wait instead of failing.
 			PrepareConn: func(conn *sqlite.Conn) error {
-				conn.SetBusyTimeout(60 * time.Second)
+				conn.SetBusyTimeout(busyTimeout)
 				return nil
 			},
 		})
@@ -76,7 +91,7 @@ func NewPool(path string, size int) *sqlitemigration.Pool {
 func NewTestPool(dir string) *sqlitemigration.Pool {
 	path := filepath.Join(dir, "test.sq3")
 	_ = os.Remove(path)
-	return NewPool(path, 0)
+	return NewPool(path, 0, 0)
 }
 
 func K8sKeysToPath(prefix, root, kind, cluster, namespace, name string) string {

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kubescape/go-logger"
@@ -20,6 +21,7 @@ import (
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/metrics"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
@@ -61,7 +63,12 @@ var (
 // mutated at runtime; only tests override it (and restore it via defer).
 var lockTimeout = 5 * time.Second
 
-// poolTimeout is the hardcoded backstop for acquiring a *sqlite.Conn from the pool. It used
+// DefaultPoolTimeout is the value poolTimeout takes when SetPoolTimeout is never called
+// (or is called with a non-positive duration). It is also the default value of the
+// config.Config.PoolTimeout knob when unset — see pkg/config.
+const DefaultPoolTimeout = 5 * time.Second
+
+// poolTimeout is the backstop for acquiring a *sqlite.Conn from the pool. It used
 // to be a full minute (long enough that a pool-exhaustion stall would blow past the k8s
 // apiserver's own outer non-long-running-request timeout, typically ~34s, before this
 // package's own error ever had a chance to fire) and is now bounded the same way lockTimeout
@@ -69,7 +76,20 @@ var lockTimeout = 5 * time.Second
 // ServerTimeout+Retry-After signal on expiry instead of an opaque "take connection" error.
 //
 // NOTE: package-level var, not const, for the same test-overridability reason as lockTimeout.
-var poolTimeout = 5 * time.Second
+// Operators tune it via config.Config.PoolTimeout (see docs/features/storage-lock-pool-metrics.md),
+// applied at startup through SetPoolTimeout; tests may still reassign it directly.
+var poolTimeout = DefaultPoolTimeout
+
+// SetPoolTimeout configures the pool-acquisition backstop applied by poolContext. A
+// non-positive timeout resets it to DefaultPoolTimeout. It is intended to be called once,
+// at startup, before the storage backend starts serving requests (see main.go, mirroring
+// how SqlitePoolSize/SqliteBusyTimeout are threaded into NewPool).
+func SetPoolTimeout(timeout time.Duration) {
+	if timeout <= 0 {
+		timeout = DefaultPoolTimeout
+	}
+	poolTimeout = timeout
+}
 
 // newContentionTimeoutError returns a ServerTimeout (HTTP 500, Reason=ServerTimeout) carrying
 // a positive RetryAfterSeconds so the apiserver emits a Retry-After header that client-go's
@@ -166,17 +186,21 @@ func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acq
 		lockErr := acquire(lockCtx, key)
 		lockCancel()
 		spanLock.End()
+		lockDuration := time.Since(beforeLock)
 		if lockErr != nil {
+			metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 			return nil, newContentionTimeoutError(op, key, lockErr)
 		}
-		lockDuration := time.Since(beforeLock)
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 		if lockDuration > time.Second {
 			logger.L().Debug(op, helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 		}
 
+		beforePool := time.Now()
 		connCtx, connCancel := context.WithTimeout(budgetCtx, connAttemptTimeout)
 		conn, connErr := s.pool.Take(connCtx)
 		if connErr == nil {
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 			// Pool.Take binds the returned conn's interrupt source to
 			// connCtx (see sqlitex.Pool.Take/sqlite.Conn.SetInterrupt) --
 			// cancelling connCtx immediately below would otherwise mark
@@ -191,6 +215,7 @@ func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acq
 			return conn, nil
 		}
 		connCancel()
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 
 		release(key)
 		if budgetCtx.Err() != nil {
@@ -243,6 +268,13 @@ type StorageImpl struct {
 	scheme          *runtime.Scheme
 	versioner       storage.Versioner
 	watchDispatcher *WatchDispatcher
+
+	// writer is the single dedicated writer goroutine for the
+	// singleWriterEnabled write path (see singlewriter.go). Lazily created on
+	// first use via ensureWriter, so a StorageImpl built without a pool (e.g.
+	// tests exercising unrelated paths) never spins up an unused goroutine.
+	writer     *singleWriter
+	writerOnce sync.Once
 }
 
 func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
@@ -480,12 +512,18 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
+	if singleWriterEnabled {
+		return s.createSingleWriter(ctx, key, obj, metaOut, priorityHigh)
+	}
 	poolCtx, cancel := poolContext()
 	defer cancel()
+	beforePool := time.Now()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 		return newContentionTimeoutError("create", key, err)
 	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 	defer s.pool.Put(conn)
 	return s.CreateWithConn(ctx, conn, key, obj, metaOut, 0)
 }
@@ -500,11 +538,13 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		return newContentionTimeoutError("create", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Create", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
@@ -588,11 +628,13 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		return newContentionTimeoutError("delete", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
@@ -682,11 +724,13 @@ func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key st
 	defer lockCancel()
 	err := s.locks.RLock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		return newContentionTimeoutError("get", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.RUnlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Get", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
@@ -1079,12 +1123,15 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	for int64(v.Len()) < limit {
 		remaining := limit - int64(v.Len())
 
+		beforePool := time.Now()
 		poolCtx, cancel := poolContext()
 		conn, err := s.pool.Take(poolCtx)
 		if err != nil {
 			cancel()
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 			return newContentionTimeoutError("list", key, err)
 		}
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
 		s.pool.Put(conn)
 		cancel()
@@ -1347,12 +1394,18 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 func (s *StorageImpl) GuaranteedUpdate(
 	ctx context.Context, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
+	if singleWriterEnabled {
+		return s.guaranteedUpdateSingleWriter(ctx, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "", priorityHigh)
+	}
 	poolCtx, cancel := poolContext()
 	defer cancel()
+	beforePool := time.Now()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 		return newContentionTimeoutError("update", key, err)
 	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 	defer s.pool.Put(conn)
 	return s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "")
 }
@@ -1375,12 +1428,14 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
 		return newContentionTimeoutError("update", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("GuaranteedUpdate/", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
@@ -1540,10 +1595,13 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	logger.L().Debug("Custom storage count", helpers.String("key", key))
 	poolCtx, cancel := poolContext()
 	defer cancel()
+	beforePool := time.Now()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 		return 0, newContentionTimeoutError("count", key, err)
 	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 	defer s.pool.Put(conn)
 	return countMetadata(conn, key)
 }
@@ -1666,10 +1724,13 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			// Write modern format back to disk to finish migration
 			poolCtx, cancel := poolContext()
 			defer cancel()
+			beforePool := time.Now()
 			conn, err := s.pool.Take(poolCtx)
 			if err != nil {
+				metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to take connection for migration save", helpers.Error(err), helpers.String("path", path))
 			} else {
+				metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 				defer s.pool.Put(conn)
 				if _, saveErr := s.saveObject(conn, key, obj, nil, ""); saveErr != nil {
 					logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("path", path))

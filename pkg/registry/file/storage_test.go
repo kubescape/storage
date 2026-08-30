@@ -888,7 +888,7 @@ func TestStorageImpl_PoolContentionReturnsServerTimeout(t *testing.T) {
 	poolTimeout = 10 * time.Millisecond
 	defer func() { poolTimeout = old }()
 
-	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1)
+	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1, 0)
 	require.NotNil(t, pool)
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
@@ -924,7 +924,7 @@ func TestStorageImpl_PoolContentionReturnsServerTimeout(t *testing.T) {
 // waiting for a contended key lock, the pool's only connection remains free
 // for an unrelated caller to take.
 func TestStorageImpl_Get_StalledLockWaitDoesNotPinPoolConnection(t *testing.T) {
-	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1)
+	pool := NewPool(filepath.Join(t.TempDir(), "test.sq3"), 1, 0)
 	require.NotNil(t, pool)
 	defer func(pool *sqlitemigration.Pool) {
 		_ = pool.Close()
@@ -1167,6 +1167,23 @@ func TestStorageImpl_MigrateObjectUnlocked_ConcurrentDeleteNotResurrected(t *tes
 	assert.True(t, storage.IsNotFound(freshErr), "object must remain deleted, got err=%v obj=%+v", freshErr, fresh)
 }
 
+// TestSetPoolTimeout verifies the config-driven setter mirrors NewPool's fallback
+// convention: a positive duration is applied verbatim, and a non-positive one resets
+// poolTimeout to DefaultPoolTimeout rather than being applied literally.
+func TestSetPoolTimeout(t *testing.T) {
+	old := poolTimeout
+	defer func() { poolTimeout = old }()
+
+	SetPoolTimeout(250 * time.Millisecond)
+	assert.Equal(t, 250*time.Millisecond, poolTimeout)
+
+	SetPoolTimeout(0)
+	assert.Equal(t, DefaultPoolTimeout, poolTimeout)
+
+	SetPoolTimeout(-time.Second)
+	assert.Equal(t, DefaultPoolTimeout, poolTimeout)
+}
+
 func TestStorageImpl_GetList_LabelSelectorWithPagination(t *testing.T) {
 	pool := NewTestPool(t.TempDir())
 	require.NotNil(t, pool)
@@ -1304,7 +1321,7 @@ func TestStorageImpl_GetList_FullSpec_MultiPage(t *testing.T) {
 // happens well before page 2 (and the whole call) is done.
 func TestStorageImpl_GetList_ReleasesConnectionBetweenPages(t *testing.T) {
 	dir := t.TempDir()
-	pool := NewPool(filepath.Join(dir, "test.sq3"), 1)
+	pool := NewPool(filepath.Join(dir, "test.sq3"), 1, 0)
 	require.NotNil(t, pool)
 	defer pool.Close()
 
