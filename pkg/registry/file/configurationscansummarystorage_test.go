@@ -9,10 +9,13 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -809,4 +812,38 @@ func TestGetNamespaceFromKey(t *testing.T) {
 		})
 	}
 
+}
+
+func TestConfigurationScanSummaryStorage_GetList_SelectorAppliedAfterAggregation(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
+
+	ctx := context.Background()
+	for _, namespace := range []string{"default", "other"} {
+		source := &softwarecomposition.WorkloadConfigurationScanSummary{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "workload-" + namespace,
+				Namespace: namespace,
+			},
+		}
+		require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/workloadconfigurationscansummaries/"+namespace+"/workload-"+namespace, source, nil, 0))
+	}
+
+	s := NewConfigurationScanSummaryStorage(realStorage)
+	list := &softwarecomposition.ConfigurationScanSummaryList{}
+	opts := storage.ListOptions{
+		Predicate: configurationscansummary.MatchConfigurationScanSummary(
+			labels.Everything(),
+			fields.OneTermEqualSelector("metadata.name", "default"),
+		),
+	}
+	err := s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/configurationscansummaries", opts, list)
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "default", list.Items[0].Name)
 }

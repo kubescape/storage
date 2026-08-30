@@ -97,6 +97,10 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 
+	predicate, err := normalizeSelectionPredicate(opts.Predicate)
+	if err != nil {
+		return err
+	}
 	workloadScanSummaryListObjPtr := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
 
 	// ask for all workloadconfigurationscansummaries in the cluster.
@@ -104,9 +108,9 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	// continuation token, so we must page through every token to make sure the
 	// aggregation covers all objects and not just the first page (issue #337).
 	listOpts := opts
+	listOpts.Predicate = predicate
 	listOpts.Predicate.Continue = ""
 	// Selectors for the aggregated resource cannot be applied to its source objects.
-	// TODO: Apply the original predicate after aggregation.
 	listOpts.Predicate.Label = labels.Everything()
 	listOpts.Predicate.Field = fields.Everything()
 	for {
@@ -126,6 +130,17 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 
 	// generate a single configurationScanSummary for the cluster, with a configuration scan summary for each namespace
 	nsSummaries := buildConfigurationScanSummaryForCluster(*workloadScanSummaryListObjPtr)
+	filteredItems := nsSummaries.Items[:0]
+	for i := range nsSummaries.Items {
+		matched, err := predicate.Matches(&nsSummaries.Items[i])
+		if err != nil {
+			return fmt.Errorf("match selection predicate: %w", err)
+		}
+		if matched {
+			filteredItems = append(filteredItems, nsSummaries.Items[i])
+		}
+	}
+	nsSummaries.Items = filteredItems
 
 	data, err := json.Marshal(nsSummaries)
 	if err != nil {

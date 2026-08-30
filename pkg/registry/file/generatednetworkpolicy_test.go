@@ -7,6 +7,7 @@ import (
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	"github.com/stretchr/testify/require"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -235,4 +238,46 @@ func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
 	assert.EqualError(t, err, expectedError.Error())
+}
+
+func TestGeneratedNetworkPolicyStorage_GetList_SelectorAppliedAfterGeneration(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
+
+	ctx := context.Background()
+	for _, workloadName := range []string{"foo", "bar"} {
+		source := &softwarecomposition.ContainerProfile{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      workloadName,
+				Namespace: "default",
+				Annotations: map[string]string{
+					helpersv1.StatusMetadataKey: helpersv1.Learning,
+				},
+				Labels: map[string]string{
+					helpersv1.RelatedKindMetadataKey: "Deployment",
+					helpersv1.RelatedNameMetadataKey: workloadName,
+				},
+			},
+		}
+
+		require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/default/"+workloadName, source, nil, 0))
+	}
+
+	s := NewGeneratedNetworkPolicyStorage(realStorage)
+	list := &softwarecomposition.GeneratedNetworkPolicyList{}
+	opts := storage.ListOptions{
+		Predicate: generatednetworkpolicy.MatchGeneratedNetworkPolicy(
+			labels.Everything(),
+			fields.OneTermEqualSelector("metadata.name", "deployment-foo"),
+		),
+	}
+	err := s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/default", opts, list)
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "deployment-foo", list.Items[0].Name)
 }

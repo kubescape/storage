@@ -237,6 +237,10 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 // neighbors are unioned into a single policy — one policy per workload, not one
 // per container.
 func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	predicate, err := normalizeSelectionPredicate(opts.Predicate)
+	if err != nil {
+		return err
+	}
 	generatedNetworkPolicyList := &softwarecomposition.GeneratedNetworkPolicyList{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: StorageV1Beta1ApiVersion,
@@ -248,9 +252,9 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	// continuation token, so we must page through every token to make sure the
 	// aggregation covers all objects and not just the first page (issue #337).
 	listOpts := opts
+	listOpts.Predicate = predicate
 	listOpts.Predicate.Continue = ""
 	// Selectors for the aggregated resource cannot be applied to its source objects.
-	// TODO: Apply the original predicate after aggregation.
 	listOpts.Predicate.Label = labels.Everything()
 	listOpts.Predicate.Field = fields.Everything()
 	items, err := s.listNamespaceContainerProfiles(ctx, replaceKeyForKind(key, containerProfileResource), listOpts)
@@ -287,6 +291,13 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		generatedNetworkPolicy, err := aggregateWorkloadPolicy(name, groups[name], knownServers, metav1.Now())
 		if err != nil {
 			logger.L().Ctx(ctx).Error("generate network policy failed", helpers.Error(err), helpers.String("workload", name))
+			continue
+		}
+		matched, err := predicate.Matches(&generatedNetworkPolicy)
+		if err != nil {
+			return fmt.Errorf("match selection predicate: %w", err)
+		}
+		if !matched {
 			continue
 		}
 		generatedNetworkPolicyList.Items = append(generatedNetworkPolicyList.Items, generatedNetworkPolicy)
