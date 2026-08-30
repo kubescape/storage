@@ -16,9 +16,9 @@ resources via their original `genericregistry.Store`-based `NewREST`, exactly as
 flags existed — the old implementation is kept alive as the reference implementation for
 differential testing regardless of the flag's value.
 
-This is part of the storage-locking-rewrite plan's Phase 4 (see
-`.omc/plans/storage-locking-rewrite.md`): incrementally proving that `genericregistry.Store` can
-be replaced by a much smaller, purpose-built `rest.Storage`, one resource at a time.
+This is Phase 4 of an ongoing storage-locking/scalability effort: incrementally proving that
+`genericregistry.Store` can be replaced by a much smaller, purpose-built `rest.Storage`, one
+resource at a time.
 
 ## Why it matters
 
@@ -88,11 +88,47 @@ reference this package is meant to be a faithful, gated alternative to:
   suite, can never fail and so cannot exercise this path) -- both confirmed to fail against the
   pre-fix code and pass after.
 
+## Further fixes from the same review (non-blocking, addressed anyway)
+
+A second pass through the review's non-blocking findings:
+
+- **`List`/`Watch` weren't narrowing scope to a single namespace** the way vendor's
+  `ListPredicate`/`WatchPredicate` do (vendor store.go:405-412, 1440-1447) when a cluster-scoped
+  request's field selector matches exactly one valid namespace. Not a correctness issue --
+  `listMetadata`'s own namespace filtering already returned the right results either way -- but a
+  perf/fidelity gap against the reference. Added the shared `narrowToSingleNamespace` helper, used
+  by both.
+- **`deepCopyInto` panicked instead of returning an error** if `src` and `dst`'s concrete types
+  ever diverged (a `reflect.Value.Set` type mismatch panics). Now checks `AssignableTo` first and
+  returns an error, matching the rest of the package's error-handling style for an apiserver
+  storage hot path.
+- **Dry-run `Create`'s "already exists" branch skipped `rest.CheckGeneratedNameError`**, unlike the
+  real (non-dry-run) path just below it. An exhausted `generateName` retry loop under dry-run would
+  have surfaced as a plain `AlreadyExists` instead of a retryable `GenerateNameConflict`. Now routed
+  through the same helper.
+- **`NewStore` validated `DefaultQualifiedResource` but not `SingularQualifiedResource`.** A missing
+  one would have failed silently at `GetSingularName()` (returning `""`) rather than at
+  construction time. Now validated the same way.
+- **The displaced OLD `rest.Storage` was never `Destroy()`d** when a `Custom*RestEnabled` flag
+  swaps it out of `apiGroupInfo.VersionedResourcesStorageMap`. Traced through to confirm this is a
+  no-op today (the shared `storageImpl` is injected directly into the OLD
+  `genericregistry.Store`, so `CompleteWithOptions` never sets a `DestroyFunc`) but added the call
+  anyway so this stays correct if that wiring ever changes.
+- **Package-level test coverage for `genericrest.Store` itself.** All prior coverage was indirect,
+  via each resource package's differential suite; there was no test proving the "no mutable state
+  after construction" claim under real concurrent access. Added
+  `pkg/registry/genericrest/store_test.go`'s `TestStore_ConcurrentAccess`, exercising concurrent
+  Create/Get/Update/Delete (including deliberate same-key contention forcing
+  `GuaranteedUpdate`'s conflict-retry path) against one shared `Store` instance, run under `-race`.
+- Several source comments cited `.omc/plans/storage-locking-rewrite.md`, a local planning doc that
+  is gitignored and was never tracked in this repo -- a dead link for any other contributor.
+  Repointed to this doc instead, in every file this PR touches.
+
 ## Verification
 
 Full test suite passes under `-race` (excluding the pre-existing, unrelated `watch.go` flaky
-test); the `knownservers` and `openvulnerabilityexchange` differential suites re-run 3x under
+test); the `knownservers`, `openvulnerabilityexchange`, and `genericrest` suites re-run 3x under
 `-race` with zero flakiness. `knownservers`' refactor from a 777-line hand-written
 implementation to a thin wrapper over `genericrest.Store` is a zero-regression change — all 13
 pre-existing differential tests in that package pass unchanged (`openvulnerabilityexchange`'s
-suite has 22, after the 3 tests added above).
+suite has 22, after the 3 tests added in the first review-fix pass above).

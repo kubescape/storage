@@ -35,9 +35,9 @@ import (
 // deliberate, narrow difference (see the dry-run Create/Update tests).
 //
 // This is the Phase 4 deliverable described in
-// .omc/plans/storage-locking-rewrite.md's "Phase 4 scoping" section: there
-// was no existing REST-layer test coverage for knownservers to extend, so
-// this is built from scratch.
+// docs/features/generic-rest-storage-phase4.md: there was no existing
+// REST-layer test coverage for knownservers to extend, so this is built
+// from scratch.
 
 // newTestScheme builds a scheme with both the internal softwarecomposition
 // types and the versioned v1beta1 types + conversions registered (mirroring

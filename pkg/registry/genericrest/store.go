@@ -15,7 +15,7 @@
 // this behavior for free.
 //
 // This is the Phase 4 deliverable described in
-// .omc/plans/storage-locking-rewrite.md ("Phase 4 scoping"): most of what a
+// docs/features/generic-rest-storage-phase4.md: most of what a
 // genericregistry.Store-based NewREST provides for free is actually
 // resource-agnostic once objects are manipulated via meta.Accessor
 // reflection -- Delete, DeleteCollection, markAsDeleting,
@@ -37,6 +37,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/validation"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -45,6 +46,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/watch"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/generic"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
@@ -184,6 +186,13 @@ func NewStore(storageImpl storage.Interface, optsGetter generic.RESTOptionsGette
 	if cfg.DefaultQualifiedResource.Empty() {
 		return nil, fmt.Errorf("genericrest.NewStore: DefaultQualifiedResource is required")
 	}
+	if cfg.SingularQualifiedResource.Empty() {
+		// A missing one would otherwise fail silently: GetSingularName would
+		// return "" and API discovery's singular column / singular-name
+		// resolution (e.g. `kubectl api-resources`) would just be blank
+		// rather than surfacing a construction-time error.
+		return nil, fmt.Errorf("genericrest.NewStore: SingularQualifiedResource is required")
+	}
 	if cfg.TableConvertor == nil {
 		// preserved verbatim from every resource's etcd.go NewREST -- not
 		// addressed by this migration.
@@ -293,6 +302,25 @@ func (r *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 	return obj, nil
 }
 
+// narrowToSingleNamespace mirrors vendor ListPredicate/WatchPredicate's
+// namespace-narrowing optimization (vendor store.go:405-412, 1440-1447): if
+// the request isn't already namespace-scoped but the field selector matches
+// exactly one (valid) namespace, inject that namespace into ctx so
+// KeyFunc/KeyRootFunc can narrow the underlying storage query to that single
+// namespace's key prefix instead of scanning every namespace. This is a
+// perf/fidelity optimization only -- listMetadata's own namespace filtering
+// already returns correct results either way.
+func narrowToSingleNamespace(ctx context.Context, p storage.SelectionPredicate) context.Context {
+	if requestNamespace, _ := genericapirequest.NamespaceFrom(ctx); len(requestNamespace) != 0 {
+		return ctx
+	}
+	selectorNamespace, ok := p.MatchesSingleNamespace()
+	if !ok || len(validation.ValidateNamespaceName(selectorNamespace, false)) != 0 {
+		return ctx
+	}
+	return genericapirequest.WithNamespace(ctx, selectorNamespace)
+}
+
 // List propagates Limit/Continue/ResourceVersionMatch (checklist item 12),
 // mirroring genericregistry.Store.ListPredicate (vendor store.go:389-425).
 func (r *Store) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
@@ -316,6 +344,7 @@ func (r *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 		storageOpts.ResourceVersionMatch = options.ResourceVersionMatch
 	}
 
+	ctx = narrowToSingleNamespace(ctx, p)
 	key := r.KeyRootFunc(ctx)
 	if name, ok := p.MatchesSingle(); ok {
 		if k, err := r.KeyFunc(ctx, name); err == nil {
@@ -355,6 +384,7 @@ func (r *Store) Watch(ctx context.Context, options *metainternalversion.ListOpti
 	}
 
 	storageOpts := storage.ListOptions{ResourceVersion: resourceVersion, Predicate: p, Recursive: true, SendInitialEvents: sendInitialEvents}
+	ctx = narrowToSingleNamespace(ctx, p)
 	key := r.KeyRootFunc(ctx)
 	if name, ok := p.MatchesSingle(); ok {
 		if k, err := r.KeyFunc(ctx, name); err == nil {
@@ -435,7 +465,12 @@ func (r *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	// DeepCopyObject preview instead -- see deepCopyInto below.
 	if dryrun.IsDryRun(options.DryRun) {
 		if err := r.Storage.Get(ctx, key, storage.GetOptions{}, out); err == nil {
-			return nil, storeerr.InterpretCreateError(storage.NewKeyExistsError(key, 0), r.DefaultQualifiedResource, name)
+			// Mirrors the real (non-dry-run) path below: an exhausted
+			// generateName retry loop must surface as a retryable
+			// GenerateNameConflict, not a plain AlreadyExists, whether or
+			// not dry-run is set.
+			existsErr := storeerr.InterpretCreateError(storage.NewKeyExistsError(key, 0), r.DefaultQualifiedResource, name)
+			return nil, rest.CheckGeneratedNameError(ctx, r.Strategy, existsErr, obj)
 		}
 		if err := deepCopyInto(obj, out); err != nil {
 			return nil, err
@@ -474,6 +509,9 @@ func deepCopyInto(src, dst runtime.Object) error {
 	cv := reflect.ValueOf(copied)
 	if cv.Kind() == reflect.Ptr {
 		cv = cv.Elem()
+	}
+	if !cv.Type().AssignableTo(dv.Elem().Type()) {
+		return fmt.Errorf("deepCopyInto: cannot assign %s into %s", cv.Type(), dv.Elem().Type())
 	}
 	dv.Elem().Set(cv)
 	return nil
