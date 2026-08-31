@@ -1125,6 +1125,18 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 
 	pageLast := ""
 	for limit == 0 || int64(v.Len()) < limit {
+		// Mirrors genericrest.Store.DeleteCollection's own between-pages
+		// ctx.Done() check: without this, an unlimited (or large-limit) list
+		// spanning many internal pages has nothing but poolContext()'s own
+		// fixed timeout (derived from context.Background(), not the caller's
+		// ctx) to bound it -- a cancelled caller ctx would otherwise go
+		// unnoticed until the whole result is assembled.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
 
 		beforePool := time.Now()
@@ -1171,6 +1183,13 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 
 	pageLast := ""
 	for limit == 0 || int64(v.Len()) < limit {
+		// See the matching check in GetList.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
 
 		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
@@ -1209,9 +1228,11 @@ const defaultListBatchSize = 500
 // request. For an unlimited list (limit == 0) this is always batchSize. For a
 // limited list it's however many more items are needed to reach limit,
 // clamped to batchSize so a single client-requested large limit still fetches
-// (and releases its pool connection) in bounded chunks. Never called with a
-// negative limit in practice, since GetList/GetListWithConn's loop guard
-// never enters the loop body for one (see defaultListBatchSize).
+// (and releases its pool connection) in bounded chunks. A negative limit
+// returns 0 directly -- GetList/GetListWithConn's own loop guard already
+// never enters the loop body for one, but this makes the "negative limit
+// asks for nothing" contract hold on its own terms rather than depending on
+// how that loop condition happens to be phrased.
 //
 // Accepted minor inefficiency: for an unlimited list whose total item count
 // is an exact multiple of batchSize, the loop always takes one extra,
@@ -1222,6 +1243,9 @@ const defaultListBatchSize = 500
 // batchSize+1 and trimming). Harmless for correctness, and not worth the
 // added complexity for a boundary-only case.
 func nextPageSize(limit, batchSize, fetched int64) int64 {
+	if limit < 0 {
+		return 0
+	}
 	if limit == 0 {
 		return batchSize
 	}
@@ -1271,9 +1295,6 @@ func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts stora
 	// negative limit is passed through unchanged (see the doc comment above).
 	limit = opts.Predicate.Limit
 	batchSize = defaultListBatchSize
-	if limit > 0 && limit < batchSize {
-		batchSize = limit
-	}
 	// populate list object
 	elem = v.Type().Elem()
 	v.Set(reflect.MakeSlice(v.Type(), 0, 0))

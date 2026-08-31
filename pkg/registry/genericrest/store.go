@@ -907,7 +907,13 @@ func (r *Store) DeleteCollection(ctx context.Context, deleteValidation rest.Vali
 	} else {
 		listOptions = listOptions.DeepCopy()
 	}
-	hasLimit := listOptions.Limit > 0
+	// listOptions.Limit == 0 is the only "no limit requested" case (matching
+	// GetList's own contract, see prepareGetList's doc comment) -- a negative
+	// Limit is invalid/degenerate input, not a request for everything, and
+	// must fall into the hasLimit branch below (which, against zero matching
+	// items, is a no-op) rather than being overwritten with a real positive
+	// limit that would then page through and delete the whole collection.
+	hasLimit := listOptions.Limit != 0
 	if !hasLimit {
 		// Force our own bounded page size rather than relying on List's
 		// default (which, correctly, no longer imposes one on its own) --

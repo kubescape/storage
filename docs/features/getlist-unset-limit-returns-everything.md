@@ -84,6 +84,46 @@ happens to be. This restores the original pagination cadence without
 `DeleteCollection` depending on an implementation detail of a function it
 doesn't own.
 
+## Second review round: a real bug and two robustness follow-ups
+
+A second code-review pass on the fixes above caught one more real bug and two
+worthwhile robustness improvements:
+
+- **Bug: `DeleteCollection` folded a negative `Limit` into "no limit
+  requested" too.** `hasLimit := listOptions.Limit > 0` treats `Limit: -1` the
+  same as `Limit: 0`, overwriting it with `DefaultDeleteCollectionPageSize`
+  and paging through and deleting the *entire* collection -- directly
+  contradicting the negative-limit contract just established for `GetList`
+  above (negative is invalid/degenerate input, matching an empty result, not
+  "everything"). `DELETE .../<resource>?limit=-1`, previously a no-op, would
+  have started deleting everything. Fixed by changing the check to
+  `listOptions.Limit != 0`, so a negative `Limit` is left alone, `List`
+  returns an empty result for it, and `DeleteCollection`'s "caller asked for
+  one page, honor just that page" branch correctly does nothing against a
+  zero-item page.
+- **`GetList`/`GetListWithConn` had no `ctx.Done()` check of their own
+  between internal pages.** Before this whole fix, an unlimited call did at
+  most one ~500-row round trip, so a cancelled caller context went unnoticed
+  for at most one page's worth of work. Once unlimited lists could span
+  arbitrarily many internal pages, that same gap could mean a large
+  cancelled list keeps fetching pages until fully exhausted, bounded by
+  nothing but `poolContext()`'s own fixed timeout (derived from
+  `context.Background()`, not the caller's `ctx`). Fixed by adding the same
+  `select { case <-ctx.Done(): return ctx.Err() default: }` check
+  `DeleteCollection` already had, at the top of both loops.
+- **`nextPageSize` depended on the loop guard's exact wording to never see a
+  negative limit.** It was reachable in principle with a negative limit
+  (returning a nonsensical negative page size) and only "safe" because the
+  loop guard elsewhere happened to never call it that way. Added a direct
+  `if limit < 0 { return 0 }` so the "negative limit asks for nothing"
+  contract holds on the function's own terms.
+- **Nit, dead code removed:** `prepareGetList`'s
+  `if limit > 0 && limit < batchSize { batchSize = limit }` had no observable
+  effect -- `nextPageSize` already computes `min(remaining, batchSize)` on
+  every call, and at `fetched == 0`, `remaining == limit`, so the result is
+  identical with or without the pre-clamp. Confirmed by tracing both branches
+  against every `TestNextPageSize` case; deleted.
+
 ## Verification
 
 New tests in `pkg/registry/file/storage_test.go`:
@@ -100,8 +140,14 @@ New tests in `pkg/registry/file/storage_test.go`:
 - `TestStorageImpl_GetList_NegativeLimitReturnsEmpty` -- pins down the
   negative-limit distinction above: a negative `Limit` still returns an empty
   list, not every item.
+- `TestStorageImpl_GetList_RespectsCancellationAcrossInternalPages` -- an
+  already-cancelled context on an unlimited, multi-page-sized List returns
+  `context.Canceled` instead of fetching every internal page regardless.
+  Confirmed to fail against the pre-fix loop (no `ctx.Done()` check at all)
+  by temporarily removing it and rerunning, then confirmed to pass again with
+  the check restored.
 
-New test in `pkg/registry/genericrest/store_test.go`:
+New tests in `pkg/registry/genericrest/store_test.go`:
 - `TestStore_DeleteCollection_StopsOnCancellationBetweenPages` -- creates
   `DefaultDeleteCollectionPageSize + 20` objects, wraps the store's
   `storage.Interface` to cancel the context only once the first page's real
@@ -111,6 +157,11 @@ New test in `pkg/registry/genericrest/store_test.go`:
   size) by temporarily disabling the `DefaultDeleteCollectionPageSize`
   assignment and rerunning, then confirmed to pass again with the fix
   restored.
+- `TestStore_DeleteCollection_NegativeLimitDeletesNothing` -- a negative
+  `Limit` deletes nothing, matching `List`'s own contract. Confirmed to fail
+  against the pre-fix `hasLimit := listOptions.Limit > 0` (deletes the entire
+  collection) by temporarily reverting to it and rerunning, then confirmed to
+  pass again with the fix restored.
 
 Full `pkg/registry/...` suite green under `-race`, run 3x with zero
 flakiness (aside from the known pre-existing, unrelated
@@ -138,8 +189,9 @@ storage-locking-rewrite investigation) and are **not** addressed here:
   size limits), this backend's per-object cost (especially in the
   `ResourceVersionFullSpec` branch, which does a `s.get()` -- and, depending
   on the object, a Gob-file read -- per item) is not free. The per-page
-  connection release from `getlist-page-connection-hold.md` already prevents
-  a large unpaginated List from monopolizing a single pool connection for its
-  whole duration, which was the primary safety concern; a loud, explicit
-  size ceiling (as opposed to a silent truncation) remains a possible future
-  addition if a specific workload demonstrates the need.
+  connection release from `getlist-page-connection-hold.md`, together with
+  the between-pages `ctx.Done()` check added in the second review round
+  above, together bound the worst case to "at most one more internal page's
+  worth of work after the caller stops caring," not unbounded; a loud,
+  explicit size ceiling (as opposed to a silent truncation) remains a
+  possible future addition if a specific workload demonstrates the need.

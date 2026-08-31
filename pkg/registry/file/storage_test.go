@@ -1317,6 +1317,7 @@ func TestNextPageSize(t *testing.T) {
 		{"limited request clamps a large limit to the batch size", 5000, 500, 0, 500},
 		{"limited request asks for only what's left once partially filled", 5000, 500, 4800, 200},
 		{"limited request already satisfied asks for nothing more", 10, 500, 10, 0},
+		{"negative limit asks for nothing, self-contained regardless of the caller's loop guard", -1, 500, 0, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1422,6 +1423,56 @@ func TestStorageImpl_GetList_NegativeLimitReturnsEmpty(t *testing.T) {
 
 	assert.Empty(t, list.Items, "a negative Limit is degenerate input, not a request for an unlimited list -- it must not return every item")
 	assert.Empty(t, list.Continue)
+}
+
+// TestStorageImpl_GetList_RespectsCancellationAcrossInternalPages proves a
+// follow-up fix flagged in code review of the unset-limit fix above: an
+// unlimited (or large-limit) GetList spanning many internal pages had
+// nothing but poolContext()'s own fixed timeout (derived from
+// context.Background(), not the caller's ctx) to bound it -- a cancelled
+// caller context would otherwise go unnoticed until every internal page had
+// been fetched. GetList/GetListWithConn now check ctx.Done() at the top of
+// their page loop, mirroring genericrest.Store.DeleteCollection's own
+// between-pages check.
+//
+// Cancelling before the call even starts is enough to prove the check exists
+// and works: pre-fix, GetList had no such check anywhere and would fetch
+// every one of the total/defaultListBatchSize internal pages regardless.
+func TestStorageImpl_GetList_RespectsCancellationAcrossInternalPages(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+
+	ctx := context.Background()
+	keyPrefix := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/default"
+	const total = defaultListBatchSize + 20
+	for i := range total {
+		name := fmt.Sprintf("sbom-%04d", i)
+		key := fmt.Sprintf("%s/%s", keyPrefix, name)
+		obj := &v1beta1.SBOMSyft{
+			ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "default"},
+		}
+		require.NoError(t, s.Create(ctx, key, obj.DeepCopyObject(), nil, 0))
+	}
+
+	cancelledCtx, cancel := context.WithCancel(ctx)
+	cancel()
+
+	opts := storage.ListOptions{
+		Predicate: storage.SelectionPredicate{
+			Label:    labels.Everything(),
+			Field:    fields.Everything(),
+			GetAttrs: storage.DefaultNamespaceScopedAttr,
+		},
+	}
+	list := &v1beta1.SBOMSyftList{}
+	err := s.GetList(cancelledCtx, keyPrefix, opts, list)
+	assert.ErrorIs(t, err, context.Canceled,
+		"an unpaginated GetList must honor a cancelled context instead of fetching every internal page regardless")
 }
 
 // TestStorageImpl_GetList_ReleasesConnectionBetweenPages proves the fix for the

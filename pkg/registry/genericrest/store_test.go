@@ -233,3 +233,40 @@ func TestStore_DeleteCollection_StopsOnCancellationBetweenPages(t *testing.T) {
 	assert.Len(t, remaining, total-genericrest.DefaultDeleteCollectionPageSize,
 		"only the first page should have been deleted before cancellation was noticed at the top of the second page")
 }
+
+// TestStore_DeleteCollection_NegativeLimitDeletesNothing proves a fix caught
+// in code review: DeleteCollection's original `hasLimit := listOptions.Limit
+// > 0` folded a negative Limit into the same "no limit requested" bucket as
+// Limit == 0, overwriting it with DefaultDeleteCollectionPageSize -- turning
+// a negative Limit (which List/GetList treats as invalid/degenerate input,
+// matching an empty result) into a request that paged through and deleted
+// the *entire* collection. `DELETE .../<resource>?limit=-1`, previously a
+// no-op, would have started deleting everything.
+//
+// hasLimit is now `listOptions.Limit != 0`, so a negative Limit is left
+// unchanged, List returns an empty result for it (per GetList's own
+// contract), and DeleteCollection's hasLimit branch -- "the caller asked for
+// a single page, honor just that page" -- correctly does nothing against a
+// zero-item page.
+func TestStore_DeleteCollection_NegativeLimitDeletesNothing(t *testing.T) {
+	store := newTestStore(t)
+	ctx := testContext()
+
+	const total = 5
+	for i := range total {
+		name := fmt.Sprintf("server-%02d", i)
+		_, err := store.Create(ctx, &softwarecomposition.KnownServer{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+		}, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	_, err := store.DeleteCollection(ctx, rest.ValidateAllObjectFunc, &metav1.DeleteOptions{}, &metainternalversion.ListOptions{Limit: -1})
+	require.NoError(t, err)
+
+	remainingList, err := store.List(ctx, &metainternalversion.ListOptions{})
+	require.NoError(t, err)
+	remaining, err := meta.ExtractList(remainingList)
+	require.NoError(t, err)
+	assert.Len(t, remaining, total, "a negative Limit must not delete anything, matching List's own negative-limit contract")
+}
