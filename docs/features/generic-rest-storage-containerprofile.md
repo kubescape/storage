@@ -10,9 +10,13 @@ is Phase 4's third migrated resource and by far its most complex: a consolidatio
 (NetworkNeighbor wildcard grammar), and a singular/plural qualified-resource inversion that
 determines the on-disk key prefix.
 
-Gated behind `config.Config.CustomContainerProfileRestEnabled` (default `false`); the old
-`genericregistry.Store`-based implementation remains the default and the differential-testing
-reference.
+Gated behind `config.Config.CustomContainerProfileRestEnabled` (default `true` as of 2026-08-31,
+after live validation against armo-dev-stage); the old `genericregistry.Store`-based
+implementation remains available as a fallback (set the flag to `false`) and as the
+differential-testing reference. Live validation also surfaced a pre-existing PATCH/UID bug
+([issue #385](https://github.com/kubescape/storage/issues/385)) confirmed identical on both
+implementations -- not a regression introduced by this migration, and not a reason to keep the
+old implementation as the default.
 
 ## Why it matters / how it works
 

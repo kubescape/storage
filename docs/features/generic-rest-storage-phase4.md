@@ -11,10 +11,12 @@ alternative to `k8s.io/apiserver`'s `genericregistry.Store`:
   (`pkg/registry/softwarecomposition/openvulnerabilityexchange/custom_rest.go`), gated by
   `config.Config.CustomOpenVulnerabilityExchangeRestEnabled`.
 
-Both flags default to `false`. When unset, `pkg/apiserver/apiserver.go` registers these
-resources via their original `genericregistry.Store`-based `NewREST`, exactly as before these
-flags existed — the old implementation is kept alive as the reference implementation for
-differential testing regardless of the flag's value.
+Both flags default to `true` as of 2026-08-31, following live validation against a real cluster
+(armo-dev-stage) that found zero behavioral divergence across all 11 Phase 4 resources — see
+`docs/features/generic-rest-storage-remaining-resources.md`. When unset, `pkg/apiserver/apiserver.go`
+registers these resources via the NEW `genericrest.Store`-based implementation. Set the flag to
+`false` to fall back to the original `genericregistry.Store`-based `NewREST`, which is kept alive
+as the reference implementation for differential testing regardless of the flag's value.
 
 This is Phase 4 of an ongoing storage-locking/scalability effort: incrementally proving that
 `genericregistry.Store` can be replaced by a much smaller, purpose-built `rest.Storage`, one
