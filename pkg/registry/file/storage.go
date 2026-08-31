@@ -1124,7 +1124,7 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	}
 
 	pageLast := ""
-	for limit <= 0 || int64(v.Len()) < limit {
+	for limit == 0 || int64(v.Len()) < limit {
 		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
 
 		beforePool := time.Now()
@@ -1170,7 +1170,7 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 	}
 
 	pageLast := ""
-	for limit <= 0 || int64(v.Len()) < limit {
+	for limit == 0 || int64(v.Len()) < limit {
 		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
 
 		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
@@ -1192,20 +1192,37 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 // defaultListBatchSize bounds how many entries GetList/GetListWithConn fetch
 // from SQLite per internal round trip. It is an internal chunking detail only
 // -- it does not cap how many items a List call can return. A caller that
-// doesn't set Predicate.Limit (limit <= 0, "no pagination requested") gets
+// doesn't set Predicate.Limit (limit == 0, "no pagination requested") gets
 // every matching item, fetched in batches of this size and reassembled across
 // as many internal pages as needed; a caller that does set Limit gets exactly
 // that many (or fewer, with a continue token), matching Kubernetes List API
 // conventions: Limit == 0 means "no limit," not "default to some limit."
+//
+// A negative Limit is not a valid "no limit" request -- it is preserved as an
+// invalid/degenerate input and, like the pre-fix code, results in an empty
+// list (the loop's `limit == 0 || v.Len() < limit` guard is false for both
+// v.Len()==0 and any negative limit, so the loop body never runs), rather
+// than being silently reinterpreted as "unlimited."
 const defaultListBatchSize = 500
 
 // nextPageSize returns how many entries the next internal SQLite page should
-// request. For an unlimited list (limit <= 0) this is always batchSize. For a
+// request. For an unlimited list (limit == 0) this is always batchSize. For a
 // limited list it's however many more items are needed to reach limit,
 // clamped to batchSize so a single client-requested large limit still fetches
-// (and releases its pool connection) in bounded chunks.
+// (and releases its pool connection) in bounded chunks. Never called with a
+// negative limit in practice, since GetList/GetListWithConn's loop guard
+// never enters the loop body for one (see defaultListBatchSize).
+//
+// Accepted minor inefficiency: for an unlimited list whose total item count
+// is an exact multiple of batchSize, the loop always takes one extra,
+// zero-row internal round trip (pool acquire/fetch/release) before it can
+// tell the data is exhausted -- always requesting a full batchSize means
+// there's no cheaper way to distinguish "exactly batchSize items left" from
+// "more than batchSize items left" without a second signal (e.g. requesting
+// batchSize+1 and trimming). Harmless for correctness, and not worth the
+// added complexity for a boundary-only case.
 func nextPageSize(limit, batchSize, fetched int64) int64 {
-	if limit <= 0 {
+	if limit == 0 {
 		return batchSize
 	}
 	remaining := limit - fetched
@@ -1222,11 +1239,14 @@ func nextPageSize(limit, batchSize, fetched int64) int64 {
 // is passed by value, so mutating opts.Predicate here does not propagate back to
 // the caller's own copy.
 //
-// limit is the caller's requested total item count: 0 (or negative) means the
+// limit is the caller's requested total item count: exactly 0 means the
 // caller did not request pagination, so GetList/GetListWithConn must return
-// every matching item rather than silently truncating. batchSize is purely the
-// internal per-round-trip fetch size (see defaultListBatchSize) and never caps
-// the total result on its own.
+// every matching item rather than silently truncating. A negative limit is
+// left as-is (not normalized to 0 or treated as unlimited) so the loop guard
+// in GetList/GetListWithConn preserves the pre-fix behavior of returning an
+// empty list for that degenerate input. batchSize is purely the internal
+// per-round-trip fetch size (see defaultListBatchSize) and never caps the
+// total result on its own.
 func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) (_ context.Context, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type, limit int64, batchSize int64, cursor string, isFullSpec bool, err error) {
 	predicate, err = normalizeSelectionPredicate(opts.Predicate)
 	if err != nil {
@@ -1245,9 +1265,10 @@ func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts stora
 		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
 		return ctx, predicate, v, elem, 0, 0, "", false, fmt.Errorf("need ptr to slice: %v", err)
 	}
-	// limit <= 0 means the caller did not request pagination -- do not
+	// limit == 0 means the caller did not request pagination -- do not
 	// substitute a default that would silently truncate the result. Only the
-	// internal per-round-trip batch size defaults to a fixed value.
+	// internal per-round-trip batch size defaults to a fixed value. A
+	// negative limit is passed through unchanged (see the doc comment above).
 	limit = opts.Predicate.Limit
 	batchSize = defaultListBatchSize
 	if limit > 0 && limit < batchSize {

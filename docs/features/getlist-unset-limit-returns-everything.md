@@ -33,14 +33,14 @@ behavior specific to that client, not something every List caller gets.
 
 ## How it works
 
-- `prepareGetList` now treats `Predicate.Limit <= 0` as "no limit requested"
-  and leaves it that way, instead of substituting `defaultListBatchSize`
-  (500). A separate `batchSize` return value captures the internal
-  per-round-trip SQLite fetch size only -- it defaults to
+- `prepareGetList` now treats `Predicate.Limit == 0` (exactly zero) as "no
+  limit requested" and leaves it that way, instead of substituting
+  `defaultListBatchSize` (500). A separate `batchSize` return value captures
+  the internal per-round-trip SQLite fetch size only -- it defaults to
   `defaultListBatchSize`, or to the caller's own `Limit` when that's smaller,
   but it never caps the total result on its own.
 - `GetList`/`GetListWithConn`'s pagination loop condition changed from
-  `for int64(v.Len()) < limit` to `for limit <= 0 || int64(v.Len()) < limit`,
+  `for int64(v.Len()) < limit` to `for limit == 0 || int64(v.Len()) < limit`,
   so an unlimited request keeps fetching successive internal batches (each
   still acquiring/releasing its own pool connection in `GetList`, per
   `getlist-page-connection-hold.md`) until the underlying data is exhausted,
@@ -53,13 +53,43 @@ behavior specific to that client, not something every List caller gets.
 - A genuinely unlimited List still ends with no `continue` token (there is
   nothing left to continue), so well-behaved paginating clients are
   unaffected and see the same termination signal as before.
+- A **negative** `Limit` is deliberately *not* folded into "unlimited" --
+  it's invalid/degenerate input, and the loop guard (`limit == 0`, not
+  `limit <= 0`) preserves the pre-fix behavior of returning an empty list for
+  it, rather than reinterpreting a negative value as a request for
+  everything. This distinction was caught in code review of the initial
+  version of this fix, which had used `limit <= 0` throughout.
+
+## Cross-file regression this fix required: `DeleteCollection`'s cancellation checkpoint
+
+Code review of this fix (before merge) caught a real, separate regression it
+would otherwise have introduced: `genericrest.Store.DeleteCollection` (the
+Phase 4 bulk-delete implementation) was silently relying on `GetList`'s old
+500-item default as its own cancellation checkpoint. Its only `ctx.Done()`
+check runs once per outer loop iteration -- i.e. once per internal List page,
+not once per deleted item. Before this fix, an unpaginated "delete all" call
+(`DeleteCollection` with no explicit `Limit`) would always page through the
+collection roughly 500 items at a time as a side effect of `GetList`'s old
+default, giving that check a real chance to fire on a large collection. Once
+`GetList` was fixed to return everything in one call when no `Limit` is
+requested, that implicit paging -- and with it, the only opportunity for
+`DeleteCollection`'s cancellation check to run more than once -- disappeared:
+a "delete all" call on a large collection would list and delete the entire
+thing in one uninterruptible pass.
+
+Fixed in the same change: `DeleteCollection` now sets its own
+`DefaultDeleteCollectionPageSize` (500) on `listOptions.Limit` whenever the
+caller didn't specify one, independent of whatever `GetList`'s own default
+happens to be. This restores the original pagination cadence without
+`DeleteCollection` depending on an implementation detail of a function it
+doesn't own.
 
 ## Verification
 
 New tests in `pkg/registry/file/storage_test.go`:
 - `TestNextPageSize` -- table-driven coverage of the page-size helper's edge
-  cases (unlimited, negative limit, limit smaller/larger than the batch size,
-  limit already satisfied).
+  cases (unlimited, limit smaller/larger than the batch size, limit already
+  satisfied).
 - `TestStorageImpl_GetList_UnsetLimitReturnsAllItems` -- creates
   `defaultListBatchSize + 20` objects and calls `GetList` with no `Limit` set,
   asserting all of them come back with no `continue` token. Confirmed to fail
@@ -67,10 +97,27 @@ New tests in `pkg/registry/file/storage_test.go`:
   `continue`) by temporarily reintroducing the old `Limit == 0 -> 500`
   substitution and rerunning, then confirmed to pass again with the fix
   restored.
+- `TestStorageImpl_GetList_NegativeLimitReturnsEmpty` -- pins down the
+  negative-limit distinction above: a negative `Limit` still returns an empty
+  list, not every item.
 
-Full `pkg/registry/file` suite green under `-race`, run 3x with zero
-flakiness. `go vet` clean (aside from the known pre-existing, unrelated
-`callstack_test.go` warnings).
+New test in `pkg/registry/genericrest/store_test.go`:
+- `TestStore_DeleteCollection_StopsOnCancellationBetweenPages` -- creates
+  `DefaultDeleteCollectionPageSize + 20` objects, wraps the store's
+  `storage.Interface` to cancel the context only once the first page's real
+  deletes have all completed successfully, and asserts `DeleteCollection`
+  stops with a context-cancellation error having deleted only the first page.
+  Confirmed to fail against the pre-fix `DeleteCollection` (no explicit page
+  size) by temporarily disabling the `DefaultDeleteCollectionPageSize`
+  assignment and rerunning, then confirmed to pass again with the fix
+  restored.
+
+Full `pkg/registry/...` suite green under `-race`, run 3x with zero
+flakiness (aside from the known pre-existing, unrelated
+`TestFileSystemStorageWatchReturnsDistinctWatchers`/
+`TestFilesystemStorageWatchPublishing` race in the Watch dispatcher,
+independently reproduced on unmodified `main` too). `go vet` clean (aside
+from the known pre-existing, unrelated `callstack_test.go` warnings).
 
 ## Known residual scope
 

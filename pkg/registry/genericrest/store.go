@@ -871,18 +871,34 @@ func markAsDeleting(accessor metav1.Object) {
 	accessor.SetDeletionGracePeriodSeconds(&zero)
 }
 
+// DefaultDeleteCollectionPageSize bounds how many items DeleteCollection
+// deletes per internal List call when the caller didn't request a specific
+// page size. This is deliberately DeleteCollection's own constant, not
+// derived from List's behavior: List (StorageImpl.GetList) used to impose an
+// implicit page size of 500 on any unpaginated call, and DeleteCollection's
+// pagination loop below was silently relying on that -- its only
+// cancellation checkpoint is the ctx.Done() check at the top of the loop,
+// which used to run roughly every 500 deleted items as a side effect of
+// List's old default. Once List was fixed to return everything in one call
+// when no Limit is given (see docs/features/getlist-unset-limit-returns-everything.md),
+// that implicit checkpoint disappeared: a "delete all" call with no explicit
+// Limit would list and then delete an entire large collection in one
+// uninterruptible pass. DeleteCollection now requests its own bounded page
+// explicitly, independent of whatever List's own default happens to be.
+const DefaultDeleteCollectionPageSize = 500
+
 // DeleteCollection implements checklist item 10. Unlike
 // genericregistry.Store.DeleteCollection (vendor store.go:1237-1382), this
 // is a simple sequential implementation (no worker pool) -- every resource
 // using this package so far is low-traffic enough that a bulk delete is not
 // expected to need parallelism. It does still paginate through List's
-// continue token like vendor does (vendor store.go:1298-1362), though:
-// List's own default page size (500, see StorageImpl.GetList) is well below
-// realistic collection sizes, and silently stopping at one page would delete
-// only part of the collection while reporting success. As in vendor, a
-// caller-supplied explicit Limit is honored as a request for just that one
-// page rather than paginated through. Every matched object is still
-// individually deleted through the same Delete path above (so
+// continue token like vendor does (vendor store.go:1298-1362): silently
+// stopping at one page would delete only part of the collection while
+// reporting success, and pagination is also what keeps the ctx.Done() check
+// below effective on a large collection (see DefaultDeleteCollectionPageSize).
+// As in vendor, a caller-supplied explicit Limit is honored as a request for
+// just that one page rather than paginated through. Every matched object is
+// still individually deleted through the same Delete path above (so
 // finalizers/dry-run/etc. behave identically per-item), and the returned
 // list mirrors everything that was deleted across all pages.
 func (r *Store) DeleteCollection(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
@@ -892,6 +908,12 @@ func (r *Store) DeleteCollection(ctx context.Context, deleteValidation rest.Vali
 		listOptions = listOptions.DeepCopy()
 	}
 	hasLimit := listOptions.Limit > 0
+	if !hasLimit {
+		// Force our own bounded page size rather than relying on List's
+		// default (which, correctly, no longer imposes one on its own) --
+		// see DefaultDeleteCollectionPageSize.
+		listOptions.Limit = DefaultDeleteCollectionPageSize
+	}
 
 	var deleted []runtime.Object
 	var originalList runtime.Object

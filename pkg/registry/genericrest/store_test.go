@@ -2,8 +2,10 @@ package genericrest_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -15,11 +17,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/apiserver/pkg/server/options"
+	"k8s.io/apiserver/pkg/storage"
 )
 
 // This file is a package-level test suite for genericrest.Store itself, as
@@ -147,4 +152,84 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 	if len(server.Spec) > 0 {
 		assert.Regexp(t, `^server-\d{2}$`, server.Spec[0].Server)
 	}
+}
+
+// countingDeleteStorage wraps a storage.Interface, invoking cancel once its
+// Delete method has been called cancelAfter times. Used to deterministically
+// cancel a context partway through a bulk delete without depending on
+// rest.ValidateObjectFunc (StorageImpl.Delete ignores that parameter
+// entirely -- ValidateObjectFunc is not a usable interception point here).
+type countingDeleteStorage struct {
+	storage.Interface
+	count       int32
+	cancelAfter int32
+	cancel      context.CancelFunc
+}
+
+func (c *countingDeleteStorage) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
+	// Cancel only after the counted delete has itself already completed
+	// successfully -- cancelling first would make that very call (not just
+	// the next one) race against an already-cancelled ctx.
+	err := c.Interface.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
+	if err == nil && atomic.AddInt32(&c.count, 1) == c.cancelAfter {
+		c.cancel()
+	}
+	return err
+}
+
+// TestStore_DeleteCollection_StopsOnCancellationBetweenPages proves the fix
+// for DeleteCollection's implicit reliance on List's old default page size as
+// its cancellation checkpoint (see genericrest.DefaultDeleteCollectionPageSize's
+// doc comment). DeleteCollection's only cancellation check is the ctx.Done()
+// select at the top of its pagination loop -- once per page, not once per
+// item. Since List (StorageImpl.GetList) itself was fixed to return every
+// matching item in one call when no Limit is requested, a "delete all" call
+// with no explicit Limit would list and delete an entire large collection in
+// a single, uninterruptible pass unless DeleteCollection requests its own
+// bounded page size independent of List's behavior.
+//
+// This creates more than DefaultDeleteCollectionPageSize objects (all with
+// distinct names, so no per-item lock contention -- MapMutex.Lock's fast path
+// for an uncontended key does not itself check ctx, see pkg/utils/mutex.go,
+// so cancellation here can only be caught by DeleteCollection's own
+// between-pages check, not incidentally by lock acquisition), cancels the
+// context a few real storage deletes into the first page via
+// countingDeleteStorage, and asserts DeleteCollection stops with a context
+// error having deleted only the first page -- not the whole collection.
+func TestStore_DeleteCollection_StopsOnCancellationBetweenPages(t *testing.T) {
+	store := newTestStore(t)
+	base := testContext()
+
+	const total = genericrest.DefaultDeleteCollectionPageSize + 20
+	for i := range total {
+		name := fmt.Sprintf("server-%04d", i)
+		_, err := store.Create(base, &softwarecomposition.KnownServer{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+		}, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	ctx, cancel := context.WithCancel(base)
+	defer cancel()
+
+	// Cancel exactly once the first page's real deletes have all completed
+	// successfully (not partway through), so the only thing left to prove is
+	// whether the *next* iteration's top-of-loop ctx.Done() check fires
+	// before a second List/Delete round -- isolated from any incidental
+	// cancellation-awareness inside an individual Delete call's own
+	// connection acquisition (which, if cancellation happened mid-page
+	// instead, would confound which mechanism actually stopped the loop).
+	const cancelAfter = genericrest.DefaultDeleteCollectionPageSize
+	store.Storage = &countingDeleteStorage{Interface: store.Storage, cancelAfter: cancelAfter, cancel: cancel}
+
+	_, err := store.DeleteCollection(ctx, rest.ValidateAllObjectFunc, &metav1.DeleteOptions{}, &metainternalversion.ListOptions{})
+	require.Error(t, err, "DeleteCollection must stop once its context is cancelled, not run the whole collection to completion")
+	assert.True(t, errors.Is(err, context.Canceled), "expected a context-cancellation error, got: %v", err)
+
+	remainingList, err := store.List(base, &metainternalversion.ListOptions{Limit: int64(total) + 1})
+	require.NoError(t, err)
+	remaining, err := meta.ExtractList(remainingList)
+	require.NoError(t, err)
+	assert.Len(t, remaining, total-genericrest.DefaultDeleteCollectionPageSize,
+		"only the first page should have been deleted before cancellation was noticed at the top of the second page")
 }

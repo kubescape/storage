@@ -1313,7 +1313,6 @@ func TestNextPageSize(t *testing.T) {
 	}{
 		{"unlimited always uses the full batch size", 0, 500, 0, 500},
 		{"unlimited ignores how much has been fetched so far", 0, 500, 4500, 500},
-		{"negative limit is treated as unlimited", -1, 500, 0, 500},
 		{"limited request under one batch fetches exactly the limit", 20, 500, 0, 20},
 		{"limited request clamps a large limit to the batch size", 5000, 500, 0, 500},
 		{"limited request asks for only what's left once partially filled", 5000, 500, 4800, 200},
@@ -1383,6 +1382,46 @@ func TestStorageImpl_GetList_UnsetLimitReturnsAllItems(t *testing.T) {
 
 	assert.Len(t, list.Items, total, "an unpaginated GetList must return every matching item, not truncate at the internal batch size")
 	assert.Empty(t, list.Continue, "an unpaginated List must not hand back a continue token -- there is nothing left to continue")
+}
+
+// TestStorageImpl_GetList_NegativeLimitReturnsEmpty pins down a deliberate
+// asymmetry from the unset-limit fix above: Predicate.Limit == 0 means "no
+// limit," but a negative Limit is not a valid "no limit" request either --
+// it's degenerate input, and this preserves the pre-fix behavior of
+// returning an empty list for it (the loop guard `limit == 0 || v.Len() <
+// limit` is false for both v.Len()==0 and any negative limit) rather than
+// reinterpreting it as unlimited, which would silently return every item for
+// input that was never asking for that.
+func TestStorageImpl_GetList_NegativeLimitReturnsEmpty(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+
+	ctx := context.Background()
+	keyPrefix := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/default"
+	key := keyPrefix + "/sbom-00"
+	obj := &v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{Name: "sbom-00", Namespace: "default"},
+	}
+	require.NoError(t, s.Create(ctx, key, obj.DeepCopyObject(), nil, 0))
+
+	opts := storage.ListOptions{
+		Predicate: storage.SelectionPredicate{
+			Label:    labels.Everything(),
+			Field:    fields.Everything(),
+			GetAttrs: storage.DefaultNamespaceScopedAttr,
+			Limit:    -1,
+		},
+	}
+	list := &v1beta1.SBOMSyftList{}
+	require.NoError(t, s.GetList(ctx, keyPrefix, opts, list))
+
+	assert.Empty(t, list.Items, "a negative Limit is degenerate input, not a request for an unlimited list -- it must not return every item")
+	assert.Empty(t, list.Continue)
 }
 
 // TestStorageImpl_GetList_ReleasesConnectionBetweenPages proves the fix for the
