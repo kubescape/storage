@@ -508,3 +508,85 @@ func TestSingleWriter_DeleteDuringUpdateCommit_NoResurrection(t *testing.T) {
 	require.Error(t, getErr)
 	require.True(t, storage.IsNotFound(getErr))
 }
+
+// TestSingleWriter_GuaranteedUpdate_IgnoreNotFound_MissingKey_Upserts is a
+// regression test for a bug where guaranteedUpdateSingleWriter, called with
+// ignoreNotFound=true against a key that doesn't exist yet (origState.rev ==
+// 0, exactly SaveContainerProfile's shape for a container's first-ever
+// consolidation), built a commit job with create:false, baseRV:0. commit()
+// then rejected it with errWriteConflict unconditionally, since a
+// nonexistent key can never satisfy "!exists" being false -- there was no
+// way for the retry loop to ever converge, so every first consolidation of
+// every container looped until the caller's ctx deadline. The legacy
+// GuaranteedUpdateWithConn/saveObject path has always treated this as a
+// plain upsert (see StorageImpl.get: IgnoreNotFound returns a zero object
+// with a nil error, not storage.NewKeyNotFoundError), so the single-writer
+// path must too.
+func TestSingleWriter_GuaranteedUpdate_IgnoreNotFound_MissingKey_Upserts(t *testing.T) {
+	enableSingleWriter(t)
+	si, cleanup := newSingleWriterTestStorage(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	key := testProfileKey("ignore-not-found-missing")
+
+	profile := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "ignore-not-found-missing", Namespace: "ns1", Labels: map[string]string{"v": "1"}},
+	}
+	// Mirrors SaveContainerProfile's tryUpdate exactly: ignore the current
+	// state entirely and always write the caller-supplied profile.
+	tryUpdate := func(_ runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		return profile, nil, nil
+	}
+
+	err := si.guaranteedUpdateSingleWriter(ctx, key, &softwarecomposition.ContainerProfile{},
+		true, nil, tryUpdate, nil, "", priorityLow)
+	require.NoError(t, err, "an ignoreNotFound update against a missing key must upsert, not conflict forever")
+
+	got := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, si.Get(ctx, key, storage.GetOptions{}, got))
+	require.Equal(t, "1", got.Labels["v"])
+	require.Equal(t, "1", got.ResourceVersion)
+}
+
+// TestSingleWriter_GuaranteedUpdate_MutateInPlacePersists is the
+// single-writer-path counterpart of
+// TestStorageImpl_GuaranteedUpdate_MutateInPlacePersists (storage_test.go).
+// It is a regression test for a bug where guaranteedUpdateSingleWriter
+// snapshotted `orig` (the "before" state used for the no-op-update
+// short-circuit) AFTER calling tryUpdate, rather than before. A tryUpdate
+// that mutates its input in place and returns the same reference -- exactly
+// what genericregistry.Store's finalizer-delete tryUpdate does via
+// markAsDeleting -- had therefore already been applied to origState.obj by
+// the time orig was copied from it, so orig and ret were always
+// DeepEqual and the update was silently dropped as a spurious no-op.
+func TestSingleWriter_GuaranteedUpdate_MutateInPlacePersists(t *testing.T) {
+	enableSingleWriter(t)
+	si, cleanup := newSingleWriterTestStorage(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	key := testProfileKey("mutate-in-place")
+	original := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-in-place", Namespace: "ns1", Finalizers: []string{"test/finalizer"}},
+	}
+	require.NoError(t, si.Create(ctx, key, original.DeepCopyObject(), &softwarecomposition.ContainerProfile{}, 0))
+
+	now := metav1.Now()
+	err := si.GuaranteedUpdate(ctx, key, &softwarecomposition.ContainerProfile{}, false, nil,
+		func(input runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+			// Mutate `input` (== origState.obj) in place and return the SAME
+			// reference, exactly like genericregistry.Store's
+			// markAsDeleting-based finalizer-delete tryUpdate does.
+			obj := input.(*softwarecomposition.ContainerProfile)
+			obj.DeletionTimestamp = &now
+			return obj, nil, nil
+		}, nil)
+	require.NoError(t, err)
+
+	fresh := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, si.Get(ctx, key, storage.GetOptions{}, fresh))
+	require.NotNil(t, fresh.DeletionTimestamp, "mutate-in-place update via the single-writer path must be genuinely persisted, not silently dropped as a spurious no-op")
+	require.True(t, now.Time.Equal(fresh.DeletionTimestamp.Time))
+}
