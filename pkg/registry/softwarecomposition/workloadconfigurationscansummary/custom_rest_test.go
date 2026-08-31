@@ -591,13 +591,16 @@ func requireEvent(t *testing.T, w watch.Interface, wantType watch.EventType) wat
 // StorageImpl limitation identically for this namespaced resource: this is
 // a real, currently-live gap in both the OLD and the NEW implementation,
 // not a difference introduced by this migration.
-// TestDifferential_Watch asserts a namespace-scoped watch delivers a real
-// event for an object created in its namespace, identically for both
-// implementations. Namespaced watches were rejected (an idle, event-free
-// watch) prior to the namespace-watch fix (see
+// TestDifferential_Watch asserts a namespace-scoped watch delivers real
+// Added/Modified/Deleted events across a Create/Update/Delete lifecycle,
+// identically for both implementations. Namespaced watches were rejected
+// (an idle, event-free watch) prior to the namespace-watch fix (see
 // docs/features/namespace-watch-enabled.md); both REST layers here call
 // through to that same now-fixed StorageImpl.Watch, so both must now
-// deliver the event rather than stay idle.
+// deliver events rather than stay idle. Mirrors
+// collapseconfiguration/custom_rest_test.go's TestDifferential_Watch (the
+// one Phase 4 resource that's cluster-scoped and so never hit the
+// namespace-rejection bug in the first place).
 func TestDifferential_Watch(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -617,17 +620,22 @@ func TestDifferential_Watch(t *testing.T) {
 
 			_, err = r.Create(ctx, workloadConfigScanSummary("srv", 1), rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
 			require.NoError(t, err)
+			added := requireEvent(t, w, watch.Added)
+			addedMeta, err := meta.Accessor(added.Object)
+			require.NoError(t, err)
+			assert.Equal(t, "srv", addedMeta.GetName())
 
-			select {
-			case ev, ok := <-w.ResultChan():
-				require.True(t, ok, "namespace-scoped watch must deliver a real event, not a closed channel")
-				assert.Equal(t, watch.Added, ev.Type)
-				created, ok := ev.Object.(*softwarecomposition.WorkloadConfigurationScanSummary)
-				require.True(t, ok, "expected *WorkloadConfigurationScanSummary, got %T", ev.Object)
-				assert.Equal(t, "srv", created.Name)
-			case <-time.After(200 * time.Millisecond):
-				t.Fatal("namespace-scoped watch did not deliver the Added event for an object created in its namespace")
-			}
+			created, err := r.Get(ctx, "srv", &metav1.GetOptions{})
+			require.NoError(t, err)
+			updated := created.(*softwarecomposition.WorkloadConfigurationScanSummary).DeepCopy()
+			updated.Labels = map[string]string{"changed": "true"}
+			_, _, err = r.Update(ctx, "srv", rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+			require.NoError(t, err)
+			requireEvent(t, w, watch.Modified)
+
+			_, _, err = r.Delete(ctx, "srv", rest.ValidateAllObjectFunc, &metav1.DeleteOptions{})
+			require.NoError(t, err)
+			requireEvent(t, w, watch.Deleted)
 		})
 	}
 }
