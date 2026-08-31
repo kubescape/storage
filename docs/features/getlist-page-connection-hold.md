@@ -68,3 +68,16 @@ Full `pkg/registry/file` suite (and its subpackages) green under `-race`
 (excluding the pre-existing, unrelated `TestFileSystemStorageWatchReturnsDistinctWatchers`
 flake); the two new tests re-run 5x under `-race` with zero flakiness. `go vet`
 clean (aside from the known pre-existing, unrelated `callstack_test.go` warnings).
+
+## Follow-up: `StorageImpl.GetList` tracing span scope
+
+The initial version of `prepareGetList` started the `StorageImpl.GetList` otel span
+and deferred its `End()` inside `prepareGetList` itself, so the span closed as soon as
+setup finished -- before the page loop (and any per-page pool wait or per-key lock
+stall) ran. Both `GetList` and `GetListWithConn` therefore reported near-zero span
+durations regardless of actual call latency, which is exactly the signal this fix
+depends on for diagnosing pool contention in production.
+
+The span is now started by `GetList` and `GetListWithConn` themselves, wrapping their
+whole call (setup plus every internal page), and `prepareGetList` no longer creates a
+span at all.

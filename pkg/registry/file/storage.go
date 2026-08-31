@@ -1114,6 +1114,10 @@ func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Co
 // own connection and want the whole list in one call should use GetListWithConn
 // instead, which keeps that single connection for its entire duration.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+
 	ctx, predicate, v, elem, limit, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
 	if err != nil {
 		return err
@@ -1156,6 +1160,10 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 // caller already holds its own connection for other reasons; it pins that
 // connection across any per-key lock waits that occur along the way.
 func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+
 	ctx, predicate, v, elem, limit, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
 	if err != nil {
 		return err
@@ -1188,10 +1196,6 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 // is passed by value, so mutating opts.Predicate here does not propagate back to
 // the caller's own copy.
 func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) (_ context.Context, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type, limit int64, cursor string, isFullSpec bool, err error) {
-	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
-	span.SetAttributes(attribute.String("key", key))
-	defer span.End()
-
 	predicate, err = normalizeSelectionPredicate(opts.Predicate)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("GetList - normalize selection predicate failed", helpers.Error(err))
