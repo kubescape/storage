@@ -98,7 +98,15 @@ func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
 	}
 	m.mu.Lock()
 	s := m.getOrCreate(key)
-	if !s.writer && s.readers == 0 {
+	// The pendingWriters check (mirroring RLock's own fast-path check below)
+	// ensures a freshly-retrying Lock call cannot barge ahead of a writer
+	// already queued in lockSlow: without it, a writer that released the
+	// mutex just as another goroutine's Lock call arrived would let that
+	// fresh caller take the fast path immediately, potentially starving an
+	// already-waiting writer indefinitely under sustained contention (the
+	// waiting writer is only woken by Broadcast, not guaranteed to win the
+	// race to re-check canProceed against a stream of fresh fast-path callers).
+	if !s.writer && s.readers == 0 && s.pendingWriters == 0 {
 		s.writer = true
 		m.mu.Unlock()
 		return nil
