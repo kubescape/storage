@@ -248,6 +248,81 @@ func (c completedConfig) New() (*WardleServer, error) {
 		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["containerprofiles"] = customContainerProfileRest
 	}
 
+	// The following gate the remaining Phase 4 per-resource rest.Storage
+	// migrations (see docs/features/generic-rest-storage-phase4.md), following the
+	// same pattern as containerprofiles above: gated, no-op-by-default swap
+	// of that resource's REST implementation for the hand-written
+	// CustomREST, with the OLD genericregistry.Store-based NewREST staying
+	// the default and the differential-testing reference regardless of the
+	// flag's value. All eight use the default storageImpl (none have a
+	// non-default storage.Interface like containerProfileStorageImpl). Each
+	// calls Destroy() on the displaced OLD rest.Storage before replacing it
+	// -- see the matching Destroy() call for knownservers above.
+	if c.ExtraConfig.StorageConfig.CustomCollapseConfigurationRestEnabled {
+		customRest, err := collapseconfiguration.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for collapseconfigurations due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["collapseconfigurations"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["collapseconfigurations"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomSBOMSyftFilteredRestEnabled {
+		customRest, err := sbomsyftfiltereds.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for sbomsyftfiltereds due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyftfiltereds"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyftfiltereds"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomSBOMSyftRestEnabled {
+		customRest, err := sbomsyfts.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for sbomsyfts due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyfts"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyfts"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomSeccompProfileRestEnabled {
+		customRest, err := seccompprofiles.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for seccompprofiles due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["seccompprofiles"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["seccompprofiles"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomVulnerabilityManifestRestEnabled {
+		customRest, err := vmstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for vulnerabilitymanifests due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifests"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifests"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomVulnerabilityManifestSummaryRestEnabled {
+		customRest, err := vmsumstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for vulnerabilitymanifestsummaries due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifestsummaries"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifestsummaries"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomWorkloadConfigurationScanRestEnabled {
+		customRest, err := wcsstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for workloadconfigurationscans due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscans"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscans"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomWorkloadConfigurationScanSummaryRestEnabled {
+		customRest, err := wcssumstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for workloadconfigurationscansummaries due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscansummaries"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscansummaries"] = customRest
+	}
+
 	if c.ExtraConfig.StorageConfig.DisableVirtualCRDs {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "configurationscansummaries")
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "generatednetworkpolicies")

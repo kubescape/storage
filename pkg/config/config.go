@@ -94,6 +94,22 @@ type Config struct {
 	// differential testing regardless of this flag's value.
 	CustomContainerProfileRestEnabled bool `mapstructure:"customContainerProfileRestEnabled"`
 
+	// The following gate the remaining Phase 4 per-resource rest.Storage
+	// migrations off genericregistry.Store (see
+	// docs/features/generic-rest-storage-phase4.md), following the same pattern as
+	// CustomContainerProfileRestEnabled above: each defaults to false, and
+	// the OLD genericregistry.Store-based NewREST for that resource remains
+	// the default and the differential-testing reference regardless of the
+	// flag's value.
+	CustomCollapseConfigurationRestEnabled            bool `mapstructure:"customCollapseConfigurationRestEnabled"`
+	CustomSBOMSyftFilteredRestEnabled                 bool `mapstructure:"customSBOMSyftFilteredRestEnabled"`
+	CustomSBOMSyftRestEnabled                         bool `mapstructure:"customSBOMSyftRestEnabled"`
+	CustomSeccompProfileRestEnabled                   bool `mapstructure:"customSeccompProfileRestEnabled"`
+	CustomVulnerabilityManifestRestEnabled            bool `mapstructure:"customVulnerabilityManifestRestEnabled"`
+	CustomVulnerabilityManifestSummaryRestEnabled     bool `mapstructure:"customVulnerabilityManifestSummaryRestEnabled"`
+	CustomWorkloadConfigurationScanRestEnabled        bool `mapstructure:"customWorkloadConfigurationScanRestEnabled"`
+	CustomWorkloadConfigurationScanSummaryRestEnabled bool `mapstructure:"customWorkloadConfigurationScanSummaryRestEnabled"`
+
 	// New fields for per-kind queue/worker/object size config
 	KindQueues           map[string]KindQueueConfig `mapstructure:"kindQueues"`
 	DefaultQueueLength   int                        `mapstructure:"defaultQueueLength"`
@@ -132,6 +148,14 @@ func LoadConfig(path string) (Config, error) {
 	// not yet validated for production use; the OLD genericregistry.Store-based
 	// implementation remains the default.
 	v.SetDefault("customContainerProfileRestEnabled", false)
+	v.SetDefault("customCollapseConfigurationRestEnabled", false)
+	v.SetDefault("customSBOMSyftFilteredRestEnabled", false)
+	v.SetDefault("customSBOMSyftRestEnabled", false)
+	v.SetDefault("customSeccompProfileRestEnabled", false)
+	v.SetDefault("customVulnerabilityManifestRestEnabled", false)
+	v.SetDefault("customVulnerabilityManifestSummaryRestEnabled", false)
+	v.SetDefault("customWorkloadConfigurationScanRestEnabled", false)
+	v.SetDefault("customWorkloadConfigurationScanSummaryRestEnabled", false)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
 	v.SetDefault("defaultMaxObjectSize", 400000)
