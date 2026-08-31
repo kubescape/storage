@@ -134,6 +134,35 @@ func TestConsolidateData(t *testing.T) {
 
 }
 
+// TestLoadOrInitializeProfile_NewProfileGetsUID guards against
+// kubescape/storage#385: a ContainerProfile created for the first time by
+// consolidation (i.e. no prior object exists at that key) must get a
+// metadata.uid, exactly like a standard REST Create would via
+// rest.FillObjectMetaSystemFields. Without one, k8s.io/apiserver's generic
+// PATCH handler treats the object as nonexistent and any kubectl
+// annotate/label/edit against it 404s. Confirmed to fail against the pre-fix
+// code (profile.UID == "") before the fix and pass after.
+func TestLoadOrInitializeProfile_NewProfileGetsUID(t *testing.T) {
+	processor, _, cleanup := newConsolidationTestProcessor(t, time.Hour)
+	defer cleanup()
+	processor.HostType = armotypes.HostTypeKubernetes
+
+	ctx, cleanupConn, err := processor.ContainerProfileStorage.WithConnection(context.TODO())
+	require.NoError(t, err)
+	defer cleanupConn()
+
+	keyA := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", "ns-a", "pod-a")
+	profileA, _, _, _, err := processor.loadOrInitializeProfile(ctx, keyA)
+	require.NoError(t, err)
+	assert.NotEmpty(t, profileA.UID, "a brand-new profile must get a UID or standard Kubernetes PATCH against it later 404s (kubescape/storage#385)")
+
+	keyB := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", "ns-a", "pod-b")
+	profileB, _, _, _, err := processor.loadOrInitializeProfile(ctx, keyB)
+	require.NoError(t, err)
+	assert.NotEmpty(t, profileB.UID)
+	assert.NotEqual(t, profileA.UID, profileB.UID, "independently initialized new profiles must not collide on UID")
+}
+
 // newConsolidationTestProcessor builds a ContainerProfileProcessor backed by an
 // in-memory-ish temp SQLite pool for the AC3 concurrency tests. The returned
 // cleanup closes the pool.

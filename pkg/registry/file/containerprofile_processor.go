@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apiserver/pkg/storage"
 )
 
@@ -506,8 +507,18 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 				Kind:       kind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   id.Namespace,
-				Name:        id.Name,
+				Namespace: id.Namespace,
+				Name:      id.Name,
+				// A standard REST Create gets a UID via
+				// rest.FillObjectMetaSystemFields/uuid.NewUUID(); this path bypasses
+				// that (it writes directly through storage.Interface, never through
+				// k8s.io/apiserver's generic Create), so a new profile must generate
+				// its own or stay permanently UID-less. A UID-less object makes
+				// k8s.io/apiserver's generic PATCH handler treat it as nonexistent
+				// (vendor/k8s.io/apiserver/pkg/endpoints/handlers/patch.go's hasUID
+				// check) and refuse to apply, so kubectl annotate/label/edit and any
+				// merge-patch client against it 404s (kubescape/storage#385).
+				UID:         uuid.NewUUID(),
 				Annotations: map[string]string{},
 				Labels:      map[string]string{},
 			},
