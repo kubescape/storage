@@ -1118,14 +1118,14 @@ func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.List
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 
-	ctx, predicate, v, elem, limit, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
+	ctx, predicate, v, elem, limit, batchSize, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
 	if err != nil {
 		return err
 	}
 
 	pageLast := ""
-	for int64(v.Len()) < limit {
-		remaining := limit - int64(v.Len())
+	for limit <= 0 || int64(v.Len()) < limit {
+		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
 
 		beforePool := time.Now()
 		poolCtx, cancel := poolContext()
@@ -1164,14 +1164,14 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 
-	ctx, predicate, v, elem, limit, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
+	ctx, predicate, v, elem, limit, batchSize, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
 	if err != nil {
 		return err
 	}
 
 	pageLast := ""
-	for int64(v.Len()) < limit {
-		remaining := limit - int64(v.Len())
+	for limit <= 0 || int64(v.Len()) < limit {
+		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
 
 		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
 		if err != nil {
@@ -1189,41 +1189,76 @@ func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, ke
 	return setListContinue(listObj, pageLast)
 }
 
+// defaultListBatchSize bounds how many entries GetList/GetListWithConn fetch
+// from SQLite per internal round trip. It is an internal chunking detail only
+// -- it does not cap how many items a List call can return. A caller that
+// doesn't set Predicate.Limit (limit <= 0, "no pagination requested") gets
+// every matching item, fetched in batches of this size and reassembled across
+// as many internal pages as needed; a caller that does set Limit gets exactly
+// that many (or fewer, with a continue token), matching Kubernetes List API
+// conventions: Limit == 0 means "no limit," not "default to some limit."
+const defaultListBatchSize = 500
+
+// nextPageSize returns how many entries the next internal SQLite page should
+// request. For an unlimited list (limit <= 0) this is always batchSize. For a
+// limited list it's however many more items are needed to reach limit,
+// clamped to batchSize so a single client-requested large limit still fetches
+// (and releases its pool connection) in bounded chunks.
+func nextPageSize(limit, batchSize, fetched int64) int64 {
+	if limit <= 0 {
+		return batchSize
+	}
+	remaining := limit - fetched
+	if remaining > batchSize {
+		return batchSize
+	}
+	return remaining
+}
+
 // prepareGetList performs the (connection-independent) setup shared by GetList
 // and GetListWithConn: predicate normalization and pulling the destination slice,
 // element type, page limit, starting cursor and full-spec flag out of listObj/opts.
 // It returns the normalized predicate for the caller to reuse across pages -- opts
 // is passed by value, so mutating opts.Predicate here does not propagate back to
 // the caller's own copy.
-func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) (_ context.Context, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type, limit int64, cursor string, isFullSpec bool, err error) {
+//
+// limit is the caller's requested total item count: 0 (or negative) means the
+// caller did not request pagination, so GetList/GetListWithConn must return
+// every matching item rather than silently truncating. batchSize is purely the
+// internal per-round-trip fetch size (see defaultListBatchSize) and never caps
+// the total result on its own.
+func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) (_ context.Context, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type, limit int64, batchSize int64, cursor string, isFullSpec bool, err error) {
 	predicate, err = normalizeSelectionPredicate(opts.Predicate)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("GetList - normalize selection predicate failed", helpers.Error(err))
-		return ctx, predicate, v, elem, 0, "", false, err
+		return ctx, predicate, v, elem, 0, 0, "", false, err
 	}
 	opts.Predicate = predicate
 
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("GetList - get items ptr failed", helpers.Error(err), helpers.String("key", key))
-		return ctx, predicate, v, elem, 0, "", false, err
+		return ctx, predicate, v, elem, 0, 0, "", false, err
 	}
 	v, err = conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
 		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
-		return ctx, predicate, v, elem, 0, "", false, fmt.Errorf("need ptr to slice: %v", err)
+		return ctx, predicate, v, elem, 0, 0, "", false, fmt.Errorf("need ptr to slice: %v", err)
 	}
-	// set default limit
+	// limit <= 0 means the caller did not request pagination -- do not
+	// substitute a default that would silently truncate the result. Only the
+	// internal per-round-trip batch size defaults to a fixed value.
 	limit = opts.Predicate.Limit
-	if limit == 0 {
-		limit = 500
+	batchSize = defaultListBatchSize
+	if limit > 0 && limit < batchSize {
+		batchSize = limit
 	}
 	// populate list object
 	elem = v.Type().Elem()
 	v.Set(reflect.MakeSlice(v.Type(), 0, 0))
 	isFullSpec = opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
 
-	return ctx, predicate, v, elem, limit, opts.Predicate.Continue, isFullSpec, nil
+	return ctx, predicate, v, elem, limit, batchSize, opts.Predicate.Continue, isFullSpec, nil
 }
 
 // listPageResult is the outcome of fetching one internal SQLite-level page.

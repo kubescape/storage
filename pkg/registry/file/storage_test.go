@@ -1304,6 +1304,87 @@ func TestStorageImpl_GetList_FullSpec_MultiPage(t *testing.T) {
 	assert.Equal(t, "foo", list.Items[0].Labels["app"])
 }
 
+func TestNextPageSize(t *testing.T) {
+	tests := []struct {
+		name             string
+		limit, batchSize int64
+		fetched          int64
+		want             int64
+	}{
+		{"unlimited always uses the full batch size", 0, 500, 0, 500},
+		{"unlimited ignores how much has been fetched so far", 0, 500, 4500, 500},
+		{"negative limit is treated as unlimited", -1, 500, 0, 500},
+		{"limited request under one batch fetches exactly the limit", 20, 500, 0, 20},
+		{"limited request clamps a large limit to the batch size", 5000, 500, 0, 500},
+		{"limited request asks for only what's left once partially filled", 5000, 500, 4800, 200},
+		{"limited request already satisfied asks for nothing more", 10, 500, 10, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, nextPageSize(tt.limit, tt.batchSize, tt.fetched))
+		})
+	}
+}
+
+// TestStorageImpl_GetList_UnsetLimitReturnsAllItems proves the fix for a
+// long-standing bug in prepareGetList: Predicate.Limit == 0 -- meaning the
+// caller did not request pagination at all -- was silently treated as
+// Limit == defaultListBatchSize (500), so GetList capped the result at 500
+// items and handed back a continue token that callers who never asked to
+// paginate have no reason to check. Confirmed against a real deployment: a
+// plain, unpaginated List (no Limit set) returned exactly 500 ContainerProfile
+// objects out of 1120 actually present, which is exactly what a naive
+// single-shot client (e.g. k9s's generic/dynamic resource lister, which never
+// sets Limit and never inspects the response's continue/remainingItemCount
+// fields) would silently render as "everything."
+//
+// Per Kubernetes List API conventions, Limit == 0 means "no limit requested":
+// the server must return every matching item, not substitute an internal page
+// size as though it were the caller's own request. This test creates more
+// items than defaultListBatchSize and proves GetList with no Limit set returns
+// every one of them, with no continue token, by paging internally across
+// multiple SQLite-level batches -- each still acquiring and releasing its own
+// pool connection, per TestStorageImpl_GetList_ReleasesConnectionBetweenPages.
+func TestStorageImpl_GetList_UnsetLimitReturnsAllItems(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+
+	ctx := context.Background()
+	keyPrefix := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/default"
+	const total = defaultListBatchSize + 20
+	for i := range total {
+		name := fmt.Sprintf("sbom-%04d", i)
+		key := fmt.Sprintf("%s/%s", keyPrefix, name)
+		obj := &v1beta1.SBOMSyft{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+			},
+		}
+		require.NoError(t, s.Create(ctx, key, obj.DeepCopyObject(), nil, 0))
+	}
+
+	opts := storage.ListOptions{
+		Predicate: storage.SelectionPredicate{
+			Label:    labels.Everything(),
+			Field:    fields.Everything(),
+			GetAttrs: storage.DefaultNamespaceScopedAttr,
+			// Limit intentionally left unset (zero value): this is exactly
+			// the "caller did not request pagination" case the bug mishandled.
+		},
+	}
+	list := &v1beta1.SBOMSyftList{}
+	require.NoError(t, s.GetList(ctx, keyPrefix, opts, list))
+
+	assert.Len(t, list.Items, total, "an unpaginated GetList must return every matching item, not truncate at the internal batch size")
+	assert.Empty(t, list.Continue, "an unpaginated List must not hand back a continue token -- there is nothing left to continue")
+}
+
 // TestStorageImpl_GetList_ReleasesConnectionBetweenPages proves the fix for the
 // GetListWithConn per-page pagination nuance: GetList (the connection-less wrapper)
 // must not hold a pool connection across an internal page boundary while stalled on
