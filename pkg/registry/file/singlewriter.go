@@ -375,11 +375,24 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
 			return commitResult{err: storage.NewKeyExistsError(job.key, 0)}
 		}
-	} else if !exists || currentRV != job.baseRV {
-		_ = s.appFs.Remove(job.tmpPayloadPath)
-		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
-		return commitResult{err: errWriteConflict}
+	} else if job.baseRV != 0 {
+		if !exists || currentRV != job.baseRV {
+			_ = s.appFs.Remove(job.tmpPayloadPath)
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
+			return commitResult{err: errWriteConflict}
+		}
 	}
+	// job.baseRV == 0 and !job.create: origState was read with
+	// ignoreNotFound=true against a missing key (getCurrentState/s.get
+	// returns a zero object + nil error, not an error, in that case -- see
+	// StorageImpl.get), which is a supported upsert on the legacy saveObject
+	// path: it writes unconditionally, whether the key is still missing
+	// (this commit effectively creates it) or was created by someone else in
+	// the meantime (last write wins, matching the legacy path's behavior).
+	// Treating baseRV==0 as "must not exist" here would make every such
+	// call -- e.g. SaveContainerProfile's very first write for a key --
+	// conflict forever, since there is no resourceVersion it could ever
+	// match.
 
 	metadata := extractFields(job.newObj, []string{"ObjectMeta", "SchemaVersion"})
 
@@ -692,6 +705,16 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			continue
 		}
 
+		// Snapshot the "before" state now, before tryUpdate runs. tryUpdate may
+		// mutate origState.obj in place and return that same reference (this is
+		// exactly what genericregistry.Store's own finalizer-delete tryUpdate
+		// does, via markAsDeleting) -- capturing this snapshot after tryUpdate
+		// ran would observe the already-mutated state, making the no-op-update
+		// check below spuriously always-equal and silently dropping the write.
+		// See GuaranteedUpdateWithConn (storage.go) for the same fix applied
+		// to the legacy path.
+		orig := origState.obj.DeepCopyObject() // FIXME this is expensive (same as GuaranteedUpdateWithConn)
+
 		// run tryUpdate
 		ret, _, err := tryUpdate(origState.obj, storage.ResponseMeta{})
 		if err != nil {
@@ -758,8 +781,8 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			}
 		}
 
-		// check if the object is the same as the original
-		orig := origState.obj.DeepCopyObject() // FIXME this is expensive (same as GuaranteedUpdateWithConn)
+		// check if the object is the same as the original (orig was snapshotted
+		// above, before tryUpdate ran)
 		_ = s.processor.PreSave(presaveCtx, orig)
 		s.pool.Put(conn)
 		poolCancel()
