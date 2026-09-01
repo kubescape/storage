@@ -18,6 +18,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+const MaxSniffingTimeLabel = "kubescape.io/max-sniffing-time"
+
 func getKubeconfig() (*rest.Config, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {

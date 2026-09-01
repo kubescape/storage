@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestStatefulSetProfileCleanup() {
@@ -37,7 +36,7 @@ Goal: Verify that the application profile is created and completed, and is delet
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "cleanup-test-statefulset",
-						containerwatcher.MaxSniffingTimeLabel: "2m",
+						MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{

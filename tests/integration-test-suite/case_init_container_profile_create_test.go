@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestInitContainerProfileCreate() {
@@ -33,7 +32,7 @@ The profile should be complete after the main container's learning period finish
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "init-container-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "2m",
+						MaxSniffingTimeLabel: "2m",
 					},
 				},
 				Spec: corev1.PodSpec{
