@@ -68,14 +68,18 @@ type Config struct {
 	// implementation for the knownservers resource (see
 	// pkg/registry/softwarecomposition/knownservers/custom_rest.go), built as
 	// Phase 4's first per-resource migration off genericregistry.Store (see
-	// docs/features/generic-rest-storage-phase4.md). Defaults to true as of
-	// the live validation on armo-dev-stage (2026-08-31, zero regressions
-	// found across all 11 Phase 4 resources): when unset, pkg/apiserver/apiserver.go
-	// registers knownservers via the NEW genericrest.Store-based custom_rest.go
-	// implementation. Set to false to fall back to the OLD
-	// genericregistry.Store-based knownservers.NewREST, which is kept alive
-	// as the reference implementation for differential testing regardless of
-	// this flag's value.
+	// docs/features/generic-rest-storage-phase4.md). Defaults to false: when
+	// unset, pkg/apiserver/apiserver.go registers knownservers via the OLD
+	// genericregistry.Store-based knownservers.NewREST, exactly as before
+	// this flag existed, even though live validation on armo-dev-stage
+	// (2026-08-31) found zero regressions across all 11 Phase 4 resources --
+	// that validation covers one cluster, not every deployment of this
+	// binary, so the code-level default stays conservative. The old
+	// implementation is kept alive as the reference implementation for
+	// differential testing regardless of this flag's value. See
+	// CustomRestEnabledEnvVar for a single env var that opts a deployment
+	// into all 11 flags at once (e.g. for a design-partner test environment)
+	// without changing this default for everyone else.
 	CustomKnownServersRestEnabled bool `mapstructure:"customKnownServersRestEnabled"`
 
 	// CustomOpenVulnerabilityExchangeRestEnabled gates the hand-written
@@ -84,14 +88,12 @@ type Config struct {
 	// pkg/registry/softwarecomposition/openvulnerabilityexchange/custom_rest.go),
 	// built as Phase 4's second per-resource migration off
 	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
-	// Defaults to true as of the live validation on armo-dev-stage
-	// (2026-08-31, zero regressions found across all 11 Phase 4 resources):
-	// when unset, pkg/apiserver/apiserver.go registers
-	// openvulnerabilityexchangecontainers via the NEW genericrest.Store-based
-	// custom_rest.go implementation. Set to false to fall back to the OLD
-	// genericregistry.Store-based openvulnerabilityexchange.NewREST, which is
-	// kept alive as the reference implementation for differential testing
-	// regardless of this flag's value.
+	// Defaults to false, for the same reason as CustomKnownServersRestEnabled
+	// above: when unset, pkg/apiserver/apiserver.go registers
+	// openvulnerabilityexchangecontainers via the OLD genericregistry.Store-based
+	// openvulnerabilityexchange.NewREST. The old implementation is kept alive
+	// as the reference implementation for differential testing regardless of
+	// this flag's value.
 	CustomOpenVulnerabilityExchangeRestEnabled bool `mapstructure:"customOpenVulnerabilityExchangeRestEnabled"`
 
 	// CustomContainerProfileRestEnabled gates the hand-written rest.Storage
@@ -99,33 +101,28 @@ type Config struct {
 	// pkg/registry/softwarecomposition/containerprofile/custom_rest.go),
 	// built as Phase 4's third per-resource migration off
 	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
-	// Defaults to true as of the live validation on armo-dev-stage
-	// (2026-08-31, zero regressions found across all 11 Phase 4 resources):
-	// when unset, pkg/apiserver/apiserver.go registers containerprofiles via
-	// the NEW genericrest.Store-based custom_rest.go implementation. Set to
-	// false to fall back to the OLD genericregistry.Store-based
-	// containerprofile.NewREST, which is kept alive as the reference
-	// implementation for differential testing regardless of this flag's
-	// value.
+	// Defaults to false, for the same reason as CustomKnownServersRestEnabled
+	// above: when unset, pkg/apiserver/apiserver.go registers containerprofiles
+	// via the OLD genericregistry.Store-based containerprofile.NewREST. The old
+	// implementation is kept alive as the reference implementation for
+	// differential testing regardless of this flag's value.
 	CustomContainerProfileRestEnabled bool `mapstructure:"customContainerProfileRestEnabled"`
 
 	// The following gate the remaining Phase 4 per-resource rest.Storage
 	// migrations off genericregistry.Store (see
 	// docs/features/generic-rest-storage-phase4.md), following the same pattern as
-	// CustomContainerProfileRestEnabled above: each defaults to true as of
-	// the live validation on armo-dev-stage (2026-08-31, zero regressions
-	// found across all 11 Phase 4 resources), and the OLD
-	// genericregistry.Store-based NewREST for that resource remains
-	// available as a fallback (set the flag to false) and as the
-	// differential-testing reference regardless of the flag's value.
+	// CustomContainerProfileRestEnabled above: each defaults to false, and
+	// the OLD genericregistry.Store-based NewREST for that resource remains
+	// the default and the differential-testing reference regardless of the
+	// flag's value.
 	//
 	// All 11 of these flags can also be set at once via the CUSTOM_REST_ENABLED
 	// env var (see CustomRestEnabledEnvVar/LoadConfig), which -- when set --
-	// overrides every flag below regardless of what config.json says. The
-	// individual config.json flags remain the mechanism for rolling back a
-	// single misbehaving resource without affecting the others; the env var is
-	// a single on/off switch for deployments (e.g. design-partner test
-	// environments) that just want one knob for the whole migration.
+	// overrides every flag below regardless of what config.json says. This is
+	// the intended way to opt a specific deployment (e.g. a design-partner
+	// test environment) into the new REST path without changing the
+	// conservative code-level default for every other deployment of this
+	// binary.
 	CustomCollapseConfigurationRestEnabled            bool `mapstructure:"customCollapseConfigurationRestEnabled"`
 	CustomSBOMSyftFilteredRestEnabled                 bool `mapstructure:"customSBOMSyftFilteredRestEnabled"`
 	CustomSBOMSyftRestEnabled                         bool `mapstructure:"customSBOMSyftRestEnabled"`
@@ -161,22 +158,25 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)
-	// The custom rest.Storage implementations were Phase 4 spikes/prototypes;
-	// each has since been live-validated against armo-dev-stage (2026-08-31,
-	// zero regressions across all 11 resources) and now defaults to true. Set
-	// any of these to false to fall back to that resource's OLD
-	// genericregistry.Store-based implementation.
-	v.SetDefault("customKnownServersRestEnabled", true)
-	v.SetDefault("customOpenVulnerabilityExchangeRestEnabled", true)
-	v.SetDefault("customContainerProfileRestEnabled", true)
-	v.SetDefault("customCollapseConfigurationRestEnabled", true)
-	v.SetDefault("customSBOMSyftFilteredRestEnabled", true)
-	v.SetDefault("customSBOMSyftRestEnabled", true)
-	v.SetDefault("customSeccompProfileRestEnabled", true)
-	v.SetDefault("customVulnerabilityManifestRestEnabled", true)
-	v.SetDefault("customVulnerabilityManifestSummaryRestEnabled", true)
-	v.SetDefault("customWorkloadConfigurationScanRestEnabled", true)
-	v.SetDefault("customWorkloadConfigurationScanSummaryRestEnabled", true)
+	// The custom rest.Storage implementations are Phase 4 migrations off
+	// genericregistry.Store, live-validated against armo-dev-stage (2026-08-31,
+	// zero regressions across all 11 resources) but still default to false:
+	// that validation covers one cluster, not every deployment of this binary,
+	// so the OLD genericregistry.Store-based implementation stays the default
+	// everywhere until a broader soak justifies flipping it. Set any of these
+	// to true individually, or set CUSTOM_REST_ENABLED to opt a whole
+	// deployment into all 11 at once (see CustomRestEnabledEnvVar).
+	v.SetDefault("customKnownServersRestEnabled", false)
+	v.SetDefault("customOpenVulnerabilityExchangeRestEnabled", false)
+	v.SetDefault("customContainerProfileRestEnabled", false)
+	v.SetDefault("customCollapseConfigurationRestEnabled", false)
+	v.SetDefault("customSBOMSyftFilteredRestEnabled", false)
+	v.SetDefault("customSBOMSyftRestEnabled", false)
+	v.SetDefault("customSeccompProfileRestEnabled", false)
+	v.SetDefault("customVulnerabilityManifestRestEnabled", false)
+	v.SetDefault("customVulnerabilityManifestSummaryRestEnabled", false)
+	v.SetDefault("customWorkloadConfigurationScanRestEnabled", false)
+	v.SetDefault("customWorkloadConfigurationScanSummaryRestEnabled", false)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
 	v.SetDefault("defaultMaxObjectSize", 400000)

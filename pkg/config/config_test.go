@@ -67,25 +67,14 @@ func TestLoadConfig(t *testing.T) {
 						MaxObjectSize: 10000000,
 					},
 				},
-				DefaultQueueLength:            100,
-				DefaultWorkerCount:            2,
-				DefaultMaxObjectSize:          400000,
-				QueueManagerEnabled:           true,
-				QueueTimeout:                  60,
-				SqlitePoolSize:                10,
-				SqliteBusyTimeout:             60 * time.Second,
-				PoolTimeout:                   5 * time.Second,
-				CustomKnownServersRestEnabled: true,
-				CustomOpenVulnerabilityExchangeRestEnabled:        true,
-				CustomContainerProfileRestEnabled:                 true,
-				CustomCollapseConfigurationRestEnabled:            true,
-				CustomSBOMSyftFilteredRestEnabled:                 true,
-				CustomSBOMSyftRestEnabled:                         true,
-				CustomSeccompProfileRestEnabled:                   true,
-				CustomVulnerabilityManifestRestEnabled:            true,
-				CustomVulnerabilityManifestSummaryRestEnabled:     true,
-				CustomWorkloadConfigurationScanRestEnabled:        true,
-				CustomWorkloadConfigurationScanSummaryRestEnabled: true,
+				DefaultQueueLength:   100,
+				DefaultWorkerCount:   2,
+				DefaultMaxObjectSize: 400000,
+				QueueManagerEnabled:  true,
+				QueueTimeout:         60,
+				SqlitePoolSize:       10,
+				SqliteBusyTimeout:    60 * time.Second,
+				PoolTimeout:          5 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -206,8 +195,8 @@ func TestCustomRestEnabledEnvVar(t *testing.T) {
 		assert.False(t, got.CustomKnownServersRestEnabled)
 		assert.True(t, got.CustomContainerProfileRestEnabled)
 		assert.False(t, got.CustomSBOMSyftRestEnabled)
-		// Untouched-in-config.json flags still fall back to the true default.
-		assert.True(t, got.CustomCollapseConfigurationRestEnabled)
+		// Untouched-in-config.json flags still fall back to the false default.
+		assert.False(t, got.CustomCollapseConfigurationRestEnabled)
 	})
 
 	t.Run("true overrides every flag to true", func(t *testing.T) {

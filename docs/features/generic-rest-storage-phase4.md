@@ -11,15 +11,19 @@ alternative to `k8s.io/apiserver`'s `genericregistry.Store`:
   (`pkg/registry/softwarecomposition/openvulnerabilityexchange/custom_rest.go`), gated by
   `config.Config.CustomOpenVulnerabilityExchangeRestEnabled`.
 
-Both flags default to `true` as of 2026-08-31, following live validation against a real cluster
-(armo-dev-stage) that found zero behavioral divergence across all 11 Phase 4 resources — see
-`docs/features/generic-rest-storage-remaining-resources.md`. When unset, `pkg/apiserver/apiserver.go`
-registers these resources via the NEW `genericrest.Store`-based implementation. Set the flag to
-`false` to fall back to the original `genericregistry.Store`-based `NewREST`, which is kept alive
-as the reference implementation for differential testing regardless of the flag's value.
+Both flags default to `false`. Live validation against a real cluster (armo-dev-stage, 2026-08-31)
+found zero behavioral divergence across all 11 Phase 4 resources — see
+`docs/features/generic-rest-storage-remaining-resources.md` — but that covers one cluster, not
+every deployment of this binary, so the code-level default stays conservative rather than flipping
+for everyone. When unset, `pkg/apiserver/apiserver.go` registers these resources via the OLD
+`genericregistry.Store`-based `NewREST`, exactly as before these flags existed. Set a flag to `true`
+to opt that one resource into the NEW `genericrest.Store`-based implementation; the old
+implementation is kept alive as the reference implementation for differential testing regardless of
+either flag's value.
 
-All 11 of these per-resource flags can also be switched at once via the `CUSTOM_REST_ENABLED` env
-var — see `docs/features/custom-rest-enabled-env-var.md`.
+All 11 of these per-resource flags can also be switched on at once via the `CUSTOM_REST_ENABLED` env
+var, for a deployment (e.g. a design-partner test environment) that wants one on/off switch instead
+of 11 config.json fields — see `docs/features/custom-rest-enabled-env-var.md`.
 
 This is Phase 4 of an ongoing storage-locking/scalability effort: incrementally proving that
 `genericregistry.Store` can be replaced by a much smaller, purpose-built `rest.Storage`, one
