@@ -13,9 +13,13 @@ alongside the three already done (`knownservers`, `openvulnerabilityexchange`, `
 - `vulnerabilitymanifests`, `vulnerabilitymanifestsummaries`, `workloadconfigurationscans`,
   `workloadconfigurationscansummaries` (namespaced, no-op Strategy, not inverted)
 
-Each is gated behind its own `config.Config.Custom<Resource>RestEnabled` flag (default `false`);
-the old `genericregistry.Store`-based implementation remains the default and the
-differential-testing reference for every one of them. The three "virtual CRD" resources
+Each is gated behind its own `config.Config.Custom<Resource>RestEnabled` flag (default `false`;
+live validation against armo-dev-stage on 2026-08-31 found zero behavioral divergence across all
+11 Phase 4 resources, but that covers one cluster, not every deployment of this binary, so the
+default stays conservative). The old `genericregistry.Store`-based implementation remains the
+default and the differential-testing reference for every one of them; set a flag to `true` (or
+set `CUSTOM_REST_ENABLED`, see `docs/features/custom-rest-enabled-env-var.md`) to opt into the
+new implementation. The three "virtual CRD" resources
 (`configurationscansummaries`, `generatednetworkpolicies`, `vulnerabilitysummaries`) are
 deliberately out of scope: they're generated-on-the-fly, `immutableStorage`-backed resources
 using a different, non-persistent registry pattern that doesn't fit this migration.

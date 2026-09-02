@@ -2,11 +2,19 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/spf13/viper"
 )
+
+// CustomRestEnabledEnvVar is the single env var that overrides every
+// Custom<Resource>RestEnabled flag at once, for deployments that want one
+// on/off switch for the Phase 4 rest.Storage migration instead of setting
+// 11 individual config.json fields. See LoadConfig.
+const CustomRestEnabledEnvVar = "CUSTOM_REST_ENABLED"
 
 type KindQueueConfig struct {
 	QueueLength   int `mapstructure:"queueLength"`
@@ -60,12 +68,18 @@ type Config struct {
 	// implementation for the knownservers resource (see
 	// pkg/registry/softwarecomposition/knownservers/custom_rest.go), built as
 	// Phase 4's first per-resource migration off genericregistry.Store (see
-	// docs/features/generic-rest-storage-phase4.md). Defaults to false: when unset,
-	// pkg/apiserver/apiserver.go registers knownservers via the OLD
+	// docs/features/generic-rest-storage-phase4.md). Defaults to false: when
+	// unset, pkg/apiserver/apiserver.go registers knownservers via the OLD
 	// genericregistry.Store-based knownservers.NewREST, exactly as before
-	// this flag existed. The old implementation is kept alive as the
-	// reference implementation for differential testing regardless of this
-	// flag's value.
+	// this flag existed, even though live validation on armo-dev-stage
+	// (2026-08-31) found zero regressions across all 11 Phase 4 resources --
+	// that validation covers one cluster, not every deployment of this
+	// binary, so the code-level default stays conservative. The old
+	// implementation is kept alive as the reference implementation for
+	// differential testing regardless of this flag's value. See
+	// CustomRestEnabledEnvVar for a single env var that opts a deployment
+	// into all 11 flags at once (e.g. for a design-partner test environment)
+	// without changing this default for everyone else.
 	CustomKnownServersRestEnabled bool `mapstructure:"customKnownServersRestEnabled"`
 
 	// CustomOpenVulnerabilityExchangeRestEnabled gates the hand-written
@@ -74,11 +88,11 @@ type Config struct {
 	// pkg/registry/softwarecomposition/openvulnerabilityexchange/custom_rest.go),
 	// built as Phase 4's second per-resource migration off
 	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
-	// Defaults to false: when unset, pkg/apiserver/apiserver.go registers
-	// openvulnerabilityexchangecontainers via the OLD
-	// genericregistry.Store-based openvulnerabilityexchange.NewREST, exactly
-	// as before this flag existed. The old implementation is kept alive as
-	// the reference implementation for differential testing regardless of
+	// Defaults to false, for the same reason as CustomKnownServersRestEnabled
+	// above: when unset, pkg/apiserver/apiserver.go registers
+	// openvulnerabilityexchangecontainers via the OLD genericregistry.Store-based
+	// openvulnerabilityexchange.NewREST. The old implementation is kept alive
+	// as the reference implementation for differential testing regardless of
 	// this flag's value.
 	CustomOpenVulnerabilityExchangeRestEnabled bool `mapstructure:"customOpenVulnerabilityExchangeRestEnabled"`
 
@@ -87,9 +101,9 @@ type Config struct {
 	// pkg/registry/softwarecomposition/containerprofile/custom_rest.go),
 	// built as Phase 4's third per-resource migration off
 	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
-	// Defaults to false: when unset, pkg/apiserver/apiserver.go registers
-	// containerprofiles via the OLD genericregistry.Store-based
-	// containerprofile.NewREST, exactly as before this flag existed. The old
+	// Defaults to false, for the same reason as CustomKnownServersRestEnabled
+	// above: when unset, pkg/apiserver/apiserver.go registers containerprofiles
+	// via the OLD genericregistry.Store-based containerprofile.NewREST. The old
 	// implementation is kept alive as the reference implementation for
 	// differential testing regardless of this flag's value.
 	CustomContainerProfileRestEnabled bool `mapstructure:"customContainerProfileRestEnabled"`
@@ -101,6 +115,14 @@ type Config struct {
 	// the OLD genericregistry.Store-based NewREST for that resource remains
 	// the default and the differential-testing reference regardless of the
 	// flag's value.
+	//
+	// All 11 of these flags can also be set at once via the CUSTOM_REST_ENABLED
+	// env var (see CustomRestEnabledEnvVar/LoadConfig), which -- when set --
+	// overrides every flag below regardless of what config.json says. This is
+	// the intended way to opt a specific deployment (e.g. a design-partner
+	// test environment) into the new REST path without changing the
+	// conservative code-level default for every other deployment of this
+	// binary.
 	CustomCollapseConfigurationRestEnabled            bool `mapstructure:"customCollapseConfigurationRestEnabled"`
 	CustomSBOMSyftFilteredRestEnabled                 bool `mapstructure:"customSBOMSyftFilteredRestEnabled"`
 	CustomSBOMSyftRestEnabled                         bool `mapstructure:"customSBOMSyftRestEnabled"`
@@ -136,17 +158,16 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)
-	// The custom knownservers rest.Storage is a Phase 4 spike/prototype, not
-	// yet validated for production use; the OLD genericregistry.Store-based
-	// implementation remains the default.
+	// The custom rest.Storage implementations are Phase 4 migrations off
+	// genericregistry.Store, live-validated against armo-dev-stage (2026-08-31,
+	// zero regressions across all 11 resources) but still default to false:
+	// that validation covers one cluster, not every deployment of this binary,
+	// so the OLD genericregistry.Store-based implementation stays the default
+	// everywhere until a broader soak justifies flipping it. Set any of these
+	// to true individually, or set CUSTOM_REST_ENABLED to opt a whole
+	// deployment into all 11 at once (see CustomRestEnabledEnvVar).
 	v.SetDefault("customKnownServersRestEnabled", false)
-	// The custom openvulnerabilityexchange rest.Storage is a Phase 4
-	// spike/prototype, not yet validated for production use; the OLD
-	// genericregistry.Store-based implementation remains the default.
 	v.SetDefault("customOpenVulnerabilityExchangeRestEnabled", false)
-	// The custom containerprofile rest.Storage is a Phase 4 spike/prototype,
-	// not yet validated for production use; the OLD genericregistry.Store-based
-	// implementation remains the default.
 	v.SetDefault("customContainerProfileRestEnabled", false)
 	v.SetDefault("customCollapseConfigurationRestEnabled", false)
 	v.SetDefault("customSBOMSyftFilteredRestEnabled", false)
@@ -247,5 +268,39 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, fmt.Errorf("unsupported hostType: %s", config.HostType)
 	}
 
+	if err := applyCustomRestEnabledEnvVar(&config); err != nil {
+		return Config{}, err
+	}
+
 	return config, nil
+}
+
+// applyCustomRestEnabledEnvVar overrides every Custom<Resource>RestEnabled
+// flag with the CUSTOM_REST_ENABLED env var's value, when set. Unset (empty)
+// leaves every flag exactly as config.json/defaults computed it -- this is a
+// pure override, never a default, so it never masks a config.json parse
+// error and never changes behavior for a deployment that doesn't set it.
+func applyCustomRestEnabledEnvVar(config *Config) error {
+	raw, ok := os.LookupEnv(CustomRestEnabledEnvVar)
+	if !ok || raw == "" {
+		return nil
+	}
+
+	enabled, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fmt.Errorf("invalid %s value %q: %w", CustomRestEnabledEnvVar, raw, err)
+	}
+
+	config.CustomKnownServersRestEnabled = enabled
+	config.CustomOpenVulnerabilityExchangeRestEnabled = enabled
+	config.CustomContainerProfileRestEnabled = enabled
+	config.CustomCollapseConfigurationRestEnabled = enabled
+	config.CustomSBOMSyftFilteredRestEnabled = enabled
+	config.CustomSBOMSyftRestEnabled = enabled
+	config.CustomSeccompProfileRestEnabled = enabled
+	config.CustomVulnerabilityManifestRestEnabled = enabled
+	config.CustomVulnerabilityManifestSummaryRestEnabled = enabled
+	config.CustomWorkloadConfigurationScanRestEnabled = enabled
+	config.CustomWorkloadConfigurationScanSummaryRestEnabled = enabled
+	return nil
 }
