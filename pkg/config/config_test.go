@@ -168,6 +168,73 @@ func TestHostTypeValidation(t *testing.T) {
 	}
 }
 
+// TestCustomRestEnabledEnvVar guards the single-knob override: setting
+// CUSTOM_REST_ENABLED must override every Custom<Resource>RestEnabled flag at
+// once, regardless of what config.json says for the individual flags, while
+// leaving it unset must leave config.json's per-resource values untouched.
+func TestCustomRestEnabledEnvVar(t *testing.T) {
+	allFlags := func(c Config) []bool {
+		return []bool{
+			c.CustomKnownServersRestEnabled,
+			c.CustomOpenVulnerabilityExchangeRestEnabled,
+			c.CustomContainerProfileRestEnabled,
+			c.CustomCollapseConfigurationRestEnabled,
+			c.CustomSBOMSyftFilteredRestEnabled,
+			c.CustomSBOMSyftRestEnabled,
+			c.CustomSeccompProfileRestEnabled,
+			c.CustomVulnerabilityManifestRestEnabled,
+			c.CustomVulnerabilityManifestSummaryRestEnabled,
+			c.CustomWorkloadConfigurationScanRestEnabled,
+			c.CustomWorkloadConfigurationScanSummaryRestEnabled,
+		}
+	}
+
+	tempDir := t.TempDir()
+	dir := filepath.Join(tempDir, "mixed-flags")
+	require.NoError(t, os.MkdirAll(dir, 0755))
+	// A deliberately mixed config: some resources opted out individually.
+	// The env var, when set, must win over every one of these regardless.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"customKnownServersRestEnabled": false,
+		"customContainerProfileRestEnabled": true,
+		"customSBOMSyftRestEnabled": false
+	}`), 0644))
+
+	t.Run("unset leaves config.json's per-resource values untouched", func(t *testing.T) {
+		got, err := LoadConfig(dir)
+		require.NoError(t, err)
+		assert.False(t, got.CustomKnownServersRestEnabled)
+		assert.True(t, got.CustomContainerProfileRestEnabled)
+		assert.False(t, got.CustomSBOMSyftRestEnabled)
+		// Untouched-in-config.json flags still fall back to the true default.
+		assert.True(t, got.CustomCollapseConfigurationRestEnabled)
+	})
+
+	t.Run("true overrides every flag to true", func(t *testing.T) {
+		t.Setenv(CustomRestEnabledEnvVar, "true")
+		got, err := LoadConfig(dir)
+		require.NoError(t, err)
+		for _, v := range allFlags(got) {
+			assert.True(t, v)
+		}
+	})
+
+	t.Run("false overrides every flag to false", func(t *testing.T) {
+		t.Setenv(CustomRestEnabledEnvVar, "false")
+		got, err := LoadConfig(dir)
+		require.NoError(t, err)
+		for _, v := range allFlags(got) {
+			assert.False(t, v)
+		}
+	})
+
+	t.Run("invalid value is a loud error, not silently ignored", func(t *testing.T) {
+		t.Setenv(CustomRestEnabledEnvVar, "not-a-bool")
+		_, err := LoadConfig(dir)
+		assert.Error(t, err)
+	})
+}
+
 // TestSqlitePoolConfig verifies the new SqlitePoolSize/SqliteBusyTimeout knobs
 // default to today's previously-hardcoded values (10 / 60s) when unset, and
 // are read correctly from config.json when set. This is a Phase 0

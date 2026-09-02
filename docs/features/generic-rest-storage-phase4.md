@@ -18,6 +18,9 @@ registers these resources via the NEW `genericrest.Store`-based implementation. 
 `false` to fall back to the original `genericregistry.Store`-based `NewREST`, which is kept alive
 as the reference implementation for differential testing regardless of the flag's value.
 
+All 11 of these per-resource flags can also be switched at once via the `CUSTOM_REST_ENABLED` env
+var — see `docs/features/custom-rest-enabled-env-var.md`.
+
 This is Phase 4 of an ongoing storage-locking/scalability effort: incrementally proving that
 `genericregistry.Store` can be replaced by a much smaller, purpose-built `rest.Storage`, one
 resource at a time.

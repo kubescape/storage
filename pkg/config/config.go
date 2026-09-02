@@ -2,11 +2,19 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/spf13/viper"
 )
+
+// CustomRestEnabledEnvVar is the single env var that overrides every
+// Custom<Resource>RestEnabled flag at once, for deployments that want one
+// on/off switch for the Phase 4 rest.Storage migration instead of setting
+// 11 individual config.json fields. See LoadConfig.
+const CustomRestEnabledEnvVar = "CUSTOM_REST_ENABLED"
 
 type KindQueueConfig struct {
 	QueueLength   int `mapstructure:"queueLength"`
@@ -110,6 +118,14 @@ type Config struct {
 	// genericregistry.Store-based NewREST for that resource remains
 	// available as a fallback (set the flag to false) and as the
 	// differential-testing reference regardless of the flag's value.
+	//
+	// All 11 of these flags can also be set at once via the CUSTOM_REST_ENABLED
+	// env var (see CustomRestEnabledEnvVar/LoadConfig), which -- when set --
+	// overrides every flag below regardless of what config.json says. The
+	// individual config.json flags remain the mechanism for rolling back a
+	// single misbehaving resource without affecting the others; the env var is
+	// a single on/off switch for deployments (e.g. design-partner test
+	// environments) that just want one knob for the whole migration.
 	CustomCollapseConfigurationRestEnabled            bool `mapstructure:"customCollapseConfigurationRestEnabled"`
 	CustomSBOMSyftFilteredRestEnabled                 bool `mapstructure:"customSBOMSyftFilteredRestEnabled"`
 	CustomSBOMSyftRestEnabled                         bool `mapstructure:"customSBOMSyftRestEnabled"`
@@ -252,5 +268,39 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, fmt.Errorf("unsupported hostType: %s", config.HostType)
 	}
 
+	if err := applyCustomRestEnabledEnvVar(&config); err != nil {
+		return Config{}, err
+	}
+
 	return config, nil
+}
+
+// applyCustomRestEnabledEnvVar overrides every Custom<Resource>RestEnabled
+// flag with the CUSTOM_REST_ENABLED env var's value, when set. Unset (empty)
+// leaves every flag exactly as config.json/defaults computed it -- this is a
+// pure override, never a default, so it never masks a config.json parse
+// error and never changes behavior for a deployment that doesn't set it.
+func applyCustomRestEnabledEnvVar(config *Config) error {
+	raw, ok := os.LookupEnv(CustomRestEnabledEnvVar)
+	if !ok || raw == "" {
+		return nil
+	}
+
+	enabled, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fmt.Errorf("invalid %s value %q: %w", CustomRestEnabledEnvVar, raw, err)
+	}
+
+	config.CustomKnownServersRestEnabled = enabled
+	config.CustomOpenVulnerabilityExchangeRestEnabled = enabled
+	config.CustomContainerProfileRestEnabled = enabled
+	config.CustomCollapseConfigurationRestEnabled = enabled
+	config.CustomSBOMSyftFilteredRestEnabled = enabled
+	config.CustomSBOMSyftRestEnabled = enabled
+	config.CustomSeccompProfileRestEnabled = enabled
+	config.CustomVulnerabilityManifestRestEnabled = enabled
+	config.CustomVulnerabilityManifestSummaryRestEnabled = enabled
+	config.CustomWorkloadConfigurationScanRestEnabled = enabled
+	config.CustomWorkloadConfigurationScanSummaryRestEnabled = enabled
+	return nil
 }
