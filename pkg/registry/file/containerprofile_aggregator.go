@@ -49,7 +49,7 @@ func ComputeAggregatedData(storage ContainerProfileStorage, ctx context.Context,
 		// use a short timeout per-profile to avoid long hangs
 		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
 
-		profile, err := storage.GetContainerProfileMetadata(cpCtx, k)
+		profile, err := storage.GetContainerProfileMetadataNoLock(cpCtx, k)
 
 		// explicitly cancel the context right away to avoid accumulating defers in loops
 		cpCancel()

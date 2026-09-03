@@ -12,7 +12,7 @@ package file
 // exactly one dedicated writer goroutine per StorageImpl, arbitrated by a
 // two-lane (high/low) priority queue.
 //
-// It is gated end-to-end behind singleWriterEnabled (default false, see
+// It is gated end-to-end behind singleWriterEnabled (default true, see
 // SetSingleWriterEnabled / config.Config.SingleWriterEnabled): when disabled,
 // none of this file's code runs and Create/GuaranteedUpdate/SaveContainerProfile
 // behave exactly as they did before this file existed.
@@ -315,34 +315,16 @@ func commitOpName(job *commitJob) string {
 // resourceVersion, and either write (if it still matches what the prepare
 // phase computed against) or reject with errWriteConflict / KeyExistsError.
 //
-// Lock-then-connection ordering is used deliberately here (not
-// connection-then-lock, which is RC1's exact anti-pattern): if this were
-// instead connection-then-lock, a stalled lock wait (e.g. a slow reader
-// holding the RLock) would pin a pool connection. Note that even
-// connection-then-lock would be structurally bounded to at most ONE pinned
-// connection at a time here (this method only ever runs on the single writer
-// goroutine, never concurrently with itself), so it would not reproduce RC1's
-// actual failure mode (many concurrent stalls exhausting a shared pool of 10)
-// -- but avoiding it entirely costs nothing, so this uses the strictly safer
-// order.
+// Connection-then-lock ordering is used here: the single writer goroutine
+// is structurally bounded to at most ONE pool connection (it never runs
+// concurrently with itself). Acquiring the connection first avoids holding
+// the per-key lock across pool.Take waits (which would block readers of that key
+// for up to poolTimeout) and prevents lock-order inversion deadlocks against
+// callers like WithConnection that hold a connection and request an RLock.
 func (w *singleWriter) commit(job *commitJob) commitResult {
 	s := w.s
 	kind := resourceFromKey(job.key)
 	priority := job.priority.label()
-
-	lockCtx, lockCancel := context.WithTimeout(job.ctx, lockTimeout)
-	beforeLock := time.Now()
-	lockErr := s.locks.Lock(lockCtx, job.key)
-	lockCancel()
-	lockDuration := time.Since(beforeLock)
-	if lockErr != nil {
-		metrics.ObserveLockWait(kind, metrics.OutcomeTimeout, lockDuration)
-		_ = s.appFs.Remove(job.tmpPayloadPath)
-		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
-		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, lockErr)}
-	}
-	metrics.ObserveLockWait(kind, metrics.OutcomeAcquired, lockDuration)
-	defer s.locks.Unlock(job.key)
 
 	// NOTE: poolCancel is deferred (not called immediately after Take) and so
 	// stays alive for as long as conn is in use. The zombiezen/modernc driver
@@ -361,6 +343,20 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 	}
 	metrics.ObservePoolWait(kind, metrics.OutcomeAcquired, time.Since(beforePool))
 	defer s.pool.Put(conn)
+
+	lockCtx, lockCancel := context.WithTimeout(job.ctx, lockTimeout)
+	beforeLock := time.Now()
+	lockErr := s.locks.Lock(lockCtx, job.key)
+	lockCancel()
+	lockDuration := time.Since(beforeLock)
+	if lockErr != nil {
+		metrics.ObserveLockWait(kind, metrics.OutcomeTimeout, lockDuration)
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, lockErr)}
+	}
+	metrics.ObserveLockWait(kind, metrics.OutcomeAcquired, lockDuration)
+	defer s.locks.Unlock(job.key)
 
 	currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
 	if err != nil {

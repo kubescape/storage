@@ -144,7 +144,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 			Name: name,
 		}
 		key := BuildContainerProfileKey(id, "containerprofile")
-		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(ctx, key)
+		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadataNoLock(ctx, key)
 		if err != nil {
 			return nil
 		}
@@ -810,8 +810,8 @@ func (a *ContainerProfileProcessor) getAggregatedData(ctx context.Context, key s
 	sort.Strings(keys)
 	for _, key := range keys {
 		cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cpCancel()
-		profile, err := a.ContainerProfileStorage.GetContainerProfileMetadata(cpCtx, key)
+		profile, err := a.ContainerProfileStorage.GetContainerProfileMetadataNoLock(cpCtx, key)
+		cpCancel()
 		if err != nil {
 			logger.L().Debug("ContainerProfileProcessor.getAggregatedData - failed to get profile", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 			continue
