@@ -360,11 +360,7 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, err)}
 	}
 	metrics.ObservePoolWait(kind, metrics.OutcomeAcquired, time.Since(beforePool))
-	conn.SetInterrupt(job.ctx.Done())
-	defer func() {
-		conn.SetInterrupt(nil)
-		s.pool.Put(conn)
-	}()
+	defer s.pool.Put(conn)
 
 	currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
 	if err != nil {
@@ -565,8 +561,6 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 		return newContentionTimeoutError("create", key, err)
 	}
 	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
-	conn.SetInterrupt(ctx.Done())
-	defer conn.SetInterrupt(nil)
 
 	presaveCtx := context.WithValue(ctx, connKey, conn)
 	if err := s.processor.PreSave(presaveCtx, obj); err != nil {
@@ -622,11 +616,7 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 	if err != nil {
 		return newContentionTimeoutError("create", key, err)
 	}
-	conn2.SetInterrupt(ctx.Done())
-	defer func() {
-		conn2.SetInterrupt(nil)
-		s.pool.Put(conn2)
-	}()
+	defer s.pool.Put(conn2)
 	afterCtx := context.WithValue(ctx, connKey, conn2)
 	if err := s.processor.AfterCreate(afterCtx, candidate); err != nil {
 		return fmt.Errorf("processor.AfterCreate: %w", err)
@@ -768,7 +758,6 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			return newContentionTimeoutError("update", key, err)
 		}
 		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
-		conn.SetInterrupt(ctx.Done())
 		presaveCtx := context.WithValue(ctx, connKey, conn)
 
 		// call processor on object to be saved
@@ -785,7 +774,6 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 				logger.L().Debug("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
 				// fall through: still need to save the object with updated annotations
 			} else {
-				conn.SetInterrupt(nil)
 				s.pool.Put(conn)
 				poolCancel()
 				logger.L().Debug("GuaranteedUpdate - processor.PreSave failed", helpers.Error(err), helpers.String("key", key))
@@ -796,7 +784,6 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 		// check if the object is the same as the original (orig was snapshotted
 		// above, before tryUpdate ran)
 		_ = s.processor.PreSave(presaveCtx, orig)
-		conn.SetInterrupt(nil)
 		s.pool.Put(conn)
 		poolCancel()
 

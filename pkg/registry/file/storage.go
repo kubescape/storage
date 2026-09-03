@@ -524,11 +524,7 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 		return newContentionTimeoutError("create", key, err)
 	}
 	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
-	conn.SetInterrupt(ctx.Done())
-	defer func() {
-		conn.SetInterrupt(nil)
-		s.pool.Put(conn)
-	}()
+	defer s.pool.Put(conn)
 	return s.CreateWithConn(ctx, conn, key, obj, metaOut, 0)
 }
 
@@ -1491,11 +1487,7 @@ func (s *StorageImpl) GuaranteedUpdate(
 		return newContentionTimeoutError("update", key, err)
 	}
 	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
-	conn.SetInterrupt(ctx.Done())
-	defer func() {
-		conn.SetInterrupt(nil)
-		s.pool.Put(conn)
-	}()
+	defer s.pool.Put(conn)
 	return s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "")
 }
 
