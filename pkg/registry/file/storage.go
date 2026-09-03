@@ -66,7 +66,7 @@ var lockTimeout = 5 * time.Second
 // DefaultPoolTimeout is the value poolTimeout takes when SetPoolTimeout is never called
 // (or is called with a non-positive duration). It is also the default value of the
 // config.Config.PoolTimeout knob when unset — see pkg/config.
-const DefaultPoolTimeout = 5 * time.Second
+const DefaultPoolTimeout = 15 * time.Second
 
 // poolTimeout is the backstop for acquiring a *sqlite.Conn from the pool. It used
 // to be a full minute (long enough that a pool-exhaustion stall would blow past the k8s

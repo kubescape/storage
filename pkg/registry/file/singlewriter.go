@@ -62,13 +62,13 @@ import (
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-// singleWriterEnabled gates the entire single-writer write path. Off by
+// singleWriterEnabled gates the entire single-writer write path. On by
 // default. Package-level var (not const), for the same test-overridability
 // reason as lockTimeout/poolTimeout (see SetPoolTimeout's doc comment):
 // tests flip it directly (with a defer to restore), and SetSingleWriterEnabled
 // is the production entry point, called once at startup from
 // config.Config.SingleWriterEnabled (see main.go), mirroring SetPoolTimeout.
-var singleWriterEnabled = false
+var singleWriterEnabled = true
 
 // SetSingleWriterEnabled toggles the single-writer write path. Since the flag
 // is read at call time (not baked into a StorageImpl at construction), this
@@ -627,9 +627,9 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 		if val.Kind() == reflect.Ptr {
 			val = val.Elem()
 		}
-		val.Set(reflect.ValueOf(res.metadata).Elem())
+		val.Set(reflect.ValueOf(candidate).Elem())
 	}
-	s.watchDispatcher.Added(key, metaOut, candidate)
+	s.watchDispatcher.Added(key, res.metadata, candidate)
 	return nil
 }
 
@@ -860,10 +860,10 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			if val.Kind() == reflect.Ptr {
 				val = val.Elem()
 			}
-			val.Set(reflect.ValueOf(res.metadata).Elem())
+			val.Set(reflect.ValueOf(candidate).Elem())
 		}
 		// Only successful updates should produce modification events
-		s.watchDispatcher.Modified(key, metaOut, candidate)
+		s.watchDispatcher.Modified(key, res.metadata, candidate)
 		return nil
 	}
 }

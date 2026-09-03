@@ -57,11 +57,7 @@ type Config struct {
 	PoolTimeout time.Duration `mapstructure:"poolTimeout"`
 
 	// SingleWriterEnabled gates the single-dedicated-writer + priority-queue
-	// write path prototyped on spike/single-writer-priority-queue (see
-	// pkg/registry/file/singlewriter.go). Defaults to false: when unset,
-	// Create/GuaranteedUpdate/SaveContainerProfile behave exactly as they did
-	// before that path existed. This is a spike/prototype flag, not yet
-	// validated for production use.
+	// write path (see pkg/registry/file/singlewriter.go). Defaults to true.
 	SingleWriterEnabled bool `mapstructure:"singleWriterEnabled"`
 
 	// CustomKnownServersRestEnabled gates the hand-written rest.Storage
@@ -192,11 +188,10 @@ func LoadConfig(path string) (Config, error) {
 	// Keep in sync with file.DefaultPoolTimeout (pkg/registry/file/storage.go) — this is
 	// the value already hardcoded there today; making it config-driven must be a no-op
 	// by default.
-	v.SetDefault("poolTimeout", 5*time.Second)
-	// Keep in sync with file.SetSingleWriterEnabled's default (false) — the
-	// single-writer/priority-queue write path is a spike/prototype, not yet
-	// validated for production use.
-	v.SetDefault("singleWriterEnabled", false)
+	v.SetDefault("poolTimeout", 15*time.Second)
+	// Keep in sync with file.SetSingleWriterEnabled's default (true) — the
+	// single-writer/priority-queue write path is enabled by default.
+	v.SetDefault("singleWriterEnabled", true)
 	v.SetDefault("kindQueues", map[string]KindQueueConfig{
 		"containerprofiles": {
 			QueueLength:   50,
