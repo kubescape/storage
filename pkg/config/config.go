@@ -50,7 +50,7 @@ type Config struct {
 	SqliteBusyTimeout time.Duration `mapstructure:"sqliteBusyTimeout"`
 	// PoolTimeout bounds how long a caller blocks in pool.Take() waiting for a free
 	// connection from the SQLite connection pool, before failing fast with a
-	// ServerTimeout+Retry-After signal. Defaults to file.DefaultPoolTimeout (5s) when
+	// ServerTimeout+Retry-After signal. Defaults to file.DefaultPoolTimeout (15s) when
 	// unset. This is distinct from SqliteBusyTimeout, which governs SQLite's own
 	// internal busy-handler on a single already-acquired connection. See
 	// docs/features/storage-lock-pool-metrics.md.

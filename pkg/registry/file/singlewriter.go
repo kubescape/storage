@@ -12,7 +12,7 @@ package file
 // exactly one dedicated writer goroutine per StorageImpl, arbitrated by a
 // two-lane (high/low) priority queue.
 //
-// It is gated end-to-end behind singleWriterEnabled (default false, see
+// It is gated end-to-end behind singleWriterEnabled (default true, see
 // SetSingleWriterEnabled / config.Config.SingleWriterEnabled): when disabled,
 // none of this file's code runs and Create/GuaranteedUpdate/SaveContainerProfile
 // behave exactly as they did before this file existed.
