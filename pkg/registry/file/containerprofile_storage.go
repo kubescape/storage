@@ -137,11 +137,11 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	// singleWriterEnabled (spike/single-writer-priority-queue): route this
 	// consolidation write through the single writer's LOW priority lane
 	// instead of GuaranteedUpdateWithConn's caller-supplied-connection,
-	// per-key-lock path. The prepare phase (PreSave, resourceVersion bump,
-	// payload encode) still needs its own connection internally, but not the
-	// one this method's caller already holds via WithConnection -- see
-	// guaranteedUpdateSingleWriter.
-	if singleWriterEnabled {
+	// per-key-lock path -- UNLESS the caller already holds an active connection
+	// / transaction in ctx (e.g. from WithConnection / BeginTransaction), in which
+	// case attempting to acquire another connection for writes deadlocks against
+	// the active transaction in SQLite.
+	if singleWriterEnabled && ctx.Value(connKey) == nil {
 		if err := c.storageImpl.guaranteedUpdateSingleWriter(cpCtx, key, &softwarecomposition.ContainerProfile{},
 			true, nil, tryUpdate, nil, "", priorityLow); err != nil {
 			return fmt.Errorf("failed to update container profile: %w", err)

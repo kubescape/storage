@@ -66,7 +66,7 @@ var lockTimeout = 5 * time.Second
 // DefaultPoolTimeout is the value poolTimeout takes when SetPoolTimeout is never called
 // (or is called with a non-positive duration). It is also the default value of the
 // config.Config.PoolTimeout knob when unset — see pkg/config.
-const DefaultPoolTimeout = 5 * time.Second
+const DefaultPoolTimeout = 15 * time.Second
 
 // poolTimeout is the backstop for acquiring a *sqlite.Conn from the pool. It used
 // to be a full minute (long enough that a pool-exhaustion stall would blow past the k8s
@@ -524,7 +524,11 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 		return newContentionTimeoutError("create", key, err)
 	}
 	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
-	defer s.pool.Put(conn)
+	conn.SetInterrupt(ctx.Done())
+	defer func() {
+		conn.SetInterrupt(nil)
+		s.pool.Put(conn)
+	}()
 	return s.CreateWithConn(ctx, conn, key, obj, metaOut, 0)
 }
 
@@ -1487,7 +1491,11 @@ func (s *StorageImpl) GuaranteedUpdate(
 		return newContentionTimeoutError("update", key, err)
 	}
 	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
-	defer s.pool.Put(conn)
+	conn.SetInterrupt(ctx.Done())
+	defer func() {
+		conn.SetInterrupt(nil)
+		s.pool.Put(conn)
+	}()
 	return s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "")
 }
 

@@ -74,7 +74,8 @@ func TestLoadConfig(t *testing.T) {
 				QueueTimeout:         60,
 				SqlitePoolSize:       10,
 				SqliteBusyTimeout:    60 * time.Second,
-				PoolTimeout:          5 * time.Second,
+				PoolTimeout:          15 * time.Second,
+				SingleWriterEnabled:  true,
 			},
 			wantErr: false,
 		},
@@ -284,7 +285,7 @@ func TestPoolTimeoutConfig(t *testing.T) {
 		{
 			name:            "unset defaults to today's hardcoded value",
 			configJSON:      `{}`,
-			wantPoolTimeout: 5 * time.Second,
+			wantPoolTimeout: 15 * time.Second,
 		},
 		{
 			name:            "explicit override",
@@ -302,6 +303,41 @@ func TestPoolTimeoutConfig(t *testing.T) {
 			got, err := LoadConfig(dir)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantPoolTimeout, got.PoolTimeout)
+		})
+	}
+}
+
+// TestSingleWriterEnabledConfig verifies the SingleWriterEnabled knob defaults to true
+// when unset, and is read correctly from config.json when set.
+func TestSingleWriterEnabledConfig(t *testing.T) {
+	tempDir := t.TempDir()
+
+	tests := []struct {
+		name             string
+		configJSON       string
+		wantSingleWriter bool
+	}{
+		{
+			name:             "unset defaults to true",
+			configJSON:       `{}`,
+			wantSingleWriter: true,
+		},
+		{
+			name:             "explicit override false",
+			configJSON:       `{"singleWriterEnabled": false}`,
+			wantSingleWriter: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(tempDir, tt.name)
+			require.NoError(t, os.MkdirAll(dir, 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(tt.configJSON), 0644))
+
+			got, err := LoadConfig(dir)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSingleWriter, got.SingleWriterEnabled)
 		})
 	}
 }
