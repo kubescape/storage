@@ -155,3 +155,67 @@ func newGuardProfile(ns, name, status string) *softwarecomposition.ContainerProf
 		},
 	}
 }
+
+// TestPreSave_TimeSeries_NoDeadlockUnderHeldWriteLock verifies that when a
+// time-series profile arrives while the consolidated profile key is write-locked
+// (e.g. by a concurrent update or consolidation), PreSave reads metadata via
+// GetContainerProfileMetadataNoLock and does NOT block on the held write lock.
+func TestPreSave_TimeSeries_NoDeadlockUnderHeldWriteLock(t *testing.T) {
+	const (
+		ns       = "kubescape"
+		baseName = "replicaset-nginx-abc123-nginx-1a2b-3c4d"
+		tsName   = "replicaset-nginx-abc123-nginx-1a2b-3c4d-series1"
+	)
+
+	s, consolidatedKey := newGuardTestStorage(t, ns, baseName)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+
+	// Seed the stored consolidated profile.
+	seed := newGuardProfile(ns, baseName, helpersv1.Learning)
+	require.NoError(t, s.Create(ctx, consolidatedKey, seed, &softwarecomposition.ContainerProfile{}, 0))
+
+	// Acquire the write lock on the consolidated key to simulate a concurrent writer/consolidation.
+	impl := s.(*StorageImpl)
+	require.NoError(t, impl.locks.Lock(ctx, consolidatedKey))
+	defer impl.locks.Unlock(consolidatedKey)
+
+	// Ingest a time-series profile for the same workload while the consolidated key is write-locked.
+	// PreSave checks the consolidated profile's metadata. If it used the locking read, this would
+	// block on impl.locks.Lock above until lockTimeout. With GetContainerProfileMetadataNoLock,
+	// it reads SQLite metadata without deadlock.
+	tsProfile := &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tsName,
+			Namespace: ns,
+			Annotations: map[string]string{
+				helpersv1.ReportSeriesIdMetadataKey: "series1",
+				helpersv1.StatusMetadataKey:         helpersv1.Learning,
+			},
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		// Embed a pooled connection in ctx for PreSave
+		poolCtx, poolCancel := poolContext()
+		defer poolCancel()
+		conn, err := impl.pool.Take(poolCtx)
+		if err != nil {
+			done <- err
+			return
+		}
+		defer impl.pool.Put(conn)
+		presaveCtx := context.WithValue(ctx, connKey, conn)
+		done <- impl.processor.PreSave(presaveCtx, tsProfile)
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err, "PreSave must succeed without error")
+	case <-time.After(2 * time.Second):
+		t.Fatal("PreSave deadlocked or blocked on the held write lock of the consolidated key")
+	}
+}
+
