@@ -569,6 +569,9 @@ type OpenVulnerabilityExchangeContainerList struct {
 
 // SBOMSyftStatus is the status of a Syft SBOM.
 type SBOMSyftStatus struct {
+	Status       string
+	StatusReason string
+	Limit        string
 }
 
 // SBOMSyftSpec is the specification of a Syft SBOM
