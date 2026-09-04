@@ -2344,8 +2344,10 @@ func TestGetSingleIP(t *testing.T) {
 }
 func TestRemoveLabels(t *testing.T) {
 	labels := map[string]string{
-		"app.kubernetes.io/name":     "value",
-		"app.kubernetes.io/instance": "1234",
+		"app.kubernetes.io/name":             "value",
+		"app.kubernetes.io/instance":         "1234",
+		"apps.kubernetes.io/pod-index":       "2",
+		"statefulset.kubernetes.io/pod-name": "db-2",
 	}
 
 	expected := map[string]string{
@@ -2355,6 +2357,111 @@ func TestRemoveLabels(t *testing.T) {
 	removeLabels(labels)
 
 	assert.Equal(t, expected, labels)
+}
+
+// TestGenerateNetworkPolicy_StatefulSetPeerCollapsesReplicas proves that three
+// legacy per-replica StatefulSet neighbors differing only in pod-identity labels
+// collapse into a single workload-level peer rule for both ingress and egress (#942).
+func TestGenerateNetworkPolicy_StatefulSetPeerCollapsesReplicas(t *testing.T) {
+	timeProvider := metav1.Now()
+	finder := softwarecomposition.NewKnownServersFinderImpl(nil)
+
+	makeReplicas := func() []softwarecomposition.NetworkNeighbor {
+		ports := []softwarecomposition.NetworkPort{{
+			Port:     ptrToInt32(5432),
+			Protocol: softwarecomposition.ProtocolTCP,
+			Name:     "TCP-5432",
+		}}
+		replicas := []struct {
+			index   string
+			podName string
+		}{
+			{"0", "db-0"},
+			{"1", "db-1"},
+			{"2", "db-2"},
+		}
+		neighbors := make([]softwarecomposition.NetworkNeighbor, 0, len(replicas))
+		for _, r := range replicas {
+			neighbors = append(neighbors, softwarecomposition.NetworkNeighbor{
+				Type: "internal",
+				PodSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app.kubernetes.io/name":             "db",
+						"apps.kubernetes.io/pod-index":       r.index,
+						"statefulset.kubernetes.io/pod-name": r.podName,
+					},
+				},
+				Ports: ports,
+			})
+		}
+		return neighbors
+	}
+
+	assertWorkloadPeer := func(t *testing.T, selector *metav1.LabelSelector) {
+		t.Helper()
+		if !assert.NotNil(t, selector) {
+			return
+		}
+		assert.Equal(t, map[string]string{"app.kubernetes.io/name": "db"}, selector.MatchLabels)
+		assert.NotContains(t, selector.MatchLabels, "apps.kubernetes.io/pod-index")
+		assert.NotContains(t, selector.MatchLabels, "statefulset.kubernetes.io/pod-name")
+	}
+
+	baseMeta := func() metav1.ObjectMeta {
+		return metav1.ObjectMeta{
+			Name:      "deployment-client",
+			Namespace: "default",
+			Annotations: map[string]string{
+				helpersv1.StatusMetadataKey: helpersv1.Learning,
+			},
+			Labels: map[string]string{
+				helpersv1.RelatedKindMetadataKey: "Deployment",
+				helpersv1.RelatedNameMetadataKey: "client",
+			},
+		}
+	}
+
+	t.Run("ingress", func(t *testing.T) {
+		cp := softwarecomposition.ContainerProfile{
+			ObjectMeta: baseMeta(),
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": "client"},
+				},
+				Ingress: makeReplicas(),
+			},
+		}
+		got, err := GenerateNetworkPolicy(&cp, finder, timeProvider)
+		assert.NoError(t, err)
+		if !assert.Len(t, got.Spec.Spec.Ingress, 1) {
+			return
+		}
+		if !assert.Len(t, got.Spec.Spec.Ingress[0].From, 1) {
+			return
+		}
+		assertWorkloadPeer(t, got.Spec.Spec.Ingress[0].From[0].PodSelector)
+	})
+
+	t.Run("egress", func(t *testing.T) {
+		cp := softwarecomposition.ContainerProfile{
+			ObjectMeta: baseMeta(),
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": "client"},
+				},
+				Egress: makeReplicas(),
+			},
+		}
+		got, err := GenerateNetworkPolicy(&cp, finder, timeProvider)
+		assert.NoError(t, err)
+		if !assert.Len(t, got.Spec.Spec.Egress, 1) {
+			return
+		}
+		if !assert.Len(t, got.Spec.Spec.Egress[0].To, 1) {
+			return
+		}
+		assertWorkloadPeer(t, got.Spec.Spec.Egress[0].To[0].PodSelector)
+	})
 }
 
 func TestMergeIngressRulesByPorts(t *testing.T) {
