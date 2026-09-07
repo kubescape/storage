@@ -341,3 +341,4 @@ func TestSingleWriterEnabledConfig(t *testing.T) {
 		})
 	}
 }
+

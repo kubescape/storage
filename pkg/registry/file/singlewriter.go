@@ -1,6 +1,6 @@
 package file
 
-// Single-writer + priority-queue write path (spike/single-writer-priority-queue).
+// Sharded-writer + priority-queue write path (spike/single-writer-priority-queue).
 //
 // This file implements the design described in the spike task: split every
 // write into a "prepare" phase (PreSave, resourceVersion bump, checksum,
@@ -8,9 +8,19 @@ package file
 // SQLite/rename commit) that runs fully in the caller's own goroutine with NO
 // per-key lock held, and a "commit" phase (re-read the current
 // resourceVersion, compare against what prepare computed against, and either
-// write or reject with a retryable conflict) that is submitted as a job to
-// exactly one dedicated writer goroutine per StorageImpl, arbitrated by a
-// two-lane (high/low) priority queue.
+// write or reject with a retryable conflict) that is submitted as a job to a
+// dedicated writer goroutine, arbitrated by a two-lane (high/low) priority
+// queue.
+//
+// Commit jobs are routed to one of singleWriterShards writer goroutines per
+// StorageImpl by hashing the job's key, so every commit for a given key always
+// lands on the same goroutine while commits for different keys can proceed in
+// parallel. The original design used exactly one writer goroutine for ALL
+// keys; that collapsed the write path from the legacy per-key-lock path's
+// ~SqlitePoolSize-way concurrency down to strictly 1-way, a measured
+// throughput regression (see docs/features/single-writer-priority-queue.md).
+// See singleWriter's doc comment for why sharding preserves every correctness
+// property the one-goroutine design relied on.
 //
 // It is gated end-to-end behind singleWriterEnabled (default true, see
 // SetSingleWriterEnabled / config.Config.SingleWriterEnabled): when disabled,
@@ -76,6 +86,27 @@ var singleWriterEnabled = true
 func SetSingleWriterEnabled(enabled bool) {
 	singleWriterEnabled = enabled
 }
+
+// DefaultSingleWriterShards is the fixed shard count a singleWriter runs
+// whenever singleWriterEnabled is true. Not independently configurable: it's
+// part of what enabling the single-writer path means, not a separate knob —
+// see config.Config.SingleWriterEnabled.
+//
+// 8 is chosen to sit under DefaultPoolSize (10, see sqlite.go): each shard's
+// commit briefly holds one pool connection, so a shard count above the pool
+// size just moves the queue from the writer channels into pool.Take.
+const DefaultSingleWriterShards = 8
+
+// singleWriterShards is how many writer goroutines a singleWriter runs, each
+// owning the keys that hash to it. Package-level var (not const), purely for
+// test-overridability (tests flip it directly, with a defer to restore,
+// mirroring enableSingleWriter's pattern) — there is no production setter;
+// it is always DefaultSingleWriterShards outside tests.
+//
+// Unlike singleWriterEnabled, this is read once per StorageImpl, when its
+// singleWriter is constructed (see ensureWriter's sync.Once): the shard
+// goroutines and their channels are built at that point and never resized.
+var singleWriterShards = DefaultSingleWriterShards
 
 // writePriority selects a commitJob's lane in the single writer's two-lane
 // priority queue.
@@ -166,19 +197,42 @@ type commitResult struct {
 	metadata runtime.Object
 }
 
-// singleWriter serializes every prepared Create/GuaranteedUpdate write for
-// one StorageImpl through a single goroutine, arbitrated by a two-lane
+// writerShard is one commit goroutine and the two priority lanes feeding it.
+// A shard owns every key that hashes to it (see shardIndexFor); no other
+// goroutine ever commits those keys.
+type writerShard struct {
+	high chan *commitJob
+	low  chan *commitJob
+}
+
+// singleWriter serializes every prepared Create/GuaranteedUpdate write for one
+// StorageImpl per key, by routing each commit job to one of len(shards) writer
+// goroutines by key hash. Each shard is arbitrated by its own two-lane
 // (high/low) priority queue: REST-originated writes (priorityHigh) are
-// preferred over consolidation/background writes (priorityLow), with a
-// bounded fairness override (highBurstLimit) so a sustained stream of
-// high-priority jobs cannot starve a queued low-priority job forever.
+// preferred over consolidation/background writes (priorityLow), with a bounded
+// fairness override (highBurstLimit) so a sustained stream of high-priority
+// jobs cannot starve a queued low-priority job forever.
 //
-// Because commit runs on exactly one goroutine, the compare-and-commit
-// (re-read the current resourceVersion, write only if it still matches
-// baseRV) needs no additional locking to be race-free against other writers
-// on the same key -- structurally, there are no other writers once
-// singleWriterEnabled routes all Create/GuaranteedUpdate/SaveContainerProfile
-// traffic through here.
+// Because shardIndexFor is a pure function of the key, every commit for a
+// given key runs on exactly one goroutine, in submission order. That is the
+// property the compare-and-commit relies on (re-read the current
+// resourceVersion, write only if it still matches baseRV): it needs no
+// additional locking to be race-free against other writers *on the same key*,
+// and there are no such other writers once singleWriterEnabled routes all
+// Create/GuaranteedUpdate/SaveContainerProfile traffic through here. Writers
+// on *different* keys were never something the compare-and-commit had to be
+// serialized against — they touch disjoint metadata rows and disjoint payload
+// files — so running them concurrently on different shards preserves
+// no-lost-updates, torn-read prevention, and delete-race conflict detection
+// exactly as the original one-goroutine-for-all-keys design did.
+//
+// What sharding does weaken, deliberately: highBurstLimit's fairness
+// arbitration is now per-shard rather than global. A high-priority job only
+// overtakes low-priority jobs that hash to its own shard. This is an accepted
+// trade — jobs in different shards do not compete for the same goroutine's
+// time in the first place, so there is nothing for a priority to arbitrate
+// between them; only same-shard cross-priority contention is affected, and
+// within a shard the guarantee is unchanged.
 //
 // commit still acquires the existing per-key utils.MapMutex (s.locks) around
 // the actual disk mutation, so that Get/GetList (unmodified, still
@@ -190,34 +244,84 @@ type commitResult struct {
 // lock, is not detected as a conflict by a Create job, only by an Update
 // job -- see Q3 in the spike report).
 type singleWriter struct {
-	s    *StorageImpl
-	high chan *commitJob
-	low  chan *commitJob
+	s      *StorageImpl
+	shards []*writerShard
 
 	tmpSeq uint64
 }
 
-// highBurstLimit bounds how many consecutive high-priority commits the
-// writer will service while at least one low-priority job is waiting, before
-// forcing a low-priority commit through instead. This is the concrete answer
-// to "can queued low-priority (consolidation) jobs be starved indefinitely by
-// a sustained stream of high-priority (REST) jobs": no -- bounded to at most
-// highBurstLimit consecutive high-priority commits, provided a low-priority
-// job is actually queued during that window (see run's loop).
+// highBurstLimit bounds how many consecutive high-priority commits a shard
+// will service while at least one low-priority job is waiting on that shard,
+// before forcing a low-priority commit through instead. This is the concrete
+// answer to "can queued low-priority (consolidation) jobs be starved
+// indefinitely by a sustained stream of high-priority (REST) jobs": no --
+// bounded to at most highBurstLimit consecutive high-priority commits,
+// provided a low-priority job is actually queued on the same shard during that
+// window (see run's loop).
 const highBurstLimit = 32
 
 func newSingleWriter(s *StorageImpl) *singleWriter {
-	w := &singleWriter{
-		s:    s,
-		high: make(chan *commitJob, 256),
-		low:  make(chan *commitJob, 256),
+	n := singleWriterShards
+	if n <= 0 {
+		n = DefaultSingleWriterShards
 	}
-	go w.run()
+	w := &singleWriter{
+		s:      s,
+		shards: make([]*writerShard, n),
+	}
+	for i := range w.shards {
+		shard := &writerShard{
+			high: make(chan *commitJob, 256),
+			low:  make(chan *commitJob, 256),
+		}
+		w.shards[i] = shard
+		go w.run(shard)
+	}
 	return w
 }
 
+// shardIndexFor maps a key to a shard index with FNV-1a, inlined over the
+// key's bytes so it neither allocates nor escapes the string. It must stay a
+// pure function of (key, shards): the whole per-key serialization guarantee
+// rests on the same key always resolving to the same shard for the lifetime of
+// the process.
+func shardIndexFor(key string, shards int) int {
+	const (
+		offset32 = uint32(2166136261)
+		prime32  = uint32(16777619)
+	)
+	h := offset32
+	for i := 0; i < len(key); i++ {
+		h ^= uint32(key[i])
+		h *= prime32
+	}
+	return int(h % uint32(shards))
+}
+
+func (w *singleWriter) shardFor(key string) *writerShard {
+	return w.shards[shardIndexFor(key, len(w.shards))]
+}
+
+// queueDepth totals one lane's queued jobs across every shard. The
+// storage_single_writer_queue_depth gauge is a single per-priority series, so
+// reporting a single shard's own len() would make it flap between shards;
+// the sum is what an operator actually wants to see (total work queued behind
+// the write path).
+func (w *singleWriter) queueDepth(priority writePriority) int {
+	total := 0
+	for _, shard := range w.shards {
+		if priority == priorityHigh {
+			total += len(shard.high)
+		} else {
+			total += len(shard.low)
+		}
+	}
+	return total
+}
+
 // nextTempPath returns a temp payload path that is unique across concurrent
-// prepare phases, including concurrent retries of the same key -- unlike
+// prepare phases on any shard (tmpSeq lives on the router, shared by all of
+// them), including concurrent retries of the same key -- unlike
 // saveObject's shared "finalPayloadPath+.t" (storage.go), which is only safe
 // because the per-key lock serializes same-key writers, a guarantee prepare
 // no longer has in this design.
@@ -226,15 +330,15 @@ func (w *singleWriter) nextTempPath(finalPayloadPath string) string {
 	return fmt.Sprintf("%s.t.%d.%d", finalPayloadPath, time.Now().UnixNano(), n)
 }
 
-// run is the single writer goroutine's main loop. See highBurstLimit's doc
-// comment for the fairness guarantee this implements.
-func (w *singleWriter) run() {
+// run is one shard's writer goroutine main loop. See highBurstLimit's doc
+// comment for the (per-shard) fairness guarantee this implements.
+func (w *singleWriter) run(shard *writerShard) {
 	var highStreak int
 	for {
 		if highStreak < highBurstLimit {
 			select {
-			case job := <-w.high:
-				metrics.SetSingleWriterQueueDepth(metrics.PriorityHigh, len(w.high))
+			case job := <-shard.high:
+				metrics.SetSingleWriterQueueDepth(metrics.PriorityHigh, w.queueDepth(priorityHigh))
 				w.process(job)
 				highStreak++
 				continue
@@ -244,8 +348,8 @@ func (w *singleWriter) run() {
 		// Either the burst limit was hit, or high was empty: prefer a
 		// waiting low job if there is one, without blocking.
 		select {
-		case job := <-w.low:
-			metrics.SetSingleWriterQueueDepth(metrics.PriorityLow, len(w.low))
+		case job := <-shard.low:
+			metrics.SetSingleWriterQueueDepth(metrics.PriorityLow, w.queueDepth(priorityLow))
 			w.process(job)
 			highStreak = 0
 			continue
@@ -254,12 +358,12 @@ func (w *singleWriter) run() {
 		// Nothing ready non-blocking on either lane's preferred order: block
 		// on whichever arrives first.
 		select {
-		case job := <-w.high:
-			metrics.SetSingleWriterQueueDepth(metrics.PriorityHigh, len(w.high))
+		case job := <-shard.high:
+			metrics.SetSingleWriterQueueDepth(metrics.PriorityHigh, w.queueDepth(priorityHigh))
 			w.process(job)
 			highStreak++
-		case job := <-w.low:
-			metrics.SetSingleWriterQueueDepth(metrics.PriorityLow, len(w.low))
+		case job := <-shard.low:
+			metrics.SetSingleWriterQueueDepth(metrics.PriorityLow, w.queueDepth(priorityLow))
 			w.process(job)
 			highStreak = 0
 		}
@@ -275,7 +379,8 @@ func (w *singleWriter) process(job *commitJob) {
 	}
 }
 
-// submit enqueues job on the requested lane and blocks until the writer
+// submit enqueues job on the requested lane of the shard owning job.key, and
+// blocks until that shard's writer
 // processes it or ctx is done. If ctx is done after the job was already
 // enqueued, the job is still processed eventually by the writer (it never
 // blocks trying to deliver a result nobody is waiting for); the result is
@@ -283,15 +388,16 @@ func (w *singleWriter) process(job *commitJob) {
 // context, consistent with how poolContext/lockTimeout bound every other
 // contention point in this package -- see the spike report's Q5 discussion.
 func (w *singleWriter) submit(ctx context.Context, job *commitJob, priority writePriority) (commitResult, error) {
-	ch := w.low
+	shard := w.shardFor(job.key)
+	ch := shard.low
 	if priority == priorityHigh {
-		ch = w.high
+		ch = shard.high
 	}
 	job.priority = priority
 	job.enqueuedAt = time.Now()
 	select {
 	case ch <- job:
-		metrics.SetSingleWriterQueueDepth(priority.label(), len(ch))
+		metrics.SetSingleWriterQueueDepth(priority.label(), w.queueDepth(priority))
 	case <-ctx.Done():
 		return commitResult{}, ctx.Err()
 	}
@@ -315,9 +421,11 @@ func commitOpName(job *commitJob) string {
 // resourceVersion, and either write (if it still matches what the prepare
 // phase computed against) or reject with errWriteConflict / KeyExistsError.
 //
-// Connection-then-lock ordering is used here: the single writer goroutine
-// is structurally bounded to at most ONE pool connection (it never runs
-// concurrently with itself). Acquiring the connection first avoids holding
+// Connection-then-lock ordering is used here: commits are structurally
+// bounded to at most one pool connection per shard (a shard goroutine never
+// runs concurrently with itself), i.e. at most len(w.shards) in total --
+// which is why the shard count should stay at or below the pool size, see
+// DefaultSingleWriterShards. Acquiring the connection first avoids holding
 // the per-key lock across pool.Take waits (which would block readers of that key
 // for up to poolTimeout) and prevents lock-order inversion deadlocks against
 // callers like WithConnection that hold a connection and request an RLock.
@@ -529,8 +637,9 @@ func (s *StorageImpl) prepareSingleWriterPayload(key string, obj runtime.Object,
 // split. PreSave and the payload gob-encode happen here, in the caller's own
 // goroutine, against a connection taken and released just for that (no
 // per-key lock involved at all); the actual SQLite upsert + payload rename
-// happens once, later, in the single writer goroutine, serialized against
-// every other write on any key via the priority queue.
+// happens once, later, in the writer goroutine owning this key's shard,
+// serialized against every other write on the SAME key via that shard's
+// priority queue.
 func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, metaOut runtime.Object, priority writePriority) error {
 	// Cheap existence pre-check (mirrors CreateWithConn's early Stat check).
 	// This is an optimization only -- the authoritative check happens at
