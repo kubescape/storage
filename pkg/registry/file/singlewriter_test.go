@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
+	"zombiezen.com/go/sqlite"
 )
 
 // enableSingleWriter flips the package-level flag on and registers a cleanup
@@ -48,6 +49,17 @@ func enableSingleWriter(t *testing.T) {
 	old := singleWriterEnabled
 	singleWriterEnabled = true
 	t.Cleanup(func() { singleWriterEnabled = old })
+}
+
+// setSingleWriterShards pins the shard count for one test and registers a
+// cleanup to restore it, mirroring enableSingleWriter. The count is read when a
+// StorageImpl builds its singleWriter, so this must be called before
+// newSingleWriterTestStorage.
+func setSingleWriterShards(t *testing.T, n int) {
+	t.Helper()
+	old := singleWriterShards
+	singleWriterShards = n
+	t.Cleanup(func() { singleWriterShards = old })
 }
 
 func newSingleWriterTestStorage(t *testing.T) (*StorageImpl, func()) {
@@ -299,6 +311,11 @@ func TestSingleWriter_ConcurrentUpdatesDifferentKeys_PrepareRunsInParallel(t *te
 // low-priority ones.
 func TestSingleWriter_PriorityOrdering(t *testing.T) {
 	enableSingleWriter(t)
+	// Priority arbitration only happens between jobs queued on the SAME shard;
+	// this test is about lane ordering within one committer, not about
+	// cross-shard behavior, so pin it to a single shard as the design had
+	// before commits were sharded by key hash.
+	setSingleWriterShards(t, 1)
 	si, cleanup := newSingleWriterTestStorage(t)
 	defer cleanup()
 	ctx := context.Background()
@@ -375,6 +392,99 @@ func TestSingleWriter_PriorityOrdering(t *testing.T) {
 	}
 	require.GreaterOrEqual(t, lowAfterHigh, lowCount-2,
 		"expected the high-priority job to overtake most of the queued low-priority jobs, completion order: %v", completionOrder)
+}
+
+// TestSingleWriter_ConcurrentCommitsDifferentKeys_ShardsRunInParallel asserts
+// that commits for different keys actually overlap, which is the whole point of
+// routing commit jobs to N shards by key hash. It measures the peak number of
+// commits concurrently inside commit()'s critical section: with one writer
+// goroutine for every key (the pre-sharding design) that peak is 1 by
+// construction, so this test fails against it -- forcing
+// setSingleWriterShards(t, 1) reproduces that failure.
+//
+// The instrument is writeMetadataFn, delaying *before* delegating to the real
+// writeMetadata, deliberately rather than renamePayloadFn: commit() runs both
+// inside sqlitex.Save's savepoint, and the savepoint's transaction is deferred,
+// so it takes SQLite's single-writer lock only once the first write statement
+// runs. A delay in renamePayloadFn therefore sits after that lock is held and
+// serializes every shard at the SQLite level, measuring the database's write
+// lock instead of the shard goroutines.
+func TestSingleWriter_ConcurrentCommitsDifferentKeys_ShardsRunInParallel(t *testing.T) {
+	enableSingleWriter(t)
+	setSingleWriterShards(t, DefaultSingleWriterShards)
+	// A pool larger than the default keeps this measuring commit concurrency
+	// rather than connection-pool sizing: every prepare phase and every commit
+	// briefly needs its own connection.
+	si, cleanup := newSingleWriterTestStorageWithPoolSize(t, 64)
+	defer cleanup()
+	ctx := context.Background()
+
+	const commitDuration = 50 * time.Millisecond
+	var inflight, peak int32
+	si.writeMetadataFn = func(conn *sqlite.Conn, path string, metadata runtime.Object) error {
+		cur := atomic.AddInt32(&inflight, 1)
+		for {
+			p := atomic.LoadInt32(&peak)
+			if cur <= p || atomic.CompareAndSwapInt32(&peak, p, cur) {
+				break
+			}
+		}
+		time.Sleep(commitDuration)
+		atomic.AddInt32(&inflight, -1)
+		return writeMetadata(conn, path, metadata)
+	}
+
+	// 3x the shard count, so keys are near-certain to span several shards.
+	const n = 3 * DefaultSingleWriterShards
+	var wg sync.WaitGroup
+	start := time.Now()
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			name := fmt.Sprintf("parallel-commit-%d", i)
+			obj := &softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns1"},
+			}
+			require.NoError(t, si.createSingleWriter(ctx, testProfileKey(name), obj,
+				&softwarecomposition.ContainerProfile{}, priorityHigh))
+		}(i)
+	}
+	wg.Wait()
+	elapsed := time.Since(start)
+
+	require.Greater(t, atomic.LoadInt32(&peak), int32(1),
+		"expected commits for different keys to run on different shards concurrently, got peak=%d", atomic.LoadInt32(&peak))
+	// Fully serialized commits would take at least n*commitDuration.
+	require.Less(t, elapsed, time.Duration(n)*commitDuration,
+		"commits appear to be globally serialized (took %s for n=%d commits of %s)", elapsed, n, commitDuration)
+
+	// All n objects must still be readable: sharding must not lose writes.
+	for i := 0; i < n; i++ {
+		got := &softwarecomposition.ContainerProfile{}
+		require.NoError(t, si.Get(ctx, testProfileKey(fmt.Sprintf("parallel-commit-%d", i)), storage.GetOptions{}, got))
+	}
+}
+
+// TestShardFor_Deterministic checks the two properties the per-key
+// serialization guarantee rests on: a key always maps to the same shard, and
+// the mapping is not degenerate (everything landing on shard 0 would silently
+// reinstate the single-goroutine throughput ceiling).
+func TestShardFor_Deterministic(t *testing.T) {
+	const shards = DefaultSingleWriterShards
+
+	seen := map[int]int{}
+	for i := 0; i < 200; i++ {
+		key := testProfileKey(fmt.Sprintf("shard-routing-%d", i))
+		want := shardIndexFor(key, shards)
+		require.GreaterOrEqual(t, want, 0)
+		require.Less(t, want, shards)
+		for r := 0; r < 3; r++ {
+			require.Equal(t, want, shardIndexFor(key, shards), "shard routing must be a pure function of the key")
+		}
+		seen[want]++
+	}
+	require.Greater(t, len(seen), 1, "shard routing is degenerate: 200 distinct keys mapped to %d shard(s)", len(seen))
 }
 
 // TestSingleWriter_CommitLockPreventsTornRead exercises the mitigation added

@@ -58,6 +58,11 @@ type Config struct {
 
 	// SingleWriterEnabled gates the single-dedicated-writer + priority-queue
 	// write path (see pkg/registry/file/singlewriter.go). Defaults to true.
+	// When enabled, that path always shards its commit goroutines by key hash
+	// (file.DefaultSingleWriterShards, currently 8) so commits for different
+	// keys run in parallel while commits for the same key stay serialized —
+	// this isn't independently configurable; it's part of what
+	// SingleWriterEnabled turns on.
 	SingleWriterEnabled bool `mapstructure:"singleWriterEnabled"`
 
 	// CustomKnownServersRestEnabled gates the hand-written rest.Storage
