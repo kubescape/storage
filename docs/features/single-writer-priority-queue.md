@@ -60,10 +60,8 @@ the single-writer path is ever enabled.
   `fn` must not itself submit another job to the same shard (directly, or via
   Create/GuaranteedUpdate/SaveContainerProfile for a same-shard key) — that would deadlock, since
   the shard's one goroutine is `fn`'s caller. Used by
-  `ContainerProfileProcessor.deleteContainerProfileArbitrated` and
-  `writeTimeSeriesEntryArbitrated` (the latter keyed on the write's OWN key, not some other
-  related key — see the second "Found and fixed" note below for why that distinction matters), which
-  is why consolidation's per-key unit is *not* wrapped in one `runOnShard` call end-to-end: it calls `SaveContainerProfile`
+  `ContainerProfileProcessor.deleteContainerProfileArbitrated`, which is why consolidation's
+  per-key unit is *not* wrapped in one `runOnShard` call end-to-end: it calls `SaveContainerProfile`
   for the same key partway through, which would deadlock exactly as described.
 - `pkg/metrics/metrics.go`: Phase 0's `storage_lock_wait_duration_seconds`/
   `storage_pool_wait_duration_seconds` histograms (labeled by resource kind and outcome), plus the
@@ -125,32 +123,5 @@ exercising this path over an extended monitoring window for several resource kin
   `database is locked` stalls) — the same fast, heterogeneous failure shape as the residual
   node-agent CI flakiness, not the original catastrophic hang. Routing that one delete call through
   the new `runOnShard` (below) restored throughput to ~5000+ ops/8s with near-zero failures in the
-  same repro, p50 in microseconds and p99 ~5ms (down from 9.9s).
-  **Validated against real node-agent CI:** failure count dropped from the 17-18/31 baseline to
-  13/31, and `database is locked` occurrences in failing jobs' logs dropped to single digits (0-4
-  per job) from being the dominant, systemic failure mode. The remaining 13/31 were initially
-  (incorrectly) assessed as an unrelated node-agent-side flakiness source, since their assertion
-  messages don't mention storage at all (alert-signaling, endpoint-detection, patch-acceptance
-  timing) — but re-tracing those same job logs found `sqlite: step: interrupted` and apiserver
-  `Handler timeout`/`FinishRequest: post-timeout activity` entries in every one of them, which
-  pointed at a second, still-uncovered gap — see the next bullet.
-- **Found and fixed (second gap, same root cause):** `AfterCreate`'s `WriteTimeSeriesEntry` call
-  (fired on every TS `ContainerProfile` create, i.e. essentially every write node-agent makes) had
-  the identical raw-connection bypass as the delete above. A synthetic local repro limited to
-  `ContainerProfile` writes alone didn't reproduce this (`WriteTimeSeriesEntry` looked fine in
-  isolation), but real CI's aggregate write volume across every resource kind sharing this write
-  path was enough to surface it as `sqlite: step: interrupted` — the caller's own request context
-  expiring while the raw connection's statement was still in flight.
-  Routed through `runOnShard` the same way, keyed on the **TS-suffixed profile name** (the same key
-  its own metadata commit uses), not the consolidated base key. Getting that key wrong made things
-  dramatically worse before landing: many distinct TS-suffixed profiles for one container all share
-  one base key, so keying on the base key collapsed traffic that should spread across all 8 shards
-  onto whichever few shards those few base keys hash to — p50 went from microseconds to 15s in the
-  same local repro. A second, related mistake compounded that regression: `createSingleWriter`
-  (singlewriter.go) still pre-took a pool connection to hand `AfterCreate` via `ctx` — dead weight
-  once `AfterCreate` stopped reading it, held uselessly by every concurrent caller for the whole
-  call while `runOnShard` *also* took its own connection, exhausting the pool under load. Removing
-  that pre-acquisition (no `Processor.AfterCreate` implementation needs a ctx-embedded connection
-  anymore) was necessary to actually see the fix's benefit. With both corrections, the same local
-  repro improved on the first fix's already-good numbers: p50=55µs, p99~4ms, only 1/8s over 5s (down
-  from 15-20/8s). Not yet validated against real node-agent CI as of this writing.
+  same repro, p50 in microseconds and p99 ~5ms (down from 9.9s). Not yet validated against real
+  node-agent CI (only this repo's local load test) as of this writing.

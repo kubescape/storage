@@ -104,7 +104,7 @@ func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, object runt
 	reportTimestamp := profile.Annotations[helpers.ReportTimestampMetadataKey]
 	status := profile.Annotations[helpers.StatusMetadataKey]
 	// add sequence info via storage interface
-	err := a.writeTimeSeriesEntryArbitrated(ctx, profile, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp)
+	err := a.ContainerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.AfterCreate - failed to write time series data for container profile",
 			loggerhelpers.Error(err),
@@ -587,63 +587,6 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Contex
 // per-key unit, which self-deadlocks via its own SaveContainerProfile call
 // for the SAME key/shard): storageImpl.delete is a leaf write -- it takes no
 // lock of its own and calls back into nothing shard- or lock-routed.
-
-// writeTimeSeriesEntryArbitrated writes one TS sequence-info row through the
-// same per-key shard a live Create/GuaranteedUpdate for THIS TS profile
-// (the caller's own key, suffix included) would use (see
-// singleWriter.runOnShard's doc comment), rather than WriteTimeSeriesEntry's
-// raw pool connection.
-//
-// This is the same class of gap deleteContainerProfileArbitrated closes for
-// ConsolidateTimeSeries's delete: AfterCreate's raw connection has no way to
-// yield to, or be yielded by, a live shard commit, so under real CI's
-// aggregate write volume across every resource kind sharing this write path
-// (not just ContainerProfile) it can still collide for SQLite's lock and get
-// interrupted mid-statement when the caller's own request context expires
-// first (`sqlite: step: interrupted`) -- confirmed in kubescape/node-agent CI
-// logs even after deleteContainerProfileArbitrated landed, where a synthetic
-// single-resource-kind local repro hadn't reproduced it.
-//
-// Routes to the SAME key the just-created TS profile's own metadata commit
-// used (profile.Name, suffix included) -- NOT the consolidated base key. An
-// earlier version of this fix used the base key and made things
-// dramatically worse: many distinct TS-suffixed profiles for one container
-// all share one base key, so keying on it collapses traffic that should be
-// spread across all 8 shards (matching the metadata commits' own
-// distribution) onto whichever few shards those few base keys happen to
-// hash to -- confirmed locally (containerprofile_load_test.go,
-// LOAD_CONSOLIDATORS=1): p50 went from microseconds to 15s. Keying on the
-// TS-suffixed name instead gives this write the same even distribution the
-// metadata commit already gets. WriteTimeSeriesEntry is a leaf write (no
-// lock of its own, no calls back into anything shard- or lock-routed), safe
-// for runOnShard.
-//
-// Uses priorityHigh, not priorityLow: unlike consolidation (background
-// work), AfterCreate runs synchronously inside a REST-originated Create
-// request and blocks that caller until it returns.
-func (a *ContainerProfileProcessor) writeTimeSeriesEntryArbitrated(ctx context.Context, profile *softwarecomposition.ContainerProfile, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string) error {
-	id := armotypes.ProfileIdentifier{
-		ProfileScope: armotypes.ProfileScope{
-			HostType:               a.HostType,
-			Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
-			Namespace:              namespace,
-			CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
-			Region:                 profile.Annotations[helpers.RegionMetadataKey],
-			HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
-		},
-		Name: profile.Name, // the TS-suffixed name, matching this profile's own metadata commit key
-	}
-	key := BuildContainerProfileKey(id, "containerprofile")
-
-	csi, ok := a.ContainerProfileStorage.(*ContainerProfileStorageImpl)
-	if !ok || !singleWriterEnabled {
-		return a.ContainerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
-	}
-	return csi.storageImpl.ensureWriter().runOnShard(ctx, key, priorityHigh, func(conn *sqlite.Conn) error {
-		return WriteTimeSeriesEntry(conn, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
-	})
-}
-
 func (a *ContainerProfileProcessor) deleteContainerProfileArbitrated(ctx context.Context, key string) error {
 	csi, ok := a.ContainerProfileStorage.(*ContainerProfileStorageImpl)
 	if !ok || !singleWriterEnabled {
