@@ -190,6 +190,13 @@ type commitJob struct {
 	// its lane's channel, so process() can compute how long the job waited in
 	// queue once the writer goroutine picks it up.
 	enqueuedAt time.Time
+
+	// custom, if non-nil, means this job is not a Create/GuaranteedUpdate
+	// commit: commit() acquires the pool connection and per-key lock exactly
+	// as it always does, then calls custom(conn) instead of running the
+	// compare-and-commit logic, and skips the tmpPayloadPath cleanup that
+	// only applies to a prepared create/update payload. See runOnShard.
+	custom func(conn *sqlite.Conn) error
 }
 
 type commitResult struct {
@@ -466,6 +473,21 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 	metrics.ObserveLockWait(kind, metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(job.key)
 
+	if job.custom != nil {
+		// Background work that doesn't fit the create/update compare-and-commit
+		// shape (see runOnShard): it already has its pool connection and
+		// per-key lock (both acquired above, same as any other job on this
+		// shard), so it cannot race a live commit for SQLite's lock.
+		// Everything past this point is create/update-specific and does not
+		// apply.
+		if err := job.custom(conn); err != nil {
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+			return commitResult{err: err}
+		}
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
+		return commitResult{}
+	}
+
 	currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
 	if err != nil {
 		_ = s.appFs.Remove(job.tmpPayloadPath)
@@ -569,6 +591,46 @@ func (s *StorageImpl) ensureWriter() *singleWriter {
 		s.writer = newSingleWriter(s)
 	})
 	return s.writer
+}
+
+// runOnShard serializes fn against every Create/GuaranteedUpdate commit (and
+// every other runOnShard call) hashed to key's shard: fn runs from inside
+// that shard's own writer goroutine, holding the same pool connection and
+// per-key lock a commit would, so it cannot independently race a live commit
+// for SQLite's own lock the way a caller-held raw pool connection does.
+//
+// A genuine collision between two such uncoordinated writers blocks the
+// loser on SQLite's own busy-timeout (seconds in tests, up to
+// DefaultBusyTimeout/60s in production) instead of the microsecond
+// in-process channel wait this shard's own jobs already enjoy. Routing
+// eligible background work through runOnShard turns that collision into
+// ordinary (fast) queueing on this shard's channel instead.
+//
+// fn must not itself call anything that submits a job to this SAME
+// StorageImpl's writer (directly or via Create/GuaranteedUpdate/
+// SaveContainerProfile) for a key hashing to the SAME shard: that would
+// deadlock, since this shard's one goroutine is fn's caller and cannot also
+// service fn's own submission until fn returns. fn should be a leaf
+// operation against conn (see deleteContainerProfileArbitrated for the
+// motivating case: storageImpl.delete takes no lock of its own and calls
+// back into nothing shard- or lock-routed).
+//
+// Callers should use priorityLow (matching the existing convention for
+// non-REST-originated writes, see SaveContainerProfile) so REST traffic
+// keeps preferential -- though never starved, see highBurstLimit --
+// treatment on the same shard.
+func (w *singleWriter) runOnShard(ctx context.Context, key string, priority writePriority, fn func(conn *sqlite.Conn) error) error {
+	job := &commitJob{
+		ctx:      ctx,
+		key:      key,
+		custom:   fn,
+		resultCh: make(chan commitResult, 1),
+	}
+	res, err := w.submit(ctx, job, priority)
+	if err != nil {
+		return err
+	}
+	return res.err
 }
 
 // prepareSingleWriterPayload mirrors saveObject's pre-encode mutation

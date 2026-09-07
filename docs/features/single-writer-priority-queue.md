@@ -52,6 +52,17 @@ the single-writer path is ever enabled.
 - `StorageImpl.Create`/`GuaranteedUpdate` check `singleWriterEnabled` and route to the
   single-writer path at `priorityHigh`; `ContainerProfileStorageImpl.SaveContainerProfile` does
   the same at `priorityLow`.
+- `singleWriter.runOnShard(ctx, key, priority, fn)`: a general escape hatch for background work
+  that mutates a key's row but doesn't fit the Create/GuaranteedUpdate compare-and-commit shape.
+  `fn` runs from inside that key's own shard goroutine, holding the same pool connection and
+  per-key lock a commit would, instead of the caller taking its own raw pool connection (which
+  has no way to yield to, or be yielded by, a live shard commit — see the gap this closes below).
+  `fn` must not itself submit another job to the same shard (directly, or via
+  Create/GuaranteedUpdate/SaveContainerProfile for a same-shard key) — that would deadlock, since
+  the shard's one goroutine is `fn`'s caller. Used by
+  `ContainerProfileProcessor.deleteContainerProfileArbitrated`, which is why consolidation's
+  per-key unit is *not* wrapped in one `runOnShard` call end-to-end: it calls `SaveContainerProfile`
+  for the same key partway through, which would deadlock exactly as described.
 - `pkg/metrics/metrics.go`: Phase 0's `storage_lock_wait_duration_seconds`/
   `storage_pool_wait_duration_seconds` histograms (labeled by resource kind and outcome), plus the
   single-writer-specific `storage_single_writer_queue_wait_duration_seconds`,
@@ -95,6 +106,22 @@ exercising this path over an extended monitoring window for several resource kin
   residual gap between 15/30 and node-agent's historical 0-1/30 baseline is not simply "not enough
   shards" and needs its own investigation (node-agent-side CI resource limits and pod churn were
   observed as candidates, independent of this fix).
+  **Update:** that follow-up investigation ruled out both node-agent-side candidates (storage pod
+  CPU limit bumped 4x: no change; live CI pod restart counts: zero across every failing job
+  checked) and instead found a gap in *this* fix's own coverage — see `runOnShard` below.
 - Priority arbitration under real contention (a REST write racing a consolidation write) is now
   additionally only arbitrated within a shard; see "How it works" for why that is judged acceptable,
   but it has not been observed under real load either.
+- **Found and fixed:** `ConsolidateTimeSeries`'s `deleteProcessedTimeSeries` step deleted each
+  processed TS profile via `DeleteContainerProfile`, which — unlike `SaveContainerProfile` — took a
+  *raw* pool connection outside this whole shard system. That connection could collide directly
+  with a shard's SQLite write lock, and a genuine collision blocks the loser for up to
+  `DefaultBusyTimeout` (60s) rather than the microsecond in-process channel wait every shard-routed
+  write gets. Reproduced locally (`containerprofile_load_test.go`, `LOAD_CONSOLIDATORS=1`): a pure
+  20-way concurrent write burst alone was flawless (9543/9543 ops, p99=115ms), but adding one
+  concurrent consolidation pass collapsed throughput by >250x (36 ops/8s, 14 failed, multi-second
+  `database is locked` stalls) — the same fast, heterogeneous failure shape as the residual
+  node-agent CI flakiness, not the original catastrophic hang. Routing that one delete call through
+  the new `runOnShard` (below) restored throughput to ~5000+ ops/8s with near-zero failures in the
+  same repro, p50 in microseconds and p99 ~5ms (down from 9.9s). Not yet validated against real
+  node-agent CI (only this repo's local load test) as of this writing.

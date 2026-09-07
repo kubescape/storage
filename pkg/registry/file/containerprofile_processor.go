@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite"
 )
 
 // ConsolidatedSlugData contains the slug (name) and namespace of a consolidated profile
@@ -554,7 +555,7 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 // deleted by a concurrent consolidation run for the same customer/cluster.
 func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Context, processed []string) error {
 	for _, tsKey := range processed {
-		err := a.ContainerProfileStorage.DeleteContainerProfile(ctx, tsKey)
+		err := a.deleteContainerProfileArbitrated(ctx, tsKey)
 		if err != nil {
 			if isKeyNotFoundErr(err) {
 				logger.L().Debug("deleteProcessedTimeSeries - TS profile already deleted, skipping",
@@ -565,6 +566,35 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Contex
 		}
 	}
 	return nil
+}
+
+// deleteContainerProfileArbitrated deletes key's processed TS profile through
+// the same per-key shard a live Create/GuaranteedUpdate for that key would
+// use (see singleWriter.runOnShard's doc comment), rather than
+// DeleteContainerProfile's raw pool connection.
+//
+// This was the single biggest lever found while tracing the residual
+// component-tests write-timeout flakiness: unlike SaveContainerProfile
+// (already routed through guaranteedUpdateSingleWriter, priorityLow) and
+// Create/GuaranteedUpdate's own commits (routed through the 8-shard system),
+// this delete's raw SQLite transaction had no way to yield to -- or be
+// yielded by -- a live commit, so it could collide directly for SQLite's own
+// lock. A local repro (containerprofile_load_test.go, LOAD_CONSOLIDATORS=1)
+// showed one such collision alone blocking the loser for the full
+// busy-timeout, and under a sustained write burst plus periodic consolidation
+// this collapsed write throughput by two orders of magnitude. safe to run
+// inside the shard goroutine (unlike wrapping ConsolidateTimeSeries's whole
+// per-key unit, which self-deadlocks via its own SaveContainerProfile call
+// for the SAME key/shard): storageImpl.delete is a leaf write -- it takes no
+// lock of its own and calls back into nothing shard- or lock-routed.
+func (a *ContainerProfileProcessor) deleteContainerProfileArbitrated(ctx context.Context, key string) error {
+	csi, ok := a.ContainerProfileStorage.(*ContainerProfileStorageImpl)
+	if !ok || !singleWriterEnabled {
+		return a.ContainerProfileStorage.DeleteContainerProfile(ctx, key)
+	}
+	return csi.storageImpl.ensureWriter().runOnShard(ctx, key, priorityLow, func(conn *sqlite.Conn) error {
+		return csi.storageImpl.delete(ctx, conn, key, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
+	})
 }
 
 func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
