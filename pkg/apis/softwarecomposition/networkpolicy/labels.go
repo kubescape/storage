@@ -15,6 +15,7 @@ func init() {
 		"app.kubernetes.io/owner":                     true,
 		"app.kubernetes.io/revision":                  true,
 		"statefulset.kubernetes.io/pod-name":          true,
+		"apps.kubernetes.io/pod-index":                true,
 		"scheduler.alpha.kubernetes.io/node-selector": true,
 		"pod-template-hash":                           true,
 		"controller-revision-hash":                    true,
