@@ -775,17 +775,17 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 		return res.err
 	}
 
-	// AfterCreate needs its own live connection; the prepare connection above
-	// was already released before commit.
-	poolCtx2, poolCancel2 := poolContext()
-	defer poolCancel2()
-	conn2, err := s.pool.Take(poolCtx2)
-	if err != nil {
-		return newContentionTimeoutError("create", key, err)
-	}
-	defer s.pool.Put(conn2)
-	afterCtx := context.WithValue(ctx, connKey, conn2)
-	if err := s.processor.AfterCreate(afterCtx, candidate); err != nil {
+	// Neither Processor implementation needs a ctx-embedded connection here
+	// anymore: DefaultProcessor.AfterCreate ignores ctx entirely, and
+	// ContainerProfileProcessor.AfterCreate now acquires its own connection
+	// via runOnShard (see writeTimeSeriesEntryArbitrated) rather than reading
+	// one from ctx. Pre-taking a connection here just to pass it down used to
+	// be necessary; now it only adds pool pressure -- under concurrent load
+	// each caller would hold an unused connection for this whole call while
+	// ALSO waiting on runOnShard's own connection, which measurably regressed
+	// throughput in the load test this file's fix was validated against
+	// (p50 microseconds -> 15s) until this was removed.
+	if err := s.processor.AfterCreate(ctx, candidate); err != nil {
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
 
