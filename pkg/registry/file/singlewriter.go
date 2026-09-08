@@ -641,6 +641,9 @@ func (s *StorageImpl) prepareSingleWriterPayload(key string, obj runtime.Object,
 // serialized against every other write on the SAME key via that shard's
 // priority queue.
 func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, metaOut runtime.Object, priority writePriority) error {
+	if err := s.refuseForeign("create", key); err != nil {
+		return err
+	}
 	// Cheap existence pre-check (mirrors CreateWithConn's early Stat check).
 	// This is an optimization only -- the authoritative check happens at
 	// commit time against SQLite, inside the single writer.
@@ -755,6 +758,9 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object,
 	checksum string, priority writePriority) error {
 
+	if err := s.refuseForeign("update", key); err != nil {
+		return err
+	}
 	v, err := conversion.EnforcePtr(metaOut)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("GuaranteedUpdate - unable to convert output object to pointer", helpers.Error(err), helpers.String("key", key))

@@ -275,6 +275,51 @@ type StorageImpl struct {
 	// tests exercising unrelated paths) never spins up an unused goroutine.
 	writer     *singleWriter
 	writerOnce sync.Once
+
+	// foreignKinds is the kind-ownership guard (design §5.6, INV-4): when set,
+	// every full-object operation on a key whose kind segment it reports as
+	// foreign is REFUSED with an InternalError instead of touching the shared
+	// metadata row, the payload file or the time_series table. Set from
+	// config.ContainerProfileSqliteBackend to IsContainerProfileKind, so a
+	// mis-wired legacy path is a loud failure, never a silent self-repair
+	// delete of a row the ObjectStore owns. Metadata-only reads (the shared
+	// row both backends agree on) are not refused. nil = no guard.
+	foreignKinds func(kind string) bool
+}
+
+// SetForeignKinds installs the kind-ownership guard; nil removes it.
+func (s *StorageImpl) SetForeignKinds(f func(kind string) bool) {
+	s.foreignKinds = f
+}
+
+// kindOfKey returns the kind segment of a storage key ("/prefix/root/kind/…")
+// or of getListWithSpec's relative "apiVersion/kind/…" path.
+func kindOfKey(key string) string {
+	if strings.HasPrefix(key, "/") {
+		_, _, kind, _, _, _ := K8sPathToKeys(key)
+		return kind
+	}
+	parts := strings.Split(key, "/")
+	if len(parts) >= 2 {
+		return parts[1]
+	}
+	return ""
+}
+
+// refuseForeign returns the guard's InternalError when key's kind is foreign
+// to this instance, counting and logging the refusal.
+func (s *StorageImpl) refuseForeign(op, key string) error {
+	if s.foreignKinds == nil {
+		return nil
+	}
+	kind := kindOfKey(key)
+	if !s.foreignKinds(kind) {
+		return nil
+	}
+	metrics.IncCPOwnershipRefusal(op)
+	logger.L().Error("legacy StorageImpl refused an operation on a kind owned by another backend",
+		helpers.String("op", op), helpers.String("kind", kind), helpers.String("key", key))
+	return apierrors.NewInternalError(fmt.Errorf("storage: key %q has kind %q, which is owned by the ContainerProfile SQLite backend; the legacy file store refuses %s", key, kind, op))
 }
 
 func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
@@ -529,6 +574,9 @@ func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runti
 }
 
 func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key string, obj, metaOut runtime.Object, _ uint64) error {
+	if err := s.refuseForeign("create", key); err != nil {
+		return err
+	}
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Create")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -642,6 +690,9 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 }
 
 func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	if err := s.refuseForeign("delete", key); err != nil {
+		return err
+	}
 	p := filepath.Join(s.root, key)
 	// delete metadata in SQLite
 	err := DeleteMetadata(conn, key, metaOut)
@@ -765,6 +816,13 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 			}
 		}
 		return json.Unmarshal(metadata, objPtr)
+	}
+
+	// The metadata-only branch above reads the shared row both backends agree
+	// on; everything below touches the payload file and the self-repair
+	// deletes, which a foreign kind's owner must never see (INV-4).
+	if err := s.refuseForeign("get", key); err != nil {
+		return err
 	}
 
 	// noLock callers perform unsynchronized file I/O by default.  Acquire a
@@ -1319,6 +1377,9 @@ func (s *StorageImpl) fetchListPage(ctx context.Context, conn *sqlite.Conn, key 
 	var pageLast string
 	var err error
 	if isFullSpec {
+		if err := s.refuseForeign("list", key); err != nil {
+			return listPageResult{}, err
+		}
 		// get names from SQLite
 		entries, pageLast, err = listMetadataKeys(conn, key, cursor, remaining)
 	} else {
@@ -1373,6 +1434,9 @@ func setListContinue(listObj runtime.Object, pageLast string) error {
 
 // getListWithSpec is the same as GetList, but it returns the full objects instead of just the metadata.
 func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+	if err := s.refuseForeign("list", key); err != nil {
+		return err
+	}
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.getListWithSpec")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -1494,6 +1558,9 @@ func (s *StorageImpl) GuaranteedUpdate(
 func (s *StorageImpl) GuaranteedUpdateWithConn(
 	ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object, checksum string) error {
+	if err := s.refuseForeign("update", key); err != nil {
+		return err
+	}
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -1718,6 +1785,9 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 // appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
 func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
+	if err := s.refuseForeign("list", key); err != nil {
+		return err
+	}
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 	defer lockCancel()
 	err := s.locks.RLock(lockCtx, key)
