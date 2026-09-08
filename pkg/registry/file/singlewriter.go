@@ -56,6 +56,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -480,7 +481,7 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 		// shard), so it cannot race a live commit for SQLite's lock.
 		// Everything past this point is create/update-specific and does not
 		// apply.
-		if err := job.custom(conn); err != nil {
+		if err := callGuarded("custom", conn, job.custom); err != nil {
 			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
 			return commitResult{err: err}
 		}
@@ -550,6 +551,20 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 
 	metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
 	return commitResult{metadata: metadata}
+}
+
+// callGuarded runs caller-supplied code on the shard's connection and turns a
+// panic in it into an error for that caller, so one bad closure fails its own
+// job instead of unwinding the shard goroutine. Only fn's own panics are
+// caught; the frame is gone by the time the error is returned, so the stack
+// is captured into the message.
+func callGuarded(name string, conn *sqlite.Conn, fn func(*sqlite.Conn) error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("single-writer: %s panicked: %v\n%s", name, r, debug.Stack())
+		}
+	}()
+	return fn(conn)
 }
 
 // readCurrentResourceVersion reads the resourceVersion currently committed in
