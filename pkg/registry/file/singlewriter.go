@@ -509,6 +509,7 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 		renamePayload = s.appFs.Rename
 	}
 
+	observeStmt("Save:commit")
 	release := sqlitex.Save(conn)
 	err = func() error {
 		if werr := writeMeta(conn, job.key, metadata); werr != nil {
@@ -720,10 +721,13 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 	// was already released before commit.
 	poolCtx2, poolCancel2 := poolContext()
 	defer poolCancel2()
+	beforePool2 := time.Now()
 	conn2, err := s.pool.Take(poolCtx2)
 	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool2))
 		return newContentionTimeoutError("create", key, err)
 	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool2))
 	defer s.pool.Put(conn2)
 	afterCtx := context.WithValue(ctx, connKey, conn2)
 	if err := s.processor.AfterCreate(afterCtx, candidate); err != nil {

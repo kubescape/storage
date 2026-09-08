@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/metrics"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
@@ -39,10 +40,13 @@ var _ ContainerProfileStorage = (*ContainerProfileStorageImpl)(nil)
 // WithConnection acquires a connection from the pool and returns a new context
 // with the connection embedded, plus a cleanup function to return the connection to the pool.
 func (c *ContainerProfileStorageImpl) WithConnection(ctx context.Context) (context.Context, func(), error) {
+	beforePool := time.Now()
 	conn, err := c.pool.Take(ctx)
 	if err != nil {
+		metrics.ObservePoolWait(ContainerProfileKindPlural, metrics.OutcomeTimeout, time.Since(beforePool))
 		return nil, nil, fmt.Errorf("failed to take connection from pool: %w", err)
 	}
+	metrics.ObservePoolWait(ContainerProfileKindPlural, metrics.OutcomeAcquired, time.Since(beforePool))
 	var cleaned bool
 	cleanup := func() {
 		if !cleaned {
@@ -57,6 +61,7 @@ func (c *ContainerProfileStorageImpl) WithConnection(ctx context.Context) (conte
 // to commit or rollback based on the error state.
 func (c *ContainerProfileStorageImpl) BeginTransaction(ctx context.Context) (func(*error), error) {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
+	observeStmt("Transaction")
 	return sqlitex.Transaction(conn), nil
 }
 

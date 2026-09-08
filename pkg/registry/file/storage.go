@@ -515,6 +515,7 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	if renamePayload == nil {
 		renamePayload = s.appFs.Rename
 	}
+	observeStmt("Save:saveObject")
 	release := sqlitex.Save(conn)
 	err = func() error {
 		if werr := writeMeta(conn, key, metadata); werr != nil {
