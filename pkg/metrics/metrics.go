@@ -37,6 +37,9 @@ const (
 	CommitOutcomeCommitted = "committed"
 	CommitOutcomeConflict  = "conflict"
 	CommitOutcomeError     = "error"
+	// CommitOutcomePanic: the commit panicked past every guard and the shard
+	// goroutine's recover converted it to an error. Must stay zero.
+	CommitOutcomePanic = "panic"
 )
 
 // Label values for the consolidation counters below.
@@ -122,10 +125,35 @@ var (
 		&metrics.CounterOpts{
 			Subsystem:      "storage",
 			Name:           "single_writer_commit_total",
-			Help:           "Count of single-writer commit attempts, by resource kind, priority, and outcome (committed/conflict/error).",
+			Help:           "Count of single-writer commit attempts, by resource kind, priority, and outcome (committed/conflict/error/panic).",
 			StabilityLevel: metrics.ALPHA,
 		},
 		[]string{"kind", "priority", "outcome"},
+	)
+
+	// SingleWriterDirtyConnectionTotal counts pool connections a shard commit
+	// was about to return with an open transaction/savepoint or a stepped,
+	// unreset statement (a panic in the commit path skipped the release).
+	// The connection is rolled back and reset before reuse. Must stay zero.
+	SingleWriterDirtyConnectionTotal = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "single_writer_dirty_connection_total",
+			Help:           "Count of pool connections a single-writer commit found with an open transaction or unreset statement on release; rolled back before reuse.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// SingleWriterDroppedConnectionTotal counts dirty connections that could
+	// not be rolled back and were dropped instead of returned, shrinking the
+	// pool by one permanently. Must stay zero.
+	SingleWriterDroppedConnectionTotal = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "single_writer_dropped_connection_total",
+			Help:           "Count of dirty pool connections a single-writer commit could not roll back and dropped; each one shrinks the pool permanently.",
+			StabilityLevel: metrics.ALPHA,
+		},
 	)
 
 	// SingleWriterConflictRetryTotal counts how many times
@@ -224,6 +252,8 @@ func init() {
 	legacyregistry.MustRegister(SingleWriterQueueWaitDuration)
 	legacyregistry.MustRegister(SingleWriterCommitTotal)
 	legacyregistry.MustRegister(SingleWriterConflictRetryTotal)
+	legacyregistry.MustRegister(SingleWriterDirtyConnectionTotal)
+	legacyregistry.MustRegister(SingleWriterDroppedConnectionTotal)
 	legacyregistry.MustRegister(SingleWriterQueueDepth)
 	legacyregistry.MustRegister(ConsolidationFrozenReclaimedTotal)
 	legacyregistry.MustRegister(ConsolidationFrozenRefusalsTotal)
@@ -252,9 +282,22 @@ func ObserveSingleWriterQueueWait(kind, priority string, d time.Duration) {
 
 // IncSingleWriterCommit records one single-writer commit attempt for the
 // given resource kind, priority (PriorityHigh / PriorityLow), and outcome
-// (CommitOutcomeCommitted / CommitOutcomeConflict / CommitOutcomeError).
+// (CommitOutcomeCommitted / CommitOutcomeConflict / CommitOutcomeError /
+// CommitOutcomePanic).
 func IncSingleWriterCommit(kind, priority, outcome string) {
 	SingleWriterCommitTotal.WithLabelValues(kind, priority, outcome).Inc()
+}
+
+// IncSingleWriterDirtyConnection records one pool connection found dirty on
+// release from a single-writer commit.
+func IncSingleWriterDirtyConnection() {
+	SingleWriterDirtyConnectionTotal.Inc()
+}
+
+// IncSingleWriterDroppedConnection records one dirty pool connection that
+// could not be rolled back and was dropped instead of returned.
+func IncSingleWriterDroppedConnection() {
+	SingleWriterDroppedConnectionTotal.Inc()
 }
 
 // IncSingleWriterConflictRetry records one GuaranteedUpdate prepare-phase

@@ -117,6 +117,25 @@ func TestIncSingleWriterCommit(t *testing.T) {
 	assert.Equal(t, float64(0), unseen)
 }
 
+// TestIncSingleWriterConnectionCounters verifies the dirty/dropped connection
+// counters move independently.
+func TestIncSingleWriterConnectionCounters(t *testing.T) {
+	SingleWriterDirtyConnectionTotal.Reset()
+	SingleWriterDroppedConnectionTotal.Reset()
+
+	IncSingleWriterDirtyConnection()
+	IncSingleWriterDirtyConnection()
+	IncSingleWriterDroppedConnection()
+
+	dirty, err := testutil.GetCounterMetricValue(SingleWriterDirtyConnectionTotal)
+	require.NoError(t, err)
+	assert.Equal(t, float64(2), dirty)
+
+	dropped, err := testutil.GetCounterMetricValue(SingleWriterDroppedConnectionTotal)
+	require.NoError(t, err)
+	assert.Equal(t, float64(1), dropped)
+}
+
 // TestIncSingleWriterConflictRetry verifies conflict-retry counts are
 // recorded per resource kind and do not leak into unrelated kinds.
 func TestIncSingleWriterConflictRetry(t *testing.T) {
