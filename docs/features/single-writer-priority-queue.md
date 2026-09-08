@@ -57,12 +57,19 @@ the single-writer path is ever enabled.
   `fn` runs from inside that key's own shard goroutine, holding the same pool connection and
   per-key lock a commit would, instead of the caller taking its own raw pool connection (which
   has no way to yield to, or be yielded by, a live shard commit — see the gap this closes below).
-  `fn` must not itself submit another job to the same shard (directly, or via
-  Create/GuaranteedUpdate/SaveContainerProfile for a same-shard key) — that would deadlock, since
-  the shard's one goroutine is `fn`'s caller. Used by
-  `ContainerProfileProcessor.deleteContainerProfileArbitrated`, which is why consolidation's
-  per-key unit is *not* wrapped in one `runOnShard` call end-to-end: it calls `SaveContainerProfile`
-  for the same key partway through, which would deadlock exactly as described.
+  `fn` must be a leaf **and** non-blocking. Leaf: it must not itself submit another job to the same
+  shard (directly, or via Create/GuaranteedUpdate/SaveContainerProfile for a same-shard key) — that
+  would deadlock, since the shard's one goroutine is `fn`'s caller. Non-blocking: it must not block
+  on anything outside `conn` — in particular **no `watchDispatcher.*` call inside `fn`**: a watch
+  client that has stopped reading blocks `send` until its own ctx ends, which inside `fn` would
+  freeze the shard (and its pool connection and per-key lock) for as long as that remote client
+  chooses. Dispatch watch events on the caller after `runOnShard` returns, the way
+  `createSingleWriter`/`guaranteedUpdateSingleWriter` already do. Used by
+  `ContainerProfileProcessor.deleteContainerProfileArbitrated`, which routes
+  `StorageImpl.deleteLocked` (the SQLite+filesystem half of `delete`, without the dispatch) and
+  emits the `Deleted` event itself afterwards. This is also why consolidation's per-key unit is
+  *not* wrapped in one `runOnShard` call end-to-end: it calls `SaveContainerProfile` for the same
+  key partway through, which would deadlock exactly as described.
 - `pkg/metrics/metrics.go`: Phase 0's `storage_lock_wait_duration_seconds`/
   `storage_pool_wait_duration_seconds` histograms (labeled by resource kind and outcome), plus the
   single-writer-specific `storage_single_writer_queue_wait_duration_seconds`,

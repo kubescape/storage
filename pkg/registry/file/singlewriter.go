@@ -606,14 +606,25 @@ func (s *StorageImpl) ensureWriter() *singleWriter {
 // eligible background work through runOnShard turns that collision into
 // ordinary (fast) queueing on this shard's channel instead.
 //
-// fn must not itself call anything that submits a job to this SAME
-// StorageImpl's writer (directly or via Create/GuaranteedUpdate/
-// SaveContainerProfile) for a key hashing to the SAME shard: that would
-// deadlock, since this shard's one goroutine is fn's caller and cannot also
-// service fn's own submission until fn returns. fn should be a leaf
-// operation against conn (see deleteContainerProfileArbitrated for the
-// motivating case: storageImpl.delete takes no lock of its own and calls
-// back into nothing shard- or lock-routed).
+// fn must be a leaf AND non-blocking:
+//
+//   - Leaf: fn must not itself call anything that submits a job to this SAME
+//     StorageImpl's writer (directly or via Create/GuaranteedUpdate/
+//     SaveContainerProfile) for a key hashing to the SAME shard: that would
+//     deadlock, since this shard's one goroutine is fn's caller and cannot
+//     also service fn's own submission until fn returns.
+//   - Non-blocking: fn must not block on anything outside conn (SQLite's
+//     busy-timeout and the filesystem are the only waits it may incur). In
+//     particular fn must NOT call watchDispatcher.* -- a watch client that
+//     has stopped reading blocks send until its own ctx ends, and inside fn
+//     that would freeze this shard, its pool connection and Lock(key) for
+//     as long as that remote client chooses. Dispatch watch events on the
+//     caller after runOnShard returns, as createSingleWriter and
+//     guaranteedUpdateSingleWriter do.
+//
+// See deleteContainerProfileArbitrated for the motivating case: it routes
+// storageImpl.deleteLocked (not delete, which dispatches) and emits the
+// Deleted event itself afterwards.
 //
 // Callers should use priorityLow (matching the existing convention for
 // non-REST-originated writes, see SaveContainerProfile) so REST traffic

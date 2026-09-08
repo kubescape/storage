@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -607,4 +609,130 @@ func TestUpdateProfileStatusExpiredFull(t *testing.T) {
 	assert.Equal(t, "test-key", mockStorage.deleteKey)
 	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
 	assert.Equal(t, helpersv1.Full, profile.Annotations[helpersv1.CompletionMetadataKey])
+}
+
+// TestDeleteArbitrated_StalledWatcherDoesNotFreezeShard pins L0-C: a
+// shard-routed delete must not dispatch its watch event from inside the shard
+// turn. A "/" watcher that has stopped reading blocks watchDispatcher's send
+// until its own ctx ends; if that send runs inside runOnShard's fn, the shard
+// goroutine (holding a pool connection and Lock(key)) is frozen for as long as
+// the remote client chooses, and every other job hashed to that shard -- the
+// REST lane included -- times out behind it.
+//
+// The test stalls a "/" watcher, deletes one TS key through the shard, waits
+// until the shard is observably inside the delete job, and then asserts that a
+// no-op priorityHigh runOnShard probe on a DIFFERENT key hashed to the SAME
+// shard completes within 2s. Before L0-C the probe times out; after it the
+// caller (not the shard) is the one parked in send, the shard is free, and the
+// Deleted event is still delivered once the watcher drains.
+func TestDeleteArbitrated_StalledWatcherDoesNotFreezeShard(t *testing.T) {
+	enableSingleWriter(t)
+	setSingleWriterShards(t, DefaultSingleWriterShards)
+	si, cleanup := newSingleWriterTestStorage(t)
+	// t.Cleanup, not defer: cleanups run LIFO, so the watcher's wcancel
+	// (registered below) runs first. On a failing run the shard is still parked
+	// in send holding its pool connection, and pool.Close would otherwise wait
+	// on it forever instead of the test failing at the probe's 2s deadline.
+	t.Cleanup(cleanup)
+	a := &ContainerProfileProcessor{
+		ContainerProfileStorage: NewContainerProfileStorageImpl(si, si.pool),
+	}
+	ctx := context.Background()
+
+	const victimName = "victim-20260908T120000"
+	keyA := testProfileKey(victimName)
+	var keyB string
+	for i := 0; ; i++ {
+		k := testProfileKey(fmt.Sprintf("probe-%d", i))
+		if shardIndexFor(k, singleWriterShards) == shardIndexFor(keyA, singleWriterShards) {
+			keyB = k
+			break
+		}
+	}
+
+	// Seed keyA before any watcher exists so Create's own Added event does not
+	// consume a slot in the watcher's buffer.
+	require.NoError(t, si.Create(ctx, keyA, &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: victimName, Namespace: "ns1"},
+	}, &softwarecomposition.ContainerProfile{}, 0))
+	payloadPath := makePayloadPath(filepath.Join(si.root, keyA))
+	_, err := si.appFs.Stat(payloadPath)
+	require.NoError(t, err, "seeded payload must exist before the delete")
+
+	// A "/" watcher that is never read. Fill it to the brim: cap(outCh) events
+	// land in outCh and one more is parked in shipIt, so the NEXT send to this
+	// watcher blocks until wcancel. fillerKey must start with "/" or
+	// extractKeysToNotify returns nothing and the watcher never fills.
+	wctx, wcancel := context.WithCancel(ctx)
+	t.Cleanup(wcancel)
+	w := newWatcher(wctx, false)
+	si.watchDispatcher.Register("/", w)
+	fillerKey := testProfileKey("filler")
+	fillers := cap(w.outCh) + 1
+	for i := 0; i < fillers; i++ {
+		si.watchDispatcher.Deleted(fillerKey, &softwarecomposition.ContainerProfile{})
+	}
+	require.Equal(t, cap(w.outCh), len(w.outCh), "watcher buffer must be full before the delete")
+
+	done := make(chan error, 1)
+	go func() { done <- a.deleteContainerProfileArbitrated(ctx, keyA) }()
+
+	// Race gate: the payload Remove runs inside fn, so its absence proves the
+	// shard goroutine is committed to the delete job. Without this the probe
+	// below races the delete goroutine for the shard (high is served before
+	// low) and today's code would pass.
+	require.Eventually(t, func() bool {
+		_, err := si.appFs.Stat(payloadPath)
+		return errors.Is(err, os.ErrNotExist)
+	}, 5*time.Second, time.Millisecond)
+
+	// The discriminating assertion: a same-shard probe must not wait on the
+	// stalled watcher.
+	probeCtx, probeCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer probeCancel()
+	err = si.ensureWriter().runOnShard(probeCtx, keyB, priorityHigh, func(*sqlite.Conn) error { return nil })
+	require.NoError(t, err, "same-shard probe must complete while a watcher is stalled")
+
+	// The caller is legitimately parked in send until the watcher drains.
+	select {
+	case err := <-done:
+		t.Fatalf("delete returned %v while its watcher is stalled", err)
+	default:
+	}
+
+	// The event is not lost: after the fillers, the next event is the victim's
+	// Deleted, and only then does the delete call return.
+	recv := func() watch.Event {
+		t.Helper()
+		select {
+		case ev, ok := <-w.ResultChan():
+			require.True(t, ok, "watcher result channel closed early")
+			return ev
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for a watch event")
+			return watch.Event{}
+		}
+	}
+	for i := 0; i < fillers; i++ {
+		ev := recv()
+		require.Equal(t, watch.Deleted, ev.Type)
+	}
+	ev := recv()
+	require.Equal(t, watch.Deleted, ev.Type)
+	deleted, ok := ev.Object.(*softwarecomposition.ContainerProfile)
+	require.True(t, ok, "unexpected event object %T", ev.Object)
+	require.Equal(t, victimName, deleted.Name)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("delete did not return after its event was drained")
+	}
+	wcancel()
+
+	// The mutation happened.
+	got := &softwarecomposition.ContainerProfile{}
+	getErr := si.Get(ctx, keyA, storage.GetOptions{}, got)
+	require.Error(t, getErr)
+	require.True(t, storage.IsNotFound(getErr))
 }

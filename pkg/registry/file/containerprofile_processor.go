@@ -582,19 +582,33 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Contex
 // lock. A local repro (containerprofile_load_test.go, LOAD_CONSOLIDATORS=1)
 // showed one such collision alone blocking the loser for the full
 // busy-timeout, and under a sustained write burst plus periodic consolidation
-// this collapsed write throughput by two orders of magnitude. safe to run
-// inside the shard goroutine (unlike wrapping ConsolidateTimeSeries's whole
-// per-key unit, which self-deadlocks via its own SaveContainerProfile call
-// for the SAME key/shard): storageImpl.delete is a leaf write -- it takes no
-// lock of its own and calls back into nothing shard- or lock-routed.
+// this collapsed write throughput by two orders of magnitude.
+//
+// The shard-routed fn is storageImpl.deleteLocked, NOT storageImpl.delete
+// (unlike wrapping ConsolidateTimeSeries's whole per-key unit, which
+// self-deadlocks via its own SaveContainerProfile call for the SAME
+// key/shard). deleteLocked is a leaf write that takes no lock of its own,
+// calls back into nothing shard- or lock-routed, and blocks on nothing but
+// conn. delete additionally ends in watchDispatcher.Deleted, whose send
+// blocks until a stalled watch client resumes reading or its ctx ends --
+// run inside fn that would freeze the whole shard for as long as a remote
+// client chooses. So the event is dispatched here, on the caller, after the
+// shard turn (connection and per-key lock) is released, exactly as
+// createSingleWriter and guaranteedUpdateSingleWriter do.
 func (a *ContainerProfileProcessor) deleteContainerProfileArbitrated(ctx context.Context, key string) error {
 	csi, ok := a.ContainerProfileStorage.(*ContainerProfileStorageImpl)
 	if !ok || !singleWriterEnabled {
 		return a.ContainerProfileStorage.DeleteContainerProfile(ctx, key)
 	}
-	return csi.storageImpl.ensureWriter().runOnShard(ctx, key, priorityLow, func(conn *sqlite.Conn) error {
-		return csi.storageImpl.delete(ctx, conn, key, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
+	metaOut := &softwarecomposition.ContainerProfile{}
+	err := csi.storageImpl.ensureWriter().runOnShard(ctx, key, priorityLow, func(conn *sqlite.Conn) error {
+		return csi.storageImpl.deleteLocked(ctx, conn, key, metaOut)
 	})
+	if err != nil {
+		return err
+	}
+	csi.storageImpl.watchDispatcher.Deleted(key, metaOut)
+	return nil
 }
 
 func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
