@@ -559,31 +559,19 @@ func TestUpdateProfileStatusExpired(t *testing.T) {
 		},
 	}
 
-	res, skip, err := processor.updateProfileStatus(context.TODO(), "key", "seriesID", profile, ts, true)
-	assert.NoError(t, err)
+	res, skip := processor.updateProfileStatus("key", "seriesID", profile, ts, true)
 	assert.False(t, skip)
 	assert.Len(t, res, 0) // should be cleared
 	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
 	assert.Equal(t, helpersv1.Partial, profile.Annotations[helpersv1.CompletionMetadataKey])
 }
 
-type mockContainerProfileStorage struct {
-	fakeStorage
-	deleteCalled bool
-	deleteKey    string
-}
-
-func (m *mockContainerProfileStorage) DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error {
-	m.deleteCalled = true
-	m.deleteKey = key
-	return nil
-}
-
+// TestUpdateProfileStatusExpiredFull: the terminal branch stamps the profile
+// and clears this series' entries. It executes no SQL (PC-TS-4): the caller's
+// list-scoped Replace is the only time_series delete on the consolidation
+// path, so no storage is wired here at all.
 func TestUpdateProfileStatusExpiredFull(t *testing.T) {
-	mockStorage := &mockContainerProfileStorage{}
-	processor := ContainerProfileProcessor{
-		ContainerProfileStorage: mockStorage,
-	}
+	processor := ContainerProfileProcessor{}
 
 	profile := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{
@@ -601,12 +589,9 @@ func TestUpdateProfileStatusExpiredFull(t *testing.T) {
 		},
 	}
 
-	res, skip, err := processor.updateProfileStatus(context.TODO(), "test-key", "seriesID", profile, ts, true)
-	assert.NoError(t, err)
+	res, skip := processor.updateProfileStatus("test-key", "seriesID", profile, ts, true)
 	assert.True(t, skip)
 	assert.Len(t, res, 0) // should be cleared
-	assert.True(t, mockStorage.deleteCalled)
-	assert.Equal(t, "test-key", mockStorage.deleteKey)
 	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
 	assert.Equal(t, helpersv1.Full, profile.Annotations[helpersv1.CompletionMetadataKey])
 }

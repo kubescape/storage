@@ -62,6 +62,10 @@ type ContainerProfileProcessor struct {
 	// ConsolidateTimeSeries. nil means use consolidateKeyTimeSeries; tests
 	// override it to count invocations or inject per-key failures.
 	consolidateKey func(ctx context.Context, key string, expired bool) error
+	// seriesOrder returns the order updateProfile processes a key's series in.
+	// nil means map iteration order (random); tests override it to force the
+	// order, which decides which series a terminal branch leaves unreached.
+	seriesOrder func(timeSeries map[string][]softwarecomposition.TimeSeriesContainers) []string
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -709,8 +713,18 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 	creationTimestamp := metav1.Now()
 	var newData bool
 
+	order := a.seriesOrder
+	if order == nil {
+		order = func(timeSeries map[string][]softwarecomposition.TimeSeriesContainers) []string {
+			ids := make([]string, 0, len(timeSeries))
+			for seriesID := range timeSeries {
+				ids = append(ids, seriesID)
+			}
+			return ids
+		}
+	}
 	// Process each time series
-	for seriesID := range timeSeries {
+	for _, seriesID := range order(timeSeries) {
 		processResult, err := a.processTimeSeries(ctx, timeSeries, seriesID, key, &profile, &creationTimestamp, expired)
 		if err != nil {
 			return nil, err
@@ -783,13 +797,15 @@ func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context,
 	newTimeSeries := a.consolidateContinuousTimeSeries(kept, creationTimestamp)
 
 	// Update profile status based on time series state
-	newTimeSeries, skipFurtherProcessing, err := a.updateProfileStatus(ctx, key, seriesID, profile, newTimeSeries, expired)
-	if err != nil {
-		return result, err
-	}
+	newTimeSeries, skipFurtherProcessing := a.updateProfileStatus(key, seriesID, profile, newTimeSeries, expired)
 	result.skipFurtherProcessing = skipFurtherProcessing
 
-	// Write consolidated data back to database
+	// Write consolidated data back to database. This is the ONLY time_series
+	// delete on the consolidation path, and it is scoped to this series'
+	// listed suffixes: on a terminal branch newTimeSeries is empty, so this
+	// deletes exactly the rows the pass read and inserts nothing. Rows of a
+	// series the pass never reached, or that landed after the list, survive
+	// to the next tick, where the frozen gate reclaims them with their objects.
 	if err := a.ContainerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, key, seriesID, deleteTimeSeries, newTimeSeries); err != nil {
 		return result, fmt.Errorf("failed to replace consolidated time series data: %w", err)
 	}
@@ -871,14 +887,18 @@ func (a *ContainerProfileProcessor) consolidateContinuousTimeSeries(
 }
 
 // updateProfileStatus updates the profile status based on time series state.
+// It is a pure function of its arguments: it executes no SQL (the caller's
+// Replace is the only time_series write on this path), which is what lets a
+// terminal branch leave the rows of an unreached series untouched instead of
+// deleting them unmerged with their objects orphaned.
 //
 // When expired=true, the profile is marked as Completed/Partial instead of Learning,
 // unless it's already Completed/Full (safeguard). This ensures expired time series
 // don't remain in Learning state indefinitely.
 //
 // Returns true if further processing should be skipped (e.g., profile is fully completed).
-func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key, seriesID string,
-	profile *softwarecomposition.ContainerProfile, newTimeSeries []softwarecomposition.TimeSeriesContainers, expired bool) ([]softwarecomposition.TimeSeriesContainers, bool, error) {
+func (a *ContainerProfileProcessor) updateProfileStatus(key, seriesID string,
+	profile *softwarecomposition.ContainerProfile, newTimeSeries []softwarecomposition.TimeSeriesContainers, expired bool) ([]softwarecomposition.TimeSeriesContainers, bool) {
 
 	// If the time series is expired, we finalize it as Completed/Partial (unless it is already Completed/Full)
 	// and clear the time series data so we don't leak zombie records.
@@ -892,27 +912,22 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 		if isFull {
 			logger.L().Debug("ContainerProfileProcessor.updateProfileStatus - expired profile is completed/full, skipping further processing",
 				loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
-
-			// Remove all time series data
-			if err := a.ContainerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, key); err != nil {
-				return newTimeSeries, false, fmt.Errorf("failed to delete time series data: %w", err)
-			}
-			return newTimeSeries[:0], true, nil
+			return newTimeSeries[:0], true
 		}
 
 		// Otherwise, mark it as Completed/Partial (unless already Completed/Full)
-		if profile.Annotations[helpers.StatusMetadataKey] != helpers.Completed || profile.Annotations[helpers.CompletionMetadataKey] != helpers.Full {
+		if !softwarecomposition.IsCompletedFull(profile.Annotations) {
 			profile.Annotations[helpers.StatusMetadataKey] = helpers.Completed
 			profile.Annotations[helpers.CompletionMetadataKey] = helpers.Partial
 		}
-		return newTimeSeries[:0], false, nil
+		return newTimeSeries[:0], false
 	}
 
 	// Normal active (non-expired) flow below:
 	// An aggregated series is removed only if it has one element, no previous report timestamp, and is completed or failed
 	if len(newTimeSeries) != 1 || !isZeroTime(newTimeSeries[0].PreviousReportTimestamp) {
 		profile.SetLearningStatus(newTimeSeries[0]) // series is missing some TS entries
-		return newTimeSeries, false, nil
+		return newTimeSeries, false
 	}
 
 	switch newTimeSeries[0].Status {
@@ -921,12 +936,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 		if profile.SetCompletedStatus(newTimeSeries[0]) {
 			logger.L().Debug("ContainerProfileProcessor.updateProfileStatus - profile is completed/full, skipping further processing",
 				loggerhelpers.String("key", key), loggerhelpers.String("seriesID", seriesID))
-
-			// Remove all time series data
-			if err := a.ContainerProfileStorage.DeleteTimeSeriesContainerEntries(ctx, key); err != nil {
-				return newTimeSeries, false, fmt.Errorf("failed to delete time series data: %w", err)
-			}
-			return newTimeSeries[:0], true, nil
+			return newTimeSeries[:0], true
 		}
 		// Clear this time series as it is finished
 		newTimeSeries = newTimeSeries[:0]
@@ -940,7 +950,7 @@ func (a *ContainerProfileProcessor) updateProfileStatus(ctx context.Context, key
 		profile.SetLearningStatus(newTimeSeries[0]) // series is complete but not finished
 	}
 
-	return newTimeSeries, false, nil
+	return newTimeSeries, false
 }
 
 // getAggregatedData computes various data of the aggregated profile.

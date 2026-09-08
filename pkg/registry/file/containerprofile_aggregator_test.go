@@ -35,9 +35,6 @@ func (f *fakeStorage) ListTimeSeriesWithData(ctx context.Context) ([]string, err
 func (f *fakeStorage) ListTimeSeriesContainers(ctx context.Context, key string) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
 	return nil, nil
 }
-func (f *fakeStorage) DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error {
-	return nil
-}
 func (f *fakeStorage) ReplaceTimeSeriesContainerEntries(ctx context.Context, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
 	return nil
 }

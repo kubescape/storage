@@ -1150,3 +1150,103 @@ func TestHealDivergence_CrashInsideHeal_Converges(t *testing.T) {
 	require.Equal(t, watch.Modified, events[0].Type)
 	require.Equal(t, float64(1), c0.delta(t).payloadAhead)
 }
+
+// ---------------------------------------------------------------------------
+// PC-TS-4 — the terminal branch executes no whole-key delete: Replace's
+// list-scoped delete is the only time_series delete on the consolidation path.
+// ---------------------------------------------------------------------------
+
+// TS4-B: two series; A takes the terminal branch first (order forced). After
+// tick 1 B's row and object survive and the profile is Completed/Full; tick 2
+// reclaims B unmerged through the frozen gate. Fails today on "B's row
+// survives tick 1" (the whole-key delete removed it and orphaned its object).
+func TestConsolidate_TerminalBranch_LeavesUnreachedSeriesIntact(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "ts4b"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	before := h.readPayload(t, key)
+	h.seedTsRow(t, ns, name, "A", "A1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+	tsA := h.writeTsObject(t, key, "A1", "ts-A1", true)
+	h.seedTsRow(t, ns, name, "B", "B1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	tsB := h.writeTsObject(t, key, "B1", "ts-B1", true)
+	h.proc.seriesOrder = func(timeSeries map[string][]softwarecomposition.TimeSeriesContainers) []string {
+		require.Len(t, timeSeries, 2)
+		return []string{"A", "B"}
+	}
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+
+	completed := h.readPayload(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(completed.Annotations))
+	require.Equal(t, rvOf(t, before)+1, rvOf(t, completed))
+	require.True(t, specHasExec(completed.Spec, "ts-A1"))
+	require.False(t, specHasExec(completed.Spec, "ts-B1"), "B is unreached: never merged")
+	rows := h.listRows(t, key)
+	_, ok := findRow(rows, "A", "A1")
+	require.False(t, ok, "A's listed rows are gone")
+	require.False(t, h.objectExists(t, tsA))
+	rB, ok := findRow(rows, "B", "B1")
+	require.True(t, ok, "B's row survives the terminal branch")
+	require.True(t, rB.HasData)
+	require.True(t, h.objectExists(t, tsB), "B's object survives (not orphaned)")
+	require.Len(t, drainEvents(w, 100*time.Millisecond), 1)
+	require.Zero(t, c0.delta(t).reclaimedRows)
+
+	// Tick 2: the frozen gate reclaims B unmerged, with its object.
+	c1 := snapshotCounters(t)
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	requireEqualProfiles(t, completed, h.readPayload(t, key))
+	require.Empty(t, drainEvents(w, 100*time.Millisecond))
+	require.Equal(t, 0, countRows(h.listRows(t, key)))
+	require.False(t, h.objectExists(t, tsB))
+	d := c1.delta(t)
+	require.Equal(t, float64(1), d.reclaimedRows)
+	require.Equal(t, float64(1), d.reclaimedObjects)
+}
+
+// TS4-C (pin): a row that lands after the pass's list, during a NON-terminal
+// pass, is neither deleted nor merged by that pass; the next tick merges it.
+// Passes today (the whole-key delete ran on terminal branches alone); kept
+// as the only guard of the non-terminal branch against a future whole-key
+// statement.
+func TestConsolidate_RowArrivingDuringPass_IsNotDeleted(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "ts4c"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	ts1 := h.writeTsObject(t, key, "1", "ts-1", true)
+	var tsLate string
+	h.hooks.getProfile = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
+		p, err := next()
+		if tsLate == "" {
+			h.seedTsRow(t, ns, name, "A", "late", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+			tsLate = h.writeTsObject(t, key, "late", "ts-late", true)
+		}
+		return p, err
+	}
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	p := h.readPayload(t, key)
+	require.True(t, specHasExec(p.Spec, "ts-1"))
+	require.False(t, specHasExec(p.Spec, "ts-late"))
+	require.False(t, h.objectExists(t, ts1))
+	late, ok := findRow(h.listRows(t, key), "A", "late")
+	require.True(t, ok, "the late row survives the pass")
+	require.True(t, late.HasData)
+	require.True(t, h.objectExists(t, tsLate))
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	p = h.readPayload(t, key)
+	require.True(t, specHasExec(p.Spec, "ts-late"), "the next tick merges it")
+	require.False(t, h.objectExists(t, tsLate))
+	rows := h.listRows(t, key)
+	require.Equal(t, 1, countRows(rows), "late collapsed with the merged chain into one row")
+	r, ok := findRow(rows, "A", "late")
+	require.True(t, ok)
+	require.False(t, r.HasData)
+	require.Equal(t, lane0ZeroTime, r.PreviousReportTimestamp)
+}

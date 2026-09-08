@@ -116,9 +116,6 @@ type TimeSeriesOperations interface {
 	// Returns a map of seriesID to slice of TimeSeriesContainers.
 	ListTimeSeriesContainers(ctx context.Context, key string) (map[string][]softwarecomposition.TimeSeriesContainers, error)
 
-	// DeleteTimeSeriesContainerEntries removes all time series entries for a given key.
-	DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error
-
 	// ReplaceTimeSeriesContainerEntries replaces time series entries for a given key and seriesID.
 	// It deletes entries in deleteTimeSeries and inserts newTimeSeries.
 	ReplaceTimeSeriesContainerEntries(ctx context.Context, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error

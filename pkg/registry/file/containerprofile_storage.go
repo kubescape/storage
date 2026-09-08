@@ -290,11 +290,6 @@ func (c *ContainerProfileStorageImpl) ListTimeSeriesContainers(ctx context.Conte
 	return ListTimeSeriesContainers(conn, key)
 }
 
-func (c *ContainerProfileStorageImpl) DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-	return DeleteTimeSeriesContainerEntries(conn, key)
-}
-
 func (c *ContainerProfileStorageImpl) ReplaceTimeSeriesContainerEntries(ctx context.Context, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	return ReplaceTimeSeriesContainerEntries(conn, key, seriesID, deleteTimeSeries, newTimeSeries)
