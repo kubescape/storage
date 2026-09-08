@@ -99,7 +99,15 @@ func main() {
 
 	// setup storage components
 	osFs := afero.NewOsFs()
-	pool := file.NewPool(filepath.Join(file.DefaultStorageRoot, "metadata.sq3"), cfg.SqlitePoolSize, cfg.SqliteBusyTimeout)
+	sqlitePath := filepath.Join(file.DefaultStorageRoot, "metadata.sq3")
+	pool := file.NewPoolWithOptions(sqlitePath, file.PoolOptions{
+		Size:        cfg.SqlitePoolSize,
+		BusyTimeout: cfg.SqliteBusyTimeout,
+		// K-3: with the ContainerProfile SQLite backend on, no connection
+		// checkpoints inside its own COMMIT; the backend's background PASSIVE
+		// checkpointer does. Flag-off leaves SQLite's default untouched.
+		DisableAutoCheckpoint: cfg.ContainerProfileSqliteBackend,
+	})
 	file.SetPoolTimeout(cfg.PoolTimeout)
 	file.SetSingleWriterEnabled(cfg.SingleWriterEnabled)
 
@@ -120,6 +128,7 @@ func main() {
 
 	// start the server
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, cleanupHandler)
+	options.SqlitePath = sqlitePath
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)

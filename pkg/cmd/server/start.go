@@ -75,6 +75,8 @@ type WardleServerOptions struct {
 	CleanupHandler  *file.ResourcesCleanupHandler
 	OsFs            afero.Fs
 	Pool            *sqlitemigration.Pool
+	// SqlitePath is the database file behind Pool (see apiserver.ExtraConfig).
+	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
 }
@@ -313,6 +315,7 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 			CleanupHandler:  o.CleanupHandler,
 			OsFs:            o.OsFs,
 			Pool:            o.Pool,
+			SqlitePath:      o.SqlitePath,
 			StorageConfig:   o.StorageConfig,
 			WatchDispatcher: o.WatchDispatcher,
 		},

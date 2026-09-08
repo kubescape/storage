@@ -109,6 +109,17 @@ type Config struct {
 	// differential testing regardless of this flag's value.
 	CustomContainerProfileRestEnabled bool `mapstructure:"customContainerProfileRestEnabled"`
 
+	// ContainerProfileSqliteBackend selects the SQLite-native, fully-ACID
+	// ContainerProfile backend (pkg/registry/file/sqliteobject_*.go: metadata
+	// row + payload BLOB + time_series row in one transaction, one write gate,
+	// background PASSIVE checkpointer) for the containerprofiles resource in
+	// place of the legacy row+gob-file StorageImpl. PROTOTYPE: defaults to
+	// false; there is no data migration yet, and while it is on the legacy
+	// StorageImpl refuses every full-object operation on a containerprofile
+	// key (the kind-ownership guard). See
+	// .omc/plans/full-acid-storage-architecture.md.
+	ContainerProfileSqliteBackend bool `mapstructure:"containerProfileSqliteBackend"`
+
 	// The following gate the remaining Phase 4 per-resource rest.Storage
 	// migrations off genericregistry.Store (see
 	// docs/features/generic-rest-storage-phase4.md), following the same pattern as
@@ -178,6 +189,8 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("customVulnerabilityManifestSummaryRestEnabled", false)
 	v.SetDefault("customWorkloadConfigurationScanRestEnabled", false)
 	v.SetDefault("customWorkloadConfigurationScanSummaryRestEnabled", false)
+	// Prototype backend; off until the migration and the soak say otherwise.
+	v.SetDefault("containerProfileSqliteBackend", false)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
 	v.SetDefault("defaultMaxObjectSize", 400000)

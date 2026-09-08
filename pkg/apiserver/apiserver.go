@@ -86,6 +86,9 @@ type ExtraConfig struct {
 	CleanupHandler  *file.ResourcesCleanupHandler
 	OsFs            afero.Fs
 	Pool            *sqlitemigration.Pool
+	// SqlitePath is the database file behind Pool; the ContainerProfile
+	// SQLite backend's checkpointer watches its -wal sibling.
+	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
 }
@@ -146,10 +149,34 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// read the CR, processors are baked into the storage backend.
 	containerProfileProcessor := file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.CleanupHandler)
 
-	var (
-		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
+	storageImpl := file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-		containerProfileStorageImpl   = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
+	// ContainerProfileSqliteBackend (PROTOTYPE, see
+	// .omc/plans/full-acid-storage-architecture.md §7.6): the containerprofiles
+	// resource is served by the SQLite-native ObjectStore instead of the
+	// row+gob-file StorageImpl, and the legacy default instance carries the
+	// kind-ownership guard so that any path still handing it a containerprofile
+	// key (today: GeneratedNetworkPolicyStorage's full-spec list, whose
+	// re-pointing is out of the prototype's scope) fails loudly instead of
+	// touching a row the ObjectStore owns.
+	var containerProfileStorageImpl storage.Interface
+	if c.ExtraConfig.StorageConfig.ContainerProfileSqliteBackend {
+		storageImpl.(*file.StorageImpl).SetForeignKinds(file.IsContainerProfileKind)
+		objectStore, err := file.NewObjectStore(c.ExtraConfig.Pool, c.ExtraConfig.SqlitePath, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor, storageImpl, file.ObjectStoreOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: %w", err)
+		}
+		// The gate's dedicated connection must be back in the pool before
+		// Pool.Close (K-5); the pre-shutdown hook runs before the pool is closed.
+		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", objectStore.Close); err != nil {
+			return nil, err
+		}
+		containerProfileStorageImpl = objectStore
+	} else {
+		containerProfileStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
+	}
+
+	var (
 		configScanStorageImpl         = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage   = file.NewVulnerabilitySummaryStorage(storageImpl)
 		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl)
