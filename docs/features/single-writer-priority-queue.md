@@ -70,11 +70,29 @@ the single-writer path is ever enabled.
   emits the `Deleted` event itself afterwards. This is also why consolidation's per-key unit is
   *not* wrapped in one `runOnShard` call end-to-end: it calls `SaveContainerProfile` for the same
   key partway through, which would deadlock exactly as described.
+- Panic containment, three layers (Lane 0 / L0-B). A shard goroutine is the only writer for
+  every key hashed to it, so a panic that killed it would wedge those keys forever — and with no
+  `recover()` anywhere in the package it actually exited the process. (1) `callGuarded` wraps the
+  `runOnShard` closure: its panic becomes that job's error. (2) `putChecked` replaces `commit()`'s
+  `defer s.pool.Put(conn)`: `release(&err)` is deliberately called, not deferred, so a panic in
+  `writeMetadata`/`renamePayload` skipped it and returned a connection with an open `SAVEPOINT`
+  (which `Pool.Put` does not detect — it checks stepped statements only); `putChecked` tests
+  `AutocommitEnabled` and `CheckReset`, rolls back / resets a dirty connection before reuse, drops
+  one it cannot clean, and removes the temp payload on every non-committed exit. It runs inside
+  `commit()`'s own frame because Go unwinds `commit()`'s defers before `process()` sees the panic.
+  (3) `process()` recovers whatever escapes `commit()` (e.g. `sqlitex.Save`'s release panicking on
+  a failed `ROLLBACK TO`), returns `errCommitPanic` to the caller, counts `outcome="panic"`, logs
+  the stack, and takes the next job. Counters in `docs/features/storage-lock-pool-metrics.md`;
+  tests in `singlewriter_lane0_test.go` (each crashes the test binary on pre-L0-B code, so
+  fail-on-today evidence is recorded one test per process).
 - `pkg/metrics/metrics.go`: Phase 0's `storage_lock_wait_duration_seconds`/
   `storage_pool_wait_duration_seconds` histograms (labeled by resource kind and outcome), plus the
   single-writer-specific `storage_single_writer_queue_wait_duration_seconds`,
-  `storage_single_writer_commit_total`, `storage_single_writer_conflict_retry_total`, and
-  `storage_single_writer_queue_depth`, all served on the existing apiserver `/metrics` endpoint.
+  `storage_single_writer_commit_total` (outcomes `committed`/`conflict`/`error`/`panic`),
+  `storage_single_writer_conflict_retry_total`, `storage_single_writer_queue_depth`,
+  `storage_single_writer_dirty_connection_total`, and
+  `storage_single_writer_dropped_connection_total`, all served on the existing apiserver
+  `/metrics` endpoint.
 - `pkg/registry/file/sqlite.go`'s `NewPool` gained `size`/`busyTimeout` parameters (both fall back
   to the previously-hardcoded defaults when non-positive), wired to the new
   `SqlitePoolSize`/`SqliteBusyTimeout` config knobs; `PoolTimeout` similarly became

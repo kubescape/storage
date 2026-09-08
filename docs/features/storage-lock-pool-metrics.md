@@ -59,6 +59,21 @@ has a counter; every one is expected to be zero or near-zero in steady state.
 | `storage_consolidation_divergence_total` | Counter | `shape` (`payload_ahead`/`metadata_ahead`) | Payload/metadata divergences observed on a base profile. `payload_ahead` (payload Completed/Full, metadata row not — a process crash or a failed `COMMIT` between the payload rename and the row's commit) counts heals performed; non-zero after no pod restart means a `COMMIT` failed (look for `SQLITE_FULL`/`SQLITE_IOERR`). `metadata_ahead` (the inverse — a lost payload rename after a power loss) is observed and warned, not healed. |
 | `storage_consolidation_heal_failed_total` | Counter | `reason` (`lock_timeout`/`begin`/`read`/`save`) | Failed divergence heals by the step that failed. A failing heal errors the tick before the frozen gate runs, so `frozen_reclaimed_total` does not move; rising for one key on 3+ consecutive ticks is a wedged heal: `lock_timeout` means a same-key writer holds the per-key lock across ticks, `begin` means the database write lock is held past the busy timeout, `save` means the payload directory or the row cannot be written. |
 
+### Single-writer panic containment
+
+A panic on a shard goroutine (`pkg/registry/file/singlewriter.go`) no longer exits the process:
+a panic in a `runOnShard` closure is returned to that caller as an error (`callGuarded`), the
+shard's pool connection is checked for an open transaction or stepped statement before it is
+returned (`putChecked`), and a panic that escapes `commit()` is recovered in `process()` so the
+shard takes its next job. All three series are expected to be **zero**; any movement names a
+bug to chase in the `single-writer:` Error line, which carries the key and the stack.
+
+| Metric | Type | Labels | Meaning |
+| --- | --- | --- | --- |
+| `storage_single_writer_commit_total{outcome="panic"}` | Counter | `kind`, `priority` | A commit panicked past every guard (for instance `sqlitex.Save`'s release panicking on a failed `ROLLBACK TO`) and the shard goroutine's recover converted it to an error for the caller. A panic inside a `runOnShard` closure is counted under `outcome="error"` instead: it is recovered at the closure boundary and fails only its own job. |
+| `storage_single_writer_dirty_connection_total` | Counter | — | A shard commit was about to return a pool connection with an open transaction/savepoint or a stepped, unreset statement (a panic skipped `commit()`'s non-deferred `release`). The connection was rolled back and reset before reuse. |
+| `storage_single_writer_dropped_connection_total` | Counter | — | A dirty connection could not be rolled back and was dropped rather than returned; the pool is permanently one connection smaller. Repeated drops exhaust the pool (`storage_pool_wait_duration_seconds{outcome="timeout"}` rises) and need a pod restart. |
+
 ## Config
 
 Three new fields on `config.Config` (`pkg/config/config.go`), read the same way as every
