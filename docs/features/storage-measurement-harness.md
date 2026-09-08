@@ -90,7 +90,7 @@ invariants hold regardless of the golden:
 rounds. Per round, `TestPerfABRound` in `containerprofile_load_test.go`
 runs a **fixed amount of work** with **closed-loop clients** on the
 production shape — pool 10, 8 shards, `Workers = 2`, `GOMAXPROCS=8`, 6
-writers × 400 Creates, 25 readers × 2000 Gets, 3 updaters × 200
+writers × 2400 Creates, 25 readers × 12000 Gets, 3 updaters × 1200
 GuaranteedUpdates, 12 base keys, consolidation ticking every 250 ms plus
 three ticks after the clients finish — and writes one JSON: per-class
 latency percentiles, wall time and throughput, the six process-registry
@@ -101,7 +101,8 @@ series (`storage_lock_wait_duration_seconds`,
 `storage_single_writer_conflict_retry_total`,
 `storage_single_writer_queue_depth` max), and an `effective` block read back
 from the constructed objects (probed pool size, `len(shards)`, `Workers`,
-`GOMAXPROCS`, `singleWriterEnabled`, op counts). It also prints
+`GOMAXPROCS`, `singleWriterEnabled`, op counts, the pinned collapse-settings
+TTL). It also prints
 `BenchmarkPerfAB/<metric>` lines for `benchstat`.
 
 The driver:
@@ -123,15 +124,23 @@ The driver:
 6. computes the verdict with `hack/perfab` from the pre-registered thresholds
    in `pkg/registry/file/testdata/perfab.thresholds.json`.
 
-Per headline metric (REST Get/Create/GuaranteedUpdate p99, tick p50/p99,
-ops/s) the primary statistic is a **paired t-test on the per-round
+Per headline metric (REST Get p99, Create p99, GuaranteedUpdate p95, tick
+p50/p99, ops/s) the primary statistic is a **paired t-test on the per-round
 log-ratios** `d_i = ln(head_i/base_i)`; Mann–Whitney U on the two samples is
 the second opinion. REGRESSION needs the mean ratio past the threshold
 (+20 % on latencies, +30 % on tick p99, −10 % on throughput) **and either**
 test at p < 0.05; a row where the two tests disagree is flagged `SPLIT`.
 Timeout counts regress when HEAD > BASE significantly; the conflict rate
 when it rises by more than 5 points; `errOther`, `>5 s` and commit panics are
-**hard** rows — any on HEAD when BASE has none, no statistics. Noise is
+**hard** rows — any on HEAD when BASE has none, no statistics. GuaranteedUpdate
+is gated on p95: under the pinned shape about 1 % of updates hit
+`acquireLockedConn`'s 250 ms connection-attempt cliff, so its p99 straddles the
+cliff and is bimodal round to round; it is reported (`info`) but never gates,
+and the cliff itself is the `pool-wait-timeouts` row. `tick-total-s` (the
+sum of all consolidation passes in the round, for a fixed number of rows) is
+reported alongside tick p50/p99 because with fixed-interval ticking a slower
+pass accumulates more rows for the next one, so per-pass percentiles partly
+measure rows-per-pass; the total is the per-row cost. Noise is
 measured post hoc from the pairs: the paired CV is the SD of `d_i` (over 25 %
 on a headline metric is INCONCLUSIVE), and `MDE = (t_{N-1,0.975} +
 t_{N-1,0.8}) · s_d / √N`; a metric whose MDE exceeds its threshold is
@@ -157,6 +166,17 @@ set. `.github/workflows/perf-ab.yaml` runs the same driver on
 labelled `perf`; runners are noisy, so INCONCLUSIVE is expected often there
 and is reported in the check summary, never hidden — the local run on a quiet
 machine is the authoritative one. Only a REGRESSION fails the check.
+
+Two harness isolation choices are pinned per round and echoed in `effective`:
+the SQLite busy timeout is 5 s (production: 60 s), and `collapseSettingsTTL`
+is one hour (production: 10 s). The latter because a consolidation save that
+has already written refreshes the CollapseConfiguration cache on a second
+connection, and with no CR present `get()`'s `DeleteMetadata` on that
+connection waits on the write lock the same goroutine holds — a self-deadlock
+resolved only by the busy timeout, during which every shard commit waits too.
+Whether a round crosses a TTL boundary is wall-clock phase, not the change
+under test; the stall itself shows up in the `over-one-sec` row of an
+unpinned run.
 
 `TestContainerProfileLoad` (`LOAD_TEST=1`) remains as a time-boxed
 diagnostic with env tunables; its absolute numbers are not evidence.

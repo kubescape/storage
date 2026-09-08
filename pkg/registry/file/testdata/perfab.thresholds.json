@@ -1,0 +1,22 @@
+{
+  "_comment": "Tier B pre-registered thresholds (A.13.4 B.5). Relative only; no absolute latency is checked in. ratio: regression when HEAD/BASE breaches threshold_pct in the bad direction AND either the paired t-test or Mann-Whitney U has p < alpha. count: regression when sum(HEAD) > sum(BASE) and significant. points: regression when the mean paired difference exceeds threshold_points and significant. hard: any non-zero value on HEAD in any round while BASE has none in every round, no statistics. info: reported with its statistics, never gates. REST GuaranteedUpdate is gated on p95, not p99: under the pinned production shape about 1% of updates hit acquireLockedConn's 250 ms connection-attempt cliff, so its p99 straddles that cliff and is bimodal round to round (~40 ms vs ~280 ms); the cliff itself is measured by pool-wait-timeouts and ops/s.",
+  "alpha": 0.05,
+  "power": 0.8,
+  "paired_cv_max_pct": 25,
+  "probe_cv_max_pct": 50,
+  "metrics": [
+    {"name": "get-p99-ms", "kind": "ratio", "direction": "lower_is_better", "threshold_pct": 20, "headline": true},
+    {"name": "create-p99-ms", "kind": "ratio", "direction": "lower_is_better", "threshold_pct": 20, "headline": true},
+    {"name": "update-p95-ms", "kind": "ratio", "direction": "lower_is_better", "threshold_pct": 20, "headline": true},
+    {"name": "update-p99-ms", "kind": "info", "direction": "lower_is_better"},
+    {"name": "tick-p50-ms", "kind": "ratio", "direction": "lower_is_better", "threshold_pct": 20, "headline": true},
+    {"name": "tick-p99-ms", "kind": "ratio", "direction": "lower_is_better", "threshold_pct": 30, "headline": true},
+    {"name": "tick-total-s", "kind": "info", "direction": "lower_is_better"},
+    {"name": "ops-per-s", "kind": "ratio", "direction": "higher_is_better", "threshold_pct": 10, "headline": true},
+    {"name": "lock-wait-timeouts", "kind": "count", "direction": "lower_is_better"},
+    {"name": "pool-wait-timeouts", "kind": "count", "direction": "lower_is_better"},
+    {"name": "over-one-sec", "kind": "count", "direction": "lower_is_better"},
+    {"name": "commit-conflict-rate-pct", "kind": "points", "direction": "lower_is_better", "threshold_points": 5}
+  ],
+  "hard": ["err-other", "over-five-sec", "commit-panic"]
+}
