@@ -26,8 +26,11 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,8 +39,11 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/component-base/metrics/testutil"
 	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 func resetSingleWriterCounters(t *testing.T) {
@@ -160,4 +166,224 @@ func TestSingleWriter_CustomPanic_CallerGetsErrorShardSurvives(t *testing.T) {
 	dirty, dropped := dirtyDroppedCounts(t)
 	require.Equal(t, float64(0), dirty)
 	require.Equal(t, float64(0), dropped)
+}
+
+// TestSingleWriter_CustomPanicWithSteppedStatement_ConnectionIsReset pins the
+// CheckReset branch of layer 2: a closure that steps a cached statement and
+// panics without resetting it would make Pool.Put panic ("connection returned
+// to pool has active statement") -- a second panic during the unwind that
+// replaces the first. putChecked resets the statement before Put. Crashes the
+// binary before L0-B.
+func TestSingleWriter_CustomPanicWithSteppedStatement_ConnectionIsReset(t *testing.T) {
+	enableSingleWriter(t)
+	setSingleWriterShards(t, DefaultSingleWriterShards)
+	si, cleanup := newSingleWriterTestStorageWithPoolSize(t, 1)
+	t.Cleanup(cleanup)
+	resetSingleWriterCounters(t)
+	ctx := context.Background()
+	key := testProfileKey("stepped-panic")
+
+	done := make(chan error, 1)
+	go func() {
+		done <- si.ensureWriter().runOnShard(ctx, key, priorityLow, func(conn *sqlite.Conn) error {
+			stmt := conn.Prep("SELECT 1 UNION ALL SELECT 2;")
+			if _, err := stmt.Step(); err != nil {
+				return err
+			}
+			panic("injected panic with a stepped statement")
+		})
+	}()
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("runOnShard hung after its closure panicked")
+	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "injected panic with a stepped statement")
+
+	requireShardServes(t, si, key)
+	requireLockFree(t, si, key)
+	requirePoolConnClean(t, si)
+
+	dirty, dropped := dirtyDroppedCounts(t)
+	require.Equal(t, float64(1), dirty, "the stepped statement must be detected on release")
+	require.Equal(t, float64(0), dropped, "a stepped statement is reset, not dropped")
+}
+
+// TestSingleWriter_WriteMetadataPanic_ShardSurvivesConnectionRolledBack pins
+// layers 2 and 3 together on the shipped defect: commit() calls release(&err)
+// normally, not deferred, so a panic in writeMeta skips it and hands a
+// connection with an open SAVEPOINT to the pool. After L0-B the caller gets
+// an error, the panic is counted once under outcome=panic, the connection is
+// rolled back (dirty=1, dropped=0) before it is returned, the temp payload is
+// gone, and the same key can be created on the next attempt. Crashes the
+// binary before L0-B.
+func TestSingleWriter_WriteMetadataPanic_ShardSurvivesConnectionRolledBack(t *testing.T) {
+	enableSingleWriter(t)
+	setSingleWriterShards(t, DefaultSingleWriterShards)
+	si, cleanup := newSingleWriterTestStorageWithPoolSize(t, 1)
+	t.Cleanup(cleanup)
+	resetSingleWriterCounters(t)
+	ctx := context.Background()
+	const name = "wm-panic"
+	key := testProfileKey(name)
+
+	var mu sync.Mutex
+	armed := true
+	si.writeMetadataFn = func(conn *sqlite.Conn, path string, metadata runtime.Object) error {
+		mu.Lock()
+		fire := armed
+		armed = false
+		mu.Unlock()
+		if fire {
+			panic("injected writeMetadata panic")
+		}
+		return writeMetadata(conn, path, metadata)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- si.Create(ctx, key, newLane0Profile(name), &softwarecomposition.ContainerProfile{}, 0)
+	}()
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Create hung after writeMetadata panicked")
+	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "injected writeMetadata panic")
+
+	// Counted before the probes below, which are commits of their own.
+	require.Equal(t, float64(1), commitOutcomeCount(t, metrics.PriorityHigh, "panic"))
+	require.Equal(t, float64(0), commitOutcomeCount(t, metrics.PriorityHigh, "committed"))
+	dirty, dropped := dirtyDroppedCounts(t)
+	require.Equal(t, float64(1), dirty, "the dangling savepoint must be detected on release")
+	require.Equal(t, float64(0), dropped)
+
+	requireShardServes(t, si, key)
+	requireLockFree(t, si, key)
+	requirePoolConnClean(t, si)
+	require.Empty(t, tempPayloadFiles(t, si), "the temp payload must be removed on the panic path")
+
+	// The shard, the lock, the connection and the key are all reusable.
+	before := commitOutcomeCount(t, metrics.PriorityHigh, "committed")
+	out := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, si.Create(ctx, key, newLane0Profile(name), out, 0))
+	got := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, si.Get(ctx, key, storage.GetOptions{}, got))
+	require.Equal(t, name, got.Name)
+	require.Equal(t, before+1, commitOutcomeCount(t, metrics.PriorityHigh, "committed"))
+	dirty, dropped = dirtyDroppedCounts(t)
+	require.Equal(t, float64(1), dirty, "the retry must not find a dirty connection")
+	require.Equal(t, float64(0), dropped)
+}
+
+// TestSingleWriter_ReleasePathPanic_ShardSurvives pins layer 3 on the panic
+// callGuarded cannot reach: sqlitex.Save's release function panics when its
+// ROLLBACK TO fails, from commit()'s own frame. writeMetadataFn ends the
+// savepoint's transaction and opens a bare one, so release finds the
+// connection in a transaction with no savepoint to release or roll back to.
+// After L0-B the caller gets an error, the panic is counted, the leftover
+// transaction is rolled back before the connection is returned, and the shard
+// keeps serving. Crashes the binary before L0-B.
+func TestSingleWriter_ReleasePathPanic_ShardSurvives(t *testing.T) {
+	enableSingleWriter(t)
+	setSingleWriterShards(t, DefaultSingleWriterShards)
+	si, cleanup := newSingleWriterTestStorageWithPoolSize(t, 1)
+	t.Cleanup(cleanup)
+	resetSingleWriterCounters(t)
+	ctx := context.Background()
+	const name = "release-panic"
+	key := testProfileKey(name)
+
+	var mu sync.Mutex
+	armed := true
+	si.writeMetadataFn = func(conn *sqlite.Conn, path string, metadata runtime.Object) error {
+		mu.Lock()
+		fire := armed
+		armed = false
+		mu.Unlock()
+		if !fire {
+			return writeMetadata(conn, path, metadata)
+		}
+		if err := sqlitex.Execute(conn, "ROLLBACK;", nil); err != nil {
+			return fmt.Errorf("test: rollback: %w", err)
+		}
+		if err := sqlitex.Execute(conn, "BEGIN;", nil); err != nil {
+			return fmt.Errorf("test: begin: %w", err)
+		}
+		return nil
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- si.Create(ctx, key, newLane0Profile(name), &softwarecomposition.ContainerProfile{}, 0)
+	}()
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Create hung after the release path panicked")
+	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no such savepoint")
+
+	require.Equal(t, float64(1), commitOutcomeCount(t, metrics.PriorityHigh, "panic"))
+	dirty, dropped := dirtyDroppedCounts(t)
+	require.Equal(t, float64(1), dirty, "the bare transaction must be detected on release")
+	require.Equal(t, float64(0), dropped)
+
+	requireShardServes(t, si, key)
+	requireLockFree(t, si, key)
+	requirePoolConnClean(t, si)
+	require.Empty(t, tempPayloadFiles(t, si))
+
+	// The renamed payload from the first attempt (rename ran before release
+	// panicked) does not stop a retry: the metadata row was never written,
+	// so the key does not exist and Create's commit-time check passes.
+	_ = si.appFs.Remove(makePayloadPath(filepath.Join(si.root, key)))
+	require.NoError(t, si.Create(ctx, key, newLane0Profile(name), &softwarecomposition.ContainerProfile{}, 0))
+}
+
+// removeRecordingFs records every Remove so a test can assert one did NOT
+// happen.
+type removeRecordingFs struct {
+	afero.Fs
+	mu      sync.Mutex
+	removed []string
+}
+
+func (f *removeRecordingFs) Remove(name string) error {
+	f.mu.Lock()
+	f.removed = append(f.removed, name)
+	f.mu.Unlock()
+	return f.Fs.Remove(name)
+}
+
+// TestSingleWriter_SuccessfulCommit_DoesNotRemoveRenamedPayload discriminates
+// the argument-at-defer-time bug in layer 2: `defer putChecked(conn,
+// committed, job)` would capture committed=false at registration and Remove
+// the (already renamed) temp path after every successful commit. The defer
+// must be a closure reading committed at execution time. Passes today (no
+// Remove at all on the success path) and must keep passing after L0-B.
+func TestSingleWriter_SuccessfulCommit_DoesNotRemoveRenamedPayload(t *testing.T) {
+	enableSingleWriter(t)
+	setSingleWriterShards(t, DefaultSingleWriterShards)
+	si, cleanup := newSingleWriterTestStorage(t)
+	t.Cleanup(cleanup)
+	rfs := &removeRecordingFs{Fs: si.appFs}
+	si.appFs = rfs
+	ctx := context.Background()
+	const name = "no-remove-on-commit"
+	key := testProfileKey(name)
+
+	require.NoError(t, si.Create(ctx, key, newLane0Profile(name), &softwarecomposition.ContainerProfile{}, 0))
+
+	rfs.mu.Lock()
+	defer rfs.mu.Unlock()
+	for _, p := range rfs.removed {
+		require.NotContains(t, p, ".t.", "a successful commit must not Remove its temp payload path")
+	}
 }
