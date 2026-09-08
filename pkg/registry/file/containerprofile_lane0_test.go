@@ -1071,20 +1071,26 @@ func TestHealDivergence_ConcurrentCompleterWins(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 	done := make(chan error, 1)
-	start := time.Now()
 	go func() { done <- h.proc.ContainerProfileStorage.HealDivergence(ctx, key) }()
 
-	// The heal is parked at BEGIN IMMEDIATE behind the completer's write lock,
-	// and Lock(key) is already held (lock-order probe).
-	time.Sleep(300 * time.Millisecond)
+	// Lock(key) is taken before BEGIN IMMEDIATE (lock-order probe): poll until
+	// the heal holds it, releasing at once whenever the probe wins instead.
+	require.Eventually(t, func() bool {
+		probeCtx, probeCancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer probeCancel()
+		if err := h.s.locks.Lock(probeCtx, key); err != nil {
+			return true
+		}
+		h.s.locks.Unlock(key)
+		return false
+	}, 5*time.Second, 5*time.Millisecond, "Lock(key) must be held across the BEGIN IMMEDIATE wait")
+	// With Lock(key) held the heal is parked at BEGIN IMMEDIATE behind the
+	// completer's write lock; it cannot return while that transaction is open.
 	select {
 	case err := <-done:
 		t.Fatalf("heal returned %v while the completer's transaction is open", err)
-	default:
+	case <-time.After(200 * time.Millisecond):
 	}
-	probeCtx, probeCancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer probeCancel()
-	require.Error(t, h.s.locks.Lock(probeCtx, key), "Lock(key) must be held across the BEGIN IMMEDIATE wait")
 
 	require.NoError(t, sqlitex.Execute(completer, "COMMIT;", nil))
 	select {
@@ -1093,7 +1099,6 @@ func TestHealDivergence_ConcurrentCompleterWins(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("heal did not return after the completer committed")
 	}
-	require.GreaterOrEqual(t, time.Since(start), 300*time.Millisecond)
 
 	requireEqualProfiles(t, payloadBefore, h.readPayload(t, key))
 	row := h.readRow(t, key)
