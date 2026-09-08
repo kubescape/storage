@@ -322,12 +322,12 @@ func (w *singleWriter) queueDepth(priority writePriority) int {
 // nextTempPath returns a temp payload path that is unique across concurrent
 // prepare phases on any shard (tmpSeq lives on the router, shared by all of
 // them), including concurrent retries of the same key -- unlike
-// saveObject's shared "finalPayloadPath+.t" (storage.go), which is only safe
+// saveObject's deterministic temporary path (storage.go), which is only safe
 // because the per-key lock serializes same-key writers, a guarantee prepare
 // no longer has in this design.
 func (w *singleWriter) nextTempPath(finalPayloadPath string) string {
 	n := atomic.AddUint64(&w.tmpSeq, 1)
-	return fmt.Sprintf("%s.t.%d.%d", finalPayloadPath, time.Now().UnixNano(), n)
+	return makeTempPayloadPath(finalPayloadPath, fmt.Sprintf(".t.%d.%d", time.Now().UnixNano(), n))
 }
 
 // run is one shard's writer goroutine main loop. See highBurstLimit's doc
