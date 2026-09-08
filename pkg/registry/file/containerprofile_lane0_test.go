@@ -22,6 +22,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	kmetrics "k8s.io/component-base/metrics"
 	"k8s.io/component-base/metrics/testutil"
+	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -1149,6 +1150,96 @@ func TestHealDivergence_CrashInsideHeal_Converges(t *testing.T) {
 	require.Len(t, events, 1)
 	require.Equal(t, watch.Modified, events[0].Type)
 	require.Equal(t, float64(1), c0.delta(t).payloadAhead)
+}
+
+// denyCommit installs an authorizer on the pass's connection that rejects the
+// next COMMIT statement (SQLITE_AUTH at prepare time; BEGIN, SAVEPOINT, RELEASE
+// and ROLLBACK stay authorized) and returns a func that lifts it.
+func denyCommit(t *testing.T, ctx context.Context) func() {
+	t.Helper()
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	require.NoError(t, conn.SetAuthorizer(sqlite.AuthorizeFunc(func(a sqlite.Action) sqlite.AuthResult {
+		if a.Type() == sqlite.OpTransaction && a.Operation() == "COMMIT" {
+			return sqlite.AuthResultDeny
+		}
+		return sqlite.AuthResultOK
+	})))
+	return func() { require.NoError(t, conn.SetAuthorizer(nil)) }
+}
+
+// E3-5 (pin): a heal whose own COMMIT fails after the rename is reported as
+// reason "commit" -- never "unknown" -- and leaves E3-4's shape (row rolled
+// back at n, payload one version further ahead), which the next heal converges.
+func TestHealDivergence_FailedCommit_IsLabelledCommit(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "e3-5"
+	key, _ := h.makePayloadAhead(t, ns, name)
+	n := rvOf(t, h.readRow(t, key))
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+	ctx, cleanup, err := h.proc.ContainerProfileStorage.WithConnection(context.Background())
+	require.NoError(t, err)
+	defer cleanup()
+	allowCommit := denyCommit(t, ctx)
+
+	err = h.proc.ContainerProfileStorage.HealDivergence(ctx, key)
+	require.Error(t, err)
+	require.Equal(t, metrics.HealFailedCommit, healFailureReason(err))
+	require.NotEqual(t, "unknown", healFailureReason(err))
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	require.True(t, conn.AutocommitEnabled(), "the failed transaction was rolled back")
+	row := h.readRow(t, key)
+	require.False(t, softwarecomposition.IsCompletedFull(row.Annotations), "the row rolled back")
+	require.Equal(t, n, rvOf(t, row))
+	payload := h.readPayload(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(payload.Annotations))
+	require.Equal(t, n+2, rvOf(t, payload), "the renamed payload is one version further ahead")
+	require.Empty(t, drainEvents(w, 100*time.Millisecond))
+	require.Zero(t, c0.delta(t).payloadAhead)
+
+	allowCommit()
+	require.NoError(t, h.proc.ContainerProfileStorage.HealDivergence(ctx, key))
+	row = h.readRow(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(row.Annotations))
+	require.Equal(t, n+3, rvOf(t, row))
+	require.Equal(t, n+3, rvOf(t, h.readPayload(t, key)))
+	events := drainEvents(w, 100*time.Millisecond)
+	require.Len(t, events, 1)
+	require.Equal(t, watch.Modified, events[0].Type)
+	require.Equal(t, float64(1), c0.delta(t).payloadAhead)
+}
+
+// E3-6 (pin, defence in depth): a key whose metadata row is absent while its
+// Completed/Full payload exists (a crash between the row's delete and the
+// payload's remove) is not divergent but deleted: the heal is a no-op -- nil,
+// no row resurrected, payload untouched, nothing dispatched, nothing counted.
+func TestHealDivergence_RowAbsent_IsNoOp(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "e3-6"
+	key, _ := h.makePayloadAhead(t, ns, name)
+	conn, err := h.pool.Take(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, DeleteMetadata(conn, key, nil))
+	_, err = ReadMetadata(conn, key)
+	h.pool.Put(conn)
+	require.ErrorIs(t, err, ErrMetadataNotFound)
+	before := h.readPayload(t, key)
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+	ctx, cleanup, err := h.proc.ContainerProfileStorage.WithConnection(context.Background())
+	require.NoError(t, err)
+	defer cleanup()
+
+	require.NoError(t, h.proc.ContainerProfileStorage.HealDivergence(ctx, key))
+
+	conn, err = h.pool.Take(context.Background())
+	require.NoError(t, err)
+	_, err = ReadMetadata(conn, key)
+	h.pool.Put(conn)
+	require.ErrorIs(t, err, ErrMetadataNotFound, "the row is not resurrected")
+	requireEqualProfiles(t, before, h.readPayload(t, key))
+	require.Empty(t, drainEvents(w, 100*time.Millisecond), "nothing dispatched")
+	require.Zero(t, c0.delta(t).payloadAhead, "nothing counted")
 }
 
 // ---------------------------------------------------------------------------

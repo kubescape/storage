@@ -61,6 +61,7 @@ const (
 	HealFailedBegin       = "begin"
 	HealFailedRead        = "read"
 	HealFailedSave        = "save"
+	HealFailedCommit      = "commit"
 )
 
 // waitBuckets covers sub-millisecond acquisitions up through the ~5s
@@ -232,14 +233,14 @@ var (
 	)
 
 	// ConsolidationHealFailedTotal counts failed divergence heals by the step
-	// that failed (lock_timeout/begin/read/save). A failing heal errors the
+	// that failed (lock_timeout/begin/read/save/commit). A failing heal errors the
 	// tick before the frozen gate runs, so ConsolidationFrozenReclaimedTotal
 	// does not move; this series is what makes a wedged heal visible.
 	ConsolidationHealFailedTotal = metrics.NewCounterVec(
 		&metrics.CounterOpts{
 			Subsystem:      "storage",
 			Name:           "consolidation_heal_failed_total",
-			Help:           "Count of failed payload/metadata divergence heals, by the step that failed (lock_timeout/begin/read/save).",
+			Help:           "Count of failed payload/metadata divergence heals, by the step that failed (lock_timeout/begin/read/save/commit).",
 			StabilityLevel: metrics.ALPHA,
 		},
 		[]string{"reason"},
@@ -332,7 +333,7 @@ func IncConsolidationDivergence(shape string) {
 }
 
 // IncConsolidationHealFailed records one failed divergence heal for the given
-// reason (HealFailedLockTimeout / HealFailedBegin / HealFailedRead / HealFailedSave).
+// reason (HealFailedLockTimeout / HealFailedBegin / HealFailedRead / HealFailedSave / HealFailedCommit).
 func IncConsolidationHealFailed(reason string) {
 	ConsolidationHealFailedTotal.WithLabelValues(reason).Inc()
 }

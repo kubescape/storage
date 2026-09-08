@@ -208,6 +208,8 @@ func healFailureReason(err error) string {
 // or ROLLBACK has landed before the row is re-read: a completer that just
 // committed wins and nothing is written. That wait is bounded by the
 // connection's busy timeout (DefaultBusyTimeout, 60s), with Lock(key) held.
+// A row that is absent rather than divergent is left alone: the caller never
+// asks for a heal on one, and this function does not resurrect a deleted key.
 //
 // saveObject is called directly, not through SaveContainerProfile:
 // GuaranteedUpdateWithConn compares tryUpdate's result with the object it
@@ -235,20 +237,34 @@ func (c *ContainerProfileStorageImpl) HealDivergence(ctx context.Context, key st
 		if terr != nil {
 			return &healFailure{reason: metrics.HealFailedBegin, err: terr}
 		}
-		defer endFn(&err)
+		defer func() {
+			endFn(&err)
+			// endFn replaces a nil err with the COMMIT's own error (a ROLLBACK
+			// failure panics), so any error that is not already a healFailure
+			// is a failed COMMIT: the payload was renamed, the row rolled back
+			// -- the shape this heal repairs, one version further ahead.
+			var hf *healFailure
+			if err != nil && !errors.As(err, &hf) {
+				err = &healFailure{reason: metrics.HealFailedCommit, err: err}
+			}
+		}()
 		raw, rerr := ReadMetadata(conn, key)
-		if rerr != nil && !errors.Is(rerr, ErrMetadataNotFound) {
+		if errors.Is(rerr, ErrMetadataNotFound) {
+			// No row at all is not divergence but absence (a crash between
+			// the row's delete and the payload's remove): resurrecting the
+			// key from its payload is not this heal's business.
+			return nil
+		}
+		if rerr != nil {
 			return &healFailure{reason: metrics.HealFailedRead, err: rerr}
 		}
-		if rerr == nil {
-			var row softwarecomposition.ContainerProfile
-			if uerr := json.Unmarshal(raw, &row); uerr != nil {
-				return &healFailure{reason: metrics.HealFailedRead, err: uerr}
-			}
-			if softwarecomposition.IsCompletedFull(row.Annotations) {
-				// A concurrent completer won: nothing to heal.
-				return nil
-			}
+		var row softwarecomposition.ContainerProfile
+		if uerr := json.Unmarshal(raw, &row); uerr != nil {
+			return &healFailure{reason: metrics.HealFailedRead, err: uerr}
+		}
+		if softwarecomposition.IsCompletedFull(row.Annotations) {
+			// A concurrent completer won: nothing to heal.
+			return nil
 		}
 		if gerr := s.get(ctx, conn, key, storage.GetOptions{}, &cur, hasWriteLock); gerr != nil {
 			return &healFailure{reason: metrics.HealFailedRead, err: gerr}
