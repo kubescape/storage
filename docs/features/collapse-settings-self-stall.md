@@ -53,8 +53,10 @@ Real `StorageImpl` + real pool with a 2 s busy timeout, asserting `< 500 ms`
 - `TestCRDCollapseSettingsProvider_NoStorageIOUnderHeldWriteLock` — caller holds the WAL
   writer lock in an open transaction, cache expired, no CR. Before: 2.004 s.
 - `TestCRDCollapseSettingsProvider_NoLockWaitOnCallerGoroutine` — caller holds the CR
-  key's per-key write lock (`lockTimeout` shrunk to 1 s). Before: 1.000 s. Keeps guarding
-  the boundary independently of what `get()` does on a miss.
+  key's per-key write lock (`lockTimeout` left at its 5 s default). Before: the full
+  `lockTimeout`. Keeps guarding the boundary independently of what `get()` does on a miss.
+- Each test wraps the real storage in a Get-counting shim and joins the background refresh
+  explicitly before returning, so no refresh goroutine outlives its test.
 - `TestConsolidateTimeSeries_DoesNotStallOnCollapseRefresh` — the production chain
   (`ConsolidateTimeSeries` → `PreSave` → provider) with the real provider wired. Before:
   2.005 s.

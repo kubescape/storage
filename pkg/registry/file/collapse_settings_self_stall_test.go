@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
 	"zombiezen.com/go/sqlite"
@@ -51,6 +53,34 @@ func newSelfStallStorage(t *testing.T, processor Processor) *StorageImpl {
 	}
 }
 
+// refreshWaitTimeout bounds how long a test waits for the provider's background
+// refresh to finish; it only has to outlast the lock/pool waits that refresh
+// may legitimately do (lockTimeout, poolTimeout) once the test has released them.
+const refreshWaitTimeout = 30 * time.Second
+
+// countingGetStorage wraps the real StorageImpl so tests can observe when the
+// provider's background refresh has COMPLETED its Get (the count is bumped
+// after Get returns). The provider only ever calls Get.
+type countingGetStorage struct {
+	storage.Interface
+	completedGets atomic.Int64
+}
+
+func (c *countingGetStorage) Get(ctx context.Context, key string, opts storage.GetOptions, out runtime.Object) error {
+	err := c.Interface.Get(ctx, key, opts, out)
+	c.completedGets.Add(1)
+	return err
+}
+
+// joinRefresh waits until the provider's construction-time prime and exactly
+// one background refresh have completed, so no refresh goroutine outlives the
+// test (and none can race a t.Cleanup that restores package state).
+func joinRefresh(t *testing.T, c *countingGetStorage) {
+	t.Helper()
+	require.Eventually(t, func() bool { return c.completedGets.Load() == 2 },
+		refreshWaitTimeout, time.Millisecond, "background refresh did not complete")
+}
+
 // holdWriteLock opens a deferred transaction on a fresh pool connection and
 // performs one write in it, which is what acquires SQLite's WAL writer lock --
 // the state processTimeSeriesInTransaction is in once
@@ -82,7 +112,8 @@ func TestCRDCollapseSettingsProvider_NoStorageIOUnderHeldWriteLock(t *testing.T)
 	t.Cleanup(func() { collapseSettingsTTL = oldTTL })
 
 	s := newSelfStallStorage(t, DefaultProcessor{})
-	provider := NewCRDCollapseSettingsProvider(s)
+	cs := &countingGetStorage{Interface: s}
+	provider := NewCRDCollapseSettingsProvider(cs)
 
 	_, release := holdWriteLock(t, s)
 	start := time.Now()
@@ -92,21 +123,25 @@ func TestCRDCollapseSettingsProvider_NoStorageIOUnderHeldWriteLock(t *testing.T)
 
 	assert.Less(t, elapsed, selfStallBound, "provider() must not wait on the caller's own write lock (busy timeout %s)", selfStallBusyTimeout)
 	assert.Equal(t, 50, got.OpenDynamicThreshold, "no CR present: defaults are served")
+	joinRefresh(t, cs)
 }
 
 // AC-A1b: same boundary, different blocker. The per-key write lock of the
 // CollapseConfiguration key is held (as a concurrent REST write of the CR
-// would), so the refresh's Get cannot even acquire its read lock until
-// lockTimeout. That wait must stay off the caller's goroutine too. This
-// variant keeps guarding the boundary once get() no longer writes on a miss.
+// would), so the refresh's Get cannot even acquire its read lock until the
+// key is unlocked (or lockTimeout, 5s, expires). That wait must stay off the
+// caller's goroutine too. This variant keeps guarding the boundary once get()
+// no longer writes on a miss. lockTimeout is deliberately left at its default:
+// shrinking it would only shorten the pre-fix failure, and a package var
+// mutated by the test could race the background refresh's read of it.
 func TestCRDCollapseSettingsProvider_NoLockWaitOnCallerGoroutine(t *testing.T) {
-	oldTTL, oldLT := collapseSettingsTTL, lockTimeout
+	oldTTL := collapseSettingsTTL
 	collapseSettingsTTL = time.Nanosecond
-	lockTimeout = time.Second
-	t.Cleanup(func() { collapseSettingsTTL, lockTimeout = oldTTL, oldLT })
+	t.Cleanup(func() { collapseSettingsTTL = oldTTL })
 
 	s := newSelfStallStorage(t, DefaultProcessor{})
-	provider := NewCRDCollapseSettingsProvider(s)
+	cs := &countingGetStorage{Interface: s}
+	provider := NewCRDCollapseSettingsProvider(cs)
 
 	key := collapseConfigurationKey(DefaultCollapseConfigurationName)
 	require.NoError(t, s.locks.Lock(context.Background(), key))
@@ -116,6 +151,7 @@ func TestCRDCollapseSettingsProvider_NoLockWaitOnCallerGoroutine(t *testing.T) {
 	s.locks.Unlock(key)
 
 	assert.Less(t, elapsed, selfStallBound, "provider() must not wait for the CR key's lock (lockTimeout %s)", lockTimeout)
+	joinRefresh(t, cs)
 }
 
 // AC-A2: the production chain. ConsolidateTimeSeries ->
@@ -134,7 +170,8 @@ func TestConsolidateTimeSeries_DoesNotStallOnCollapseRefresh(t *testing.T) {
 		Workers:                 1,
 	}
 	s := newSelfStallStorage(t, processor)
-	processor.CollapseSettings = NewCRDCollapseSettingsProvider(s)
+	cs := &countingGetStorage{Interface: s}
+	processor.CollapseSettings = NewCRDCollapseSettingsProvider(cs)
 	processor.SetStorage(NewContainerProfileStorageImpl(s, s.pool))
 
 	ctx := context.Background()
@@ -151,4 +188,5 @@ func TestConsolidateTimeSeries_DoesNotStallOnCollapseRefresh(t *testing.T) {
 	elapsed := time.Since(start)
 	require.NoError(t, err)
 	assert.Less(t, elapsed, selfStallBound, "consolidation tick must not stall on the CollapseConfiguration refresh (busy timeout %s)", selfStallBusyTimeout)
+	joinRefresh(t, cs)
 }
