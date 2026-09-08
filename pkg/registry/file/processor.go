@@ -15,6 +15,41 @@ type Processor interface {
 	SetStorage(storageImpl ContainerProfileStorage)
 }
 
+// TimeSeriesRow is one time_series table row.
+type TimeSeriesRow struct {
+	Kind, Namespace, Name, SeriesID, TsSuffix           string
+	ReportTimestamp, Status, Completion                 string
+	PreviousReportTimestamp                             string
+	HasData                                             bool
+}
+
+// TimeSeriesRowProvider is implemented by a Processor whose AfterCreate side
+// effect is a time_series row. A backend that can write that row inside the
+// object's own transaction (ObjectStore) asks for the row here instead of
+// calling AfterCreate on a second connection after the commit.
+type TimeSeriesRowProvider interface {
+	// TimeSeriesRowFor returns the row a Create of object must record, the
+	// base (consolidated) key whose admission the write must re-check, and
+	// ok=false when object is not a time-series profile.
+	TimeSeriesRowFor(object runtime.Object) (row TimeSeriesRow, baseKey string, ok bool)
+}
+
+// TimeSeriesEntryWriter is the storage-side counterpart AfterCreate uses when
+// the backend does not fold the row into Create's transaction.
+type TimeSeriesEntryWriter interface {
+	WriteTimeSeriesEntry(ctx context.Context, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error
+}
+
+// ProcessedDeleteStager is implemented by a ContainerProfileStorage whose
+// BeginTransaction stages writes for one atomic commit: the consolidation pass
+// then hands it the processed time-series deletes BEFORE the end function
+// runs, so they commit with the base write and the time_series rewrite
+// (design §3.7). The legacy StorageImpl path does not implement it and keeps
+// its commit-then-delete order unchanged.
+type ProcessedDeleteStager interface {
+	StagesProcessedDeletes() bool
+}
+
 type DefaultProcessor struct {
 }
 
