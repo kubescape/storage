@@ -221,11 +221,21 @@ func (c *objectStoreCPStorage) GetContainerProfileMetadataNoLock(ctx context.Con
 }
 
 // GetSbom reads the sbomsyft kind through the legacy StorageImpl that owns it
-// (R7). It runs in the prepare phase, never under the gate.
+// (R7): its per-key lock map is the one the SBOM writer uses. It runs in the
+// prepare phase, never under the gate. When the caller already holds a read
+// handle (every PreSave does), the read reuses that connection through
+// GetWithConn instead of taking a second one: a nested pool acquisition under
+// a full pool spins until the caller's deadline (measured in Tier B as 5 s
+// stalls on ticks and updates before this reuse).
 func (c *objectStoreCPStorage) GetSbom(ctx context.Context, key string) (softwarecomposition.SBOMSyft, error) {
 	sbom := softwarecomposition.SBOMSyft{}
 	if c.sbom == nil {
 		return sbom, storage.NewKeyNotFoundError(key, 0)
+	}
+	if h := readHandleFrom(ctx); h != nil {
+		if legacy, ok := c.sbom.(*StorageImpl); ok {
+			return sbom, legacy.GetWithConn(ctx, h.conn, key, storage.GetOptions{}, &sbom)
+		}
 	}
 	err := c.sbom.Get(ctx, key, storage.GetOptions{}, &sbom)
 	return sbom, err

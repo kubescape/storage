@@ -38,6 +38,15 @@ const (
 	// DefaultCheckpointInterval is the timer fallback for WAL growth produced
 	// by writers that do not go through the gate.
 	DefaultCheckpointInterval = 5 * time.Second
+	// DefaultCheckpointMinSpacing bounds how often PASSIVE checkpoints run when
+	// commits keep kicking the checkpointer. Under concurrent readers the WAL
+	// cannot be reset, so its file size never drops below the kick threshold
+	// and every commit would re-kick; back-to-back checkpoints rewrite the
+	// wal-index header continuously and readers that see it change retry with
+	// SQLite's quadratic backoff (multi-second silent read stalls, measured in
+	// Tier B as 5-10 s ticks/updates with 7000 checkpoints per round). Kicks
+	// arriving inside the spacing are coalesced into one run at its end.
+	DefaultCheckpointMinSpacing = 250 * time.Millisecond
 	// checkpointRestartBackoff spaces supervised restarts after a panic.
 	checkpointRestartBackoff = 100 * time.Millisecond
 )
@@ -47,6 +56,7 @@ type checkpointer struct {
 	walPath        string
 	thresholdBytes int64
 	interval       time.Duration
+	minSpacing     time.Duration
 
 	kick     chan struct{}
 	stop     chan struct{}
@@ -74,6 +84,7 @@ func newCheckpointer(pool *sqlitemigration.Pool, dbPath string, thresholdBytes i
 		walPath:        dbPath + "-wal",
 		thresholdBytes: thresholdBytes,
 		interval:       interval,
+		minSpacing:     DefaultCheckpointMinSpacing,
 		kick:           make(chan struct{}, 1),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
@@ -112,14 +123,24 @@ func (c *checkpointer) loop() (panicked bool) {
 	}()
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
+	var last time.Time
 	for {
 		select {
 		case <-c.stop:
 			return false
 		case <-c.kick:
+			if wait := c.minSpacing - time.Since(last); wait > 0 {
+				select {
+				case <-c.stop:
+					return false
+				case <-time.After(wait):
+				}
+			}
 			c.checkpoint()
+			last = time.Now()
 		case <-ticker.C:
 			c.checkpoint()
+			last = time.Now()
 		}
 	}
 }
