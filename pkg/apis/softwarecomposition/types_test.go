@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/consts"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -457,6 +458,39 @@ func TestContainerProfile_PolicyValidation(t *testing.T) {
 			if tt.wantExists {
 				assert.Equal(t, tt.wantPolicy, policy, "policy content")
 			}
+		})
+	}
+}
+
+// TestIsCompletedFull pins the setters' predicate over the four
+// status/completion combinations plus absent keys and nil annotations.
+func TestIsCompletedFull(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		want        bool
+	}{
+		{"nil annotations", nil, false},
+		{"absent keys", map[string]string{}, false},
+		{"completed only", map[string]string{helpers.StatusMetadataKey: helpers.Completed}, false},
+		{"full only", map[string]string{helpers.CompletionMetadataKey: helpers.Full}, false},
+		{"learning/partial", map[string]string{helpers.StatusMetadataKey: helpers.Learning, helpers.CompletionMetadataKey: helpers.Partial}, false},
+		{"learning/full", map[string]string{helpers.StatusMetadataKey: helpers.Learning, helpers.CompletionMetadataKey: helpers.Full}, false},
+		{"completed/partial", map[string]string{helpers.StatusMetadataKey: helpers.Completed, helpers.CompletionMetadataKey: helpers.Partial}, false},
+		{"completed/full", map[string]string{helpers.StatusMetadataKey: helpers.Completed, helpers.CompletionMetadataKey: helpers.Full}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsCompletedFull(tt.annotations))
+			// The setters refuse to change exactly the profiles the predicate names.
+			p := &ContainerProfile{}
+			p.Annotations = map[string]string{}
+			for k, v := range tt.annotations {
+				p.Annotations[k] = v
+			}
+			p.SetFailedStatus(TimeSeriesContainers{})
+			assert.Equal(t, tt.want, IsCompletedFull(p.Annotations) && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full,
+				"SetFailedStatus must leave a Completed/Full profile untouched and downgrade every other")
 		})
 	}
 }

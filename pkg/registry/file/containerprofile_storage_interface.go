@@ -62,8 +62,15 @@ type ContainerProfileStorage interface {
 	// This bypasses locking mechanisms used by GetContainerProfile.
 	GetTsContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
 
-	// SaveContainerProfile creates or updates a container profile.
+	// SaveContainerProfile creates or updates a container profile. It refuses
+	// (ErrProfileFrozen) when the persisted profile is already Completed/Full.
 	SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error
+
+	// HealDivergence re-persists, as-is, a base profile whose payload says
+	// Completed/Full while its committed metadata row does not, and dispatches
+	// the completion event the crash lost. Runs in its own transaction on the
+	// context's connection; must be called in autocommit.
+	HealDivergence(ctx context.Context, key string) error
 }
 
 // TransactionManager handles database connection and transaction lifecycle.
@@ -108,9 +115,6 @@ type TimeSeriesOperations interface {
 	// ListTimeSeriesContainers retrieves time series container information for a given key.
 	// Returns a map of seriesID to slice of TimeSeriesContainers.
 	ListTimeSeriesContainers(ctx context.Context, key string) (map[string][]softwarecomposition.TimeSeriesContainers, error)
-
-	// DeleteTimeSeriesContainerEntries removes all time series entries for a given key.
-	DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error
 
 	// ReplaceTimeSeriesContainerEntries replaces time series entries for a given key and seriesID.
 	// It deletes entries in deleteTimeSeries and inserts newTimeSeries.

@@ -56,6 +56,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -134,6 +135,11 @@ func (p writePriority) label() string {
 // fresh read and resubmit; see guaranteedUpdateSingleWriter's retry loop.
 var errWriteConflict = errors.New("single-writer: resourceVersion conflict at commit")
 
+// errCommitPanic wraps a panic that escaped commit() and was recovered by the
+// shard goroutine (see process). The job did not commit; whether its side
+// effects before the panic landed is unknown to the caller.
+var errCommitPanic = errors.New("single-writer: panic in commit")
+
 // singleWriterConflictBackoff waits a small, capped, jittered delay before a
 // GuaranteedUpdate conflict-retry, so many goroutines contending on the same
 // key don't all redo their prepare phase in lockstep (see the call site's
@@ -190,6 +196,13 @@ type commitJob struct {
 	// its lane's channel, so process() can compute how long the job waited in
 	// queue once the writer goroutine picks it up.
 	enqueuedAt time.Time
+
+	// custom, if non-nil, means this job is not a Create/GuaranteedUpdate
+	// commit: commit() acquires the pool connection and per-key lock exactly
+	// as it always does, then calls custom(conn) instead of running the
+	// compare-and-commit logic, and skips the tmpPayloadPath cleanup that
+	// only applies to a prepared create/update payload. See runOnShard.
+	custom func(conn *sqlite.Conn) error
 }
 
 type commitResult struct {
@@ -370,9 +383,30 @@ func (w *singleWriter) run(shard *writerShard) {
 	}
 }
 
+// process runs one job and delivers its result. A panic that escapes commit()
+// -- sqlitex.Save's release panics on a failed ROLLBACK TO/RELEASE, from
+// commit()'s own frame, outside callGuarded's reach -- is recovered here so
+// the shard goroutine (and with it the process) survives: the caller gets an
+// errCommitPanic result instead of waiting forever, the outcome is counted
+// under CommitOutcomePanic, and the stack is logged. The connection is not
+// touched here: putChecked already disposed of it one frame down, during the
+// unwind, and conn is out of scope.
 func (w *singleWriter) process(job *commitJob) {
 	metrics.ObserveSingleWriterQueueWait(resourceFromKey(job.key), job.priority.label(), time.Since(job.enqueuedAt))
-	res := w.commit(job)
+	var res commitResult
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				metrics.IncSingleWriterCommit(resourceFromKey(job.key), job.priority.label(), metrics.CommitOutcomePanic)
+				logger.L().Error("single-writer: panic in commit recovered, shard continues",
+					helpers.String("key", job.key),
+					helpers.String("panic", fmt.Sprint(r)),
+					helpers.String("stack", string(debug.Stack())))
+				res = commitResult{err: fmt.Errorf("%w: %v", errCommitPanic, r)}
+			}
+		}()
+		res = w.commit(job)
+	}()
 	select {
 	case job.resultCh <- res:
 	default:
@@ -450,7 +484,11 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, err)}
 	}
 	metrics.ObservePoolWait(kind, metrics.OutcomeAcquired, time.Since(beforePool))
-	defer s.pool.Put(conn)
+	// A closure, not `defer w.putChecked(conn, committed, job)`: the latter
+	// would evaluate committed at registration (always false) and remove the
+	// renamed payload after every successful commit.
+	committed := false
+	defer func() { w.putChecked(conn, committed, job) }()
 
 	lockCtx, lockCancel := context.WithTimeout(job.ctx, lockTimeout)
 	beforeLock := time.Now()
@@ -465,6 +503,21 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 	}
 	metrics.ObserveLockWait(kind, metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(job.key)
+
+	if job.custom != nil {
+		// Background work that doesn't fit the create/update compare-and-commit
+		// shape (see runOnShard): it already has its pool connection and
+		// per-key lock (both acquired above, same as any other job on this
+		// shard), so it cannot race a live commit for SQLite's lock.
+		// Everything past this point is create/update-specific and does not
+		// apply.
+		if err := callGuarded("custom", conn, job.custom); err != nil {
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+			return commitResult{err: err}
+		}
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
+		return commitResult{}
+	}
 
 	currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
 	if err != nil {
@@ -525,9 +578,101 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
 		return commitResult{err: err}
 	}
+	committed = true
 
 	metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
 	return commitResult{metadata: metadata}
+}
+
+// putChecked returns the shard's pool connection, on every exit from commit()
+// including a panic unwind, and owns the whole decision of whether it can be
+// reused: it must run inside commit()'s frame, where conn is in scope, because
+// Go unwinds commit()'s defers before process()'s recover sees anything.
+//
+// release(&err) in commit() is deliberately called, not deferred, so a panic
+// in writeMeta/renamePayload skips it and leaves the SAVEPOINT open; Pool.Put
+// checks stepped statements only (CheckReset) and would hand that connection
+// to the next caller with a live transaction. The cleanliness test is
+// therefore AutocommitEnabled plus CheckReset. A dirty connection is rolled
+// back and reset before reuse; one that stays dirty is dropped (Put(nil) is a
+// documented no-op) rather than returned, so Put can never panic during an
+// unwind and replace the panic being reported.
+//
+// No recover() here: a deferred function of the panicking frame that calls
+// recover stops the panic, which process() must still observe and count.
+// connIsClean and tryRollback each contain their own.
+func (w *singleWriter) putChecked(conn *sqlite.Conn, committed bool, job *commitJob) {
+	s := w.s
+	if conn == nil {
+		return
+	}
+	if !committed && job.tmpPayloadPath != "" {
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+	}
+	if !connIsClean(conn) {
+		metrics.IncSingleWriterDirtyConnection()
+		if !tryRollback(conn) {
+			metrics.IncSingleWriterDroppedConnection()
+			logger.L().Error("single-writer: dropping a pool connection that could not be rolled back; the pool is one connection smaller",
+				helpers.String("key", job.key),
+				helpers.String("activeStatement", conn.CheckReset()))
+			s.pool.Put(nil)
+			return
+		}
+		logger.L().Warning("single-writer: rolled back a dirty pool connection before reuse", helpers.String("key", job.key))
+	}
+	s.pool.Put(conn)
+}
+
+// connIsClean reports whether conn can go back to the pool: autocommit on (no
+// open transaction or savepoint) and no statement mid-step.
+func connIsClean(conn *sqlite.Conn) (clean bool) {
+	defer func() {
+		if recover() != nil {
+			clean = false
+		}
+	}()
+	return conn.AutocommitEnabled() && conn.CheckReset() == ""
+}
+
+// tryRollback ends any open transaction and resets any stepped cached
+// statement (Prepare on a cached query resets it), then reports whether conn
+// is clean. The interrupt is cleared first, as sqlitex's own release path
+// does, so an interrupted connection can still be rolled back.
+func tryRollback(conn *sqlite.Conn) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	oldDoneCh := conn.SetInterrupt(nil)
+	defer conn.SetInterrupt(oldDoneCh)
+	if !conn.AutocommitEnabled() {
+		if err := sqlitex.Execute(conn, "ROLLBACK;", nil); err != nil {
+			logger.L().Error("single-writer: ROLLBACK on a dirty pool connection failed", helpers.Error(err))
+		}
+	}
+	for query := conn.CheckReset(); query != ""; query = conn.CheckReset() {
+		if _, err := conn.Prepare(query); err != nil {
+			logger.L().Error("single-writer: resetting a stepped statement on a dirty pool connection failed", helpers.Error(err))
+			return false
+		}
+	}
+	return connIsClean(conn)
+}
+
+// callGuarded runs caller-supplied code on the shard's connection and turns a
+// panic in it into an error for that caller, so one bad closure fails its own
+// job instead of unwinding the shard goroutine. Only fn's own panics are
+// caught; the frame is gone by the time the error is returned, so the stack
+// is captured into the message.
+func callGuarded(name string, conn *sqlite.Conn, fn func(*sqlite.Conn) error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("single-writer: %s panicked: %v\n%s", name, r, debug.Stack())
+		}
+	}()
+	return fn(conn)
 }
 
 // readCurrentResourceVersion reads the resourceVersion currently committed in
@@ -569,6 +714,57 @@ func (s *StorageImpl) ensureWriter() *singleWriter {
 		s.writer = newSingleWriter(s)
 	})
 	return s.writer
+}
+
+// runOnShard serializes fn against every Create/GuaranteedUpdate commit (and
+// every other runOnShard call) hashed to key's shard: fn runs from inside
+// that shard's own writer goroutine, holding the same pool connection and
+// per-key lock a commit would, so it cannot independently race a live commit
+// for SQLite's own lock the way a caller-held raw pool connection does.
+//
+// A genuine collision between two such uncoordinated writers blocks the
+// loser on SQLite's own busy-timeout (seconds in tests, up to
+// DefaultBusyTimeout/60s in production) instead of the microsecond
+// in-process channel wait this shard's own jobs already enjoy. Routing
+// eligible background work through runOnShard turns that collision into
+// ordinary (fast) queueing on this shard's channel instead.
+//
+// fn must be a leaf AND non-blocking:
+//
+//   - Leaf: fn must not itself call anything that submits a job to this SAME
+//     StorageImpl's writer (directly or via Create/GuaranteedUpdate/
+//     SaveContainerProfile) for a key hashing to the SAME shard: that would
+//     deadlock, since this shard's one goroutine is fn's caller and cannot
+//     also service fn's own submission until fn returns.
+//   - Non-blocking: fn must not block on anything outside conn (SQLite's
+//     busy-timeout and the filesystem are the only waits it may incur). In
+//     particular fn must NOT call watchDispatcher.* -- a watch client that
+//     has stopped reading blocks send until its own ctx ends, and inside fn
+//     that would freeze this shard, its pool connection and Lock(key) for
+//     as long as that remote client chooses. Dispatch watch events on the
+//     caller after runOnShard returns, as createSingleWriter and
+//     guaranteedUpdateSingleWriter do.
+//
+// See deleteContainerProfileArbitrated for the motivating case: it routes
+// storageImpl.deleteLocked (not delete, which dispatches) and emits the
+// Deleted event itself afterwards.
+//
+// Callers should use priorityLow (matching the existing convention for
+// non-REST-originated writes, see SaveContainerProfile) so REST traffic
+// keeps preferential -- though never starved, see highBurstLimit --
+// treatment on the same shard.
+func (w *singleWriter) runOnShard(ctx context.Context, key string, priority writePriority, fn func(conn *sqlite.Conn) error) error {
+	job := &commitJob{
+		ctx:      ctx,
+		key:      key,
+		custom:   fn,
+		resultCh: make(chan commitResult, 1),
+	}
+	res, err := w.submit(ctx, job, priority)
+	if err != nil {
+		return err
+	}
+	return res.err
 }
 
 // prepareSingleWriterPayload mirrors saveObject's pre-encode mutation

@@ -52,11 +52,47 @@ the single-writer path is ever enabled.
 - `StorageImpl.Create`/`GuaranteedUpdate` check `singleWriterEnabled` and route to the
   single-writer path at `priorityHigh`; `ContainerProfileStorageImpl.SaveContainerProfile` does
   the same at `priorityLow`.
+- `singleWriter.runOnShard(ctx, key, priority, fn)`: a general escape hatch for background work
+  that mutates a key's row but doesn't fit the Create/GuaranteedUpdate compare-and-commit shape.
+  `fn` runs from inside that key's own shard goroutine, holding the same pool connection and
+  per-key lock a commit would, instead of the caller taking its own raw pool connection (which
+  has no way to yield to, or be yielded by, a live shard commit — see the gap this closes below).
+  `fn` must be a leaf **and** non-blocking. Leaf: it must not itself submit another job to the same
+  shard (directly, or via Create/GuaranteedUpdate/SaveContainerProfile for a same-shard key) — that
+  would deadlock, since the shard's one goroutine is `fn`'s caller. Non-blocking: it must not block
+  on anything outside `conn` — in particular **no `watchDispatcher.*` call inside `fn`**: a watch
+  client that has stopped reading blocks `send` until its own ctx ends, which inside `fn` would
+  freeze the shard (and its pool connection and per-key lock) for as long as that remote client
+  chooses. Dispatch watch events on the caller after `runOnShard` returns, the way
+  `createSingleWriter`/`guaranteedUpdateSingleWriter` already do. Used by
+  `ContainerProfileProcessor.deleteContainerProfileArbitrated`, which routes
+  `StorageImpl.deleteLocked` (the SQLite+filesystem half of `delete`, without the dispatch) and
+  emits the `Deleted` event itself afterwards. This is also why consolidation's per-key unit is
+  *not* wrapped in one `runOnShard` call end-to-end: it calls `SaveContainerProfile` for the same
+  key partway through, which would deadlock exactly as described.
+- Panic containment, three layers (Lane 0 / L0-B). A shard goroutine is the only writer for
+  every key hashed to it, so a panic that killed it would wedge those keys forever — and with no
+  `recover()` anywhere in the package it actually exited the process. (1) `callGuarded` wraps the
+  `runOnShard` closure: its panic becomes that job's error. (2) `putChecked` replaces `commit()`'s
+  `defer s.pool.Put(conn)`: `release(&err)` is deliberately called, not deferred, so a panic in
+  `writeMetadata`/`renamePayload` skipped it and returned a connection with an open `SAVEPOINT`
+  (which `Pool.Put` does not detect — it checks stepped statements only); `putChecked` tests
+  `AutocommitEnabled` and `CheckReset`, rolls back / resets a dirty connection before reuse, drops
+  one it cannot clean, and removes the temp payload on every non-committed exit. It runs inside
+  `commit()`'s own frame because Go unwinds `commit()`'s defers before `process()` sees the panic.
+  (3) `process()` recovers whatever escapes `commit()` (e.g. `sqlitex.Save`'s release panicking on
+  a failed `ROLLBACK TO`), returns `errCommitPanic` to the caller, counts `outcome="panic"`, logs
+  the stack, and takes the next job. Counters in `docs/features/storage-lock-pool-metrics.md`;
+  tests in `singlewriter_lane0_test.go` (each crashes the test binary on pre-L0-B code, so
+  fail-on-today evidence is recorded one test per process).
 - `pkg/metrics/metrics.go`: Phase 0's `storage_lock_wait_duration_seconds`/
   `storage_pool_wait_duration_seconds` histograms (labeled by resource kind and outcome), plus the
   single-writer-specific `storage_single_writer_queue_wait_duration_seconds`,
-  `storage_single_writer_commit_total`, `storage_single_writer_conflict_retry_total`, and
-  `storage_single_writer_queue_depth`, all served on the existing apiserver `/metrics` endpoint.
+  `storage_single_writer_commit_total` (outcomes `committed`/`conflict`/`error`/`panic`),
+  `storage_single_writer_conflict_retry_total`, `storage_single_writer_queue_depth`,
+  `storage_single_writer_dirty_connection_total`, and
+  `storage_single_writer_dropped_connection_total`, all served on the existing apiserver
+  `/metrics` endpoint.
 - `pkg/registry/file/sqlite.go`'s `NewPool` gained `size`/`busyTimeout` parameters (both fall back
   to the previously-hardcoded defaults when non-positive), wired to the new
   `SqlitePoolSize`/`SqliteBusyTimeout` config knobs; `PoolTimeout` similarly became
@@ -95,6 +131,22 @@ exercising this path over an extended monitoring window for several resource kin
   residual gap between 15/30 and node-agent's historical 0-1/30 baseline is not simply "not enough
   shards" and needs its own investigation (node-agent-side CI resource limits and pod churn were
   observed as candidates, independent of this fix).
+  **Update:** that follow-up investigation ruled out both node-agent-side candidates (storage pod
+  CPU limit bumped 4x: no change; live CI pod restart counts: zero across every failing job
+  checked) and instead found a gap in *this* fix's own coverage — see `runOnShard` below.
 - Priority arbitration under real contention (a REST write racing a consolidation write) is now
   additionally only arbitrated within a shard; see "How it works" for why that is judged acceptable,
   but it has not been observed under real load either.
+- **Found and fixed:** `ConsolidateTimeSeries`'s `deleteProcessedTimeSeries` step deleted each
+  processed TS profile via `DeleteContainerProfile`, which — unlike `SaveContainerProfile` — took a
+  *raw* pool connection outside this whole shard system. That connection could collide directly
+  with a shard's SQLite write lock, and a genuine collision blocks the loser for up to
+  `DefaultBusyTimeout` (60s) rather than the microsecond in-process channel wait every shard-routed
+  write gets. Reproduced locally (`containerprofile_load_test.go`, `LOAD_CONSOLIDATORS=1`): a pure
+  20-way concurrent write burst alone was flawless (9543/9543 ops, p99=115ms), but adding one
+  concurrent consolidation pass collapsed throughput by >250x (36 ops/8s, 14 failed, multi-second
+  `database is locked` stalls) — the same fast, heterogeneous failure shape as the residual
+  node-agent CI flakiness, not the original catastrophic hang. Routing that one delete call through
+  the new `runOnShard` (below) restored throughput to ~5000+ ops/8s with near-zero failures in the
+  same repro, p50 in microseconds and p99 ~5ms (down from 9.9s). Not yet validated against real
+  node-agent CI (only this repo's local load test) as of this writing.

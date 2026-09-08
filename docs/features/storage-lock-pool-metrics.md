@@ -45,6 +45,35 @@ call sites are in `pkg/registry/file/storage.go` at each `s.locks.Lock`/`RLock` 
 in place — they remain useful for correlating a specific slow request with its key, which
 the aggregate histograms can't do.
 
+### Consolidation counters (completed-immutability and divergence)
+
+The consolidation pass (`ContainerProfileProcessor.ConsolidateTimeSeries`) enforces
+"once a profile is Completed/Full nothing updates it" on its own write path and heals the
+one crash shape that would otherwise leave a completed profile unannounced. Each guard
+has a counter; every one is expected to be zero or near-zero in steady state.
+
+| Metric | Type | Labels | Meaning |
+| --- | --- | --- | --- |
+| `storage_consolidation_frozen_reclaimed_total` | Counter | `what` (`row`/`object`) | `time_series` rows and TS objects reclaimed unmerged by the frozen gate because the base profile was already Completed/Full when the pass read it. Low and non-zero on multi-replica workloads (each late series is reclaimed once). Rising for one key on many consecutive ticks while `divergence_total{shape="payload_ahead"}` stays at zero means a writer other than consolidation keeps producing rows for a completed profile (an old node-agent ignoring `ObjectCompletedError`, for instance). |
+| `storage_consolidation_frozen_refusals_total` | Counter | — | Consolidation saves refused because the persisted base was Completed/Full at write time (under the per-key lock) although it was not when the pass read it. Expected zero; non-zero names a concurrent completing writer (the Error line at `GuaranteedUpdate - tryUpdate func failed` carries the key). |
+| `storage_consolidation_divergence_total` | Counter | `shape` (`payload_ahead`/`metadata_ahead`) | Payload/metadata divergences observed on a base profile. `payload_ahead` (payload Completed/Full, metadata row not — a process crash or a failed `COMMIT` between the payload rename and the row's commit) counts heals performed; non-zero after no pod restart means a `COMMIT` failed (look for `SQLITE_FULL`/`SQLITE_IOERR`). `metadata_ahead` (the inverse — a lost payload rename after a power loss) is observed and warned, not healed. |
+| `storage_consolidation_heal_failed_total` | Counter | `reason` (`lock_timeout`/`begin`/`read`/`save`/`commit`) | Failed divergence heals by the step that failed. A failing heal errors the tick before the frozen gate runs, so `frozen_reclaimed_total` does not move; rising for one key on 3+ consecutive ticks is a wedged heal: `lock_timeout` means a same-key writer holds the per-key lock across ticks, `begin` means the database write lock is held past the busy timeout, `save` means the payload directory or the row cannot be written, `commit` means the heal's own `COMMIT` failed after its payload rename (I/O-class: `SQLITE_FULL`/`SQLITE_IOERR`) -- the same shape the heal repairs, one version further ahead; the next tick retries. |
+
+### Single-writer panic containment
+
+A panic on a shard goroutine (`pkg/registry/file/singlewriter.go`) no longer exits the process:
+a panic in a `runOnShard` closure is returned to that caller as an error (`callGuarded`), the
+shard's pool connection is checked for an open transaction or stepped statement before it is
+returned (`putChecked`), and a panic that escapes `commit()` is recovered in `process()` so the
+shard takes its next job. All three series are expected to be **zero**; any movement names a
+bug to chase in the `single-writer:` Error line, which carries the key and the stack.
+
+| Metric | Type | Labels | Meaning |
+| --- | --- | --- | --- |
+| `storage_single_writer_commit_total{outcome="panic"}` | Counter | `kind`, `priority` | A commit panicked past every guard (for instance `sqlitex.Save`'s release panicking on a failed `ROLLBACK TO`) and the shard goroutine's recover converted it to an error for the caller. A panic inside a `runOnShard` closure is counted under `outcome="error"` instead: it is recovered at the closure boundary and fails only its own job. |
+| `storage_single_writer_dirty_connection_total` | Counter | — | A shard commit was about to return a pool connection with an open transaction/savepoint or a stepped, unreset statement (a panic skipped `commit()`'s non-deferred `release`). The connection was rolled back and reset before reuse. |
+| `storage_single_writer_dropped_connection_total` | Counter | — | A dirty connection could not be rolled back and was dropped rather than returned; the pool is permanently one connection smaller. Repeated drops exhaust the pool (`storage_pool_wait_duration_seconds{outcome="timeout"}` rises) and need a pod restart. |
+
 ## Config
 
 Three new fields on `config.Config` (`pkg/config/config.go`), read the same way as every

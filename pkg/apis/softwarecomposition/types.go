@@ -301,13 +301,22 @@ type TimeSeriesContainers struct {
 	TsSuffix                string
 }
 
+// IsCompletedFull reports whether annotations carry the terminal Completed/Full
+// state. It is the one predicate behind "once a profile is completed/full
+// nothing updates it": the status setters below refuse to change such a
+// profile, and the storage layer's consolidation gates (frozen gate, save
+// refusal, divergence heal) evaluate exactly this on the persisted object.
+func IsCompletedFull(annotations map[string]string) bool {
+	return annotations[helpers.StatusMetadataKey] == helpers.Completed && annotations[helpers.CompletionMetadataKey] == helpers.Full
+}
+
 // SetCompletedStatus marks the profile as 'Completed'. The completion state ('Full' or 'Partial') is inherited
 // from the provided timeseries data.
 // It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
 // It returns true if the profile's final state is 'Completed' and 'Full'.
 func (p *ContainerProfile) SetCompletedStatus(ts TimeSeriesContainers) bool {
 	// safeguard: never change a completed full profile
-	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+	if IsCompletedFull(p.Annotations) {
 		return true
 	}
 	p.Annotations[helpers.StatusMetadataKey] = helpers.Completed
@@ -319,7 +328,7 @@ func (p *ContainerProfile) SetCompletedStatus(ts TimeSeriesContainers) bool {
 // It includes a safeguard to prevent any changes if the profile is already 'Completed' and 'Full'.
 func (p *ContainerProfile) SetFailedStatus(_ TimeSeriesContainers) {
 	// safeguard: never change a completed full profile
-	if p.Annotations[helpers.StatusMetadataKey] == helpers.Completed && p.Annotations[helpers.CompletionMetadataKey] == helpers.Full {
+	if IsCompletedFull(p.Annotations) {
 		return
 	}
 	// failed is always completed partial
