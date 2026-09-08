@@ -63,7 +63,7 @@ type ContainerProfileStorage interface {
 	GetTsContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error)
 
 	// SaveContainerProfile creates or updates a container profile. It refuses
-	// (ProfileFrozenError) when the persisted profile is already Completed/Full.
+	// (ErrProfileFrozen) when the persisted profile is already Completed/Full.
 	SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error
 
 	// HealDivergence re-persists, as-is, a base profile whose payload says

@@ -820,7 +820,7 @@ func TestSaveContainerProfile_RefusesWhenPersistedIsCompletedFull(t *testing.T) 
 	c0 := snapshotCounters(t)
 
 	err := h.proc.ConsolidateTimeSeries(context.Background())
-	require.ErrorIs(t, err, ProfileFrozenError)
+	require.ErrorIs(t, err, ErrProfileFrozen)
 	require.True(t, stamped)
 
 	stampedPayload := h.readPayload(t, key)

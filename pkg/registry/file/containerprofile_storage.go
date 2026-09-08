@@ -127,7 +127,7 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
 		if cur, ok := input.(*softwarecomposition.ContainerProfile); ok && softwarecomposition.IsCompletedFull(cur.Annotations) {
 			metrics.IncConsolidationFrozenRefusals()
-			return nil, nil, ProfileFrozenError
+			return nil, nil, ErrProfileFrozen
 		}
 		return profile, nil, nil
 	}
