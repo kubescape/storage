@@ -37,6 +37,15 @@ const (
 	CommitOutcomeCommitted = "committed"
 	CommitOutcomeConflict  = "conflict"
 	CommitOutcomeError     = "error"
+	CommitOutcomePanic     = "panic"
+)
+
+// Outcome label values for SqliteCheckpointTotal.
+const (
+	CheckpointOutcomeOK    = "ok"
+	CheckpointOutcomeBusy  = "busy"
+	CheckpointOutcomeError = "error"
+	CheckpointOutcomePanic = "panic"
 )
 
 // waitBuckets covers sub-millisecond acquisitions up through the ~5s
@@ -135,6 +144,108 @@ var (
 		},
 		[]string{"priority"},
 	)
+
+	// SqliteWriteHoldDuration observes how long the ObjectStore's write gate
+	// was held for one transaction (BEGIN IMMEDIATE through COMMIT/ROLLBACK),
+	// by write "path" (create/update/delete/consolidate). The design's PM-3
+	// detector: with the checkpoint off the commit path this is the fsync and
+	// the page writes, nothing else.
+	SqliteWriteHoldDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_write_hold_seconds",
+			Help:           "Time the ContainerProfile write gate was held for one transaction, by write path.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"path"},
+	)
+
+	// WriteGateWaitDuration observes how long a caller queued for the
+	// ObjectStore's write gate ticket, by "priority" (high/low).
+	WriteGateWaitDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "write_gate_wait_seconds",
+			Help:           "Time a writer queued for the ContainerProfile write gate before its ticket was granted, by priority.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"priority"},
+	)
+
+	// SqliteBusyWaitDuration observes how long BEGIN IMMEDIATE on the gate's
+	// dedicated connection spent in SQLite's busy handler because an ungated
+	// writer (a legacy kind's commit, cleanup.go) held the database lock.
+	SqliteBusyWaitDuration = metrics.NewHistogram(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_busy_wait_seconds",
+			Help:           "Time BEGIN IMMEDIATE on the ContainerProfile write gate's connection waited for SQLite's database lock.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// CPCASConflictTotal counts compare-and-swap conflicts on the ObjectStore
+	// (an UPDATE/DELETE whose rv/uid predicate matched no row), by "op".
+	CPCASConflictTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_cas_conflict_total",
+			Help:           "Count of ContainerProfile compare-and-swap conflicts, by operation.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"op"},
+	)
+
+	// CPOwnershipRefusalTotal counts operations on a ContainerProfile key the
+	// legacy StorageImpl refused because the kind is owned by the ObjectStore
+	// (the kind-ownership guard). Any non-zero value is a mis-wiring.
+	CPOwnershipRefusalTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_ownership_refusal_total",
+			Help:           "Count of legacy StorageImpl operations refused on a kind owned by the ContainerProfile SQLite backend, by operation.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"op"},
+	)
+
+	// SqliteWalPages gauges the WAL size in pages as last observed by the
+	// background checkpointer.
+	SqliteWalPages = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_wal_pages",
+			Help:           "WAL size in pages as last observed by the background PASSIVE checkpointer.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// SqliteFreelistCount gauges PRAGMA freelist_count as last observed by the
+	// background checkpointer (TS profiles are create-then-delete objects; their
+	// pages cycle through the freelist).
+	SqliteFreelistCount = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_freelist_count",
+			Help:           "PRAGMA freelist_count as last observed by the background checkpointer.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// SqliteCheckpointTotal counts background checkpoint runs by "outcome"
+	// (ok/busy/error/panic).
+	SqliteCheckpointTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_checkpoint_total",
+			Help:           "Count of background PASSIVE checkpoint runs, by outcome.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"outcome"},
+	)
 )
 
 func init() {
@@ -144,6 +255,54 @@ func init() {
 	legacyregistry.MustRegister(SingleWriterCommitTotal)
 	legacyregistry.MustRegister(SingleWriterConflictRetryTotal)
 	legacyregistry.MustRegister(SingleWriterQueueDepth)
+	legacyregistry.MustRegister(SqliteWriteHoldDuration)
+	legacyregistry.MustRegister(WriteGateWaitDuration)
+	legacyregistry.MustRegister(SqliteBusyWaitDuration)
+	legacyregistry.MustRegister(CPCASConflictTotal)
+	legacyregistry.MustRegister(CPOwnershipRefusalTotal)
+	legacyregistry.MustRegister(SqliteWalPages)
+	legacyregistry.MustRegister(SqliteFreelistCount)
+	legacyregistry.MustRegister(SqliteCheckpointTotal)
+}
+
+// ObserveSqliteWriteHold records one gated transaction's hold time by path.
+func ObserveSqliteWriteHold(path string, d time.Duration) {
+	SqliteWriteHoldDuration.WithLabelValues(path).Observe(d.Seconds())
+}
+
+// ObserveWriteGateWait records one caller's queue time for a gate ticket.
+func ObserveWriteGateWait(priority string, d time.Duration) {
+	WriteGateWaitDuration.WithLabelValues(priority).Observe(d.Seconds())
+}
+
+// ObserveSqliteBusyWait records how long BEGIN IMMEDIATE waited for the lock.
+func ObserveSqliteBusyWait(d time.Duration) {
+	SqliteBusyWaitDuration.Observe(d.Seconds())
+}
+
+// IncCPCASConflict records one compare-and-swap conflict for op.
+func IncCPCASConflict(op string) {
+	CPCASConflictTotal.WithLabelValues(op).Inc()
+}
+
+// IncCPOwnershipRefusal records one refused legacy operation for op.
+func IncCPOwnershipRefusal(op string) {
+	CPOwnershipRefusalTotal.WithLabelValues(op).Inc()
+}
+
+// SetSqliteWalPages sets the last observed WAL size in pages.
+func SetSqliteWalPages(pages int64) {
+	SqliteWalPages.Set(float64(pages))
+}
+
+// SetSqliteFreelistCount sets the last observed freelist_count.
+func SetSqliteFreelistCount(pages int64) {
+	SqliteFreelistCount.Set(float64(pages))
+}
+
+// IncSqliteCheckpoint records one checkpointer run with the given outcome.
+func IncSqliteCheckpoint(outcome string) {
+	SqliteCheckpointTotal.WithLabelValues(outcome).Inc()
 }
 
 // ObserveLockWait records a lock-hold-wait observation for the given
