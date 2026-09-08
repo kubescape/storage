@@ -45,6 +45,20 @@ call sites are in `pkg/registry/file/storage.go` at each `s.locks.Lock`/`RLock` 
 in place — they remain useful for correlating a specific slow request with its key, which
 the aggregate histograms can't do.
 
+### Consolidation counters (completed-immutability and divergence)
+
+The consolidation pass (`ContainerProfileProcessor.ConsolidateTimeSeries`) enforces
+"once a profile is Completed/Full nothing updates it" on its own write path and heals the
+one crash shape that would otherwise leave a completed profile unannounced. Each guard
+has a counter; every one is expected to be zero or near-zero in steady state.
+
+| Metric | Type | Labels | Meaning |
+| --- | --- | --- | --- |
+| `storage_consolidation_frozen_reclaimed_total` | Counter | `what` (`row`/`object`) | `time_series` rows and TS objects reclaimed unmerged by the frozen gate because the base profile was already Completed/Full when the pass read it. Low and non-zero on multi-replica workloads (each late series is reclaimed once). Rising for one key on many consecutive ticks while `divergence_total{shape="payload_ahead"}` stays at zero means a writer other than consolidation keeps producing rows for a completed profile (an old node-agent ignoring `ObjectCompletedError`, for instance). |
+| `storage_consolidation_frozen_refusals_total` | Counter | — | Consolidation saves refused because the persisted base was Completed/Full at write time (under the per-key lock) although it was not when the pass read it. Expected zero; non-zero names a concurrent completing writer (the Error line at `GuaranteedUpdate - tryUpdate func failed` carries the key). |
+| `storage_consolidation_divergence_total` | Counter | `shape` (`payload_ahead`/`metadata_ahead`) | Payload/metadata divergences observed on a base profile. `payload_ahead` (payload Completed/Full, metadata row not — a process crash or a failed `COMMIT` between the payload rename and the row's commit) counts heals performed; non-zero after no pod restart means a `COMMIT` failed (look for `SQLITE_FULL`/`SQLITE_IOERR`). `metadata_ahead` (the inverse — a lost payload rename after a power loss) is observed and warned, not healed. |
+| `storage_consolidation_heal_failed_total` | Counter | `reason` (`lock_timeout`/`begin`/`read`/`save`) | Failed divergence heals by the step that failed. A failing heal errors the tick before the frozen gate runs, so `frozen_reclaimed_total` does not move; rising for one key on 3+ consecutive ticks is a wedged heal: `lock_timeout` means a same-key writer holds the per-key lock across ticks, `begin` means the database write lock is held past the busy timeout, `save` means the payload directory or the row cannot be written. |
+
 ## Config
 
 Three new fields on `config.Config` (`pkg/config/config.go`), read the same way as every
