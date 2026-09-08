@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -120,13 +121,28 @@ func TestINV4_LegacyStoreRefusesContainerProfileKeys(t *testing.T) {
 		return v
 	}
 
+	// Step 1-L's statement observer: every sqlitex.Execute call site in this
+	// package reports its name at execution time (the authorizer only sees
+	// prepares). The design's INV-4 instrument.
+	var stmts []string
+	var stmtsMu sync.Mutex
+	setStmtObserver(func(site string) { stmtsMu.Lock(); stmts = append(stmts, site); stmtsMu.Unlock() })
+	defer setStmtObserver(nil)
+
 	for _, o := range ops {
 		t.Run(o.name, func(t *testing.T) {
 			fs.ops.Store(0)
 			dv := dataVersion()
+			stmtsMu.Lock()
+			stmts = nil
+			stmtsMu.Unlock()
 			e.rec.start()
 			err := o.run()
 			actions := e.rec.stop()
+			stmtsMu.Lock()
+			executed := append([]string(nil), stmts...)
+			stmtsMu.Unlock()
+			assert.Empty(t, executed, "%s: legacy call sites executed statements after refusal", o.name)
 			require.Error(t, err, "must refuse")
 			assert.True(t, apierrors.IsInternalError(err), "refusal must be an InternalError, got %T: %v", err, err)
 			assert.Contains(t, err.Error(), "owned by the ContainerProfile SQLite backend")

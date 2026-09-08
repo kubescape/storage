@@ -1,5 +1,15 @@
 # Storage measurement harness (work budgets and paired A/B)
 
+> **Backend A/B.** Tier B can compare the two ContainerProfile backends on the
+> same commit: `PERF_AB_BACKEND=objectstore` makes a round drive the SQLite-native
+> `ObjectStore` (`config.ContainerProfileSqliteBackend`, see
+> `containerprofile-sqlite-backend.md`) instead of the legacy `StorageImpl`. The
+> backend is provenance in the round JSON (`backend`), not part of the effective
+> config, so `BASE=HEAD PERF_AB_BASE_ENV="PERF_AB_BACKEND=legacy"
+> PERF_AB_HEAD_ENV="PERF_AB_BACKEND=objectstore" hack/perf-ab.sh` is a valid A/B.
+> The round also has a `list` client class (`list-p99-ms`, headline; the design's
+> PM-1 detector) and records `write-bytes` from `/proc/self/io` (info).
+
 ## Summary
 
 Two instruments for the `pkg/registry/file` hot paths, so that a change to

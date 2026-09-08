@@ -62,7 +62,7 @@ import (
 // perfABHarnessVersion is echoed in every round's JSON. hack/perf-ab.sh
 // overlays this file onto the base worktree, so both arms must report the
 // same value; the driver refuses to compare rounds that do not.
-const perfABHarnessVersion = "1"
+const perfABHarnessVersion = "2"
 
 // ---- tunables (documented defaults; overridable via env for exploration) ----
 
@@ -73,6 +73,18 @@ func envInt(name string, def int) int {
 		}
 	}
 	return def
+}
+
+// loadBackend selects the storage backend a round exercises: "legacy" (the
+// row+gob-file StorageImpl, default) or "objectstore" (the SQLite-native
+// ContainerProfile backend, config.ContainerProfileSqliteBackend). It is NOT
+// part of the effective-config echo, so hack/perf-ab.sh can run the two arms of
+// an A/B from the same commit with PERF_AB_BASE_ENV / PERF_AB_HEAD_ENV.
+func loadBackend() string {
+	if b := os.Getenv("PERF_AB_BACKEND"); b != "" {
+		return b
+	}
+	return "legacy"
 }
 
 func loadPoolSize() int      { return envInt("LOAD_POOL", 6) }
@@ -102,17 +114,20 @@ type loadConfig struct {
 	Writers       int
 	Readers       int
 	Updaters      int
+	Listers       int
 	Consolidators int
 
 	WriterOps  int
 	ReaderOps  int
 	UpdaterOps int
+	ListerOps  int
 	ExtraTicks int
 	Duration   time.Duration
 
 	WriterSleep  time.Duration
 	ReaderSleep  time.Duration
 	UpdaterSleep time.Duration
+	ListerSleep  time.Duration
 	// TickInterval is the gap between consolidation passes; 0 is a zero-gap
 	// loop (the harshest diagnostic setting, and a livelock generator).
 	TickInterval time.Duration
@@ -138,10 +153,12 @@ func perfABConfig() loadConfig {
 		Writers:        6,
 		Readers:        25,
 		Updaters:       3,
+		Listers:        2,
 		Consolidators:  1,
 		WriterOps:      2400,
 		ReaderOps:      12000,
 		UpdaterOps:     1200,
+		ListerOps:      300,
 		ExtraTicks:     3,
 		TickInterval:   250 * time.Millisecond,
 		BusyTimeout:    5 * time.Second,
@@ -169,7 +186,9 @@ func diagnosticConfig() loadConfig {
 	}
 }
 
-func (c loadConfig) fixedWork() bool { return c.WriterOps > 0 || c.ReaderOps > 0 || c.UpdaterOps > 0 }
+func (c loadConfig) fixedWork() bool {
+	return c.WriterOps > 0 || c.ReaderOps > 0 || c.UpdaterOps > 0 || c.ListerOps > 0
+}
 
 // cpTemplate is one testdata TS ContainerProfile plus the derived base
 // (consolidated) key that REST readers GET and the consolidator writes.
@@ -318,38 +337,36 @@ func isTakeConnErr(err error) bool {
 // claim about production.
 func loadPool(t *testing.T, path string, size int, busyTimeout time.Duration) *sqlitemigration.Pool {
 	t.Helper()
-	return sqlitemigration.NewPool(path,
-		sqlitemigration.Schema{
-			Migrations: []string{
-				`CREATE TABLE IF NOT EXISTS metadata (
-					kind TEXT, namespace TEXT, name TEXT, metadata JSON,
-					PRIMARY KEY (kind, namespace, name)
-				);`,
-				`CREATE TABLE IF NOT EXISTS time_series (
-					kind TEXT, namespace TEXT, name TEXT, seriesID TEXT,
-					reportTimestamp TEXT, status TEXT, tsSuffix TEXT, completion TEXT,
-					previousReportTimestamp TEXT, hasData INTEGER DEFAULT 0,
-					PRIMARY KEY (kind, namespace, name, seriesID, tsSuffix)
-				);`,
-			},
-		},
-		sqlitemigration.Options{
-			PoolSize: size,
-			PrepareConn: func(conn *sqlite.Conn) error {
-				conn.SetBusyTimeout(busyTimeout)
-				return nil
-			},
-		})
+	// The production schema (SchemaMigrations, including the ObjectStore's
+	// migrations 3-4); wal_autocheckpoint=0 on every connection exactly as
+	// main.go does when config.ContainerProfileSqliteBackend is on (K-3).
+	return NewPoolWithOptions(path, PoolOptions{
+		Size:                  size,
+		BusyTimeout:           busyTimeout,
+		DisableAutoCheckpoint: loadBackend() == "objectstore",
+	})
 }
 
 // newLoadStorage builds a real StorageImpl + ContainerProfileProcessor over a
 // temp-dir SQLite pool of the given size. Returns storage, processor, pool.
 func newLoadStorage(t *testing.T, poolSize int) (*StorageImpl, *ContainerProfileProcessor, *sqlitemigration.Pool) {
 	t.Helper()
-	return newLoadStorageWith(t, poolSize, loadProcessorWorkers(), 5*time.Second)
+	s, _, processor, pool, _ := newLoadStorageWith(t, poolSize, loadProcessorWorkers(), 5*time.Second)
+	return s, processor, pool
 }
 
-func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Duration) (*StorageImpl, *ContainerProfileProcessor, *sqlitemigration.Pool) {
+// newLoadStorageWith builds the legacy StorageImpl (always: it serves GetSbom
+// and is the flag-default reference) and, when PERF_AB_BACKEND=objectstore, the
+// ObjectStore over the same pool with the legacy instance carrying the
+// kind-ownership guard — the production wiring under
+// config.ContainerProfileSqliteBackend. The returned storage.Interface is the
+// one the load clients drive; closeStore must run before pool.Close (K-5).
+// storeOwnedConns is the number of pool connections the selected backend keeps
+// for its own lifetime (the ObjectStore's write gate owns one); probePoolSize
+// cannot see them, so the effective pool size adds them back.
+var storeOwnedConns int
+
+func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Duration) (*StorageImpl, storage.Interface, *ContainerProfileProcessor, *sqlitemigration.Pool, func()) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "load.sq3")
 	_ = os.Remove(path)
@@ -363,6 +380,7 @@ func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Du
 		MaxContainerProfileSize: 40000,
 		Workers:                 workers,
 	}
+	wd := NewWatchDispatcher()
 	s := &StorageImpl{
 		appFs:           afero.NewMemMapFs(),
 		pool:            pool,
@@ -371,15 +389,24 @@ func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Du
 		root:            DefaultStorageRoot,
 		scheme:          sch,
 		versioner:       storage.APIObjectVersioner{},
-		watchDispatcher: NewWatchDispatcher(),
+		watchDispatcher: wd,
 	}
 	// Exercise the real CollapseConfig provider so PreSave's cached settings
 	// lookup is on the hot path.
 	processor.CollapseSettings = NewCRDCollapseSettingsProvider(s)
+	if loadBackend() == "objectstore" {
+		s.SetForeignKinds(IsContainerProfileKind)
+		// NewObjectStore hands the processor its ContainerProfileStorage.
+		store, err := NewObjectStore(pool, path, wd, sch, processor, s, ObjectStoreOptions{})
+		require.NoError(t, err)
+		storeOwnedConns = 1
+		return s, store, processor, pool, func() { _ = store.Close() }
+	}
 	// Interval 0 => SetStorage does not spawn the maintenance goroutine; the
 	// load goroutines drive ConsolidateTimeSeries explicitly.
 	processor.SetStorage(NewContainerProfileStorageImpl(s, pool))
-	return s, processor, pool
+	storeOwnedConns = 0
+	return s, s, processor, pool, func() {}
 }
 
 // effectiveConfig is read back from the constructed runtime objects, not from
@@ -396,14 +423,17 @@ type effectiveConfig struct {
 	Writers             int    `json:"writers"`
 	Readers             int    `json:"readers"`
 	Updaters            int    `json:"updaters"`
+	Listers             int    `json:"listers"`
 	Consolidators       int    `json:"consolidators"`
 	WriterOps           int    `json:"writer_ops"`
 	ReaderOps           int    `json:"reader_ops"`
 	UpdaterOps          int    `json:"updater_ops"`
+	ListerOps           int    `json:"lister_ops"`
 	ExtraTicks          int    `json:"extra_ticks"`
 	WriterSleepMs       int64  `json:"writer_sleep_ms"`
 	ReaderSleepMs       int64  `json:"reader_sleep_ms"`
 	UpdaterSleepMs      int64  `json:"updater_sleep_ms"`
+	ListerSleepMs       int64  `json:"lister_sleep_ms"`
 	TickIntervalMs      int64  `json:"tick_interval_ms"`
 	BusyTimeoutMs       int64  `json:"busy_timeout_ms"`
 	RequestTimeoutMs    int64  `json:"request_timeout_ms"`
@@ -428,11 +458,23 @@ type metricsSnapshot struct {
 	CommitTotal        map[string]float64  `json:"commit_total"`
 	ConflictRetryTotal map[string]float64  `json:"conflict_retry_total"`
 	QueueDepthMax      map[string]float64  `json:"queue_depth_max"`
+	// The ObjectStore's own series (zero on the legacy arm): where a write
+	// spent its time — queued for the gate ticket, waiting for SQLite's lock
+	// at BEGIN IMMEDIATE, or holding the gate through its statements + COMMIT.
+	GateWait        map[string]histStat `json:"gate_wait"`
+	BusyWait        map[string]histStat `json:"busy_wait"`
+	WriteHold       map[string]histStat `json:"write_hold"`
+	CheckpointTotal map[string]float64  `json:"checkpoint_total"`
+	CASConflict     map[string]float64  `json:"cas_conflict_total"`
 }
 
 // loadReport is one round. Series is the flat view the verdict reads:
 // headline latencies/throughput, contention counts and the hard rows.
 type loadReport struct {
+	// Backend is provenance only (legacy | objectstore); it is deliberately
+	// not in Effective so an A/B of the two backends is not a CONFIG MISMATCH.
+	Backend     string                  `json:"backend"`
+	WriteBytes  int64                   `json:"write_bytes"`
 	Effective   effectiveConfig         `json:"effective"`
 	WallSeconds float64                 `json:"wall_seconds"`
 	OpsPerSec   float64                 `json:"ops_per_s"`
@@ -449,10 +491,11 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		collapseSettingsTTL = cfg.CollapseTTL
 		defer func() { collapseSettingsTTL = oldTTL }()
 	}
-	s, processor, pool := newLoadStorageWith(t, cfg.PoolSize, cfg.Workers, cfg.BusyTimeout)
-	defer func() { _ = pool.Close() }()
+	legacy, s, processor, pool, closeStore := newLoadStorageWith(t, cfg.PoolSize, cfg.Workers, cfg.BusyTimeout)
+	defer func() { closeStore(); _ = pool.Close() }()
 
 	templates := loadTemplates(t)
+	nsListKey := "/spdx.softwarecomposition.kubescape.io/containerprofile/" + templates[0].ns
 
 	// Preseed: create the base testdata TS profiles and consolidate once so
 	// the base keys readers GET and updaters update exist from the start. The
@@ -479,9 +522,11 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	writes := &latencyRec{name: "REST Create (node-agent writers)"}
 	reads := &latencyRec{name: "REST Get (CVE/netpol readers)"}
 	updates := &latencyRec{name: "REST GuaranteedUpdate"}
+	lists := &latencyRec{name: "REST List (metadata / fullSpec)"}
 	ticks := &latencyRec{name: "ConsolidateTimeSeries pass"}
 
 	before := gatherStorageMetrics(t)
+	writeBytesBefore := procWriteBytes()
 	depthMax := newGaugeMaxSampler(t, "storage_single_writer_queue_depth", 100*time.Millisecond)
 
 	stop := make(chan struct{})
@@ -576,6 +621,30 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		}(i)
 	}
 
+	// Listers alternate a metadata LIST of the namespace (kubectl get) with a
+	// fullSpec LIST page (the network-policy generator's read): the design's
+	// PM-1 detector.
+	for i := 0; i < cfg.Listers; i++ {
+		clients.Add(1)
+		go func(id int) {
+			defer clients.Done()
+			for i := 0; keepGoing(i, cfg.ListerOps); i++ {
+				opts := storage.ListOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata, Recursive: true}
+				if i%2 == 1 {
+					opts = storage.ListOptions{ResourceVersion: softwarecomposition.ResourceVersionFullSpec, Recursive: true, Predicate: storage.SelectionPredicate{Limit: 50}}
+				}
+				ctx, cancel := reqCtx()
+				t0 := time.Now()
+				err := s.GetList(ctx, nsListKey, opts, &softwarecomposition.ContainerProfileList{})
+				lists.record(time.Since(t0), err)
+				cancel()
+				if cfg.ListerSleep > 0 {
+					time.Sleep(cfg.ListerSleep)
+				}
+			}
+		}(i)
+	}
+
 	// Consolidators tick on TickInterval until told to stop; in fixed-work
 	// mode they are told to stop after the clients finish plus ExtraTicks.
 	clientsDone := make(chan struct{})
@@ -632,9 +701,11 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		"create": writes.stats(),
 		"get":    reads.stats(),
 		"update": updates.stats(),
+		"list":   lists.stats(),
 		"tick":   ticks.stats(),
 	}
-	totalOps := classes["create"].Ops + classes["get"].Ops + classes["update"].Ops
+	totalOps := classes["create"].Ops + classes["get"].Ops + classes["update"].Ops + classes["list"].Ops
+	writeBytes := procWriteBytes() - writeBytesBefore
 	metricsDelta := diffStorageMetrics(before, after, depthMax.max())
 
 	mode := "time"
@@ -644,22 +715,25 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	eff := effectiveConfig{
 		HarnessVersion:      perfABHarnessVersion,
 		Mode:                mode,
-		PoolSize:            probePoolSize(pool),
-		Shards:              len(s.ensureWriter().shards),
+		PoolSize:            probePoolSize(pool) + storeOwnedConns,
+		Shards:              len(legacy.ensureWriter().shards),
 		Workers:             processor.Workers,
 		GOMAXPROCS:          runtime.GOMAXPROCS(0),
 		SingleWriterEnabled: singleWriterEnabled,
 		Writers:             cfg.Writers,
 		Readers:             cfg.Readers,
 		Updaters:            cfg.Updaters,
+		Listers:             cfg.Listers,
 		Consolidators:       cfg.Consolidators,
 		WriterOps:           cfg.WriterOps,
 		ReaderOps:           cfg.ReaderOps,
 		UpdaterOps:          cfg.UpdaterOps,
+		ListerOps:           cfg.ListerOps,
 		ExtraTicks:          cfg.ExtraTicks,
 		WriterSleepMs:       cfg.WriterSleep.Milliseconds(),
 		ReaderSleepMs:       cfg.ReaderSleep.Milliseconds(),
 		UpdaterSleepMs:      cfg.UpdaterSleep.Milliseconds(),
+		ListerSleepMs:       cfg.ListerSleep.Milliseconds(),
 		TickIntervalMs:      cfg.TickInterval.Milliseconds(),
 		BusyTimeoutMs:       cfg.BusyTimeout.Milliseconds(),
 		RequestTimeoutMs:    cfg.RequestTimeout.Milliseconds(),
@@ -669,6 +743,8 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	}
 
 	rep := loadReport{
+		Backend:     loadBackend(),
+		WriteBytes:  writeBytes,
 		Effective:   eff,
 		WallSeconds: wall.Seconds(),
 		OpsPerSec:   float64(totalOps) / wall.Seconds(),
@@ -680,6 +756,13 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		"create-p99-ms":            classes["create"].P99Ms,
 		"update-p99-ms":            classes["update"].P99Ms,
 		"update-p95-ms":            classes["update"].P95Ms,
+		"list-p99-ms":              classes["list"].P99Ms,
+		"list-p95-ms":              classes["list"].P95Ms,
+		"list-p50-ms":              classes["list"].P50Ms,
+		"write-bytes":              float64(writeBytes),
+		"gate-wait-p99-ms":         1000 * maxHistP99(metricsDelta.GateWait),
+		"busy-wait-p99-ms":         1000 * maxHistP99(metricsDelta.BusyWait),
+		"write-hold-p99-ms":        1000 * maxHistP99(metricsDelta.WriteHold),
 		"tick-p50-ms":              classes["tick"].P50Ms,
 		"tick-p99-ms":              classes["tick"].P99Ms,
 		"tick-total-s":             classes["tick"].TotalS,
@@ -688,12 +771,30 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		"lock-wait-timeouts":       sumHistCount(metricsDelta.LockWait, "outcome=timeout"),
 		"pool-wait-timeouts":       sumHistCount(metricsDelta.PoolWait, "outcome=timeout"),
 		"commit-conflict-rate-pct": conflictRatePct(metricsDelta.CommitTotal),
-		"err-other":                float64(classes["create"].Other + classes["get"].Other + classes["update"].Other + classes["tick"].Other),
-		"over-five-sec":            float64(classes["create"].OverFiveSec + classes["get"].OverFiveSec + classes["update"].OverFiveSec + classes["tick"].OverFiveSec),
-		"over-one-sec":             float64(classes["create"].OverOneSec + classes["get"].OverOneSec + classes["update"].OverOneSec + classes["tick"].OverOneSec),
+		"err-other":                float64(classes["create"].Other + classes["get"].Other + classes["update"].Other + classes["list"].Other + classes["tick"].Other),
+		"over-five-sec":            float64(classes["create"].OverFiveSec + classes["get"].OverFiveSec + classes["update"].OverFiveSec + classes["list"].OverFiveSec + classes["tick"].OverFiveSec),
+		"over-one-sec":             float64(classes["create"].OverOneSec + classes["get"].OverOneSec + classes["update"].OverOneSec + classes["list"].OverOneSec + classes["tick"].OverOneSec),
 		"commit-panic":             sumByLabel(metricsDelta.CommitTotal, "outcome=panic"),
 	}
 	return rep
+}
+
+// procWriteBytes reads write_bytes from /proc/self/io (bytes the process caused
+// to be sent to the storage layer); 0 when unavailable. Under WAL every payload
+// byte is written twice (WAL, then checkpoint) where the legacy store writes it
+// once plus a row, so the A/B records the cost as a number (design C.14).
+func procWriteBytes() int64 {
+	data, err := os.ReadFile("/proc/self/io")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "write_bytes:") {
+			n, _ := strconv.ParseInt(strings.TrimSpace(strings.TrimPrefix(line, "write_bytes:")), 10, 64)
+			return n
+		}
+	}
+	return 0
 }
 
 // probePoolSize reads the pool's capacity back from the pool itself: it takes
@@ -734,11 +835,16 @@ var storageHistFamilies = map[string]string{
 	"storage_lock_wait_duration_seconds":                "lock_wait",
 	"storage_pool_wait_duration_seconds":                "pool_wait",
 	"storage_single_writer_queue_wait_duration_seconds": "queue_wait",
+	"storage_write_gate_wait_seconds":                   "gate_wait",
+	"storage_sqlite_busy_wait_seconds":                  "busy_wait",
+	"storage_sqlite_write_hold_seconds":                 "write_hold",
 }
 
 var storageCounterFamilies = map[string]string{
 	"storage_single_writer_commit_total":         "commit_total",
 	"storage_single_writer_conflict_retry_total": "conflict_retry_total",
+	"storage_sqlite_checkpoint_total":            "checkpoint_total",
+	"storage_cp_cas_conflict_total":              "cas_conflict_total",
 }
 
 func labelKey(m *dto.Metric) string {
@@ -824,8 +930,14 @@ func diffStorageMetrics(before, after rawMetrics, depthMax map[string]float64) m
 		CommitTotal:        map[string]float64{},
 		ConflictRetryTotal: map[string]float64{},
 		QueueDepthMax:      depthMax,
+		GateWait:           map[string]histStat{},
+		BusyWait:           map[string]histStat{},
+		WriteHold:          map[string]histStat{},
+		CheckpointTotal:    map[string]float64{},
+		CASConflict:        map[string]float64{},
 	}
-	histOut := map[string]map[string]histStat{"lock_wait": out.LockWait, "pool_wait": out.PoolWait, "queue_wait": out.QueueWait}
+	histOut := map[string]map[string]histStat{"lock_wait": out.LockWait, "pool_wait": out.PoolWait, "queue_wait": out.QueueWait,
+		"gate_wait": out.GateWait, "busy_wait": out.BusyWait, "write_hold": out.WriteHold}
 	for fam, series := range after.hists {
 		for labels, a := range series {
 			b := before.hists[fam][labels]
@@ -836,13 +948,25 @@ func diffStorageMetrics(before, after rawMetrics, depthMax map[string]float64) m
 			histOut[fam][labels] = histStat{Count: a.count - b.count, Sum: a.sum - b.sum, P99: histQuantile(0.99, delta)}
 		}
 	}
-	counterOut := map[string]map[string]float64{"commit_total": out.CommitTotal, "conflict_retry_total": out.ConflictRetryTotal}
+	counterOut := map[string]map[string]float64{"commit_total": out.CommitTotal, "conflict_retry_total": out.ConflictRetryTotal,
+		"checkpoint_total": out.CheckpointTotal, "cas_conflict_total": out.CASConflict}
 	for fam, series := range after.counters {
 		for labels, a := range series {
 			counterOut[fam][labels] = a - before.counters[fam][labels]
 		}
 	}
 	return out
+}
+
+// maxHistP99 is the largest per-label p99 of a histogram family (seconds).
+func maxHistP99(series map[string]histStat) float64 {
+	var m float64
+	for _, h := range series {
+		if h.Count > 0 && h.P99 > m {
+			m = h.P99
+		}
+	}
+	return m
 }
 
 func sumHistCount(series map[string]histStat, labelContains string) float64 {
@@ -958,6 +1082,8 @@ func TestPerfABRound(t *testing.T) {
 			unit = "ops/s"
 		case n == "wall-s", n == "tick-total-s":
 			unit = "s"
+		case n == "write-bytes":
+			unit = "B"
 		case strings.HasSuffix(n, "-pct"):
 			unit = "pct"
 		case !strings.HasSuffix(n, "-ms"):
@@ -965,7 +1091,7 @@ func TestPerfABRound(t *testing.T) {
 		}
 		fmt.Printf("BenchmarkPerfAB/%s 1 %.4f %s\n", n, rep.Series[n], unit)
 	}
-	t.Logf("perf-ab round: wall=%.2fs ops/s=%.0f effective=%+v", rep.WallSeconds, rep.OpsPerSec, rep.Effective)
+	t.Logf("perf-ab round: backend=%s wall=%.2fs ops/s=%.0f write_bytes=%d effective=%+v", rep.Backend, rep.WallSeconds, rep.OpsPerSec, rep.WriteBytes, rep.Effective)
 }
 
 // TestContainerProfileLoad is the time-boxed diagnostic; see the file comment.
@@ -977,7 +1103,7 @@ func TestContainerProfileLoad(t *testing.T) {
 	rep := runLoadScenario(t, cfg)
 	t.Logf("=== ContainerProfile load diagnostic: pool=%d writers=%d readers=%d updaters=%d consolidators=%d workers=%d tickInterval=%s dur=%s wall=%.2fs ===",
 		cfg.PoolSize, cfg.Writers, cfg.Readers, cfg.Updaters, cfg.Consolidators, cfg.Workers, cfg.TickInterval, cfg.Duration, rep.WallSeconds)
-	for _, name := range []string{"create", "get", "update", "tick"} {
+	for _, name := range []string{"create", "get", "update", "list", "tick"} {
 		c := rep.Classes[name]
 		t.Logf("== %s == ops=%d ok=%d serverTimeout=%d takeConn=%d other=%d p50=%.2fms p95=%.2fms p99=%.2fms max=%.2fms >1s=%d >5s=%d",
 			name, c.Ops, c.OK, c.ServerTimeout, c.TakeConn, c.Other, c.P50Ms, c.P95Ms, c.P99Ms, c.MaxMs, c.OverOneSec, c.OverFiveSec)

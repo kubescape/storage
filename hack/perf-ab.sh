@@ -13,6 +13,11 @@
 #   PERF_AB_OUT_DIR      where rounds, logs, schedule.txt and verdict.txt go
 #   PERF_AB_ALLOW_NOISY  1 to run despite a high 1-minute load average (verdict stamped "(noisy)")
 #   PERF_AB_KEEP         1 to keep the base worktree and build artifacts
+#   PERF_AB_BASE_ENV     extra KEY=VALUE pairs (space-separated) for the base arm's rounds
+#   PERF_AB_HEAD_ENV     ... for the head arm's rounds. With BASE=HEAD this turns the A/B
+#                        into a same-commit comparison of two configurations, e.g.
+#                        PERF_AB_BASE_ENV="PERF_AB_BACKEND=legacy"
+#                        PERF_AB_HEAD_ENV="PERF_AB_BACKEND=objectstore"
 #
 # Exit codes: 0 PASS, 1 REGRESSION, 2 CONFIG MISMATCH (or base cannot host
 # HEAD's harness), 3 INCONCLUSIVE, 4 UNDERPOWERED.
@@ -78,7 +83,9 @@ PIN=(env "GOMAXPROCS=$GOMAXPROCS_PIN")
 if command -v taskset >/dev/null 2>&1; then
   PIN=(taskset -c "$CPUSET" env "GOMAXPROCS=$GOMAXPROCS_PIN")
 fi
-log "head=$HEAD_SHA base=$BASE_SHA pairs=$PAIRS probe=$PROBE_ROUNDS cpuset=$CPUSET GOMAXPROCS=$GOMAXPROCS_PIN out=$OUT"
+BASE_ENV=${PERF_AB_BASE_ENV:-}
+HEAD_ENV=${PERF_AB_HEAD_ENV:-}
+log "head=$HEAD_SHA base=$BASE_SHA pairs=$PAIRS probe=$PROBE_ROUNDS cpuset=$CPUSET GOMAXPROCS=$GOMAXPROCS_PIN out=$OUT base_env='$BASE_ENV' head_env='$HEAD_ENV'"
 
 # 3. Build both binaries with the same harness: HEAD's harness files are
 #    overlaid onto the base worktree before `go test -c`.
@@ -109,20 +116,21 @@ SCHEDULE=$OUT/schedule.txt
 # fresh temp DB (t.TempDir). Appends the bench lines and a schedule record.
 run_round() {
   local arm=$1 label=$2 pair=$3
-  local bin="$OUT/$arm.test" dir json l marked
+  local bin="$OUT/$arm.test" dir json l marked armenv
   case $arm in
-    base) dir="$BASE_WT/$PKG" ;;
-    head) dir="$ROOT/$PKG" ;;
+    base) dir="$BASE_WT/$PKG"; armenv=$BASE_ENV ;;
+    head) dir="$ROOT/$PKG"; armenv=$HEAD_ENV ;;
   esac
   json="$OUT/$label.json"
   l=$(load1)
   marked=0
   if awk -v l="$l" -v b="$LOAD_BOUND" 'BEGIN{exit !(l > b)}'; then marked=1; fi
   log "round $label (arm=$arm pair=$pair load1=$l marked=$marked)"
-  (cd "$dir" && PERF_AB_OUT="$json" "${PIN[@]}" "$bin" -test.run '^TestPerfABRound$' -test.v -test.timeout 30m >"$OUT/$label.log" 2>&1) \
+  # shellcheck disable=SC2086  # armenv is a deliberate word-split list of KEY=VALUE
+  (cd "$dir" && PERF_AB_OUT="$json" "${PIN[@]}" $armenv "$bin" -test.run '^TestPerfABRound$' -test.v -test.timeout 30m >"$OUT/$label.log" 2>&1) \
     || { tail -n 30 "$OUT/$label.log"; die "round $label failed; see $OUT/$label.log" 2; }
   grep '^BenchmarkPerfAB/' "$OUT/$label.log" >>"$OUT/$arm.txt" || true
-  printf 'pair=%s arm=%s label=%s start=%s load1=%s marked=%s\n' "$pair" "$arm" "$label" "$(date +%FT%T)" "$l" "$marked" >>"$SCHEDULE"
+  printf 'pair=%s arm=%s label=%s start=%s load1=%s marked=%s env=%s\n' "$pair" "$arm" "$label" "$(date +%FT%T)" "$l" "$marked" "${armenv:-}" >>"$SCHEDULE"
 }
 
 # 4. Early-abort noise probe: A A A on base. Decides nothing else.
