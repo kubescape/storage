@@ -34,6 +34,65 @@ const DefaultPoolSize = 10
 // unset.
 const DefaultBusyTimeout = 60 * time.Second
 
+// SchemaMigrations returns the ordered SQLite migrations sqlitemigration
+// applies to the metadata database. Migrations 3 and 4 are additive: the
+// nullable rv/uid columns and the payloads table are written only by the
+// ContainerProfile SQLite-native backend (ObjectStore); the legacy
+// StorageImpl keeps writing (kind, namespace, name, metadata) and leaves them
+// NULL / empty for every other kind.
+func SchemaMigrations() []string {
+	return []string{
+		`CREATE TABLE IF NOT EXISTS metadata (
+			kind TEXT,
+			namespace TEXT,
+			name TEXT,
+			metadata JSON,
+			PRIMARY KEY (kind, namespace, name)
+		);`,
+		`CREATE TABLE IF NOT EXISTS time_series (
+			kind TEXT,
+			namespace TEXT,
+			name TEXT,
+			seriesID TEXT,
+			reportTimestamp TEXT,
+			status TEXT,
+			tsSuffix TEXT,
+			completion TEXT,
+			previousReportTimestamp TEXT,
+			hasData INTEGER DEFAULT 0,
+			PRIMARY KEY (kind, namespace, name, seriesID, tsSuffix)
+		);`,
+		`ALTER TABLE metadata ADD COLUMN rv INTEGER;`,
+		`ALTER TABLE metadata ADD COLUMN uid TEXT;`,
+		`CREATE TABLE IF NOT EXISTS payloads (
+			kind TEXT NOT NULL,
+			namespace TEXT NOT NULL,
+			name TEXT NOT NULL,
+			encoding TEXT NOT NULL,
+			body BLOB NOT NULL,
+			PRIMARY KEY (kind, namespace, name)
+		);`,
+	}
+}
+
+// PoolOptions configures NewPoolWithOptions.
+type PoolOptions struct {
+	// Size is the pool capacity; non-positive falls back to DefaultPoolSize.
+	Size int
+	// BusyTimeout is the per-connection busy-timeout; non-positive falls back
+	// to DefaultBusyTimeout.
+	BusyTimeout time.Duration
+	// DisableAutoCheckpoint sets PRAGMA wal_autocheckpoint=0 on EVERY pool
+	// connection. Autocheckpoint is a per-connection sqlite3_wal_hook, so
+	// setting it on one connection leaves the others checkpointing inside
+	// their own COMMIT; the ObjectStore's background PASSIVE checkpointer
+	// takes over that job. Off by default so flag-off is byte-identical.
+	DisableAutoCheckpoint bool
+	// PrepareConn, when set, runs on every connection after the standard
+	// preparation (tests install statement authorizers through it).
+	PrepareConn func(conn *sqlite.Conn) error
+}
+
 // NewPool creates a new SQLite connection pool at the given path.
 // It returns an error if the connection cannot be opened or the database cannot be initialized.
 // It is your responsibility to call conn.Close() when you no longer need conn.
@@ -43,37 +102,21 @@ const DefaultBusyTimeout = 60 * time.Second
 // DefaultBusyTimeout respectively. Both are operator-tunable via
 // config.Config (SqlitePoolSize / SqliteBusyTimeout) — see pkg/config.
 func NewPool(path string, size int, busyTimeout time.Duration) *sqlitemigration.Pool {
+	return NewPoolWithOptions(path, PoolOptions{Size: size, BusyTimeout: busyTimeout})
+}
+
+// NewPoolWithOptions is NewPool with the full option set.
+func NewPoolWithOptions(path string, opts PoolOptions) *sqlitemigration.Pool {
+	size := opts.Size
 	if size < 1 {
 		size = DefaultPoolSize
 	}
+	busyTimeout := opts.BusyTimeout
 	if busyTimeout <= 0 {
 		busyTimeout = DefaultBusyTimeout
 	}
 	return sqlitemigration.NewPool(path,
-		sqlitemigration.Schema{
-			Migrations: []string{
-				`CREATE TABLE IF NOT EXISTS metadata (
-					kind TEXT,
-					namespace TEXT,
-					name TEXT,
-					metadata JSON,
-					PRIMARY KEY (kind, namespace, name)
-				);`,
-				`CREATE TABLE IF NOT EXISTS time_series (
-    				kind TEXT,
-					namespace TEXT,
-					name TEXT,
-					seriesID TEXT,
-					reportTimestamp TEXT,
-					status TEXT,
-					tsSuffix TEXT,
-					completion TEXT,
-					previousReportTimestamp TEXT,
-					hasData INTEGER DEFAULT 0,
-					PRIMARY KEY (kind, namespace, name, seriesID, tsSuffix)
-				);`,
-			},
-		},
+		sqlitemigration.Schema{Migrations: SchemaMigrations()},
 		sqlitemigration.Options{
 			PoolSize: size,
 			// Under write bursts (per-container profile churn plus the
@@ -82,6 +125,14 @@ func NewPool(path string, size int, busyTimeout time.Duration) *sqlitemigration.
 			// "database is locked" to API clients. Wait instead of failing.
 			PrepareConn: func(conn *sqlite.Conn) error {
 				conn.SetBusyTimeout(busyTimeout)
+				if opts.DisableAutoCheckpoint {
+					if err := sqlitex.ExecuteTransient(conn, `PRAGMA wal_autocheckpoint=0`, nil); err != nil {
+						return fmt.Errorf("disable wal_autocheckpoint: %w", err)
+					}
+				}
+				if opts.PrepareConn != nil {
+					return opts.PrepareConn(conn)
+				}
 				return nil
 			},
 		})
