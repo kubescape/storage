@@ -384,3 +384,41 @@ func TestProcessTimeSeriesInTransaction_PanicLeavesNoOpenTransaction(t *testing.
 	}
 }
 
+
+// ---------------------------------------------------------------------------
+// Finding T — INV-PROCESSED: gate 1 (no InstanceID, nothing saved) returns no
+// processed keys, so the unsaved merge's objects are not deleted.
+// ---------------------------------------------------------------------------
+
+// TestUpdateProfile_MissingInstanceID_ProcessedIsNil pins finding T. The base
+// does not exist and the TS profiles carry NO InstanceID annotation
+// (mergeContainerProfileTS merges annotations, so one on a TS object would put
+// the key on the profile and gate 1 would never be reached).
+//
+// Fails today: processed names the merged TS keys, their objects are deleted,
+// and the merge they carried was never persisted.
+func TestUpdateProfile_MissingInstanceID_ProcessedIsNil(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "finding-t"
+	key := lane0Key(ns, name)
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(5), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	tsKey := h.writeTsObject(t, key, "1", "ts-A", false)
+	w := h.watchKey(t, key)
+
+	ctx, cleanup, err := h.proc.ContainerProfileStorage.WithConnection(context.Background())
+	require.NoError(t, err)
+	defer cleanup()
+	rows, err := h.proc.ContainerProfileStorage.ListTimeSeriesContainers(ctx, key)
+	require.NoError(t, err)
+	profile, id, prefix, root, err := h.proc.loadOrInitializeProfile(ctx, key)
+	require.NoError(t, err)
+
+	processed, err := h.proc.processTimeSeriesInTransaction(ctx, rows, key, profile, prefix, root, id, false)
+	require.NoError(t, err)
+	require.Nil(t, processed, "nothing was persisted, so nothing may be scheduled for deletion")
+
+	require.NoError(t, h.proc.deleteProcessedTimeSeries(ctx, processed))
+	require.True(t, h.objectExists(t, tsKey), "the TS object must survive an unsaved merge")
+	require.False(t, h.objectExists(t, key), "gate 1 saves nothing")
+	require.Empty(t, drainEvents(w, 100*time.Millisecond))
+}

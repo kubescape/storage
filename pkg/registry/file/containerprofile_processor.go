@@ -641,9 +641,12 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 
 	if _, ok := profile.Annotations[helpers.InstanceIDMetadataKey]; !ok {
 		// Without an InstanceID annotation we cannot derive the workload slug,
-		// so the observed save has no target.
+		// so the observed save has no target. INV-PROCESSED: a tsKey is returned
+		// only when the profile it was merged into was persisted by this pass
+		// (or reclaimed unmerged by the frozen gate); returning the merged keys
+		// here would delete their objects while the merge itself is lost.
 		logger.L().Debug("ContainerProfileProcessor.updateProfile - skip saving invalid profile", loggerhelpers.String("key", key), loggerhelpers.Interface("profile", profile))
-		return processed, nil
+		return nil, nil
 	}
 
 	// Persist the canonical observed CP only when time-series consolidation
