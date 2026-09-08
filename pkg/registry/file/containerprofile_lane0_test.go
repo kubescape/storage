@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -81,7 +82,9 @@ type hookedCPStorage struct {
 }
 
 func (h *hookedCPStorage) GetContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error) {
-	next := func() (softwarecomposition.ContainerProfile, error) { return h.ContainerProfileStorage.GetContainerProfile(ctx, key) }
+	next := func() (softwarecomposition.ContainerProfile, error) {
+		return h.ContainerProfileStorage.GetContainerProfile(ctx, key)
+	}
 	if h.getProfile != nil {
 		return h.getProfile(ctx, key, next)
 	}
@@ -89,7 +92,9 @@ func (h *hookedCPStorage) GetContainerProfile(ctx context.Context, key string) (
 }
 
 func (h *hookedCPStorage) GetTsContainerProfile(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error) {
-	next := func() (softwarecomposition.ContainerProfile, error) { return h.ContainerProfileStorage.GetTsContainerProfile(ctx, key) }
+	next := func() (softwarecomposition.ContainerProfile, error) {
+		return h.ContainerProfileStorage.GetTsContainerProfile(ctx, key)
+	}
 	if h.getTs != nil {
 		return h.getTs(ctx, key, next)
 	}
@@ -107,7 +112,9 @@ func (h *hookedCPStorage) ListTimeSeriesContainers(ctx context.Context, key stri
 }
 
 func (h *hookedCPStorage) ReplaceTimeSeriesContainerEntries(ctx context.Context, key, seriesID string, del []string, ins []softwarecomposition.TimeSeriesContainers) error {
-	next := func() error { return h.ContainerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, key, seriesID, del, ins) }
+	next := func() error {
+		return h.ContainerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, key, seriesID, del, ins)
+	}
 	if h.replace != nil {
 		return h.replace(ctx, key, seriesID, del, ins, next)
 	}
@@ -384,7 +391,6 @@ func TestProcessTimeSeriesInTransaction_PanicLeavesNoOpenTransaction(t *testing.
 	}
 }
 
-
 // ---------------------------------------------------------------------------
 // Finding T — INV-PROCESSED: gate 1 (no InstanceID, nothing saved) returns no
 // processed keys, so the unsaved merge's objects are not deleted.
@@ -421,4 +427,223 @@ func TestUpdateProfile_MissingInstanceID_ProcessedIsNil(t *testing.T) {
 	require.True(t, h.objectExists(t, tsKey), "the TS object must survive an unsaved merge")
 	require.False(t, h.objectExists(t, key), "gate 1 saves nothing")
 	require.Empty(t, drainEvents(w, 100*time.Millisecond))
+}
+
+// ---------------------------------------------------------------------------
+// Finding U — a transiently unreadable TS row is neither deleted unmerged nor
+// consolidated across; it is retried next tick.
+// ---------------------------------------------------------------------------
+
+// seedChain writes a continuous three-row series R2 -> R1 -> R0 (newest
+// first, tail at the zero time) with objects, and returns the TS keys by suffix.
+func (h *lane0Harness) seedChain(t *testing.T, ns, name, series string, newestStatus, newestCompletion string) map[string]string {
+	t.Helper()
+	key := lane0Key(ns, name)
+	h.seedTsRow(t, ns, name, series, "2", lane0Ts(1), lane0Ts(2), newestStatus, newestCompletion, true)
+	h.seedTsRow(t, ns, name, series, "1", lane0Ts(2), lane0Ts(3), helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, series, "0", lane0Ts(3), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	return map[string]string{
+		"2": h.writeTsObject(t, key, "2", "ts-2", true),
+		"1": h.writeTsObject(t, key, "1", "ts-1", true),
+		"0": h.writeTsObject(t, key, "0", "ts-0", true),
+	}
+}
+
+// failTsReadOnce makes the read of tsKey fail once with a non-NotFound error.
+func (h *lane0Harness) failTsReadOnce(tsKey string) *int {
+	failures := 0
+	h.hooks.getTs = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
+		if k == tsKey && failures == 0 {
+			failures++
+			return softwarecomposition.ContainerProfile{}, errors.New("injected transient read error")
+		}
+		return next()
+	}
+	return &failures
+}
+
+func specHasExec(spec softwarecomposition.ContainerProfileSpec, tag string) bool {
+	for _, e := range spec.Execs {
+		if e.Path == "/bin/"+tag {
+			return true
+		}
+	}
+	return false
+}
+
+// U-1: the transient row is not the chain head. Today it is collapsed into
+// its newer neighbour, its suffix is deleted and its object never merged.
+func TestMergeTimeSeries_TransientReadOnNonHeadRow_SurvivesAndHealsWithoutFork(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "u1"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	tsKeys := h.seedChain(t, ns, name, "A", helpersv1.Completed, helpersv1.Full)
+	before := h.listRows(t, key)
+	r1Before, _ := findRow(before, "A", "1")
+	r2Before, _ := findRow(before, "A", "2")
+	failures := h.failTsReadOnce(tsKeys["1"])
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	require.Equal(t, 1, *failures)
+
+	rows := h.listRows(t, key)
+	r1, ok := findRow(rows, "A", "1")
+	require.True(t, ok, "R1's row must survive the transient read")
+	require.True(t, r1.HasData)
+	require.Equal(t, r1Before.PreviousReportTimestamp, r1.PreviousReportTimestamp)
+	r2, ok := findRow(rows, "A", "2")
+	require.True(t, ok)
+	require.Equal(t, r2Before.PreviousReportTimestamp, r2.PreviousReportTimestamp, "R2 must not be collapsed across R1")
+	require.True(t, h.objectExists(t, tsKeys["1"]), "R1's object must survive")
+	p := h.readPayload(t, key)
+	require.NotEqual(t, helpersv1.Completed, p.Annotations[helpersv1.StatusMetadataKey], "the profile cannot complete without R1's data")
+
+	// Next tick the read succeeds: the chain collapses to nothing left to do and the profile is Completed/Full with R1's payload.
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	require.Equal(t, 1, *failures)
+	p = h.readPayload(t, key)
+	require.Equal(t, helpersv1.Completed, p.Annotations[helpersv1.StatusMetadataKey])
+	require.Equal(t, helpersv1.Full, p.Annotations[helpersv1.CompletionMetadataKey])
+	require.True(t, specHasExec(p.Spec, "ts-1"), "R1's distinctive payload must be merged")
+	require.Equal(t, 0, countRows(h.listRows(t, key)), "the finished series is cleared")
+	require.False(t, h.objectExists(t, tsKeys["1"]))
+}
+
+// U-2: the transient row is the chain head and Completed/Full. Today the
+// chain collapses onto it, the terminal branch fires on the unmerged row and
+// the profile is stamped Full without its data (U-b).
+func TestMergeTimeSeries_TransientReadOnHeadRow_DoesNotCompleteUnmerged(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "u2"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	tsKeys := h.seedChain(t, ns, name, "A", helpersv1.Completed, helpersv1.Full)
+	before := h.listRows(t, key)
+	r2Before, _ := findRow(before, "A", "2")
+	var processedSeen []string
+	h.hooks.replace = func(ctx context.Context, k, seriesID string, del []string, ins []softwarecomposition.TimeSeriesContainers, next func() error) error {
+		processedSeen = append(processedSeen, del...)
+		return next()
+	}
+	failures := h.failTsReadOnce(tsKeys["2"])
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	require.Equal(t, 1, *failures)
+
+	rows := h.listRows(t, key)
+	r2, ok := findRow(rows, "A", "2")
+	require.True(t, ok, "R2's row must survive")
+	require.True(t, r2.HasData)
+	require.Equal(t, r2Before.PreviousReportTimestamp, r2.PreviousReportTimestamp)
+	require.NotContains(t, processedSeen, "2", "R2 must not be in the pass's delete list")
+	require.True(t, h.objectExists(t, tsKeys["2"]), "R2's object must survive")
+	// R1/R0 are legitimately merged and collapsed into one HasData=false row.
+	require.Equal(t, 2, countRows(rows))
+	p := h.readPayload(t, key)
+	require.NotEqual(t, helpersv1.Completed, p.Annotations[helpersv1.StatusMetadataKey], "the profile must not complete on an unmerged head row")
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	p = h.readPayload(t, key)
+	require.Equal(t, helpersv1.Completed, p.Annotations[helpersv1.StatusMetadataKey])
+	require.Equal(t, helpersv1.Full, p.Annotations[helpersv1.CompletionMetadataKey])
+	require.True(t, specHasExec(p.Spec, "ts-2"))
+}
+
+// U-3: pins the !HasData arm's append — an already-merged row that
+// consolidateContinuousTimeSeries collapses is deleted after the pass.
+func TestMergeTimeSeries_HasDataFalseRow_CollapsedRowIsDeleted(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "u3"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+	h.writeTsObject(t, key, "1", "ts-1", true)
+	h.seedTsRow(t, ns, name, "A", "0", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, false)
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+
+	rows := h.listRows(t, key)
+	_, ok := findRow(rows, "A", "0")
+	require.False(t, ok, "the collapsed HasData=false row must be deleted")
+	r1, ok := findRow(rows, "A", "1")
+	require.True(t, ok)
+	require.False(t, r1.HasData)
+	require.Equal(t, lane0ZeroTime, r1.PreviousReportTimestamp, "R0 was absorbed into R1")
+}
+
+// U-4: every row of one series fails; no panic, no statement for that series,
+// its rows untouched; a sibling series under the same key is processed.
+func TestMergeTimeSeries_AllRowsTransient_NoWriteNoPanic(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "u4"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	h.seedTsRow(t, ns, name, "A", "A2", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "A1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.writeTsObject(t, key, "A2", "ts-A2", true)
+	h.writeTsObject(t, key, "A1", "ts-A1", true)
+	h.seedTsRow(t, ns, name, "B", "B1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	tsB := h.writeTsObject(t, key, "B1", "ts-B1", true)
+
+	h.hooks.getTs = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
+		if k == key+"-A2" || k == key+"-A1" {
+			return softwarecomposition.ContainerProfile{}, errors.New("injected transient read error")
+		}
+		return next()
+	}
+	replaces := map[string]int{}
+	h.hooks.replace = func(ctx context.Context, k, seriesID string, del []string, ins []softwarecomposition.TimeSeriesContainers, next func() error) error {
+		replaces[seriesID]++
+		return next()
+	}
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+
+	require.Equal(t, 0, replaces["A"], "no statement may run for an all-transient series")
+	require.Equal(t, 1, replaces["B"])
+	rows := h.listRows(t, key)
+	for _, suffix := range []string{"A2", "A1"} {
+		r, ok := findRow(rows, "A", suffix)
+		require.True(t, ok)
+		require.True(t, r.HasData, "series A rows must be untouched")
+	}
+	require.True(t, h.objectExists(t, key+"-A2"))
+	rB, ok := findRow(rows, "B", "B1")
+	require.True(t, ok)
+	require.False(t, rB.HasData)
+	require.False(t, h.objectExists(t, tsB), "series B was merged and its object deleted")
+	require.True(t, specHasExec(h.readPayload(t, key).Spec, "ts-B1"))
+}
+
+// U-5 (characterisation): a read that fails on every tick keeps its row and
+// keeps the key enumerated; it is retried each tick (the Warning per tick is
+// not asserted: the package logger has no capture seam).
+func TestMergeTimeSeries_PermanentReadFailure_RowSurvivesAndKeyStaysEnumerated(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "u5"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
+	reads := 0
+	h.hooks.getTs = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
+		reads++
+		return softwarecomposition.ContainerProfile{}, errors.New("injected permanent read error")
+	}
+
+	for tick := 1; tick <= 3; tick++ {
+		require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+		require.Equal(t, tick, reads, "the read is retried every tick")
+		r, ok := findRow(h.listRows(t, key), "A", "1")
+		require.True(t, ok)
+		require.True(t, r.HasData)
+		require.True(t, h.objectExists(t, tsKey))
+		ctx, cleanup, err := h.proc.ContainerProfileStorage.WithConnection(context.Background())
+		require.NoError(t, err)
+		keys, err := h.proc.ContainerProfileStorage.ListTimeSeriesWithData(ctx)
+		cleanup()
+		require.NoError(t, err)
+		require.Contains(t, keys, key, "the key stays enumerated")
+	}
 }

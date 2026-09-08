@@ -681,12 +681,21 @@ func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context,
 	result := timeSeriesProcessResult{}
 
 	// Merge time series data
-	deleteTimeSeries, processed, hasNewData := a.mergeTimeSeriesData(ctx, timeSeries[seriesID], key, profile)
+	deleteTimeSeries, processed, kept, hasNewData := a.mergeTimeSeriesData(ctx, timeSeries[seriesID], key, profile)
 	result.processed = processed
 	result.hasNewData = hasNewData
+	if len(kept) == 0 {
+		// Every row of the series took the transient-read arm: nothing was
+		// merged and nothing may be written. updateProfileStatus indexes
+		// newTimeSeries[0] unconditionally, so this guard is what keeps an
+		// all-transient series from panicking inside the open transaction.
+		return result, nil
+	}
 
-	// Consolidate continuous time series entries
-	newTimeSeries := a.consolidateContinuousTimeSeries(timeSeries[seriesID], creationTimestamp)
+	// Consolidate continuous time series entries. The input is kept, not
+	// timeSeries[seriesID]: a row whose object read failed transiently must not
+	// be collapsed across, or the chain forks around it on every later tick.
+	newTimeSeries := a.consolidateContinuousTimeSeries(kept, creationTimestamp)
 
 	// Update profile status based on time series state
 	newTimeSeries, skipFurtherProcessing, err := a.updateProfileStatus(ctx, key, seriesID, profile, newTimeSeries, expired)
@@ -703,38 +712,42 @@ func (a *ContainerProfileProcessor) processTimeSeries(ctx context.Context,
 	return result, nil
 }
 
-// mergeTimeSeriesData merges time series data into the profile
+// mergeTimeSeriesData merges time series data into the profile.
+//
+// kept is the input minus the rows whose object read failed transiently (a
+// non-NotFound error), order preserved, carrying the loop's HasData=false
+// mutations. Such a row is neither deleted (its suffix is not in deleteList)
+// nor consolidated across (it is not in kept): it stays in the table with
+// HasData=true and is retried on the next tick. Every other arm is unchanged.
 func (a *ContainerProfileProcessor) mergeTimeSeriesData(ctx context.Context,
-	timeSeriesContainers []softwarecomposition.TimeSeriesContainers, key string, profile *softwarecomposition.ContainerProfile) (deleteList []string, processed []string, hasNewData bool) {
+	timeSeriesContainers []softwarecomposition.TimeSeriesContainers, key string, profile *softwarecomposition.ContainerProfile) (deleteList []string, processed []string, kept []softwarecomposition.TimeSeriesContainers, hasNewData bool) {
 
+	kept = make([]softwarecomposition.TimeSeriesContainers, 0, len(timeSeriesContainers))
 	for k, ts := range timeSeriesContainers {
+		if ts.HasData {
+			// Load TS profile from disk
+			tsKey := key + "-" + ts.TsSuffix
+			tsProfile, err := a.ContainerProfileStorage.GetTsContainerProfile(ctx, tsKey)
+
+			switch {
+			case storage.IsNotFound(err):
+				timeSeriesContainers[k].HasData = false
+			case err != nil:
+				logger.L().Warning("ContainerProfileProcessor.mergeTimeSeriesData - failed to get ts profile; row left in place for retry on the next tick",
+					loggerhelpers.Error(err), loggerhelpers.String("tsKey", tsKey))
+				continue
+			default:
+				hasNewData = true
+				mergeContainerProfileTS(profile, &tsProfile)
+				timeSeriesContainers[k].HasData = false
+				processed = append(processed, tsKey)
+			}
+		}
 		deleteList = append(deleteList, ts.TsSuffix)
-		if !ts.HasData {
-			continue
-		}
-
-		// Load TS profile from disk
-		tsKey := key + "-" + ts.TsSuffix
-		tsProfile, err := a.ContainerProfileStorage.GetTsContainerProfile(ctx, tsKey)
-
-		switch {
-		case storage.IsNotFound(err):
-			timeSeriesContainers[k].HasData = false
-			continue
-		case err != nil:
-			// Log error but continue processing other entries
-			logger.L().Debug("ContainerProfileProcessor.mergeTimeSeriesData - failed to get ts profile",
-				loggerhelpers.Error(err), loggerhelpers.String("tsKey", tsKey))
-			continue
-		}
-
-		hasNewData = true
-		mergeContainerProfileTS(profile, &tsProfile)
-		timeSeriesContainers[k].HasData = false
-		processed = append(processed, tsKey)
+		kept = append(kept, timeSeriesContainers[k])
 	}
 
-	return deleteList, processed, hasNewData
+	return deleteList, processed, kept, hasNewData
 }
 
 // consolidateContinuousTimeSeries combines continuous time series entries
