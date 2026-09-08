@@ -206,6 +206,7 @@ func ParseContainerProfileKey(key string, hostType armotypes.HostType) (id armot
 func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 	_, _, kind, _, namespace, _ := K8sPathToKeys(path)
 	var count int64
+	observeStmt("countMetadata")
 	err := sqlitex.Execute(conn,
 		`SELECT COUNT(*) FROM metadata
                 WHERE kind = :kind
@@ -226,6 +227,7 @@ func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 // DeleteMetadata deletes metadata for the given path and unmarshals the deleted metadata into the provided runtime.Object.
 func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	observeStmt("DeleteMetadata")
 	err := sqlitex.Execute(conn,
 		`DELETE FROM metadata
 				WHERE kind = :kind
@@ -255,6 +257,7 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
 	}
 	var last string
 	var names []string
+	observeStmt("listMetadataKeys")
 	err := sqlitex.Execute(conn,
 		`SELECT rowid, namespace, name FROM metadata
                 WHERE kind = :kind
@@ -285,6 +288,7 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 	}
 	var last string
 	var metadataJSONs []string
+	observeStmt("listMetadata")
 	err := sqlitex.Execute(conn,
 		`SELECT rowid, metadata FROM metadata
                 WHERE kind = :kind
@@ -309,6 +313,7 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 
 func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 	var namespaces []string
+	observeStmt("listNamespaces")
 	err := sqlitex.Execute(conn,
 		`SELECT DISTINCT namespace FROM metadata
 				WHERE namespace != ''`,
@@ -329,6 +334,7 @@ func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	kind = NormalizeContainerProfileKind(kind)
+	observeStmt("DeleteTimeSeriesContainerEntries")
 	err := sqlitex.Execute(conn,
 		`DELETE FROM time_series
 					WHERE kind = ?
@@ -347,6 +353,7 @@ func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
 	containers := make(map[string][]softwarecomposition.TimeSeriesContainers)
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	observeStmt("ListTimeSeriesContainers")
 	err := sqlitex.Execute(conn,
 		`SELECT seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData
 				FROM time_series
@@ -393,6 +400,7 @@ func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error)
 		return keys, nil
 	}
 	threshold := time.Now().Add(-d).String()
+	observeStmt("ListTimeSeriesExpired")
 	err := sqlitex.Execute(conn,
 		`SELECT kind, namespace, name
 				FROM time_series
@@ -416,6 +424,7 @@ func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error)
 // ListTimeSeriesWithData retrieves all time series keys that have data.
 func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 	var keys []string
+	observeStmt("ListTimeSeriesWithData")
 	err := sqlitex.Execute(conn,
 		`SELECT kind, namespace, name
 				FROM time_series
@@ -439,6 +448,7 @@ func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	var metadataJSON string
+	observeStmt("ReadMetadata")
 	err := sqlitex.Execute(conn,
 		`SELECT metadata FROM metadata
 				WHERE kind = :kind
@@ -471,6 +481,7 @@ func writeMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) erro
 // WriteJSON writes the given JSON metadata to the database for the specified path.
 func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	observeStmt("WriteJSON")
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO metadata
 				(kind, namespace, name, metadata) VALUES (?, ?, ?, ?)`,
@@ -485,6 +496,7 @@ func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
 
 // WriteTimeSeriesEntry writes a time series entry to the database.
 func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error {
+	observeStmt("WriteTimeSeriesEntry")
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO time_series
     			(kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData)
@@ -507,6 +519,7 @@ func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string,
 	if err != nil {
 		return fmt.Errorf("failed to marshal tsSuffixes: %w", err)
 	}
+	observeStmt("ReplaceTimeSeriesContainerEntries")
 	err = sqlitex.Execute(conn,
 		`DELETE FROM time_series
 				WHERE kind = ?
