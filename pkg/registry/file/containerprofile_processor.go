@@ -534,20 +534,28 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 // processTimeSeriesInTransaction processes time series data within a database transaction
 func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.Context,
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
-	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
+	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) (processed []string, err error) {
 
 	endFn, err := a.ContainerProfileStorage.BeginTransaction(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin nested transaction: %w", err)
 	}
-	processed, err := a.updateProfile(ctx, timeSeries, key, profile, prefix, root, id, expired)
-	endFn(&err)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
-	}
-
-	return processed, nil
+	// Registered before endFn so it runs after it (LIFO) and wraps a failed
+	// COMMIT the same way as a failed updateProfile.
+	defer func() {
+		if err != nil {
+			processed = nil
+			err = fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
+		}
+	}()
+	// endFn must be deferred DIRECTLY: it recovers a panic raised inside
+	// updateProfile, rolls the transaction back and re-panics. Called inline (or
+	// from a closure, where its recover() sees nothing) a panic escaped with the
+	// transaction open, leaving SQLite's write lock held by a connection that
+	// went back to the pool with nobody left to end it.
+	defer endFn(&err)
+	processed, err = a.updateProfile(ctx, timeSeries, key, profile, prefix, root, id, expired)
+	return processed, err
 }
 
 // deleteProcessedTimeSeries removes processed time series profiles from storage.
