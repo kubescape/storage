@@ -39,6 +39,27 @@ const (
 	CommitOutcomeError     = "error"
 )
 
+// Label values for the consolidation counters below.
+const (
+	// FrozenReclaimedRow / FrozenReclaimedObject: what the frozen gate reclaimed.
+	FrozenReclaimedRow    = "row"
+	FrozenReclaimedObject = "object"
+
+	// DivergencePayloadAhead: the payload says Completed/Full, the metadata row
+	// does not (a process crash or a failed COMMIT between the payload rename
+	// and the row's commit) -- healed by re-persisting the payload as-is.
+	// DivergenceMetadataAhead: the metadata row says Completed/Full, the payload
+	// does not (a lost payload rename after a power loss) -- observed only.
+	DivergencePayloadAhead  = "payload_ahead"
+	DivergenceMetadataAhead = "metadata_ahead"
+
+	// HealFailed* : which step of the divergence heal failed.
+	HealFailedLockTimeout = "lock_timeout"
+	HealFailedBegin       = "begin"
+	HealFailedRead        = "read"
+	HealFailedSave        = "save"
+)
+
 // waitBuckets covers sub-millisecond acquisitions up through the ~5s
 // lockTimeout/poolTimeout backstops (pkg/registry/file/storage.go) and a bit
 // beyond, so a timed-out acquisition still lands in a meaningful bucket.
@@ -135,6 +156,66 @@ var (
 		},
 		[]string{"priority"},
 	)
+
+	// ConsolidationFrozenReclaimedTotal counts the time_series rows and TS
+	// objects consolidation's frozen gate reclaimed unmerged because the base
+	// ContainerProfile was already Completed/Full when the pass read it,
+	// labeled by "what" (row/object). Expected low and non-zero on
+	// multi-replica workloads (each late series is reclaimed once); rising for
+	// one key on many consecutive ticks while divergence heals stay at zero
+	// means a writer other than consolidation keeps producing rows for a
+	// completed profile.
+	ConsolidationFrozenReclaimedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_frozen_reclaimed_total",
+			Help:           "Count of time_series rows and TS objects reclaimed unmerged by consolidation because the base profile was already Completed/Full, by what (row/object).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"what"},
+	)
+
+	// ConsolidationFrozenRefusalsTotal counts consolidation saves refused
+	// because the persisted base ContainerProfile was Completed/Full at write
+	// time (under the per-key lock) although it was not when the pass read it.
+	// Expected zero: a non-zero value means a concurrent writer completed the
+	// base between the pass's read and its write.
+	ConsolidationFrozenRefusalsTotal = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_frozen_refusals_total",
+			Help:           "Count of consolidation saves refused because the persisted base profile became Completed/Full between the pass's read and its write.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// ConsolidationDivergenceTotal counts payload/metadata divergences
+	// consolidation observed on a base ContainerProfile, by "shape"
+	// (payload_ahead: healed; metadata_ahead: observed only). Expected zero in
+	// steady state; payload_ahead after no pod restart means a COMMIT failed.
+	ConsolidationDivergenceTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_divergence_total",
+			Help:           "Count of payload/metadata divergences observed on a base profile by consolidation, by shape (payload_ahead healed, metadata_ahead observed).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"shape"},
+	)
+
+	// ConsolidationHealFailedTotal counts failed divergence heals by the step
+	// that failed (lock_timeout/begin/read/save). A failing heal errors the
+	// tick before the frozen gate runs, so ConsolidationFrozenReclaimedTotal
+	// does not move; this series is what makes a wedged heal visible.
+	ConsolidationHealFailedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_heal_failed_total",
+			Help:           "Count of failed payload/metadata divergence heals, by the step that failed (lock_timeout/begin/read/save).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"reason"},
+	)
 )
 
 func init() {
@@ -144,6 +225,10 @@ func init() {
 	legacyregistry.MustRegister(SingleWriterCommitTotal)
 	legacyregistry.MustRegister(SingleWriterConflictRetryTotal)
 	legacyregistry.MustRegister(SingleWriterQueueDepth)
+	legacyregistry.MustRegister(ConsolidationFrozenReclaimedTotal)
+	legacyregistry.MustRegister(ConsolidationFrozenRefusalsTotal)
+	legacyregistry.MustRegister(ConsolidationDivergenceTotal)
+	legacyregistry.MustRegister(ConsolidationHealFailedTotal)
 }
 
 // ObserveLockWait records a lock-hold-wait observation for the given
@@ -183,4 +268,28 @@ func IncSingleWriterConflictRetry(kind string) {
 // the given priority lane (PriorityHigh / PriorityLow).
 func SetSingleWriterQueueDepth(priority string, depth int) {
 	SingleWriterQueueDepth.WithLabelValues(priority).Set(float64(depth))
+}
+
+// IncConsolidationFrozenReclaimed adds n to the frozen gate's reclaim count for
+// what (FrozenReclaimedRow / FrozenReclaimedObject).
+func IncConsolidationFrozenReclaimed(what string, n int) {
+	ConsolidationFrozenReclaimedTotal.WithLabelValues(what).Add(float64(n))
+}
+
+// IncConsolidationFrozenRefusals records one consolidation save refused on a
+// persisted Completed/Full base profile.
+func IncConsolidationFrozenRefusals() {
+	ConsolidationFrozenRefusalsTotal.Inc()
+}
+
+// IncConsolidationDivergence records one observed payload/metadata divergence
+// of the given shape (DivergencePayloadAhead / DivergenceMetadataAhead).
+func IncConsolidationDivergence(shape string) {
+	ConsolidationDivergenceTotal.WithLabelValues(shape).Inc()
+}
+
+// IncConsolidationHealFailed records one failed divergence heal for the given
+// reason (HealFailedLockTimeout / HealFailedBegin / HealFailedRead / HealFailedSave).
+func IncConsolidationHealFailed(reason string) {
+	ConsolidationHealFailedTotal.WithLabelValues(reason).Inc()
 }

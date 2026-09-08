@@ -69,6 +69,9 @@ func (f *fakeStorage) GetTsContainerProfile(ctx context.Context, key string) (so
 func (f *fakeStorage) SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error {
 	return nil
 }
+func (f *fakeStorage) HealDivergence(ctx context.Context, key string) error {
+	return nil
+}
 func (f *fakeStorage) GetStorageImpl() *StorageImpl {
 	return nil
 }

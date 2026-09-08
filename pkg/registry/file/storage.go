@@ -52,6 +52,10 @@ const (
 var (
 	ObjectCompletedError = errors.New("object is completed")
 	ObjectTooLargeError  = errors.New("object is too large")
+	// ProfileFrozenError is returned by consolidation's save when the persisted
+	// base ContainerProfile is already Completed/Full: nothing updates such a
+	// profile (softwarecomposition.IsCompletedFull).
+	ProfileFrozenError = errors.New("profile is completed/full and cannot be updated")
 )
 
 // lockTimeout is the hardcoded backstop for lock acquisition. It sits well under the

@@ -20,6 +20,7 @@ import (
 	"github.com/kubescape/k8s-interface/names"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/config"
+	"github.com/kubescape/storage/pkg/metrics"
 	"github.com/kubescape/storage/pkg/registry/file/callstack"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/kubescape/storage/pkg/utils"
@@ -425,6 +426,49 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 		return err
 	}
 
+	// The divergence check, in autocommit BEFORE the pass's transaction (a
+	// metadata SELECT as the transaction's first statement would take a read
+	// snapshot the first DELETE must upgrade). profile is the payload; the row
+	// is what LIST, WATCH and PreSave read. They are written together under
+	// Lock(key) by every writer and diverge only through a crash or a failed
+	// COMMIT between saveObject's payload rename and the row's commit.
+	// A synthesised profile (not found) has empty annotations and its row read
+	// is NotFound, so neither arm fires for it.
+	meta, merr := a.ContainerProfileStorage.GetContainerProfileMetadataNoLock(ctx, key)
+	switch {
+	case merr != nil:
+		if !isKeyNotFoundErr(merr) {
+			// Fail open: the pass proceeds as it always has.
+			logger.L().Warning("ContainerProfileProcessor.consolidateKeyTimeSeries - metadata read failed; divergence check skipped",
+				loggerhelpers.Error(merr), loggerhelpers.String("key", key))
+		}
+	case softwarecomposition.IsCompletedFull(profile.Annotations) && !softwarecomposition.IsCompletedFull(meta.Annotations):
+		// Payload-ahead: the completing save's rename landed, its COMMIT did
+		// not. Without the heal the frozen gate below would reclaim every row
+		// while the row stayed Learning for the container's life (PreSave keeps
+		// admitting reports, LIST/WATCH never show Full).
+		if err := a.ContainerProfileStorage.HealDivergence(ctx, key); err != nil {
+			metrics.IncConsolidationHealFailed(healFailureReason(err))
+			// This tick fails before the frozen gate; the next tick retries.
+			return fmt.Errorf("failed to heal payload/metadata divergence for key %s: %w", key, err)
+		}
+	case !softwarecomposition.IsCompletedFull(profile.Annotations) && softwarecomposition.IsCompletedFull(meta.Annotations):
+		// Metadata-ahead: the row's commit survived and the payload rename was
+		// lost (power loss with an un-fsynced directory). Observed, not healed:
+		// the payload is the data, and today's merge-and-re-save restores
+		// Completed from the row through PreSave's revert.
+		metrics.IncConsolidationDivergence(metrics.DivergenceMetadataAhead)
+		logger.L().Warning("ContainerProfileProcessor.consolidateKeyTimeSeries - metadata row is Completed/Full but payload is not; merging the payload, PreSave will restore Completed from the row",
+			loggerhelpers.String("key", key))
+	}
+
+	// frozen is the persisted state the frozen gate in updateProfile will read,
+	// captured BEFORE the pass: profile is passed by value below, but its
+	// Annotations map is shared by every copy, so the completing tick's
+	// SetCompletedStatus stamps Completed/Full onto this copy too. Evaluating
+	// the predicate after the pass would turn the slug guard into "never send".
+	frozen := softwarecomposition.IsCompletedFull(profile.Annotations)
+
 	processed, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, id, expired)
 	if err != nil {
 		return err
@@ -432,8 +476,13 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 
 	// Send consolidated slug to channel before deleting processed time series
 	// This allows downstream processing even if the ingester dies after consolidation
-	// Only send for k8s host type
-	if a.HostType == armotypes.HostTypeKubernetes {
+	// Only send for k8s host type.
+	//
+	// A frozen tick (the persisted profile was already Completed/Full, so
+	// updateProfile reclaimed its rows and merged nothing) sends no slug: a slug
+	// means a consolidation happened. The completing tick (persisted Learning,
+	// stamped Full by the pass) still sends -- see frozen above.
+	if a.HostType == armotypes.HostTypeKubernetes && !frozen {
 		if err := a.sendConsolidatedSlugToChannel(ctx, profile, id); err != nil {
 			return err
 		}
@@ -621,6 +670,42 @@ func (a *ContainerProfileProcessor) deleteContainerProfileArbitrated(ctx context
 
 func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string, profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) ([]string, error) {
 	var processed []string
+
+	// The frozen gate: once a profile is Completed/Full nothing updates it.
+	// profile is the PERSISTED payload as loadOrInitializeProfile read it (a
+	// synthesised one has empty annotations and never qualifies), never the
+	// in-memory copy the loop below is about to stamp, so the tick that makes
+	// a profile Full always passes. A late series (another replica, a row that
+	// landed after the completing pass, a row admitted by PreSave's unlocked
+	// read) is reclaimed unmerged, with its objects: no TS object is read,
+	// nothing is merged, nothing is saved. Replace's delete is
+	// (seriesID, tsSuffix IN listed)-scoped, so a row landing after this pass's
+	// list is untouched and reclaimed on the next tick. Applies on the expired
+	// path too.
+	if softwarecomposition.IsCompletedFull(profile.Annotations) {
+		var rows, objects int
+		for seriesID, series := range timeSeries {
+			suffixes := make([]string, 0, len(series))
+			for _, ts := range series {
+				suffixes = append(suffixes, ts.TsSuffix)
+				if ts.HasData {
+					processed = append(processed, key+"-"+ts.TsSuffix)
+					objects++
+				}
+			}
+			rows += len(suffixes)
+			if err := a.ContainerProfileStorage.ReplaceTimeSeriesContainerEntries(ctx, key, seriesID, suffixes, nil); err != nil {
+				return nil, fmt.Errorf("failed to reclaim time series of a completed profile: %w", err)
+			}
+		}
+		metrics.IncConsolidationFrozenReclaimed(metrics.FrozenReclaimedRow, rows)
+		metrics.IncConsolidationFrozenReclaimed(metrics.FrozenReclaimedObject, objects)
+		logger.L().Warning("ContainerProfileProcessor.updateProfile - profile is Completed/Full; reclaiming late time series unmerged",
+			loggerhelpers.String("key", key), loggerhelpers.Int("series", len(timeSeries)),
+			loggerhelpers.Int("rows", rows), loggerhelpers.Int("objects", objects))
+		return processed, nil
+	}
+
 	creationTimestamp := metav1.Now()
 	var newData bool
 

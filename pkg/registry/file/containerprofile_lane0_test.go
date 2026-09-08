@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armosec/armoapi-go/armotypes"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
+	"github.com/kubescape/storage/pkg/metrics"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
@@ -18,7 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+	kmetrics "k8s.io/component-base/metrics"
+	"k8s.io/component-base/metrics/testutil"
 	"zombiezen.com/go/sqlite/sqlitemigration"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 // Lane 0 (L0-A) test harness: a real SQLite pool, a real StorageImpl and a
@@ -646,4 +651,502 @@ func TestMergeTimeSeries_PermanentReadFailure_RowSurvivesAndKeyStaysEnumerated(t
 		require.NoError(t, err)
 		require.Contains(t, keys, key, "the key stays enumerated")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Finding X — completed-immutability by construction: X-A the frozen gate,
+// X-B the refusal inside the write, the caller-side slug skip.
+// E3 — the payload-ahead divergence heal; B16 (metadata-ahead) observed only.
+// ---------------------------------------------------------------------------
+
+func counterValue(t *testing.T, m kmetrics.CounterMetric) float64 {
+	t.Helper()
+	v, err := testutil.GetCounterMetricValue(m)
+	require.NoError(t, err)
+	return v
+}
+
+type lane0Counters struct {
+	reclaimedRows, reclaimedObjects, refusals, payloadAhead, metadataAhead float64
+}
+
+func snapshotCounters(t *testing.T) lane0Counters {
+	t.Helper()
+	return lane0Counters{
+		reclaimedRows:    counterValue(t, metrics.ConsolidationFrozenReclaimedTotal.WithLabelValues(metrics.FrozenReclaimedRow)),
+		reclaimedObjects: counterValue(t, metrics.ConsolidationFrozenReclaimedTotal.WithLabelValues(metrics.FrozenReclaimedObject)),
+		refusals:         counterValue(t, metrics.ConsolidationFrozenRefusalsTotal),
+		payloadAhead:     counterValue(t, metrics.ConsolidationDivergenceTotal.WithLabelValues(metrics.DivergencePayloadAhead)),
+		metadataAhead:    counterValue(t, metrics.ConsolidationDivergenceTotal.WithLabelValues(metrics.DivergenceMetadataAhead)),
+	}
+}
+
+func (c lane0Counters) delta(t *testing.T) lane0Counters {
+	t.Helper()
+	n := snapshotCounters(t)
+	return lane0Counters{
+		reclaimedRows:    n.reclaimedRows - c.reclaimedRows,
+		reclaimedObjects: n.reclaimedObjects - c.reclaimedObjects,
+		refusals:         n.refusals - c.refusals,
+		payloadAhead:     n.payloadAhead - c.payloadAhead,
+		metadataAhead:    n.metadataAhead - c.metadataAhead,
+	}
+}
+
+// wireSlugChannel makes the processor send consolidated slugs (HostType
+// Kubernetes) into a buffered channel the test inspects.
+func (h *lane0Harness) wireSlugChannel() chan ConsolidatedSlugData {
+	ch := make(chan ConsolidatedSlugData, 8)
+	h.proc.HostType = armotypes.HostTypeKubernetes
+	h.proc.ConsolidatedSlugChannel = ch
+	return ch
+}
+
+func requireEqualProfiles(t *testing.T, want, got softwarecomposition.ContainerProfile) {
+	t.Helper()
+	require.Equal(t, want.ResourceVersion, got.ResourceVersion, "resourceVersion")
+	require.Equal(t, want.Annotations, got.Annotations, "annotations")
+	require.Equal(t, want.Spec, got.Spec, "spec")
+}
+
+// X-1: a persisted Completed/Full base reclaims every listed row and every
+// HasData object unmerged: nothing read, nothing written, zero events, no slug.
+// Fails today: the rows are merged, the profile re-saved and Modified sent.
+func TestConsolidate_FrozenProfile_ReclaimsRowsAndObjectsWithoutMerge(t *testing.T) {
+	run := func(t *testing.T, expired, flagOn bool) {
+		old := singleWriterEnabled
+		singleWriterEnabled = flagOn
+		t.Cleanup(func() { singleWriterEnabled = old })
+
+		h := newLane0Harness(t, 0)
+		const ns, name = "ns1", "x1"
+		key := lane0Key(ns, name)
+		h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Completed, helpersv1.Full, "base"))
+		before := h.readPayload(t, key)
+		h.seedTsRow(t, ns, name, "A", "A2", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+		h.seedTsRow(t, ns, name, "A", "A1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, false)
+		h.seedTsRow(t, ns, name, "B", "B1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+		tsA2 := h.writeTsObject(t, key, "A2", "ts-A2", true)
+		tsB1 := h.writeTsObject(t, key, "B1", "ts-B1", true)
+		reads := 0
+		h.hooks.getTs = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
+			reads++
+			return next()
+		}
+		slugs := h.wireSlugChannel()
+		w := h.watchKey(t, key)
+		c0 := snapshotCounters(t)
+
+		if expired {
+			require.NoError(t, h.proc.consolidateKeyTimeSeries(context.Background(), key, true))
+		} else {
+			require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+		}
+
+		requireEqualProfiles(t, before, h.readPayload(t, key))
+		row := h.readRow(t, key)
+		require.Equal(t, before.ResourceVersion, row.ResourceVersion)
+		require.Equal(t, before.Annotations, row.Annotations)
+		require.Empty(t, drainEvents(w, 100*time.Millisecond), "a frozen tick dispatches nothing")
+		require.Equal(t, 0, countRows(h.listRows(t, key)), "every listed row is reclaimed")
+		require.False(t, h.objectExists(t, tsA2))
+		require.False(t, h.objectExists(t, tsB1))
+		require.Equal(t, 0, reads, "no TS object is read")
+		d := c0.delta(t)
+		require.Equal(t, float64(3), d.reclaimedRows)
+		require.Equal(t, float64(2), d.reclaimedObjects)
+		require.Zero(t, d.refusals)
+		require.Empty(t, slugs, "a frozen tick sends no slug")
+	}
+	t.Run("active", func(t *testing.T) { run(t, false, true) })
+	t.Run("expired", func(t *testing.T) { run(t, true, true) })
+	t.Run("single writer off", func(t *testing.T) { run(t, false, false) })
+}
+
+// X-2 (pin): the completing tick itself is not refused -- the gate reads the
+// persisted state, never the copy the pass stamps. One Modified, one slug.
+func TestConsolidate_CompletingTick_IsNotRefused(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "x2"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	before := h.readPayload(t, key)
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
+	slugs := h.wireSlugChannel()
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+
+	after := h.readPayload(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(after.Annotations))
+	require.Equal(t, rvOf(t, before)+1, rvOf(t, after))
+	require.True(t, specHasExec(after.Spec, "ts-1"))
+	require.True(t, softwarecomposition.IsCompletedFull(h.readRow(t, key).Annotations))
+	events := drainEvents(w, 100*time.Millisecond)
+	require.Len(t, events, 1)
+	require.Equal(t, watch.Modified, events[0].Type)
+	require.Len(t, slugs, 1, "the completing tick sends exactly one slug")
+	require.False(t, h.objectExists(t, tsKey))
+	d := c0.delta(t)
+	require.Zero(t, d.refusals)
+	require.Zero(t, d.reclaimedRows)
+}
+
+// X-3: the race X-A cannot see. The base is stamped Completed/Full on its own
+// connection after the pass read it as Learning and before the pass's first
+// statement; the pass's save must be refused on the persisted state, the
+// transaction rolled back, and the next tick reclaims through X-A.
+// Fails today: the merge is written into the Completed/Full profile.
+func TestSaveContainerProfile_RefusesWhenPersistedIsCompletedFull(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "x3"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
+	w := h.watchKey(t, key)
+	stamped := false
+	h.hooks.getProfile = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
+		p, err := next()
+		if !stamped {
+			stamped = true
+			h.stampCompletedFull(t, k)
+		}
+		return p, err
+	}
+	c0 := snapshotCounters(t)
+
+	err := h.proc.ConsolidateTimeSeries(context.Background())
+	require.ErrorIs(t, err, ProfileFrozenError)
+	require.True(t, stamped)
+
+	stampedPayload := h.readPayload(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(stampedPayload.Annotations))
+	require.False(t, specHasExec(stampedPayload.Spec, "ts-1"), "the merge must not be written")
+	r, ok := findRow(h.listRows(t, key), "A", "1")
+	require.True(t, ok, "the transaction rolled back: the row survives")
+	require.True(t, r.HasData)
+	require.True(t, h.objectExists(t, tsKey), "nothing was scheduled for deletion")
+	events := drainEvents(w, 100*time.Millisecond)
+	require.Len(t, events, 1, "exactly the stamp's Modified, none from the pass")
+	require.Equal(t, float64(1), c0.delta(t).refusals)
+
+	// Next tick: X-A reclaims, the profile is untouched.
+	c1 := snapshotCounters(t)
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	requireEqualProfiles(t, stampedPayload, h.readPayload(t, key))
+	require.Equal(t, 0, countRows(h.listRows(t, key)))
+	require.False(t, h.objectExists(t, tsKey))
+	require.Empty(t, drainEvents(w, 100*time.Millisecond))
+	d := c1.delta(t)
+	require.Equal(t, float64(1), d.reclaimedRows)
+	require.Equal(t, float64(1), d.reclaimedObjects)
+}
+
+// X-4 (pin): Completed/Partial is not frozen -- a Full series completes it.
+func TestConsolidate_CompletedPartialProfile_IsNotFrozen(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "x4"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Completed, helpersv1.Partial, "base"))
+	before := h.readPayload(t, key)
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
+	w := h.watchKey(t, key)
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+
+	after := h.readPayload(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(after.Annotations))
+	require.Equal(t, rvOf(t, before)+1, rvOf(t, after))
+	require.True(t, specHasExec(after.Spec, "ts-1"), "the payload is merged")
+	require.Len(t, drainEvents(w, 100*time.Millisecond), 1)
+	require.False(t, h.objectExists(t, tsKey))
+}
+
+// X-5 (pin): a row written after the list during a frozen tick is untouched
+// by that tick (Replace's delete is scoped to the listed suffixes) and is
+// reclaimed, with its object, on the next.
+func TestConsolidate_FrozenGate_UnlistedRowSurvivesToNextTick(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "x5"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Completed, helpersv1.Full, "base"))
+	before := h.readPayload(t, key)
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	ts1 := h.writeTsObject(t, key, "1", "ts-1", true)
+	var tsLate string
+	h.hooks.listTs = func(ctx context.Context, k string, next func() (map[string][]softwarecomposition.TimeSeriesContainers, error)) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
+		rows, err := next()
+		if tsLate == "" {
+			h.seedTsRow(t, ns, name, "A", "late", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+			tsLate = h.writeTsObject(t, key, "late", "ts-late", true)
+		}
+		return rows, err
+	}
+	c0 := snapshotCounters(t)
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	rows := h.listRows(t, key)
+	_, ok := findRow(rows, "A", "1")
+	require.False(t, ok)
+	require.False(t, h.objectExists(t, ts1))
+	late, ok := findRow(rows, "A", "late")
+	require.True(t, ok, "the unlisted row survives the frozen tick")
+	require.True(t, late.HasData)
+	require.True(t, h.objectExists(t, tsLate))
+	d := c0.delta(t)
+	require.Equal(t, float64(1), d.reclaimedRows)
+	require.Equal(t, float64(1), d.reclaimedObjects)
+
+	c1 := snapshotCounters(t)
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+	require.Equal(t, 0, countRows(h.listRows(t, key)))
+	require.False(t, h.objectExists(t, tsLate))
+	d = c1.delta(t)
+	require.Equal(t, float64(1), d.reclaimedRows)
+	require.Equal(t, float64(1), d.reclaimedObjects)
+	requireEqualProfiles(t, before, h.readPayload(t, key))
+}
+
+// makePayloadAhead persists a base at RV n (Learning), completes it at RV n+1
+// through a real GuaranteedUpdate, then rewrites the metadata row back to the
+// RV-n Learning state -- exactly the rolled-back commit a crash between the
+// payload rename and the outer COMMIT leaves. Returns the Completed/Full row
+// as it was committed at n+1, for tests that replay a concurrent completer.
+func (h *lane0Harness) makePayloadAhead(t *testing.T, ns, name string) (key string, fullRow []byte) {
+	t.Helper()
+	key = lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	learningRow := h.readRowRaw(t, key)
+	h.stampCompletedFull(t, key)
+	fullRow = h.readRowRaw(t, key)
+	h.writeRowRaw(t, key, learningRow)
+	payload := h.readPayload(t, key)
+	row := h.readRow(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(payload.Annotations))
+	require.False(t, softwarecomposition.IsCompletedFull(row.Annotations))
+	require.Equal(t, rvOf(t, row)+1, rvOf(t, payload))
+	return key, fullRow
+}
+
+// E3-1: payload-ahead is healed without a merge: the payload is re-persisted
+// as-is at n+2, the row lands Completed/Full at n+2, the lost Modified is
+// dispatched after COMMIT, and X-A reclaims the late rows in the same tick.
+// Fails today (the surviving row is re-merged: duplicated Spec, no counter)
+// and on X-A alone (the row stays Learning forever, zero Modified).
+func TestConsolidate_PayloadAheadDivergence_HealsWithoutMerge(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "e3-1"
+	key, _ := h.makePayloadAhead(t, ns, name)
+	before := h.readPayload(t, key)
+	n := rvOf(t, h.readRow(t, key))
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
+	slugs := h.wireSlugChannel()
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+
+	// Observe the row at the moment the event is received: a Modified
+	// dispatched before COMMIT would still show the Learning row here.
+	type receipt struct {
+		ev  watch.Event
+		row softwarecomposition.ContainerProfile
+	}
+	received := make(chan receipt, 8)
+	go func() {
+		for ev := range w.ResultChan() {
+			received <- receipt{ev: ev, row: h.readRow(t, key)}
+		}
+	}()
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+
+	row := h.readRow(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(row.Annotations))
+	require.Equal(t, n+2, rvOf(t, row))
+	after := h.readPayload(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(after.Annotations))
+	require.Equal(t, n+2, rvOf(t, after))
+	require.Equal(t, before.Spec, after.Spec, "no merge, no duplicates")
+	require.Equal(t, before.Annotations[helpersv1.InstanceIDMetadataKey], after.Annotations[helpersv1.InstanceIDMetadataKey])
+
+	var got []receipt
+	timeout := time.After(2 * time.Second)
+	for len(got) == 0 {
+		select {
+		case r := <-received:
+			got = append(got, r)
+		case <-timeout:
+			t.Fatal("the lost completion event was not dispatched")
+		}
+	}
+	time.Sleep(100 * time.Millisecond)
+	for len(received) > 0 {
+		got = append(got, <-received)
+	}
+	require.Len(t, got, 1, "exactly one Modified")
+	require.Equal(t, watch.Modified, got[0].ev.Type)
+	require.True(t, softwarecomposition.IsCompletedFull(got[0].row.Annotations), "the event is dispatched after COMMIT: the row is already Full on receipt")
+
+	d := c0.delta(t)
+	require.Equal(t, float64(1), d.payloadAhead)
+	require.Zero(t, d.metadataAhead)
+	require.Equal(t, float64(1), d.reclaimedRows, "X-A reclaims in the same tick")
+	require.Equal(t, float64(1), d.reclaimedObjects)
+	require.Equal(t, 0, countRows(h.listRows(t, key)))
+	require.False(t, h.objectExists(t, tsKey))
+	require.Empty(t, slugs)
+}
+
+// E3-2: metadata-ahead (B16) is counted, then today's behaviour is pinned as
+// the code does it: the row is merged and re-saved through
+// GuaranteedUpdateWithConn, Status Completed restored from the row by
+// PreSave's non-TS revert (the setters hand Learning to the save), Completion
+// Full from the merged series row, and the RV lands at n+1 -- colliding with
+// the row's own n+1, not advancing past it. Fails today on the counter only.
+func TestConsolidate_MetadataAheadDivergence_IsObservedNotHealed(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "e3-2"
+	key := lane0Key(ns, name)
+	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
+	n := rvOf(t, h.readPayload(t, key))
+	row := h.readRow(t, key)
+	row.Annotations[helpersv1.StatusMetadataKey] = helpersv1.Completed
+	row.Annotations[helpersv1.CompletionMetadataKey] = helpersv1.Full
+	require.NoError(t, storage.APIObjectVersioner{}.UpdateObject(&row, n+1))
+	raw, err := json.Marshal(&row)
+	require.NoError(t, err)
+	h.writeRowRaw(t, key, raw)
+	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Full, true)
+	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
+	var handedStatus string
+	h.hooks.save = func(ctx context.Context, k string, p *softwarecomposition.ContainerProfile, next func() error) error {
+		handedStatus = p.Annotations[helpersv1.StatusMetadataKey]
+		return next()
+	}
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+
+	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
+
+	d := c0.delta(t)
+	require.Equal(t, float64(1), d.metadataAhead)
+	require.Zero(t, d.payloadAhead)
+	require.Equal(t, helpersv1.Learning, handedStatus, "the setters hand Learning to the save; PreSave's revert restores Completed")
+	after := h.readRow(t, key)
+	require.Equal(t, helpersv1.Completed, after.Annotations[helpersv1.StatusMetadataKey])
+	require.Equal(t, helpersv1.Full, after.Annotations[helpersv1.CompletionMetadataKey])
+	require.Equal(t, n+1, rvOf(t, after), "RV n+1: the row's own RV, overwritten in place")
+	payload := h.readPayload(t, key)
+	require.Equal(t, n+1, rvOf(t, payload))
+	require.True(t, softwarecomposition.IsCompletedFull(payload.Annotations))
+	require.True(t, specHasExec(payload.Spec, "ts-1"), "the row is merged")
+	require.Len(t, drainEvents(w, 100*time.Millisecond), 1)
+	require.False(t, h.objectExists(t, tsKey))
+}
+
+// E3-3 (pin, defence in depth): a completer holding an uncommitted write
+// transaction that already stamped the row Completed/Full makes the heal wait
+// at BEGIN IMMEDIATE -- with Lock(key) held -- until it commits; the heal
+// then re-reads Full, writes nothing, dispatches nothing, counts nothing.
+func TestHealDivergence_ConcurrentCompleterWins(t *testing.T) {
+	h := newLane0Harness(t, 3*time.Second)
+	const ns, name = "ns1", "e3-3"
+	key, fullRow := h.makePayloadAhead(t, ns, name)
+	payloadBefore := h.readPayload(t, key)
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+
+	completer, err := h.pool.Take(context.Background())
+	require.NoError(t, err)
+	defer h.pool.Put(completer)
+	require.NoError(t, sqlitex.Execute(completer, "BEGIN IMMEDIATE;", nil))
+	require.NoError(t, WriteJSON(completer, key, fullRow))
+
+	ctx, cleanup, err := h.proc.ContainerProfileStorage.WithConnection(context.Background())
+	require.NoError(t, err)
+	defer cleanup()
+	done := make(chan error, 1)
+	start := time.Now()
+	go func() { done <- h.proc.ContainerProfileStorage.HealDivergence(ctx, key) }()
+
+	// The heal is parked at BEGIN IMMEDIATE behind the completer's write lock,
+	// and Lock(key) is already held (lock-order probe).
+	time.Sleep(300 * time.Millisecond)
+	select {
+	case err := <-done:
+		t.Fatalf("heal returned %v while the completer's transaction is open", err)
+	default:
+	}
+	probeCtx, probeCancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer probeCancel()
+	require.Error(t, h.s.locks.Lock(probeCtx, key), "Lock(key) must be held across the BEGIN IMMEDIATE wait")
+
+	require.NoError(t, sqlitex.Execute(completer, "COMMIT;", nil))
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("heal did not return after the completer committed")
+	}
+	require.GreaterOrEqual(t, time.Since(start), 300*time.Millisecond)
+
+	requireEqualProfiles(t, payloadBefore, h.readPayload(t, key))
+	row := h.readRow(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(row.Annotations))
+	require.Equal(t, rvOf(t, payloadBefore), rvOf(t, row), "the completer's row stands")
+	require.Empty(t, drainEvents(w, 100*time.Millisecond), "nothing dispatched")
+	require.Zero(t, c0.delta(t).payloadAhead, "nothing counted")
+}
+
+// E3-4 (pin): a heal that crashes after its own rename (B3's shape: the row
+// rolled back, the payload one version ahead again) leaves the same
+// payload-ahead shape, and the next heal converges: row Full at n+3, one Modified.
+func TestHealDivergence_CrashInsideHeal_Converges(t *testing.T) {
+	h := newLane0Harness(t, 0)
+	const ns, name = "ns1", "e3-4"
+	key, _ := h.makePayloadAhead(t, ns, name)
+	n := rvOf(t, h.readRow(t, key))
+	injected := errors.New("injected failure after the rename")
+	failNext := true
+	h.s.renamePayloadFn = func(oldpath, newpath string) error {
+		if err := h.s.appFs.Rename(oldpath, newpath); err != nil {
+			return err
+		}
+		if failNext {
+			failNext = false
+			return injected
+		}
+		return nil
+	}
+	w := h.watchKey(t, key)
+	c0 := snapshotCounters(t)
+	ctx, cleanup, err := h.proc.ContainerProfileStorage.WithConnection(context.Background())
+	require.NoError(t, err)
+	defer cleanup()
+
+	err = h.proc.ContainerProfileStorage.HealDivergence(ctx, key)
+	require.ErrorIs(t, err, injected)
+	require.Equal(t, metrics.HealFailedSave, healFailureReason(err))
+	row := h.readRow(t, key)
+	require.False(t, softwarecomposition.IsCompletedFull(row.Annotations), "the row rolled back")
+	require.Equal(t, n, rvOf(t, row))
+	payload := h.readPayload(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(payload.Annotations))
+	require.Equal(t, n+2, rvOf(t, payload), "the renamed payload is one version further ahead")
+	require.Empty(t, drainEvents(w, 100*time.Millisecond))
+	require.Zero(t, c0.delta(t).payloadAhead)
+
+	require.NoError(t, h.proc.ContainerProfileStorage.HealDivergence(ctx, key))
+	row = h.readRow(t, key)
+	require.True(t, softwarecomposition.IsCompletedFull(row.Annotations))
+	require.Equal(t, n+3, rvOf(t, row))
+	require.Equal(t, n+3, rvOf(t, h.readPayload(t, key)))
+	events := drainEvents(w, 100*time.Millisecond)
+	require.Len(t, events, 1)
+	require.Equal(t, watch.Modified, events[0].Type)
+	require.Equal(t, float64(1), c0.delta(t).payloadAhead)
 }
