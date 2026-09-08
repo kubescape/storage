@@ -805,8 +805,13 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
-			// file not found, delete corresponding metadata
-			_ = DeleteMetadata(conn, key, nil)
+			// Prune the orphaned metadata row only if there is one. A DELETE
+			// that matches no row still opens a write transaction and waits on
+			// SQLite's write lock for the busy timeout, so a read of an absent
+			// key must not issue it.
+			if _, rerr := ReadMetadata(conn, key); rerr == nil {
+				_ = DeleteMetadata(conn, key, nil)
+			}
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {
