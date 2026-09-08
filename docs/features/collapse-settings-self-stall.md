@@ -61,6 +61,27 @@ Real `StorageImpl` + real pool with a 2 s busy timeout, asserting `< 500 ms`
 - `TestNewCRDCollapseSettingsProvider_LiveUpdate` and `_RefreshesAfterTTLExpiry` now use
   `assert.Eventually` for the TTL-plus-one-call semantics.
 
+## Companion hardening: a read of an absent key is a read
+
+`get()` (`pkg/registry/file/storage.go`) used to call `DeleteMetadata` whenever the payload
+file was missing, without checking that a metadata row exists. A `DELETE` that matches no
+row still opens a write transaction, so **every read of an absent key acquired SQLite's
+write lock** and waited behind any in-flight writer for up to the busy timeout — which the
+C busy handler does not interrupt. This was the statement that turned the provider refresh
+into a self-wait, and it made REST `GET`s of missing keys queue behind long writers.
+
+`get()` now calls `ReadMetadata` first and deletes only an existing orphaned row. A read of
+an absent key is a `SELECT`, which never waits on a writer in WAL mode. Orphan pruning
+(a row whose payload is gone) is unchanged; the corrupted-payload branches, where a row is
+expected, are untouched.
+
+Tests (`pkg/registry/file/get_absent_key_test.go`):
+
+- `TestGet_AbsentKeyDoesNotWaitOnWriter` — `Get` of a key with neither payload nor row while
+  another connection holds the write lock. Before: 2.004 s; after: `< 500 ms`.
+- `TestGet_PrunesOrphanedMetadataRow` — guard: a row whose payload was removed is still
+  pruned on read.
+
 ## Operational notes
 
 - Applying a `CollapseConfiguration/default` CR was, and remains, a full mitigation on older
