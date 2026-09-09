@@ -378,11 +378,7 @@ func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) er
 // and transparently retries without it when the filesystem returns an
 // "unsupported" error (e.g. EINVAL on tmpfs/overlayfs).
 func (s *StorageImpl) openPayloadFileWithFallback(path string, flag int, perm os.FileMode) (afero.File, error) {
-	f, err := s.appFs.OpenFile(path, openFlagDirect|flag, perm)
-	if err != nil && isDirectIOUnsupported(err) {
-		f, err = s.appFs.OpenFile(path, flag, perm)
-	}
-	return f, err
+	return openPayloadFileWithFallbackFs(s.appFs, path, flag, perm)
 }
 
 func (s *StorageImpl) Stats(_ context.Context) (storage.Stats, error) {

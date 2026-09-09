@@ -13,8 +13,8 @@ This is the production form of `.omc/plans/full-acid-storage-architecture.md` (R
 prototype's store, gate and checkpointer, plus the pieces the prototype left out — the startup
 data migration (§8), the cleanup arm on rows (K-4), `GeneratedNetworkPolicyStorage` on the CP
 store (§5.6 row 9) and the shared write gate for the 13 legacy kinds
-(`docs/features/write-gate-sharing.md`). Still to come before the flip: the reverse-export tool
-and the legacy-file deletion step (§8.4), and the soak.
+(`docs/features/write-gate-sharing.md`) and the `cpexport` rollback tool. Still to come before the
+flip: the legacy-file deletion step (§8.4) and the soak.
 
 ## Why it matters
 
@@ -82,10 +82,37 @@ the backend never serves a half-reconciled store, and turning the flag off is th
 nothing written, the done-flag untouched) and logs the counts a real run would produce — the census
 §8.3 requires before the flag is turned on anywhere. It is refused together with the backend flag.
 
-**Rollback order (§8.4):** reverse-export first, downgrade second. The old binary's `get()` deletes
-the metadata row of any CP key whose file is missing, and its `INSERT OR REPLACE` nulls `rv`/`uid`;
-the every-start reconcile repairs the latter on re-enable (`legacy_rewrite`, `orphan_payload`).
-The reverse-export tool is not on this branch yet.
+## Rollback: `cpexport`, then downgrade (§8.4)
+
+An older storage binary opens the migrated database without error, but it reads only the
+metadata row and the `.g` file: every key the ObjectStore created since the flip has **no file**,
+every key it updated has a **stale** one, and the old binary's `get()` **deletes the metadata row**
+of a key whose file is missing (its self-repair) — the object is destroyed, not merely invisible.
+Its `INSERT OR REPLACE` also nulls `rv`/`uid`; the every-start reconcile repairs that on re-enable
+(`legacy_rewrite`), but nothing repairs a deleted row.
+`TestExport_DangerWithoutExport_OldBinaryDestroysNewStoreRows` pins all three symptoms.
+
+So the rollback order is fixed: **export first, downgrade second.** `/usr/bin/cpexport`
+(`cmd/cpexport`; `file.ExportContainerProfiles`) writes every migrated row's payload back as the
+legacy gob file at its key, staged and renamed exactly as the legacy writer does, at the row's
+`resourceVersion` and UID. Rows with `rv IS NULL` (never migrated, or already rewritten by a legacy
+writer) are skipped — their file is already the legacy writer's. The database is not touched: the
+old binary ignores `rv`, `uid` and `payloads`; a row it never rewrites stays consistent for the
+re-enable, and a row it rewrites or deletes is exactly the `legacy_rewrite` / `orphan_payload`
+shape the reconcile repairs. Run it **with the server stopped** (scale to 0, run against the PVC),
+never beside a serving process; `-dry-run` counts without writing.
+
+```
+cpexport [-root /data] [-db /data/metadata.sq3] [-dry-run]
+```
+
+The round trip is behaviourally identical, not byte-identical
+(`TestExport_RoundTripIsBehaviourallyIdentical`): gob encodes maps (labels, annotations) in Go's
+randomised map order, so two encodes of one object differ byte-wise, and the JSON codec keeps
+`creationTimestamp` to the second and empty collections as empty (divergences 4 and 6 above).
+Everything the old binary reads back — every field, the `resourceVersion`, the UID — is asserted
+equal to what it served before the migration, and the full cycle export → downgrade → old-binary
+writes and deletes → re-enable is asserted lossless (`TestExport_ThenDowngradeThenReEnable`).
 
 **Deployment precondition (R12):** one storage pod at a time (the chart's `replicas: 1` +
 `strategy: Recreate`); nothing in the database fences an older binary.
