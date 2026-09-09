@@ -194,17 +194,59 @@ var (
 		[]string{"priority"},
 	)
 
-	// SqliteWriteHoldDuration observes how long the ObjectStore's write gate
-	// was held for one transaction (BEGIN IMMEDIATE through COMMIT/ROLLBACK),
-	// by write "path" (create/update/delete/consolidate). The design's PM-3
-	// detector: with the checkpoint off the commit path this is the fsync and
-	// the page writes, nothing else.
+	// SqliteWriteHoldDuration observes how long the write gate was held for
+	// one transaction (BEGIN IMMEDIATE through COMMIT/ROLLBACK), by write
+	// "path" (the ObjectStore's create/update/delete/consolidate/time_series
+	// and the legacy kinds' legacy_commit/legacy_delete/repair/migrate/
+	// cleanup/cleanup_migrate) and "kind". The design's PM-3/PM-G1 detector:
+	// with the checkpoint off the commit path this is the fsync, the page
+	// writes and, for legacy_commit, one same-directory rename.
 	SqliteWriteHoldDuration = metrics.NewHistogramVec(
 		&metrics.HistogramOpts{
 			Subsystem:      "storage",
 			Name:           "sqlite_write_hold_seconds",
-			Help:           "Time the ContainerProfile write gate was held for one transaction, by write path.",
+			Help:           "Time the write gate was held for one transaction, by write path and kind.",
 			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"path", "kind"},
+	)
+
+	// SqliteWriteHoldStepDuration observes one named step inside a gated
+	// hold, by "path" and "step" — today the legacy commit's payload rename,
+	// so a PV whose rename is not a directory-entry update is attributable
+	// without a profiler (PM-G1).
+	SqliteWriteHoldStepDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_write_hold_step_seconds",
+			Help:           "Time one named step inside a gated write hold took, by path and step.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"path", "step"},
+	)
+
+	// WriteGateHoldAge gauges how long the current gate holder has held the
+	// gate, sampled by the gate's watchdog; 0 when idle. Alert at > 5 s: a
+	// leaked ticket or a wedged holder stops every writer of every kind.
+	WriteGateHoldAge = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "write_gate_hold_age_seconds",
+			Help:           "Age of the write gate's current hold as sampled by its watchdog; 0 when idle.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// WriteGateReentrantTotal counts acquires refused because the caller was
+	// already inside a gated transaction (a nested StorageImpl/ObjectStore
+	// call from a gated fn), by the nested "path". Must stay zero.
+	WriteGateReentrantTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "write_gate_reentrant_total",
+			Help:           "Count of write gate acquires refused as re-entrant, by the nested write path. Must stay zero.",
 			StabilityLevel: metrics.ALPHA,
 		},
 		[]string{"path"},
@@ -394,6 +436,9 @@ func init() {
 	legacyregistry.MustRegister(ConsolidationDivergenceTotal)
 	legacyregistry.MustRegister(ConsolidationHealFailedTotal)
 	legacyregistry.MustRegister(SqliteUngatedWriteTotal)
+	legacyregistry.MustRegister(SqliteWriteHoldStepDuration)
+	legacyregistry.MustRegister(WriteGateHoldAge)
+	legacyregistry.MustRegister(WriteGateReentrantTotal)
 }
 
 // IncSqliteUngatedWrite records one write statement prepared on a pool
@@ -402,9 +447,25 @@ func IncSqliteUngatedWrite(op, table string) {
 	SqliteUngatedWriteTotal.WithLabelValues(op, table).Inc()
 }
 
-// ObserveSqliteWriteHold records one gated transaction's hold time by path.
-func ObserveSqliteWriteHold(path string, d time.Duration) {
-	SqliteWriteHoldDuration.WithLabelValues(path).Observe(d.Seconds())
+// ObserveSqliteWriteHoldStep records one named step inside a gated hold.
+func ObserveSqliteWriteHoldStep(path, step string, d time.Duration) {
+	SqliteWriteHoldStepDuration.WithLabelValues(path, step).Observe(d.Seconds())
+}
+
+// SetWriteGateHoldAge sets the current hold's age (0 when idle).
+func SetWriteGateHoldAge(d time.Duration) {
+	WriteGateHoldAge.Set(d.Seconds())
+}
+
+// IncWriteGateReentrant records one acquire refused as re-entrant.
+func IncWriteGateReentrant(path string) {
+	WriteGateReentrantTotal.WithLabelValues(path).Inc()
+}
+
+// ObserveSqliteWriteHold records one gated transaction's hold time by path
+// and kind.
+func ObserveSqliteWriteHold(path, kind string, d time.Duration) {
+	SqliteWriteHoldDuration.WithLabelValues(path, kind).Observe(d.Seconds())
 }
 
 // ObserveWriteGateWait records one caller's queue time for a gate ticket.

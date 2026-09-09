@@ -115,6 +115,7 @@ type objectStoreEnv struct {
 	dir       string
 	dbPath    string
 	pool      *sqlitemigration.Pool
+	gate      *writeGate
 	store     *ObjectStore
 	cp        *objectStoreCPStorage
 	legacy    *StorageImpl
@@ -178,13 +179,19 @@ func newObjectStoreEnv(t *testing.T, opts ...envOption) *objectStoreEnv {
 	processor.Workers = 1
 	processor.DeleteThreshold = 24 * time.Hour
 
-	store, err := NewObjectStore(pool, dbPath, wd, sch, processor, legacy, ObjectStoreOptions{
+	gateCtx, gateCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer gateCancel()
+	gate, err := newWriteGate(gateCtx, pool)
+	require.NoError(t, err)
+	legacy.SetWriteGate(gate)
+	store, err := NewObjectStore(pool, dbPath, wd, sch, processor, legacy, gate, ObjectStoreOptions{
 		CheckpointThresholdBytes: cfg.checkpointBytes,
 		CheckpointInterval:       cfg.checkpointEvery,
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, store.Close())
+		require.NoError(t, gate.Close())
 		closed := make(chan error, 1)
 		go func() { closed <- pool.Close() }()
 		select {
@@ -204,7 +211,7 @@ func newObjectStoreEnv(t *testing.T, opts ...envOption) *objectStoreEnv {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)
 	return &objectStoreEnv{
-		t: t, ctx: ctx, dir: dir, dbPath: dbPath, pool: pool, store: store,
+		t: t, ctx: ctx, dir: dir, dbPath: dbPath, pool: pool, gate: gate, store: store,
 		cp:        processor.ContainerProfileStorage.(*objectStoreCPStorage),
 		legacy:    legacy, legacyFs: legacyFs, processor: processor, wd: wd, scheme: sch, rec: rec,
 		fixture:   openFixtureConn(t, pool, dbPath, 5*time.Second),

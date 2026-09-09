@@ -396,11 +396,18 @@ func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Du
 	processor.CollapseSettings = NewCRDCollapseSettingsProvider(s)
 	if loadBackend() == "objectstore" {
 		s.SetForeignKinds(IsContainerProfileKind)
+		// The process's one write gate, shared by the ObjectStore and the
+		// legacy instance (main.go's wiring under the flag).
+		gateCtx, gateCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer gateCancel()
+		gate, err := NewWriteGate(gateCtx, pool)
+		require.NoError(t, err)
+		s.SetWriteGate(gate)
 		// NewObjectStore hands the processor its ContainerProfileStorage.
-		store, err := NewObjectStore(pool, path, wd, sch, processor, s, ObjectStoreOptions{})
+		store, err := NewObjectStore(pool, path, wd, sch, processor, s, gate, ObjectStoreOptions{})
 		require.NoError(t, err)
 		storeOwnedConns = 1
-		return s, store, processor, pool, func() { _ = store.Close() }
+		return s, store, processor, pool, func() { _ = store.Close(); _ = gate.Close() }
 	}
 	// Interval 0 => SetStorage does not spawn the maintenance goroutine; the
 	// load goroutines drive ConsolidateTimeSeries explicitly.

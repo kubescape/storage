@@ -56,7 +56,46 @@ var (
 	// base ContainerProfile is already Completed/Full: nothing updates such a
 	// profile (softwarecomposition.IsCompletedFull).
 	ErrProfileFrozen = errors.New("profile is completed/full and cannot be updated")
+	// ErrGateRequiresSingleWriter is returned by Create/GuaranteedUpdate on a
+	// StorageImpl that shares the write gate while singleWriterEnabled is
+	// false: that combination would route every REST write through
+	// CreateWithConn/GuaranteedUpdateWithConn holding a pool connection while
+	// queued on the gate (write-gate-sharing §3.3). main.go refuses the
+	// configuration at startup; this catches a test flipping the package
+	// variable directly.
+	ErrGateRequiresSingleWriter = errors.New("storage: the shared write gate requires the single-writer path (singleWriterEnabled=false is refused)")
 )
+
+// gatedWrite is the one helper every legacy write site runs its SQL through
+// (write-gate-sharing §3.1). With no gate it is today's code, byte for byte:
+// bare autocommit statements (txn=false, W3–W9) or the savepoint the site
+// has today (txn=true, W1/W2) on the caller's connection. With a gate, both
+// are BEGIN IMMEDIATE … COMMIT on the gate's connection and conn is ignored;
+// fn receives the gate-marked ctx and must thread it into anything it calls
+// (INV-1′: no lock, no pool take, no processor, no dispatch, no gob, no exec;
+// one same-directory rename of an already-written file is the one exemption).
+func gatedWrite(gate *writeGate, ctx context.Context, conn *sqlite.Conn, priority writePriority, path, kind string, txn bool, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
+	if gate == nil {
+		if !txn {
+			return fn(ctx, conn)
+		}
+		release := sqlitex.Save(conn)
+		err := fn(ctx, conn)
+		release(&err)
+		return err
+	}
+	return gate.run(ctx, priority, path, kind, fn)
+}
+
+// SetWriteGate hands the StorageImpl the process's shared write gate (nil =
+// legacy behaviour, no gate). Called once at wiring time, before traffic.
+func (s *StorageImpl) SetWriteGate(gate *WriteGate) {
+	s.gate = gate
+}
+
+func (s *StorageImpl) write(ctx context.Context, conn *sqlite.Conn, priority writePriority, path, kind string, txn bool, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
+	return gatedWrite(s.gate, ctx, conn, priority, path, kind, txn, fn)
+}
 
 // lockTimeout is the hardcoded backstop for lock acquisition. It sits well under the
 // ~60s outer apiserver request deadline so a contended request fails fast with a
@@ -289,6 +328,11 @@ type StorageImpl struct {
 	// delete of a row the ObjectStore owns. Metadata-only reads (the shared
 	// row both backends agree on) are not refused. nil = no guard.
 	foreignKinds func(kind string) bool
+
+	// gate is the process's shared write gate (write-gate-sharing §3): when
+	// set, every write statement of this instance runs on the gate's
+	// connection through write(); nil = today's code on pool connections.
+	gate *writeGate
 }
 
 // SetForeignKinds installs the kind-ownership guard; nil removes it.

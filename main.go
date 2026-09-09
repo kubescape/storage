@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"net/url"
 	"os"
@@ -68,6 +69,14 @@ func main() {
 		logger.L().Ctx(ctx).Fatal("load config error", helpers.Error(err))
 	}
 	cfg.DefaultNamespace = clusterData.Namespace
+	// Under the ContainerProfile SQLite backend every legacy write goes
+	// through the shared write gate from the single-writer shards, which hold
+	// no pool connection while queued; with the single writer off, every REST
+	// write would instead queue on the gate holding a pool connection and ten
+	// queued writers would starve every reader (write-gate-sharing §3.3, §4).
+	if cfg.ContainerProfileSqliteBackend && !cfg.SingleWriterEnabled {
+		logger.L().Ctx(ctx).Fatal("invalid config: containerProfileSqliteBackend requires singleWriterEnabled")
+	}
 	// to enable otel, set OTEL_COLLECTOR_SVC=otel-collector:4317
 	if otelHost, present := os.LookupEnv("OTEL_COLLECTOR_SVC"); present {
 		ctx = logger.InitOtel("storage",
@@ -111,6 +120,21 @@ func main() {
 	file.SetPoolTimeout(cfg.PoolTimeout)
 	file.SetSingleWriterEnabled(cfg.SingleWriterEnabled)
 
+	// The process's one write gate (.omc/plans/write-gate-sharing.md §3.1):
+	// with the ContainerProfile SQLite backend on, every SQLite write of every
+	// kind — the ObjectStore's, the legacy StorageImpl's and the cleanup
+	// handler's — goes through it. Built beside the pool, before any writer
+	// exists; closed by the apiserver's pre-shutdown hook, before Pool.Close.
+	var writeGate *file.WriteGate
+	if cfg.ContainerProfileSqliteBackend {
+		gateCtx, gateCancel := context.WithTimeout(ctx, cfg.PoolTimeout)
+		writeGate, err = file.NewWriteGate(gateCtx, pool)
+		gateCancel()
+		if err != nil {
+			logger.L().Ctx(ctx).Fatal("write gate error", helpers.Error(err))
+		}
+	}
+
 	// setup watcher
 	watchDispatcher := file.NewWatchDispatcher()
 
@@ -124,11 +148,13 @@ func main() {
 	relevancyEnabled := clusterData.RelevantImageVulnerabilitiesEnabled != nil && *clusterData.RelevantImageVulnerabilitiesEnabled
 
 	cleanupHandler := file.NewResourcesCleanupHandler(osFs, file.DefaultStorageRoot, pool, watchDispatcher, cfg.CleanupInterval, cfg.DefaultNamespace, kubernetesAPI, relevancyEnabled)
+	cleanupHandler.SetWriteGate(writeGate)
 	go cleanupHandler.RunCleanupTask(ctx)
 
 	// start the server
 	options := server.NewWardleServerOptions(os.Stdout, os.Stderr, osFs, pool, cfg, watchDispatcher, cleanupHandler)
 	options.SqlitePath = sqlitePath
+	options.WriteGate = writeGate
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)

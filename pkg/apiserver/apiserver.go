@@ -91,6 +91,11 @@ type ExtraConfig struct {
 	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
+	// WriteGate is the process's one write gate, built by main.go beside the
+	// pool when StorageConfig.ContainerProfileSqliteBackend is on and shared
+	// by the ObjectStore, the legacy StorageImpl and the cleanup handler; nil
+	// with the flag off.
+	WriteGate *file.WriteGate
 }
 
 // Config defines the config for the apiserver
@@ -162,13 +167,24 @@ func (c completedConfig) New() (*WardleServer, error) {
 	var containerProfileStorageImpl storage.Interface
 	if c.ExtraConfig.StorageConfig.ContainerProfileSqliteBackend {
 		storageImpl.(*file.StorageImpl).SetForeignKinds(file.IsContainerProfileKind)
-		objectStore, err := file.NewObjectStore(c.ExtraConfig.Pool, c.ExtraConfig.SqlitePath, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor, storageImpl, file.ObjectStoreOptions{})
+		gate := c.ExtraConfig.WriteGate
+		if gate == nil {
+			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: no write gate (main.go builds it beside the pool when the flag is on)")
+		}
+		storageImpl.(*file.StorageImpl).SetWriteGate(gate)
+		objectStore, err := file.NewObjectStore(c.ExtraConfig.Pool, c.ExtraConfig.SqlitePath, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor, storageImpl, gate, file.ObjectStoreOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: %w", err)
 		}
 		// The gate's dedicated connection must be back in the pool before
-		// Pool.Close (K-5); the pre-shutdown hook runs before the pool is closed.
-		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", objectStore.Close); err != nil {
+		// Pool.Close (K-5): the pre-shutdown hook closes the store, then the
+		// shared gate, before the pool is closed.
+		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", func() error {
+			if err := objectStore.Close(); err != nil {
+				return err
+			}
+			return gate.Close()
+		}); err != nil {
 			return nil, err
 		}
 		containerProfileStorageImpl = objectStore

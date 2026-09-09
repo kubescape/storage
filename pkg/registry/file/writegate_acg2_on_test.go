@@ -51,17 +51,24 @@ func newACG2OnEnv(t *testing.T) *acg2Env {
 	t.Cleanup(e.closePool)
 	e.rec = rec
 	e.legacy.SetForeignKinds(IsContainerProfileKind)
-	store, err := NewObjectStore(pool, dbPath, e.legacy.watchDispatcher, e.legacy.scheme, e.processor, e.legacy, ObjectStoreOptions{CheckpointInterval: time.Hour})
+	gate, err := newWriteGate(e.ctx, pool)
+	require.NoError(t, err)
+	e.gate = gate
+	e.legacy.SetWriteGate(gate)
+	e.cleanup.SetWriteGate(gate)
+	store, err := NewObjectStore(pool, dbPath, e.legacy.watchDispatcher, e.legacy.scheme, e.processor, e.legacy, gate, ObjectStoreOptions{CheckpointInterval: time.Hour})
 	require.NoError(t, err)
 	e.store = store
-	e.gate = store.gate
-	e.closeStore = func() { require.NoError(t, store.Close()) }
+	e.closeStore = func() {
+		require.NoError(t, store.Close())
+		require.NoError(t, gate.Close())
+	}
 	e.hold = func() func() {
 		held := make(chan struct{})
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			_ = e.gate.run(e.ctx, priorityHigh, "acg2-holder", func(*sqlite.Conn) error {
+			_ = e.gate.run(e.ctx, priorityHigh, "acg2-holder", "test", func(context.Context, *sqlite.Conn) error {
 				close(held)
 				time.Sleep(acg2HolderHold)
 				return nil
@@ -140,5 +147,4 @@ func TestACG2_FlagOn(t *testing.T) {
 	runACG2Matrix(t, acg2On, append(append([]acg2Reader(nil), acg2Readers...), acg2OnReaders...))
 }
 
-var _ = context.Background
 var _ runtime.Object

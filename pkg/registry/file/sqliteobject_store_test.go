@@ -330,10 +330,15 @@ func TestObjectStore_K5_CloseReturnsGateConnection(t *testing.T) {
 		}
 		return len(conns)
 	}
-	assert.Equal(t, 2, countTakeable(), "one of three connections is the gate's while the store is open")
+	assert.Equal(t, 2, countTakeable(), "one of three connections is the gate's while the gate is open")
+	// The shared gate is closed by its owner after every store's Close (the
+	// apiserver's pre-shutdown hook); the store's own Close returns nothing.
 	require.NoError(t, e.store.Close())
-	assert.Equal(t, 3, countTakeable(), "Close must return the gate's connection")
+	assert.Equal(t, 2, countTakeable(), "the store does not own the gate's connection")
+	require.NoError(t, e.gate.Close())
+	assert.Equal(t, 3, countTakeable(), "the gate's Close must return its connection")
 	require.NoError(t, e.store.Close(), "Close is idempotent")
+	require.NoError(t, e.gate.Close(), "Close is idempotent")
 	err := e.store.Create(e.ctx, e.key("after-close"), e.plain("after-close"), nil, 0)
 	assert.ErrorIs(t, err, errGateClosed)
 }

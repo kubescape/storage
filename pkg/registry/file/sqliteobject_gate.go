@@ -1,13 +1,15 @@
 package file
 
-// The write gate of the SQLite-native ContainerProfile backend (ObjectStore):
-// a caller-side two-lane FIFO ticket semaphore owning ONE dedicated write
-// connection (design: .omc/plans/full-acid-storage-architecture.md §6.4).
+// The process's write gate: a caller-side two-lane FIFO ticket semaphore
+// owning ONE dedicated write connection (design:
+// .omc/plans/full-acid-storage-architecture.md §6.4, shared with the legacy
+// kinds per .omc/plans/write-gate-sharing.md §3).
 //
 // Acquisition order, fixed: prepare (pool connection for reads, released) →
 // gate ticket (queued on ctx) → BEGIN IMMEDIATE on the gate's connection →
 // statements → COMMIT → release ticket → dispatch. No pool connection is held
-// while queued on the gate and no ticket is held while waiting on the pool.
+// while queued on the gate on the hot paths, and no ticket is held while
+// waiting on the pool.
 //
 // Not a sync.Mutex: Go's mutex is not FIFO and cannot be abandoned on ctx
 // cancellation. The releaser hands the ticket directly to the next waiter
@@ -16,18 +18,25 @@ package file
 // FIFO among gated writers. A waiter whose ctx fires after the ticket was
 // granted hands the ticket back (INV-5): a leaked ticket would wedge every
 // writer forever.
+//
+// One gate per pool (writegate_registry.go): after R1 the gate is the only
+// code that acquires SQLite's write lock; any other writer busy-waits against
+// it for the whole busy timeout, invisible to the gate's own histograms.
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/metrics"
+	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -37,11 +46,50 @@ import (
 // Close has begun.
 var errGateClosed = errors.New("write gate: closed")
 
+// errGateReentrant is returned when a gated fn tries to acquire the gate again
+// through the ctx it was handed: the gate is not re-entrant, and the nested
+// acquire would queue behind its own holder forever (INV-1′). In tests the
+// same condition panics, so a site that swallows the error (`_ =
+// DeleteMetadata(...)`) still fails loudly.
+var errGateReentrant = errors.New("write gate: re-entrant acquire from inside a gated transaction")
+
+// gateReentrantPanics makes a re-entrant acquire panic instead of returning
+// errGateReentrant. Set by the package's TestMain; false in production.
+var gateReentrantPanics atomic.Bool
+
+// gateCtxKey marks the ctx a gated fn receives; valid only for the dynamic
+// extent of fn (R-5): a site must not store it in anything that outlives the
+// call, or a legitimate later write through the stored ctx is refused.
+type gateCtxKey struct{}
+
 // ErrWriteConflict is the exported alias of the single writer's conflict
 // sentinel: an ObjectStore compare-and-swap (UPDATE/DELETE … WHERE rv=:rv AND
 // uid=:uid) matched no row because another write committed first. Callers
 // re-read and retry; the consolidation pass retries once.
 var ErrWriteConflict = errWriteConflict
+
+// Watchdog tunables (PM-G2). Package-level vars so tests can shrink them.
+var (
+	// gateWatchdogInterval is how often the watchdog samples the hold.
+	gateWatchdogInterval = time.Second
+	// gateWatchdogThreshold is the hold age past which the watchdog logs the
+	// holder once, with every goroutine's stack: a leaked ticket, a re-entrant
+	// acquire the ctx marker did not see, or a holder blocked on a PV that
+	// stopped responding.
+	gateWatchdogThreshold = 60 * time.Second
+)
+
+// WriteGate is the exported name of the process's write gate for main.go's
+// wiring; everything else in this package uses writeGate.
+type WriteGate = writeGate
+
+// NewWriteGate builds the process's one write gate over pool. It is created
+// beside the pool when config.ContainerProfileSqliteBackend is on and handed
+// to the ObjectStore, the legacy StorageImpl and the cleanup handler; with the
+// flag off no gate exists and every legacy write site runs today's code.
+func NewWriteGate(ctx context.Context, pool *sqlitemigration.Pool) (*WriteGate, error) {
+	return newWriteGate(ctx, pool)
+}
 
 type gateWaiter struct {
 	ch       chan struct{}
@@ -62,6 +110,10 @@ type writeGate struct {
 	high, low  []*gateWaiter
 	highStreak int
 	closed     bool
+	// holdStart/holdPath/holdKind describe the current holder (busy) for the
+	// watchdog and the hold-age gauge.
+	holdStart          time.Time
+	holdPath, holdKind string
 	// conn is the dedicated write connection, taken once from the pool and
 	// returned only by Close (K-5: sqlitex.Pool.Close blocks until every
 	// connection is back).
@@ -81,6 +133,10 @@ type writeGate struct {
 	// replaced counts connections that could not be cleaned after a failed
 	// transaction and were replaced from the pool.
 	replaced int
+
+	watchdogStop  chan struct{}
+	watchdogDone  chan struct{}
+	watchdogFired atomic.Int64
 }
 
 // newWriteGate takes the gate's dedicated connection from pool and registers
@@ -94,7 +150,13 @@ func newWriteGate(ctx context.Context, pool *sqlitemigration.Pool) (*writeGate, 
 	}
 	// Pool.Take bound the interrupt to ctx; the connection outlives it.
 	conn.SetInterrupt(nil)
-	g := &writeGate{pool: pool, conn: conn, owned: map[*sqlite.Conn]struct{}{conn: {}}}
+	g := &writeGate{
+		pool:         pool,
+		conn:         conn,
+		owned:        map[*sqlite.Conn]struct{}{conn: {}},
+		watchdogStop: make(chan struct{}),
+		watchdogDone: make(chan struct{}),
+	}
 	g.idle = sync.NewCond(&g.mu)
 	if err := registerWriteGate(pool, g); err != nil {
 		pool.Put(conn)
@@ -103,6 +165,7 @@ func newWriteGate(ctx context.Context, pool *sqlitemigration.Pool) (*writeGate, 
 	if obs := writeGateObserver.Load(); obs != nil {
 		(*obs)(g)
 	}
+	go g.watchdog()
 	return g, nil
 }
 
@@ -207,6 +270,7 @@ func (g *writeGate) pickNext() *gateWaiter {
 func (g *writeGate) release() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.holdStart, g.holdPath, g.holdKind = time.Time{}, "", ""
 	if next := g.pickNext(); next != nil {
 		next.granted = true
 		next.ch <- struct{}{}
@@ -232,29 +296,43 @@ func (g *writeGate) held() bool {
 
 // run executes fn inside BEGIN IMMEDIATE … COMMIT on the gate's connection,
 // holding the gate for exactly that span. fn must contain only SQL on
-// already-prepared bytes (INV-1). A non-nil error from fn rolls the
-// transaction back and is returned; a panic in fn is recovered, rolled back,
-// counted under CommitOutcomePanic and returned as an error (L0-B).
-func (g *writeGate) run(ctx context.Context, priority writePriority, path string, fn func(conn *sqlite.Conn) error) (err error) {
+// already-prepared bytes (INV-1; the legacy kinds' INV-1′ adds one rename of
+// a file this process finished writing before the ticket). fn receives a
+// ctx marked as gate-held: a nested acquire through it fails at O(1)
+// (errGateReentrant) instead of queuing behind its own holder. A non-nil
+// error from fn rolls the transaction back and is returned; a panic in fn is
+// recovered, rolled back, counted under CommitOutcomePanic and returned as
+// an error (L0-B). path labels the hold, kind the commit outcome.
+func (g *writeGate) run(ctx context.Context, priority writePriority, path, kind string, fn func(ctx context.Context, conn *sqlite.Conn) error) (err error) {
+	if held := ctx.Value(gateCtxKey{}); held != nil {
+		metrics.IncWriteGateReentrant(path)
+		if gateReentrantPanics.Load() {
+			panic(fmt.Sprintf("%v: %s inside %s", errGateReentrant, path, held))
+		}
+		return fmt.Errorf("%w: %s inside %s", errGateReentrant, path, held)
+	}
 	if err := g.acquire(ctx, priority); err != nil {
 		return err
 	}
 	defer g.release()
-
+	g.mu.Lock()
+	g.holdStart, g.holdPath, g.holdKind = time.Now(), path, kind
 	conn := g.conn
+	g.mu.Unlock()
+
 	start := time.Now()
-	defer func() { metrics.ObserveSqliteWriteHold(path, time.Since(start)) }()
+	defer func() { metrics.ObserveSqliteWriteHold(path, kind, time.Since(start)) }()
 
 	defer func() {
 		if r := recover(); r != nil {
-			logger.L().Error("ObjectStore: panic inside the gated transaction, rolled back",
-				helpers.String("path", path), helpers.Interface("panic", r), helpers.String("stack", string(debug.Stack())))
-			metrics.IncSingleWriterCommit(ContainerProfileKindPlural, priority.label(), metrics.CommitOutcomePanic)
+			logger.L().Error("write gate: panic inside the gated transaction, rolled back",
+				helpers.String("path", path), helpers.String("kind", kind), helpers.Interface("panic", r), helpers.String("stack", string(debug.Stack())))
+			metrics.IncSingleWriterCommit(kind, priority.label(), metrics.CommitOutcomePanic)
 			g.cleanOrReplace(conn)
 			if perr, ok := r.(error); ok {
-				err = fmt.Errorf("ObjectStore: panic during %s transaction: %w", path, perr)
+				err = fmt.Errorf("write gate: panic during %s transaction: %w", path, perr)
 			} else {
-				err = fmt.Errorf("ObjectStore: panic during %s transaction: %v", path, r)
+				err = fmt.Errorf("write gate: panic during %s transaction: %v", path, r)
 			}
 		}
 	}()
@@ -266,18 +344,18 @@ func (g *writeGate) run(ctx context.Context, priority writePriority, path string
 		g.cleanOrReplace(conn)
 		return fmt.Errorf("BEGIN IMMEDIATE: %w", err)
 	}
-	err = fn(conn)
+	err = fn(context.WithValue(ctx, gateCtxKey{}, path), conn)
 	endFn(&err)
 	if err != nil {
 		g.cleanOrReplace(conn)
-		if errors.Is(err, errWriteConflict) {
-			metrics.IncSingleWriterCommit(ContainerProfileKindPlural, priority.label(), metrics.CommitOutcomeConflict)
+		if errors.Is(err, errWriteConflict) || storage.IsExist(err) {
+			metrics.IncSingleWriterCommit(kind, priority.label(), metrics.CommitOutcomeConflict)
 		} else {
-			metrics.IncSingleWriterCommit(ContainerProfileKindPlural, priority.label(), metrics.CommitOutcomeError)
+			metrics.IncSingleWriterCommit(kind, priority.label(), metrics.CommitOutcomeError)
 		}
 		return err
 	}
-	metrics.IncSingleWriterCommit(ContainerProfileKindPlural, priority.label(), metrics.CommitOutcomeCommitted)
+	metrics.IncSingleWriterCommit(kind, priority.label(), metrics.CommitOutcomeCommitted)
 	return nil
 }
 
@@ -293,12 +371,12 @@ func (g *writeGate) cleanOrReplace(conn *sqlite.Conn) {
 	if conn.AutocommitEnabled() {
 		return
 	}
-	logger.L().Error("ObjectStore: write connection could not be cleaned, replacing it from the pool")
+	logger.L().Error("write gate: connection could not be cleaned, replacing it from the pool")
 	ctx, cancel := context.WithTimeout(context.Background(), poolTimeout)
 	defer cancel()
 	fresh, err := g.pool.Take(ctx)
 	if err != nil {
-		logger.L().Error("ObjectStore: could not take a replacement write connection; keeping the dirty one", helpers.Error(err))
+		logger.L().Error("write gate: could not take a replacement connection; keeping the dirty one", helpers.Error(err))
 		return
 	}
 	fresh.SetInterrupt(nil)
@@ -311,6 +389,42 @@ func (g *writeGate) cleanOrReplace(conn *sqlite.Conn) {
 	g.owned[fresh] = struct{}{}
 	g.replaced++
 	g.mu.Unlock()
+}
+
+// watchdog samples the hold every gateWatchdogInterval: it keeps the
+// hold-age gauge current and, once per hold, logs the holder with every
+// goroutine's stack when the hold outlives gateWatchdogThreshold (PM-G2).
+func (g *writeGate) watchdog() {
+	defer close(g.watchdogDone)
+	ticker := time.NewTicker(gateWatchdogInterval)
+	defer ticker.Stop()
+	logged := false
+	for {
+		select {
+		case <-g.watchdogStop:
+			metrics.SetWriteGateHoldAge(0)
+			return
+		case <-ticker.C:
+		}
+		g.mu.Lock()
+		busy, start, path, kind := g.busy, g.holdStart, g.holdPath, g.holdKind
+		g.mu.Unlock()
+		if !busy || start.IsZero() {
+			metrics.SetWriteGateHoldAge(0)
+			logged = false
+			continue
+		}
+		age := time.Since(start)
+		metrics.SetWriteGateHoldAge(age)
+		if age > gateWatchdogThreshold && !logged {
+			logged = true
+			g.watchdogFired.Add(1)
+			buf := make([]byte, 1<<20)
+			n := runtime.Stack(buf, true)
+			logger.L().Error("write gate: held past the watchdog threshold; every writer of every kind is queued behind it",
+				helpers.String("path", path), helpers.String("kind", kind), helpers.String("age", age.String()), helpers.String("stacks", string(buf[:n])))
+		}
+	}
 }
 
 // Close stops admitting writers, waits for the current holder to finish, and
@@ -337,6 +451,8 @@ func (g *writeGate) Close() error {
 	// returned connection from here on is somebody else's (R-8).
 	g.closeSeq = writeStmtSeq.Add(1)
 	g.mu.Unlock()
+	close(g.watchdogStop)
+	<-g.watchdogDone
 	unregisterWriteGate(g.pool, g)
 	if conn != nil {
 		g.pool.Put(conn)

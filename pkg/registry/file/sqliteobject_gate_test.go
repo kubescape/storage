@@ -215,7 +215,7 @@ func TestWriteGate_CloseRejectsWaiters(t *testing.T) {
 func TestWriteGate_RunPanicContainment(t *testing.T) {
 	g, done := newTestGate(t, 2)
 	defer done()
-	err := g.run(context.Background(), priorityHigh, "test", func(conn *sqlite.Conn) error {
+	err := g.run(context.Background(), priorityHigh, "test", "test", func(_ context.Context, conn *sqlite.Conn) error {
 		require.NoError(t, sqlitex.ExecuteTransient(conn, `INSERT INTO metadata (kind,namespace,name,metadata) VALUES ('k','n','panic','{}')`, nil))
 		panic("boom")
 	})
@@ -225,14 +225,14 @@ func TestWriteGate_RunPanicContainment(t *testing.T) {
 	assert.False(t, g.held())
 
 	var n int64
-	require.NoError(t, g.run(context.Background(), priorityHigh, "test", func(conn *sqlite.Conn) error {
+	require.NoError(t, g.run(context.Background(), priorityHigh, "test", "test", func(_ context.Context, conn *sqlite.Conn) error {
 		return sqlitex.ExecuteTransient(conn, `SELECT count(*) FROM metadata WHERE name='panic'`, &sqlitex.ExecOptions{
 			ResultFunc: func(stmt *sqlite.Stmt) error { n = stmt.ColumnInt64(0); return nil },
 		})
 	}))
 	assert.Equal(t, int64(0), n, "the panicked transaction must have been rolled back")
 
-	err = g.run(context.Background(), priorityHigh, "test", func(*sqlite.Conn) error { return errors.New("no") })
+	err = g.run(context.Background(), priorityHigh, "test", "test", func(context.Context, *sqlite.Conn) error { return errors.New("no") })
 	assert.EqualError(t, err, "no")
 	assert.True(t, g.conn.AutocommitEnabled())
 }
@@ -279,7 +279,7 @@ func TestWriteGate_SwapKeepsPreSwapConnectionOwned(t *testing.T) {
 	c0 := g.conn
 	closed := make(chan struct{})
 	close(closed)
-	err = g.run(ctx, priorityHigh, "swap", func(conn *sqlite.Conn) error {
+	err = g.run(ctx, priorityHigh, "swap", "test", func(_ context.Context, conn *sqlite.Conn) error {
 		require.Same(t, c0, conn)
 		require.NoError(t, sqlitex.ExecuteTransient(conn, `INSERT INTO metadata (kind,namespace,name,metadata) VALUES ('k','n','swap','{}')`, nil))
 		conn.SetInterrupt(closed)
@@ -297,7 +297,7 @@ func TestWriteGate_SwapKeepsPreSwapConnectionOwned(t *testing.T) {
 	// The gate keeps working on the replacement, and the panicked INSERT
 	// never committed.
 	var n int64
-	require.NoError(t, g.run(ctx, priorityHigh, "swap", func(conn *sqlite.Conn) error {
+	require.NoError(t, g.run(ctx, priorityHigh, "swap", "test", func(_ context.Context, conn *sqlite.Conn) error {
 		require.Same(t, g.conn, conn)
 		return sqlitex.ExecuteTransient(conn, `SELECT count(*) FROM metadata WHERE name='swap'`, &sqlitex.ExecOptions{
 			ResultFunc: func(stmt *sqlite.Stmt) error { n = stmt.ColumnInt64(0); return nil },

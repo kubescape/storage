@@ -157,7 +157,7 @@ func (c *objectStoreCPStorage) BeginTransaction(ctx context.Context) (func(*erro
 		if *errp != nil || len(ws.stmts) == 0 {
 			return
 		}
-		err := c.s.gate.run(ctx, priorityLow, holdPathConsolidate, func(conn *sqlite.Conn) error {
+		err := c.s.gate.run(ctx, priorityLow, holdPathConsolidate, ContainerProfileKindPlural, func(_ context.Context, conn *sqlite.Conn) error {
 			hook := c.s.stmtHook(conn, holdPathConsolidate)
 			for _, st := range ws.stmts {
 				if err := hook(st.name); err != nil {
@@ -436,7 +436,13 @@ func (c *objectStoreCPStorage) DeleteTimeSeriesContainerEntries(ctx context.Cont
 		h.ws.stage("delete-time-series", run)
 		return nil
 	}
-	return c.s.gate.run(ctx, priorityLow, holdPathTimeSeries, run)
+	return c.s.gate.run(ctx, priorityLow, holdPathTimeSeries, ContainerProfileKindPlural, gatedStmt(run))
+}
+
+// gatedStmt adapts a staged statement (which never touches the ctx) to the
+// gate's fn signature.
+func gatedStmt(run func(conn *sqlite.Conn) error) func(context.Context, *sqlite.Conn) error {
+	return func(_ context.Context, conn *sqlite.Conn) error { return run(conn) }
 }
 
 // ReplaceTimeSeriesContainerEntries stages (or runs) the per-series DELETE +
@@ -472,7 +478,7 @@ func (c *objectStoreCPStorage) ReplaceTimeSeriesContainerEntries(ctx context.Con
 		h.ws.stage("replace-time-series", run)
 		return nil
 	}
-	return c.s.gate.run(ctx, priorityLow, holdPathTimeSeries, run)
+	return c.s.gate.run(ctx, priorityLow, holdPathTimeSeries, ContainerProfileKindPlural, gatedStmt(run))
 }
 
 // WriteTimeSeriesEntry is the AfterCreate fallback (a processor without
@@ -486,5 +492,5 @@ func (c *objectStoreCPStorage) WriteTimeSeriesEntry(ctx context.Context, kind, n
 		h.ws.stage("write-time-series", run)
 		return nil
 	}
-	return c.s.gate.run(ctx, priorityLow, holdPathTimeSeries, run)
+	return c.s.gate.run(ctx, priorityLow, holdPathTimeSeries, ContainerProfileKindPlural, gatedStmt(run))
 }

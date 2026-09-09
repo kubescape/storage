@@ -39,6 +39,20 @@ type ResourcesCleanupHandler struct {
 	deleteFunc            TypeDeleteFunc
 	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
 	watchDispatcher       *WatchDispatcher
+	// gate is the process's shared write gate (write-gate-sharing §3.2, W9):
+	// when set, the tick's row deletes and sidecar migrations run on the
+	// gate's connection; nil = today's code on the walk's connection.
+	gate *writeGate
+}
+
+// SetWriteGate hands the cleanup handler the shared write gate (nil = no
+// gate). Called once at wiring time, before the first tick.
+func (h *ResourcesCleanupHandler) SetWriteGate(gate *WriteGate) {
+	h.gate = gate
+}
+
+func (h *ResourcesCleanupHandler) write(ctx context.Context, conn *sqlite.Conn, path, kind string, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
+	return gatedWrite(h.gate, ctx, conn, priorityLow, path, kind, false, fn)
 }
 
 func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {

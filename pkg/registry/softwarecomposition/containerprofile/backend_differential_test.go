@@ -46,10 +46,16 @@ func newObjectStoreTestStorage(t *testing.T) storage.Interface {
 	legacy.(*file.StorageImpl).SetForeignKinds(file.IsContainerProfileKind)
 	processor := file.NewContainerProfileProcessor(config.Config{DefaultNamespace: "kubescape", MaxContainerProfileSize: 40000}, nil)
 	processor.Interval = 0
-	store, err := file.NewObjectStore(pool, dbPath, nil, sch, processor, legacy, file.ObjectStoreOptions{CheckpointInterval: time.Hour})
+	gateCtx, gateCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer gateCancel()
+	gate, err := file.NewWriteGate(gateCtx, pool)
+	require.NoError(t, err)
+	legacy.(*file.StorageImpl).SetWriteGate(gate)
+	store, err := file.NewObjectStore(pool, dbPath, nil, sch, processor, legacy, gate, file.ObjectStoreOptions{CheckpointInterval: time.Hour})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, store.Close())
+		require.NoError(t, gate.Close())
 		require.NoError(t, pool.Close())
 	})
 	return store

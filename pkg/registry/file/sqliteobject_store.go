@@ -43,13 +43,22 @@ import (
 // the object converted to the v1beta1 storage version and JSON-marshalled.
 const PayloadEncodingJSONV1Beta1 = "json/v1beta1"
 
-// Write-path labels for storage_sqlite_write_hold_seconds.
+// Write-path labels for storage_sqlite_write_hold_seconds: the ObjectStore's
+// own, then the legacy kinds' sites routed through the shared gate
+// (.omc/plans/write-gate-sharing.md §3.2).
 const (
 	holdPathCreate      = "create"
 	holdPathUpdate      = "update"
 	holdPathDelete      = "delete"
 	holdPathConsolidate = "consolidate"
 	holdPathTimeSeries  = "time_series"
+
+	holdPathLegacyCommit   = "legacy_commit"   // W1/W2: the shard commit and saveObject
+	holdPathLegacyDelete   = "legacy_delete"   // W3: deleteLocked
+	holdPathRepair         = "repair"          // W4/W5/W6a/W7a: get()'s self-repair deletes
+	holdPathMigrate        = "migrate"         // W6b/W7b/W8: the gob-migration rewrite
+	holdPathCleanup        = "cleanup"         // W9a: the cleanup tick's row delete
+	holdPathCleanupMigrate = "cleanup_migrate" // W9b: the cleanup tick's sidecar-file migration
 )
 
 // ObjectStoreOptions tunes an ObjectStore.
@@ -98,22 +107,24 @@ type eventDispatcher interface {
 var _ storage.Interface = (*ObjectStore)(nil)
 
 // NewObjectStore builds the store over pool (the same pool/database file the
-// legacy StorageImpl uses), takes the gate's dedicated connection, starts the
-// checkpointer and hands the processor its ContainerProfileStorage. dbPath is
-// the database file (for the -wal size check); sbomStore is the legacy
-// StorageImpl through which GetSbom reads the sbomsyft kind (R7).
-func NewObjectStore(pool *sqlitemigration.Pool, dbPath string, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme, processor Processor, sbomStore storage.Interface, opts ObjectStoreOptions) (*ObjectStore, error) {
+// legacy StorageImpl uses) and gate (the process's one write gate, shared
+// with the legacy StorageImpl and the cleanup handler; the store neither
+// builds nor closes it), starts the checkpointer and hands the processor its
+// ContainerProfileStorage. dbPath is the database file (for the -wal size
+// check); sbomStore is the legacy StorageImpl through which GetSbom reads the
+// sbomsyft kind (R7).
+func NewObjectStore(pool *sqlitemigration.Pool, dbPath string, watchDispatcher *WatchDispatcher, scheme *runtime.Scheme, processor Processor, sbomStore storage.Interface, gate *WriteGate, opts ObjectStoreOptions) (*ObjectStore, error) {
 	if watchDispatcher == nil {
 		watchDispatcher = NewWatchDispatcher()
 	}
 	if processor == nil {
 		processor = DefaultProcessor{}
 	}
-	ctx, cancel := poolContext()
-	defer cancel()
-	gate, err := newWriteGate(ctx, pool)
-	if err != nil {
-		return nil, err
+	if gate == nil {
+		return nil, errors.New("ObjectStore: a write gate is required")
+	}
+	if gate.pool != pool {
+		return nil, errors.New("ObjectStore: the write gate belongs to another pool")
 	}
 	s := &ObjectStore{
 		pool:            pool,
@@ -129,11 +140,12 @@ func NewObjectStore(pool *sqlitemigration.Pool, dbPath string, watchDispatcher *
 	return s, nil
 }
 
-// Close stops the checkpointer and returns the gate's connection to the pool.
-// It must run before Pool.Close (K-5).
+// Close stops the checkpointer. The shared gate is closed by its owner
+// (main.go's pre-shutdown hook), after every store's Close and before
+// Pool.Close (K-5).
 func (s *ObjectStore) Close() error {
 	s.checkpointer.Stop()
-	return s.gate.Close()
+	return nil
 }
 
 // ---- storage.Interface plumbing ----
@@ -778,7 +790,7 @@ func (s *ObjectStore) Create(ctx context.Context, key string, obj, metaOut runti
 	}
 
 	// transaction (gate held)
-	err = s.gate.run(ctx, priorityHigh, holdPathCreate, func(conn *sqlite.Conn) error {
+	err = s.gate.run(ctx, priorityHigh, holdPathCreate, ContainerProfileKindPlural, func(_ context.Context, conn *sqlite.Conn) error {
 		return s.execCreate(conn, pw, s.stmtHook(conn, holdPathCreate))
 	})
 	if err != nil {
@@ -977,7 +989,7 @@ func (s *ObjectStore) guaranteedUpdate(ctx context.Context, key string, metaOut 
 			s.hooks.afterPrepare(holdPathUpdate, key)
 		}
 
-		err = s.gate.run(ctx, priority, holdPathUpdate, func(conn *sqlite.Conn) error {
+		err = s.gate.run(ctx, priority, holdPathUpdate, ContainerProfileKindPlural, func(_ context.Context, conn *sqlite.Conn) error {
 			return s.execUpdate(conn, pw, s.stmtHook(conn, holdPathUpdate))
 		})
 		if errors.Is(err, errWriteConflict) {
@@ -1014,7 +1026,7 @@ func (s *ObjectStore) Delete(ctx context.Context, key string, metaOut runtime.Ob
 
 func (s *ObjectStore) deleteKey(ctx context.Context, key string, metaOut runtime.Object, expect *rowVersion, priority writePriority) error {
 	var res deleteResult
-	err := s.gate.run(ctx, priority, holdPathDelete, func(conn *sqlite.Conn) error {
+	err := s.gate.run(ctx, priority, holdPathDelete, ContainerProfileKindPlural, func(_ context.Context, conn *sqlite.Conn) error {
 		return s.execDelete(conn, key, expect, &res, s.stmtHook(conn, holdPathDelete))
 	})
 	if err != nil {

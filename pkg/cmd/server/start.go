@@ -79,6 +79,9 @@ type WardleServerOptions struct {
 	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
+	// WriteGate is the process's write gate (see apiserver.ExtraConfig); nil
+	// with ContainerProfileSqliteBackend off.
+	WriteGate *file.WriteGate
 }
 
 func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
@@ -318,6 +321,7 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 			SqlitePath:      o.SqlitePath,
 			StorageConfig:   o.StorageConfig,
 			WatchDispatcher: o.WatchDispatcher,
+			WriteGate:       o.WriteGate,
 		},
 	}
 	return c, nil
