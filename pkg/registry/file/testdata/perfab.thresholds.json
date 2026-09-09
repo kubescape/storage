@@ -20,7 +20,13 @@
     {"name": "lock-wait-timeouts", "kind": "count", "direction": "lower_is_better"},
     {"name": "pool-wait-timeouts", "kind": "count", "direction": "lower_is_better"},
     {"name": "over-one-sec", "kind": "count", "direction": "lower_is_better"},
-    {"name": "commit-conflict-rate-pct", "kind": "points", "direction": "lower_is_better", "threshold_points": 5}
+    {"name": "commit-conflict-rate-pct", "kind": "points", "direction": "lower_is_better", "threshold_points": 5},
+    {"name": "legacy-create-p99-ms", "kind": "info", "direction": "lower_is_better"},
+    {"name": "legacy-update-p99-ms", "kind": "info", "direction": "lower_is_better"},
+    {"name": "legacy-delete-p99-ms", "kind": "info", "direction": "lower_is_better"},
+    {"name": "cleanup-tick-ms", "kind": "info", "direction": "lower_is_better"},
+    {"name": "legacy-over-one-sec", "kind": "count", "direction": "lower_is_better"},
+    {"name": "busy-wait-max-ms", "kind": "info", "direction": "lower_is_better"}
   ],
-  "hard": ["err-other", "over-five-sec", "commit-panic"]
+  "hard": ["err-other", "over-five-sec", "commit-panic", "legacy-err-other", "ungated-writes"]
 }

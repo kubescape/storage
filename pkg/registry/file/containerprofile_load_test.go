@@ -43,6 +43,8 @@ import (
 	"testing"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/goradd/maps"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
@@ -52,6 +54,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/component-base/metrics/legacyregistry"
@@ -62,7 +65,7 @@ import (
 // perfABHarnessVersion is echoed in every round's JSON. hack/perf-ab.sh
 // overlays this file onto the base worktree, so both arms must report the
 // same value; the driver refuses to compare rounds that do not.
-const perfABHarnessVersion = "2"
+const perfABHarnessVersion = "3"
 
 // ---- tunables (documented defaults; overridable via env for exploration) ----
 
@@ -92,6 +95,9 @@ func loadWriters() int       { return envInt("LOAD_WRITERS", 6) }
 func loadReaders() int       { return envInt("LOAD_READERS", 25) }
 func loadUpdaters() int      { return envInt("LOAD_UPDATERS", 3) }
 func loadConsolidators() int { return envInt("LOAD_CONSOLIDATORS", 1) }
+func loadLegacyWriters() int { return envInt("LOAD_LEGACY_WRITERS", 2) }
+func loadLegacySizeKB() int  { return envInt("LOAD_LEGACY_KB", 1024) }
+func loadCleanupRows() int   { return envInt("LOAD_CLEANUP_ROWS", 300) }
 
 // loadProcessorWorkers returns the worker bound the processor uses in the
 // benchmark. Kept a helper so a baseline without the Workers field can be
@@ -124,10 +130,23 @@ type loadConfig struct {
 	ExtraTicks int
 	Duration   time.Duration
 
+	// Legacy-kind traffic through the same StorageImpl the CP scenario's
+	// GetSbom reads (T-G3 of write-gate-sharing): LegacyWriters clients each
+	// run LegacyOps create → update → delete cycles, alternating a sbomsyft
+	// object of LegacySizeKB (gob-encoded before the commit; the hold is a
+	// row plus a rename regardless of size) and a small vulnerability
+	// manifest. CleanupRows unreferenced sbomsyft rows are seeded in their own
+	// namespace and one cleanup tick reclaims them concurrently with the run.
+	LegacyWriters int
+	LegacyOps     int
+	LegacySizeKB  int
+	CleanupRows   int
+
 	WriterSleep  time.Duration
 	ReaderSleep  time.Duration
 	UpdaterSleep time.Duration
 	ListerSleep  time.Duration
+	LegacySleep  time.Duration
 	// TickInterval is the gap between consolidation passes; 0 is a zero-gap
 	// loop (the harshest diagnostic setting, and a livelock generator).
 	TickInterval time.Duration
@@ -160,6 +179,10 @@ func perfABConfig() loadConfig {
 		UpdaterOps:     1200,
 		ListerOps:      300,
 		ExtraTicks:     3,
+		LegacyWriters:  2,
+		LegacyOps:      60,
+		LegacySizeKB:   1024,
+		CleanupRows:    300,
 		TickInterval:   250 * time.Millisecond,
 		BusyTimeout:    5 * time.Second,
 		RequestTimeout: 15 * time.Second,
@@ -176,10 +199,14 @@ func diagnosticConfig() loadConfig {
 		Readers:        loadReaders(),
 		Updaters:       loadUpdaters(),
 		Consolidators:  loadConsolidators(),
+		LegacyWriters:  loadLegacyWriters(),
+		LegacySizeKB:   loadLegacySizeKB(),
+		CleanupRows:    loadCleanupRows(),
 		Duration:       loadDuration(),
 		WriterSleep:    time.Duration(envInt("LOAD_WRITER_SLEEP_MS", 10)) * time.Millisecond,
 		ReaderSleep:    time.Duration(envInt("LOAD_READER_SLEEP_MS", 3)) * time.Millisecond,
 		UpdaterSleep:   time.Duration(envInt("LOAD_UPDATER_SLEEP_MS", 20)) * time.Millisecond,
+		LegacySleep:    time.Duration(envInt("LOAD_LEGACY_SLEEP_MS", 50)) * time.Millisecond,
 		TickInterval:   time.Duration(envInt("LOAD_CONSOLIDATOR_SLEEP_MS", 0)) * time.Millisecond,
 		BusyTimeout:    5 * time.Second,
 		RequestTimeout: 15 * time.Second,
@@ -187,7 +214,58 @@ func diagnosticConfig() loadConfig {
 }
 
 func (c loadConfig) fixedWork() bool {
-	return c.WriterOps > 0 || c.ReaderOps > 0 || c.UpdaterOps > 0 || c.ListerOps > 0
+	return c.WriterOps > 0 || c.ReaderOps > 0 || c.UpdaterOps > 0 || c.ListerOps > 0 || c.LegacyOps > 0
+}
+
+// Legacy-kind fixtures for T-G3.
+const (
+	loadLegacyNS  = "load-legacy"  // the legacy writers' namespace
+	loadCleanupNS = "load-cleanup" // the seeded rows one cleanup tick reclaims
+)
+
+func loadLegacyKey(kind, ns, name string) string {
+	return K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, "", ns, name)
+}
+
+// loadSizedSBOM builds a sbomsyft object whose gob encoding is roughly sizeKB
+// (each catalogued file is ~80 bytes encoded).
+func loadSizedSBOM(name, ns string, sizeKB int) *softwarecomposition.SBOMSyft {
+	n := max(1, sizeKB*1024/80)
+	files := make([]softwarecomposition.SyftFile, n)
+	for i := range files {
+		files[i] = softwarecomposition.SyftFile{ID: strconv.Itoa(i), Location: softwarecomposition.Coordinates{RealPath: fmt.Sprintf("/usr/lib/x86_64-linux-gnu/lib-%08d.so.1", i), FileSystemID: "sha256:layer"}}
+	}
+	return &softwarecomposition.SBOMSyft{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Annotations: map[string]string{helpersv1.ImageIDMetadataKey: "sha256:" + name}},
+		Spec:       softwarecomposition.SBOMSyftSpec{Syft: softwarecomposition.SyftDocument{Files: files}},
+	}
+}
+
+// loadCleanupFetcher lists the cleanup namespace with nothing running, so
+// every seeded row is reclaimed by the tick.
+type loadCleanupFetcher struct{}
+
+func (loadCleanupFetcher) ListNamespaces(*sqlite.Conn) ([]string, error) {
+	return []string{loadCleanupNS}, nil
+}
+func (loadCleanupFetcher) FetchResources(string) (ResourceMaps, error) {
+	return ResourceMaps{
+		RunningContainerImageIds:     mapset.NewSet[string](),
+		RunningInstanceIds:           mapset.NewSet[string](),
+		RunningTemplateHash:          mapset.NewSet[string](),
+		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
+	}, nil
+}
+
+func loadLabelUpdate(input k8sruntime.Object, _ storage.ResponseMeta) (k8sruntime.Object, *uint64, error) {
+	m := input.(metav1.Object)
+	labels := m.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels["load"] = strconv.FormatInt(time.Now().UnixNano(), 36)
+	m.SetLabels(labels)
+	return input, nil, nil
 }
 
 // cpTemplate is one testdata TS ContainerProfile plus the derived base
@@ -351,8 +429,17 @@ func loadPool(t *testing.T, path string, size int, busyTimeout time.Duration) *s
 // temp-dir SQLite pool of the given size. Returns storage, processor, pool.
 func newLoadStorage(t *testing.T, poolSize int) (*StorageImpl, *ContainerProfileProcessor, *sqlitemigration.Pool) {
 	t.Helper()
-	s, _, processor, pool, _ := newLoadStorageWith(t, poolSize, loadProcessorWorkers(), 5*time.Second)
+	s, _, processor, pool, _, _ := newLoadStorageWith(t, poolSize, loadProcessorWorkers(), 5*time.Second)
 	return s, processor, pool
+}
+
+// loadLegacyKinds is the default StorageImpl of apiserver.go — DefaultProcessor,
+// the instance that serves every non-ContainerProfile kind — over the same
+// pool, filesystem and (under the flag) gate as the CP instance. The legacy
+// writers and the cleanup seed go through it, as REST traffic does.
+type loadLegacyKinds struct {
+	s       *StorageImpl
+	cleanup *ResourcesCleanupHandler
 }
 
 // newLoadStorageWith builds the legacy StorageImpl (always: it serves GetSbom
@@ -366,7 +453,7 @@ func newLoadStorage(t *testing.T, poolSize int) (*StorageImpl, *ContainerProfile
 // cannot see them, so the effective pool size adds them back.
 var storeOwnedConns int
 
-func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Duration) (*StorageImpl, storage.Interface, *ContainerProfileProcessor, *sqlitemigration.Pool, func()) {
+func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Duration) (*StorageImpl, storage.Interface, *ContainerProfileProcessor, *sqlitemigration.Pool, loadLegacyKinds, func()) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "load.sq3")
 	_ = os.Remove(path)
@@ -394,26 +481,44 @@ func newLoadStorageWith(t *testing.T, poolSize, workers int, busyTimeout time.Du
 	// Exercise the real CollapseConfig provider so PreSave's cached settings
 	// lookup is on the hot path.
 	processor.CollapseSettings = NewCRDCollapseSettingsProvider(s)
+	// The default (every-other-kind) instance and the cleanup handler over the
+	// same pool and filesystem (T-G3's legacy traffic and tick).
+	kinds := loadLegacyKinds{
+		s:       NewStorageImpl(s.appFs, DefaultStorageRoot, pool, wd, sch).(*StorageImpl),
+		cleanup: NewResourcesCleanupHandler(s.appFs, DefaultStorageRoot, pool, wd, 0, "kubescape", loadCleanupFetcher{}, false),
+	}
 	if loadBackend() == "objectstore" {
 		s.SetForeignKinds(IsContainerProfileKind)
-		// The process's one write gate, shared by the ObjectStore and the
-		// legacy instance (main.go's wiring under the flag).
+		kinds.s.SetForeignKinds(IsContainerProfileKind)
+		// The process's one write gate, shared by the ObjectStore, both legacy
+		// instances and the cleanup handler (main.go's wiring under the flag).
 		gateCtx, gateCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer gateCancel()
 		gate, err := NewWriteGate(gateCtx, pool)
 		require.NoError(t, err)
+		if os.Getenv("PERF_AB_GATE_BUSY0") == "1" {
+			// AC-G3 in its strong form: with every writer gated nothing else
+			// holds the write lock, so the gate's BEGIN IMMEDIATE never needs
+			// the busy handler. With the handler off, any hidden contention
+			// fails the transaction ("database is locked", counted under
+			// err-other) instead of waiting silently — the busy-wait histogram
+			// alone cannot tell a lock wait from scheduling jitter.
+			gate.conn.SetBusyTimeout(0)
+		}
 		s.SetWriteGate(gate)
+		kinds.s.SetWriteGate(gate)
+		kinds.cleanup.SetWriteGate(gate)
 		// NewObjectStore hands the processor its ContainerProfileStorage.
 		store, err := NewObjectStore(pool, path, wd, sch, processor, s, gate, ObjectStoreOptions{})
 		require.NoError(t, err)
 		storeOwnedConns = 1
-		return s, store, processor, pool, func() { _ = store.Close(); _ = gate.Close() }
+		return s, store, processor, pool, kinds, func() { _ = store.Close(); _ = gate.Close() }
 	}
 	// Interval 0 => SetStorage does not spawn the maintenance goroutine; the
 	// load goroutines drive ConsolidateTimeSeries explicitly.
 	processor.SetStorage(NewContainerProfileStorageImpl(s, pool))
 	storeOwnedConns = 0
-	return s, s, processor, pool, func() {}
+	return s, s, processor, pool, kinds, func() {}
 }
 
 // effectiveConfig is read back from the constructed runtime objects, not from
@@ -437,6 +542,10 @@ type effectiveConfig struct {
 	UpdaterOps          int    `json:"updater_ops"`
 	ListerOps           int    `json:"lister_ops"`
 	ExtraTicks          int    `json:"extra_ticks"`
+	LegacyWriters       int    `json:"legacy_writers"`
+	LegacyOps           int    `json:"legacy_ops"`
+	LegacySizeKB        int    `json:"legacy_size_kb"`
+	CleanupRows         int    `json:"cleanup_rows"`
 	WriterSleepMs       int64  `json:"writer_sleep_ms"`
 	ReaderSleepMs       int64  `json:"reader_sleep_ms"`
 	UpdaterSleepMs      int64  `json:"updater_sleep_ms"`
@@ -453,6 +562,9 @@ type histStat struct {
 	Count uint64  `json:"count"`
 	Sum   float64 `json:"sum"`
 	P99   float64 `json:"p99"`
+	// MaxBucket is the upper bound of the highest non-empty bucket: an upper
+	// bound on the largest observation (AC-G3 reads the busy wait's).
+	MaxBucket float64 `json:"max_bucket"`
 }
 
 // metricsSnapshot is the per-round delta of the six process-registry series
@@ -473,6 +585,9 @@ type metricsSnapshot struct {
 	WriteHold       map[string]histStat `json:"write_hold"`
 	CheckpointTotal map[string]float64  `json:"checkpoint_total"`
 	CASConflict     map[string]float64  `json:"cas_conflict_total"`
+	// UngatedWrite is storage_sqlite_ungated_write_total (AC-G1's production
+	// counter): non-zero on the objectstore arm is the bug class.
+	UngatedWrite map[string]float64 `json:"ungated_write_total"`
 }
 
 // loadReport is one round. Series is the flat view the verdict reads:
@@ -498,8 +613,9 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		collapseSettingsTTL = cfg.CollapseTTL
 		defer func() { collapseSettingsTTL = oldTTL }()
 	}
-	legacy, s, processor, pool, closeStore := newLoadStorageWith(t, cfg.PoolSize, cfg.Workers, cfg.BusyTimeout)
+	legacy, s, processor, pool, kinds, closeStore := newLoadStorageWith(t, cfg.PoolSize, cfg.Workers, cfg.BusyTimeout)
 	defer func() { closeStore(); _ = pool.Close() }()
+	legacyKinds, cleanup := kinds.s, kinds.cleanup
 
 	templates := loadTemplates(t)
 	nsListKey := "/spdx.softwarecomposition.kubescape.io/containerprofile/" + templates[0].ns
@@ -524,6 +640,13 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	processor.Workers = 1
 	require.NoError(t, processor.ConsolidateTimeSeries(seedCtx))
 	processor.Workers = seedWorkers
+	// The rows one cleanup tick reclaims during the run: unreferenced sbomsyft
+	// objects (small: the tick's hold is one row delete per file).
+	for i := 0; i < cfg.CleanupRows; i++ {
+		name := fmt.Sprintf("dead-%d", i)
+		obj := &softwarecomposition.SBOMSyft{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: loadCleanupNS, Annotations: map[string]string{helpersv1.ImageIDMetadataKey: "sha256:" + name}}}
+		require.NoError(t, legacyKinds.Create(seedCtx, loadLegacyKey("sbomsyft", loadCleanupNS, name), obj, nil, 0))
+	}
 	seedCancel()
 
 	writes := &latencyRec{name: "REST Create (node-agent writers)"}
@@ -531,6 +654,10 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	updates := &latencyRec{name: "REST GuaranteedUpdate"}
 	lists := &latencyRec{name: "REST List (metadata / fullSpec)"}
 	ticks := &latencyRec{name: "ConsolidateTimeSeries pass"}
+	legacyCreates := &latencyRec{name: "legacy Create (sbomsyft / vulnerabilitymanifest)"}
+	legacyUpdates := &latencyRec{name: "legacy GuaranteedUpdate"}
+	legacyDeletes := &latencyRec{name: "legacy Delete"}
+	cleanupTicks := &latencyRec{name: "cleanup tick (one namespace)"}
 
 	before := gatherStorageMetrics(t)
 	writeBytesBefore := procWriteBytes()
@@ -652,6 +779,62 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		}(i)
 	}
 
+	// Legacy writers: create → update → delete cycles of a sized sbomsyft
+	// and a small vulnerability manifest, alternating (T-G3).
+	var legacyCounter int64
+	for i := 0; i < cfg.LegacyWriters; i++ {
+		clients.Add(1)
+		go func(id int) {
+			defer clients.Done()
+			for i := 0; keepGoing(i, cfg.LegacyOps); i++ {
+				n := atomic.AddInt64(&legacyCounter, 1)
+				var key string
+				var obj k8sruntime.Object
+				var fresh func() k8sruntime.Object
+				if i%2 == 0 {
+					name := "sbom-" + strconv.FormatInt(n, 36)
+					key = loadLegacyKey("sbomsyft", loadLegacyNS, name)
+					obj = loadSizedSBOM(name, loadLegacyNS, cfg.LegacySizeKB)
+					fresh = func() k8sruntime.Object { return &softwarecomposition.SBOMSyft{} }
+				} else {
+					name := "vm-" + strconv.FormatInt(n, 36)
+					key = loadLegacyKey("vulnerabilitymanifest", loadLegacyNS, name)
+					obj = &softwarecomposition.VulnerabilityManifest{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: loadLegacyNS}}
+					fresh = func() k8sruntime.Object { return &softwarecomposition.VulnerabilityManifest{} }
+				}
+				ctx, cancel := reqCtx()
+				t0 := time.Now()
+				err := legacyKinds.Create(ctx, key, obj, nil, 0)
+				legacyCreates.record(time.Since(t0), err)
+				cancel()
+				ctx, cancel = reqCtx()
+				t0 = time.Now()
+				err = legacyKinds.GuaranteedUpdate(ctx, key, fresh(), false, nil, loadLabelUpdate, nil)
+				legacyUpdates.record(time.Since(t0), err)
+				cancel()
+				ctx, cancel = reqCtx()
+				t0 = time.Now()
+				err = legacyKinds.Delete(ctx, key, fresh(), nil, nil, nil, storage.DeleteOptions{})
+				legacyDeletes.record(time.Since(t0), err)
+				cancel()
+				if cfg.LegacySleep > 0 {
+					time.Sleep(cfg.LegacySleep)
+				}
+			}
+		}(i)
+	}
+
+	// One cleanup tick over the seeded namespace, concurrent with everything.
+	if cfg.CleanupRows > 0 {
+		clients.Add(1)
+		go func() {
+			defer clients.Done()
+			t0 := time.Now()
+			err := cleanup.CleanupTask(context.Background(), map[string][]TypeCleanupHandlerFunc{"sbomsyft": {deleteByImageId}})
+			cleanupTicks.record(time.Since(t0), err)
+		}()
+	}
+
 	// Consolidators tick on TickInterval until told to stop; in fixed-work
 	// mode they are told to stop after the clients finish plus ExtraTicks.
 	clientsDone := make(chan struct{})
@@ -705,13 +888,18 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	after := gatherStorageMetrics(t)
 
 	classes := map[string]latencyStats{
-		"create": writes.stats(),
-		"get":    reads.stats(),
-		"update": updates.stats(),
-		"list":   lists.stats(),
-		"tick":   ticks.stats(),
+		"create":        writes.stats(),
+		"get":           reads.stats(),
+		"update":        updates.stats(),
+		"list":          lists.stats(),
+		"tick":          ticks.stats(),
+		"legacy-create": legacyCreates.stats(),
+		"legacy-update": legacyUpdates.stats(),
+		"legacy-delete": legacyDeletes.stats(),
+		"cleanup":       cleanupTicks.stats(),
 	}
-	totalOps := classes["create"].Ops + classes["get"].Ops + classes["update"].Ops + classes["list"].Ops
+	totalOps := classes["create"].Ops + classes["get"].Ops + classes["update"].Ops + classes["list"].Ops +
+		classes["legacy-create"].Ops + classes["legacy-update"].Ops + classes["legacy-delete"].Ops
 	writeBytes := procWriteBytes() - writeBytesBefore
 	metricsDelta := diffStorageMetrics(before, after, depthMax.max())
 
@@ -737,6 +925,10 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		UpdaterOps:          cfg.UpdaterOps,
 		ListerOps:           cfg.ListerOps,
 		ExtraTicks:          cfg.ExtraTicks,
+		LegacyWriters:       cfg.LegacyWriters,
+		LegacyOps:           cfg.LegacyOps,
+		LegacySizeKB:        cfg.LegacySizeKB,
+		CleanupRows:         cfg.CleanupRows,
 		WriterSleepMs:       cfg.WriterSleep.Milliseconds(),
 		ReaderSleepMs:       cfg.ReaderSleep.Milliseconds(),
 		UpdaterSleepMs:      cfg.UpdaterSleep.Milliseconds(),
@@ -782,8 +974,54 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		"over-five-sec":            float64(classes["create"].OverFiveSec + classes["get"].OverFiveSec + classes["update"].OverFiveSec + classes["list"].OverFiveSec + classes["tick"].OverFiveSec),
 		"over-one-sec":             float64(classes["create"].OverOneSec + classes["get"].OverOneSec + classes["update"].OverOneSec + classes["list"].OverOneSec + classes["tick"].OverOneSec),
 		"commit-panic":             sumByLabel(metricsDelta.CommitTotal, "outcome=panic"),
+		// T-G3: the legacy kinds through the shared gate.
+		"legacy-create-p99-ms": classes["legacy-create"].P99Ms,
+		"legacy-update-p99-ms": classes["legacy-update"].P99Ms,
+		"legacy-delete-p99-ms": classes["legacy-delete"].P99Ms,
+		"cleanup-tick-ms":      classes["cleanup"].MaxMs,
+		"legacy-err-other":     float64(classes["legacy-create"].Other + classes["legacy-update"].Other + classes["legacy-delete"].Other + classes["cleanup"].Other),
+		"legacy-over-one-sec":  float64(classes["legacy-create"].OverOneSec + classes["legacy-update"].OverOneSec + classes["legacy-delete"].OverOneSec + classes["cleanup"].OverOneSec),
+		// AC-G1's production counter and AC-G3's busy wait: both must be zero
+		// on the objectstore arm (the legacy arm has no gate: 0 by construction).
+		"ungated-writes":   sumByLabel(metricsDelta.UngatedWrite, ""),
+		"busy-wait-max-ms": 1000 * maxHistBucket(metricsDelta.BusyWait),
+	}
+	for path, p99 := range holdP99ByPath(metricsDelta.WriteHold) {
+		rep.Series["hold-p99-ms/"+path] = 1000 * p99
 	}
 	return rep
+}
+
+// holdP99ByPath is the largest per-kind p99 of storage_sqlite_write_hold_seconds
+// for each path label (PM-G1's per-path bound).
+func holdP99ByPath(series map[string]histStat) map[string]float64 {
+	out := map[string]float64{}
+	for labels, h := range series {
+		if h.Count == 0 {
+			continue
+		}
+		path := ""
+		for _, l := range strings.Split(labels, ",") {
+			if strings.HasPrefix(l, "path=") {
+				path = strings.TrimPrefix(l, "path=")
+			}
+		}
+		if h.P99 > out[path] {
+			out[path] = h.P99
+		}
+	}
+	return out
+}
+
+// maxHistBucket is the largest MaxBucket of a histogram family (seconds).
+func maxHistBucket(series map[string]histStat) float64 {
+	var m float64
+	for _, h := range series {
+		if h.Count > 0 && h.MaxBucket > m {
+			m = h.MaxBucket
+		}
+	}
+	return m
 }
 
 // procWriteBytes reads write_bytes from /proc/self/io (bytes the process caused
@@ -852,6 +1090,7 @@ var storageCounterFamilies = map[string]string{
 	"storage_single_writer_conflict_retry_total": "conflict_retry_total",
 	"storage_sqlite_checkpoint_total":            "checkpoint_total",
 	"storage_cp_cas_conflict_total":              "cas_conflict_total",
+	"storage_sqlite_ungated_write_total":         "ungated_write",
 }
 
 func labelKey(m *dto.Metric) string {
@@ -942,6 +1181,7 @@ func diffStorageMetrics(before, after rawMetrics, depthMax map[string]float64) m
 		WriteHold:          map[string]histStat{},
 		CheckpointTotal:    map[string]float64{},
 		CASConflict:        map[string]float64{},
+		UngatedWrite:       map[string]float64{},
 	}
 	histOut := map[string]map[string]histStat{"lock_wait": out.LockWait, "pool_wait": out.PoolWait, "queue_wait": out.QueueWait,
 		"gate_wait": out.GateWait, "busy_wait": out.BusyWait, "write_hold": out.WriteHold}
@@ -952,17 +1192,41 @@ func diffStorageMetrics(before, after rawMetrics, depthMax map[string]float64) m
 			for ub, c := range a.buckets {
 				delta[ub] = c - b.buckets[ub]
 			}
-			histOut[fam][labels] = histStat{Count: a.count - b.count, Sum: a.sum - b.sum, P99: histQuantile(0.99, delta)}
+			histOut[fam][labels] = histStat{Count: a.count - b.count, Sum: a.sum - b.sum, P99: histQuantile(0.99, delta), MaxBucket: histMaxBucket(delta)}
 		}
 	}
 	counterOut := map[string]map[string]float64{"commit_total": out.CommitTotal, "conflict_retry_total": out.ConflictRetryTotal,
-		"checkpoint_total": out.CheckpointTotal, "cas_conflict_total": out.CASConflict}
+		"checkpoint_total": out.CheckpointTotal, "cas_conflict_total": out.CASConflict, "ungated_write": out.UngatedWrite}
 	for fam, series := range after.counters {
 		for labels, a := range series {
 			counterOut[fam][labels] = a - before.counters[fam][labels]
 		}
 	}
 	return out
+}
+
+// histMaxBucket is the upper bound of the lowest bucket that already holds
+// every observation of the delta: an upper bound on the largest one. 0 when
+// nothing was observed.
+func histMaxBucket(buckets map[float64]uint64) float64 {
+	bounds := make([]float64, 0, len(buckets))
+	for b := range buckets {
+		bounds = append(bounds, b)
+	}
+	sort.Float64s(bounds)
+	if len(bounds) == 0 {
+		return 0
+	}
+	total := buckets[bounds[len(bounds)-1]]
+	if total == 0 {
+		return 0
+	}
+	for _, ub := range bounds {
+		if buckets[ub] == total {
+			return ub
+		}
+	}
+	return bounds[len(bounds)-1]
 }
 
 // maxHistP99 is the largest per-label p99 of a histogram family (seconds).
