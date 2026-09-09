@@ -24,6 +24,7 @@ package file
 import (
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -57,7 +58,9 @@ type ContainerProfileExportReport struct {
 	Exported int
 	// LegacySkipped is the number of rows with rv NULL: legacy rows that were
 	// never migrated (or that a legacy writer already rewrote) and whose file
-	// is already the legacy writer's.
+	// is already the legacy writer's. Such a row with NO file (no known
+	// producer) is exported from its payloads body at the JSON's
+	// resourceVersion instead, and counted under Exported.
 	LegacySkipped int
 	// Undecodable is the number of payloads that could not be decoded; the
 	// row and any existing file are left as they are.
@@ -70,6 +73,7 @@ type exportRow struct {
 	rowid        int64
 	namespace    string
 	name         string
+	metadataJSON []byte
 	rv           int64
 	rvNull       bool
 	uid          string
@@ -102,9 +106,23 @@ func ExportContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, fs
 		for i := range rows {
 			r := &rows[i]
 			key := K8sKeysToPath("", softwarecomposition.GroupName, ContainerProfileKind, "", r.namespace, r.name)
+			p := filepath.Join(root, key)
+			rv, uid := r.rv, r.uid
 			if r.rvNull {
-				report.LegacySkipped++
-				continue
+				if exists, _ := afero.Exists(fs, makePayloadPath(p)); exists {
+					report.LegacySkipped++
+					continue
+				}
+				// No file to fall back on: the body is the only copy; the
+				// row JSON says which version it is.
+				row := &PartialObjectMetadata{}
+				if err := json.Unmarshal(r.metadataJSON, row); err != nil {
+					report.Undecodable++
+					logger.L().Warning("containerprofile export: metadata row is not JSON; skipped", helpers.Error(err), helpers.String("key", key))
+					continue
+				}
+				rv, uid = max(parseRV(row.ResourceVersion), 1), string(row.UID)
+				logger.L().Warning("containerprofile export: rv NULL row without a payload file; exported from the payloads body", helpers.String("key", key))
 			}
 			obj := &softwarecomposition.ContainerProfile{}
 			if err := decodePayloadBody(scheme, r.encoding, r.body, obj); err != nil {
@@ -113,10 +131,12 @@ func ExportContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, fs
 				continue
 			}
 			// The file carries what the row says (INV-2 makes these equal already).
-			obj.ResourceVersion = strconv.FormatInt(r.rv, 10)
-			obj.UID = types.UID(r.uid)
+			obj.ResourceVersion = strconv.FormatInt(rv, 10)
+			if uid != "" {
+				obj.UID = types.UID(uid)
+			}
 			if !opts.DryRun {
-				if err := writeLegacyPayloadFile(fs, filepath.Join(root, key), obj); err != nil {
+				if err := writeLegacyPayloadFile(fs, p, obj); err != nil {
 					return report, fmt.Errorf("containerprofile export: %s: %w", key, err)
 				}
 			}
@@ -139,7 +159,7 @@ func readExportRows(ctx context.Context, pool *sqlitemigration.Pool, cursor int6
 	defer pool.Put(conn)
 	var out []exportRow
 	err = sqlitex.Execute(conn,
-		`SELECT m.rowid, m.namespace, m.name, m.rv, m.rv IS NULL, m.uid, p.encoding, p.body
+		`SELECT m.rowid, m.namespace, m.name, m.rv, m.rv IS NULL, m.uid, p.encoding, p.body, m.metadata
 			FROM metadata m JOIN payloads p USING (kind, namespace, name)
 			WHERE m.kind = :kind AND m.rowid > :cursor
 			ORDER BY m.rowid LIMIT :limit`,
@@ -157,6 +177,7 @@ func readExportRows(ctx context.Context, pool *sqlitemigration.Pool, cursor int6
 				}
 				r.body = make([]byte, stmt.ColumnLen(7))
 				stmt.ColumnBytes(7, r.body)
+				r.metadataJSON = []byte(stmt.ColumnText(8))
 				out = append(out, r)
 				return nil
 			},

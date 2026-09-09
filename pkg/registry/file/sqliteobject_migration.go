@@ -385,9 +385,16 @@ func (m *containerProfileMigrator) prepareCandidate(ctx context.Context, c *migr
 	}
 	// rv := the row JSON's resourceVersion, no +1 (the legacy writer already
 	// bumped it). When a crash left the legacy writer's file one version
-	// ahead of its row, the larger persisted version wins so no client sees
-	// a version regress; the row JSON is rewritten to match (INV-2).
+	// ahead of its row, or a stale pre-migration file sits behind a newer
+	// payloads body, the largest persisted version wins so no client sees a
+	// version regress; the row JSON is rewritten to match (INV-2).
 	rv := max(rowRV, parseRV(obj.ResourceVersion))
+	if found {
+		bodyObj := &softwarecomposition.ContainerProfile{}
+		if err := decodePayloadBody(m.scheme, c.encoding, c.body, bodyObj); err == nil {
+			rv = max(rv, parseRV(bodyObj.ResourceVersion))
+		}
+	}
 	if rv == 0 {
 		rv = 1
 	}
@@ -623,16 +630,20 @@ func (m *containerProfileMigrator) sweepFiles(ctx context.Context) (int, error) 
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		if strings.Contains(info.Name(), GobExt+".t") {
-			m.report.add(MigrationShapeTempFile, "")
-			if !m.opts.DryRun {
-				if rerr := m.fs.Remove(path); rerr != nil {
-					logger.L().Warning("containerprofile migration: remove staging file failed", helpers.Error(rerr), helpers.String("path", path))
+		if !IsPayloadFile(path) {
+			// The legacy staging names are <key>.g.t (saveObject) and
+			// <key>.g.t.<unixnanos>.<seq> (the single writer); neither ends in
+			// .g, whereas a payload of a workload named e.g. "app.g.tail" does
+			// — the payload test above must come first (a bare ".g.t"
+			// substring match would delete that payload as a staging file).
+			if isLegacyStagingFile(info.Name()) {
+				m.report.add(MigrationShapeTempFile, "")
+				if !m.opts.DryRun {
+					if rerr := m.fs.Remove(path); rerr != nil {
+						logger.L().Warning("containerprofile migration: remove staging file failed", helpers.Error(rerr), helpers.String("path", path))
+					}
 				}
 			}
-			return nil
-		}
-		if !IsPayloadFile(path) {
 			return nil
 		}
 		key := path[len(m.root) : len(path)-len(GobExt)]
@@ -673,6 +684,13 @@ func (m *containerProfileMigrator) sweepFiles(ctx context.Context) (int, error) 
 		}
 	}
 	return undecodable, nil
+}
+
+// isLegacyStagingFile reports whether name is a legacy writer's staging
+// file: <key>.g.t (saveObject) or <key>.g.t.<unixnanos>.<seq> (the single
+// writer). Callers exclude payload files (*.g) first.
+func isLegacyStagingFile(name string) bool {
+	return strings.HasSuffix(name, GobExt+".t") || strings.Contains(name, GobExt+".t.")
 }
 
 // importActions creates the metadata and payloads rows of a file with no row,

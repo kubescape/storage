@@ -393,24 +393,45 @@ func TestMigration_ReconcileShapes(t *testing.T) {
 		require.True(t, e.migrationDone())
 	})
 
-	t.Run("staging files are removed", func(t *testing.T) {
+	t.Run("staging files are removed, payloads whose name contains .g.t are not", func(t *testing.T) {
 		e := newMigrationEnv(t, afero.NewMemMapFs())
 		e.legacyCreate(e.plain("keep"))
+		// A workload named "keep.g.tail" (a legal DNS subdomain) has a payload
+		// file whose name contains ".g.t"; and an undecodable one of the same
+		// shape must survive as the only copy of its object (PM-2).
+		e.legacyCreate(e.plain("keep.g.tail"))
+		require.NoError(t, afero.WriteFile(e.fs, e.filePath("garbage.g.tail"), []byte("not a gob stream"), 0644))
+		require.NoError(t, sqlitex.Execute(e.fixture,
+			`INSERT INTO metadata (kind, namespace, name, metadata) VALUES (?, ?, ?, ?)`,
+			&sqlitex.ExecOptions{Args: []any{ContainerProfileKind, e.ns, "garbage.g.tail", `{"name":"garbage.g.tail","namespace":"` + e.ns + `","resourceVersion":"1"}`}}))
 		dir := filepath.Dir(e.filePath("keep"))
-		for _, n := range []string{"a.g.t", "b.g.t.1234.5"} {
+		for _, n := range []string{"a.g.t", "b.g.t.1234.5", "keep.g.tail.g.t", "keep.g.tail.g.t.99.1"} {
 			require.NoError(t, afero.WriteFile(e.fs, filepath.Join(dir, n), []byte("staged"), 0644))
 		}
 		e.startNew()
 		report := e.mustMigrate(ContainerProfileMigrationOptions{})
-		require.Equal(t, 2, report.Count(MigrationShapeTempFile), "%v", report.Counts)
-		for _, n := range []string{"a.g.t", "b.g.t.1234.5"} {
+		require.Equal(t, 4, report.Count(MigrationShapeTempFile), "%v", report.Counts)
+		require.Equal(t, 2, report.Count(MigrationShapeMigrated), "%v", report.Counts)
+		require.Equal(t, 1, report.Count(MigrationShapeUndecodable), "%v", report.Counts)
+		for _, n := range []string{"a.g.t", "b.g.t.1234.5", "keep.g.tail.g.t", "keep.g.tail.g.t.99.1"} {
 			exists, err := afero.Exists(e.fs, filepath.Join(dir, n))
 			require.NoError(t, err)
 			require.False(t, exists)
 		}
-		exists, err := afero.Exists(e.fs, e.filePath("keep"))
-		require.NoError(t, err)
-		require.True(t, exists)
+		for _, n := range []string{"keep", "keep.g.tail", "garbage.g.tail"} {
+			exists, err := afero.Exists(e.fs, e.filePath(n))
+			require.NoError(t, err)
+			require.True(t, exists, "%s is a payload file, not a staging file", n)
+		}
+		e.assertINV2(e.key("keep.g.tail"))
+		require.Equal(t, "keep.g.tail", e.mustStoreGet(e.key("keep.g.tail")).Name)
+		row := e.inspect(e.key("garbage.g.tail"))
+		require.True(t, row.metaExists, "the undecodable object's row is left as is")
+		require.Nil(t, row.rv)
+		// The next start meets the same undecodable row again, never a row_without_file.
+		again := e.mustMigrate(ContainerProfileMigrationOptions{})
+		require.Equal(t, 1, again.Count(MigrationShapeUndecodable), "%v", again.Counts)
+		require.Equal(t, 0, again.Count(MigrationShapeRowWithoutFile), "%v", again.Counts)
 	})
 
 	t.Run("undecodable payloads are skipped and counted, never deleted", func(t *testing.T) {
@@ -525,6 +546,36 @@ func TestMigration_R3_LegacyRewriteRowOnlyKeepsThePayloadsBody(t *testing.T) {
 	require.Equal(t, "2", repaired.ResourceVersion)
 	e.assertINV2(key)
 	require.NoError(t, e.storeUpdate(e.ctx, key))
+}
+
+// legacy_rewrite from a stale file behind a newer payloads body (no
+// export before the rollback): the content is the file's (K-1) but the
+// version never regresses below what the body — and any watcher — saw.
+func TestMigration_R3_LegacyRewriteNeverRegressesBelowTheBodyVersion(t *testing.T) {
+	e := newMigrationEnv(t, afero.NewMemMapFs())
+	e.seed(1)
+	key := e.key("plain-00")
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+	require.NoError(t, e.storeUpdate(e.ctx, key))
+	require.Equal(t, "3", e.mustStoreGet(key).ResourceVersion, "the body is at 3; the pre-migration file stays at 2")
+	e.stopNew()
+	// The old binary rewrites the row from its stale file's view: JSON at 2, rv NULL.
+	_, _, kind, _, ns, name := K8sPathToKeys(key)
+	require.NoError(t, sqlitex.Execute(e.fixture,
+		`INSERT OR REPLACE INTO metadata (kind, namespace, name, metadata) SELECT kind, namespace, name, json_set(CAST(metadata AS TEXT), '$.resourceVersion', '2') FROM metadata WHERE kind = ? AND namespace = ? AND name = ?`,
+		&sqlitex.ExecOptions{Args: []any{kind, ns, name}}))
+	require.Nil(t, e.inspect(key).rv)
+
+	e.startNew()
+	report := e.mustMigrate(ContainerProfileMigrationOptions{})
+	require.Equal(t, 1, report.Counts[MigrationShapeLegacyRewrite+"/"+MigrationSourceFile], "%v", report.Counts)
+	got := e.mustStoreGet(key)
+	require.Equal(t, "3", got.ResourceVersion, "max(json 2, file 2, body 3)")
+	require.Empty(t, got.Annotations["migration-test/touched"], "the content is the legacy writer's file (K-1)")
+	e.assertINV2(key)
+	require.NoError(t, e.storeUpdate(e.ctx, key))
+	require.Equal(t, "4", e.mustStoreGet(key).ResourceVersion)
 }
 
 // K-2: a legacy delete after a rollback removes the row and the file and

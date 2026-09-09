@@ -226,6 +226,16 @@ func TestExport_SkipsLegacyRowsAndDryRunWritesNothing(t *testing.T) {
 	require.Equal(t, 3, real.Exported)
 	require.Equal(t, 1, real.LegacySkipped)
 	require.Equal(t, legacyFile, e.readFile("plain-00"), "the legacy writer's file is untouched")
+
+	// An rv NULL row with NO file (no known producer): the body is the only
+	// copy, exported at the JSON's resourceVersion rather than skipped.
+	require.NoError(t, e.fs.Remove(e.filePath("plain-00")))
+	filled := e.export(ContainerProfileExportOptions{})
+	require.Equal(t, 4, filled.Exported)
+	require.Equal(t, 0, filled.LegacySkipped)
+	filledObj := e.legacyGet(migratedKey)
+	require.Equal(t, "3", filledObj.ResourceVersion, "the row JSON's version (seed updated it to 2, the legacy write to 3)")
+	require.Empty(t, filledObj.Annotations["export-test"], "the payloads body (pre-legacy-write) is what was left")
 	got := e.legacyGet(e.key("created-under-the-new-store"))
 	require.Equal(t, "1", got.ResourceVersion)
 	require.Equal(t, helpersv1.Learning, got.Annotations[helpersv1.StatusMetadataKey])
