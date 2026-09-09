@@ -197,7 +197,7 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				return nil
 			}
 
-			metadata, err := h.readMetadata(conn, path)
+			metadata, err := h.readMetadata(ctx, conn, path)
 			if err != nil {
 				logger.L().Error("load metadata error", helpers.Error(err))
 				return nil
@@ -220,7 +220,7 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 				h.deleteFunc(h.appFs, path)
 
-				metaOut, err := h.deleteMetadata(conn, path)
+				metaOut, err := h.deleteMetadata(ctx, conn, path)
 				if err != nil {
 					return fmt.Errorf("failed to delete metadata: %w", err)
 				}
