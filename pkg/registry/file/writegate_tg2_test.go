@@ -21,6 +21,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/component-base/metrics/legacyregistry"
 	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 func seedOrphanSBOM(e *acg2Env, key string) {
@@ -262,6 +263,56 @@ func TestStorageImpl_GateRequiresSingleWriter(t *testing.T) {
 	assert.ErrorIs(t, err, ErrGateRequiresSingleWriter)
 	assert.NoError(t, e.legacy.Get(e.ctx, key, storage.GetOptions{}, &softwarecomposition.SBOMSyft{}))
 	assert.NoError(t, e.legacy.Delete(e.ctx, key, &softwarecomposition.SBOMSyft{}, nil, nil, nil, storage.DeleteOptions{}))
+}
+
+// TestWriteGate_OwnsIsBoundedByTenure: a write recorded on a connection
+// BEFORE the gate took it from the pool (a pool taker's write, when it was
+// still a pool connection) is not the gate's — owns() is bounded below by
+// the sequence at which the gate took the connection, and the ledger judges
+// that record ungated.
+func TestWriteGate_OwnsIsBoundedByTenure(t *testing.T) {
+	pool := NewPoolWithOptions(t.TempDir()+"/tenure.sq3", PoolOptions{Size: 1, DisableAutoCheckpoint: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	conn, err := pool.Take(ctx)
+	require.NoError(t, err)
+	require.NoError(t, sqlitex.ExecuteTransient(conn, `INSERT INTO metadata (kind,namespace,name,metadata) VALUES ('k','n','pre-tenure','{}')`, nil))
+	preSeq := writeStmtSeq.Load()
+	pool.Put(conn)
+
+	// Pool size 1: the gate takes the very same connection.
+	g, err := newWriteGate(ctx, pool)
+	require.NoError(t, err)
+	require.Same(t, conn, g.conn)
+	assert.False(t, g.owns(conn, preSeq), "a write before the gate's tenure is not the gate's")
+	require.NoError(t, g.run(ctx, priorityHigh, "tenure", "test", func(_ context.Context, c *sqlite.Conn) error {
+		return sqlitex.ExecuteTransient(c, `INSERT INTO metadata (kind,namespace,name,metadata) VALUES ('k','n','in-tenure','{}')`, nil)
+	}))
+	assert.True(t, g.owns(conn, writeStmtSeq.Load()), "a write inside the tenure is the gate's")
+
+	// The ledger sees exactly the pre-tenure INSERT as ungated (judging it
+	// here keeps TestMain's sweep clean).
+	vs := acg1Ledger.violations(pool)
+	require.Len(t, vs, 1)
+	assert.Equal(t, preSeq, vs[0].seq)
+	assert.Equal(t, sqlite.OpInsert, vs[0].op)
+	require.NoError(t, g.Close())
+	require.NoError(t, pool.Close())
+}
+
+// TestContainerProfileStorageImpl_RefusesGatedStorageImpl (W11/W12): the
+// legacy ContainerProfile storage's long pool-connection transactions must
+// never run over a StorageImpl that shares the write gate — its saveObject
+// would queue on the gate behind the lock its own connection holds.
+func TestContainerProfileStorageImpl_RefusesGatedStorageImpl(t *testing.T) {
+	e := newACG2OnEnv(t)
+	cps := NewContainerProfileStorageImpl(e.legacy, e.pool)
+	ctx, cleanup, err := cps.WithConnection(e.ctx)
+	require.NoError(t, err)
+	defer cleanup()
+	_, err = cps.BeginTransaction(ctx)
+	assert.ErrorIs(t, err, errCPStorageGated)
+	assert.ErrorIs(t, cps.HealDivergence(ctx, sbomKey(e, "w12")), errCPStorageGated)
 }
 
 var _ = errors.Is

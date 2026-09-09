@@ -64,9 +64,31 @@ func (c *ContainerProfileStorageImpl) WithConnection(ctx context.Context) (conte
 // BeginTransaction starts a SQLite transaction (savepoint) and returns a function
 // to commit or rollback based on the error state.
 func (c *ContainerProfileStorageImpl) BeginTransaction(ctx context.Context) (func(*error), error) {
+	if err := c.refuseGated("BeginTransaction"); err != nil {
+		return nil, err
+	}
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	observeStmt("Transaction")
 	return sqlitex.Transaction(conn), nil
+}
+
+// errCPStorageGated: the legacy ContainerProfile storage opens long
+// transactions on a pool connection (the consolidation's BEGIN DEFERRED, the
+// heal's BEGIN IMMEDIATE) and calls saveObject inside them. Over a StorageImpl
+// that shares the write gate, saveObject would queue on the gate while this
+// connection already holds SQLite's write lock — the gate busy-waiting behind
+// its own caller, the class write-gate sharing exists to close. Under the
+// flag the ContainerProfile kind is served by the ObjectStore and this type
+// is never constructed; the refusal makes that structural (W11/W12 of
+// write-gate-sharing §3.2: never routed through a gate).
+var errCPStorageGated = errors.New("legacy ContainerProfile storage cannot run over a StorageImpl that shares the write gate")
+
+func (c *ContainerProfileStorageImpl) refuseGated(op string) error {
+	if c.storageImpl.gate == nil {
+		return nil
+	}
+	logger.L().Error("ContainerProfileStorageImpl refused: the wrapped StorageImpl shares the write gate", loggerhelpers.String("op", op))
+	return fmt.Errorf("%s: %w", op, errCPStorageGated)
 }
 
 func (c *ContainerProfileStorageImpl) DeleteContainerProfile(ctx context.Context, key string) error {
@@ -225,6 +247,9 @@ func healFailureReason(err error) string {
 //
 // Must run in autocommit, before the pass's transaction (it opens its own).
 func (c *ContainerProfileStorageImpl) HealDivergence(ctx context.Context, key string) error {
+	if err := c.refuseGated("HealDivergence"); err != nil {
+		return err
+	}
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	s := c.storageImpl
 	lockCtx, cancel := context.WithTimeout(ctx, lockTimeout)

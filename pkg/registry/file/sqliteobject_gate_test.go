@@ -291,7 +291,10 @@ func TestWriteGate_SwapKeepsPreSwapConnectionOwned(t *testing.T) {
 	assert.NotSame(t, c0, g.conn)
 	now := writeStmtSeq.Load()
 	assert.True(t, g.owns(c0, now), "the pre-swap connection stays owned: its recorded INSERT was a gated write")
-	assert.True(t, g.owns(g.conn, now), "the replacement is owned")
+	// Nothing has been recorded on the replacement yet: the next write is the
+	// gate's (owns is bounded below by the take, WF-2).
+	assert.True(t, g.owns(g.conn, now+1), "the replacement is owned from its take on")
+	assert.False(t, g.owns(g.conn, now), "a write predating the replacement's take is not the gate's")
 	assert.False(t, g.held())
 
 	// The gate keeps working on the replacement, and the panicked INSERT

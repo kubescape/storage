@@ -176,15 +176,12 @@ func (c completedConfig) New() (*WardleServer, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: %w", err)
 		}
-		// The gate's dedicated connection must be back in the pool before
-		// Pool.Close (K-5): the pre-shutdown hook closes the store, then the
-		// shared gate, before the pool is closed.
-		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", func() error {
-			if err := objectStore.Close(); err != nil {
-				return err
-			}
-			return gate.Close()
-		}); err != nil {
+		// The pre-shutdown hook stops the store's checkpointer only. It must
+		// NOT close the shared gate: pre-shutdown hooks run before in-flight
+		// requests drain, and a closed gate fails every in-flight write of
+		// every gated kind with errGateClosed. main.go closes the gate once
+		// cli.Run has returned and no request can arrive.
+		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", objectStore.Close); err != nil {
 			return nil, err
 		}
 		containerProfileStorageImpl = objectStore

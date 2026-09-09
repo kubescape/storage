@@ -124,7 +124,7 @@ func main() {
 	// with the ContainerProfile SQLite backend on, every SQLite write of every
 	// kind — the ObjectStore's, the legacy StorageImpl's and the cleanup
 	// handler's — goes through it. Built beside the pool, before any writer
-	// exists; closed by the apiserver's pre-shutdown hook, before Pool.Close.
+	// exists; closed below, after the server has drained.
 	var writeGate *file.WriteGate
 	if cfg.ContainerProfileSqliteBackend {
 		gateCtx, gateCancel := context.WithTimeout(ctx, cfg.PoolTimeout)
@@ -158,5 +158,13 @@ func main() {
 	cmd := server.NewCommandStartWardleServer(ctx, options, false)
 	logger.L().Info("APIServer starting")
 	code := cli.Run(cmd)
+	// The server has drained: no request can arrive, every queued writer is
+	// gone. Closing the gate earlier (in a pre-shutdown hook) would fail the
+	// in-flight writes of every gated kind with errGateClosed.
+	if writeGate != nil {
+		if err := writeGate.Close(); err != nil {
+			logger.L().Error("write gate close error", helpers.Error(err))
+		}
+	}
 	os.Exit(code)
 }
