@@ -91,7 +91,7 @@ func newGNPTestStorage(t *testing.T) (StorageQuerier, storage.Interface, *sqlite
 	sch := scheme.Scheme
 	require.NoError(t, softwarecomposition.AddToScheme(sch))
 	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
-	return realStorage, NewGeneratedNetworkPolicyStorage(realStorage), pool
+	return realStorage, NewGeneratedNetworkPolicyStorage(realStorage, realStorage), pool
 }
 
 // TestGeneratedNetworkPolicyStorage_Get_MultiContainerWorkload pins contract (1):
