@@ -37,7 +37,9 @@ const (
 	CommitOutcomeCommitted = "committed"
 	CommitOutcomeConflict  = "conflict"
 	CommitOutcomeError     = "error"
-	CommitOutcomePanic     = "panic"
+	// CommitOutcomePanic: the commit panicked past every guard and the shard
+	// goroutine's recover converted it to an error. Must stay zero.
+	CommitOutcomePanic = "panic"
 )
 
 // Outcome label values for SqliteCheckpointTotal.
@@ -46,6 +48,28 @@ const (
 	CheckpointOutcomeBusy  = "busy"
 	CheckpointOutcomeError = "error"
 	CheckpointOutcomePanic = "panic"
+)
+
+// Label values for the consolidation counters below.
+const (
+	// FrozenReclaimedRow / FrozenReclaimedObject: what the frozen gate reclaimed.
+	FrozenReclaimedRow    = "row"
+	FrozenReclaimedObject = "object"
+
+	// DivergencePayloadAhead: the payload says Completed/Full, the metadata row
+	// does not (a process crash or a failed COMMIT between the payload rename
+	// and the row's commit) -- healed by re-persisting the payload as-is.
+	// DivergenceMetadataAhead: the metadata row says Completed/Full, the payload
+	// does not (a lost payload rename after a power loss) -- observed only.
+	DivergencePayloadAhead  = "payload_ahead"
+	DivergenceMetadataAhead = "metadata_ahead"
+
+	// HealFailed* : which step of the divergence heal failed.
+	HealFailedLockTimeout = "lock_timeout"
+	HealFailedBegin       = "begin"
+	HealFailedRead        = "read"
+	HealFailedSave        = "save"
+	HealFailedCommit      = "commit"
 )
 
 // waitBuckets covers sub-millisecond acquisitions up through the ~5s
@@ -110,10 +134,35 @@ var (
 		&metrics.CounterOpts{
 			Subsystem:      "storage",
 			Name:           "single_writer_commit_total",
-			Help:           "Count of single-writer commit attempts, by resource kind, priority, and outcome (committed/conflict/error).",
+			Help:           "Count of single-writer commit attempts, by resource kind, priority, and outcome (committed/conflict/error/panic).",
 			StabilityLevel: metrics.ALPHA,
 		},
 		[]string{"kind", "priority", "outcome"},
+	)
+
+	// SingleWriterDirtyConnectionTotal counts pool connections a shard commit
+	// was about to return with an open transaction/savepoint or a stepped,
+	// unreset statement (a panic in the commit path skipped the release).
+	// The connection is rolled back and reset before reuse. Must stay zero.
+	SingleWriterDirtyConnectionTotal = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "single_writer_dirty_connection_total",
+			Help:           "Count of pool connections a single-writer commit found with an open transaction or unreset statement on release; rolled back before reuse.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// SingleWriterDroppedConnectionTotal counts dirty connections that could
+	// not be rolled back and were dropped instead of returned, shrinking the
+	// pool by one permanently. Must stay zero.
+	SingleWriterDroppedConnectionTotal = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "single_writer_dropped_connection_total",
+			Help:           "Count of dirty pool connections a single-writer commit could not roll back and dropped; each one shrinks the pool permanently.",
+			StabilityLevel: metrics.ALPHA,
+		},
 	)
 
 	// SingleWriterConflictRetryTotal counts how many times
@@ -223,6 +272,38 @@ var (
 		},
 	)
 
+	// ConsolidationFrozenReclaimedTotal counts the time_series rows and TS
+	// objects consolidation's frozen gate reclaimed unmerged because the base
+	// ContainerProfile was already Completed/Full when the pass read it,
+	// labeled by "what" (row/object). Expected low and non-zero on
+	// multi-replica workloads (each late series is reclaimed once); rising for
+	// one key on many consecutive ticks while divergence heals stay at zero
+	// means a writer other than consolidation keeps producing rows for a
+	// completed profile.
+	ConsolidationFrozenReclaimedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_frozen_reclaimed_total",
+			Help:           "Count of time_series rows and TS objects reclaimed unmerged by consolidation because the base profile was already Completed/Full, by what (row/object).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"what"},
+	)
+
+	// ConsolidationFrozenRefusalsTotal counts consolidation saves refused
+	// because the persisted base ContainerProfile was Completed/Full at write
+	// time (under the per-key lock) although it was not when the pass read it.
+	// Expected zero: a non-zero value means a concurrent writer completed the
+	// base between the pass's read and its write.
+	ConsolidationFrozenRefusalsTotal = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_frozen_refusals_total",
+			Help:           "Count of consolidation saves refused because the persisted base profile became Completed/Full between the pass's read and its write.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
 	// SqliteFreelistCount gauges PRAGMA freelist_count as last observed by the
 	// background checkpointer (TS profiles are create-then-delete objects; their
 	// pages cycle through the freelist).
@@ -246,6 +327,34 @@ var (
 		},
 		[]string{"outcome"},
 	)
+
+	// ConsolidationDivergenceTotal counts payload/metadata divergences
+	// consolidation observed on a base ContainerProfile, by "shape"
+	// (payload_ahead: healed; metadata_ahead: observed only). Expected zero in
+	// steady state; payload_ahead after no pod restart means a COMMIT failed.
+	ConsolidationDivergenceTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_divergence_total",
+			Help:           "Count of payload/metadata divergences observed on a base profile by consolidation, by shape (payload_ahead healed, metadata_ahead observed).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"shape"},
+	)
+
+	// ConsolidationHealFailedTotal counts failed divergence heals by the step
+	// that failed (lock_timeout/begin/read/save/commit). A failing heal errors the
+	// tick before the frozen gate runs, so ConsolidationFrozenReclaimedTotal
+	// does not move; this series is what makes a wedged heal visible.
+	ConsolidationHealFailedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_heal_failed_total",
+			Help:           "Count of failed payload/metadata divergence heals, by the step that failed (lock_timeout/begin/read/save/commit).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"reason"},
+	)
 )
 
 func init() {
@@ -254,6 +363,8 @@ func init() {
 	legacyregistry.MustRegister(SingleWriterQueueWaitDuration)
 	legacyregistry.MustRegister(SingleWriterCommitTotal)
 	legacyregistry.MustRegister(SingleWriterConflictRetryTotal)
+	legacyregistry.MustRegister(SingleWriterDirtyConnectionTotal)
+	legacyregistry.MustRegister(SingleWriterDroppedConnectionTotal)
 	legacyregistry.MustRegister(SingleWriterQueueDepth)
 	legacyregistry.MustRegister(SqliteWriteHoldDuration)
 	legacyregistry.MustRegister(WriteGateWaitDuration)
@@ -263,6 +374,10 @@ func init() {
 	legacyregistry.MustRegister(SqliteWalPages)
 	legacyregistry.MustRegister(SqliteFreelistCount)
 	legacyregistry.MustRegister(SqliteCheckpointTotal)
+	legacyregistry.MustRegister(ConsolidationFrozenReclaimedTotal)
+	legacyregistry.MustRegister(ConsolidationFrozenRefusalsTotal)
+	legacyregistry.MustRegister(ConsolidationDivergenceTotal)
+	legacyregistry.MustRegister(ConsolidationHealFailedTotal)
 }
 
 // ObserveSqliteWriteHold records one gated transaction's hold time by path.
@@ -326,9 +441,22 @@ func ObserveSingleWriterQueueWait(kind, priority string, d time.Duration) {
 
 // IncSingleWriterCommit records one single-writer commit attempt for the
 // given resource kind, priority (PriorityHigh / PriorityLow), and outcome
-// (CommitOutcomeCommitted / CommitOutcomeConflict / CommitOutcomeError).
+// (CommitOutcomeCommitted / CommitOutcomeConflict / CommitOutcomeError /
+// CommitOutcomePanic).
 func IncSingleWriterCommit(kind, priority, outcome string) {
 	SingleWriterCommitTotal.WithLabelValues(kind, priority, outcome).Inc()
+}
+
+// IncSingleWriterDirtyConnection records one pool connection found dirty on
+// release from a single-writer commit.
+func IncSingleWriterDirtyConnection() {
+	SingleWriterDirtyConnectionTotal.Inc()
+}
+
+// IncSingleWriterDroppedConnection records one dirty pool connection that
+// could not be rolled back and was dropped instead of returned.
+func IncSingleWriterDroppedConnection() {
+	SingleWriterDroppedConnectionTotal.Inc()
 }
 
 // IncSingleWriterConflictRetry records one GuaranteedUpdate prepare-phase
@@ -342,4 +470,28 @@ func IncSingleWriterConflictRetry(kind string) {
 // the given priority lane (PriorityHigh / PriorityLow).
 func SetSingleWriterQueueDepth(priority string, depth int) {
 	SingleWriterQueueDepth.WithLabelValues(priority).Set(float64(depth))
+}
+
+// IncConsolidationFrozenReclaimed adds n to the frozen gate's reclaim count for
+// what (FrozenReclaimedRow / FrozenReclaimedObject).
+func IncConsolidationFrozenReclaimed(what string, n int) {
+	ConsolidationFrozenReclaimedTotal.WithLabelValues(what).Add(float64(n))
+}
+
+// IncConsolidationFrozenRefusals records one consolidation save refused on a
+// persisted Completed/Full base profile.
+func IncConsolidationFrozenRefusals() {
+	ConsolidationFrozenRefusalsTotal.Inc()
+}
+
+// IncConsolidationDivergence records one observed payload/metadata divergence
+// of the given shape (DivergencePayloadAhead / DivergenceMetadataAhead).
+func IncConsolidationDivergence(shape string) {
+	ConsolidationDivergenceTotal.WithLabelValues(shape).Inc()
+}
+
+// IncConsolidationHealFailed records one failed divergence heal for the given
+// reason (HealFailedLockTimeout / HealFailedBegin / HealFailedRead / HealFailedSave / HealFailedCommit).
+func IncConsolidationHealFailed(reason string) {
+	ConsolidationHealFailedTotal.WithLabelValues(reason).Inc()
 }

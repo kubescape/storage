@@ -35,9 +35,6 @@ func (f *fakeStorage) ListTimeSeriesWithData(ctx context.Context) ([]string, err
 func (f *fakeStorage) ListTimeSeriesContainers(ctx context.Context, key string) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
 	return nil, nil
 }
-func (f *fakeStorage) DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error {
-	return nil
-}
 func (f *fakeStorage) ReplaceTimeSeriesContainerEntries(ctx context.Context, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
 	return nil
 }
@@ -67,6 +64,9 @@ func (f *fakeStorage) GetTsContainerProfile(ctx context.Context, key string) (so
 	return softwarecomposition.ContainerProfile{}, nil
 }
 func (f *fakeStorage) SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error {
+	return nil
+}
+func (f *fakeStorage) HealDivergence(ctx context.Context, key string) error {
 	return nil
 }
 func (f *fakeStorage) GetStorageImpl() *StorageImpl {

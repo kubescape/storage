@@ -564,7 +564,19 @@ func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, ts
 // ReplaceTimeSeriesContainerEntries replaces time series entries for a given path and seriesID.
 func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
-	// FIXME we can probably optimize this, rather than deleting everything to add it back
+	// FIXME we can probably optimize this, rather than deleting everything to add it back.
+	//
+	// Whatever that optimisation is, the DELETE below MUST stay scoped to
+	// (kind, namespace, name, seriesID, tsSuffix IN deleteTimeSeries), the
+	// suffix list the consolidation pass read: a row that lands after the
+	// pass's ListTimeSeriesContainers is neither deleted nor merged and
+	// survives to the next tick. Rewriting it as predicate-scoped (by status,
+	// by timestamp, or whole-key) turns the pass into a data-loss bug. This is
+	// also the ONLY time_series delete on the consolidation path: on a
+	// terminal branch newTimeSeries is empty and this statement deletes
+	// exactly the listed rows of that one series -- the rows of an unreached
+	// series, and their objects, are reclaimed by the frozen gate next tick.
+	// The re-insert is INSERT OR REPLACE (WriteTimeSeriesEntry), idempotent.
 	// delete old profiles
 	tsSuffixes, err := json.Marshal(deleteTimeSeries)
 	if err != nil {

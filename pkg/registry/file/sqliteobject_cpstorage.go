@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kubescape/go-logger"
+	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/metrics"
@@ -330,6 +332,65 @@ func (c *objectStoreCPStorage) DeleteContainerProfile(ctx context.Context, key s
 		c.s.watchDispatcher.Deleted(key, metaOut)
 	})
 	return nil
+}
+
+// HealDivergence is a defensive verification, not a repair. The shape the
+// legacy backend's HealDivergence fixes -- a payload whose rename landed
+// while its metadata row's COMMIT did not -- requires two independently
+// observable, separately-timed write steps (a filesystem rename, then a
+// later SQL commit) with a real window between them. The ObjectStore write
+// path (execCreate/execUpdate/execDelete, sqliteobject_store.go) has no such
+// window: the metadata row and the payloads row are two columns of the same
+// stampAndEncode call, written by the same statement list inside the one
+// BEGIN IMMEDIATE ... COMMIT the write gate wraps around it (sqliteobject_
+// gate.go's writeGate.run). SQLite's WAL guarantees that transaction's
+// frames become visible to every other reader together or not at all --
+// recovery after a crash (an OS kill, or a power loss under synchronous=
+// NORMAL, WAL's default) validates the WAL up to the last frame carrying a
+// complete commit and discards anything after: a transaction interrupted
+// mid-write leaves NO row, on either table, not a half-written one. So the
+// "payload says Completed/Full, metadata row does not" shape is not just
+// unlikely here, it is unreachable by construction, on every path including
+// a crash mid-COMMIT.
+//
+// Because that claim could still have a hole, this does not simply trust it:
+// it re-reads metadata and payload from the SAME statement (readRow's join,
+// one SQLite snapshot -- unlike the caller's own two separate reads, which
+// straddle the connection's autocommit boundary and can observe an
+// in-flight commit land between them) and verifies they agree on
+// Completed/Full. A caller landing between those two reads, or racing a
+// concurrent completer, is the ordinary explanation and self-resolves: this
+// re-read is monotonic with the caller's (same connection, later in time),
+// so it can only be equal to or newer than what the caller saw, never older
+// -- see the comment above. Disagreement here is not that; it means the
+// invariant this function exists to confirm does not hold, and is worth
+// paging on, not silently re-persisting a guess. Absence (the row list is
+// empty -- key deleted between the caller's read and this one) is not
+// divergence, exactly as for the legacy backend: nothing to check.
+func (c *objectStoreCPStorage) HealDivergence(ctx context.Context, key string) error {
+	return c.withConn(ctx, "heal", key, func(conn *sqlite.Conn) error {
+		row, err := c.s.readRow(conn, key)
+		if err != nil {
+			return fmt.Errorf("HealDivergence: read row: %w", err)
+		}
+		if row == nil {
+			return nil
+		}
+		var meta softwarecomposition.ContainerProfile
+		if err := json.Unmarshal(row.metadataJSON, &meta); err != nil {
+			return fmt.Errorf("HealDivergence: decode metadata: %w", err)
+		}
+		var payload softwarecomposition.ContainerProfile
+		if err := c.s.decodeBody(row.encoding, row.body, &payload); err != nil {
+			return fmt.Errorf("HealDivergence: decode payload: %w", err)
+		}
+		if softwarecomposition.IsCompletedFull(payload.Annotations) != softwarecomposition.IsCompletedFull(meta.Annotations) {
+			metrics.IncConsolidationDivergence(metrics.DivergencePayloadAhead)
+			logger.L().Error("objectStoreCPStorage.HealDivergence - payload/metadata Completed-Full disagreement observed on the ObjectStore backend, whose single-transaction write path is supposed to make this impossible; no repair attempted",
+				loggerhelpers.String("key", key))
+		}
+		return nil
+	})
 }
 
 // ---- TimeSeriesOperations ----

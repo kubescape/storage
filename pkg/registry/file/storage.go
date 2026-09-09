@@ -52,6 +52,10 @@ const (
 var (
 	ObjectCompletedError = errors.New("object is completed")
 	ObjectTooLargeError  = errors.New("object is too large")
+	// ErrProfileFrozen is returned by consolidation's save when the persisted
+	// base ContainerProfile is already Completed/Full: nothing updates such a
+	// profile (softwarecomposition.IsCompletedFull).
+	ErrProfileFrozen = errors.New("profile is completed/full and cannot be updated")
 )
 
 // lockTimeout is the hardcoded backstop for lock acquisition. It sits well under the
@@ -690,10 +694,11 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
 }
 
-func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
-	if err := s.refuseForeign("delete", key); err != nil {
-		return err
-	}
+// deleteLocked is the SQLite and filesystem half of delete. It takes no lock,
+// submits nothing, and blocks on nothing but conn -- a true runOnShard leaf.
+// It does NOT dispatch the watch event: callers do that themselves, after
+// releasing whatever they hold (shard turn, connection, per-key lock).
+func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object) error {
 	p := filepath.Join(s.root, key)
 	// delete metadata in SQLite
 	err := DeleteMetadata(conn, key, metaOut)
@@ -711,6 +716,16 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 			logger.L().Ctx(ctx).Error("Delete - delete time series entries failed", helpers.Error(err), helpers.String("key", key))
 			return fmt.Errorf("delete time series entries: %w", err)
 		}
+	}
+	return nil
+}
+
+func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	if err := s.refuseForeign("delete", key); err != nil {
+		return err
+	}
+	if err := s.deleteLocked(ctx, conn, key, metaOut); err != nil {
+		return err
 	}
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
@@ -849,8 +864,13 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
-			// file not found, delete corresponding metadata
-			_ = DeleteMetadata(conn, key, nil)
+			// Prune the orphaned metadata row only if there is one. A DELETE
+			// that matches no row still opens a write transaction and waits on
+			// SQLite's write lock for the busy timeout, so a read of an absent
+			// key must not issue it.
+			if _, rerr := ReadMetadata(conn, key); rerr == nil {
+				_ = DeleteMetadata(conn, key, nil)
+			}
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {
