@@ -9,10 +9,11 @@ package file
 // while the gate is held (INV-1): no lock, no callback, no dispatch, no
 // decode, no encode.
 //
-// PROTOTYPE (§7.6): no data migration, no cleanup.go / GeneratedNetworkPolicy
-// re-pointing, no gate sharing with the 13 legacy kinds. Working package name
-// in the design is sqliteobject; it lives in package file so the in-package
-// measurement harness (containerprofile_load_test.go) can select it.
+// The startup data migration is sqliteobject_migration.go (§8); the cleanup
+// handler's CP arm and GeneratedNetworkPolicyStorage read through this store
+// (§5.6); the 13 legacy kinds share the gate (write-gate-sharing.md). Working
+// package name in the design is sqliteobject; it lives in package file so the
+// in-package measurement harness (containerprofile_load_test.go) can select it.
 
 import (
 	"context"
@@ -59,6 +60,7 @@ const (
 	holdPathMigrate        = "migrate"         // W6b/W7b/W8: the gob-migration rewrite
 	holdPathCleanup        = "cleanup"         // W9a: the cleanup tick's row delete
 	holdPathCleanupMigrate = "cleanup_migrate" // W9b: the cleanup tick's sidecar-file migration
+	holdPathCPMigration    = "cp_migration"    // §8.2: one startup data-migration batch
 )
 
 // ObjectStoreOptions tunes an ObjectStore.
@@ -195,7 +197,18 @@ func (s *ObjectStore) takeConn(ctx context.Context, op, key string) (*sqlite.Con
 // original TypeMeta is kept (ConvertToVersion stamps the target GVK), so a
 // decode returns the object with exactly the apiVersion/kind it was saved with.
 func (s *ObjectStore) encodeBody(obj runtime.Object) ([]byte, error) {
-	versioned, err := s.scheme.ConvertToVersion(obj, v1beta1.SchemeGroupVersion)
+	return encodePayloadBody(s.scheme, obj)
+}
+
+// decodeBody unmarshals a payloads.body into objPtr through the v1beta1 type.
+func (s *ObjectStore) decodeBody(encoding string, body []byte, objPtr runtime.Object) error {
+	return decodePayloadBody(s.scheme, encoding, body, objPtr)
+}
+
+// encodePayloadBody is encodeBody without the receiver, shared with the
+// startup data migration.
+func encodePayloadBody(scheme *runtime.Scheme, obj runtime.Object) ([]byte, error) {
+	versioned, err := scheme.ConvertToVersion(obj, v1beta1.SchemeGroupVersion)
 	if err != nil {
 		return nil, fmt.Errorf("convert to v1beta1: %w", err)
 	}
@@ -207,23 +220,23 @@ func (s *ObjectStore) encodeBody(obj runtime.Object) ([]byte, error) {
 	return body, nil
 }
 
-// decodeBody unmarshals a payloads.body into objPtr through the v1beta1 type.
-func (s *ObjectStore) decodeBody(encoding string, body []byte, objPtr runtime.Object) error {
+// decodePayloadBody is decodeBody without the receiver.
+func decodePayloadBody(scheme *runtime.Scheme, encoding string, body []byte, objPtr runtime.Object) error {
 	if encoding != PayloadEncodingJSONV1Beta1 {
 		return fmt.Errorf("unsupported payload encoding %q", encoding)
 	}
-	gvks, _, err := s.scheme.ObjectKinds(objPtr)
+	gvks, _, err := scheme.ObjectKinds(objPtr)
 	if err != nil || len(gvks) == 0 {
 		return fmt.Errorf("object kinds: %w", err)
 	}
-	versioned, err := s.scheme.New(v1beta1.SchemeGroupVersion.WithKind(gvks[0].Kind))
+	versioned, err := scheme.New(v1beta1.SchemeGroupVersion.WithKind(gvks[0].Kind))
 	if err != nil {
 		return fmt.Errorf("new v1beta1 %s: %w", gvks[0].Kind, err)
 	}
 	if err := json.Unmarshal(body, versioned); err != nil {
 		return fmt.Errorf("unmarshal payload: %w", err)
 	}
-	if err := s.scheme.Convert(versioned, objPtr, nil); err != nil {
+	if err := scheme.Convert(versioned, objPtr, nil); err != nil {
 		return fmt.Errorf("convert from v1beta1: %w", err)
 	}
 	objPtr.GetObjectKind().SetGroupVersionKind(versioned.GetObjectKind().GroupVersionKind())

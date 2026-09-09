@@ -113,12 +113,23 @@ type Config struct {
 	// ContainerProfile backend (pkg/registry/file/sqliteobject_*.go: metadata
 	// row + payload BLOB + time_series row in one transaction, one write gate,
 	// background PASSIVE checkpointer) for the containerprofiles resource in
-	// place of the legacy row+gob-file StorageImpl. PROTOTYPE: defaults to
-	// false; there is no data migration yet, and while it is on the legacy
+	// place of the legacy row+gob-file StorageImpl. Defaults to false. When
+	// on, main.go reconciles the existing rows and gob files into the new
+	// schema at every start before serving (file.MigrateContainerProfiles;
+	// legacy files are left in place for rollback), and the legacy
 	// StorageImpl refuses every full-object operation on a containerprofile
 	// key (the kind-ownership guard). See
-	// .omc/plans/full-acid-storage-architecture.md.
+	// .omc/plans/full-acid-storage-architecture.md and
+	// docs/features/containerprofile-sqlite-backend.md.
 	ContainerProfileSqliteBackend bool `mapstructure:"containerProfileSqliteBackend"`
+
+	// ContainerProfileMigrationDryRun runs the ContainerProfile data
+	// migration's reconcile at startup in count-only mode — nothing is
+	// written — and logs what a real run would do (§8.3: required before the
+	// backend flag is turned on anywhere). Refused together with
+	// ContainerProfileSqliteBackend: the backend cannot serve unmigrated
+	// rows. Defaults to false.
+	ContainerProfileMigrationDryRun bool `mapstructure:"containerProfileMigrationDryRun"`
 
 	// The following gate the remaining Phase 4 per-resource rest.Storage
 	// migrations off genericregistry.Store (see
@@ -191,6 +202,7 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("customWorkloadConfigurationScanSummaryRestEnabled", false)
 	// Prototype backend; off until the migration and the soak say otherwise.
 	v.SetDefault("containerProfileSqliteBackend", false)
+	v.SetDefault("containerProfileMigrationDryRun", false)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
 	v.SetDefault("defaultMaxObjectSize", 400000)

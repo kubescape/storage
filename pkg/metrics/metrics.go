@@ -303,6 +303,20 @@ var (
 		[]string{"op"},
 	)
 
+	// CPMigrationTotal counts every reconcile outcome of the startup
+	// ContainerProfile data migration by shape (and, for legacy_rewrite, by
+	// the source the body was rebuilt from). A non-zero legacy_rewrite or
+	// orphan_payload count means a legacy writer touched a CP row (PM-5).
+	CPMigrationTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_migration_total",
+			Help:           "Count of ContainerProfile rows, payloads and files reconciled by the startup migration, by shape and source.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"shape", "source"},
+	)
+
 	// SqliteWalPages gauges the WAL size in pages as last observed by the
 	// background checkpointer.
 	SqliteWalPages = metrics.NewGauge(
@@ -428,6 +442,7 @@ func init() {
 	legacyregistry.MustRegister(SqliteBusyWaitDuration)
 	legacyregistry.MustRegister(CPCASConflictTotal)
 	legacyregistry.MustRegister(CPOwnershipRefusalTotal)
+	legacyregistry.MustRegister(CPMigrationTotal)
 	legacyregistry.MustRegister(SqliteWalPages)
 	legacyregistry.MustRegister(SqliteFreelistCount)
 	legacyregistry.MustRegister(SqliteCheckpointTotal)
@@ -486,6 +501,11 @@ func IncCPCASConflict(op string) {
 // IncCPOwnershipRefusal records one refused legacy operation for op.
 func IncCPOwnershipRefusal(op string) {
 	CPOwnershipRefusalTotal.WithLabelValues(op).Inc()
+}
+
+// IncCPMigration records one startup-migration reconcile outcome.
+func IncCPMigration(shape, source string) {
+	CPMigrationTotal.WithLabelValues(shape, source).Inc()
 }
 
 // SetSqliteWalPages sets the last observed WAL size in pages.

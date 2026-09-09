@@ -40,7 +40,8 @@ const DefaultBusyTimeout = 60 * time.Second
 // nullable rv/uid columns and the payloads table are written only by the
 // ContainerProfile SQLite-native backend (ObjectStore); the legacy
 // StorageImpl keeps writing (kind, namespace, name, metadata) and leaves them
-// NULL / empty for every other kind.
+// NULL / empty for every other kind. Migration 5 is the data migration's
+// done-flag table (MigrateContainerProfiles).
 func SchemaMigrations() []string {
 	return []string{
 		`CREATE TABLE IF NOT EXISTS metadata (
@@ -72,6 +73,12 @@ func SchemaMigrations() []string {
 			encoding TEXT NOT NULL,
 			body BLOB NOT NULL,
 			PRIMARY KEY (kind, namespace, name)
+		);`,
+		`CREATE TABLE IF NOT EXISTS migration_state (
+			name TEXT PRIMARY KEY,
+			state TEXT NOT NULL,
+			counts TEXT,
+			updated_at TEXT
 		);`,
 	}
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/grafana/pyroscope-go"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	"github.com/kubescape/storage/pkg/apiserver"
 	"github.com/kubescape/storage/pkg/cmd/server"
 	"github.com/kubescape/storage/pkg/config"
 	"github.com/kubescape/storage/pkg/registry/file"
@@ -76,6 +77,9 @@ func main() {
 	// queued writers would starve every reader (write-gate-sharing §3.3, §4).
 	if cfg.ContainerProfileSqliteBackend && !cfg.SingleWriterEnabled {
 		logger.L().Ctx(ctx).Fatal("invalid config: containerProfileSqliteBackend requires singleWriterEnabled")
+	}
+	if cfg.ContainerProfileSqliteBackend && cfg.ContainerProfileMigrationDryRun {
+		logger.L().Ctx(ctx).Fatal("invalid config: containerProfileMigrationDryRun is a census taken before containerProfileSqliteBackend is turned on; the backend cannot serve unmigrated rows")
 	}
 	// to enable otel, set OTEL_COLLECTOR_SVC=otel-collector:4317
 	if otelHost, present := os.LookupEnv("OTEL_COLLECTOR_SVC"); present {
@@ -133,6 +137,27 @@ func main() {
 		if err != nil {
 			logger.L().Ctx(ctx).Fatal("write gate error", helpers.Error(err))
 		}
+	}
+
+	// The ContainerProfile data migration (full-acid-storage-architecture.md
+	// §8.2): synchronously, after the pool and the gate exist and BEFORE the
+	// cleanup goroutine and the API server — nothing else writes the
+	// database while it runs, and its batches are gated writes like every
+	// other (AC-G1). The reconcile of legacy-written rows runs on every
+	// start; the file sweeps once. A failure is fatal: the backend must not
+	// serve a half-reconciled store, and the flag can be turned off (§8.4).
+	// Precondition: one storage pod at a time (the chart's replicas: 1 +
+	// strategy: Recreate) — nothing in the database fences an older binary.
+	if cfg.ContainerProfileSqliteBackend || cfg.ContainerProfileMigrationDryRun {
+		report, err := file.MigrateContainerProfiles(ctx, pool, writeGate, osFs, file.DefaultStorageRoot, apiserver.Scheme,
+			file.ContainerProfileMigrationOptions{DryRun: cfg.ContainerProfileMigrationDryRun})
+		if err != nil {
+			logger.L().Ctx(ctx).Fatal("containerprofile migration error", helpers.Error(err))
+		}
+		logger.L().Info("containerprofile migration finished",
+			helpers.Interface("counts", report.Counts), helpers.Int("batches", report.Batches),
+			helpers.Interface("sweepsRun", report.SweepsRun), helpers.Interface("dryRun", report.DryRun),
+			helpers.String("elapsed", report.Elapsed.String()))
 	}
 
 	// setup watcher
