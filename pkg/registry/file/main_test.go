@@ -121,6 +121,9 @@ func TestMain(m *testing.M) {
 	writeStmtObserver.Store(&note)
 	noteGate := acg1Ledger.noteGate
 	writeGateObserver.Store(&noteGate)
+	// A re-entrant gate acquire panics under the test binary: a site that
+	// swallows the production error (`_ = DeleteMetadata(...)`) still fails.
+	gateReentrantPanics.Store(true)
 
 	code := m.Run()
 
