@@ -322,11 +322,14 @@ func TestDifferential_Storage_IdenticalSequence(t *testing.T) {
 	n.UID, o.UID = "", ""
 	delete(o.Annotations, helpersv1.SyncChecksumMetadataKey)
 	delete(n.Annotations, helpersv1.SyncChecksumMetadataKey)
-	assert.Equal(t, canonicalCP(o), canonicalCP(n), "consolidated base differs beyond the documented codec deltas")
-	// Divergence 4: sub-second creationTimestamp.
+	// Divergence 4: sub-second creationTimestamp. Each backend stamped its
+	// own metav1.Now() during its tick, so only the precision property is
+	// comparable, not the instant (the two runs may straddle a second).
 	assert.NotEqual(t, 0, o.CreationTimestamp.Nanosecond(), "old GET keeps the nanoseconds consolidation stamped")
 	assert.Equal(t, 0, n.CreationTimestamp.Nanosecond(), "new GET truncates to whole seconds")
-	assert.True(t, n.CreationTimestamp.Time.Equal(o.CreationTimestamp.Time.Truncate(time.Second)))
+	assert.WithinDuration(t, o.CreationTimestamp.Time, n.CreationTimestamp.Time, 5*time.Second)
+	o.CreationTimestamp, n.CreationTimestamp = metav1.Time{}, metav1.Time{}
+	assert.Equal(t, canonicalCP(o), canonicalCP(n), "consolidated base differs beyond the documented codec deltas")
 	// Divergence 6: nil vs empty for non-omitempty spec collections (PreSave's
 	// deflate leaves Execs as an empty, non-nil slice; gob drops it, JSON keeps it).
 	assert.Nil(t, o.Spec.Execs, "old: empty execs decode to nil (gob)")
