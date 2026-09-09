@@ -465,6 +465,9 @@ func commitOpName(job *commitJob) string {
 // callers like WithConnection that hold a connection and request an RLock.
 func (w *singleWriter) commit(job *commitJob) commitResult {
 	s := w.s
+	if s.gate != nil {
+		return w.commitGated(job)
+	}
 	kind := resourceFromKey(job.key)
 	priority := job.priority.label()
 
@@ -582,6 +585,88 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 	committed = true
 
 	metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
+	return commitResult{metadata: metadata}
+}
+
+// commitGated is commit under the shared write gate (W1 of write-gate-sharing
+// §3.2): the shard takes no pool connection at all — Lock(key), then one gate
+// ticket on the submitter's ctx, then on the gate's connection the CAS read,
+// the INSERT OR REPLACE and the payload rename, inside one BEGIN IMMEDIATE …
+// COMMIT. The CAS is thereby atomic against every writer, not only the
+// Lock(key)-respecting ones (it closes the cleanup-vs-shard race of §1.2).
+// The gate's own accounting counts the commit outcome by kind and priority.
+//
+// Two shapes, deliberately: with no gate the CAS read stays an autocommit
+// SELECT before the savepoint (moving it inside a deferred SAVEPOINT would
+// turn the write into a read-to-write lock upgrade, SQLITE_BUSY_SNAPSHOT
+// territory, and change the statement golden); under BEGIN IMMEDIATE the
+// lock is already held, so the read joins the transaction.
+func (w *singleWriter) commitGated(job *commitJob) commitResult {
+	s := w.s
+	kind := resourceFromKey(job.key)
+	priority := job.priority.label()
+
+	lockCtx, lockCancel := context.WithTimeout(job.ctx, lockTimeout)
+	beforeLock := time.Now()
+	lockErr := s.locks.Lock(lockCtx, job.key)
+	lockCancel()
+	lockDuration := time.Since(beforeLock)
+	if lockErr != nil {
+		metrics.ObserveLockWait(kind, metrics.OutcomeTimeout, lockDuration)
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, lockErr)}
+	}
+	metrics.ObserveLockWait(kind, metrics.OutcomeAcquired, lockDuration)
+	defer s.locks.Unlock(job.key)
+
+	if job.custom != nil {
+		// Lane 0's runOnShard leaf (CP-only, unreachable under the flag): the
+		// leaf gates its own statements, so it runs with no connection.
+		if err := callGuarded("custom", nil, job.custom); err != nil {
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+			return commitResult{err: err}
+		}
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
+		return commitResult{}
+	}
+
+	metadata := extractFields(job.newObj, []string{"ObjectMeta", "SchemaVersion"})
+	writeMeta := s.writeMetadataFn
+	if writeMeta == nil {
+		writeMeta = writeMetadata
+	}
+	renamePayload := s.renamePayloadFn
+	if renamePayload == nil {
+		renamePayload = s.appFs.Rename
+	}
+
+	err := s.write(job.ctx, nil, job.priority, holdPathLegacyCommit, kind, true, func(_ context.Context, conn *sqlite.Conn) error {
+		currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
+		if err != nil {
+			return fmt.Errorf("read current resourceVersion: %w", err)
+		}
+		if job.create {
+			if exists {
+				return storage.NewKeyExistsError(job.key, 0)
+			}
+		} else if job.baseRV != 0 && (!exists || currentRV != job.baseRV) {
+			return errWriteConflict
+		}
+		if werr := writeMeta(conn, job.key, metadata); werr != nil {
+			return fmt.Errorf("write metadata: %w", werr)
+		}
+		renameStart := time.Now()
+		if rerr := renamePayload(job.tmpPayloadPath, job.finalPayloadPath); rerr != nil {
+			return fmt.Errorf("rename payload into place: %w", rerr)
+		}
+		metrics.ObserveSqliteWriteHoldStep(holdPathLegacyCommit, "rename", time.Since(renameStart))
+		return nil
+	})
+	if err != nil {
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		return commitResult{err: err}
+	}
 	return commitResult{metadata: metadata}
 }
 
