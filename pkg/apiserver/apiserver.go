@@ -156,14 +156,15 @@ func (c completedConfig) New() (*WardleServer, error) {
 
 	storageImpl := file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-	// ContainerProfileSqliteBackend (PROTOTYPE, see
-	// .omc/plans/full-acid-storage-architecture.md §7.6): the containerprofiles
+	// ContainerProfileSqliteBackend (see
+	// .omc/plans/full-acid-storage-architecture.md §3): the containerprofiles
 	// resource is served by the SQLite-native ObjectStore instead of the
 	// row+gob-file StorageImpl, and the legacy default instance carries the
 	// kind-ownership guard so that any path still handing it a containerprofile
-	// key (today: GeneratedNetworkPolicyStorage's full-spec list, whose
-	// re-pointing is out of the prototype's scope) fails loudly instead of
-	// touching a row the ObjectStore owns.
+	// key fails loudly instead of touching a row the ObjectStore owns. Every
+	// CP consumer is wired to containerProfileStorageImpl below
+	// (GeneratedNetworkPolicyStorage's full-spec list, the cleanup handler's
+	// CP arm); main.go ran the data migration before this point.
 	var containerProfileStorageImpl storage.Interface
 	if c.ExtraConfig.StorageConfig.ContainerProfileSqliteBackend {
 		storageImpl.(*file.StorageImpl).SetForeignKinds(file.IsContainerProfileKind)
@@ -184,6 +185,11 @@ func (c completedConfig) New() (*WardleServer, error) {
 		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", objectStore.Close); err != nil {
 			return nil, err
 		}
+		// The cleanup handler's CP arm enumerates rows and deletes through the
+		// ObjectStore under the flag; it never walks CP files (§5.6 row 10).
+		if c.ExtraConfig.CleanupHandler != nil {
+			c.ExtraConfig.CleanupHandler.SetContainerProfileStore(objectStore)
+		}
 		containerProfileStorageImpl = objectStore
 	} else {
 		containerProfileStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
@@ -192,7 +198,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	var (
 		configScanStorageImpl         = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage   = file.NewVulnerabilitySummaryStorage(storageImpl)
-		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl)
+		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl, containerProfileStorageImpl)
 
 		// REST endpoint registration, defaults to storageImpl.
 		ep = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.REST, error), s ...storage.Interface) *registry.REST {

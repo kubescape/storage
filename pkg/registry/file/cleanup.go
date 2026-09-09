@@ -17,8 +17,10 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 const (
@@ -39,10 +41,20 @@ type ResourcesCleanupHandler struct {
 	deleteFunc            TypeDeleteFunc
 	resourceToKindHandler map[string][]TypeCleanupHandlerFunc
 	watchDispatcher       *WatchDispatcher
+	// relevancyEnabled adds the missing-annotation handlers to the
+	// ContainerProfile arm (ContainerProfileHandlers).
+	relevancyEnabled bool
 	// gate is the process's shared write gate (write-gate-sharing §3.2, W9):
 	// when set, the tick's row deletes and sidecar migrations run on the
 	// gate's connection; nil = today's code on the walk's connection.
 	gate *writeGate
+	// cpStore, when set, replaces the file walk for the ContainerProfile
+	// kind: rows are enumerated from the metadata table and reclaimed through
+	// the ObjectStore's Delete (one gated transaction over metadata, payloads
+	// and time_series; Deleted dispatched after). Under the flag CP objects
+	// have no payload file, and a legacy file-then-row delete would leave the
+	// payloads row behind.
+	cpStore *ObjectStore
 }
 
 // SetWriteGate hands the cleanup handler the shared write gate (nil = no
@@ -51,14 +63,34 @@ func (h *ResourcesCleanupHandler) SetWriteGate(gate *WriteGate) {
 	h.gate = gate
 }
 
+// SetContainerProfileStore switches the ContainerProfile arm to row
+// enumeration through store. Called once at wiring time, before the first
+// processor cleanup.
+func (h *ResourcesCleanupHandler) SetContainerProfileStore(store *ObjectStore) {
+	h.cpStore = store
+}
+
+// ContainerProfileHandlers is the ContainerProfile arm's handler list, run
+// from ContainerProfileProcessor.cleanup() only: the workload-liveness
+// handler, plus the missing-annotation handlers when relevancy is on. The
+// generic walk (RunCleanupTask) never carries the kind.
+func (h *ResourcesCleanupHandler) ContainerProfileHandlers() []TypeCleanupHandlerFunc {
+	handlers := []TypeCleanupHandlerFunc{deleteByTemplateHashOrWlid}
+	if h.relevancyEnabled {
+		handlers = append(handlers, deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
+	}
+	return handlers
+}
+
 func (h *ResourcesCleanupHandler) write(ctx context.Context, conn *sqlite.Conn, path, kind string, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
 	return gatedWrite(h.gate, ctx, conn, priorityLow, path, kind, false, fn)
 }
 
-func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHandlerFunc {
-	resourceKindToHandler := map[string][]TypeCleanupHandlerFunc{
+func initResourceToKindHandler() map[string][]TypeCleanupHandlerFunc {
+	return map[string][]TypeCleanupHandlerFunc{
 		// configurationscansummaries are virtual
 		// containerprofiles are handled by containerprofile_processor
+		// (ContainerProfileHandlers), never by this walk
 		// vulnerabilitysummaries are virtual
 		// DEPRECATED resources
 		// applicationprofiles and networkneighborhoods were replaced by
@@ -85,18 +117,12 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 		"workloadconfigurationscans":          {deleteByWlid},
 		"workloadconfigurationscansummaries":  {deleteByWlid},
 	}
-
-	// only if relevancy is enabled, delete container profiles with missing
-	// instanceId or wlid annotations.
-	if relevancyEnabled {
-		logger.L().Debug("relevancy is enabled, adding additional cleanup handlers")
-		resourceKindToHandler[ContainerProfileKind] = append(resourceKindToHandler[ContainerProfileKind], deleteMissingInstanceIdAnnotation, deleteMissingWlidAnnotation)
-	}
-	return resourceKindToHandler
 }
 
 func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, interval time.Duration, defaultNamespace string, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
-
+	if relevancyEnabled {
+		logger.L().Debug("relevancy is enabled, adding additional container profile cleanup handlers")
+	}
 	return &ResourcesCleanupHandler{
 		appFs:                 appFs,
 		root:                  root,
@@ -105,8 +131,9 @@ func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigrati
 		defaultNamespace:      defaultNamespace,
 		fetcher:               fetcher,
 		deleteFunc:            deleteFile,
-		resourceToKindHandler: initResourceToKindHandler(relevancyEnabled),
+		resourceToKindHandler: initResourceToKindHandler(),
 		watchDispatcher:       watchDispatcher,
+		relevancyEnabled:      relevancyEnabled,
 	}
 }
 
@@ -173,6 +200,12 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 
 func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns string, resourceToKindHandler map[string][]TypeCleanupHandlerFunc, conn *sqlite.Conn, resources ResourceMaps) error {
 	for resourceKind, handlers := range resourceToKindHandler {
+		if h.cpStore != nil && IsContainerProfileKind(resourceKind) {
+			if err := h.cleanupContainerProfileRows(ctx, ns, resourceKind, handlers, conn, resources); err != nil {
+				return err
+			}
+			continue
+		}
 		v1beta1ApiVersionPath := filepath.Join(h.root, softwarecomposition.GroupName, resourceKind, ns)
 		exists, _ := afero.DirExists(h.appFs, v1beta1ApiVersionPath)
 		if !exists {
@@ -233,6 +266,51 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 		})
 		if err != nil {
 			return fmt.Errorf("failed to walk %s: %w", v1beta1ApiVersionPath, err)
+		}
+	}
+	return nil
+}
+
+// cleanupContainerProfileRows is the ContainerProfile arm under the flag:
+// the namespace's rows are enumerated from the metadata table on the tick's
+// connection and the reclaimed ones deleted through the ObjectStore, which
+// removes metadata, payloads and time_series rows in one gated transaction
+// and dispatches Deleted after it. No file is read, written or removed.
+func (h *ResourcesCleanupHandler) cleanupContainerProfileRows(ctx context.Context, ns, resourceKind string, handlers []TypeCleanupHandlerFunc, conn *sqlite.Conn, resources ResourceMaps) error {
+	type row struct {
+		name         string
+		metadataJSON []byte
+	}
+	var rows []row
+	err := sqlitex.Execute(conn,
+		`SELECT name, metadata FROM metadata WHERE kind = :kind AND namespace = :namespace`,
+		&sqlitex.ExecOptions{
+			Named: map[string]any{":kind": resourceKind, ":namespace": ns},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				rows = append(rows, row{name: stmt.ColumnText(0), metadataJSON: []byte(stmt.ColumnText(1))})
+				return nil
+			},
+		})
+	if err != nil {
+		return fmt.Errorf("failed to list %s rows in %s: %w", resourceKind, ns, err)
+	}
+	for _, r := range rows {
+		key := K8sKeysToPath("", softwarecomposition.GroupName, resourceKind, "", ns, r.name)
+		metadata, err := loadMetadata(r.metadataJSON)
+		if err != nil {
+			logger.L().Error("load metadata error", helpers.Error(err), helpers.String("key", key))
+			continue
+		}
+		if isUserManaged(metadata) {
+			continue
+		}
+		if !or(handlers, resourceKind, key, metadata, resources) {
+			continue
+		}
+		logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
+		err = h.cpStore.Delete(ctx, key, &PartialObjectMetadata{}, nil, nil, nil, storage.DeleteOptions{})
+		if err != nil && !storage.IsNotFound(err) {
+			return fmt.Errorf("failed to delete %s: %w", key, err)
 		}
 	}
 	return nil
