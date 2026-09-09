@@ -94,14 +94,14 @@ func TestINV1_GateHolderExecutesOnlySQL(t *testing.T) {
 		}
 	}
 
-	e.rec.start()
+	mark := e.rec.mark()
 	// Every write path: TS create (with AfterCreate's row), REST update, a
 	// consolidation tick (write set), and a delete.
 	e.create(e.ts("r1", 1, helpersv1.Learning, helpersv1.Partial))
 	require.NoError(t, e.store.GuaranteedUpdate(e.ctx, e.tsKey("r1"), &softwarecomposition.ContainerProfile{}, false, nil, setLabel("inv", "1"), nil))
 	e.tick()
 	require.NoError(t, e.store.Delete(e.ctx, e.baseKey, nil, nil, nil, nil, storage.DeleteOptions{}))
-	actions := e.rec.stop()
+	actions := e.rec.since(mark)
 
 	for _, c := range append(rp.calls, rd.calls...) {
 		assert.NotContains(t, c, "GATE HELD", "callback ran while the gate was held: %s", c)
@@ -118,9 +118,9 @@ func TestINV1_GateHolderExecutesOnlySQL(t *testing.T) {
 	// The gate connection is used for nothing but the three tables. (The
 	// authorizer fires at prepare time; every statement the gate connection
 	// ever runs is prepared on it first, so the set of tables is exact.)
-	gateConn := e.store.gate.conn
+	now := writeStmtSeq.Load()
 	for _, a := range actions {
-		if a.conn != gateConn || a.table == "" {
+		if !e.store.gate.owns(a.conn, now) || a.table == "" {
 			continue
 		}
 		assert.Contains(t, []string{"metadata", "payloads", "time_series", "json_each"}, a.table, "unexpected table on the gate connection")

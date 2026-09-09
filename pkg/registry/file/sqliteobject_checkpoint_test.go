@@ -57,8 +57,9 @@ func TestCheckpointer_WalGrowthTriggersPassiveCheckpoint(t *testing.T) {
 func TestCheckpointer_TimerFallback(t *testing.T) {
 	e := newObjectStoreEnv(t, withCheckpoint(1<<40, 30*time.Millisecond))
 	c := e.store.checkpointer
-	// An ungated writer (a legacy kind on a plain pool connection).
-	e.withConn(func(conn *sqlite.Conn) {
+	// An ungated writer: WAL growth from a connection outside the gate (the
+	// fixture handle; a pool connection here would be an AC-G1 violation).
+	e.withFixture(func(conn *sqlite.Conn) {
 		require.NoError(t, sqlitex.ExecuteTransient(conn, `INSERT INTO metadata (kind,namespace,name,metadata) VALUES ('other','n','x','{}')`, nil))
 	})
 	require.Eventually(t, func() bool { return c.runs.Load() >= 2 }, 5*time.Second, 5*time.Millisecond)

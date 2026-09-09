@@ -136,9 +136,9 @@ func TestINV4_LegacyStoreRefusesContainerProfileKeys(t *testing.T) {
 			stmtsMu.Lock()
 			stmts = nil
 			stmtsMu.Unlock()
-			e.rec.start()
+			mark := e.rec.mark()
 			err := o.run()
-			actions := e.rec.stop()
+			actions := e.rec.since(mark)
 			stmtsMu.Lock()
 			executed := append([]string(nil), stmts...)
 			stmtsMu.Unlock()

@@ -94,6 +94,10 @@ type acg2Env struct {
 	hold func() (release func())
 	// closeStore runs before pool.Close (nil under flag-off).
 	closeStore func()
+	// flag-on only: the ObjectStore, the gate, and the statement recorder.
+	store *ObjectStore
+	gate  *writeGate
+	rec   *tableRecorder
 }
 
 // acg2Fetcher is the cleanup tick's ResourcesFetcher: one namespace that

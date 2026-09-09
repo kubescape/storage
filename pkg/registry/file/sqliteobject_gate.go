@@ -66,11 +66,27 @@ type writeGate struct {
 	// returned only by Close (K-5: sqlitex.Pool.Close blocks until every
 	// connection is back).
 	conn *sqlite.Conn
+	// owned is every connection this gate has EVER held: the initial one and
+	// each replacement, never removed. A write recorded on a connection the
+	// gate held at the time is a gated write even after cleanOrReplace swapped
+	// it out (AC-G1, CR-1); a closed pointer stays reachable from the records,
+	// so the runtime cannot reuse it. Bounded at pool size + 1: each
+	// replacement consumes one pool connection for good.
+	owned map[*sqlite.Conn]struct{}
+	// closeSeq is the write-statement sequence recorded by Close. Close puts
+	// the dedicated connection back in the pool, so a later non-gate taker
+	// could write on an owned pointer: only records older than closeSeq are
+	// the gate's (R-8).
+	closeSeq uint64
 	// replaced counts connections that could not be cleaned after a failed
 	// transaction and were replaced from the pool.
 	replaced int
 }
 
+// newWriteGate takes the gate's dedicated connection from pool and registers
+// the gate as the pool's one writer; a pool that already has a live gate is
+// refused (errGateExists) — two gates on one pool would busy-wait against
+// each other while each reports every write as gated (PM-G8).
 func newWriteGate(ctx context.Context, pool *sqlitemigration.Pool) (*writeGate, error) {
 	conn, err := pool.Take(ctx)
 	if err != nil {
@@ -78,9 +94,28 @@ func newWriteGate(ctx context.Context, pool *sqlitemigration.Pool) (*writeGate, 
 	}
 	// Pool.Take bound the interrupt to ctx; the connection outlives it.
 	conn.SetInterrupt(nil)
-	g := &writeGate{pool: pool, conn: conn}
+	g := &writeGate{pool: pool, conn: conn, owned: map[*sqlite.Conn]struct{}{conn: {}}}
 	g.idle = sync.NewCond(&g.mu)
+	if err := registerWriteGate(pool, g); err != nil {
+		pool.Put(conn)
+		return nil, err
+	}
+	if obs := writeGateObserver.Load(); obs != nil {
+		(*obs)(g)
+	}
 	return g, nil
+}
+
+// owns reports whether a write statement recorded as seq on conn was the
+// gate's own: conn is one the gate has ever held, and the record predates
+// Close (a live gate has closeSeq 0).
+func (g *writeGate) owns(conn *sqlite.Conn, seq uint64) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if _, ok := g.owned[conn]; !ok {
+		return false
+	}
+	return g.closeSeq == 0 || seq < g.closeSeq
 }
 
 // acquire blocks until the caller owns the gate or ctx is done. On a nil
@@ -273,6 +308,7 @@ func (g *writeGate) cleanOrReplace(conn *sqlite.Conn) {
 	_ = conn.Close()
 	g.mu.Lock()
 	g.conn = fresh
+	g.owned[fresh] = struct{}{}
 	g.replaced++
 	g.mu.Unlock()
 }
@@ -297,7 +333,11 @@ func (g *writeGate) Close() error {
 	}
 	conn := g.conn
 	g.conn = nil
+	// Every gated write was recorded before this point; anything on the
+	// returned connection from here on is somebody else's (R-8).
+	g.closeSeq = writeStmtSeq.Add(1)
 	g.mu.Unlock()
+	unregisterWriteGate(g.pool, g)
 	if conn != nil {
 		g.pool.Put(conn)
 	}

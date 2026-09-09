@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
@@ -89,8 +90,46 @@ type PoolOptions struct {
 	// takes over that job. Off by default so flag-off is byte-identical.
 	DisableAutoCheckpoint bool
 	// PrepareConn, when set, runs on every connection after the standard
-	// preparation (tests install statement authorizers through it).
+	// preparation.
 	PrepareConn func(conn *sqlite.Conn) error
+	// Authorizer, when set, returns a per-connection authorizer consulted
+	// after the package's own write-statement authorizer (tests install
+	// statement recorders through it). SetAuthorizer replaces rather than
+	// chains, so this is the one way to add a second authorizer.
+	Authorizer func(conn *sqlite.Conn) sqlite.Authorizer
+}
+
+// poolRef hands the pool pointer to authorizers created before NewPool
+// returns (the migration connection is prepared inside NewPool).
+type poolRef struct {
+	pool atomic.Pointer[sqlitemigration.Pool]
+}
+
+// writeAuthorizer is installed on every pool connection. It reports each
+// INSERT/UPDATE/DELETE prepared on the connection to noteWriteStatement —
+// the instrument behind the write-gate invariant (AC-G1 of
+// .omc/plans/write-gate-sharing.md): with a write gate on the pool, a write
+// statement on any connection the gate does not own is an ungated writer
+// that busy-waits against the gate for the whole busy timeout. Prepare-time
+// is sufficient: a statement re-executed through the connection's statement
+// cache was first prepared, and recorded, on that same connection.
+type writeAuthorizer struct {
+	ref  *poolRef
+	conn *sqlite.Conn
+	next sqlite.Authorizer
+}
+
+func (a *writeAuthorizer) Authorize(action sqlite.Action) sqlite.AuthResult {
+	switch action.Type() {
+	case sqlite.OpInsert, sqlite.OpUpdate, sqlite.OpDelete:
+		if pool := a.ref.pool.Load(); pool != nil {
+			noteWriteStatement(pool, a.conn, action.Type(), action.Table())
+		}
+	}
+	if a.next != nil {
+		return a.next.Authorize(action)
+	}
+	return sqlite.AuthResultOK
 }
 
 // NewPool creates a new SQLite connection pool at the given path.
@@ -115,7 +154,8 @@ func NewPoolWithOptions(path string, opts PoolOptions) *sqlitemigration.Pool {
 	if busyTimeout <= 0 {
 		busyTimeout = DefaultBusyTimeout
 	}
-	return sqlitemigration.NewPool(path,
+	ref := &poolRef{}
+	pool := sqlitemigration.NewPool(path,
 		sqlitemigration.Schema{Migrations: SchemaMigrations()},
 		sqlitemigration.Options{
 			PoolSize: size,
@@ -130,12 +170,21 @@ func NewPoolWithOptions(path string, opts PoolOptions) *sqlitemigration.Pool {
 						return fmt.Errorf("disable wal_autocheckpoint: %w", err)
 					}
 				}
+				var next sqlite.Authorizer
+				if opts.Authorizer != nil {
+					next = opts.Authorizer(conn)
+				}
+				if err := conn.SetAuthorizer(&writeAuthorizer{ref: ref, conn: conn, next: next}); err != nil {
+					return fmt.Errorf("install write authorizer: %w", err)
+				}
 				if opts.PrepareConn != nil {
 					return opts.PrepareConn(conn)
 				}
 				return nil
 			},
 		})
+	ref.pool.Store(pool)
+	return pool
 }
 
 // NewTestPool creates a new temporary SQLite connection (for testing only).

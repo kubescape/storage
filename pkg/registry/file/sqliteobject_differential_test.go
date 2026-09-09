@@ -555,20 +555,27 @@ func TestINV3_FrozenBaseParity(t *testing.T) {
 		// create that raced ahead of consolidation leaves behind.
 		late := f.ts("late", 2, helpersv1.Learning, helpersv1.Partial)
 		late.Spec.Execs = append(late.Spec.Execs, softwarecomposition.ExecCalls{Path: "/bin/late"})
-		conn, err := b.pool.Take(ctx)
-		require.NoError(t, err)
+		// The seed row goes through the ObjectStore side's fixture handle (its
+		// pool is gated: a pool connection would be an ungated writer under
+		// AC-G1); the legacy side has no gate and seeds on a pool connection.
+		var conn *sqlite.Conn
+		put := func() {}
 		if b.env != nil {
 			saved := b.env.store.processor
 			b.env.store.processor = DefaultProcessor{}
 			require.NoError(t, b.store.Create(ctx, f.tsKey("late"), late, nil, 0))
 			b.env.store.processor = saved
+			conn = b.env.fixture
 		} else {
+			c, err := b.pool.Take(ctx)
+			require.NoError(t, err)
+			conn, put = c, func() { b.pool.Put(c) }
 			_, err = b.store.(*StorageImpl).saveObject(conn, f.tsKey("late"), late, nil, "")
 			require.NoError(t, err)
 		}
 		require.NoError(t, WriteTimeSeriesEntry(conn, ContainerProfileKind, f.ns, f.baseNm, late.Annotations[helpersv1.ReportSeriesIdMetadataKey], "late",
 			late.Annotations[helpersv1.ReportTimestampMetadataKey], helpersv1.Learning, helpersv1.Partial, late.Annotations[helpersv1.PreviousReportTimestampMetadataKey], true))
-		b.pool.Put(conn)
+		put()
 		b.drainEvents(t) // the seeding itself dispatched on one backend only
 
 		require.NoError(t, b.processor.ConsolidateTimeSeries(ctx))

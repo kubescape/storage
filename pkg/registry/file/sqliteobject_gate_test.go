@@ -18,6 +18,7 @@ import (
 func newTestGate(t *testing.T, poolSize int) (*writeGate, func()) {
 	t.Helper()
 	pool := NewPoolWithOptions(t.TempDir()+"/gate.sq3", PoolOptions{Size: poolSize, DisableAutoCheckpoint: true})
+	armUngatedWriteCheck(t, pool)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	g, err := newWriteGate(ctx, pool)
@@ -234,4 +235,75 @@ func TestWriteGate_RunPanicContainment(t *testing.T) {
 	err = g.run(context.Background(), priorityHigh, "test", func(*sqlite.Conn) error { return errors.New("no") })
 	assert.EqualError(t, err, "no")
 	assert.True(t, g.conn.AutocommitEnabled())
+}
+
+// TestWriteGate_SecondGateOnPoolRefused (R-7, PM-G8): a pool carries one
+// live gate. Two gates on two dedicated connections would each gate their
+// own writes while busy-waiting against each other — the class, visible from
+// neither side — so the second construction fails, and a closed gate frees
+// the pool for a new one.
+func TestWriteGate_SecondGateOnPoolRefused(t *testing.T) {
+	g, done := newTestGate(t, 3)
+	defer done()
+	ctx := context.Background()
+	second, err := newWriteGate(ctx, g.pool)
+	require.ErrorIs(t, err, errGateExists)
+	require.Nil(t, second)
+	require.NoError(t, g.Close())
+	replacement, err := newWriteGate(ctx, g.pool)
+	require.NoError(t, err, "a closed gate frees the pool")
+	require.NoError(t, replacement.Close())
+}
+
+// TestWriteGate_SwapKeepsPreSwapConnectionOwned (T-G2, CR-1/CR-5): a gated
+// write recorded on the gate's connection before cleanOrReplace swapped it
+// out is still the gate's write. The swap is forced explicitly: fn runs a
+// recorded INSERT, installs a closed interrupt channel on the connection and
+// panics — the gate's own recovery path calls cleanOrReplace directly, whose
+// ROLLBACK is then interrupted (the sqlitex end function is not on that path;
+// it clears the interrupt before its own ROLLBACK, so an error return would
+// not swap). Plain ctx cancellation never reaches this branch: the gate never
+// binds a ctx to its connection's interrupt.
+func TestWriteGate_SwapKeepsPreSwapConnectionOwned(t *testing.T) {
+	pool := NewPoolWithOptions(t.TempDir()+"/swap.sq3", PoolOptions{Size: 3, DisableAutoCheckpoint: true})
+	armUngatedWriteCheck(t, pool)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	g, err := newWriteGate(ctx, pool)
+	require.NoError(t, err)
+	// No pool.Close here: the swapped-out connection is closed, never
+	// returned, and sqlitex.Pool.Close waits for it forever — the K-5
+	// residual cleanOrReplace documents.
+	t.Cleanup(func() { require.NoError(t, g.Close()) })
+
+	c0 := g.conn
+	closed := make(chan struct{})
+	close(closed)
+	err = g.run(ctx, priorityHigh, "swap", func(conn *sqlite.Conn) error {
+		require.Same(t, c0, conn)
+		require.NoError(t, sqlitex.ExecuteTransient(conn, `INSERT INTO metadata (kind,namespace,name,metadata) VALUES ('k','n','swap','{}')`, nil))
+		conn.SetInterrupt(closed)
+		panic("forced failure after the recorded INSERT")
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "panic")
+	assert.Equal(t, 1, g.replaced, "the dirty connection must have been replaced")
+	assert.NotSame(t, c0, g.conn)
+	now := writeStmtSeq.Load()
+	assert.True(t, g.owns(c0, now), "the pre-swap connection stays owned: its recorded INSERT was a gated write")
+	assert.True(t, g.owns(g.conn, now), "the replacement is owned")
+	assert.False(t, g.held())
+
+	// The gate keeps working on the replacement, and the panicked INSERT
+	// never committed.
+	var n int64
+	require.NoError(t, g.run(ctx, priorityHigh, "swap", func(conn *sqlite.Conn) error {
+		require.Same(t, g.conn, conn)
+		return sqlitex.ExecuteTransient(conn, `SELECT count(*) FROM metadata WHERE name='swap'`, &sqlitex.ExecOptions{
+			ResultFunc: func(stmt *sqlite.Stmt) error { n = stmt.ColumnInt64(0); return nil },
+		})
+	}))
+	assert.Equal(t, int64(0), n)
+	// The armed AC-G1 check at cleanup is the CR-1 assertion: the INSERT on
+	// c0 must be judged owned, not flagged as ungated.
 }

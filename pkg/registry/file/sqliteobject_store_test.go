@@ -154,7 +154,7 @@ func TestObjectStore_CASMatrix(t *testing.T) {
 		for _, ex := range expectations {
 			name := st.name + "/" + ex.name
 			t.Run(name, func(t *testing.T) {
-				e.withConn(func(conn *sqlite.Conn) {
+				e.withFixture(func(conn *sqlite.Conn) {
 					wipe(t, conn, e.ns, "cas")
 					st.seed(conn)
 					pw := &preparedWrite{key: e.key("cas"), kind: "containerprofile", namespace: e.ns, name: "cas",
@@ -253,7 +253,7 @@ func TestObjectStore_K6_PayloadRowMissingFailsLoudly(t *testing.T) {
 	e := newObjectStoreEnv(t)
 	key := e.key("k6")
 	e.create(e.plain("k6"))
-	e.withConn(func(conn *sqlite.Conn) {
+	e.withFixture(func(conn *sqlite.Conn) {
 		require.NoError(t, sqlitex.Execute(conn, `DELETE FROM payloads WHERE name='k6'`, nil))
 	})
 	// The read needs a payload; feed the update the cached object so the

@@ -342,6 +342,21 @@ var (
 		[]string{"shape"},
 	)
 
+	// SqliteUngatedWriteTotal counts INSERT/UPDATE/DELETE statements prepared
+	// on a pool connection the pool's write gate has never owned, by "op" and
+	// "table". With the write gate on, the gate is the only writer; any other
+	// writer busy-waits against it for the whole busy timeout, invisible to
+	// the gate's own histograms. Must stay zero; the R2 canary.
+	SqliteUngatedWriteTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_ungated_write_total",
+			Help:           "Count of write statements prepared on a pool connection the write gate does not own, by op and table. Must stay zero.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"op", "table"},
+	)
+
 	// ConsolidationHealFailedTotal counts failed divergence heals by the step
 	// that failed (lock_timeout/begin/read/save/commit). A failing heal errors the
 	// tick before the frozen gate runs, so ConsolidationFrozenReclaimedTotal
@@ -378,6 +393,13 @@ func init() {
 	legacyregistry.MustRegister(ConsolidationFrozenRefusalsTotal)
 	legacyregistry.MustRegister(ConsolidationDivergenceTotal)
 	legacyregistry.MustRegister(ConsolidationHealFailedTotal)
+	legacyregistry.MustRegister(SqliteUngatedWriteTotal)
+}
+
+// IncSqliteUngatedWrite records one write statement prepared on a pool
+// connection outside the write gate.
+func IncSqliteUngatedWrite(op, table string) {
+	SqliteUngatedWriteTotal.WithLabelValues(op, table).Inc()
 }
 
 // ObserveSqliteWriteHold records one gated transaction's hold time by path.

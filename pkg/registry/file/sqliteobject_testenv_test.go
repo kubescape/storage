@@ -48,13 +48,16 @@ type tableAction struct {
 	txn string
 }
 
-// tableRecorder is installed through PoolOptions.PrepareConn on every
-// connection; it records every table-touching action. Snapshot/reset are
-// safe from any goroutine.
+// tableRecorder is installed through PoolOptions.Authorizer on every
+// connection; it records every table-touching action from connection
+// creation on and is never windowed off: a statement first prepared outside
+// a recording window re-executes later through the connection's statement
+// cache with no authorizer call, so a windowed recorder would miss exactly
+// the statements prepared during setup. Tests take a mark and read what came
+// after it. Safe from any goroutine.
 type tableRecorder struct {
 	mu      sync.Mutex
 	actions []tableAction
-	enabled bool
 }
 
 func (r *tableRecorder) authorizer(conn *sqlite.Conn) sqlite.Authorizer {
@@ -63,37 +66,34 @@ func (r *tableRecorder) authorizer(conn *sqlite.Conn) sqlite.Authorizer {
 		case sqlite.OpRead, sqlite.OpInsert, sqlite.OpUpdate, sqlite.OpDelete:
 			if t := a.Table(); t != "" {
 				r.mu.Lock()
-				if r.enabled {
-					r.actions = append(r.actions, tableAction{op: a.Type(), table: t, conn: conn})
-				}
+				r.actions = append(r.actions, tableAction{op: a.Type(), table: t, conn: conn})
 				r.mu.Unlock()
 			}
 		case sqlite.OpTransaction:
 			r.mu.Lock()
-			if r.enabled {
-				r.actions = append(r.actions, tableAction{op: a.Type(), conn: conn, txn: a.Operation()})
-			}
+			r.actions = append(r.actions, tableAction{op: a.Type(), conn: conn, txn: a.Operation()})
 			r.mu.Unlock()
 		}
 		return sqlite.AuthResultOK
 	})
 }
 
-func (r *tableRecorder) start() {
-	r.mu.Lock()
-	r.enabled = true
-	r.actions = nil
-	r.mu.Unlock()
-}
-
-// stop disables recording and returns everything recorded since start.
-func (r *tableRecorder) stop() []tableAction {
+// mark returns the current position; since returns everything recorded
+// after a mark.
+func (r *tableRecorder) mark() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.enabled = false
-	out := append([]tableAction(nil), r.actions...)
-	r.actions = nil
-	return out
+	return len(r.actions)
+}
+
+func (r *tableRecorder) since(mark int) []tableAction {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]tableAction(nil), r.actions[mark:]...)
+}
+
+func isWriteOp(op sqlite.OpType) bool {
+	return op == sqlite.OpInsert || op == sqlite.OpUpdate || op == sqlite.OpDelete
 }
 
 // touched returns the set of tables among the recorded actions, optionally
@@ -123,6 +123,8 @@ type objectStoreEnv struct {
 	wd        *WatchDispatcher
 	scheme    *runtime.Scheme
 	rec       *tableRecorder
+	// fixture is the non-pool handle tests seed state through (CR-2b).
+	fixture   *sqlite.Conn
 	tpl       softwarecomposition.ContainerProfile
 	baseNm    string
 	ns        string
@@ -159,10 +161,10 @@ func newObjectStoreEnv(t *testing.T, opts ...envOption) *objectStoreEnv {
 		Size:                  cfg.poolSize,
 		BusyTimeout:           5 * time.Second,
 		DisableAutoCheckpoint: !cfg.autoCheckpoint,
-		PrepareConn: func(conn *sqlite.Conn) error {
-			return conn.SetAuthorizer(rec.authorizer(conn))
-		},
+		Authorizer:            rec.authorizer,
 	})
+	// AC-G1, registered first so it runs after the store and pool closed.
+	armUngatedWriteCheck(t, pool)
 	sch := runtime.NewScheme()
 	install.Install(sch)
 	wd := NewWatchDispatcher()
@@ -205,6 +207,7 @@ func newObjectStoreEnv(t *testing.T, opts ...envOption) *objectStoreEnv {
 		t: t, ctx: ctx, dir: dir, dbPath: dbPath, pool: pool, store: store,
 		cp:        processor.ContainerProfileStorage.(*objectStoreCPStorage),
 		legacy:    legacy, legacyFs: legacyFs, processor: processor, wd: wd, scheme: sch, rec: rec,
+		fixture:   openFixtureConn(t, pool, dbPath, 5*time.Second),
 		tpl: tpl, baseNm: baseNm, ns: tpl.Namespace,
 		baseKey: testCPPrefix + tpl.Namespace + "/" + baseNm,
 		now:     time.Now().Round(0),
@@ -272,12 +275,20 @@ func (e *objectStoreEnv) tick() {
 	require.NoError(e.t, e.processor.ConsolidateTimeSeries(e.ctx))
 }
 
+// withConn runs fn on a pool connection: reads only. A write here would be
+// an ungated write under AC-G1; seed state through withFixture instead.
 func (e *objectStoreEnv) withConn(fn func(conn *sqlite.Conn)) {
 	e.t.Helper()
 	conn, err := e.pool.Take(e.ctx)
 	require.NoError(e.t, err)
 	defer e.pool.Put(conn)
 	fn(conn)
+}
+
+// withFixture runs fn on the non-pool fixture handle (CR-2b).
+func (e *objectStoreEnv) withFixture(fn func(conn *sqlite.Conn)) {
+	e.t.Helper()
+	fn(e.fixture)
 }
 
 // dbRow is what the tables hold for one key, as seen from a fresh connection.
