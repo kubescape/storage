@@ -198,7 +198,7 @@ func (h *lane0Harness) writeTsObject(t *testing.T, baseKey, suffix, tag string, 
 	conn, err := h.pool.Take(context.Background())
 	require.NoError(t, err)
 	defer h.pool.Put(conn)
-	_, err = h.s.saveObject(conn, tsKey, obj, &softwarecomposition.ContainerProfile{}, "")
+	_, err = h.s.saveObject(context.Background(), conn, tsKey, obj, &softwarecomposition.ContainerProfile{}, "", priorityLow, holdPathLegacyCommit)
 	require.NoError(t, err)
 	return tsKey
 }

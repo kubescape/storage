@@ -72,9 +72,9 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
-	CleanupHandler  *file.ResourcesCleanupHandler
-	OsFs            afero.Fs
-	Pool            *sqlitemigration.Pool
+	CleanupHandler *file.ResourcesCleanupHandler
+	OsFs           afero.Fs
+	Pool           *sqlitemigration.Pool
 	// SqlitePath is the database file behind Pool (see apiserver.ExtraConfig).
 	SqlitePath      string
 	StorageConfig   config.Config

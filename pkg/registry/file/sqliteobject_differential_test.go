@@ -570,7 +570,7 @@ func TestINV3_FrozenBaseParity(t *testing.T) {
 			c, err := b.pool.Take(ctx)
 			require.NoError(t, err)
 			conn, put = c, func() { b.pool.Put(c) }
-			_, err = b.store.(*StorageImpl).saveObject(conn, f.tsKey("late"), late, nil, "")
+			_, err = b.store.(*StorageImpl).saveObject(context.Background(), conn, f.tsKey("late"), late, nil, "", priorityLow, holdPathLegacyCommit)
 			require.NoError(t, err)
 		}
 		require.NoError(t, WriteTimeSeriesEntry(conn, ContainerProfileKind, f.ns, f.baseNm, late.Annotations[helpersv1.ReportSeriesIdMetadataKey], "late",

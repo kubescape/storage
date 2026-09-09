@@ -489,7 +489,12 @@ func (s *StorageImpl) keyFromPath(path string) string {
 // for callers to use as the lightweight watch-event object: watchers created
 // without ResourceVersionFullSpec receive this reduced object instead of the
 // full one, to avoid bloating watch traffic with large Spec payloads.
-func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string) (runtime.Object, error) {
+//
+// The metadata row and the payload rename commit together through write()
+// (W2 of write-gate-sharing §3.2): today's savepoint on conn with no gate,
+// the gate's transaction with one. priority and path label the hold —
+// legacy_commit from the REST paths, migrate from the gob-migration rewrites.
+func (s *StorageImpl) saveObject(ctx context.Context, conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string, priority writePriority, path string) (runtime.Object, error) {
 	// increment resourceVersion
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
 		if err := s.versioner.UpdateObject(obj, version+1); err != nil {
@@ -564,17 +569,17 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 		renamePayload = s.appFs.Rename
 	}
 	observeStmt("Save:saveObject")
-	release := sqlitex.Save(conn)
-	err = func() error {
+	err = s.write(ctx, conn, priority, path, resourceFromKey(key), true, func(_ context.Context, conn *sqlite.Conn) error {
 		if werr := writeMeta(conn, key, metadata); werr != nil {
 			return fmt.Errorf("write metadata: %w", werr)
 		}
+		renameStart := time.Now()
 		if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
 			return fmt.Errorf("rename payload into place: %w", rerr)
 		}
+		metrics.ObserveSqliteWriteHoldStep(path, "rename", time.Since(renameStart))
 		return nil
-	}()
-	release(&err)
+	})
 	if err != nil {
 		_ = s.appFs.Remove(tmpPayloadPath)
 		return nil, err
@@ -608,6 +613,12 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
 	if singleWriterEnabled {
 		return s.createSingleWriter(ctx, key, obj, metaOut, priorityHigh)
+	}
+	if s.gate != nil {
+		if err := s.refuseForeign("create", key); err != nil {
+			return err
+		}
+		return ErrGateRequiresSingleWriter
 	}
 	poolCtx, cancel := poolContext()
 	defer cancel()
@@ -677,7 +688,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		}
 	}
 	// save object
-	metaEvent, err := s.saveObject(conn, key, obj, metaOut, "")
+	metaEvent, err := s.saveObject(ctx, conn, key, obj, metaOut, "", priorityHigh, holdPathLegacyCommit)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("Create - save object failed", helpers.Error(err), helpers.String("key", key))
 		return err
@@ -702,6 +713,18 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 // callers (none currently, but its signature/behavior is preserved as
 // documented Phase 1 scope).
 func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	if s.gate != nil {
+		// The statements run on the gate's connection: the per-key lock only,
+		// no pool connection held while queued (write-gate-sharing §3.2/§3.3).
+		if err := s.lockKey(ctx, "delete", key, s.locks.Lock); err != nil {
+			return err
+		}
+		defer s.locks.Unlock(key)
+		ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
+		span.SetAttributes(attribute.String("key", key))
+		defer span.End()
+		return s.delete(ctx, nil, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+	}
 	conn, err := s.acquireLockedConn(ctx, "delete", key, s.locks.Lock, s.locks.Unlock)
 	if err != nil {
 		return err
@@ -713,6 +736,28 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+}
+
+// lockKey is acquireLockedConn's lock step alone, for the gated paths that
+// need no pool connection: acquire under lockTimeout with the same metrics
+// and the same fail-fast error.
+func (s *StorageImpl) lockKey(ctx context.Context, op, key string, acquire func(context.Context, string) error) error {
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	beforeLock := time.Now()
+	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+	err := acquire(lockCtx, key)
+	lockCancel()
+	spanLock.End()
+	lockDuration := time.Since(beforeLock)
+	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
+		return newContentionTimeoutError(op, key, err)
+	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
+	if lockDuration > time.Second {
+		logger.L().Debug(op, helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+	}
+	return nil
 }
 
 func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
@@ -744,6 +789,9 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 // releasing whatever they hold (shard turn, connection, per-key lock).
 func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object) error {
 	p := filepath.Join(s.root, key)
+	if s.gate != nil {
+		return s.deleteLockedGated(ctx, key, metaOut, p)
+	}
 	// delete metadata in SQLite
 	err := DeleteMetadata(conn, key, metaOut)
 	if err != nil {
@@ -759,6 +807,44 @@ func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key s
 		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
 			logger.L().Ctx(ctx).Error("Delete - delete time series entries failed", helpers.Error(err), helpers.String("key", key))
 			return fmt.Errorf("delete time series entries: %w", err)
+		}
+	}
+	return nil
+}
+
+// deleteLockedGated is deleteLocked under the shared gate (W3): the row
+// delete (and the time_series delete for a containerprofile) in one gated
+// transaction with the deleted row's JSON captured raw; the payload Remove
+// and the decode into metaOut after release (INV-1′). conn is not used: the
+// caller may hold none (Delete) or one it keeps for reads (DeleteWithConn).
+func (s *StorageImpl) deleteLockedGated(ctx context.Context, key string, metaOut runtime.Object, p string) error {
+	_, _, kind, _, _, _ := K8sPathToKeys(key)
+	var raw []byte
+	err := s.write(ctx, nil, priorityHigh, holdPathLegacyDelete, resourceFromKey(key), false, func(_ context.Context, conn *sqlite.Conn) error {
+		var derr error
+		raw, derr = deleteMetadataRaw(conn, key)
+		if derr != nil {
+			return derr
+		}
+		if IsContainerProfileKind(kind) {
+			if terr := DeleteTimeSeriesContainerEntries(conn, key); terr != nil {
+				return fmt.Errorf("delete time series entries: %w", terr)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
+	}
+	if rerr := s.appFs.Remove(makePayloadPath(p)); rerr != nil {
+		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(rerr), helpers.String("key", key))
+	}
+	if err != nil {
+		return err
+	}
+	if metaOut != nil && len(raw) > 0 {
+		if uerr := json.Unmarshal(raw, metaOut); uerr != nil {
+			return fmt.Errorf("delete metadata: %w", uerr)
 		}
 	}
 	return nil
@@ -913,7 +999,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 			// SQLite's write lock for the busy timeout, so a read of an absent
 			// key must not issue it.
 			if _, rerr := ReadMetadata(conn, key); rerr == nil {
-				_ = DeleteMetadata(conn, key, nil)
+				_ = s.repairDelete(ctx, conn, key)
 			}
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
@@ -988,7 +1074,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 
 	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 		// irrecoverable error, delete corresponding data
-		_ = DeleteMetadata(conn, key, nil)
+		_ = s.repairDelete(ctx, conn, key)
 		_ = s.appFs.Remove(makePayloadPath(p))
 		logger.L().Ctx(ctx).Error("Get - gob error, treating as corrupted and removing files", helpers.Error(err), helpers.String("key", key))
 		if opts.IgnoreNotFound {
@@ -999,6 +1085,17 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	}
 	logger.L().Ctx(ctx).Error("Get - gob unmarshal failed", helpers.Error(err), helpers.String("key", key))
 	return err
+}
+
+// repairDelete is get()'s self-repair DELETE of a metadata row whose payload
+// is missing, empty or unmigratable (W4/W5/W6a/W7a): a low-priority write on
+// the repair path. The caller holds the key's read (or write) lock and its
+// pool connection while queued — accepted for these cold paths
+// (write-gate-sharing §3.3). The error is the caller's to swallow, as today.
+func (s *StorageImpl) repairDelete(ctx context.Context, conn *sqlite.Conn, key string) error {
+	return s.write(ctx, conn, priorityLow, holdPathRepair, resourceFromKey(key), false, func(_ context.Context, conn *sqlite.Conn) error {
+		return DeleteMetadata(conn, key, nil)
+	})
 }
 
 // migrateObject runs the external migration tool and unmarshals the output into objPtr.
@@ -1038,7 +1135,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 		}
 		logger.L().Ctx(ctx).Error("Get - migration tool failed", helpers.Error(runErr), helpers.String("stderr", stderr.String()), helpers.String("key", key))
 		// If migration tool fails, treat as corrupted and delete
-		_ = DeleteMetadata(conn, key, nil)
+		_ = s.repairDelete(ctx, conn, key)
 		_ = s.appFs.Remove(makePayloadPath(path))
 		if opts.IgnoreNotFound {
 			return runtime.SetZeroValue(objPtr)
@@ -1055,7 +1152,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 
 	logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
 
-	if _, saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+	if _, saveErr := s.saveObject(ctx, conn, key, objPtr, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
 		logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
 	} else {
 		logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
@@ -1200,7 +1297,7 @@ func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Co
 				return execErr
 			}
 			logger.L().Ctx(ctx).Error("Get - migration tool failed", helpers.Error(execErr), helpers.String("key", key))
-			_ = DeleteMetadata(conn, key, nil)
+			_ = s.repairDelete(ctx, conn, key)
 			_ = s.appFs.Remove(makePayloadPath(path))
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
@@ -1212,7 +1309,7 @@ func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Co
 			return unmarshalErr
 		}
 		logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
-		if _, saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+		if _, saveErr := s.saveObject(ctx, conn, key, objPtr, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
 			logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
 		} else {
 			logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
@@ -1607,6 +1704,12 @@ func (s *StorageImpl) GuaranteedUpdate(
 	if singleWriterEnabled {
 		return s.guaranteedUpdateSingleWriter(ctx, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "", priorityHigh)
 	}
+	if s.gate != nil {
+		if err := s.refuseForeign("update", key); err != nil {
+			return err
+		}
+		return ErrGateRequiresSingleWriter
+	}
 	poolCtx, cancel := poolContext()
 	defer cancel()
 	beforePool := time.Now()
@@ -1792,7 +1895,7 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// save to disk and fill into metaOut
-		metaEvent, err := s.saveObject(conn, key, ret, metaOut, checksum)
+		metaEvent, err := s.saveObject(ctx, conn, key, ret, metaOut, checksum, priorityHigh, holdPathLegacyCommit)
 		if err != nil {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
@@ -1948,7 +2051,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			} else {
 				metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 				defer s.pool.Put(conn)
-				if _, saveErr := s.saveObject(conn, key, obj, nil, ""); saveErr != nil {
+				if _, saveErr := s.saveObject(ctx, conn, key, obj, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
 					logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("path", path))
 				} else {
 					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - successfully migrated object to modern format", helpers.String("path", path))

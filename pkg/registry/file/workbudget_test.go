@@ -321,7 +321,7 @@ func (e *budgetEnv) seedTSDirect(p *softwarecomposition.ContainerProfile) {
 	defer e.s.pool.Put(conn)
 	_, suffix := SplitProfileName(p.Name)
 	key := e.tsKey(suffix)
-	_, err = e.s.saveObject(conn, key, p, nil, "")
+	_, err = e.s.saveObject(context.Background(), conn, key, p, nil, "", priorityLow, holdPathLegacyCommit)
 	require.NoError(e.t, err)
 	require.NoError(e.t, WriteTimeSeriesEntry(conn, ContainerProfileKind, p.Namespace, e.baseNm,
 		p.Annotations[helpersv1.ReportSeriesIdMetadataKey], suffix,

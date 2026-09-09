@@ -83,9 +83,9 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CleanupHandler  *file.ResourcesCleanupHandler
-	OsFs            afero.Fs
-	Pool            *sqlitemigration.Pool
+	CleanupHandler *file.ResourcesCleanupHandler
+	OsFs           afero.Fs
+	Pool           *sqlitemigration.Pool
 	// SqlitePath is the database file behind Pool; the ContainerProfile
 	// SQLite backend's checkpointer watches its -wal sibling.
 	SqlitePath      string

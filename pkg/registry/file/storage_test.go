@@ -774,7 +774,7 @@ func BenchmarkWriteFiles(b *testing.B) {
 	metaOut := &v1beta1.SBOMSyft{}
 	conn, _ := s.pool.Take(context.Background())
 	for i := 0; i < b.N; i++ {
-		_, _ = s.saveObject(conn, key, obj, metaOut, "")
+		_, _ = s.saveObject(context.Background(), conn, key, obj, metaOut, "", priorityLow, holdPathLegacyCommit)
 	}
 	s.pool.Put(conn)
 	b.ReportAllocs()
@@ -1078,7 +1078,7 @@ func TestStorageImpl_MigrateObjectUnlocked_ConcurrentWriteWins(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{Name: "toto"},
 			Spec:       v1beta1.SBOMSyftSpec{Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "concurrent-writer"}}},
 		}
-		_, saveErr := s.saveObject(conn, key, newObj, nil, "")
+		_, saveErr := s.saveObject(context.Background(), conn, key, newObj, nil, "", priorityLow, holdPathLegacyCommit)
 		require.NoError(t, saveErr)
 		pool.Put(conn)
 		s.locks.Unlock(key)

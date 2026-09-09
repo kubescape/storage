@@ -350,6 +350,32 @@ func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) err
 	return nil
 }
 
+// deleteMetadataRaw is DeleteMetadata returning the deleted row's JSON
+// instead of decoding it: under the write gate the decode belongs after the
+// hold (INV-1′), not inside the RETURNING callback. nil when no row matched.
+func deleteMetadataRaw(conn *sqlite.Conn, path string) ([]byte, error) {
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	var raw []byte
+	observeStmt("DeleteMetadata")
+	err := sqlitex.Execute(conn,
+		`DELETE FROM metadata
+				WHERE kind = :kind
+				  AND namespace = :namespace
+				  AND name = :name
+				RETURNING metadata`,
+		&sqlitex.ExecOptions{
+			Named: map[string]any{":kind": kind, ":namespace": namespace, ":name": name},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				raw = []byte(stmt.ColumnText(0))
+				return nil
+			},
+		})
+	if err != nil {
+		return nil, fmt.Errorf("delete metadata: %w", err)
+	}
+	return raw, nil
+}
+
 func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
 	prefix, root, kind, _, namespace, _ := K8sPathToKeys(path)
 	if cont == "" {

@@ -277,7 +277,7 @@ func (c *ContainerProfileStorageImpl) HealDivergence(ctx context.Context, key st
 			// The payload changed under us (a migration re-save, a REST reset): not our case.
 			return nil
 		}
-		metaEvent, err = s.saveObject(conn, key, &cur, &softwarecomposition.ContainerProfile{}, "")
+		metaEvent, err = s.saveObject(ctx, conn, key, &cur, &softwarecomposition.ContainerProfile{}, "", priorityLow, holdPathLegacyCommit)
 		if err != nil {
 			return &healFailure{reason: metrics.HealFailedSave, err: err}
 		}
