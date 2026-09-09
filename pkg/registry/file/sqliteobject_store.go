@@ -370,14 +370,21 @@ func (s *ObjectStore) fetchListPage(ctx context.Context, conn *sqlite.Conn, key,
 			body     []byte
 		}
 		var rows []page
+		// The page is selected on metadata by rowid FIRST (the legacy
+		// listMetadataKeys statement), then joined to payloads by primary key:
+		// design PM-1's "apply the predicate before the join". A plain join
+		// let SQLite drive from payloads and touch every body (Tier B: LIST
+		// p95 6.8 -> 80 ms).
 		err := sqlitex.Execute(conn,
 			`SELECT m.rowid, p.encoding, p.body
-				FROM metadata m JOIN payloads p USING (kind, namespace, name)
-				WHERE m.kind = :kind
-					AND (:namespace = '' OR m.namespace = :namespace)
-					AND m.rowid > :cont
-				ORDER BY m.rowid
-				LIMIT :limit`,
+				FROM (SELECT rowid, kind, namespace, name FROM metadata
+						WHERE kind = :kind
+							AND (:namespace = '' OR namespace = :namespace)
+							AND rowid > :cont
+						ORDER BY rowid
+						LIMIT :limit) m
+				JOIN payloads p ON p.kind = m.kind AND p.namespace = m.namespace AND p.name = m.name
+				ORDER BY m.rowid`,
 			&sqlitex.ExecOptions{
 				Named: map[string]any{":kind": kind, ":namespace": namespace, ":cont": cursor, ":limit": remaining},
 				ResultFunc: func(stmt *sqlite.Stmt) error {
