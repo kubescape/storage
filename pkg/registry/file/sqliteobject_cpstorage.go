@@ -259,7 +259,18 @@ func (c *objectStoreCPStorage) GetSbom(ctx context.Context, key string) (softwar
 // was read from (profile.ResourceVersion / profile.UID come from that read);
 // outside one it is a gated GuaranteedUpdate on the low lane.
 func (c *objectStoreCPStorage) SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error {
+	// X-A: input is the persisted object as of this write's own read (the
+	// staged path's Phase 1 read below, or guaranteedUpdate's read/re-read on
+	// conflict) -- fresher than the profile updateProfile's frozen gate
+	// checked at the top of the tick, so this is what actually catches a
+	// completer that raced in between: the pass's own transaction refuses
+	// instead of overwriting, and the next tick's frozen gate reclaims
+	// unmerged. Mirrors legacy's ContainerProfileStorageImpl.SaveContainerProfile.
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		if cur, ok := input.(*softwarecomposition.ContainerProfile); ok && softwarecomposition.IsCompletedFull(cur.Annotations) {
+			metrics.IncConsolidationFrozenRefusals()
+			return nil, nil, ErrProfileFrozen
+		}
 		return profile, nil, nil
 	}
 	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)

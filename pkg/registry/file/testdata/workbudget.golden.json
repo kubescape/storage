@@ -1,12 +1,12 @@
 {
   "S1_learning_tick": {
     "stmt": {
-      "DeleteMetadata": 5,
+      "DeleteMetadata": 3,
       "DeleteTimeSeriesContainerEntries": 3,
       "ListTimeSeriesContainers": 1,
       "ListTimeSeriesExpired": 1,
       "ListTimeSeriesWithData": 1,
-      "ReadMetadata": 2,
+      "ReadMetadata": 5,
       "ReplaceTimeSeriesContainerEntries": 1,
       "Save:saveObject": 1,
       "Transaction": 1,
@@ -15,10 +15,10 @@
     },
     "lock": {
       "rlock": 6,
-      "lock": 1,
+      "lock": 4,
       "timeout": 0
     },
-    "pool_take": 2,
+    "pool_take": 5,
     "fs": {
       "open": 8,
       "rename": 1,
@@ -54,38 +54,35 @@
   },
   "S3_frozen_tick": {
     "stmt": {
-      "DeleteMetadata": 4,
+      "DeleteMetadata": 2,
       "DeleteTimeSeriesContainerEntries": 2,
       "ListTimeSeriesContainers": 1,
       "ListTimeSeriesExpired": 1,
       "ListTimeSeriesWithData": 1,
-      "ReadMetadata": 2,
+      "ReadMetadata": 1,
       "ReplaceTimeSeriesContainerEntries": 1,
-      "Save:saveObject": 1,
-      "Transaction": 1,
-      "WriteJSON": 1,
-      "WriteTimeSeriesEntry": 1
+      "Transaction": 1
     },
     "lock": {
-      "rlock": 5,
-      "lock": 1,
+      "rlock": 1,
+      "lock": 2,
       "timeout": 0
     },
-    "pool_take": 2,
+    "pool_take": 4,
     "fs": {
-      "open": 7,
-      "rename": 1,
+      "open": 1,
+      "rename": 0,
       "remove": 2
     },
     "events": {
       "Added": 0,
-      "Modified": 1,
+      "Modified": 0,
       "Deleted": 2
     }
   },
   "S4_divergent_tick": {
     "stmt": {
-      "DeleteMetadata": 4,
+      "DeleteMetadata": 2,
       "DeleteTimeSeriesContainerEntries": 2,
       "ListTimeSeriesContainers": 1,
       "ListTimeSeriesExpired": 1,
@@ -94,17 +91,16 @@
       "ReplaceTimeSeriesContainerEntries": 1,
       "Save:saveObject": 1,
       "Transaction": 1,
-      "WriteJSON": 1,
-      "WriteTimeSeriesEntry": 1
+      "WriteJSON": 1
     },
     "lock": {
-      "rlock": 5,
-      "lock": 1,
+      "rlock": 1,
+      "lock": 3,
       "timeout": 0
     },
-    "pool_take": 2,
+    "pool_take": 4,
     "fs": {
-      "open": 7,
+      "open": 3,
       "rename": 1,
       "remove": 2
     },
@@ -159,8 +155,7 @@
   },
   "S7_noop_guaranteed_update": {
     "stmt": {
-      "DeleteMetadata": 2,
-      "ReadMetadata": 2
+      "ReadMetadata": 4
     },
     "lock": {
       "rlock": 3,
@@ -186,10 +181,10 @@
     },
     "lock": {
       "rlock": 0,
-      "lock": 0,
+      "lock": 1,
       "timeout": 0
     },
-    "pool_take": 1,
+    "pool_take": 2,
     "fs": {
       "open": 0,
       "rename": 0,

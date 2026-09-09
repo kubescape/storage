@@ -518,13 +518,19 @@ func TestDifferential_5_PerTSCASConflict(t *testing.T) {
 	assert.Equal(t, 1, nwRetries, "NEW: exactly one conflict → one retry")
 }
 
-// TestINV3_FrozenBaseParity: the design carries X-A (a Completed/Full base is
-// never merged into) from Lane 0 (ddf33dc2, PR #399). That rule is NOT on
-// origin/main, this prototype's base: main's consolidation merges a late report
-// into a Completed/Full base on BOTH backends. Until Lane 0 merges, INV-3 is
-// asserted as PARITY — the two backends treat a frozen base identically (RV,
-// spec, annotations, events, series rows) — and the observed main behaviour is
-// pinned so the flip to "never written" is visible when X-A arrives.
+// TestINV3_FrozenBaseParity: X-A (a Completed/Full base is never merged into)
+// is now on origin/main (Lane 0, PR #399) as the frozen gate at the top of
+// ContainerProfileProcessor.updateProfile, which reclaims a late report
+// unmerged before either backend's SaveContainerProfile is reached — shared,
+// backend-uniform code. This asserts the real guarantee, identically on both
+// backends: a late report arriving after the base is already Completed/Full
+// changes nothing (RV, spec, annotations, no Modified event) and its series
+// rows are reclaimed (deleted unmerged), not left pending.
+//
+// This exercises only the steady-state case: the base is already frozen
+// BEFORE the tick that reads it starts. It does not exercise a completer
+// racing IN BETWEEN a tick's frozen-gate read and its own save — see
+// TestX_A_SaveRefusesConcurrentlyFrozenBase for that window.
 func TestINV3_FrozenBaseParity(t *testing.T) {
 	f := loadDiffFixtures(t)
 	ctx := context.Background()
@@ -577,11 +583,93 @@ func TestINV3_FrozenBaseParity(t *testing.T) {
 	old := run(newLegacyBackend(t, nil))
 	nw := run(newObjectBackend(t, nil))
 	assert.Equal(t, old, nw, "frozen-base handling must be identical on both backends")
-	// Pinned main behaviour (pre-Lane-0): the late report IS merged. When X-A
-	// lands, rvAfter == rvBefore, execs stays 0 and no Modified event fires.
-	assert.Equal(t, helpersv1.Completed, nw.status)
-	assert.Equal(t, helpersv1.Full, nw.compl)
-	t.Logf("frozen base on origin/main: rv %s -> %s, execs=%d, events=%v (X-A frozen gate absent; Lane 0 item)", nw.rvBefore, nw.rvAfter, nw.execs, nw.events)
+	// X-A's real guarantee, now that Lane 0 is merged: the late report changes
+	// nothing. RV is untouched, no Execs merged, no Modified event, and its
+	// series row was reclaimed (deleted unmerged) rather than left pending.
+	for _, r := range []struct {
+		name string
+		o    outcome
+	}{{"legacy", old}, {"objectstore", nw}} {
+		assert.Equal(t, r.o.rvBefore, r.o.rvAfter, "%s: a frozen base's RV must not move", r.name)
+		assert.Equal(t, helpersv1.Completed, r.o.status, "%s", r.name)
+		assert.Equal(t, helpersv1.Full, r.o.compl, "%s", r.name)
+		assert.Zero(t, r.o.execs, "%s: the late report's Execs must never be merged into a frozen base", r.name)
+		for _, ev := range r.o.events {
+			assert.NotContains(t, ev, "MODIFIED "+f.baseNm, "%s: a reclaimed-unmerged tick dispatches no Modified event on the base (a DELETED event for the reclaimed TS object is expected): %v", r.name, r.o.events)
+		}
+		assert.Zero(t, r.o.tsRows, "%s: the late report's series row is reclaimed (deleted unmerged), not left pending", r.name)
+	}
+}
+
+// TestX_A_SaveRefusesConcurrentlyFrozenBase exercises the window
+// TestINV3_FrozenBaseParity does not: a completer that lands IN BETWEEN a
+// consolidation pass's own frozen-gate read (updateProfile, at the top of the
+// tick) and that same pass's SaveContainerProfile call. The pass's merge was
+// prepared against a base that was NOT yet Completed/Full; by the time it
+// saves, another replica finished it first. X-A requires the save itself to
+// refuse (ErrProfileFrozen) and leave the persisted state untouched — this is
+// enforced inside SaveContainerProfile's own tryUpdate closure (re-checking
+// the row's state at write time, not the pass's stale read), independently of
+// the frozen gate in updateProfile, which by construction cannot see this
+// race (it already ran, before the completer landed).
+func TestX_A_SaveRefusesConcurrentlyFrozenBase(t *testing.T) {
+	f := loadDiffFixtures(t)
+	ctx := context.Background()
+	type outcome struct {
+		refused               bool
+		rvBeforeRace, rvAfter string
+		status, compl         string
+		events                []string
+	}
+	run := func(b *backend) outcome {
+		// 1. One partial report: the base lands Learning, not yet Full.
+		require.NoError(t, b.store.Create(ctx, f.tsKey("r1"), f.ts("r1", 1, helpersv1.Learning, helpersv1.Partial), nil, 0))
+		require.NoError(t, b.processor.ConsolidateTimeSeries(ctx))
+		stale := &softwarecomposition.ContainerProfile{}
+		require.NoError(t, b.store.Get(ctx, f.baseKey, storage.GetOptions{}, stale))
+		require.Equal(t, helpersv1.Learning, stale.Annotations[helpersv1.StatusMetadataKey], "sanity: base must not already be frozen")
+		// stale is exactly what a consolidation pass's loadOrInitializeProfile
+		// would have read and merged into, at the instant before a concurrent
+		// completer lands.
+		stale = stale.DeepCopy()
+		stale.Spec.Execs = append(stale.Spec.Execs, softwarecomposition.ExecCalls{Path: "/bin/late-merge"})
+
+		// 2. A concurrent completer finishes the base first.
+		require.NoError(t, b.store.Create(ctx, f.tsKey("r2"), f.ts("r2", 2, helpersv1.Completed, helpersv1.Full), nil, 0))
+		require.NoError(t, b.processor.ConsolidateTimeSeries(ctx))
+		frozen := &softwarecomposition.ContainerProfile{}
+		require.NoError(t, b.store.Get(ctx, f.baseKey, storage.GetOptions{}, frozen))
+		require.Equal(t, helpersv1.Completed, frozen.Annotations[helpersv1.StatusMetadataKey])
+		require.Equal(t, helpersv1.Full, frozen.Annotations[helpersv1.CompletionMetadataKey])
+		b.drainEvents(t)
+
+		// 3. The delayed pass now tries to save its stale merge directly
+		// through the storage layer, bypassing updateProfile's own (already
+		// stale) frozen-gate read — exactly the race window.
+		err := b.processor.ContainerProfileStorage.SaveContainerProfile(ctx, f.baseKey, stale)
+
+		after := &softwarecomposition.ContainerProfile{}
+		require.NoError(t, b.store.Get(ctx, f.baseKey, storage.GetOptions{}, after))
+		return outcome{
+			refused:      errors.Is(err, ErrProfileFrozen),
+			rvBeforeRace: frozen.ResourceVersion, rvAfter: after.ResourceVersion,
+			status: after.Annotations[helpersv1.StatusMetadataKey], compl: after.Annotations[helpersv1.CompletionMetadataKey],
+			events: b.drainEvents(t),
+		}
+	}
+	old := run(newLegacyBackend(t, nil))
+	nw := run(newObjectBackend(t, nil))
+	assert.Equal(t, old, nw, "the race-window refusal must be identical on both backends")
+	for _, r := range []struct {
+		name string
+		o    outcome
+	}{{"legacy", old}, {"objectstore", nw}} {
+		assert.True(t, r.o.refused, "%s: SaveContainerProfile must refuse a stale merge against a concurrently-completed base", r.name)
+		assert.Equal(t, r.o.rvBeforeRace, r.o.rvAfter, "%s: the completer's commit must survive untouched", r.name)
+		assert.Equal(t, helpersv1.Completed, r.o.status, "%s", r.name)
+		assert.Equal(t, helpersv1.Full, r.o.compl, "%s", r.name)
+		assert.Empty(t, r.o.events, "%s: a refused save dispatches no Modified event", r.name)
+	}
 }
 
 // TestDifferential_ConsolidationGolden runs the consolidation golden windows
