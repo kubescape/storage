@@ -982,7 +982,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 	migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer migrationCancel()
 
-	cmd := exec.CommandContext(migrationCtx, "/usr/bin/migration", "-file", makePayloadPath(path), "-type", typeName)
+	cmd := exec.CommandContext(migrationCtx, migrationBinaryPath, "-file", makePayloadPath(path), "-type", typeName)
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
@@ -1039,11 +1039,11 @@ func (s *StorageImpl) tryDecodePayload(path string, objPtr runtime.Object) (bool
 	return true, nil
 }
 
-// migrationBinaryPath is the external migration tool invoked by
-// execMigrationTool (the hasReadLock/noLock, unlocked-exec path only --
-// migrateObject's own, unchanged exec call for the hasWriteLock path keeps
-// its hardcoded path). Package-level var, not const, so tests can point it
-// at a fixture script instead of the real /usr/bin/migration binary.
+// migrationBinaryPath is the external migration tool invoked on every
+// gob-migration path: execMigrationTool (get()'s hasReadLock/noLock states),
+// migrateObject (hasWriteLock) and appendGobObjectFromFile (the list readers).
+// Package-level var, not const, so tests can point it at a fixture script
+// instead of the real /usr/bin/migration binary.
 var migrationBinaryPath = "/usr/bin/migration"
 
 // execMigrationTool runs the external migration binary against path and
@@ -1870,7 +1870,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
 			defer migrationCancel()
 
-			cmd := exec.CommandContext(migrationCtx, "/usr/bin/migration", "-file", path, "-type", typeName)
+			cmd := exec.CommandContext(migrationCtx, migrationBinaryPath, "-file", path, "-type", typeName)
 			var out bytes.Buffer
 			var stderr bytes.Buffer
 			cmd.Stdout = &out
