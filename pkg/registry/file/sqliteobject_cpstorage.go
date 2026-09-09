@@ -234,6 +234,15 @@ func (c *objectStoreCPStorage) GetSbom(ctx context.Context, key string) (softwar
 	}
 	if h := readHandleFrom(ctx); h != nil {
 		if legacy, ok := c.sbom.(*StorageImpl); ok {
+			// Absent SBOM (the common case while an image is unscanned): answer
+			// from the metadata row. The legacy full read would open the payload
+			// file, miss, and run its self-repair DELETE FROM metadata even for
+			// zero rows - a write-lock acquisition on an ungated connection that
+			// busy-waits behind the gate's continuous commits (Tier B: every
+			// update/tick PreSave stalled for the whole busy timeout).
+			if _, err := ReadMetadata(h.conn, key); errors.Is(err, ErrMetadataNotFound) {
+				return sbom, storage.NewKeyNotFoundError(key, 0)
+			}
 			return sbom, legacy.GetWithConn(ctx, h.conn, key, storage.GetOptions{}, &sbom)
 		}
 	}
