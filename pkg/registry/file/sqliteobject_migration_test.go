@@ -739,25 +739,36 @@ func TestMigration_ResumesAfterProcessKill(t *testing.T) {
 	}
 }
 
-// TestMigrationCrashChild is TestMigration_ResumesAfterProcessKill's child:
-// it runs the migration on the parent's files and exits from inside the
-// second batch's transaction.
+// TestMigrationCrashChild is the child of TestMigration_ResumesAfterProcessKill
+// (and its scale variant): it runs the migration on the parent's files and
+// exits from inside the transaction of batch CP_MIGRATION_CRASH_BATCH
+// (default 2) at batch size CP_MIGRATION_CRASH_BATCHSIZE (default 5).
 func TestMigrationCrashChild(t *testing.T) {
 	base := os.Getenv("CP_MIGRATION_CRASH_DIR")
 	if base == "" {
 		t.Skip("child helper only")
 	}
 	dbPath := os.Getenv("CP_MIGRATION_CRASH_DB")
+	if tool := os.Getenv("CP_MIGRATION_CRASH_TOOL"); tool != "" {
+		migrationBinaryPath = tool
+	}
+	crashBatch, batchSize := 2, 5
+	if v, err := strconv.Atoi(os.Getenv("CP_MIGRATION_CRASH_BATCH")); err == nil {
+		crashBatch = v
+	}
+	if v, err := strconv.Atoi(os.Getenv("CP_MIGRATION_CRASH_BATCHSIZE")); err == nil {
+		batchSize = v
+	}
 	fs := afero.NewBasePathFs(afero.NewOsFs(), base)
 	pool := NewPoolWithOptions(dbPath, PoolOptions{Size: 4, BusyTimeout: 5 * time.Second, DisableAutoCheckpoint: true})
 	sch := runtime.NewScheme()
 	install.Install(sch)
 	gate, err := newWriteGate(context.Background(), pool)
 	require.NoError(t, err)
-	opts := ContainerProfileMigrationOptions{BatchSize: 5}
+	opts := ContainerProfileMigrationOptions{BatchSize: batchSize}
 	opts.hooks.beforeStatement = func(batch, idx int, name string) error {
-		if batch == 2 && idx == 3 {
-			fmt.Printf("child: crashing inside batch 2 before %s\n", name)
+		if batch == crashBatch && idx == 3 {
+			fmt.Printf("child: crashing inside batch %d before %s\n", batch, name)
 			os.Exit(3)
 		}
 		return nil

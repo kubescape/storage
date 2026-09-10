@@ -37,6 +37,13 @@ func main() {
 	if *db == "" {
 		*db = filepath.Join(*root, "metadata.sq3")
 	}
+	// The pool retries an unopenable database every 5 s until ctx expires
+	// (sqlitemigration.Pool.Take); a missing database is always a wrong
+	// -db/-root, not something to wait an hour for.
+	if _, err := os.Stat(*db); err != nil {
+		fmt.Fprintf(os.Stderr, "cpexport: database: %v\n", err)
+		os.Exit(1)
+	}
 
 	sch := runtime.NewScheme()
 	install.Install(sch)
