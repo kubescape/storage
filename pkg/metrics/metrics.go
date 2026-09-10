@@ -70,6 +70,15 @@ const (
 	HealFailedRead        = "read"
 	HealFailedSave        = "save"
 	HealFailedCommit      = "commit"
+
+	// KeyReserve* : how a consolidation pass's reserved retry ended.
+	KeyReserveCommitted = "committed"
+	KeyReserveConflict  = "conflict"
+	KeyReserveError     = "error"
+
+	// KeyYield* : how a same-series writer's wait on a reservation ended.
+	KeyYieldReleased = "released"
+	KeyYieldTimeout  = "timeout"
 )
 
 // waitBuckets covers sub-millisecond acquisitions up through the ~5s
@@ -426,6 +435,34 @@ var (
 		},
 		[]string{"reason"},
 	)
+
+	// ConsolidationKeyReservedTotal counts consolidation retries that ran with
+	// the series reserved (after a first CAS conflict on the ObjectStore), by
+	// how the retry ended. A "conflict" here means a same-series write landed
+	// despite the reservation: a writer's wait or the pass's drain timed out.
+	ConsolidationKeyReservedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_key_reserved_total",
+			Help:           "Count of consolidation retries run with the series reserved against same-series writers, by outcome (committed/conflict/error).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"outcome"},
+	)
+
+	// CPKeyYieldTotal counts ObjectStore writes that waited for a consolidation
+	// reservation on their series, by how the wait ended. "timeout" means the
+	// writer proceeded anyway after keyReserveWaitMax and the progress bound
+	// was not honoured for that retry.
+	CPKeyYieldTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_key_yield_total",
+			Help:           "Count of ContainerProfile writes that waited on a consolidation reservation of their series, by outcome (released/timeout).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"outcome"},
+	)
 )
 
 func init() {
@@ -450,6 +487,8 @@ func init() {
 	legacyregistry.MustRegister(ConsolidationFrozenRefusalsTotal)
 	legacyregistry.MustRegister(ConsolidationDivergenceTotal)
 	legacyregistry.MustRegister(ConsolidationHealFailedTotal)
+	legacyregistry.MustRegister(ConsolidationKeyReservedTotal)
+	legacyregistry.MustRegister(CPKeyYieldTotal)
 	legacyregistry.MustRegister(SqliteUngatedWriteTotal)
 	legacyregistry.MustRegister(SqliteWriteHoldStepDuration)
 	legacyregistry.MustRegister(WriteGateHoldAge)
@@ -597,4 +636,16 @@ func IncConsolidationDivergence(shape string) {
 // reason (HealFailedLockTimeout / HealFailedBegin / HealFailedRead / HealFailedSave / HealFailedCommit).
 func IncConsolidationHealFailed(reason string) {
 	ConsolidationHealFailedTotal.WithLabelValues(reason).Inc()
+}
+
+// IncConsolidationKeyReserved records one reserved consolidation retry with
+// the given outcome (KeyReserveCommitted / KeyReserveConflict / KeyReserveError).
+func IncConsolidationKeyReserved(outcome string) {
+	ConsolidationKeyReservedTotal.WithLabelValues(outcome).Inc()
+}
+
+// IncCPKeyYield records one writer wait on a consolidation reservation with
+// the given outcome (KeyYieldReleased / KeyYieldTimeout).
+func IncCPKeyYield(outcome string) {
+	CPKeyYieldTotal.WithLabelValues(outcome).Inc()
 }

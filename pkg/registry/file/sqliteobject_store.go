@@ -95,6 +95,7 @@ type ObjectStore struct {
 	watchDispatcher eventDispatcher
 	gate            *writeGate
 	checkpointer    *checkpointer
+	reservations    *keyReservations
 	hooks           objectStoreHooks
 }
 
@@ -136,6 +137,7 @@ func NewObjectStore(pool *sqlitemigration.Pool, dbPath string, watchDispatcher *
 		watchDispatcher: watchDispatcher,
 		gate:            gate,
 		checkpointer:    newCheckpointer(pool, dbPath, opts.CheckpointThresholdBytes, opts.CheckpointInterval),
+		reservations:    newKeyReservations(),
 	}
 	s.checkpointer.start()
 	processor.SetStorage(newObjectStoreCPStorage(s, sbomStore))
@@ -767,6 +769,7 @@ func (s *ObjectStore) Create(ctx context.Context, key string, obj, metaOut runti
 		logger.L().Ctx(ctx).Error(msg)
 		return errors.New(msg)
 	}
+	defer s.reservations.enter(ctx, key)()
 
 	// prepare (caller goroutine, no transaction, one pool connection for reads)
 	conn, err := s.takeConn(ctx, "create", key)
@@ -950,6 +953,7 @@ func (s *ObjectStore) guaranteedUpdate(ctx context.Context, key string, metaOut 
 	if err != nil {
 		return fmt.Errorf("unable to convert output object to pointer: %v", err)
 	}
+	defer s.reservations.enter(ctx, key)()
 
 	conn, err := s.takeConn(ctx, "update", key)
 	if err != nil {
@@ -1038,6 +1042,7 @@ func (s *ObjectStore) Delete(ctx context.Context, key string, metaOut runtime.Ob
 }
 
 func (s *ObjectStore) deleteKey(ctx context.Context, key string, metaOut runtime.Object, expect *rowVersion, priority writePriority) error {
+	defer s.reservations.enter(ctx, key)()
 	var res deleteResult
 	err := s.gate.run(ctx, priority, holdPathDelete, ContainerProfileKindPlural, func(_ context.Context, conn *sqlite.Conn) error {
 		return s.execDelete(conn, key, expect, &res, s.stmtHook(conn, holdPathDelete))

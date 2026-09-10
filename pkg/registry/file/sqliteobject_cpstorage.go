@@ -91,6 +91,7 @@ type objectStoreCPStorage struct {
 var _ ContainerProfileStorage = (*objectStoreCPStorage)(nil)
 var _ TimeSeriesEntryWriter = (*objectStoreCPStorage)(nil)
 var _ ProcessedDeleteStager = (*objectStoreCPStorage)(nil)
+var _ ConsolidationKeyReserver = (*objectStoreCPStorage)(nil)
 
 func newObjectStoreCPStorage(s *ObjectStore, sbom storage.Interface) *objectStoreCPStorage {
 	return &objectStoreCPStorage{s: s, sbom: sbom}
@@ -100,6 +101,17 @@ func newObjectStoreCPStorage(s *ObjectStore, sbom storage.Interface) *objectStor
 // to the store BEFORE the end function commits, so they join the tick's
 // transaction (§3.7) instead of running after it.
 func (c *objectStoreCPStorage) StagesProcessedDeletes() bool { return true }
+
+// ReserveConsolidationKey reserves key's series for the pass's retry (the
+// fairness escalation of sqliteobject_keyreserve.go).
+func (c *objectStoreCPStorage) ReserveConsolidationKey(ctx context.Context, key string) (context.Context, func()) {
+	reservedCtx, release, drained := c.s.reservations.reserve(ctx, key)
+	if !drained {
+		logger.L().Warning("objectStoreCPStorage.ReserveConsolidationKey - same-series writes still in flight when the reserved retry began; its CAS may conflict",
+			loggerhelpers.String("key", key))
+	}
+	return reservedCtx, release
+}
 
 // withConn runs fn on the context's read handle connection, or on a pool
 // connection taken for the call.

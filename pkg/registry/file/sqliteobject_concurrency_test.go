@@ -397,11 +397,12 @@ func TestObjectStore_UpdateVsConsolidationTick_SameBaseKey(t *testing.T) {
 	// newest report, plus the deterministic base injection, so conflicts of
 	// both kinds and double conflicts (a failed tick) can happen; the rows
 	// must still drain in a bounded number of ticks and no update is lost.
-	// The writers' gap is 4× the tick window measured on this build: a
-	// writer whose gap is shorter than the window starves the pass (see the
-	// unpaced diagnostic), and a fixed wall-clock gap crosses that line
-	// under the race detector. Production producers of base updates are
-	// orders of magnitude sparser than either.
+	// The writers' gap is 4× the tick window measured on this build, so most
+	// ticks commit on their first attempt and the reservation escalation
+	// stays mostly out of the picture (the unpaced test below is the one that
+	// exercises it); a fixed wall-clock gap crosses that line under the race
+	// detector. Production producers of base updates are orders of magnitude
+	// sparser than either.
 	t.Run("paced background writers", func(t *testing.T) {
 		e := newObjectStoreEnv(t, withPoolSize(16))
 		e.seedLearningBase()
@@ -486,25 +487,53 @@ func TestObjectStore_UpdateVsConsolidationTick_SameBaseKey(t *testing.T) {
 	})
 }
 
-// TestObjectStore_UpdateVsConsolidationTick_UnpacedWriterDiagnostic is the
-// LOAD_TEST=1 diagnostic of the case the test above deliberately paces
-// around: a writer committing base updates back-to-back (no gap; ~0.6 ms per
-// commit here). The tick's Phase 1 read → merge → encode → gate → commit
-// window is 1–3 ms, the pass retries once and then yields to the next tick,
-// and the writer holds the gate's high lane, so the pass rarely finds the row
-// where it read it: measured 30/30 ticks conflicting in most runs, a drain
-// after a dozen failed ticks in the rest. Nothing is lost or corrupted
-// (asserted); the series simply does not consolidate while the writer keeps
-// that pace. Logged, not asserted: whether the ObjectStore must guarantee
-// progress against such a writer is a design decision, not a property this
-// branch claims.
-func TestObjectStore_UpdateVsConsolidationTick_UnpacedWriterDiagnostic(t *testing.T) {
-	if os.Getenv("LOAD_TEST") != "1" {
-		t.Skip("set LOAD_TEST=1 to run the unpaced same-key writer vs tick diagnostic")
+// keyReserveCounters snapshots the reservation counters: reserved retries by
+// outcome, writer yields by outcome.
+type keyReserveCounters struct{ committed, conflict, released, timeout float64 }
+
+func snapshotKeyReserve(t *testing.T) keyReserveCounters {
+	t.Helper()
+	return keyReserveCounters{
+		committed: counterValue(t, metrics.ConsolidationKeyReservedTotal.WithLabelValues(metrics.KeyReserveCommitted)),
+		conflict:  counterValue(t, metrics.ConsolidationKeyReservedTotal.WithLabelValues(metrics.KeyReserveConflict)),
+		released:  counterValue(t, metrics.CPKeyYieldTotal.WithLabelValues(metrics.KeyYieldReleased)),
+		timeout:   counterValue(t, metrics.CPKeyYieldTotal.WithLabelValues(metrics.KeyYieldTimeout)),
 	}
+}
+
+func (c keyReserveCounters) delta(t *testing.T) keyReserveCounters {
+	t.Helper()
+	n := snapshotKeyReserve(t)
+	return keyReserveCounters{committed: n.committed - c.committed, conflict: n.conflict - c.conflict, released: n.released - c.released, timeout: n.timeout - c.timeout}
+}
+
+// TestObjectStore_UpdateVsConsolidationTick_UnpacedWriter is the worst case
+// the paced subtest above deliberately stays clear of: a writer committing
+// base updates back-to-back (no gap; ~0.6 ms per commit here, several per
+// tick window). Before the series reservation (sqliteobject_keyreserve.go)
+// this starved the pass — 30/30 ticks conflicting in most runs, a drain after
+// a dozen failed ticks in the rest — because the once-retry re-ran the same
+// 1–3 ms window the writer commits inside. The bound it now proves:
+//
+//	Regardless of the writer's pace, a series consolidates within ONE tick —
+//	the first attempt may conflict, the reserved retry commits — as long as
+//	the retry runs within keyReserveWaitMax and in-flight same-series writes
+//	drain within keyReserveDrainMax (1 s each; this retry takes ms).
+//
+// Asserted per round: exactly one tick, no failed tick, no writer wait timed
+// out; over the run: the reserved retry committed at least once (the
+// escalation was exercised, not bypassed), the writer yielded at least once,
+// no update lost. LOAD_TEST=1 raises the rounds.
+func TestObjectStore_UpdateVsConsolidationTick_UnpacedWriter(t *testing.T) {
+	rounds := 8
+	if os.Getenv("LOAD_TEST") == "1" {
+		rounds = 40
+	}
+	const perRound = 3
 	e := newObjectStoreEnv(t, withPoolSize(16))
 	e.seedLearningBase()
 	before := snapshotCASConflicts(t)
+	reserveBefore := snapshotKeyReserve(t)
 	stop := make(chan struct{})
 	var stopOnce sync.Once
 	var bgUpdates atomic.Int64
@@ -526,34 +555,24 @@ func TestObjectStore_UpdateVsConsolidationTick_UnpacedWriterDiagnostic(t *testin
 			bgUpdates.Add(1)
 		}
 	}()
-	const reports, maxTicks = 3, 30
-	for n := 2; n <= reports+1; n++ {
-		e.create(e.ts(fmt.Sprintf("r%d", n), n, helpersv1.Learning, helpersv1.Partial))
-	}
-	ticks, failed := 0, 0
-	for ticks < maxTicks && e.pendingTSRows(e.baseKey) > 0 {
-		ticks++
-		if err := e.processor.ConsolidateTimeSeries(e.ctx); err != nil {
-			require.ErrorIs(t, err, ErrWriteConflict)
-			failed++
-		}
-	}
+
+	race := &tickRace{e: e, rounds: rounds, perRound: perRound, maxTicksPerRound: 2}
+	race.run(t)
 	stopOnce.Do(func() { close(stop) })
 	wg.Wait()
 	conflicts := before.delta(t)
-	pending := e.pendingTSRows(e.baseKey)
+	reserve := reserveBefore.delta(t)
 
-	require.Equal(t, strconv.FormatInt(bgUpdates.Load(), 10), e.mustGet(e.baseKey).Labels["counter"], "no lost update")
-	e.withFixture(func(conn *sqlite.Conn) {
-		for _, k := range allCPKeys(t, conn) {
-			assertINV2(t, conn, k)
-		}
-	})
-	require.False(t, e.gate.held())
-	if pending > 0 {
-		t.Logf("STARVED: %d of %d reports still pending after %d ticks (%d failed) against %d back-to-back base updates; conflicts(update)=%.0f",
-			pending, reports, ticks, failed, bgUpdates.Load(), conflicts.update)
-	} else {
-		t.Logf("drained in %d ticks (%d failed) against %d back-to-back base updates; conflicts(update)=%.0f", ticks, failed, bgUpdates.Load(), conflicts.update)
-	}
+	require.Equal(t, rounds, race.ticks, "every round drains in exactly one tick against the unpaced writer")
+	require.Equal(t, 1, race.worstRound)
+	require.Empty(t, race.tickErrs, "no tick failed: the reserved retry commits")
+	require.Equal(t, 0.0, reserve.conflict, "a reserved retry conflicted: a same-series write committed inside its window")
+	require.Equal(t, 0.0, reserve.timeout, "a writer's wait on the reservation timed out")
+	require.Greater(t, reserve.committed, 0.0, "no reserved retry ran: the first attempt never conflicted, so the escalation was not exercised")
+	require.Greater(t, reserve.released, 0.0, "no writer ever yielded to a reservation")
+	require.Greater(t, conflicts.update, 0.0)
+	assertTickRaceOutcome(t, e, race.reports, bgUpdates.Load())
+	require.Empty(t, e.store.reservations.reservedKeys(), "a reservation outlived its retry")
+	t.Logf("rounds=%d ticks=%d bgUpdates=%d conflicts(update)=%.0f reserved(committed)=%.0f reserved(conflict)=%.0f yields(released)=%.0f yields(timeout)=%.0f",
+		rounds, race.ticks, bgUpdates.Load(), conflicts.update, reserve.committed, reserve.conflict, reserve.released, reserve.timeout)
 }

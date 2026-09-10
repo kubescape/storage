@@ -50,6 +50,18 @@ type ProcessedDeleteStager interface {
 	StagesProcessedDeletes() bool
 }
 
+// ConsolidationKeyReserver is implemented by a ContainerProfileStorage whose
+// consolidation commit can lose a compare-and-swap to a concurrent writer of
+// the same series (the ObjectStore). After a first conflict on key, the pass
+// runs its one retry with the series reserved: writes to it that have not
+// started yet wait for the retry, and the retry waits for those already in
+// flight (both bounded), so the retry's window is free of same-series commits
+// (sqliteobject_keyreserve.go). The pass MUST use the returned ctx for the
+// retry and call release when it ends.
+type ConsolidationKeyReserver interface {
+	ReserveConsolidationKey(ctx context.Context, key string) (reservedCtx context.Context, release func())
+}
+
 type DefaultProcessor struct {
 }
 

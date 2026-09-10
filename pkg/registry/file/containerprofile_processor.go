@@ -463,8 +463,27 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 		// compare-and-swap conflict when the base or a processed TS object
 		// changed between the pass's reads and its commit: re-read and retry
 		// once (design §3.7 Phase 3, N=2); a second conflict is next tick's.
+		// The retry runs with the series reserved against same-series writers
+		// when the store supports it, so a writer committing back-to-back
+		// cannot beat it again (ConsolidationKeyReserver).
 		logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - write conflict, retrying once", loggerhelpers.String("key", key))
-		err = a.consolidateKeyTimeSeriesOnce(ctx, key, expired)
+		reserver, reserved := a.ContainerProfileStorage.(ConsolidationKeyReserver)
+		retryCtx, release := ctx, func() {}
+		if reserved {
+			retryCtx, release = reserver.ReserveConsolidationKey(ctx, key)
+		}
+		err = a.consolidateKeyTimeSeriesOnce(retryCtx, key, expired)
+		release()
+		if reserved {
+			switch {
+			case err == nil:
+				metrics.IncConsolidationKeyReserved(metrics.KeyReserveCommitted)
+			case errors.Is(err, ErrWriteConflict):
+				metrics.IncConsolidationKeyReserved(metrics.KeyReserveConflict)
+			default:
+				metrics.IncConsolidationKeyReserved(metrics.KeyReserveError)
+			}
+		}
 	}
 	return err
 }
