@@ -65,7 +65,7 @@ import (
 // perfABHarnessVersion is echoed in every round's JSON. hack/perf-ab.sh
 // overlays this file onto the base worktree, so both arms must report the
 // same value; the driver refuses to compare rounds that do not.
-const perfABHarnessVersion = "3"
+const perfABHarnessVersion = "4"
 
 // ---- tunables (documented defaults; overridable via env for exploration) ----
 
@@ -98,6 +98,10 @@ func loadConsolidators() int { return envInt("LOAD_CONSOLIDATORS", 1) }
 func loadLegacyWriters() int { return envInt("LOAD_LEGACY_WRITERS", 2) }
 func loadLegacySizeKB() int  { return envInt("LOAD_LEGACY_KB", 1024) }
 func loadCleanupRows() int   { return envInt("LOAD_CLEANUP_ROWS", 300) }
+
+// loadHotKeys selects the same-key contention shape: every updater and one
+// writer target base key 0 instead of being spread across the 12 templates.
+func loadHotKeys() bool { return os.Getenv("LOAD_HOT_KEYS") == "1" }
 
 // loadProcessorWorkers returns the worker bound the processor uses in the
 // benchmark. Kept a helper so a baseline without the Workers field can be
@@ -153,6 +157,12 @@ type loadConfig struct {
 	BusyTimeout  time.Duration
 	// RequestTimeout is each REST-facing call's context deadline.
 	RequestTimeout time.Duration
+	// HotKeys concentrates every updater and writer 0 on base key 0 (the
+	// consolidator's write to that base key then races all the updaters):
+	// the deliberate same-key shape for update-p99 and conflict rate. It is
+	// part of the effective-config echo, so a hot-keys round never pairs with
+	// a spread one.
+	HotKeys bool
 	// CollapseTTL, when > 0, pins collapseSettingsTTL for the round. The
 	// 10 s default makes a consolidation save that has already written refresh
 	// the CollapseConfiguration cache on a second connection; the absent CR's
@@ -187,6 +197,7 @@ func perfABConfig() loadConfig {
 		BusyTimeout:    5 * time.Second,
 		RequestTimeout: 15 * time.Second,
 		CollapseTTL:    time.Hour,
+		HotKeys:        loadHotKeys(),
 	}
 }
 
@@ -210,6 +221,7 @@ func diagnosticConfig() loadConfig {
 		TickInterval:   time.Duration(envInt("LOAD_CONSOLIDATOR_SLEEP_MS", 0)) * time.Millisecond,
 		BusyTimeout:    5 * time.Second,
 		RequestTimeout: 15 * time.Second,
+		HotKeys:        loadHotKeys(),
 	}
 }
 
@@ -554,6 +566,7 @@ type effectiveConfig struct {
 	BusyTimeoutMs       int64  `json:"busy_timeout_ms"`
 	RequestTimeoutMs    int64  `json:"request_timeout_ms"`
 	CollapseTTLMs       int64  `json:"collapse_ttl_ms"`
+	HotKeys             bool   `json:"hot_keys"`
 	BaseKeys            int    `json:"base_keys"`
 	TotalClientOps      int64  `json:"total_client_ops"`
 }
@@ -653,6 +666,8 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	reads := &latencyRec{name: "REST Get (CVE/netpol readers)"}
 	updates := &latencyRec{name: "REST GuaranteedUpdate"}
 	lists := &latencyRec{name: "REST List (metadata / fullSpec)"}
+	listsMeta := &latencyRec{name: "REST List metadata"}
+	listsFull := &latencyRec{name: "REST List fullSpec page"}
 	ticks := &latencyRec{name: "ConsolidateTimeSeries pass"}
 	legacyCreates := &latencyRec{name: "legacy Create (sbomsyft / vulnerabilitymanifest)"}
 	legacyUpdates := &latencyRec{name: "legacy GuaranteedUpdate"}
@@ -681,6 +696,16 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		default:
 			return true
 		}
+	}
+
+	// updaterTemplate spreads the updaters over the 12 base keys; in HotKeys
+	// mode they all share base key 0, which writer 0 feeds (id%12 == 0) so the
+	// consolidator keeps rewriting that base key under the updaters.
+	updaterTemplate := func(id int) cpTemplate {
+		if cfg.HotKeys {
+			return templates[0]
+		}
+		return templates[id%len(templates)]
 	}
 
 	start := time.Now()
@@ -739,13 +764,14 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		go func(id int) {
 			defer clients.Done()
 			for i := 0; keepGoing(i, cfg.UpdaterOps); i++ {
-				tpl := templates[id%len(templates)]
+				tpl := updaterTemplate(id)
 				ctx, cancel := reqCtx()
 				t0 := time.Now()
+				// A real mutation: an identity tryUpdate is absorbed by the #315
+				// DeepEqual short-circuit on both backends and never reaches
+				// the CAS/commit path.
 				err := s.GuaranteedUpdate(ctx, tpl.baseKey, &softwarecomposition.ContainerProfile{}, true,
-					nil, func(input k8sruntime.Object, _ storage.ResponseMeta) (k8sruntime.Object, *uint64, error) {
-						return input, nil, nil
-					}, nil)
+					nil, loadLabelUpdate, nil)
 				updates.record(time.Since(t0), err)
 				cancel()
 				if cfg.UpdaterSleep > 0 {
@@ -764,13 +790,17 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 			defer clients.Done()
 			for i := 0; keepGoing(i, cfg.ListerOps); i++ {
 				opts := storage.ListOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata, Recursive: true}
+				variant := listsMeta
 				if i%2 == 1 {
 					opts = storage.ListOptions{ResourceVersion: softwarecomposition.ResourceVersionFullSpec, Recursive: true, Predicate: storage.SelectionPredicate{Limit: 50}}
+					variant = listsFull
 				}
 				ctx, cancel := reqCtx()
 				t0 := time.Now()
 				err := s.GetList(ctx, nsListKey, opts, &softwarecomposition.ContainerProfileList{})
-				lists.record(time.Since(t0), err)
+				d := time.Since(t0)
+				lists.record(d, err)
+				variant.record(d, err)
 				cancel()
 				if cfg.ListerSleep > 0 {
 					time.Sleep(cfg.ListerSleep)
@@ -892,6 +922,8 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		"get":           reads.stats(),
 		"update":        updates.stats(),
 		"list":          lists.stats(),
+		"list-meta":     listsMeta.stats(),
+		"list-full":     listsFull.stats(),
 		"tick":          ticks.stats(),
 		"legacy-create": legacyCreates.stats(),
 		"legacy-update": legacyUpdates.stats(),
@@ -937,6 +969,7 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		BusyTimeoutMs:       cfg.BusyTimeout.Milliseconds(),
 		RequestTimeoutMs:    cfg.RequestTimeout.Milliseconds(),
 		CollapseTTLMs:       collapseSettingsTTL.Milliseconds(),
+		HotKeys:             cfg.HotKeys,
 		BaseKeys:            len(templates),
 		TotalClientOps:      totalOps,
 	}
@@ -958,6 +991,8 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		"list-p99-ms":              classes["list"].P99Ms,
 		"list-p95-ms":              classes["list"].P95Ms,
 		"list-p50-ms":              classes["list"].P50Ms,
+		"list-meta-p95-ms":         classes["list-meta"].P95Ms,
+		"list-full-p95-ms":         classes["list-full"].P95Ms,
 		"write-bytes":              float64(writeBytes),
 		"gate-wait-p99-ms":         1000 * maxHistP99(metricsDelta.GateWait),
 		"busy-wait-p99-ms":         1000 * maxHistP99(metricsDelta.BusyWait),

@@ -18,6 +18,10 @@
 #                        into a same-commit comparison of two configurations, e.g.
 #                        PERF_AB_BASE_ENV="PERF_AB_BACKEND=legacy"
 #                        PERF_AB_HEAD_ENV="PERF_AB_BACKEND=objectstore"
+#                        LOAD_HOT_KEYS=1 in BOTH arms selects the same-key
+#                        contention shape (every updater on base key 0); it is
+#                        part of the effective config, so one arm alone is a
+#                        CONFIG MISMATCH.
 #
 # Exit codes: 0 PASS, 1 REGRESSION, 2 CONFIG MISMATCH (or base cannot host
 # HEAD's harness), 3 INCONCLUSIVE, 4 UNDERPOWERED.
