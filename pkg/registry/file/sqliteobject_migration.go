@@ -366,7 +366,7 @@ func (m *containerProfileMigrator) prepareCandidate(ctx context.Context, c *migr
 		m.report.add(shape, "")
 		if shape != MigrationShapeMigrated {
 			logger.L().Warning("containerprofile migration: row and payload file disagree on resourceVersion; reconciled at max+1",
-				helpers.String("key", key), helpers.Int("rowRV", int(rowRV)), helpers.Int("payloadRV", int(payloadRV)), helpers.Int("rv", int(rv)))
+				helpers.String("key", key), helpers.Interface("rowRV", rowRV), helpers.Interface("payloadRV", payloadRV), helpers.Interface("rv", rv))
 		}
 		return m.rewriteActions(key, obj, rv, uid, true)
 	}
@@ -404,7 +404,7 @@ func (m *containerProfileMigrator) prepareCandidate(ctx context.Context, c *migr
 	}
 	m.report.add(MigrationShapeLegacyRewrite, source)
 	logger.L().Warning("containerprofile migration: legacy writer replaced a migrated row (rv NULL with a payloads row); repaired",
-		helpers.String("key", key), helpers.String("source", source), helpers.Int("rv", int(rv)))
+		helpers.String("key", key), helpers.String("source", source), helpers.Interface("rv", rv))
 	return m.rewriteActions(key, obj, rv, uid, false)
 }
 
