@@ -498,8 +498,16 @@ func (m *containerProfileMigrator) deleteRowAction(key string) migrationAction {
 // when there is no file; err is set when the file exists but neither gob
 // nor the external migration tool could decode it.
 func (m *containerProfileMigrator) decodeLegacyFile(ctx context.Context, key string) (*softwarecomposition.ContainerProfile, bool, error) {
-	p := filepath.Join(m.root, key)
-	f, err := m.fs.Open(makePayloadPath(p))
+	return decodeLegacyFileAt(ctx, m.fs, m.root, key)
+}
+
+// decodeLegacyFileAt is decodeLegacyFile without a migrator receiver, for
+// callers (the export tool's stale-file reconciliation) that need the same
+// "would an old binary read this as a valid object" decode, outside of a
+// migration run.
+func decodeLegacyFileAt(ctx context.Context, fs afero.Fs, root, key string) (*softwarecomposition.ContainerProfile, bool, error) {
+	p := filepath.Join(root, key)
+	f, err := fs.Open(makePayloadPath(p))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, afero.ErrFileNotFound) {
 			return nil, false, nil
@@ -618,7 +626,17 @@ func (m *containerProfileMigrator) markDone(ctx context.Context) error {
 // every staging file. It returns the number of undecodable files met.
 func (m *containerProfileMigrator) sweepFiles(ctx context.Context) (int, error) {
 	dir := filepath.Join(m.root, softwarecomposition.GroupName, ContainerProfileKind)
-	if exists, _ := afero.DirExists(m.fs, dir); !exists {
+	// A real filesystem error here (e.g. permission denied) must not read as
+	// "the directory doesn't exist": DirExists returns exists=false on ANY
+	// stat error, not just os.ErrNotExist, and the caller treats a nil error
+	// here as "sweep found nothing, mark done" -- an unreadable directory
+	// would then permanently persist the done marker over an incomplete
+	// sweep, with nothing left to trigger a retry on the next start.
+	exists, err := afero.DirExists(m.fs, dir)
+	if err != nil {
+		return 0, fmt.Errorf("containerprofile migration: stat %s: %w", dir, err)
+	}
+	if !exists {
 		return 0, nil
 	}
 	conn, err := m.pool.Take(ctx)
@@ -627,7 +645,16 @@ func (m *containerProfileMigrator) sweepFiles(ctx context.Context) (int, error) 
 	}
 	var orphans []string
 	walkErr := afero.Walk(m.fs, dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		// A per-entry error (e.g. an unreadable subtree) must abort the walk,
+		// not be treated as "nothing interesting here": returning nil let the
+		// sweep silently skip whatever orphan payload files sat under that
+		// entry and still report success, persisting the done marker over an
+		// incomplete sweep (see the DirExists check above for the same class
+		// of bug at the top-level directory).
+		if err != nil {
+			return fmt.Errorf("containerprofile migration: walk %s: %w", path, err)
+		}
+		if info.IsDir() {
 			return nil
 		}
 		if !IsPayloadFile(path) {

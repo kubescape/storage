@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -610,7 +611,6 @@ func TestMigration_K2_OrphanPayloadAfterLegacyDelete(t *testing.T) {
 	e.assertINV2(key, e.key("plain-00"))
 }
 
-
 // A crash in the middle of a batch rolls that batch back; the next start
 // completes the migration from the predicate with nothing lost or duplicated.
 func TestMigration_ResumesAfterCrashMidBatch(t *testing.T) {
@@ -861,4 +861,81 @@ func setRowJSON(t *testing.T, conn *sqlite.Conn, key, path, value string) {
 		`UPDATE metadata SET metadata = json_set(CAST(metadata AS TEXT), ?, ?) WHERE kind = ? AND namespace = ? AND name = ?`,
 		&sqlitex.ExecOptions{Args: []any{path, value, kind, ns, name}}))
 	require.Equal(t, int64(1), int64(conn.Changes()))
+}
+
+// toggleFailFs fails Stat for one target path while armed, otherwise
+// delegates. afero.Walk falls back to Stat (not Lstat) for entries when the
+// underlying Fs is not an Lstater, which afero.NewMemMapFs() is not, so
+// arming this on a file inside a walked directory reproduces a per-entry
+// stat error mid-walk (a real filesystem's unreadable subtree/permission
+// error) without needing an actual restricted filesystem.
+type toggleFailFs struct {
+	afero.Fs
+	target string
+	fail   atomic.Bool
+}
+
+func (f *toggleFailFs) Stat(name string) (os.FileInfo, error) {
+	if f.fail.Load() && name == f.target {
+		return nil, fmt.Errorf("toggleFailFs: simulated stat failure for %s", name)
+	}
+	return f.Fs.Stat(name)
+}
+
+// TestMigration_SweepWalkErrorDoesNotMarkDone: a filesystem error hit while
+// walking one entry (a permission-denied subtree, in production) used to be
+// swallowed by the walk callback's `if err != nil { return nil }`, so the
+// sweep silently skipped whatever orphan payload sat under that entry and
+// still reported success -- MigrateContainerProfiles then persisted the
+// done marker over an incomplete sweep, with nothing left to trigger a
+// retry on a later restart. The walk error must instead fail the migration,
+// and a later restart (once the filesystem error clears) must complete the
+// sweep it never got to.
+func TestMigration_SweepWalkErrorDoesNotMarkDone(t *testing.T) {
+	failing := &toggleFailFs{Fs: afero.NewMemMapFs()}
+	e := newMigrationEnv(t, failing)
+	p := e.legacyCreate(e.plain("norow"))
+	key := e.key(p.Name)
+	failing.target = e.filePath(p.Name)
+	_, _, kind, _, ns, name := K8sPathToKeys(key)
+	require.NoError(t, sqlitex.Execute(e.fixture, `DELETE FROM metadata WHERE kind = ? AND namespace = ? AND name = ?`,
+		&sqlitex.ExecOptions{Args: []any{kind, ns, name}}))
+	e.startNew()
+
+	failing.fail.Store(true)
+	_, err := e.migrate(ContainerProfileMigrationOptions{})
+	require.Error(t, err, "a walk error must fail the migration, not silently succeed")
+	require.False(t, e.migrationDone(), "the done marker must not persist over an incomplete sweep")
+
+	failing.fail.Store(false)
+	report := e.mustMigrate(ContainerProfileMigrationOptions{})
+	require.Equal(t, 1, report.Count(MigrationShapeFileWithoutRow), "%v",
+		"the retried sweep on restart imports the orphan it never reached before")
+	require.True(t, e.migrationDone())
+}
+
+// TestMigration_SweepTopLevelStatErrorDoesNotMarkDone: the same class of bug
+// at the top-level directory check -- DirExists returns exists=false on ANY
+// stat error, not just "does not exist", and the caller reads a nil error
+// here as "nothing to sweep, mark done".
+func TestMigration_SweepTopLevelStatErrorDoesNotMarkDone(t *testing.T) {
+	failing := &toggleFailFs{Fs: afero.NewMemMapFs()}
+	e := newMigrationEnv(t, failing)
+	p := e.legacyCreate(e.plain("norow"))
+	key := e.key(p.Name)
+	failing.target = filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, ContainerProfileKind)
+	_, _, kind, _, ns, name := K8sPathToKeys(key)
+	require.NoError(t, sqlitex.Execute(e.fixture, `DELETE FROM metadata WHERE kind = ? AND namespace = ? AND name = ?`,
+		&sqlitex.ExecOptions{Args: []any{kind, ns, name}}))
+	e.startNew()
+
+	failing.fail.Store(true)
+	_, err := e.migrate(ContainerProfileMigrationOptions{})
+	require.Error(t, err, "a top-level stat error must fail the migration, not read as \"directory absent\"")
+	require.False(t, e.migrationDone())
+
+	failing.fail.Store(false)
+	report := e.mustMigrate(ContainerProfileMigrationOptions{})
+	require.Equal(t, 1, report.Count(MigrationShapeFileWithoutRow))
+	require.True(t, e.migrationDone())
 }
