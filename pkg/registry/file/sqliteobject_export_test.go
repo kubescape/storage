@@ -292,3 +292,43 @@ func TestExport_DryRunLeavesStaleFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exists, "dry-run removed nothing")
 }
+
+// TestExport_TrailingSlashRootDoesNotDeleteLiveFiles: reconcileStaleExportedFiles
+// derives a key by slicing a Walk()-reported path (always cleaned, via
+// filepath.Join) at len(root). An uncleaned root with a trailing slash (e.g.
+// the CLI's -root /data/) makes that length one too many, silently dropping
+// the key's required leading '/' -- ReadMetadata then misses the live row
+// for a key that was NEVER deleted, and the stale-file pass wrongly deletes
+// its just-exported file. Both a live object and a genuinely deleted one are
+// present so the fix is proven both ways: the live file must survive, the
+// deleted one's stale file must still be removed.
+func TestExport_TrailingSlashRootDoesNotDeleteLiveFiles(t *testing.T) {
+	e := newMigrationEnv(t, afero.NewMemMapFs())
+	e.seed(2)
+	liveKey, deletedKey := e.key("plain-00"), e.key("plain-01")
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+
+	out := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, e.store.Delete(e.ctx, deletedKey, out, nil, nil, nil, storage.DeleteOptions{}))
+	liveExists, err := afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, liveExists, "plain-00's row is live, its pre-flip file still on disk")
+
+	report, err := ExportContainerProfiles(e.ctx, e.pool, e.fs, DefaultStorageRoot+"/", e.scheme, ContainerProfileExportOptions{})
+	require.NoError(t, err)
+	require.Equal(t, 1, report.StaleFilesRemoved, "only plain-01's stale file, not plain-00's live one")
+
+	liveExists, err = afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, liveExists, "the trailing slash must not make the live file look stale")
+
+	deletedExists, err := afero.Exists(e.fs, e.filePath("plain-01"))
+	require.NoError(t, err)
+	require.False(t, deletedExists, "the genuinely deleted key's stale file is still removed")
+
+	e.stopNew()
+	getOut := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, e.legacy.Get(e.ctx, liveKey, storage.GetOptions{}, getOut), "the live object must still be readable by an old binary")
+}
+

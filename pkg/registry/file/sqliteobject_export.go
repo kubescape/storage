@@ -91,6 +91,13 @@ type exportRow struct {
 // payload back as its legacy gob file under root, exactly as the legacy
 // writer does (staged to <key>.g.t, then renamed into place).
 func ExportContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, fs afero.Fs, root string, scheme *runtime.Scheme, opts ContainerProfileExportOptions) (*ContainerProfileExportReport, error) {
+	// Cleaned once, here: reconcileStaleExportedFiles below derives a key by
+	// slicing a Walk()-reported path (built from filepath.Join, which always
+	// cleans) at len(root). A trailing slash in an uncleaned root (e.g. the
+	// CLI's -root /data/) makes that length one too many, silently dropping
+	// the key's required leading '/' -- ReadMetadata then misses the live
+	// row for a just-exported object, and the stale-file pass deletes it.
+	root = filepath.Clean(root)
 	if opts.BatchSize <= 0 {
 		opts.BatchSize = DefaultMigrationBatchSize
 	}

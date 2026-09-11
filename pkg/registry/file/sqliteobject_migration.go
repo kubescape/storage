@@ -193,6 +193,12 @@ func MigrateContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, g
 		opts.BatchSize = DefaultMigrationBatchSize
 	}
 	start := time.Now()
+	// Cleaned once: sweepFiles below derives a key by slicing a Walk()-
+	// reported path (built from filepath.Join, which always cleans) at
+	// len(m.root) -- an uncleaned root with a trailing slash makes that
+	// length one too many, silently dropping the key's required leading
+	// '/' (same class of bug fixed in ExportContainerProfiles).
+	root = filepath.Clean(root)
 	m := &containerProfileMigrator{
 		pool: pool, gate: gate, fs: fs, root: root, scheme: scheme, opts: opts,
 		report: &ContainerProfileMigrationReport{Counts: map[string]int{}, DryRun: opts.DryRun},
