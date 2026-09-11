@@ -65,8 +65,14 @@ type ContainerProfileExportReport struct {
 	// Undecodable is the number of payloads that could not be decoded; the
 	// row and any existing file are left as they are.
 	Undecodable int
-	DryRun      bool
-	Elapsed     time.Duration
+	// StaleFilesRemoved is the number of legacy payload files on disk with
+	// no matching metadata row: an object deleted under the ObjectStore
+	// backend (which removes only the database rows) whose pre-flip .g file
+	// survived. Left in place, an old binary reads it back after downgrade
+	// and resurrects the deleted object.
+	StaleFilesRemoved int
+	DryRun            bool
+	Elapsed           time.Duration
 }
 
 type exportRow struct {
@@ -143,12 +149,86 @@ func ExportContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, fs
 			report.Exported++
 		}
 	}
+	stale, err := reconcileStaleExportedFiles(ctx, pool, fs, root, opts.DryRun)
+	if err != nil {
+		return report, err
+	}
+	report.StaleFilesRemoved = stale
 	report.Elapsed = time.Since(start)
 	logger.L().Info("containerprofile export: done",
 		helpers.Int("exported", report.Exported), helpers.Int("legacySkipped", report.LegacySkipped),
-		helpers.Int("undecodable", report.Undecodable), helpers.Interface("dryRun", report.DryRun),
-		helpers.String("elapsed", report.Elapsed.String()))
+		helpers.Int("undecodable", report.Undecodable), helpers.Int("staleFilesRemoved", report.StaleFilesRemoved),
+		helpers.Interface("dryRun", report.DryRun), helpers.String("elapsed", report.Elapsed.String()))
 	return report, nil
+}
+
+// reconcileStaleExportedFiles removes every legacy ContainerProfile payload
+// file under root that (a) still decodes as a valid object an old binary
+// would serve, AND (b) has no matching metadata row. ObjectStore's delete
+// path removes only the database rows, so a key deleted since the pre-flip
+// migration (or since a prior export) can still have its old .g file on
+// disk; ExportContainerProfiles above only ever visits rows that still
+// exist, so it never reaches these. Left in place, an old binary's get()
+// after downgrade finds the stale file and returns the deleted object as if
+// it were live. This must run after the row export above, using the same
+// definition of "current" (the database at read time).
+//
+// A file that fails to decode is left untouched, exactly as the main export
+// loop leaves undecodable payloads: an old binary can't resurrect an object
+// from a file it can't decode either, so there is no resurrection risk to
+// close, and removing it would just be destroying data outside this tool's
+// contract (matches sweepFiles' migration-side handling of undecodable
+// content).
+func reconcileStaleExportedFiles(ctx context.Context, pool *sqlitemigration.Pool, fs afero.Fs, root string, dryRun bool) (int, error) {
+	dir := filepath.Join(root, softwarecomposition.GroupName, ContainerProfileKind)
+	if exists, _ := afero.DirExists(fs, dir); !exists {
+		return 0, nil
+	}
+	conn, err := pool.Take(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("containerprofile export: take connection: %w", err)
+	}
+	defer pool.Put(conn)
+	var stale []string
+	walkErr := afero.Walk(fs, dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || !IsPayloadFile(path) {
+			return nil
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		key := path[len(root) : len(path)-len(GobExt)]
+		if _, rerr := ReadMetadata(conn, key); rerr == nil {
+			return nil
+		} else if !errors.Is(rerr, ErrMetadataNotFound) {
+			return fmt.Errorf("read metadata %s: %w", key, rerr)
+		}
+		if _, found, derr := decodeLegacyFileAt(ctx, fs, root, key); derr != nil || !found {
+			// Undecodable, or raced away between Walk and here: leave it.
+			return nil
+		}
+		stale = append(stale, path)
+		return nil
+	})
+	if walkErr != nil {
+		return 0, fmt.Errorf("containerprofile export: reconcile stale files: %w", walkErr)
+	}
+	if dryRun {
+		for _, path := range stale {
+			logger.L().Warning("containerprofile export: stale payload file with no metadata row would be removed", helpers.String("path", path))
+		}
+		return len(stale), nil
+	}
+	for _, path := range stale {
+		if rerr := fs.Remove(path); rerr != nil {
+			return len(stale), fmt.Errorf("containerprofile export: remove stale file %s: %w", path, rerr)
+		}
+		logger.L().Warning("containerprofile export: stale payload file with no metadata row removed", helpers.String("path", path))
+	}
+	return len(stale), nil
 }
 
 func readExportRows(ctx context.Context, pool *sqlitemigration.Pool, cursor int64, limit int) ([]exportRow, error) {

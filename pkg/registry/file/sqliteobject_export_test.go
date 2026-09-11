@@ -240,3 +240,55 @@ func TestExport_SkipsLegacyRowsAndDryRunWritesNothing(t *testing.T) {
 	require.Equal(t, "1", got.ResourceVersion)
 	require.Equal(t, helpersv1.Learning, got.Annotations[helpersv1.StatusMetadataKey])
 }
+
+// TestExport_RemovesStaleFileOfKeyDeletedUnderTheNewStore reproduces the
+// rollback-resurrection sequence: migrate A, delete A under the ObjectStore
+// backend (which removes only the database rows and leaves A's pre-flip .g
+// file on disk), export, downgrade. Without reconcileStaleExportedFiles, the
+// old binary's get() finds the stale file and A is readable again after
+// being deleted.
+func TestExport_RemovesStaleFileOfKeyDeletedUnderTheNewStore(t *testing.T) {
+	e := newMigrationEnv(t, afero.NewMemMapFs())
+	e.seed(1)
+	key := e.key("plain-00")
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+
+	out := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, e.store.Delete(e.ctx, key, out, nil, nil, nil, storage.DeleteOptions{}))
+	row := e.inspect(key)
+	require.False(t, row.metaExists, "the delete removed the metadata row")
+	require.False(t, row.payloadExists, "and the payloads row")
+	exists, err := afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, exists, "the pre-flip legacy file survives an ObjectStore delete")
+
+	report := e.export(ContainerProfileExportOptions{})
+	require.Equal(t, 1, report.StaleFilesRemoved)
+	exists, err = afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.False(t, exists, "the export removed the stale file")
+
+	e.stopNew()
+	getOut := &softwarecomposition.ContainerProfile{}
+	err = e.legacy.Get(e.ctx, key, storage.GetOptions{}, getOut)
+	require.True(t, storage.IsNotFound(err), "the old binary must not resurrect the deleted object")
+}
+
+// TestExport_DryRunLeavesStaleFiles confirms the dry-run count matches what
+// a real run would remove, without touching the filesystem.
+func TestExport_DryRunLeavesStaleFiles(t *testing.T) {
+	e := newMigrationEnv(t, afero.NewMemMapFs())
+	e.seed(1)
+	key := e.key("plain-00")
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+	out := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, e.store.Delete(e.ctx, key, out, nil, nil, nil, storage.DeleteOptions{}))
+
+	dry := e.export(ContainerProfileExportOptions{DryRun: true})
+	require.Equal(t, 1, dry.StaleFilesRemoved)
+	exists, err := afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, exists, "dry-run removed nothing")
+}
