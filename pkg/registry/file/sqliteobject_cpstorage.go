@@ -166,6 +166,19 @@ func (c *objectStoreCPStorage) BeginTransaction(ctx context.Context) (func(*erro
 	h.ws = ws
 	return func(errp *error) {
 		h.ws = nil
+		// A panic between BeginTransaction and here (e.g. mid-staging, before
+		// all of the tick's writes and processed-TS deletes are appended to
+		// ws) unwinds through this deferred call with *errp still nil: *errp
+		// is only ever set by a normal return path. Checking *errp alone
+		// would then commit whatever was staged before the panic -- a
+		// partial consolidation persisted despite the operation failing.
+		// recover() here is only effective because this function IS the
+		// deferred call (defer endFn(&err)); discard the write set and
+		// re-panic unchanged so the caller's own recover/log path still
+		// sees the original panic.
+		if r := recover(); r != nil {
+			panic(r)
+		}
 		if *errp != nil || len(ws.stmts) == 0 {
 			return
 		}

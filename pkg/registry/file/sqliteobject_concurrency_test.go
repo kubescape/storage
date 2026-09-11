@@ -576,3 +576,41 @@ func TestObjectStore_UpdateVsConsolidationTick_UnpacedWriter(t *testing.T) {
 	t.Logf("rounds=%d ticks=%d bgUpdates=%d conflicts(update)=%.0f reserved(committed)=%.0f reserved(conflict)=%.0f yields(released)=%.0f yields(timeout)=%.0f",
 		rounds, race.ticks, bgUpdates.Load(), conflicts.update, reserve.committed, reserve.conflict, reserve.released, reserve.timeout)
 }
+
+// TestObjectStore_ConsolidationPanicMidStaging_DoesNotCommitPartialWork:
+// a panic between the tick's two staging phases (updateProfile's base/TS
+// merge, staged into the write set; then the processed-TS deletes,
+// BeforeProcessedDeletes fires just before those are staged) must discard
+// the whole write set, not commit whatever was staged before the panic.
+// BeginTransaction's returned finalizer used to check only *errp, which a
+// panic leaves nil; it would commit the partial merge and re-panic, leaving
+// a base materialised (or changed) with its TS report never deleted -- a
+// consolidation the tick never actually completed, persisted anyway.
+func TestObjectStore_ConsolidationPanicMidStaging_DoesNotCommitPartialWork(t *testing.T) {
+	e := newObjectStoreEnv(t)
+	e.create(e.ts("r1", 1, helpersv1.Learning, helpersv1.Partial))
+	require.Equal(t, 1, e.pendingTSRows(e.baseKey), "one report pending consolidation")
+	_, errBefore := e.get(e.baseKey)
+	require.Error(t, errBefore, "the base does not exist before the first tick merges it")
+
+	const panicMsg = "injected: panic between staging phases"
+	e.processor.Hooks.BeforeProcessedDeletes = func(string) { panic(panicMsg) }
+	t.Cleanup(func() { e.processor.Hooks.BeforeProcessedDeletes = nil })
+
+	// consolidateKeyTimeSeries directly, not ConsolidateTimeSeries: the latter
+	// fans work out via errgroup.Group.Go, so the panic would happen in a
+	// different goroutine than this recover() and crash the test binary
+	// instead of being caught here.
+	func() {
+		defer func() {
+			r := recover()
+			require.Equal(t, panicMsg, r, "the original panic must propagate unchanged, not be swallowed")
+		}()
+		_ = e.processor.consolidateKeyTimeSeries(e.ctx, e.baseKey, false)
+		t.Fatal("expected consolidateKeyTimeSeries to panic, it returned normally")
+	}()
+
+	_, errAfter := e.get(e.baseKey)
+	require.Error(t, errAfter, "the base must still not exist: the partial staged write was discarded, not committed")
+	require.Equal(t, 1, e.pendingTSRows(e.baseKey), "the pending report is still pending: the tick never actually completed")
+}
