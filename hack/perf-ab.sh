@@ -126,6 +126,13 @@ run_round() {
     head) dir="$ROOT/$PKG"; armenv=$HEAD_ENV ;;
   esac
   json="$OUT/$label.json"
+  # Settle before sampling load1: rounds run back-to-back with no idle gap,
+  # so the 1-minute average never gets a chance to decay between them and
+  # climbs monotonically over a long run regardless of which arm is running
+  # -- not evidence of external contamination, just the harness's own
+  # workload never idling. A short settle restores load1 to something that
+  # actually reflects ambient load rather than a perpetually rising floor.
+  sleep "${PERF_AB_SETTLE_SECONDS:-3}"
   l=$(load1)
   marked=0
   if awk -v l="$l" -v b="$LOAD_BOUND" 'BEGIN{exit !(l > b)}'; then marked=1; fi
