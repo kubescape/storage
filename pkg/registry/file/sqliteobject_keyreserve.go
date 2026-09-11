@@ -35,14 +35,30 @@ import (
 
 // Package-level so tests can shrink them.
 var (
-	// keyReserveWaitMax bounds a writer's wait on a series reservation.
-	// Tier B (droplet run, b8e42f76) showed a 1s cap here shifting +47%
-	// onto update-p95-ms for writers landing during a reservation; a
-	// clean dedicated-CPU rerun at 200ms (commit d4e8090d) still showed
-	// a real +70.6% p95 regression (smaller absolute cost, ~88ms, but a
-	// bigger fraction of this host's much lower baseline latency) — so
-	// 200ms wasn't aggressive enough. Dropping further to 50ms.
+	// keyReserveWaitMax bounds an ordinary writer's wait on a series
+	// reservation in enter() (retry-vs-write: common, on every write to a
+	// contended series). Tier B (droplet run, b8e42f76) showed a 1s cap
+	// here shifting +47% onto update-p95-ms; a clean dedicated-CPU rerun
+	// at 200ms (commit d4e8090d) still showed +70.6%. 50ms fixed it
+	// (-9% to -10.5% across two runs) with no correctness cost: the
+	// starvation-fix regression tests still show consolidation reserving
+	// and committing every round via a normal release, never a timeout.
 	keyReserveWaitMax = 50 * time.Millisecond
+	// keyReserveQueueMax bounds one consolidation retry's wait to reserve
+	// a series another retry already holds, in reserve() (retry-vs-retry:
+	// overlapping ticks on the same series, rarer than every write). This
+	// used to share keyReserveWaitMax with the writer-wait above; shrinking
+	// that to 50ms for update-p95-ms made overlapping retries give up and
+	// run unreserved far more often, producing extra unconsolidated/
+	// duplicate TS rows that List's scan/merge then paid for — list-p95-ms
+	// regressed +93.7% to +121.1% even though bumping the SQLite pool size
+	// (LOAD_POOL) made it worse, not better, ruling out pool contention as
+	// the cause. Split into its own constant, left generous like
+	// keyReserveDrainMax: retry-vs-retry collisions are uncommon enough
+	// that patiently waiting here costs little, and correctness (never
+	// racing two retries unreserved against each other) matters more than
+	// shaving this specific wait.
+	keyReserveQueueMax = time.Second
 	// keyReserveDrainMax bounds the reserving pass's wait for in-flight
 	// same-series writes to finish. Left at 1s: this is the tail-latency
 	// bound that fixed consolidation starvation and must stay generous.
@@ -156,7 +172,7 @@ func (r *keyReservations) reserve(ctx context.Context, key string) (reservedCtx 
 		r.mu.Unlock()
 		// Another pass reserved the same key (two overlapping ticks): queue
 		// behind it, bounded; past the bound the retry runs unreserved.
-		timer := time.NewTimer(keyReserveWaitMax)
+		timer := time.NewTimer(keyReserveQueueMax)
 		select {
 		case <-prev.released:
 			timer.Stop()
