@@ -301,6 +301,12 @@ func TestContainerProfileProcessor_MaintenanceDoesNotStartUntilExplicit(t *testi
 	// does, then start maintenance explicitly.
 	h.SetContainerProfileStore(store)
 	processor.StartMaintenance()
+	// Without this, the 5ms-interval loop keeps calling ConsolidateTimeSeries
+	// (and so ListTimeSeriesWithData) against this test's pool for the rest
+	// of the test binary's life, contaminating whichever later test happens
+	// to be sensitive to that call -- this is what TestWorkBudget's own
+	// leak detector was catching before StopMaintenance existed.
+	t.Cleanup(processor.StopMaintenance)
 
 	require.Eventually(t, func() bool { return fetcher.calls.Load() > 0 }, time.Second, time.Millisecond,
 		"StartMaintenance must start the maintenance loop")

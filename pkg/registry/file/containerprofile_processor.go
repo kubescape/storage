@@ -68,6 +68,15 @@ type ContainerProfileProcessor struct {
 	// nil means map iteration order (random); tests override it to force the
 	// order, which decides which series a terminal branch leaves unreached.
 	seriesOrder func(timeSeries map[string][]softwarecomposition.TimeSeriesContainers) []string
+	// stopMaintenance, closed by StopMaintenance, ends runMaintenanceTasks's
+	// loop between iterations (it does not interrupt a cleanup/consolidation
+	// pass already in flight). nil until StartMaintenance runs; a process
+	// never calls StopMaintenance and exits instead, so production never
+	// needs this -- it exists so a test that starts the loop can also stop
+	// it, instead of leaking a goroutine that keeps ticking (and calling
+	// into a pool a later test may reuse or have already closed) for the
+	// rest of the test binary's life.
+	stopMaintenance chan struct{}
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -336,15 +345,35 @@ func (a *ContainerProfileProcessor) SetStorage(containerProfileStorage Container
 }
 
 // StartMaintenance starts the periodic cleanup/consolidation loop. The
-// caller must have finished all storage wiring first (see SetStorage).
+// caller must have finished all storage wiring first (see SetStorage). A
+// process calls this once and never StopMaintenance, letting the loop run
+// until process exit; StopMaintenance exists for callers (tests) that need
+// the loop to actually end, not just go out of scope.
 func (a *ContainerProfileProcessor) StartMaintenance() {
 	if a.Interval > 0 {
-		go a.runMaintenanceTasks()
+		a.stopMaintenance = make(chan struct{})
+		go a.runMaintenanceTasks(a.stopMaintenance)
 	}
 }
 
-func (a *ContainerProfileProcessor) runMaintenanceTasks() {
+// StopMaintenance ends the loop StartMaintenance started, once its current
+// iteration (if any) finishes -- it does not cancel an in-flight cleanup or
+// consolidation pass. A no-op if StartMaintenance was never called or the
+// loop already stopped. Not safe to call concurrently with StartMaintenance.
+func (a *ContainerProfileProcessor) StopMaintenance() {
+	if a.stopMaintenance != nil {
+		close(a.stopMaintenance)
+		a.stopMaintenance = nil
+	}
+}
+
+func (a *ContainerProfileProcessor) runMaintenanceTasks(stop <-chan struct{}) {
 	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
 		// cleanup
 		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting cleanup task")
 		err := a.cleanup()
@@ -362,7 +391,11 @@ func (a *ContainerProfileProcessor) runMaintenanceTasks() {
 			logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - consolidation task completed successfully")
 		}
 		// sleep
-		time.Sleep(a.Interval)
+		select {
+		case <-stop:
+			return
+		case <-time.After(a.Interval):
+		}
 	}
 }
 
