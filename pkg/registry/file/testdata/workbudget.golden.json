@@ -1,0 +1,199 @@
+{
+  "S1_learning_tick": {
+    "stmt": {
+      "DeleteMetadata": 3,
+      "DeleteTimeSeriesContainerEntries": 3,
+      "ListTimeSeriesContainers": 1,
+      "ListTimeSeriesExpired": 1,
+      "ListTimeSeriesWithData": 1,
+      "ReadMetadata": 5,
+      "ReplaceTimeSeriesContainerEntries": 1,
+      "Save:saveObject": 1,
+      "Transaction": 1,
+      "WriteJSON": 1,
+      "WriteTimeSeriesEntry": 1
+    },
+    "lock": {
+      "rlock": 6,
+      "lock": 4,
+      "timeout": 0
+    },
+    "pool_take": 5,
+    "fs": {
+      "open": 8,
+      "rename": 1,
+      "remove": 3
+    },
+    "events": {
+      "Added": 0,
+      "Modified": 1,
+      "Deleted": 3
+    }
+  },
+  "S2_empty_tick": {
+    "stmt": {
+      "ListTimeSeriesExpired": 1,
+      "ListTimeSeriesWithData": 1
+    },
+    "lock": {
+      "rlock": 0,
+      "lock": 0,
+      "timeout": 0
+    },
+    "pool_take": 1,
+    "fs": {
+      "open": 0,
+      "rename": 0,
+      "remove": 0
+    },
+    "events": {
+      "Added": 0,
+      "Modified": 0,
+      "Deleted": 0
+    }
+  },
+  "S3_frozen_tick": {
+    "stmt": {
+      "DeleteMetadata": 2,
+      "DeleteTimeSeriesContainerEntries": 2,
+      "ListTimeSeriesContainers": 1,
+      "ListTimeSeriesExpired": 1,
+      "ListTimeSeriesWithData": 1,
+      "ReadMetadata": 1,
+      "ReplaceTimeSeriesContainerEntries": 1,
+      "Transaction": 1
+    },
+    "lock": {
+      "rlock": 1,
+      "lock": 2,
+      "timeout": 0
+    },
+    "pool_take": 4,
+    "fs": {
+      "open": 1,
+      "rename": 0,
+      "remove": 2
+    },
+    "events": {
+      "Added": 0,
+      "Modified": 0,
+      "Deleted": 2
+    }
+  },
+  "S4_divergent_tick": {
+    "stmt": {
+      "DeleteMetadata": 2,
+      "DeleteTimeSeriesContainerEntries": 2,
+      "ListTimeSeriesContainers": 1,
+      "ListTimeSeriesExpired": 1,
+      "ListTimeSeriesWithData": 1,
+      "ReadMetadata": 2,
+      "ReplaceTimeSeriesContainerEntries": 1,
+      "Save:saveObject": 1,
+      "Transaction": 1,
+      "WriteJSON": 1
+    },
+    "lock": {
+      "rlock": 1,
+      "lock": 3,
+      "timeout": 0
+    },
+    "pool_take": 4,
+    "fs": {
+      "open": 3,
+      "rename": 1,
+      "remove": 2
+    },
+    "events": {
+      "Added": 0,
+      "Modified": 1,
+      "Deleted": 2
+    }
+  },
+  "S5_rest_get": {
+    "stmt": {},
+    "lock": {
+      "rlock": 1,
+      "lock": 0,
+      "timeout": 0
+    },
+    "pool_take": 1,
+    "fs": {
+      "open": 1,
+      "rename": 0,
+      "remove": 0
+    },
+    "events": {
+      "Added": 0,
+      "Modified": 0,
+      "Deleted": 0
+    }
+  },
+  "S6_rest_create_ts": {
+    "stmt": {
+      "ReadMetadata": 2,
+      "Save:commit": 1,
+      "WriteJSON": 1,
+      "WriteTimeSeriesEntry": 1
+    },
+    "lock": {
+      "rlock": 0,
+      "lock": 1,
+      "timeout": 0
+    },
+    "pool_take": 3,
+    "fs": {
+      "open": 1,
+      "rename": 1,
+      "remove": 0
+    },
+    "events": {
+      "Added": 1,
+      "Modified": 0,
+      "Deleted": 0
+    }
+  },
+  "S7_noop_guaranteed_update": {
+    "stmt": {
+      "ReadMetadata": 4
+    },
+    "lock": {
+      "rlock": 3,
+      "lock": 0,
+      "timeout": 0
+    },
+    "pool_take": 2,
+    "fs": {
+      "open": 3,
+      "rename": 0,
+      "remove": 0
+    },
+    "events": {
+      "Added": 0,
+      "Modified": 0,
+      "Deleted": 0
+    }
+  },
+  "S8_delete_ts": {
+    "stmt": {
+      "DeleteMetadata": 1,
+      "DeleteTimeSeriesContainerEntries": 1
+    },
+    "lock": {
+      "rlock": 0,
+      "lock": 1,
+      "timeout": 0
+    },
+    "pool_take": 2,
+    "fs": {
+      "open": 0,
+      "rename": 0,
+      "remove": 1
+    },
+    "events": {
+      "Added": 0,
+      "Modified": 0,
+      "Deleted": 1
+    }
+  }
+}

@@ -774,7 +774,7 @@ func BenchmarkWriteFiles(b *testing.B) {
 	metaOut := &v1beta1.SBOMSyft{}
 	conn, _ := s.pool.Take(context.Background())
 	for i := 0; i < b.N; i++ {
-		_, _ = s.saveObject(conn, key, obj, metaOut, "")
+		_, _ = s.saveObject(context.Background(), conn, key, obj, metaOut, "", priorityLow, holdPathLegacyCommit)
 	}
 	s.pool.Put(conn)
 	b.ReportAllocs()
@@ -1078,7 +1078,7 @@ func TestStorageImpl_MigrateObjectUnlocked_ConcurrentWriteWins(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{Name: "toto"},
 			Spec:       v1beta1.SBOMSyftSpec{Metadata: v1beta1.SPDXMeta{Tool: v1beta1.ToolMeta{Name: "concurrent-writer"}}},
 		}
-		_, saveErr := s.saveObject(conn, key, newObj, nil, "")
+		_, saveErr := s.saveObject(context.Background(), conn, key, newObj, nil, "", priorityLow, holdPathLegacyCommit)
 		require.NoError(t, saveErr)
 		pool.Put(conn)
 		s.locks.Unlock(key)
@@ -1587,4 +1587,33 @@ func TestStorageImpl_GetList_ReleasesConnectionBetweenPages(t *testing.T) {
 
 	require.Len(t, list.Items, 1)
 	assert.Equal(t, "sbom-01", list.Items[0].Name)
+}
+
+// TestKeyFromPayloadPath_RoundTripsForEveryRootShape: keyFromPayloadPath
+// recovers the exact key makePayloadPath(root, key) was written under,
+// regardless of root's textual form -- the bug this replaces (slicing a
+// Walk()-reported path at len(root)) silently mis-derived the key whenever
+// root's length didn't match what filepath.Join actually consumed: a
+// trailing slash overcounts by one, root "/" or "." each undercount or
+// overcount differently again. filepath.Rel is exact for all of them, which
+// this proves by reconstructing path the same way afero.Walk would report
+// it (filepath.Join(root, key) + GobExt) for every root shape a real
+// cpexport -root flag can be given, then recovering key from it.
+func TestKeyFromPayloadPath_RoundTripsForEveryRootShape(t *testing.T) {
+	keys := []string{
+		"/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/plain-00",
+		"/spdx.softwarecomposition.kubescape.io/containerprofile/default/app-with-dots.and-dashes",
+	}
+	roots := []string{"/data", "/data/", ".", "/", "/data/../data", "data"}
+	for _, root := range roots {
+		for _, key := range keys {
+			t.Run(fmt.Sprintf("root=%q/key=%s", root, key), func(t *testing.T) {
+				path := makePayloadPath(filepath.Join(root, key))
+				got, err := keyFromPayloadPath(root, path)
+				require.NoError(t, err)
+				assert.Equal(t, key, got,
+					"root=%q path=%q: recovered key must match the original, regardless of root's textual form", root, path)
+			})
+		}
+	}
 }

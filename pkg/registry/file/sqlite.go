@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
@@ -34,6 +35,117 @@ const DefaultPoolSize = 10
 // unset.
 const DefaultBusyTimeout = 60 * time.Second
 
+// SchemaMigrations returns the ordered SQLite migrations sqlitemigration
+// applies to the metadata database. Migrations 3 and 4 are additive: the
+// nullable rv/uid columns and the payloads table are written only by the
+// ContainerProfile SQLite-native backend (ObjectStore); the legacy
+// StorageImpl keeps writing (kind, namespace, name, metadata) and leaves them
+// NULL / empty for every other kind. Migration 5 is the data migration's
+// done-flag table (MigrateContainerProfiles). Migration 6 (is_time_series) is
+// also additive with a constant DEFAULT, so SQLite backfills every existing
+// row's logical value to 0 without a table rewrite: a base object row reads
+// correctly as 0 immediately, and a TS row already in the database from
+// before the upgrade reads as 0 too (wrongly "not a TS row") until it is next
+// consolidated away -- the same bounded, self-healing staleness the rv/uid
+// columns above already accept for pre-upgrade data, not a new kind of risk.
+func SchemaMigrations() []string {
+	return []string{
+		`CREATE TABLE IF NOT EXISTS metadata (
+			kind TEXT,
+			namespace TEXT,
+			name TEXT,
+			metadata JSON,
+			PRIMARY KEY (kind, namespace, name)
+		);`,
+		`CREATE TABLE IF NOT EXISTS time_series (
+			kind TEXT,
+			namespace TEXT,
+			name TEXT,
+			seriesID TEXT,
+			reportTimestamp TEXT,
+			status TEXT,
+			tsSuffix TEXT,
+			completion TEXT,
+			previousReportTimestamp TEXT,
+			hasData INTEGER DEFAULT 0,
+			PRIMARY KEY (kind, namespace, name, seriesID, tsSuffix)
+		);`,
+		`ALTER TABLE metadata ADD COLUMN rv INTEGER;`,
+		`ALTER TABLE metadata ADD COLUMN uid TEXT;`,
+		`CREATE TABLE IF NOT EXISTS payloads (
+			kind TEXT NOT NULL,
+			namespace TEXT NOT NULL,
+			name TEXT NOT NULL,
+			encoding TEXT NOT NULL,
+			body BLOB NOT NULL,
+			PRIMARY KEY (kind, namespace, name)
+		);`,
+		`CREATE TABLE IF NOT EXISTS migration_state (
+			name TEXT PRIMARY KEY,
+			state TEXT NOT NULL,
+			counts TEXT,
+			updated_at TEXT
+		);`,
+		`ALTER TABLE metadata ADD COLUMN is_time_series INTEGER NOT NULL DEFAULT 0;`,
+	}
+}
+
+// PoolOptions configures NewPoolWithOptions.
+type PoolOptions struct {
+	// Size is the pool capacity; non-positive falls back to DefaultPoolSize.
+	Size int
+	// BusyTimeout is the per-connection busy-timeout; non-positive falls back
+	// to DefaultBusyTimeout.
+	BusyTimeout time.Duration
+	// DisableAutoCheckpoint sets PRAGMA wal_autocheckpoint=0 on EVERY pool
+	// connection. Autocheckpoint is a per-connection sqlite3_wal_hook, so
+	// setting it on one connection leaves the others checkpointing inside
+	// their own COMMIT; the ObjectStore's background PASSIVE checkpointer
+	// takes over that job. Off by default so flag-off is byte-identical.
+	DisableAutoCheckpoint bool
+	// PrepareConn, when set, runs on every connection after the standard
+	// preparation.
+	PrepareConn func(conn *sqlite.Conn) error
+	// Authorizer, when set, returns a per-connection authorizer consulted
+	// after the package's own write-statement authorizer (tests install
+	// statement recorders through it). SetAuthorizer replaces rather than
+	// chains, so this is the one way to add a second authorizer.
+	Authorizer func(conn *sqlite.Conn) sqlite.Authorizer
+}
+
+// poolRef hands the pool pointer to authorizers created before NewPool
+// returns (the migration connection is prepared inside NewPool).
+type poolRef struct {
+	pool atomic.Pointer[sqlitemigration.Pool]
+}
+
+// writeAuthorizer is installed on every pool connection. It reports each
+// INSERT/UPDATE/DELETE prepared on the connection to noteWriteStatement —
+// the instrument behind the write-gate invariant (AC-G1 of
+// .omc/plans/write-gate-sharing.md): with a write gate on the pool, a write
+// statement on any connection the gate does not own is an ungated writer
+// that busy-waits against the gate for the whole busy timeout. Prepare-time
+// is sufficient: a statement re-executed through the connection's statement
+// cache was first prepared, and recorded, on that same connection.
+type writeAuthorizer struct {
+	ref  *poolRef
+	conn *sqlite.Conn
+	next sqlite.Authorizer
+}
+
+func (a *writeAuthorizer) Authorize(action sqlite.Action) sqlite.AuthResult {
+	switch action.Type() {
+	case sqlite.OpInsert, sqlite.OpUpdate, sqlite.OpDelete:
+		if pool := a.ref.pool.Load(); pool != nil {
+			noteWriteStatement(pool, a.conn, action.Type(), action.Table())
+		}
+	}
+	if a.next != nil {
+		return a.next.Authorize(action)
+	}
+	return sqlite.AuthResultOK
+}
+
 // NewPool creates a new SQLite connection pool at the given path.
 // It returns an error if the connection cannot be opened or the database cannot be initialized.
 // It is your responsibility to call conn.Close() when you no longer need conn.
@@ -43,37 +155,22 @@ const DefaultBusyTimeout = 60 * time.Second
 // DefaultBusyTimeout respectively. Both are operator-tunable via
 // config.Config (SqlitePoolSize / SqliteBusyTimeout) — see pkg/config.
 func NewPool(path string, size int, busyTimeout time.Duration) *sqlitemigration.Pool {
+	return NewPoolWithOptions(path, PoolOptions{Size: size, BusyTimeout: busyTimeout})
+}
+
+// NewPoolWithOptions is NewPool with the full option set.
+func NewPoolWithOptions(path string, opts PoolOptions) *sqlitemigration.Pool {
+	size := opts.Size
 	if size < 1 {
 		size = DefaultPoolSize
 	}
+	busyTimeout := opts.BusyTimeout
 	if busyTimeout <= 0 {
 		busyTimeout = DefaultBusyTimeout
 	}
-	return sqlitemigration.NewPool(path,
-		sqlitemigration.Schema{
-			Migrations: []string{
-				`CREATE TABLE IF NOT EXISTS metadata (
-					kind TEXT,
-					namespace TEXT,
-					name TEXT,
-					metadata JSON,
-					PRIMARY KEY (kind, namespace, name)
-				);`,
-				`CREATE TABLE IF NOT EXISTS time_series (
-    				kind TEXT,
-					namespace TEXT,
-					name TEXT,
-					seriesID TEXT,
-					reportTimestamp TEXT,
-					status TEXT,
-					tsSuffix TEXT,
-					completion TEXT,
-					previousReportTimestamp TEXT,
-					hasData INTEGER DEFAULT 0,
-					PRIMARY KEY (kind, namespace, name, seriesID, tsSuffix)
-				);`,
-			},
-		},
+	ref := &poolRef{}
+	pool := sqlitemigration.NewPool(path,
+		sqlitemigration.Schema{Migrations: SchemaMigrations()},
 		sqlitemigration.Options{
 			PoolSize: size,
 			// Under write bursts (per-container profile churn plus the
@@ -82,9 +179,26 @@ func NewPool(path string, size int, busyTimeout time.Duration) *sqlitemigration.
 			// "database is locked" to API clients. Wait instead of failing.
 			PrepareConn: func(conn *sqlite.Conn) error {
 				conn.SetBusyTimeout(busyTimeout)
+				if opts.DisableAutoCheckpoint {
+					if err := sqlitex.ExecuteTransient(conn, `PRAGMA wal_autocheckpoint=0`, nil); err != nil {
+						return fmt.Errorf("disable wal_autocheckpoint: %w", err)
+					}
+				}
+				var next sqlite.Authorizer
+				if opts.Authorizer != nil {
+					next = opts.Authorizer(conn)
+				}
+				if err := conn.SetAuthorizer(&writeAuthorizer{ref: ref, conn: conn, next: next}); err != nil {
+					return fmt.Errorf("install write authorizer: %w", err)
+				}
+				if opts.PrepareConn != nil {
+					return opts.PrepareConn(conn)
+				}
 				return nil
 			},
 		})
+	ref.pool.Store(pool)
+	return pool
 }
 
 // NewTestPool creates a new temporary SQLite connection (for testing only).
@@ -206,6 +320,7 @@ func ParseContainerProfileKey(key string, hostType armotypes.HostType) (id armot
 func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 	_, _, kind, _, namespace, _ := K8sPathToKeys(path)
 	var count int64
+	observeStmt("countMetadata")
 	err := sqlitex.Execute(conn,
 		`SELECT COUNT(*) FROM metadata
                 WHERE kind = :kind
@@ -226,6 +341,7 @@ func countMetadata(conn *sqlite.Conn, path string) (int64, error) {
 // DeleteMetadata deletes metadata for the given path and unmarshals the deleted metadata into the provided runtime.Object.
 func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	observeStmt("DeleteMetadata")
 	err := sqlitex.Execute(conn,
 		`DELETE FROM metadata
 				WHERE kind = :kind
@@ -248,6 +364,32 @@ func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) err
 	return nil
 }
 
+// deleteMetadataRaw is DeleteMetadata returning the deleted row's JSON
+// instead of decoding it: under the write gate the decode belongs after the
+// hold (INV-1′), not inside the RETURNING callback. nil when no row matched.
+func deleteMetadataRaw(conn *sqlite.Conn, path string) ([]byte, error) {
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	var raw []byte
+	observeStmt("DeleteMetadata")
+	err := sqlitex.Execute(conn,
+		`DELETE FROM metadata
+				WHERE kind = :kind
+				  AND namespace = :namespace
+				  AND name = :name
+				RETURNING metadata`,
+		&sqlitex.ExecOptions{
+			Named: map[string]any{":kind": kind, ":namespace": namespace, ":name": name},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				raw = []byte(stmt.ColumnText(0))
+				return nil
+			},
+		})
+	if err != nil {
+		return nil, fmt.Errorf("delete metadata: %w", err)
+	}
+	return raw, nil
+}
+
 func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]string, string, error) {
 	prefix, root, kind, _, namespace, _ := K8sPathToKeys(path)
 	if cont == "" {
@@ -255,11 +397,13 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
 	}
 	var last string
 	var names []string
+	observeStmt("listMetadataKeys")
 	err := sqlitex.Execute(conn,
 		`SELECT rowid, namespace, name FROM metadata
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
+					AND is_time_series = 0
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
@@ -285,11 +429,13 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 	}
 	var last string
 	var metadataJSONs []string
+	observeStmt("listMetadata")
 	err := sqlitex.Execute(conn,
 		`SELECT rowid, metadata FROM metadata
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
+					AND is_time_series = 0
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
@@ -309,6 +455,7 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
 
 func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 	var namespaces []string
+	observeStmt("listNamespaces")
 	err := sqlitex.Execute(conn,
 		`SELECT DISTINCT namespace FROM metadata
 				WHERE namespace != ''`,
@@ -329,6 +476,7 @@ func listNamespaces(conn *sqlite.Conn) ([]string, error) {
 func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	kind = NormalizeContainerProfileKind(kind)
+	observeStmt("DeleteTimeSeriesContainerEntries")
 	err := sqlitex.Execute(conn,
 		`DELETE FROM time_series
 					WHERE kind = ?
@@ -347,6 +495,7 @@ func DeleteTimeSeriesContainerEntries(conn *sqlite.Conn, path string) error {
 func ListTimeSeriesContainers(conn *sqlite.Conn, path string) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
 	containers := make(map[string][]softwarecomposition.TimeSeriesContainers)
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	observeStmt("ListTimeSeriesContainers")
 	err := sqlitex.Execute(conn,
 		`SELECT seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData
 				FROM time_series
@@ -393,6 +542,7 @@ func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error)
 		return keys, nil
 	}
 	threshold := time.Now().Add(-d).String()
+	observeStmt("ListTimeSeriesExpired")
 	err := sqlitex.Execute(conn,
 		`SELECT kind, namespace, name
 				FROM time_series
@@ -416,6 +566,7 @@ func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error)
 // ListTimeSeriesWithData retrieves all time series keys that have data.
 func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 	var keys []string
+	observeStmt("ListTimeSeriesWithData")
 	err := sqlitex.Execute(conn,
 		`SELECT kind, namespace, name
 				FROM time_series
@@ -439,6 +590,7 @@ func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	var metadataJSON string
+	observeStmt("ReadMetadata")
 	err := sqlitex.Execute(conn,
 		`SELECT metadata FROM metadata
 				WHERE kind = :kind
@@ -471,6 +623,7 @@ func writeMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) erro
 // WriteJSON writes the given JSON metadata to the database for the specified path.
 func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	observeStmt("WriteJSON")
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO metadata
 				(kind, namespace, name, metadata) VALUES (?, ?, ?, ?)`,
@@ -485,6 +638,7 @@ func WriteJSON(conn *sqlite.Conn, path string, metadataJSON []byte) error {
 
 // WriteTimeSeriesEntry writes a time series entry to the database.
 func WriteTimeSeriesEntry(conn *sqlite.Conn, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error {
+	observeStmt("WriteTimeSeriesEntry")
 	err := sqlitex.Execute(conn,
 		`INSERT OR REPLACE INTO time_series
     			(kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData)
@@ -519,6 +673,7 @@ func ReplaceTimeSeriesContainerEntries(conn *sqlite.Conn, path, seriesID string,
 	if err != nil {
 		return fmt.Errorf("failed to marshal tsSuffixes: %w", err)
 	}
+	observeStmt("ReplaceTimeSeriesContainerEntries")
 	err = sqlitex.Execute(conn,
 		`DELETE FROM time_series
 				WHERE kind = ?

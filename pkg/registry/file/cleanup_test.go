@@ -64,7 +64,7 @@ func TestCleanupTask(t *testing.T) {
 		root:                  DefaultStorageRoot,
 		fetcher:               &ResourcesFetchMock{},
 		deleteFunc:            deleteFunc,
-		resourceToKindHandler: initResourceToKindHandler(false),
+		resourceToKindHandler: initResourceToKindHandler(),
 	}
 	handler.CleanupTask(context.TODO(), handler.resourceToKindHandler)
 

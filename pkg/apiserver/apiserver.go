@@ -83,11 +83,19 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CleanupHandler  *file.ResourcesCleanupHandler
-	OsFs            afero.Fs
-	Pool            *sqlitemigration.Pool
+	CleanupHandler *file.ResourcesCleanupHandler
+	OsFs           afero.Fs
+	Pool           *sqlitemigration.Pool
+	// SqlitePath is the database file behind Pool; the ContainerProfile
+	// SQLite backend's checkpointer watches its -wal sibling.
+	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
+	// WriteGate is the process's one write gate, built by main.go beside the
+	// pool when StorageConfig.ContainerProfileSqliteBackend is on and shared
+	// by the ObjectStore, the legacy StorageImpl and the cleanup handler; nil
+	// with the flag off.
+	WriteGate *file.WriteGate
 }
 
 // Config defines the config for the apiserver
@@ -146,13 +154,59 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// read the CR, processors are baked into the storage backend.
 	containerProfileProcessor := file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.CleanupHandler)
 
-	var (
-		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
+	storageImpl := file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
 
-		containerProfileStorageImpl   = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
+	// ContainerProfileSqliteBackend (see
+	// .omc/plans/full-acid-storage-architecture.md §3): the containerprofiles
+	// resource is served by the SQLite-native ObjectStore instead of the
+	// row+gob-file StorageImpl, and the legacy default instance carries the
+	// kind-ownership guard so that any path still handing it a containerprofile
+	// key fails loudly instead of touching a row the ObjectStore owns. Every
+	// CP consumer is wired to containerProfileStorageImpl below
+	// (GeneratedNetworkPolicyStorage's full-spec list, the cleanup handler's
+	// CP arm); main.go ran the data migration before this point.
+	var containerProfileStorageImpl storage.Interface
+	if c.ExtraConfig.StorageConfig.ContainerProfileSqliteBackend {
+		storageImpl.(*file.StorageImpl).SetForeignKinds(file.IsContainerProfileKind)
+		gate := c.ExtraConfig.WriteGate
+		if gate == nil {
+			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: no write gate (main.go builds it beside the pool when the flag is on)")
+		}
+		storageImpl.(*file.StorageImpl).SetWriteGate(gate)
+		objectStore, err := file.NewObjectStore(c.ExtraConfig.Pool, c.ExtraConfig.SqlitePath, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor, storageImpl, gate, file.ObjectStoreOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: %w", err)
+		}
+		// The pre-shutdown hook stops the store's checkpointer only. It must
+		// NOT close the shared gate: pre-shutdown hooks run before in-flight
+		// requests drain, and a closed gate fails every in-flight write of
+		// every gated kind with errGateClosed. main.go closes the gate once
+		// cli.Run has returned and no request can arrive.
+		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", objectStore.Close); err != nil {
+			return nil, err
+		}
+		// The cleanup handler's CP arm enumerates rows and deletes through the
+		// ObjectStore under the flag; it never walks CP files (§5.6 row 10).
+		if c.ExtraConfig.CleanupHandler != nil {
+			c.ExtraConfig.CleanupHandler.SetContainerProfileStore(objectStore)
+		}
+		containerProfileStorageImpl = objectStore
+	} else {
+		containerProfileStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
+	}
+	// Only after every branch above has finished wiring the processor's
+	// storage (including, under the SQLite backend, the cleanup handler's
+	// SetContainerProfileStore call): starting maintenance any earlier lets
+	// its first cleanup tick run cleanup's ContainerProfile arm with cpStore
+	// still nil, taking the legacy file-walk path against rows the
+	// ObjectStore now owns, and races unsynchronized on cpStore with the Set
+	// call above.
+	containerProfileProcessor.StartMaintenance()
+
+	var (
 		configScanStorageImpl         = file.NewConfigurationScanSummaryStorage(storageImpl)
 		vulnerabilitySummaryStorage   = file.NewVulnerabilitySummaryStorage(storageImpl)
-		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl)
+		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl, containerProfileStorageImpl)
 
 		// REST endpoint registration, defaults to storageImpl.
 		ep = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.REST, error), s ...storage.Interface) *registry.REST {

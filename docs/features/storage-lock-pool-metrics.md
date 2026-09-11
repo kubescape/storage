@@ -40,10 +40,19 @@ endpoint was added).
   `lockTimeout`/`poolTimeout` backstop and the caller received a `ServerTimeout`).
 
 Implementation lives in `pkg/metrics/metrics.go` (`ObserveLockWait`, `ObservePoolWait`);
-call sites are in `pkg/registry/file/storage.go` at each `s.locks.Lock`/`RLock` and
-`s.pool.Take` acquisition. The existing Debug-level `lockDuration > 1s` log lines are left
-in place — they remain useful for correlating a specific slow request with its key, which
-the aggregate histograms can't do.
+call sites are in `pkg/registry/file/storage.go` and `singlewriter.go` at each
+`s.locks.Lock`/`RLock` and `s.pool.Take` acquisition, plus the two consolidation-side takes
+that originally went unobserved: `ContainerProfileStorageImpl.WithConnection` (the
+listing connection and every consolidation worker's connection, `kind=containerprofiles`)
+and `createSingleWriter`'s `AfterCreate` connection. The only `Take` still outside the
+histogram is `ResourcesCleanupHandler.CleanupTask`'s (`cleanup.go`). The existing
+Debug-level `lockDuration > 1s` log lines are left in place — they remain useful for
+correlating a specific slow request with its key, which the aggregate histograms can't do.
+
+The histogram's sample count is also how the work-budget test
+(`docs/features/storage-measurement-harness.md`, Tier A) counts pool takes per scenario; a
+per-key lock's read/write mode, which these histograms do not label, is reported to that
+test through the nil-in-production `utils.SetLockObserver` hook in `pkg/utils/mutex.go`.
 
 ### Consolidation counters (completed-immutability and divergence)
 

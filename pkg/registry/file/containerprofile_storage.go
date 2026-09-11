@@ -44,10 +44,13 @@ var _ ContainerProfileStorage = (*ContainerProfileStorageImpl)(nil)
 // WithConnection acquires a connection from the pool and returns a new context
 // with the connection embedded, plus a cleanup function to return the connection to the pool.
 func (c *ContainerProfileStorageImpl) WithConnection(ctx context.Context) (context.Context, func(), error) {
+	beforePool := time.Now()
 	conn, err := c.pool.Take(ctx)
 	if err != nil {
+		metrics.ObservePoolWait(ContainerProfileKindPlural, metrics.OutcomeTimeout, time.Since(beforePool))
 		return nil, nil, fmt.Errorf("failed to take connection from pool: %w", err)
 	}
+	metrics.ObservePoolWait(ContainerProfileKindPlural, metrics.OutcomeAcquired, time.Since(beforePool))
 	var cleaned bool
 	cleanup := func() {
 		if !cleaned {
@@ -61,8 +64,31 @@ func (c *ContainerProfileStorageImpl) WithConnection(ctx context.Context) (conte
 // BeginTransaction starts a SQLite transaction (savepoint) and returns a function
 // to commit or rollback based on the error state.
 func (c *ContainerProfileStorageImpl) BeginTransaction(ctx context.Context) (func(*error), error) {
+	if err := c.refuseGated("BeginTransaction"); err != nil {
+		return nil, err
+	}
 	conn := ctx.Value(connKey).(*sqlite.Conn)
+	observeStmt("Transaction")
 	return sqlitex.Transaction(conn), nil
+}
+
+// errCPStorageGated: the legacy ContainerProfile storage opens long
+// transactions on a pool connection (the consolidation's BEGIN DEFERRED, the
+// heal's BEGIN IMMEDIATE) and calls saveObject inside them. Over a StorageImpl
+// that shares the write gate, saveObject would queue on the gate while this
+// connection already holds SQLite's write lock — the gate busy-waiting behind
+// its own caller, the class write-gate sharing exists to close. Under the
+// flag the ContainerProfile kind is served by the ObjectStore and this type
+// is never constructed; the refusal makes that structural (W11/W12 of
+// write-gate-sharing §3.2: never routed through a gate).
+var errCPStorageGated = errors.New("legacy ContainerProfile storage cannot run over a StorageImpl that shares the write gate")
+
+func (c *ContainerProfileStorageImpl) refuseGated(op string) error {
+	if c.storageImpl.gate == nil {
+		return nil
+	}
+	logger.L().Error("ContainerProfileStorageImpl refused: the wrapped StorageImpl shares the write gate", loggerhelpers.String("op", op))
+	return fmt.Errorf("%s: %w", op, errCPStorageGated)
 }
 
 func (c *ContainerProfileStorageImpl) DeleteContainerProfile(ctx context.Context, key string) error {
@@ -221,6 +247,9 @@ func healFailureReason(err error) string {
 //
 // Must run in autocommit, before the pass's transaction (it opens its own).
 func (c *ContainerProfileStorageImpl) HealDivergence(ctx context.Context, key string) error {
+	if err := c.refuseGated("HealDivergence"); err != nil {
+		return err
+	}
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	s := c.storageImpl
 	lockCtx, cancel := context.WithTimeout(ctx, lockTimeout)
@@ -273,7 +302,7 @@ func (c *ContainerProfileStorageImpl) HealDivergence(ctx context.Context, key st
 			// The payload changed under us (a migration re-save, a REST reset): not our case.
 			return nil
 		}
-		metaEvent, err = s.saveObject(conn, key, &cur, &softwarecomposition.ContainerProfile{}, "")
+		metaEvent, err = s.saveObject(ctx, conn, key, &cur, &softwarecomposition.ContainerProfile{}, "", priorityLow, holdPathLegacyCommit)
 		if err != nil {
 			return &healFailure{reason: metrics.HealFailedSave, err: err}
 		}

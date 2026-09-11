@@ -62,10 +62,21 @@ type ContainerProfileProcessor struct {
 	// ConsolidateTimeSeries. nil means use consolidateKeyTimeSeries; tests
 	// override it to count invocations or inject per-key failures.
 	consolidateKey func(ctx context.Context, key string, expired bool) error
+	// Hooks are test seams; see ConsolidationHooks.
+	Hooks ConsolidationHooks
 	// seriesOrder returns the order updateProfile processes a key's series in.
 	// nil means map iteration order (random); tests override it to force the
 	// order, which decides which series a terminal branch leaves unreached.
 	seriesOrder func(timeSeries map[string][]softwarecomposition.TimeSeriesContainers) []string
+	// stopMaintenance, closed by StopMaintenance, ends runMaintenanceTasks's
+	// loop between iterations (it does not interrupt a cleanup/consolidation
+	// pass already in flight). nil until StartMaintenance runs; a process
+	// never calls StopMaintenance and exits instead, so production never
+	// needs this -- it exists so a test that starts the loop can also stop
+	// it, instead of leaking a goroutine that keeps ticking (and calling
+	// into a pool a later test may reuse or have already closed) for the
+	// rest of the test binary's life.
+	stopMaintenance chan struct{}
 }
 
 func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCleanupHandler) *ContainerProfileProcessor {
@@ -88,39 +99,84 @@ func NewContainerProfileProcessor(cfg config.Config, cleanupHandler *ResourcesCl
 
 var _ Processor = (*ContainerProfileProcessor)(nil)
 
-// AfterCreate is called after a TS ContainerProfile is created to store metadata.
-func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, object runtime.Object) error {
+var _ TimeSeriesRowProvider = (*ContainerProfileProcessor)(nil)
+
+// ConsolidationHooks are test seams on the consolidation pass; nil in
+// production.
+type ConsolidationHooks struct {
+	// BeforeProcessedDeletes runs, per key, after the pass has merged the
+	// time-series objects and immediately before it deletes them: for a store
+	// that stages the deletes (ProcessedDeleteStager) this is inside the
+	// tick's transaction window, for the legacy store it is after the commit.
+	BeforeProcessedDeletes func(key string)
+}
+
+// TimeSeriesRowFor returns the time_series row a TS ContainerProfile create
+// records and the base key whose Completed/Full or TooLarge state must refuse
+// it; ok=false for a non-TS profile.
+func (a *ContainerProfileProcessor) TimeSeriesRowFor(object runtime.Object) (TimeSeriesRow, string, bool) {
 	profile, ok := object.(*softwarecomposition.ContainerProfile)
 	if !ok {
-		return fmt.Errorf("given object is not an ContainerProfile")
+		return TimeSeriesRow{}, "", false
 	}
 	seriesID, ok := profile.Annotations[helpers.ReportSeriesIdMetadataKey]
+	if !ok {
+		return TimeSeriesRow{}, "", false
+	}
+	// remove the suffix from the name after the last hyphen
+	name, tsSuffix := SplitProfileName(profile.Name)
+	id := armotypes.ProfileIdentifier{
+		ProfileScope: armotypes.ProfileScope{
+			HostType:               a.HostType,
+			Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+			Namespace:              profile.Namespace,
+			CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+			Region:                 profile.Annotations[helpers.RegionMetadataKey],
+			HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
+		},
+		Name: name,
+	}
+	return TimeSeriesRow{
+		Kind:                    ContainerProfileKind,
+		Namespace:               profile.Namespace,
+		Name:                    name,
+		SeriesID:                seriesID,
+		TsSuffix:                tsSuffix,
+		ReportTimestamp:         profile.Annotations[helpers.ReportTimestampMetadataKey],
+		Status:                  profile.Annotations[helpers.StatusMetadataKey],
+		Completion:              profile.Annotations[helpers.CompletionMetadataKey],
+		PreviousReportTimestamp: profile.Annotations[helpers.PreviousReportTimestampMetadataKey],
+		HasData:                 true,
+	}, BuildContainerProfileKey(id, ContainerProfileKind), true
+}
+
+// AfterCreate is called after a TS ContainerProfile is created to store metadata.
+func (a *ContainerProfileProcessor) AfterCreate(ctx context.Context, object runtime.Object) error {
+	if _, ok := object.(*softwarecomposition.ContainerProfile); !ok {
+		return fmt.Errorf("given object is not an ContainerProfile")
+	}
+	row, _, ok := a.TimeSeriesRowFor(object)
 	if !ok {
 		// if the container ID annotation is not set, it's not a TS ContainerProfile and we skip it
 		return nil
 	}
-	// parse name and namespace
-	// remove the suffix from the name after the last hyphen
-	name, tsSuffix := SplitProfileName(profile.Name)
-	namespace := profile.Namespace
-	// parse annotations
-	completion := profile.Annotations[helpers.CompletionMetadataKey]
-	previousReportTimestamp := profile.Annotations[helpers.PreviousReportTimestampMetadataKey]
-	reportTimestamp := profile.Annotations[helpers.ReportTimestampMetadataKey]
-	status := profile.Annotations[helpers.StatusMetadataKey]
+	writer, ok := a.ContainerProfileStorage.(TimeSeriesEntryWriter)
+	if !ok {
+		return fmt.Errorf("container profile storage %T cannot write time series entries", a.ContainerProfileStorage)
+	}
 	// add sequence info via storage interface
-	err := a.ContainerProfileStorage.(*ContainerProfileStorageImpl).WriteTimeSeriesEntry(ctx, "containerprofile", namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, true)
+	err := writer.WriteTimeSeriesEntry(ctx, row.Kind, row.Namespace, row.Name, row.SeriesID, row.TsSuffix, row.ReportTimestamp, row.Status, row.Completion, row.PreviousReportTimestamp, row.HasData)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("ContainerProfileProcessor.AfterCreate - failed to write time series data for container profile",
 			loggerhelpers.Error(err),
-			loggerhelpers.String("name", profile.Name),
-			loggerhelpers.String("namespace", namespace),
-			loggerhelpers.String("completion", completion),
-			loggerhelpers.String("seriesID", seriesID),
-			loggerhelpers.String("tsSuffix", tsSuffix),
-			loggerhelpers.Interface("previousReportTimestamp", previousReportTimestamp),
-			loggerhelpers.Interface("reportTimestamp", reportTimestamp),
-			loggerhelpers.String("status", status))
+			loggerhelpers.String("name", row.Name+"-"+row.TsSuffix),
+			loggerhelpers.String("namespace", row.Namespace),
+			loggerhelpers.String("completion", row.Completion),
+			loggerhelpers.String("seriesID", row.SeriesID),
+			loggerhelpers.String("tsSuffix", row.TsSuffix),
+			loggerhelpers.Interface("previousReportTimestamp", row.PreviousReportTimestamp),
+			loggerhelpers.Interface("reportTimestamp", row.ReportTimestamp),
+			loggerhelpers.String("status", row.Status))
 		return fmt.Errorf("write time series data: %w", err)
 	}
 	return nil
@@ -274,15 +330,50 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	return nil
 }
 
+// SetStorage hands the processor its ContainerProfileStorage. It does NOT
+// start the maintenance loop: under the ObjectStore backend, NewObjectStore
+// calls this before its caller (apiserver.go) finishes wiring
+// CleanupHandler.SetContainerProfileStore(objectStore) -- a maintenance tick
+// starting in that window would run cleanup's ContainerProfile arm with
+// cpStore still nil, taking the legacy file-walk path against a database
+// whose CP rows now live in the ObjectStore schema (deleting migrated
+// metadata without its payload row), and races unsynchronized on cpStore
+// with that same Set call. Call StartMaintenance explicitly once all such
+// wiring is complete.
 func (a *ContainerProfileProcessor) SetStorage(containerProfileStorage ContainerProfileStorage) {
 	a.ContainerProfileStorage = containerProfileStorage
+}
+
+// StartMaintenance starts the periodic cleanup/consolidation loop. The
+// caller must have finished all storage wiring first (see SetStorage). A
+// process calls this once and never StopMaintenance, letting the loop run
+// until process exit; StopMaintenance exists for callers (tests) that need
+// the loop to actually end, not just go out of scope.
+func (a *ContainerProfileProcessor) StartMaintenance() {
 	if a.Interval > 0 {
-		go a.runMaintenanceTasks()
+		a.stopMaintenance = make(chan struct{})
+		go a.runMaintenanceTasks(a.stopMaintenance)
 	}
 }
 
-func (a *ContainerProfileProcessor) runMaintenanceTasks() {
+// StopMaintenance ends the loop StartMaintenance started, once its current
+// iteration (if any) finishes -- it does not cancel an in-flight cleanup or
+// consolidation pass. A no-op if StartMaintenance was never called or the
+// loop already stopped. Not safe to call concurrently with StartMaintenance.
+func (a *ContainerProfileProcessor) StopMaintenance() {
+	if a.stopMaintenance != nil {
+		close(a.stopMaintenance)
+		a.stopMaintenance = nil
+	}
+}
+
+func (a *ContainerProfileProcessor) runMaintenanceTasks(stop <-chan struct{}) {
 	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
 		// cleanup
 		logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - starting cleanup task")
 		err := a.cleanup()
@@ -300,7 +391,11 @@ func (a *ContainerProfileProcessor) runMaintenanceTasks() {
 			logger.L().Debug("ContainerProfileProcessor.runMaintenanceTasks - consolidation task completed successfully")
 		}
 		// sleep
-		time.Sleep(a.Interval)
+		select {
+		case <-stop:
+			return
+		case <-time.After(a.Interval):
+		}
 	}
 }
 
@@ -317,7 +412,7 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
 		// keyed by the storage kind segment, not the REST resource name:
 		// container profiles live under the singular "containerprofile"
-		ContainerProfileKind: {deleteByTemplateHashOrWlid},
+		ContainerProfileKind: a.CleanupHandler.ContainerProfileHandlers(),
 	}
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)
 }
@@ -410,6 +505,38 @@ func (a *ContainerProfileProcessor) ConsolidateTimeSeries(ctx context.Context) e
 // The expired parameter indicates whether this time series has exceeded the deleteThreshold.
 // When expired=true, the resulting profile will be marked as Completed/Partial (unless already Completed/Full).
 func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context, key string, expired bool) error {
+	err := a.consolidateKeyTimeSeriesOnce(ctx, key, expired)
+	if errors.Is(err, ErrWriteConflict) {
+		// A store whose tick commits atomically (ObjectStore) reports a
+		// compare-and-swap conflict when the base or a processed TS object
+		// changed between the pass's reads and its commit: re-read and retry
+		// once (design §3.7 Phase 3, N=2); a second conflict is next tick's.
+		// The retry runs with the series reserved against same-series writers
+		// when the store supports it, so a writer committing back-to-back
+		// cannot beat it again (ConsolidationKeyReserver).
+		logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - write conflict, retrying once", loggerhelpers.String("key", key))
+		reserver, reserved := a.ContainerProfileStorage.(ConsolidationKeyReserver)
+		retryCtx, release := ctx, func() {}
+		if reserved {
+			retryCtx, release = reserver.ReserveConsolidationKey(ctx, key)
+		}
+		err = a.consolidateKeyTimeSeriesOnce(retryCtx, key, expired)
+		release()
+		if reserved {
+			switch {
+			case err == nil:
+				metrics.IncConsolidationKeyReserved(metrics.KeyReserveCommitted)
+			case errors.Is(err, ErrWriteConflict):
+				metrics.IncConsolidationKeyReserved(metrics.KeyReserveConflict)
+			default:
+				metrics.IncConsolidationKeyReserved(metrics.KeyReserveError)
+			}
+		}
+	}
+	return err
+}
+
+func (a *ContainerProfileProcessor) consolidateKeyTimeSeriesOnce(ctx context.Context, key string, expired bool) error {
 	logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - consolidating data for key", loggerhelpers.String("key", key), loggerhelpers.Interface("expired", expired))
 
 	// Each unit of work owns its own pool connection so keys can be consolidated
@@ -473,7 +600,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 	// the predicate after the pass would turn the slug guard into "never send".
 	frozen := softwarecomposition.IsCompletedFull(profile.Annotations)
 
-	processed, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, id, expired)
+	processed, deletesStaged, err := a.processTimeSeriesInTransaction(ctx, timeSeries, key, profile, prefix, root, id, expired)
 	if err != nil {
 		return err
 	}
@@ -492,8 +619,13 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeries(ctx context.Context
 		}
 	}
 
-	if err := a.deleteProcessedTimeSeries(ctx, processed); err != nil {
-		return err
+	if !deletesStaged {
+		if a.Hooks.BeforeProcessedDeletes != nil {
+			a.Hooks.BeforeProcessedDeletes(key)
+		}
+		if err := a.deleteProcessedTimeSeries(ctx, processed); err != nil {
+			return err
+		}
 	}
 
 	logger.L().Debug("ContainerProfileProcessor.consolidateKeyTimeSeries - finished consolidating data for key", loggerhelpers.String("key", key))
@@ -585,20 +717,29 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 }
 
 // processTimeSeriesInTransaction processes time series data within a database transaction
+//
+// deletesStaged reports that the processed time-series deletes were handed to
+// the store inside the transaction (ProcessedDeleteStager) and must not be
+// issued again by the caller.
 func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.Context,
 	timeSeries map[string][]softwarecomposition.TimeSeriesContainers, key string,
-	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) (processed []string, err error) {
+	profile softwarecomposition.ContainerProfile, prefix, root string, id armotypes.ProfileIdentifier, expired bool) (processed []string, deletesStaged bool, err error) {
 
 	endFn, err := a.ContainerProfileStorage.BeginTransaction(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin nested transaction: %w", err)
+		return nil, false, fmt.Errorf("failed to begin nested transaction: %w", err)
 	}
 	// Registered before endFn so it runs after it (LIFO) and wraps a failed
-	// COMMIT the same way as a failed updateProfile.
+	// COMMIT the same way as a failed updateProfile. A CAS conflict discovered
+	// by endFn's COMMIT (not just one raised by updateProfile) passes through
+	// unwrapped so the caller's errors.Is(err, ErrWriteConflict) retry still
+	// fires.
 	defer func() {
 		if err != nil {
 			processed = nil
-			err = fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
+			if !errors.Is(err, ErrWriteConflict) {
+				err = fmt.Errorf("failed to process time series data for key %s (transaction rolled back): %w", key, err)
+			}
 		}
 	}()
 	// endFn must be deferred DIRECTLY: it recovers a panic raised inside
@@ -607,8 +748,18 @@ func (a *ContainerProfileProcessor) processTimeSeriesInTransaction(ctx context.C
 	// transaction open, leaving SQLite's write lock held by a connection that
 	// went back to the pool with nobody left to end it.
 	defer endFn(&err)
+
 	processed, err = a.updateProfile(ctx, timeSeries, key, profile, prefix, root, id, expired)
-	return processed, err
+	if err == nil {
+		if st, ok := a.ContainerProfileStorage.(ProcessedDeleteStager); ok && st.StagesProcessedDeletes() {
+			if a.Hooks.BeforeProcessedDeletes != nil {
+				a.Hooks.BeforeProcessedDeletes(key)
+			}
+			err = a.deleteProcessedTimeSeries(ctx, processed)
+			deletesStaged = true
+		}
+	}
+	return processed, deletesStaged, err
 }
 
 // deleteProcessedTimeSeries removes processed time series profiles from storage.

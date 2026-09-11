@@ -153,7 +153,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			sch := scheme.Scheme
 			require.NoError(t, softwarecomposition.AddToScheme(sch))
 			realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
-			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage)
+			generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(realStorage, realStorage)
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
@@ -201,7 +201,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	err := generatedNetworkPolicyStorage.Create(context.TODO(), "", nil, nil, 0)
 
@@ -212,7 +212,7 @@ func TestGeneratedNetworkPolicyStorage_Create(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	err := generatedNetworkPolicyStorage.Delete(context.TODO(), "", nil, nil, nil, nil, storage.DeleteOptions{})
 
@@ -223,7 +223,7 @@ func TestGeneratedNetworkPolicyStorage_Delete(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	_, err := generatedNetworkPolicyStorage.Watch(context.TODO(), "", storage.ListOptions{})
 	assert.NoError(t, err)
@@ -231,7 +231,7 @@ func TestGeneratedNetworkPolicyStorage_Watch(t *testing.T) {
 
 func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
 	storageImpl := NewStorageImpl(afero.NewMemMapFs(), "", nil, nil, nil)
-	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl)
+	generatedNetworkPolicyStorage := NewGeneratedNetworkPolicyStorage(storageImpl, storageImpl)
 
 	err := generatedNetworkPolicyStorage.GuaranteedUpdate(context.TODO(), "", nil, false, nil, nil, nil)
 
@@ -268,7 +268,7 @@ func TestGeneratedNetworkPolicyStorage_GetList_SelectorAppliedAfterGeneration(t 
 		require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/default/"+workloadName, source, nil, 0))
 	}
 
-	s := NewGeneratedNetworkPolicyStorage(realStorage)
+	s := NewGeneratedNetworkPolicyStorage(realStorage, realStorage)
 	list := &softwarecomposition.GeneratedNetworkPolicyList{}
 	opts := storage.ListOptions{
 		Predicate: generatednetworkpolicy.MatchGeneratedNetworkPolicy(
