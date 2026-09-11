@@ -6,7 +6,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"fmt"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -332,3 +334,76 @@ func TestExport_TrailingSlashRootDoesNotDeleteLiveFiles(t *testing.T) {
 	require.NoError(t, e.legacy.Get(e.ctx, liveKey, storage.GetOptions{}, getOut), "the live object must still be readable by an old binary")
 }
 
+// failOpenFs fails Open for one target path while armed, otherwise
+// delegates -- reproduces a permission-denied/I/O error reading a specific
+// file's content (what decodeLegacyFileAt hits), distinct from toggleFailFs
+// (migration test helper, same package) which fails Stat for directory/walk
+// -level errors. afero.Walk itself never calls Open, only Stat/ReadDir, so
+// arming this on a file already discovered by Walk reproduces the failure
+// happening exactly where reconcileStaleExportedFiles decodes it.
+type failOpenFs struct {
+	afero.Fs
+	target string
+	fail   atomic.Bool
+}
+
+func (f *failOpenFs) Open(name string) (afero.File, error) {
+	if f.fail.Load() && name == f.target {
+		return nil, fmt.Errorf("failOpenFs: simulated open failure for %s", name)
+	}
+	return f.Fs.Open(name)
+}
+
+// TestExport_ReconcileTopLevelStatErrorFailsExport: the same class of bug as
+// TestMigration_SweepTopLevelStatErrorDoesNotMarkDone, on the export side --
+// afero.DirExists returns exists=false on ANY stat error, not just "does
+// not exist", and reconcileStaleExportedFiles used to read that as "nothing
+// to reconcile" and report success. A stat error there must instead fail
+// the export, since a directory that could not be checked might hold a
+// stale, resurrection-capable file the export never got to look at.
+func TestExport_ReconcileTopLevelStatErrorFailsExport(t *testing.T) {
+	failing := &toggleFailFs{Fs: afero.NewMemMapFs()}
+	e := newMigrationEnv(t, failing)
+	e.seed(1)
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+
+	failing.target = filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, ContainerProfileKind)
+	failing.fail.Store(true)
+	_, err := ExportContainerProfiles(e.ctx, e.pool, failing, DefaultStorageRoot, e.scheme, ContainerProfileExportOptions{})
+	require.Error(t, err, "a stat error checking the reconcile directory must fail the export, not read as \"nothing to reconcile\"")
+}
+
+// TestExport_ReconcileFileAccessErrorFailsExport: a permission/I/O error
+// opening a stale candidate's file (its metadata row is gone, its file
+// still exists) used to be treated identically to the file's content being
+// genuinely undecodable garbage -- reconcileStaleExportedFiles left it in
+// place and the export still reported success. But an access error means
+// the tool could not tell whether that file is content an old binary would
+// resurrect; unlike truly undecodable content (safe to leave, an old binary
+// can't read it either), it must fail the export instead of silently
+// leaving a landmine an operator believes was checked.
+func TestExport_ReconcileFileAccessErrorFailsExport(t *testing.T) {
+	failing := &failOpenFs{Fs: afero.NewMemMapFs()}
+	e := newMigrationEnv(t, failing)
+	e.seed(1)
+	key := e.key("plain-00")
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+
+	out := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, e.store.Delete(e.ctx, key, out, nil, nil, nil, storage.DeleteOptions{}))
+	exists, err := afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, exists, "the pre-flip legacy file survives an ObjectStore delete")
+
+	failing.target = e.filePath("plain-00")
+	failing.fail.Store(true)
+	_, err = ExportContainerProfiles(e.ctx, e.pool, failing, DefaultStorageRoot, e.scheme, ContainerProfileExportOptions{})
+	require.Error(t, err, "an access error on a stale candidate must fail the export, not be treated as harmless undecodable content")
+
+	failing.fail.Store(false)
+	exists, err = afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, exists, "the file was never classified, so it must not have been removed either")
+}

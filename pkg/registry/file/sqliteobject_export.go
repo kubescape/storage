@@ -188,7 +188,17 @@ func ExportContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, fs
 // content).
 func reconcileStaleExportedFiles(ctx context.Context, pool *sqlitemigration.Pool, fs afero.Fs, root string, dryRun bool) (int, error) {
 	dir := filepath.Join(root, softwarecomposition.GroupName, ContainerProfileKind)
-	if exists, _ := afero.DirExists(fs, dir); !exists {
+	// A real filesystem error here (e.g. permission denied) must not read as
+	// "the directory doesn't exist": DirExists returns exists=false on ANY
+	// stat error, not just os.ErrNotExist. Reading that as "nothing to
+	// reconcile" would let the export report success while a subtree of
+	// stale, possibly resurrection-capable files went unchecked (the same
+	// class of bug fixed in the migration sweep, sqliteobject_migration.go).
+	exists, err := afero.DirExists(fs, dir)
+	if err != nil {
+		return 0, fmt.Errorf("containerprofile export: stat %s: %w", dir, err)
+	}
+	if !exists {
 		return 0, nil
 	}
 	conn, err := pool.Take(ctx)
@@ -213,7 +223,14 @@ func reconcileStaleExportedFiles(ctx context.Context, pool *sqlitemigration.Pool
 		} else if !errors.Is(rerr, ErrMetadataNotFound) {
 			return fmt.Errorf("read metadata %s: %w", key, rerr)
 		}
-		if _, found, derr := decodeLegacyFileAt(ctx, fs, root, key); derr != nil || !found {
+		_, found, derr := decodeLegacyFileAt(ctx, fs, root, key)
+		if derr != nil && errors.Is(derr, errLegacyFileAccess) {
+			// A real filesystem error (permission denied, I/O failure), not
+			// the file's content being bad: we cannot tell whether this file
+			// is safe to leave, so a "clean" export must not silently do so.
+			return fmt.Errorf("decode %s: %w", key, derr)
+		}
+		if derr != nil || !found {
 			// Undecodable, or raced away between Walk and here: leave it.
 			return nil
 		}

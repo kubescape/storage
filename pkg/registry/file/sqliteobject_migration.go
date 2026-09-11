@@ -507,6 +507,14 @@ func (m *containerProfileMigrator) decodeLegacyFile(ctx context.Context, key str
 	return decodeLegacyFileAt(ctx, m.fs, m.root, key)
 }
 
+// errLegacyFileAccess wraps a decodeLegacyFileAt failure that is a real
+// filesystem access problem (permission denied, I/O error) rather than the
+// file's content being unreadable as a ContainerProfile. A caller that must
+// tell the two apart -- content it can safely leave alone vs. an access
+// failure that leaves it unable to say whether a file is safe to act on --
+// checks for this with errors.Is.
+var errLegacyFileAccess = errors.New("legacy file access")
+
 // decodeLegacyFileAt is decodeLegacyFile without a migrator receiver, for
 // callers (the export tool's stale-file reconciliation) that need the same
 // "would an old binary read this as a valid object" decode, outside of a
@@ -518,7 +526,7 @@ func decodeLegacyFileAt(ctx context.Context, fs afero.Fs, root, key string) (*so
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, afero.ErrFileNotFound) {
 			return nil, false, nil
 		}
-		return nil, true, fmt.Errorf("open payload file: %w", err)
+		return nil, true, fmt.Errorf("open payload file: %w: %w", errLegacyFileAccess, err)
 	}
 	defer func() { _ = f.Close() }()
 	obj := &softwarecomposition.ContainerProfile{}
