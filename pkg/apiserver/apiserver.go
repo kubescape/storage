@@ -194,6 +194,14 @@ func (c completedConfig) New() (*WardleServer, error) {
 	} else {
 		containerProfileStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
 	}
+	// Only after every branch above has finished wiring the processor's
+	// storage (including, under the SQLite backend, the cleanup handler's
+	// SetContainerProfileStore call): starting maintenance any earlier lets
+	// its first cleanup tick run cleanup's ContainerProfile arm with cpStore
+	// still nil, taking the legacy file-walk path against rows the
+	// ObjectStore now owns, and races unsynchronized on cpStore with the Set
+	// call above.
+	containerProfileProcessor.StartMaintenance()
 
 	var (
 		configScanStorageImpl         = file.NewConfigurationScanSummaryStorage(storageImpl)

@@ -16,14 +16,19 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/goradd/maps"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
+	"github.com/kubescape/storage/pkg/config"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 )
@@ -239,4 +244,76 @@ func TestCleanup_ContainerProfileArmUsesRowsUnderTheFlag(t *testing.T) {
 	default:
 		t.Fatal("expected a Deleted event for the reclaimed profile")
 	}
+}
+
+// TestContainerProfileProcessor_MaintenanceDoesNotStartUntilExplicit: under
+// the ObjectStore backend, apiserver.go calls NewObjectStore (which calls
+// SetStorage) BEFORE it finishes wiring CleanupHandler.SetContainerProfileStore
+// -- so SetStorage starting the maintenance goroutine by itself let a
+// cleanup tick run cleanup's ContainerProfile arm with cpStore still nil
+// (the legacy file-walk path against rows the ObjectStore owns) and raced
+// unsynchronized on cpStore with that Set call. SetStorage must not start
+// maintenance; only an explicit StartMaintenance, called once all such
+// wiring is complete, may.
+func TestContainerProfileProcessor_MaintenanceDoesNotStartUntilExplicit(t *testing.T) {
+	// A throwaway pool/store this test never closes: StartMaintenance's
+	// runMaintenanceTasks loops forever with no stop mechanism (matching
+	// production, where it runs for the process's life), so once started it
+	// outlives this test function. Reusing newObjectStoreEnv's pool would
+	// race that leaked goroutine against the env's own t.Cleanup closing it;
+	// an isolated, never-closed pool has nothing left for it to race.
+	dir := t.TempDir()
+	sch := runtime.NewScheme()
+	install.Install(sch)
+	pool := NewPoolWithOptions(filepath.Join(dir, "metadata.sq3"), PoolOptions{Size: DefaultPoolSize, BusyTimeout: 5 * time.Second})
+	wd := NewWatchDispatcher()
+	legacyFs := afero.NewMemMapFs()
+	legacy := NewStorageImpl(legacyFs, DefaultStorageRoot, pool, wd, sch).(*StorageImpl)
+	legacy.SetForeignKinds(IsContainerProfileKind)
+	gateCtx, gateCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer gateCancel()
+	gate, err := newWriteGate(gateCtx, pool)
+	require.NoError(t, err)
+	legacy.SetWriteGate(gate)
+
+	// fetcher.calls is read from require.Eventually's own polling goroutine:
+	// an atomic, not processor.LastCleanup (a plain field the maintenance
+	// goroutine writes unsynchronized -- reading it cross-goroutine would
+	// itself be a race, independent of the one this test exists to close).
+	fetcher := &countingFetcher{nsFetchMock: &nsFetchMock{ns: "kubescape", runningWlid: cleanupLiveWlid}}
+	h := NewResourcesCleanupHandler(legacyFs, DefaultStorageRoot, pool, wd, 0, "kubescape", fetcher, false)
+	h.SetWriteGate(gate)
+
+	processor := NewContainerProfileProcessor(config.Config{DefaultNamespace: "kubescape", MaxContainerProfileSize: 40000}, h)
+	processor.Interval = 5 * time.Millisecond
+	processor.Workers = 1
+
+	store, err := NewObjectStore(pool, filepath.Join(dir, "metadata.sq3"), wd, sch, processor, legacy, gate, ObjectStoreOptions{})
+	require.NoError(t, err)
+
+	// SetStorage (called inside NewObjectStore) alone: no cleanup handler
+	// wired yet (the production ordering's dangerous window), and no
+	// maintenance goroutine may exist.
+	time.Sleep(10 * processor.Interval)
+	require.Zero(t, fetcher.calls.Load(), "SetStorage must not start maintenance")
+
+	// Finish wiring, exactly as apiserver.go's SetContainerProfileStore call
+	// does, then start maintenance explicitly.
+	h.SetContainerProfileStore(store)
+	processor.StartMaintenance()
+
+	require.Eventually(t, func() bool { return fetcher.calls.Load() > 0 }, time.Second, time.Millisecond,
+		"StartMaintenance must start the maintenance loop")
+}
+
+// countingFetcher counts ListNamespaces calls: one per CleanupTask, so it
+// doubles as a race-free "did a cleanup tick run" signal.
+type countingFetcher struct {
+	*nsFetchMock
+	calls atomic.Int64
+}
+
+func (f *countingFetcher) ListNamespaces(conn *sqlite.Conn) ([]string, error) {
+	f.calls.Add(1)
+	return f.nsFetchMock.ListNamespaces(conn)
 }

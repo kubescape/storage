@@ -321,8 +321,23 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	return nil
 }
 
+// SetStorage hands the processor its ContainerProfileStorage. It does NOT
+// start the maintenance loop: under the ObjectStore backend, NewObjectStore
+// calls this before its caller (apiserver.go) finishes wiring
+// CleanupHandler.SetContainerProfileStore(objectStore) -- a maintenance tick
+// starting in that window would run cleanup's ContainerProfile arm with
+// cpStore still nil, taking the legacy file-walk path against a database
+// whose CP rows now live in the ObjectStore schema (deleting migrated
+// metadata without its payload row), and races unsynchronized on cpStore
+// with that same Set call. Call StartMaintenance explicitly once all such
+// wiring is complete.
 func (a *ContainerProfileProcessor) SetStorage(containerProfileStorage ContainerProfileStorage) {
 	a.ContainerProfileStorage = containerProfileStorage
+}
+
+// StartMaintenance starts the periodic cleanup/consolidation loop. The
+// caller must have finished all storage wiring first (see SetStorage).
+func (a *ContainerProfileProcessor) StartMaintenance() {
 	if a.Interval > 0 {
 		go a.runMaintenanceTasks()
 	}
