@@ -17,10 +17,10 @@ type Processor interface {
 
 // TimeSeriesRow is one time_series table row.
 type TimeSeriesRow struct {
-	Kind, Namespace, Name, SeriesID, TsSuffix           string
-	ReportTimestamp, Status, Completion                 string
-	PreviousReportTimestamp                             string
-	HasData                                             bool
+	Kind, Namespace, Name, SeriesID, TsSuffix string
+	ReportTimestamp, Status, Completion       string
+	PreviousReportTimestamp                   string
+	HasData                                   bool
 }
 
 // TimeSeriesRowProvider is implemented by a Processor whose AfterCreate side

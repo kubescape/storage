@@ -125,12 +125,12 @@ type objectStoreEnv struct {
 	scheme    *runtime.Scheme
 	rec       *tableRecorder
 	// fixture is the non-pool handle tests seed state through (CR-2b).
-	fixture   *sqlite.Conn
-	tpl       softwarecomposition.ContainerProfile
-	baseNm    string
-	ns        string
-	baseKey   string
-	now       time.Time
+	fixture *sqlite.Conn
+	tpl     softwarecomposition.ContainerProfile
+	baseNm  string
+	ns      string
+	baseKey string
+	now     time.Time
 }
 
 type envOption func(*envConfig)
@@ -212,10 +212,10 @@ func newObjectStoreEnv(t *testing.T, opts ...envOption) *objectStoreEnv {
 	t.Cleanup(cancel)
 	return &objectStoreEnv{
 		t: t, ctx: ctx, dir: dir, dbPath: dbPath, pool: pool, gate: gate, store: store,
-		cp:        processor.ContainerProfileStorage.(*objectStoreCPStorage),
-		legacy:    legacy, legacyFs: legacyFs, processor: processor, wd: wd, scheme: sch, rec: rec,
-		fixture:   openFixtureConn(t, pool, dbPath, 5*time.Second),
-		tpl: tpl, baseNm: baseNm, ns: tpl.Namespace,
+		cp:     processor.ContainerProfileStorage.(*objectStoreCPStorage),
+		legacy: legacy, legacyFs: legacyFs, processor: processor, wd: wd, scheme: sch, rec: rec,
+		fixture: openFixtureConn(t, pool, dbPath, 5*time.Second),
+		tpl:     tpl, baseNm: baseNm, ns: tpl.Namespace,
 		baseKey: testCPPrefix + tpl.Namespace + "/" + baseNm,
 		now:     time.Now().Round(0),
 	}

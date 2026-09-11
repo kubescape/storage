@@ -63,9 +63,18 @@ func (r *recordingDispatcher) note(what string) {
 		r.calls = append(r.calls, what)
 	}
 }
-func (r *recordingDispatcher) Added(k string, m, o runtime.Object)    { r.note("Added"); r.inner.Added(k, m, o) }
-func (r *recordingDispatcher) Modified(k string, m, o runtime.Object) { r.note("Modified"); r.inner.Modified(k, m, o) }
-func (r *recordingDispatcher) Deleted(k string, m runtime.Object)     { r.note("Deleted"); r.inner.Deleted(k, m) }
+func (r *recordingDispatcher) Added(k string, m, o runtime.Object) {
+	r.note("Added")
+	r.inner.Added(k, m, o)
+}
+func (r *recordingDispatcher) Modified(k string, m, o runtime.Object) {
+	r.note("Modified")
+	r.inner.Modified(k, m, o)
+}
+func (r *recordingDispatcher) Deleted(k string, m runtime.Object) {
+	r.note("Deleted")
+	r.inner.Deleted(k, m)
+}
 
 // TestINV1_GateHolderExecutesOnlySQL: between BEGIN IMMEDIATE and COMMIT on
 // the gate's connection, the only activity in the process is SQL on that
