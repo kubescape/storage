@@ -37,10 +37,12 @@ import (
 var (
 	// keyReserveWaitMax bounds a writer's wait on a series reservation.
 	// Tier B (droplet run, b8e42f76) showed a 1s cap here shifting +47%
-	// onto update-p95-ms for writers landing during a reservation; 200ms
-	// keeps the writer-side cost small while still giving the retry a
-	// real shot before the writer proceeds unreserved.
-	keyReserveWaitMax = 200 * time.Millisecond
+	// onto update-p95-ms for writers landing during a reservation; a
+	// clean dedicated-CPU rerun at 200ms (commit d4e8090d) still showed
+	// a real +70.6% p95 regression (smaller absolute cost, ~88ms, but a
+	// bigger fraction of this host's much lower baseline latency) — so
+	// 200ms wasn't aggressive enough. Dropping further to 50ms.
+	keyReserveWaitMax = 50 * time.Millisecond
 	// keyReserveDrainMax bounds the reserving pass's wait for in-flight
 	// same-series writes to finish. Left at 1s: this is the tail-latency
 	// bound that fixed consolidation starvation and must stay generous.
