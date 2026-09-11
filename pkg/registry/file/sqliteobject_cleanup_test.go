@@ -241,7 +241,13 @@ func TestCleanup_ContainerProfileArmUsesRowsUnderTheFlag(t *testing.T) {
 	select {
 	case ev := <-w.ResultChan():
 		require.Equal(t, "DELETED", string(ev.Type))
-	default:
+	case <-time.After(5 * time.Second):
+		// A non-blocking default here raced the watch dispatcher's own
+		// goroutine: the event is genuinely async (see WatchDispatcher),
+		// so nothing guarantees it is already queued the instant
+		// processor.cleanup() returns -- under load (a busy CI runner)
+		// the dispatch goroutine simply may not have run yet. A bounded
+		// wait is still a hard failure on a real bug, just not a race.
 		t.Fatal("expected a Deleted event for the reclaimed profile")
 	}
 }
