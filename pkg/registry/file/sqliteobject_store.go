@@ -408,6 +408,7 @@ func (s *ObjectStore) fetchListPage(ctx context.Context, conn *sqlite.Conn, key,
 						WHERE kind = :kind
 							AND (:namespace = '' OR namespace = :namespace)
 							AND rowid > :cont
+							AND is_time_series = 0
 						ORDER BY rowid
 						LIMIT :limit) m
 				JOIN payloads p ON p.kind = m.kind AND p.namespace = m.namespace AND p.name = m.name
@@ -603,9 +604,9 @@ func (s *ObjectStore) execCreate(conn *sqlite.Conn, pw *preparedWrite, hook func
 		return err
 	}
 	if err := sqlitex.Execute(conn,
-		`INSERT INTO metadata (kind, namespace, name, metadata, rv, uid)
-			VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		&sqlitex.ExecOptions{Args: []any{pw.kind, pw.namespace, pw.name, string(pw.metadataJSON), pw.rv, pw.uid}}); err != nil {
+		`INSERT INTO metadata (kind, namespace, name, metadata, rv, uid, is_time_series)
+			VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		&sqlitex.ExecOptions{Args: []any{pw.kind, pw.namespace, pw.name, string(pw.metadataJSON), pw.rv, pw.uid, pw.tsRow != nil}}); err != nil {
 		return fmt.Errorf("insert metadata: %w", err)
 	}
 	if conn.Changes() == 0 {

@@ -425,3 +425,38 @@ func TestObjectStore_ListPagination(t *testing.T) {
 	meta := page(softwarecomposition.ResourceVersionMetadata, "", 0)
 	assert.Empty(t, meta.Items[0].Spec.Architectures, "metadata list carries no body")
 }
+
+// TestObjectStore_ListExcludesUnconsolidatedTSRows: an un-consolidated TS
+// profile create writes a real metadata+payloads row (see the ObjectStore
+// file comment), one per report, alongside its time_series bookkeeping row.
+// Those rows are internal to consolidation and must never surface through
+// the k8s List API -- a client that never asked about time-series internals
+// should see exactly the consolidated/base objects. This also is the fix for
+// Tier B's list-p95-ms regression (§ keyReserveWaitMax tuning history): more
+// writers proceeding unreserved past an in-flight consolidation retry left
+// more un-merged TS rows sitting in `metadata` before the tick could clear
+// them, and List had no way to skip them -- it decoded every one.
+func TestObjectStore_ListExcludesUnconsolidatedTSRows(t *testing.T) {
+	e := newObjectStoreEnv(t)
+	base := e.create(e.plain("plain-object"))
+	for i := 1; i <= 3; i++ {
+		e.create(e.ts(fmt.Sprintf("s%d", i), i, helpersv1.Learning, helpersv1.Partial))
+	}
+	listKey := testCPPrefix + e.ns
+	for _, rv := range []string{softwarecomposition.ResourceVersionMetadata, softwarecomposition.ResourceVersionFullSpec} {
+		out := &softwarecomposition.ContainerProfileList{}
+		opts := storage.ListOptions{ResourceVersion: rv, Predicate: storage.SelectionPredicate{Limit: 0}, Recursive: true}
+		require.NoError(t, e.store.GetList(e.ctx, listKey, opts, out))
+		var names []string
+		for _, it := range out.Items {
+			names = append(names, it.Name)
+		}
+		assert.Equal(t, []string{base.Name}, names, "%s: only the consolidated/base object is listed, not the pending TS rows", rv)
+	}
+	// The TS rows are real rows, not silently dropped -- ConsolidateTimeSeries
+	// still finds and merges them normally into their own series (e.baseKey,
+	// unrelated to the plain object above); List's exclusion is read-side only.
+	e.tick()
+	assert.Equal(t, 0, e.pendingTSRows(e.baseKey), "consolidation still sees and merges the excluded TS rows")
+	assert.Equal(t, helpersv1.Learning, e.mustGet(e.baseKey).Annotations[helpersv1.StatusMetadataKey])
+}

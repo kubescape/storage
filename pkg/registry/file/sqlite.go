@@ -41,7 +41,13 @@ const DefaultBusyTimeout = 60 * time.Second
 // ContainerProfile SQLite-native backend (ObjectStore); the legacy
 // StorageImpl keeps writing (kind, namespace, name, metadata) and leaves them
 // NULL / empty for every other kind. Migration 5 is the data migration's
-// done-flag table (MigrateContainerProfiles).
+// done-flag table (MigrateContainerProfiles). Migration 6 (is_time_series) is
+// also additive with a constant DEFAULT, so SQLite backfills every existing
+// row's logical value to 0 without a table rewrite: a base object row reads
+// correctly as 0 immediately, and a TS row already in the database from
+// before the upgrade reads as 0 too (wrongly "not a TS row") until it is next
+// consolidated away -- the same bounded, self-healing staleness the rv/uid
+// columns above already accept for pre-upgrade data, not a new kind of risk.
 func SchemaMigrations() []string {
 	return []string{
 		`CREATE TABLE IF NOT EXISTS metadata (
@@ -80,6 +86,7 @@ func SchemaMigrations() []string {
 			counts TEXT,
 			updated_at TEXT
 		);`,
+		`ALTER TABLE metadata ADD COLUMN is_time_series INTEGER NOT NULL DEFAULT 0;`,
 	}
 }
 
@@ -396,6 +403,7 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
+                	AND is_time_series = 0
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
@@ -427,6 +435,7 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
+                	AND is_time_series = 0
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
