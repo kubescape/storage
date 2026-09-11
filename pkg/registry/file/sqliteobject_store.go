@@ -154,13 +154,13 @@ func (s *ObjectStore) Close() error {
 
 // ---- storage.Interface plumbing ----
 
-func (s *ObjectStore) Versioner() storage.Versioner                          { return s.versioner }
-func (s *ObjectStore) ReadinessCheck() error                                  { return nil }
-func (s *ObjectStore) RequestWatchProgress(context.Context) error             { return nil }
+func (s *ObjectStore) Versioner() storage.Versioner                              { return s.versioner }
+func (s *ObjectStore) ReadinessCheck() error                                     { return nil }
+func (s *ObjectStore) RequestWatchProgress(context.Context) error                { return nil }
 func (s *ObjectStore) GetCurrentResourceVersion(context.Context) (uint64, error) { return 0, nil }
-func (s *ObjectStore) EnableResourceSizeEstimation(storage.KeysFunc) error    { return nil }
-func (s *ObjectStore) CompactRevision() int64                                 { return 0 }
-func (s *ObjectStore) SetKeysFunc(storage.KeysFunc)                           {}
+func (s *ObjectStore) EnableResourceSizeEstimation(storage.KeysFunc) error       { return nil }
+func (s *ObjectStore) CompactRevision() int64                                    { return 0 }
+func (s *ObjectStore) SetKeysFunc(storage.KeysFunc)                              {}
 func (s *ObjectStore) Stats(context.Context) (storage.Stats, error) {
 	return storage.Stats{}, fmt.Errorf("unimplemented")
 }
@@ -402,8 +402,20 @@ func (s *ObjectStore) fetchListPage(ctx context.Context, conn *sqlite.Conn, key,
 		// design PM-1's "apply the predicate before the join". A plain join
 		// let SQLite drive from payloads and touch every body (Tier B: LIST
 		// p95 6.8 -> 80 ms).
+		//
+		// LEFT JOIN, not JOIN: count/pageLast below must reflect how many
+		// METADATA rows this page scanned (bounded by :limit), not how many
+		// of them had a payload row. A migration can leave a metadata row
+		// with no payload (an undecodable legacy file, left for the export
+		// tool); an inner join silently drops that row from the result, so
+		// count would undercount the page relative to :limit even when many
+		// more valid rows exist beyond it -- GetList's "count < remaining ->
+		// EOF" check would then stop pagination early and hide every row
+		// after the gap. Rows with no payload are logged and skipped from
+		// objs below, exactly as an undecodable one already is, but still
+		// counted and still advance pageLast.
 		err := sqlitex.Execute(conn,
-			`SELECT m.rowid, p.encoding, p.body
+			`SELECT m.rowid, p.encoding, p.body, p.body IS NULL
 				FROM (SELECT rowid, kind, namespace, name FROM metadata
 						WHERE kind = :kind
 							AND (:namespace = '' OR namespace = :namespace)
@@ -411,12 +423,17 @@ func (s *ObjectStore) fetchListPage(ctx context.Context, conn *sqlite.Conn, key,
 							AND is_time_series = 0
 						ORDER BY rowid
 						LIMIT :limit) m
-				JOIN payloads p ON p.kind = m.kind AND p.namespace = m.namespace AND p.name = m.name
+				LEFT JOIN payloads p ON p.kind = m.kind AND p.namespace = m.namespace AND p.name = m.name
 				ORDER BY m.rowid`,
 			&sqlitex.ExecOptions{
 				Named: map[string]any{":kind": kind, ":namespace": namespace, ":cont": cursor, ":limit": remaining},
 				ResultFunc: func(stmt *sqlite.Stmt) error {
 					pageLast = stmt.ColumnText(0)
+					if stmt.ColumnInt64(3) == 1 {
+						logger.L().Ctx(ctx).Warning("ObjectStore.GetList - metadata row has no payload row; skipped", helpers.String("key", key))
+						rows = append(rows, page{})
+						return nil
+					}
 					p := page{encoding: stmt.ColumnText(1), body: make([]byte, stmt.ColumnLen(2))}
 					stmt.ColumnBytes(2, p.body)
 					rows = append(rows, p)
@@ -428,6 +445,9 @@ func (s *ObjectStore) fetchListPage(ctx context.Context, conn *sqlite.Conn, key,
 		}
 		count = len(rows)
 		for _, r := range rows {
+			if r.encoding == "" && r.body == nil {
+				continue
+			}
 			obj := reflect.New(elem).Interface().(runtime.Object)
 			if err := s.decodeBody(r.encoding, r.body, obj); err != nil {
 				logger.L().Ctx(ctx).Error("ObjectStore.GetList - decode payload failed", helpers.Error(err), helpers.String("key", key))

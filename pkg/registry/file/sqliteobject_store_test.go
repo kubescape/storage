@@ -146,9 +146,9 @@ func TestObjectStore_CASMatrix(t *testing.T) {
 	}
 	// which (state, expectation) pairs commit
 	commits := map[string]bool{
-		"absent/insert-if-absent":      true,
-		"present-rv1-uidA/rv1-uidA":    true,
-		"recreated-rv1-uidB/rv1-uidB":  true,
+		"absent/insert-if-absent":     true,
+		"present-rv1-uidA/rv1-uidA":   true,
+		"recreated-rv1-uidB/rv1-uidB": true,
 	}
 	for _, st := range states {
 		for _, ex := range expectations {
@@ -159,7 +159,7 @@ func TestObjectStore_CASMatrix(t *testing.T) {
 					st.seed(conn)
 					pw := &preparedWrite{key: e.key("cas"), kind: "containerprofile", namespace: e.ns, name: "cas",
 						metadataJSON: []byte(fmt.Sprintf(`{"name":"cas","namespace":%q,"uid":%q,"resourceVersion":"%d"}`, e.ns, "uid-new", ex.expectRV+1)),
-						body: body, rv: ex.expectRV + 1, uid: "uid-new", insert: ex.insert, expectRV: ex.expectRV, expectUID: ex.expectUID}
+						body:         body, rv: ex.expectRV + 1, uid: "uid-new", insert: ex.insert, expectRV: ex.expectRV, expectUID: ex.expectUID}
 					if ex.insert {
 						pw.rv, pw.uid = 1, "uid-new"
 						pw.metadataJSON = []byte(fmt.Sprintf(`{"name":"cas","namespace":%q,"uid":"uid-new","resourceVersion":"1"}`, e.ns))
@@ -196,12 +196,12 @@ func wipe(t *testing.T, conn *sqlite.Conn, ns, name string) {
 // must still fail — with no TS object and no time_series row left behind.
 func TestObjectStore_TSAdmissionInsideTransaction(t *testing.T) {
 	cases := []struct {
-		name          string
-		baseStatus    string
-		baseComplete  string
-		incoming      string
-		wantErr       error
-		wantAdmitted  bool
+		name         string
+		baseStatus   string
+		baseComplete string
+		incoming     string
+		wantErr      error
+		wantAdmitted bool
 	}{
 		{"absent", "", "", helpersv1.Partial, nil, true},
 		{"learning", helpersv1.Learning, helpersv1.Partial, helpersv1.Partial, nil, true},
@@ -459,4 +459,35 @@ func TestObjectStore_ListExcludesUnconsolidatedTSRows(t *testing.T) {
 	e.tick()
 	assert.Equal(t, 0, e.pendingTSRows(e.baseKey), "consolidation still sees and merges the excluded TS rows")
 	assert.Equal(t, helpersv1.Learning, e.mustGet(e.baseKey).Annotations[helpersv1.StatusMetadataKey])
+}
+
+// TestObjectStore_ListFullSpec_MissingPayloadRowDoesNotHideLaterRows: a
+// metadata row with no payloads row (e.g. left by a migration path for an
+// undecodable legacy file) sorts before two valid rows. fetchListPage's
+// fullSpec query paginates metadata by rowid, LIMIT :limit, THEN inner-joins
+// payloads (PM-1: apply the predicate before the join) -- a page whose
+// metadata scan includes the missing-payload row used to return fewer
+// objects than :limit purely because the join dropped one, and GetList's
+// "count < remaining -> EOF" check took that as real end-of-data, clearing
+// the continuation token and silently hiding every row after the gap
+// forever (not just on this call: a fresh List from cursor "" hits the same
+// row first every time).
+func TestObjectStore_ListFullSpec_MissingPayloadRowDoesNotHideLaterRows(t *testing.T) {
+	e := newObjectStoreEnv(t)
+	e.withFixture(func(conn *sqlite.Conn) {
+		require.NoError(t, WriteJSON(conn, e.key("no-payload"), []byte(`{"name":"no-payload","namespace":"`+e.ns+`"}`)))
+	})
+	e.create(e.plain("valid-a"))
+	e.create(e.plain("valid-b"))
+
+	listKey := testCPPrefix + e.ns
+	out := &softwarecomposition.ContainerProfileList{}
+	opts := storage.ListOptions{ResourceVersion: softwarecomposition.ResourceVersionFullSpec, Predicate: storage.SelectionPredicate{Limit: 2}, Recursive: true}
+	require.NoError(t, e.store.GetList(e.ctx, listKey, opts, out))
+	var names []string
+	for _, it := range out.Items {
+		names = append(names, it.Name)
+	}
+	require.ElementsMatch(t, []string{"valid-a", "valid-b"}, names,
+		"both valid rows must be reachable; before the fix, valid-b was permanently hidden by the gap")
 }
