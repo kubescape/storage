@@ -403,7 +403,7 @@ func listMetadataKeys(conn *sqlite.Conn, path, cont string, limit int64) ([]stri
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
-                	AND is_time_series = 0
+					AND is_time_series = 0
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
@@ -435,7 +435,7 @@ func listMetadata(conn *sqlite.Conn, path, cont string, limit int64) ([]string, 
                 WHERE kind = :kind
                     AND (:namespace = '' OR namespace = :namespace)
                 	AND rowid > :cont
-                	AND is_time_series = 0
+					AND is_time_series = 0
 				ORDER BY rowid
 				LIMIT :limit`,
 		&sqlitex.ExecOptions{
