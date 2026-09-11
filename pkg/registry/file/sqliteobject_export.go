@@ -91,12 +91,14 @@ type exportRow struct {
 // payload back as its legacy gob file under root, exactly as the legacy
 // writer does (staged to <key>.g.t, then renamed into place).
 func ExportContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, fs afero.Fs, root string, scheme *runtime.Scheme, opts ContainerProfileExportOptions) (*ContainerProfileExportReport, error) {
-	// Cleaned once, here: reconcileStaleExportedFiles below derives a key by
-	// slicing a Walk()-reported path (built from filepath.Join, which always
-	// cleans) at len(root). A trailing slash in an uncleaned root (e.g. the
-	// CLI's -root /data/) makes that length one too many, silently dropping
-	// the key's required leading '/' -- ReadMetadata then misses the live
-	// row for a just-exported object, and the stale-file pass deletes it.
+	// Cleaned once, here, as general hygiene for every other use of root
+	// below. reconcileStaleExportedFiles' key derivation no longer depends
+	// on root's exact textual form either way: it recovers the key via
+	// keyFromPayloadPath's filepath.Rel, not by slicing a Walk()-reported
+	// path at len(root) -- that byte-length slice silently mis-derived the
+	// key for a trailing-slash root ("/data/"), and would have for "/" and
+	// "." too (each off by a different amount, since Walk reports each
+	// root shape's paths differently). Rel is exact for all of them.
 	root = filepath.Clean(root)
 	if opts.BatchSize <= 0 {
 		opts.BatchSize = DefaultMigrationBatchSize
@@ -217,7 +219,10 @@ func reconcileStaleExportedFiles(ctx context.Context, pool *sqlitemigration.Pool
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
-		key := path[len(root) : len(path)-len(GobExt)]
+		key, kerr := keyFromPayloadPath(root, path)
+		if kerr != nil {
+			return fmt.Errorf("containerprofile export: %w", kerr)
+		}
 		if _, rerr := ReadMetadata(conn, key); rerr == nil {
 			return nil
 		} else if !errors.Is(rerr, ErrMetadataNotFound) {

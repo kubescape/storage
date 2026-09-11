@@ -465,6 +465,25 @@ func IsPayloadFile(path string) bool {
 	return strings.HasSuffix(path, GobExt)
 }
 
+// keyFromPayloadPath recovers the storage key a payload file's path was
+// written to by makePayloadPath(root, key) (i.e. filepath.Join(root, key) +
+// GobExt), given only the file's actual on-disk path and the root it was
+// walked under. Reverses via filepath.Rel rather than slicing path at
+// len(root): root's exact textual form (whether "/data", "/data/", ".", or
+// "/") does not survive into path, which afero.Walk always reports as the
+// filepath.Join'd, cleaned form -- slicing by byte length silently
+// mis-derives the key whenever root's length doesn't match what Join
+// actually consumed (a trailing slash overcounts by one; root "/" or "."
+// each have their own off-by-one). Rel is exact for every root shape.
+func keyFromPayloadPath(root, path string) (string, error) {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return "", fmt.Errorf("relativize %s under %s: %w", path, root, err)
+	}
+	rel = strings.TrimSuffix(rel, GobExt)
+	return "/" + filepath.ToSlash(rel), nil
+}
+
 func poolContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), poolTimeout)
 }

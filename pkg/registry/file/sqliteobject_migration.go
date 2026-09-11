@@ -20,12 +20,13 @@ package file
 // and the next start picks it up from the same predicate.
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -193,11 +194,11 @@ func MigrateContainerProfiles(ctx context.Context, pool *sqlitemigration.Pool, g
 		opts.BatchSize = DefaultMigrationBatchSize
 	}
 	start := time.Now()
-	// Cleaned once: sweepFiles below derives a key by slicing a Walk()-
-	// reported path (built from filepath.Join, which always cleans) at
-	// len(m.root) -- an uncleaned root with a trailing slash makes that
-	// length one too many, silently dropping the key's required leading
-	// '/' (same class of bug fixed in ExportContainerProfiles).
+	// Cleaned once, as general hygiene. sweepFiles' key derivation no
+	// longer depends on root's exact textual form: see keyFromPayloadPath
+	// (same fix as ExportContainerProfiles, and for the same reason -- byte-
+	// length slicing at len(m.root) mis-derived the key for a trailing-slash
+	// root, and would have for "/" and "." too).
 	root = filepath.Clean(root)
 	m := &containerProfileMigrator{
 		pool: pool, gate: gate, fs: fs, root: root, scheme: scheme, opts: opts,
@@ -528,9 +529,21 @@ func decodeLegacyFileAt(ctx context.Context, fs afero.Fs, root, key string) (*so
 		}
 		return nil, true, fmt.Errorf("open payload file: %w: %w", errLegacyFileAccess, err)
 	}
-	defer func() { _ = f.Close() }()
+	// Read fully before decoding, not decode straight off f: a Read error
+	// after a successful Open (a bad sector, a device/mount that opens fine
+	// but errors mid-read) would otherwise surface only inside gob's Decode
+	// as an opaque, untagged error -- indistinguishable from the file's
+	// content genuinely being malformed. Read errors are exactly as
+	// uncertain as Open errors (we cannot tell whether this object is safe
+	// to treat as absent/undecodable), so they get the same errLegacyFileAccess
+	// classification, not silently folded into "undecodable, safe to leave".
+	data, rerr := io.ReadAll(f)
+	_ = f.Close()
+	if rerr != nil {
+		return nil, true, fmt.Errorf("read payload file: %w: %w", errLegacyFileAccess, rerr)
+	}
 	obj := &softwarecomposition.ContainerProfile{}
-	err = gob.NewDecoder(bufio.NewReader(f)).Decode(obj)
+	err = gob.NewDecoder(bytes.NewReader(data)).Decode(obj)
 	if err == nil {
 		return obj, true, nil
 	}
@@ -538,7 +551,12 @@ func decodeLegacyFileAt(ctx context.Context, fs afero.Fs, root, key string) (*so
 		// The last time the external tool runs for this kind.
 		out, terr := execMigrationTool(ctx, p, "ContainerProfile")
 		if terr != nil {
-			return nil, true, fmt.Errorf("gob decode: %v; migration tool: %w", err, terr)
+			// The tool's own exec/timeout/read failure is likewise not
+			// evidence the content is bad -- it can be a transient
+			// environment problem (missing binary, permission, timeout),
+			// so it gets the same errLegacyFileAccess classification as a
+			// direct file-access failure.
+			return nil, true, fmt.Errorf("gob decode: %v; migration tool: %w: %w", err, errLegacyFileAccess, terr)
 		}
 		obj = &softwarecomposition.ContainerProfile{}
 		if jerr := json.Unmarshal(out, obj); jerr != nil {
@@ -687,7 +705,10 @@ func (m *containerProfileMigrator) sweepFiles(ctx context.Context) (int, error) 
 			}
 			return nil
 		}
-		key := path[len(m.root) : len(path)-len(GobExt)]
+		key, kerr := keyFromPayloadPath(m.root, path)
+		if kerr != nil {
+			return fmt.Errorf("containerprofile migration: %w", kerr)
+		}
 		if _, rerr := ReadMetadata(conn, key); rerr == nil {
 			return nil
 		} else if !errors.Is(rerr, ErrMetadataNotFound) {

@@ -354,6 +354,33 @@ func (f *failOpenFs) Open(name string) (afero.File, error) {
 	return f.Fs.Open(name)
 }
 
+// failReadFs succeeds Open for one target path while armed, but returns a
+// file whose Read always errors -- reproduces a device/mount that opens
+// fine but errors mid-read (a bad sector, a network filesystem hiccup),
+// distinct from failOpenFs (Open itself fails). decodeLegacyFileAt must
+// treat this exactly like an Open failure (errLegacyFileAccess), not let
+// gob's Decode fold it into an indistinguishable "content is malformed"
+// error.
+type failReadFs struct {
+	afero.Fs
+	target string
+	fail   atomic.Bool
+}
+
+func (f *failReadFs) Open(name string) (afero.File, error) {
+	file, err := f.Fs.Open(name)
+	if err != nil || !f.fail.Load() || name != f.target {
+		return file, err
+	}
+	return &failReadFile{File: file}, nil
+}
+
+type failReadFile struct{ afero.File }
+
+func (f *failReadFile) Read(_ []byte) (int, error) {
+	return 0, fmt.Errorf("failReadFile: simulated read failure for %s", f.Name())
+}
+
 // TestExport_ReconcileTopLevelStatErrorFailsExport: the same class of bug as
 // TestMigration_SweepTopLevelStatErrorDoesNotMarkDone, on the export side --
 // afero.DirExists returns exists=false on ANY stat error, not just "does
@@ -401,6 +428,40 @@ func TestExport_ReconcileFileAccessErrorFailsExport(t *testing.T) {
 	failing.fail.Store(true)
 	_, err = ExportContainerProfiles(e.ctx, e.pool, failing, DefaultStorageRoot, e.scheme, ContainerProfileExportOptions{})
 	require.Error(t, err, "an access error on a stale candidate must fail the export, not be treated as harmless undecodable content")
+
+	failing.fail.Store(false)
+	exists, err = afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, exists, "the file was never classified, so it must not have been removed either")
+}
+
+// TestExport_ReconcileOpenSucceedsReadFailsFailsExport: a stale candidate's
+// file can open successfully and still fail to be read (a bad sector, a
+// device/mount that opens fine but errors mid-read) -- errLegacyFileAccess
+// used to wrap only fs.Open's own error, so a Read failure surfaced as an
+// opaque, untagged error from gob's Decode, indistinguishable from the
+// file's content genuinely being malformed. reconcileStaleExportedFiles
+// then left it in place and the export still reported success; after
+// downgrade, an old binary reading that now-otherwise-fine file could
+// resurrect a deleted object.
+func TestExport_ReconcileOpenSucceedsReadFailsFailsExport(t *testing.T) {
+	failing := &failReadFs{Fs: afero.NewMemMapFs()}
+	e := newMigrationEnv(t, failing)
+	e.seed(1)
+	key := e.key("plain-00")
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+
+	out := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, e.store.Delete(e.ctx, key, out, nil, nil, nil, storage.DeleteOptions{}))
+	exists, err := afero.Exists(e.fs, e.filePath("plain-00"))
+	require.NoError(t, err)
+	require.True(t, exists, "the pre-flip legacy file survives an ObjectStore delete")
+
+	failing.target = e.filePath("plain-00")
+	failing.fail.Store(true)
+	_, err = ExportContainerProfiles(e.ctx, e.pool, failing, DefaultStorageRoot, e.scheme, ContainerProfileExportOptions{})
+	require.Error(t, err, "Open succeeding then Read failing must fail the export, not be silently folded into \"undecodable content\"")
 
 	failing.fail.Store(false)
 	exists, err = afero.Exists(e.fs, e.filePath("plain-00"))
