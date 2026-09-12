@@ -238,6 +238,16 @@ func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string, thresh
 	if segment == DynamicIdentifier {
 		return ua.handleDynamicSegment(node)
 	}
+	// An explicitly supplied * subsumes a ⋯ already at this node: ⋯ is exactly
+	// one segment and * is zero-or-more, so routing the * through the existing
+	// ⋯ child silently NARROWS the profile and the deeper paths the author
+	// meant to admit start alerting.
+	if segment == WildcardIdentifier {
+		if wildcardChild, exists := node.Children[WildcardIdentifier]; exists {
+			return wildcardChild
+		}
+		return ua.createWildcardNode(node)
+	}
 	// Wildcard short-circuit: once a node has a * child, all paths through
 	// it go there. This is the glob-style "collapse everything below here"
 	// behaviour; set up either by threshold=1 (see below) or by a caller
