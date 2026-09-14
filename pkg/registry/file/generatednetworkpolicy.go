@@ -37,6 +37,13 @@ const (
 type GeneratedNetworkPolicyStorage struct {
 	immutableStorage
 	realStore StorageQuerier
+	// containerProfileStore serves the full-spec ContainerProfile list. It is
+	// the instance wired for the containerprofiles resource (the ObjectStore
+	// under config.ContainerProfileSqliteBackend), never the default
+	// StorageImpl: the default instance's get() deletes the shared metadata
+	// row of any CP key whose payload file is absent, which under the flag is
+	// every row the ObjectStore owns (§5.6 row 9).
+	containerProfileStore storage.Interface
 }
 
 func (s *GeneratedNetworkPolicyStorage) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
@@ -55,9 +62,13 @@ func (s *GeneratedNetworkPolicyStorage) CompactRevision() int64 {
 
 var _ storage.Interface = (*GeneratedNetworkPolicyStorage)(nil)
 
-func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier) storage.Interface {
+// NewGeneratedNetworkPolicyStorage builds the aggregate over realStore (the
+// default instance, for knownservers) and containerProfileStore (the
+// containerprofiles resource's own storage.Interface, for the CP list).
+func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier, containerProfileStore storage.Interface) storage.Interface {
 	return &GeneratedNetworkPolicyStorage{
-		realStore: realStore,
+		realStore:             realStore,
+		containerProfileStore: containerProfileStore,
 	}
 }
 
@@ -157,7 +168,7 @@ func (s *GeneratedNetworkPolicyStorage) listNamespaceContainerProfiles(ctx conte
 	var items []softwarecomposition.ContainerProfile
 	for {
 		cpList := &softwarecomposition.ContainerProfileList{}
-		if err := s.realStore.GetList(ctx, listKey, opts, cpList); err != nil {
+		if err := s.containerProfileStore.GetList(ctx, listKey, opts, cpList); err != nil {
 			return nil, err
 		}
 		items = append(items, cpList.Items...)

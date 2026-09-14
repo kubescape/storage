@@ -198,7 +198,7 @@ func (h *lane0Harness) writeTsObject(t *testing.T, baseKey, suffix, tag string, 
 	conn, err := h.pool.Take(context.Background())
 	require.NoError(t, err)
 	defer h.pool.Put(conn)
-	_, err = h.s.saveObject(conn, tsKey, obj, &softwarecomposition.ContainerProfile{}, "")
+	_, err = h.s.saveObject(context.Background(), conn, tsKey, obj, &softwarecomposition.ContainerProfile{}, "", priorityLow, holdPathLegacyCommit)
 	require.NoError(t, err)
 	return tsKey
 }
@@ -425,7 +425,7 @@ func TestUpdateProfile_MissingInstanceID_ProcessedIsNil(t *testing.T) {
 	profile, id, prefix, root, err := h.proc.loadOrInitializeProfile(ctx, key)
 	require.NoError(t, err)
 
-	processed, err := h.proc.processTimeSeriesInTransaction(ctx, rows, key, profile, prefix, root, id, false)
+	processed, _, err := h.proc.processTimeSeriesInTransaction(ctx, rows, key, profile, prefix, root, id, false)
 	require.NoError(t, err)
 	require.Nil(t, processed, "nothing was persisted, so nothing may be scheduled for deletion")
 

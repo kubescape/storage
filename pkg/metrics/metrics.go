@@ -42,6 +42,14 @@ const (
 	CommitOutcomePanic = "panic"
 )
 
+// Outcome label values for SqliteCheckpointTotal.
+const (
+	CheckpointOutcomeOK    = "ok"
+	CheckpointOutcomeBusy  = "busy"
+	CheckpointOutcomeError = "error"
+	CheckpointOutcomePanic = "panic"
+)
+
 // Label values for the consolidation counters below.
 const (
 	// FrozenReclaimedRow / FrozenReclaimedObject: what the frozen gate reclaimed.
@@ -62,6 +70,15 @@ const (
 	HealFailedRead        = "read"
 	HealFailedSave        = "save"
 	HealFailedCommit      = "commit"
+
+	// KeyReserve* : how a consolidation pass's reserved retry ended.
+	KeyReserveCommitted = "committed"
+	KeyReserveConflict  = "conflict"
+	KeyReserveError     = "error"
+
+	// KeyYield* : how a same-series writer's wait on a reservation ended.
+	KeyYieldReleased = "released"
+	KeyYieldTimeout  = "timeout"
 )
 
 // waitBuckets covers sub-millisecond acquisitions up through the ~5s
@@ -186,6 +203,140 @@ var (
 		[]string{"priority"},
 	)
 
+	// SqliteWriteHoldDuration observes how long the write gate was held for
+	// one transaction (BEGIN IMMEDIATE through COMMIT/ROLLBACK), by write
+	// "path" (the ObjectStore's create/update/delete/consolidate/time_series
+	// and the legacy kinds' legacy_commit/legacy_delete/repair/migrate/
+	// cleanup/cleanup_migrate) and "kind". The design's PM-3/PM-G1 detector:
+	// with the checkpoint off the commit path this is the fsync, the page
+	// writes and, for legacy_commit, one same-directory rename.
+	SqliteWriteHoldDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_write_hold_seconds",
+			Help:           "Time the write gate was held for one transaction, by write path and kind.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"path", "kind"},
+	)
+
+	// SqliteWriteHoldStepDuration observes one named step inside a gated
+	// hold, by "path" and "step" — today the legacy commit's payload rename,
+	// so a PV whose rename is not a directory-entry update is attributable
+	// without a profiler (PM-G1).
+	SqliteWriteHoldStepDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_write_hold_step_seconds",
+			Help:           "Time one named step inside a gated write hold took, by path and step.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"path", "step"},
+	)
+
+	// WriteGateHoldAge gauges how long the current gate holder has held the
+	// gate, sampled by the gate's watchdog; 0 when idle. Alert at > 5 s: a
+	// leaked ticket or a wedged holder stops every writer of every kind.
+	WriteGateHoldAge = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "write_gate_hold_age_seconds",
+			Help:           "Age of the write gate's current hold as sampled by its watchdog; 0 when idle.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// WriteGateReentrantTotal counts acquires refused because the caller was
+	// already inside a gated transaction (a nested StorageImpl/ObjectStore
+	// call from a gated fn), by the nested "path". Must stay zero.
+	WriteGateReentrantTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "write_gate_reentrant_total",
+			Help:           "Count of write gate acquires refused as re-entrant, by the nested write path. Must stay zero.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"path"},
+	)
+
+	// WriteGateWaitDuration observes how long a caller queued for the
+	// ObjectStore's write gate ticket, by "priority" (high/low).
+	WriteGateWaitDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "write_gate_wait_seconds",
+			Help:           "Time a writer queued for the ContainerProfile write gate before its ticket was granted, by priority.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"priority"},
+	)
+
+	// SqliteBusyWaitDuration observes how long BEGIN IMMEDIATE on the gate's
+	// dedicated connection spent in SQLite's busy handler because an ungated
+	// writer (a legacy kind's commit, cleanup.go) held the database lock.
+	SqliteBusyWaitDuration = metrics.NewHistogram(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_busy_wait_seconds",
+			Help:           "Time BEGIN IMMEDIATE on the ContainerProfile write gate's connection waited for SQLite's database lock.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// CPCASConflictTotal counts compare-and-swap conflicts on the ObjectStore
+	// (an UPDATE/DELETE whose rv/uid predicate matched no row), by "op".
+	CPCASConflictTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_cas_conflict_total",
+			Help:           "Count of ContainerProfile compare-and-swap conflicts, by operation.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"op"},
+	)
+
+	// CPOwnershipRefusalTotal counts operations on a ContainerProfile key the
+	// legacy StorageImpl refused because the kind is owned by the ObjectStore
+	// (the kind-ownership guard). Any non-zero value is a mis-wiring.
+	CPOwnershipRefusalTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_ownership_refusal_total",
+			Help:           "Count of legacy StorageImpl operations refused on a kind owned by the ContainerProfile SQLite backend, by operation.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"op"},
+	)
+
+	// CPMigrationTotal counts every reconcile outcome of the startup
+	// ContainerProfile data migration by shape (and, for legacy_rewrite, by
+	// the source the body was rebuilt from). A non-zero legacy_rewrite or
+	// orphan_payload count means a legacy writer touched a CP row (PM-5).
+	CPMigrationTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_migration_total",
+			Help:           "Count of ContainerProfile rows, payloads and files reconciled by the startup migration, by shape and source.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"shape", "source"},
+	)
+
+	// SqliteWalPages gauges the WAL size in pages as last observed by the
+	// background checkpointer.
+	SqliteWalPages = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_wal_pages",
+			Help:           "WAL size in pages as last observed by the background PASSIVE checkpointer.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
 	// ConsolidationFrozenReclaimedTotal counts the time_series rows and TS
 	// objects consolidation's frozen gate reclaimed unmerged because the base
 	// ContainerProfile was already Completed/Full when the pass read it,
@@ -218,6 +369,30 @@ var (
 		},
 	)
 
+	// SqliteFreelistCount gauges PRAGMA freelist_count as last observed by the
+	// background checkpointer (TS profiles are create-then-delete objects; their
+	// pages cycle through the freelist).
+	SqliteFreelistCount = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_freelist_count",
+			Help:           "PRAGMA freelist_count as last observed by the background checkpointer.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// SqliteCheckpointTotal counts background checkpoint runs by "outcome"
+	// (ok/busy/error/panic).
+	SqliteCheckpointTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_checkpoint_total",
+			Help:           "Count of background PASSIVE checkpoint runs, by outcome.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"outcome"},
+	)
+
 	// ConsolidationDivergenceTotal counts payload/metadata divergences
 	// consolidation observed on a base ContainerProfile, by "shape"
 	// (payload_ahead: healed; metadata_ahead: observed only). Expected zero in
@@ -230,6 +405,21 @@ var (
 			StabilityLevel: metrics.ALPHA,
 		},
 		[]string{"shape"},
+	)
+
+	// SqliteUngatedWriteTotal counts INSERT/UPDATE/DELETE statements prepared
+	// on a pool connection the pool's write gate has never owned, by "op" and
+	// "table". With the write gate on, the gate is the only writer; any other
+	// writer busy-waits against it for the whole busy timeout, invisible to
+	// the gate's own histograms. Must stay zero; the R2 canary.
+	SqliteUngatedWriteTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "sqlite_ungated_write_total",
+			Help:           "Count of write statements prepared on a pool connection the write gate does not own, by op and table. Must stay zero.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"op", "table"},
 	)
 
 	// ConsolidationHealFailedTotal counts failed divergence heals by the step
@@ -245,6 +435,34 @@ var (
 		},
 		[]string{"reason"},
 	)
+
+	// ConsolidationKeyReservedTotal counts consolidation retries that ran with
+	// the series reserved (after a first CAS conflict on the ObjectStore), by
+	// how the retry ended. A "conflict" here means a same-series write landed
+	// despite the reservation: a writer's wait or the pass's drain timed out.
+	ConsolidationKeyReservedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "consolidation_key_reserved_total",
+			Help:           "Count of consolidation retries run with the series reserved against same-series writers, by outcome (committed/conflict/error).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"outcome"},
+	)
+
+	// CPKeyYieldTotal counts ObjectStore writes that waited for a consolidation
+	// reservation on their series, by how the wait ended. "timeout" means the
+	// writer proceeded anyway after keyReserveWaitMax and the progress bound
+	// was not honoured for that retry.
+	CPKeyYieldTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "cp_key_yield_total",
+			Help:           "Count of ContainerProfile writes that waited on a consolidation reservation of their series, by outcome (released/timeout).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"outcome"},
+	)
 )
 
 func init() {
@@ -256,10 +474,92 @@ func init() {
 	legacyregistry.MustRegister(SingleWriterDirtyConnectionTotal)
 	legacyregistry.MustRegister(SingleWriterDroppedConnectionTotal)
 	legacyregistry.MustRegister(SingleWriterQueueDepth)
+	legacyregistry.MustRegister(SqliteWriteHoldDuration)
+	legacyregistry.MustRegister(WriteGateWaitDuration)
+	legacyregistry.MustRegister(SqliteBusyWaitDuration)
+	legacyregistry.MustRegister(CPCASConflictTotal)
+	legacyregistry.MustRegister(CPOwnershipRefusalTotal)
+	legacyregistry.MustRegister(CPMigrationTotal)
+	legacyregistry.MustRegister(SqliteWalPages)
+	legacyregistry.MustRegister(SqliteFreelistCount)
+	legacyregistry.MustRegister(SqliteCheckpointTotal)
 	legacyregistry.MustRegister(ConsolidationFrozenReclaimedTotal)
 	legacyregistry.MustRegister(ConsolidationFrozenRefusalsTotal)
 	legacyregistry.MustRegister(ConsolidationDivergenceTotal)
 	legacyregistry.MustRegister(ConsolidationHealFailedTotal)
+	legacyregistry.MustRegister(ConsolidationKeyReservedTotal)
+	legacyregistry.MustRegister(CPKeyYieldTotal)
+	legacyregistry.MustRegister(SqliteUngatedWriteTotal)
+	legacyregistry.MustRegister(SqliteWriteHoldStepDuration)
+	legacyregistry.MustRegister(WriteGateHoldAge)
+	legacyregistry.MustRegister(WriteGateReentrantTotal)
+}
+
+// IncSqliteUngatedWrite records one write statement prepared on a pool
+// connection outside the write gate.
+func IncSqliteUngatedWrite(op, table string) {
+	SqliteUngatedWriteTotal.WithLabelValues(op, table).Inc()
+}
+
+// ObserveSqliteWriteHoldStep records one named step inside a gated hold.
+func ObserveSqliteWriteHoldStep(path, step string, d time.Duration) {
+	SqliteWriteHoldStepDuration.WithLabelValues(path, step).Observe(d.Seconds())
+}
+
+// SetWriteGateHoldAge sets the current hold's age (0 when idle).
+func SetWriteGateHoldAge(d time.Duration) {
+	WriteGateHoldAge.Set(d.Seconds())
+}
+
+// IncWriteGateReentrant records one acquire refused as re-entrant.
+func IncWriteGateReentrant(path string) {
+	WriteGateReentrantTotal.WithLabelValues(path).Inc()
+}
+
+// ObserveSqliteWriteHold records one gated transaction's hold time by path
+// and kind.
+func ObserveSqliteWriteHold(path, kind string, d time.Duration) {
+	SqliteWriteHoldDuration.WithLabelValues(path, kind).Observe(d.Seconds())
+}
+
+// ObserveWriteGateWait records one caller's queue time for a gate ticket.
+func ObserveWriteGateWait(priority string, d time.Duration) {
+	WriteGateWaitDuration.WithLabelValues(priority).Observe(d.Seconds())
+}
+
+// ObserveSqliteBusyWait records how long BEGIN IMMEDIATE waited for the lock.
+func ObserveSqliteBusyWait(d time.Duration) {
+	SqliteBusyWaitDuration.Observe(d.Seconds())
+}
+
+// IncCPCASConflict records one compare-and-swap conflict for op.
+func IncCPCASConflict(op string) {
+	CPCASConflictTotal.WithLabelValues(op).Inc()
+}
+
+// IncCPOwnershipRefusal records one refused legacy operation for op.
+func IncCPOwnershipRefusal(op string) {
+	CPOwnershipRefusalTotal.WithLabelValues(op).Inc()
+}
+
+// IncCPMigration records one startup-migration reconcile outcome.
+func IncCPMigration(shape, source string) {
+	CPMigrationTotal.WithLabelValues(shape, source).Inc()
+}
+
+// SetSqliteWalPages sets the last observed WAL size in pages.
+func SetSqliteWalPages(pages int64) {
+	SqliteWalPages.Set(float64(pages))
+}
+
+// SetSqliteFreelistCount sets the last observed freelist_count.
+func SetSqliteFreelistCount(pages int64) {
+	SqliteFreelistCount.Set(float64(pages))
+}
+
+// IncSqliteCheckpoint records one checkpointer run with the given outcome.
+func IncSqliteCheckpoint(outcome string) {
+	SqliteCheckpointTotal.WithLabelValues(outcome).Inc()
 }
 
 // ObserveLockWait records a lock-hold-wait observation for the given
@@ -336,4 +636,16 @@ func IncConsolidationDivergence(shape string) {
 // reason (HealFailedLockTimeout / HealFailedBegin / HealFailedRead / HealFailedSave / HealFailedCommit).
 func IncConsolidationHealFailed(reason string) {
 	ConsolidationHealFailedTotal.WithLabelValues(reason).Inc()
+}
+
+// IncConsolidationKeyReserved records one reserved consolidation retry with
+// the given outcome (KeyReserveCommitted / KeyReserveConflict / KeyReserveError).
+func IncConsolidationKeyReserved(outcome string) {
+	ConsolidationKeyReservedTotal.WithLabelValues(outcome).Inc()
+}
+
+// IncCPKeyYield records one writer wait on a consolidation reservation with
+// the given outcome (KeyYieldReleased / KeyYieldTimeout).
+func IncCPKeyYield(outcome string) {
+	CPKeyYieldTotal.WithLabelValues(outcome).Inc()
 }
