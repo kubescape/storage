@@ -65,7 +65,7 @@ gates only the file sweeps (steps 3–4).
 | | | `legacy_rewrite{source=file}` | `rv IS NULL` **with** a `payloads` row — a legacy writer replaced the row after a rollback (K-1). The legacy writer wrote its file before its row, so the **file** is its content and the `payloads` body is stale: the body is rebuilt from the file; `rv` is the row JSON's `resourceVersion` (no `+1`; when a crash left the file one ahead, the larger persisted version wins and the JSON is rewritten to match) |
 | | | `legacy_rewrite{source=payloads}` | same, no file (a row-only legacy write): the `payloads` body is kept, re-stamped at `rv` |
 | | | `undecodable` | neither gob nor the tool decoded the file: skipped and counted, **never deleted**, the file left for the export tool (PM-2) |
-| 2b | `payloads` row of kind `containerprofile` with no `metadata` row | `orphan_payload` | a legacy `deleteLocked`/cleanup delete after a rollback removes row and file, never the `payloads` row (K-2); without this every `Create` of the key fails on the UNIQUE constraint. Deleted. |
+| 2b | `payloads` row of kind `containerprofile` with no `metadata` row | `orphan_payload` | a `repairDelete` self-repair on one of the 3 undecodable-file `get()` sites (a corrupt or unmigratable `.g` file) still leaves its `payloads` row behind — the read-time fallback below can't safely serve a stale body there, only the every-start reconcile can. (`deleteLocked` and the missing-file `repairDelete` site no longer produce this shape: see "Rollback safety: read-time fallback" below.) Without cleanup every `Create` of the key would fail on the UNIQUE constraint. Deleted. |
 | 3 (done-flag) | `.g` file under `/data/<group>/containerprofile/` with no row | `file_without_row` | imported at the file's `resourceVersion` and UID |
 | 4 (done-flag) | `*.g.t*` staging files | `temp_file` | removed (never committed) |
 
@@ -82,14 +82,62 @@ the backend never serves a half-reconciled store, and turning the flag off is th
 nothing written, the done-flag untouched) and logs the counts a real run would produce — the census
 §8.3 requires before the flag is turned on anywhere. It is refused together with the backend flag.
 
+## Rollback safety: read-time fallback (`.omc/plans/rollback-safety-guard.md`)
+
+Simply turning `ContainerProfileSqliteBackend` back off — no binary change, a config edit — is a
+*different* hazard from the downgrade below, and closer at hand: the flag-off `StorageImpl` runs
+in the *same*, current binary, and its `get()`'s missing-file self-repair used to delete the
+metadata row of any key the ObjectStore had created or updated since the flip (no `.g` file was
+ever written for it) — the object destroyed, not merely invisible, with zero confirmation and no
+`cpexport` step forcing itself on the operator first.
+
+Two changes close this for the same-binary case:
+
+1. **`repairDelete` and `deleteLocked` now also delete the `payloads` row** they used to leave
+   behind (`DeletePayloads`, mirroring `DeleteMetadata`). `deleteLocked` orders `payloads` *before*
+   `metadata` so a crash mid-delete fails safe into the existing "row present, no file, no
+   payloads" self-repair shape rather than creating a new orphan.
+2. **`get()`'s missing-file branch serves the object from its `payloads` body** instead of
+   deleting the row, whenever all four hold: the metadata row exists, `rv IS NOT NULL` (the row is
+   ObjectStore- or migration-owned — every legacy write nulls both columns via `INSERT OR
+   REPLACE`, so this excludes anything a legacy write has touched since the flip, including a
+   `.g` file whose *rename* was lost to a crash — see `containerprofile_processor.go`'s
+   metadata-ahead divergence comment), `is_time_series = 0` (time-series rows are out of scope for
+   this fallback, unchanged behavior), and a `payloads` row exists. `ResourceVersion`/`UID` are
+   stamped from the metadata row's `rv`/`uid` columns, the same conversions `cpexport` uses. Any
+   condition failing, or the payloads body itself failing to decode, falls through to today's
+   existing self-repair, unchanged.
+
+Deliberately out of scope: the 3 undecodable-`.g`-file `repairDelete` sites (a `.g` file exists
+but is corrupt/unmigratable) still self-repair as before — a legacy write may have superseded the
+`payloads` body by then, and there's no safe way to prefer one over the other without decoding and
+comparing versions. `Create`'s existence check needed no change: in the default
+`singleWriterEnabled=true` configuration, the single-writer commit path's own recheck already
+covers the case (metadata row present, per condition 1) and correctly lets `Create` proceed on a
+bare orphan (nothing to protect there).
+
+**Advisory-only, not a substitute for `cpexport`**: at every flag-off startup, a bounded census
+(`LogFallbackEligibleContainerProfilesCensus`, its own `context.WithTimeout`, never `Fatal`) logs
+a Warning with the count and example keys currently being served via the fallback — the same
+count of keys `cpexport` + a real downgrade would still make byte-consistent with an old binary.
+Zero is logged at Info. A query error is logged distinctly from a genuine zero count and never
+blocks startup.
+
+**Residual, stated plainly**: an orphaned `payloads` row (from the 3 undecodable-file sites, or
+any crash window) is inert — never served, never resurrected — but not reclaimed while the flag
+stays off; cleanup's file-walk only sees `.g` files, so a payloads-only key isn't visited until
+the flag flips back on and the migration reconcile sweeps it (§8.2 step 2b, `orphan_payload`,
+above).
+
 ## Rollback: `cpexport`, then downgrade (§8.4)
 
-An older storage binary opens the migrated database without error, but it reads only the
-metadata row and the `.g` file: every key the ObjectStore created since the flip has **no file**,
-every key it updated has a **stale** one, and the old binary's `get()` **deletes the metadata row**
-of a key whose file is missing (its self-repair) — the object is destroyed, not merely invisible.
-Its `INSERT OR REPLACE` also nulls `rv`/`uid`; the every-start reconcile repairs that on re-enable
-(`legacy_rewrite`), but nothing repairs a deleted row.
+The read-time fallback above only helps the same-binary flag-off case. An **older storage
+binary** — a real image downgrade — opens the migrated database without error, but it reads only
+the metadata row and the `.g` file: every key the ObjectStore created since the flip has **no
+file**, every key it updated has a **stale** one, and the old binary's `get()` **deletes the
+metadata row** of a key whose file is missing (its self-repair) — the object is destroyed, not
+merely invisible. Its `INSERT OR REPLACE` also nulls `rv`/`uid`; the every-start reconcile repairs
+that on re-enable (`legacy_rewrite`), but nothing repairs a deleted row.
 `TestExport_DangerWithoutExport_OldBinaryDestroysNewStoreRows` pins all three symptoms.
 
 So the rollback order is fixed: **export first, downgrade second.** `/usr/bin/cpexport`

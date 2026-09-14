@@ -579,9 +579,12 @@ func TestMigration_R3_LegacyRewriteNeverRegressesBelowTheBodyVersion(t *testing.
 	require.Equal(t, "4", e.mustStoreGet(key).ResourceVersion)
 }
 
-// K-2: a legacy delete after a rollback removes the row and the file and
-// leaves the payloads row; every Create of the key then fails on the UNIQUE
-// constraint until the mirror predicate deletes the orphan.
+// K-2 (fixed by rollback-safety-guard Part 1): a legacy delete after a
+// rollback used to remove the row and the file but leave the payloads row
+// behind, so every Create of the key failed on the UNIQUE constraint until
+// the mirror predicate deleted the orphan. deleteLocked's non-gated arm now
+// deletes the payloads row itself (before the metadata row, for crash
+// safety), so no orphan is created and Create succeeds immediately.
 func TestMigration_K2_OrphanPayloadAfterLegacyDelete(t *testing.T) {
 	e := newMigrationEnv(t, afero.NewMemMapFs())
 	e.seed(2)
@@ -593,21 +596,17 @@ func TestMigration_K2_OrphanPayloadAfterLegacyDelete(t *testing.T) {
 	require.NoError(t, e.legacy.Delete(e.ctx, key, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{}))
 	row := e.inspect(key)
 	require.False(t, row.metaExists)
-	require.True(t, row.payloadExists, "the old binary's delete never touches payloads")
+	require.False(t, row.payloadExists, "Part 1: the old binary's delete now cleans up payloads too, so no orphan is left")
 	exists, err := afero.Exists(e.fs, e.filePath("plain-01"))
 	require.NoError(t, err)
 	require.False(t, exists)
 
 	e.startNew()
 	created := &softwarecomposition.ContainerProfile{}
-	err = e.store.Create(e.ctx, key, e.plain("plain-01"), created, 0)
-	require.Error(t, err, "Create fails on the orphan payloads row")
-	require.Contains(t, err.Error(), "insert payload")
+	require.NoError(t, e.store.Create(e.ctx, key, e.plain("plain-01"), created, 0), "Create succeeds immediately: there is no orphan payloads row to conflict with")
 
 	report := e.mustMigrate(ContainerProfileMigrationOptions{})
-	require.Equal(t, 1, report.Count(MigrationShapeOrphanPayload), "%v", report.Counts)
-	require.False(t, e.inspect(key).payloadExists)
-	require.NoError(t, e.store.Create(e.ctx, key, e.plain("plain-01"), created, 0), "Create succeeds after the orphan is gone")
+	require.Equal(t, 0, report.Count(MigrationShapeOrphanPayload), "%v", report.Counts)
 	e.assertINV2(key, e.key("plain-00"))
 }
 

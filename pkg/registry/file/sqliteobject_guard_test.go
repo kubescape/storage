@@ -179,9 +179,12 @@ func TestINV4_LegacyStoreRefusesContainerProfileKeys(t *testing.T) {
 	t.Run("guard removed serves CP again", func(t *testing.T) {
 		e.legacy.SetForeignKinds(nil)
 		defer e.legacy.SetForeignKinds(IsContainerProfileKind)
-		// The legacy full read of an ObjectStore row finds no gob file and,
-		// exactly as the design warns (PM-4), would delete the shared row —
-		// which is why the guard exists. Only the metadata read is safe here.
+		// The legacy full read of an ObjectStore row finds no gob file. It
+		// used to delete the shared row (PM-4) — which is why the guard
+		// exists; the rollback-safety guard's read fallback now serves it
+		// from payloads instead (see
+		// TestINV4_UnguardedLegacyFullReadNoLongerDeletesOwnedRow). The
+		// metadata read asserted here is unaffected either way.
 		require.NoError(t, e.legacy.Get(e.ctx, e.baseKey, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, cp()))
 	})
 }
@@ -195,17 +198,25 @@ func (e *objectStoreEnv) withLegacyConn(fn func(conn *sqlite.Conn) error) error 
 	return fn(conn)
 }
 
-// TestINV4_UnguardedLegacyFullReadDeletesOwnedRow documents the hazard the
-// guard closes (PM-4): without it, a legacy full GET on an ObjectStore key
-// deletes the shared metadata row because the gob file is missing.
-func TestINV4_UnguardedLegacyFullReadDeletesOwnedRow(t *testing.T) {
+// TestINV4_UnguardedLegacyFullReadNoLongerDeletesOwnedRow pins what the
+// PM-4 hazard became: without the guard, a legacy full GET on an ObjectStore
+// key used to delete the shared metadata row because the gob file is
+// missing. Rollback-safety guard Part 2 closes that at this site by
+// construction — such a key satisfies all four fallback conditions (a
+// metadata row, rv non-NULL, not a time-series row, a payloads row), so the
+// read is served from the payloads body and the row is left untouched. The
+// guard still exists for every write-side operation.
+func TestINV4_UnguardedLegacyFullReadNoLongerDeletesOwnedRow(t *testing.T) {
 	e := newObjectStoreEnv(t)
-	e.create(e.plain("pm4"))
+	created := e.create(e.plain("pm4"))
 	e.legacy.SetForeignKinds(nil)
-	err := e.legacy.Get(e.ctx, e.key("pm4"), storage.GetOptions{}, &softwarecomposition.ContainerProfile{})
-	assert.True(t, storage.IsNotFound(err))
+	out := &softwarecomposition.ContainerProfile{}
+	err := e.legacy.Get(e.ctx, e.key("pm4"), storage.GetOptions{}, out)
+	assert.NoError(t, err, "Part 2: the fallback serves this key instead of self-repairing it")
+	assert.Equal(t, created.ResourceVersion, out.ResourceVersion, "stamped from the row's rv column")
+	assert.Equal(t, created.UID, out.UID, "stamped from the row's uid column")
 	row := e.inspect(e.key("pm4"))
-	assert.False(t, row.metaExists, "the unguarded legacy read deleted the row (the PM-4 hazard)")
-	assert.True(t, row.payloadExists, "leaving an orphan payload: INV-2 violated")
+	assert.True(t, row.metaExists, "the unguarded legacy read no longer deletes the row (the PM-4 hazard)")
+	assert.True(t, row.payloadExists, "and the payloads row it was served from survives")
 	e.legacy.SetForeignKinds(IsContainerProfileKind)
 }

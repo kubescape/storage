@@ -158,6 +158,14 @@ func main() {
 			helpers.Interface("counts", report.Counts), helpers.Int("batches", report.Batches),
 			helpers.Interface("sweepsRun", report.SweepsRun), helpers.Interface("dryRun", report.DryRun),
 			helpers.String("elapsed", report.Elapsed.String()))
+	} else {
+		// Advisory startup check (D) (.omc/plans/rollback-safety-guard.md):
+		// flag-off only -- with the backend on, keys are served from
+		// ObjectStore directly and the rollback read fallback never fires, so
+		// there is nothing to report. Purely informational: never Fatal, and
+		// bounded with its own timeout rather than ctx's (an untimed signal
+		// context).
+		file.LogFallbackEligibleContainerProfilesCensus(ctx, pool, cfg.PoolTimeout)
 	}
 
 	// setup watcher

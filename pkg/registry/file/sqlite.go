@@ -364,6 +364,87 @@ func DeleteMetadata(conn *sqlite.Conn, path string, metadata runtime.Object) err
 	return nil
 }
 
+// DeletePayloads deletes the payloads row for the given path, if any.
+func DeletePayloads(conn *sqlite.Conn, path string) error {
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	observeStmt("DeletePayloads")
+	err := sqlitex.Execute(conn,
+		`DELETE FROM payloads
+				WHERE kind = :kind
+				  AND namespace = :namespace
+				  AND name = :name`,
+		&sqlitex.ExecOptions{
+			Named: map[string]any{":kind": kind, ":namespace": namespace, ":name": name},
+		})
+	if err != nil {
+		return fmt.Errorf("delete payloads: %w", err)
+	}
+	return nil
+}
+
+// fallbackCandidate is one key's metadata row joined with its payloads row,
+// carrying exactly what the rollback read fallback's predicate needs
+// (.omc/plans/rollback-safety-guard.md, Part 2): the rv/uid stamping source,
+// the is_time_series scoping column and the payloads body, read together in
+// a single statement.
+type fallbackCandidate struct {
+	// rvNull is the row's `rv IS NULL` — predicate condition 2 fails when true.
+	rvNull bool
+	// rv is the metadata row's rv column; meaningful only when !rvNull.
+	rv int64
+	// uid is the metadata row's uid column; "" when the column is NULL.
+	uid string
+	// isTimeSeries is the row's is_time_series column — predicate condition 3
+	// fails when true.
+	isTimeSeries bool
+	// payloadsFound reports whether a payloads row exists for the key —
+	// predicate condition 4 fails when false.
+	payloadsFound bool
+	// encoding/body are the payloads row's columns; meaningful only when
+	// payloadsFound.
+	encoding string
+	body     []byte
+}
+
+// readFallbackCandidate reads the metadata row for path together with its
+// payloads row, in the same metadata-JOIN-payloads shape readExportRows uses
+// (sqliteobject_export.go), but as a LEFT JOIN so that a metadata row with no
+// payloads row is still reported (condition 4 must be observed, not inferred
+// from an empty result set). nil, nil when no metadata row exists at all.
+func readFallbackCandidate(conn *sqlite.Conn, path string) (*fallbackCandidate, error) {
+	_, _, kind, _, namespace, name := K8sPathToKeys(path)
+	var out *fallbackCandidate
+	observeStmt("readFallbackCandidate")
+	err := sqlitex.Execute(conn,
+		`SELECT m.rv IS NULL, m.rv, m.uid, m.is_time_series, p.rowid IS NOT NULL, p.encoding, p.body
+				FROM metadata m LEFT JOIN payloads p
+				  ON p.kind = m.kind AND p.namespace = m.namespace AND p.name = m.name
+				WHERE m.kind = :kind
+				  AND m.namespace = :namespace
+				  AND m.name = :name`,
+		&sqlitex.ExecOptions{
+			Named: map[string]any{":kind": kind, ":namespace": namespace, ":name": name},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				c := fallbackCandidate{
+					rvNull:        stmt.ColumnInt64(0) == 1,
+					rv:            stmt.ColumnInt64(1),
+					uid:           stmt.ColumnText(2),
+					isTimeSeries:  stmt.ColumnInt64(3) != 0,
+					payloadsFound: stmt.ColumnInt64(4) == 1,
+					encoding:      stmt.ColumnText(5),
+				}
+				c.body = make([]byte, stmt.ColumnLen(6))
+				stmt.ColumnBytes(6, c.body)
+				out = &c
+				return nil
+			},
+		})
+	if err != nil {
+		return nil, fmt.Errorf("read fallback candidate: %w", err)
+	}
+	return out, nil
+}
+
 // deleteMetadataRaw is DeleteMetadata returning the deleted row's JSON
 // instead of decoding it: under the write gate the decode belongs after the
 // hold (INV-1′), not inside the RETURNING callback. nil when no row matched.

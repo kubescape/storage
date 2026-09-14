@@ -57,7 +57,7 @@ func TestExport_DangerWithoutExport_OldBinaryDestroysNewStoreRows(t *testing.T) 
 	updated, created := e.key("plain-00"), e.key("created-under-the-new-store")
 	e.startNew()
 	e.mustMigrate(ContainerProfileMigrationOptions{})
-	e.storeCreate("created-under-the-new-store")
+	createdObj := e.storeCreate("created-under-the-new-store")
 	require.NoError(t, e.storeUpdate(e.ctx, updated))
 	require.Equal(t, "3", e.mustStoreGet(updated).ResourceVersion)
 	e.assertINV2(updated, created)
@@ -68,13 +68,19 @@ func TestExport_DangerWithoutExport_OldBinaryDestroysNewStoreRows(t *testing.T) 
 	// Downgrade without the export: the old binary runs.
 	e.stopNew()
 
-	// (1) A key with no file: get() deletes the metadata row — the object is
-	// destroyed, and its payloads row is left orphaned.
-	_, err = e.storeGetLegacy(created)
-	require.True(t, storage.IsNotFound(err))
+	// (1) A key with no file: get() used to delete the metadata row and
+	// destroy the object. Rollback-safety guard Part 2: this key satisfies
+	// all four fallback conditions (a metadata row, rv non-NULL, not a
+	// time-series row, a payloads row), so the read is now served from the
+	// payloads body at the row's rv/uid instead — no self-repair, no side
+	// effects. The remaining dangers below, (2) and (3), are unaffected.
+	servedCreated, err := e.storeGetLegacy(created)
+	require.NoError(t, err, "Part 2: the fallback serves this key instead of destroying it")
+	require.Equal(t, createdObj.ResourceVersion, servedCreated.ResourceVersion, "stamped from the row's rv column")
+	require.Equal(t, createdObj.UID, servedCreated.UID, "stamped from the row's uid column")
 	row := e.inspect(created)
-	require.False(t, row.metaExists, "the old binary's self-repair deleted the row")
-	require.True(t, row.payloadExists, "and left the payload orphaned")
+	require.True(t, row.metaExists, "Part 2: no self-repair fires on a fallback-served read")
+	require.True(t, row.payloadExists, "Part 2: the payloads row the read was served from survives")
 
 	// (2) A key the new store updated: the old binary serves the STALE file
 	// while the row says otherwise — a divergent pair.
@@ -185,13 +191,13 @@ func TestExport_ThenDowngradeThenReEnable(t *testing.T) {
 	e.legacyUpdate(created, func(cp *softwarecomposition.ContainerProfile) { cp.Annotations["export-test"] = "old-binary-write" })
 	require.Nil(t, e.inspect(created).rv)
 	require.NoError(t, e.legacy.Delete(e.ctx, untouched, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{}))
-	require.True(t, e.inspect(untouched).payloadExists, "the old binary's delete leaves the payloads row")
+	require.False(t, e.inspect(untouched).payloadExists, "Part 1: the old binary's delete now cleans up the payloads row too")
 
 	// Re-enable: the every-start reconcile repairs both shapes.
 	e.startNew()
 	again := e.mustMigrate(ContainerProfileMigrationOptions{})
 	require.Equal(t, 1, again.Counts[MigrationShapeLegacyRewrite+"/"+MigrationSourceFile], "%v", again.Counts)
-	require.Equal(t, 1, again.Count(MigrationShapeOrphanPayload), "%v", again.Counts)
+	require.Equal(t, 0, again.Count(MigrationShapeOrphanPayload), "%v", again.Counts)
 	require.Equal(t, 0, again.Count(MigrationShapeRowWithoutFile))
 	e.assertINV2(updated, created, untouched)
 	got := e.mustStoreGet(created)
