@@ -75,9 +75,11 @@ The proof is not that W1–W9b are fixed; it is that the next site fails CI:
   (`openFixtureConn`); the recorder is never windowed off (a cached statement
   re-executes without the authorizer).
 - **AC-G2** (`writegate_acg2_test.go`, `writegate_acg2_on_test.go`): read
-  entry point × key state, per topology. Flag-off pins the legacy residual
-  (repair cells stall for the busy timeout — a golden, not a promise);
-  flag-on bounds every repair cell to one gate hold plus the queue.
+  entry point × key state, per topology. Ordinary reads complete while the
+  writer is held. Flag-off repairs attempt a write but leave metadata unchanged
+  under the held SQLite lock; flag-on repairs queue behind the gate and complete
+  after explicit release. Generous deadlines detect deadlocks; elapsed times
+  are diagnostic measurements, not scheduler-sensitive pass/fail thresholds.
 - **T-G1** (`writegate_tg1_test.go`): one env per site, W1–W9b.
 
 ## Metrics

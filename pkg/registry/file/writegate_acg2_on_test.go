@@ -3,22 +3,16 @@ package file
 // AC-G2(on): the flag-on topology (config.ContainerProfileSqliteBackend) —
 // the ObjectStore and the legacy StorageImpl over one pool, the legacy
 // instance carrying the kind-ownership guard, one write gate. The lock
-// holder is the gate itself (CR-3): a gate.run whose fn holds for
-// acg2HolderHold. A pool-connection BEGIN IMMEDIATE holder here would itself
-// be an ungated writer the gate's own BEGIN IMMEDIATE legitimately
-// busy-waits behind, and no repair cell could pass by construction.
-//
-// Bounds: non-repair cells return inside the hold (WAL readers never block
-// on the writer); repair cells complete within holderHold + queue + margin,
-// inside the 500 ms headline — a repair is a queued write, waiting one hold
-// behind the gate instead of polling the busy handler. The armed AC-G1 check
-// on every cell's pool is what turns an ungated repair into a failure.
+// holder is the gate itself (CR-3). Repair readers must queue behind an
+// explicitly held gate and remain pending until release. Non-repair readers
+// must complete before release. The armed AC-G1 check rejects ungated writes.
 
 import (
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,12 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"zombiezen.com/go/sqlite"
 )
-
-// acg2HolderHold is how long the gate holder keeps the write lock under
-// flag-on: long enough that a poller would be caught (its first wake-ups are
-// 1…100 ms apart), short enough that hold + queue + the read stays inside
-// acg2Prompt.
-const acg2HolderHold = 250 * time.Millisecond
 
 // newACG2OnEnv builds the flag-on environment: pool size ≥ 2 (R-9: the
 // reader holds its pool connection while queued on the gate; the gate's
@@ -65,18 +53,36 @@ func newACG2OnEnv(t *testing.T) *acg2Env {
 	}
 	e.hold = func() func() {
 		held := make(chan struct{})
-		done := make(chan struct{})
+		release := make(chan struct{})
+		done := make(chan error, 1)
 		go func() {
-			defer close(done)
-			_ = e.gate.run(e.ctx, priorityHigh, "acg2-holder", "test", func(context.Context, *sqlite.Conn) error {
+			done <- e.gate.run(e.ctx, priorityHigh, "acg2-holder", "test", func(context.Context, *sqlite.Conn) error {
 				close(held)
-				time.Sleep(acg2HolderHold)
-				return nil
+				select {
+				case <-release:
+					return nil
+				case <-e.ctx.Done():
+					return e.ctx.Err()
+				}
 			})
 		}()
-		<-held
-		return func() { <-done }
+		select {
+		case <-held:
+		case <-time.After(acg2Deadline):
+			close(release)
+			t.Fatal("gate holder did not acquire the gate")
+		}
+		return sync.OnceFunc(func() {
+			close(release)
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(acg2Deadline):
+				t.Fatal("gate holder did not finish")
+			}
+		})
 	}
+
 	return e
 }
 
@@ -84,12 +90,6 @@ var acg2On = acg2Topology{
 	name:  "on",
 	on:    true,
 	build: newACG2OnEnv,
-	bounds: func(repair bool) (time.Duration, time.Duration) {
-		if repair {
-			return acg2HolderHold, acg2Prompt
-		}
-		return 0, acg2HolderHold
-	},
 }
 
 // acg2BaseProfile is testdata/p1.json as a base (consolidated) profile: the
@@ -129,16 +129,25 @@ func acg2SbomKeyOf(e *acg2Env, p *softwarecomposition.ContainerProfile) string {
 // the path bug 2 sat on (PreSave → GetSbom → legacy GetWithConn → get()).
 var acg2OnReaders = []acg2Reader{
 	{name: "PreSave(base-CP)", class: acg2GetReader, onOnly: true,
-		key: func(e *acg2Env, _ string) string { return acg2SbomKeyOf(e, acg2BaseProfile(e.t)) },
-		obj: newSBOM,
-		run: func(e *acg2Env, key string) error {
+		key: func(e *acg2Env, cell string) string {
 			p := acg2BaseProfile(e.t)
-			ctx, cleanup, err := e.processor.ContainerProfileStorage.WithConnection(e.ctx)
-			if err != nil {
-				return err
+			// Include the state marker in the image-derived SBOM path so the
+			// migration fixture distinguishes tool failure from success.
+			p.Spec.ImageTag += "-" + cell
+			e.preSaveProfile = p
+			return acg2SbomKeyOf(e, p)
+		},
+		obj: newSBOM,
+		prepare: func(e *acg2Env, key string) func() error {
+			p := e.preSaveProfile
+			return func() error {
+				ctx, cleanup, err := e.processor.ContainerProfileStorage.WithConnection(e.ctx)
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+				return e.processor.PreSave(ctx, p)
 			}
-			defer cleanup()
-			return e.processor.PreSave(ctx, p)
 		}},
 }
 

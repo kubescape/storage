@@ -6,12 +6,9 @@ package file
 // provider's). A table over (read entry point) × (key state), run once per
 // topology:
 //
-//   - AC-G2(off) — no gate; the holder is a pool connection in an open
-//     BEGIN IMMEDIATE. The repair cells (the ones that reach a self-repair
-//     write, W4–W9b) are PINNED as expected stalls of exactly the busy
-//     timeout: flag-off is byte-identical to today, so a future regression
-//     that makes them slower and a fix that makes them faster both show up
-//     as a red cell. Every other cell is < acg2Prompt.
+//   - AC-G2(off) — no gate; a pool connection holds BEGIN IMMEDIATE until
+//     the reader returns. Repair cells must attempt a write without changing
+//     metadata; other synchronous readers must not attempt writes.
 //   - AC-G2(on) — see writegate_acg2_on_test.go.
 //
 // Key states cover both found bugs' statement on every door it has: absent
@@ -29,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -50,16 +48,12 @@ import (
 )
 
 const (
-	// acg2BusyTimeout is every connection's busy timeout in the AC-G2 envs: the
-	// flag-off holder's hold, and exactly what a flag-off repair cell stalls.
+	// acg2BusyTimeout lets flag-off repairs finish while the writer stays held.
 	acg2BusyTimeout = time.Second
-	// acg2Prompt is the headline bound: a read that never waits on the write
-	// lock returns well inside it.
+	// acg2Prompt remains the bound used by the independent gate-refusal test.
 	acg2Prompt = 500 * time.Millisecond
-	// acg2StallMargin is the slack over the busy timeout a pinned flag-off
-	// repair cell may take (the busy handler's last poll interval is 100 ms;
-	// the rest is the read itself under -race).
-	acg2StallMargin = 1500 * time.Millisecond
+	// This is a deadlock guard, not a read-latency acceptance threshold.
+	acg2Deadline = 30 * time.Second
 
 	acg2Kind      = "sbomsyft"
 	acg2Group     = "spdx.softwarecomposition.kubescape.io"
@@ -74,27 +68,26 @@ type acg2Topology struct {
 	on   bool
 	// build constructs a fresh environment for one cell.
 	build func(t *testing.T) *acg2Env
-	// bounds returns the [lo, hi] window a cell must complete in.
-	bounds func(repair bool) (lo, hi time.Duration)
 }
 
 type acg2Env struct {
-	t         *testing.T
-	ctx       context.Context
-	dbPath    string
-	fs        afero.Fs
-	pool      *sqlitemigration.Pool
-	legacy    *StorageImpl
-	fixture   *sqlite.Conn
-	processor *ContainerProfileProcessor
-	cleanup   *ResourcesCleanupHandler
-	fetcher   *acg2Fetcher
+	t              *testing.T
+	ctx            context.Context
+	dbPath         string
+	fs             afero.Fs
+	pool           *sqlitemigration.Pool
+	legacy         *StorageImpl
+	fixture        *sqlite.Conn
+	processor      *ContainerProfileProcessor
+	preSaveProfile *softwarecomposition.ContainerProfile
+	cleanup        *ResourcesCleanupHandler
+	fetcher        *acg2Fetcher
 	// hold acquires SQLite's write lock the topology's way and returns the
-	// release; the cell releases after its read returned.
+	// release; flag-on repairs are released after they queue.
 	hold func() (release func())
 	// closeStore runs before pool.Close (nil under flag-off).
 	closeStore func()
-	// flag-on only: the ObjectStore, the gate, and the statement recorder.
+	// The statement recorder observes both topologies; store and gate are flag-on only.
 	store *ObjectStore
 	gate  *writeGate
 	rec   *tableRecorder
@@ -165,8 +158,10 @@ var acg2Off = acg2Topology{
 	name: "off",
 	build: func(t *testing.T) *acg2Env {
 		dbPath := filepath.Join(t.TempDir(), "acg2.sq3")
-		pool := NewPool(dbPath, 4, acg2BusyTimeout)
+		rec := &tableRecorder{}
+		pool := NewPoolWithOptions(dbPath, PoolOptions{Size: 4, BusyTimeout: acg2BusyTimeout, Authorizer: rec.authorizer})
 		e := newACG2Base(t, pool, dbPath)
+		e.rec = rec
 		t.Cleanup(e.closePool)
 		e.processor.SetStorage(NewContainerProfileStorageImpl(e.legacy, pool))
 		// The holder: a pool connection in an open BEGIN IMMEDIATE, the state
@@ -177,29 +172,16 @@ var acg2Off = acg2Topology{
 			conn.SetInterrupt(nil)
 			endFn, err := sqlitex.ImmediateTransaction(conn)
 			require.NoError(t, err)
-			return func() {
+			return sync.OnceFunc(func() {
 				var txErr error
 				endFn(&txErr)
 				require.NoError(t, txErr)
 				pool.Put(conn)
-			}
+			})
 		}
 		return e
 	},
-	bounds: func(repair bool) (time.Duration, time.Duration) {
-		if repair {
-			return acg2StallFloor, acg2BusyTimeout + acg2StallMargin
-		}
-		return 0, acg2Prompt
-	},
 }
-
-// acg2StallFloor is the pinned stall's lower bound. SQLite's busy handler
-// gives up once its cumulative sleep schedule crosses the timeout; the
-// measured stall under the modernc build lands at 0.8–1.0× the nominal
-// timeout, so the pin is 0.7× — still far above acg2Prompt, so a stall and a
-// prompt return cannot be confused, and a fix that removes the stall is red.
-const acg2StallFloor = 7 * acg2BusyTimeout / 10
 
 // ---- key states ----
 
@@ -472,11 +454,75 @@ func runACG2Matrix(t *testing.T, topo acg2Topology, readers []acg2Reader) {
 				st.seed(e, key, obj)
 
 				repair := r.repairs(st)
-				lo, hi := topo.bounds(repair)
+				before, beforeErr := ReadMetadata(e.fixture, key)
+				if beforeErr != nil {
+					require.ErrorIs(t, beforeErr, ErrMetadataNotFound)
+				}
 				release := e.hold()
+				// Release before registered cleanups even when an assertion fails.
+				defer release()
+				mark := e.rec.mark()
 				start := time.Now()
-				err := run()
+				done := make(chan error, 1)
+				stopped := make(chan struct{})
+				go func() {
+					defer close(stopped)
+					done <- run()
+				}()
+				defer func() {
+					release()
+					select {
+					case <-stopped:
+					case <-time.After(acg2Deadline):
+						t.Error("reader did not stop after release")
+					}
+				}()
+				if topo.on && repair {
+					require.Eventually(t, func() bool {
+						high, low := e.gate.queued()
+						if high+low > 0 {
+							return true
+						}
+						select {
+						case <-stopped:
+							return true
+						default:
+							return false
+						}
+					}, acg2Deadline, time.Millisecond, "repair must queue behind the held gate")
+					select {
+					case err := <-done:
+						t.Fatalf("repair returned before the gate was released: %v", err)
+					default:
+					}
+					release()
+				}
+				var err error
+				select {
+				case err = <-done:
+				case <-time.After(acg2Deadline):
+					t.Fatal("reader did not complete")
+				}
 				elapsed := time.Since(start)
+				// The collapse provider returns cached settings and starts a separate
+				// refresh, which may repair. Its contract here is caller completion
+				// while held; prepare registers a cleanup to join that refresh.
+				if r.name != "collapse-provider" {
+					wrote := false
+					for _, action := range e.rec.since(mark) {
+						wrote = wrote || isWriteOp(action.op)
+					}
+					assert.Equal(t, repair, wrote, "repair cells must attempt writes; pure reads must not")
+				}
+				if topo.on && repair && (st.name == "orphan" || st.name == "corrupt" || st.name == "wrongtype-toolfails" || st.name == "present-unreferenced") {
+					_, afterErr := ReadMetadata(e.fixture, key)
+					assert.ErrorIs(t, afterErr, ErrMetadataNotFound, "queued repair must delete the metadata after release")
+				}
+				if !topo.on && repair {
+					after, afterErr := ReadMetadata(e.fixture, key)
+					assert.Equal(t, before, after, "repair cannot change metadata while SQLite's writer is held")
+					assert.Equal(t, beforeErr, afterErr)
+				}
 				release()
 
 				kind := "read"
@@ -487,8 +533,6 @@ func runACG2Matrix(t *testing.T, topo acg2Topology, readers []acg2Reader) {
 				if st.name == "present" && r.class != acg2MetaReader {
 					assert.NoError(t, err, "a present key must read")
 				}
-				assert.GreaterOrEqual(t, elapsed, lo, "%s × %s completed faster than the pinned bound [%s, %s]: the residual moved without its golden", r.name, st.name, lo, hi)
-				assert.LessOrEqual(t, elapsed, hi, "%s × %s took %s, bound [%s, %s] (busy timeout %s)", r.name, st.name, elapsed, lo, hi, acg2BusyTimeout)
 			})
 		}
 	}
