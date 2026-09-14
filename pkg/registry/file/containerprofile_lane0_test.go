@@ -1313,13 +1313,16 @@ func TestConsolidate_RowArrivingDuringPass_IsNotDeleted(t *testing.T) {
 	const ns, name = "ns1", "ts4c"
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	// Reuse the report timestamp as the next row's link even if the clock
+	// crosses a second boundary while consolidation is running.
+	firstReport := lane0Ts(2)
+	h.seedTsRow(t, ns, name, "A", "1", firstReport, lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	ts1 := h.writeTsObject(t, key, "1", "ts-1", true)
 	var tsLate string
 	h.hooks.getProfile = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
 		p, err := next()
 		if tsLate == "" {
-			h.seedTsRow(t, ns, name, "A", "late", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+			h.seedTsRow(t, ns, name, "A", "late", lane0Ts(1), firstReport, helpersv1.Learning, helpersv1.Partial, true)
 			tsLate = h.writeTsObject(t, key, "late", "ts-late", true)
 		}
 		return p, err
