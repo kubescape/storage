@@ -1512,9 +1512,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref common.ReferenceCallba
 						},
 					},
 					"vendorMetadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -1579,15 +1580,17 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref common.Reference
 						},
 					},
 					"configuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 					"db": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -2284,9 +2287,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -3691,15 +3695,17 @@ func schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref common.Referen
 						},
 					},
 					"searchedBy": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 					"found": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -4631,9 +4637,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref common.Re
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -5793,9 +5800,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Source(ref common.ReferenceCall
 						},
 					},
 					"target": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -6059,9 +6067,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDescriptor(ref common.Refer
 						},
 					},
 					"configuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -6279,9 +6288,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftRelationship(ref common.Ref
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -6327,9 +6337,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref common.Reference
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},

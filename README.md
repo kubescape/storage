@@ -185,6 +185,16 @@ Now you’re all set to generate the code for changed types. Do this with (event
 hack/update-codegen.sh
 ```
 
+The script also corrects the generated OpenAPI schemas for opaque JSON fields
+in scanner documents and HTTP headers. Go's `json.RawMessage` is otherwise
+published as a base64 string, causing managed-fields conversion errors such as
+`artifactRelationships[].metadata: expected string` when scanners send objects.
+Syft and Grype metadata remains arbitrary JSON, including arrays, scalar values,
+and null; the correction does not change JSON or protobuf serialization.
+Keep the post-generation corrections when updating codegen. Verify them with
+`go test ./pkg/generated/openapi` and
+`go test ./pkg/registry/file -run TestHTTPEndpointHeaders_SMDConversion`.
+
 If you see any errors regarding `GOPATH`, just provide it manually:
 ```
 GOPATH=$(go env GOPATH) hack/update-codegen.sh
