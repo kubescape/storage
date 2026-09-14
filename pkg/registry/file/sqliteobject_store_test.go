@@ -359,7 +359,7 @@ func TestObjectStore_CodecFidelity(t *testing.T) {
 	assert.Equal(t, created.Spec.Containers, got.Spec.Containers)
 	assert.Equal(t, created.Spec.InitContainers, got.Spec.InitContainers)
 	assert.Equal(t, created.Spec.EphemeralContainers, got.Spec.EphemeralContainers)
-	assert.True(t, got.CreationTimestamp.Time.Equal(stamp.Time.Truncate(time.Second)),
+	assert.True(t, got.CreationTimestamp.Time.Equal(stamp.Truncate(time.Second)),
 		"creationTimestamp truncated to seconds (intended divergence): got %s", got.CreationTimestamp.Time)
 	assert.False(t, got.CreationTimestamp.Time.Equal(stamp.Time), "the sub-second part is gone")
 	// What the legacy store's GET returns is the gob round trip of the same

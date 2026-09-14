@@ -120,11 +120,11 @@ func nilifyEmptyCollections(cp *softwarecomposition.ContainerProfile) {
 	if len(cp.Spec.Egress) == 0 {
 		cp.Spec.Egress = nil
 	}
-	if len(cp.Spec.LabelSelector.MatchLabels) == 0 {
-		cp.Spec.LabelSelector.MatchLabels = nil
+	if len(cp.Spec.MatchLabels) == 0 {
+		cp.Spec.MatchLabels = nil
 	}
-	if len(cp.Spec.LabelSelector.MatchExpressions) == 0 {
-		cp.Spec.LabelSelector.MatchExpressions = nil
+	if len(cp.Spec.MatchExpressions) == 0 {
+		cp.Spec.MatchExpressions = nil
 	}
 }
 

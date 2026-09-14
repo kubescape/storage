@@ -353,10 +353,12 @@ func evalMetric(m metricSpec, base, head []round, thr thresholds) row {
 			r.underpow = true
 			// N' = ceil(((t+t) * s_d / thr)^2), iterated once so the quantiles
 			// are taken at N'-1 rather than at the current N-1.
-			nPrime := int(math.Ceil(math.Pow(tsum*s/thrLog, 2)))
+			ratio := tsum * s / thrLog
+			nPrime := int(math.Ceil(ratio * ratio))
 			if nPrime > 1 {
 				tsum2 := tQuantile(1-thr.Alpha/2, float64(nPrime-1)) + tQuantile(thr.Power, float64(nPrime-1))
-				nPrime = int(math.Ceil(math.Pow(tsum2*s/thrLog, 2)))
+				ratio2 := tsum2 * s / thrLog
+				nPrime = int(math.Ceil(ratio2 * ratio2))
 			}
 			r.nPrime = max(nPrime, n+1)
 		}

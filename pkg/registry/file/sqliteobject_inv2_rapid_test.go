@@ -15,8 +15,6 @@ package file
 import (
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
 	"testing"
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
@@ -234,7 +232,7 @@ func (m *inv2Machine) Tick(t *rapid.T) {
 	crashed := m.maybeCrash(4)
 	err := m.env.processor.ConsolidateTimeSeries(m.env.ctx)
 	m.disarm()
-	if err != nil && !(crashed && errors.Is(err, errInjectedCrash)) {
+	if err != nil && (!crashed || !errors.Is(err, errInjectedCrash)) {
 		t.Fatalf("tick: %v", err)
 	}
 	// Re-derive the model from the store: a committed tick deleted the
@@ -392,14 +390,4 @@ func TestINV2_CrashAtEveryBoundaryDeterministic(t *testing.T) {
 			})
 		}
 	}
-}
-
-// sortedKeys is a test helper for readable failures.
-func sortedKeys(m map[string]string) string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return strings.Join(out, ",")
 }

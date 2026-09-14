@@ -293,7 +293,7 @@ func peakRSS() uint64 {
 	if err != nil {
 		return 0
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		if strings.HasPrefix(sc.Text(), "VmHWM:") {

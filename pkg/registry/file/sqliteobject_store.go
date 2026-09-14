@@ -554,7 +554,7 @@ func fillOut(metaOut, candidate runtime.Object) {
 		return
 	}
 	val := reflect.ValueOf(metaOut)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	val.Set(reflect.ValueOf(candidate).Elem())

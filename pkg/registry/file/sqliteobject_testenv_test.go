@@ -96,19 +96,6 @@ func isWriteOp(op sqlite.OpType) bool {
 	return op == sqlite.OpInsert || op == sqlite.OpUpdate || op == sqlite.OpDelete
 }
 
-// touched returns the set of tables among the recorded actions, optionally
-// restricted to writes.
-func touchedTables(actions []tableAction, writesOnly bool) map[string]bool {
-	out := map[string]bool{}
-	for _, a := range actions {
-		if a.table == "" || (writesOnly && a.op == sqlite.OpRead) {
-			continue
-		}
-		out[a.table] = true
-	}
-	return out
-}
-
 type objectStoreEnv struct {
 	t         *testing.T
 	ctx       context.Context
@@ -434,7 +421,7 @@ func canonicalCP(cp *softwarecomposition.ContainerProfile) *softwarecomposition.
 // nilifyEmpty sets every zero-length slice or map reachable from v to nil.
 func nilifyEmpty(v reflect.Value) {
 	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Pointer, reflect.Interface:
 		if !v.IsNil() {
 			nilifyEmpty(v.Elem())
 		}
@@ -461,7 +448,7 @@ func nilifyEmpty(v reflect.Value) {
 		}
 		for _, k := range v.MapKeys() {
 			mv := v.MapIndex(k)
-			if mv.Kind() == reflect.Struct || mv.Kind() == reflect.Ptr {
+			if mv.Kind() == reflect.Struct || mv.Kind() == reflect.Pointer {
 				cp := reflect.New(mv.Type()).Elem()
 				cp.Set(mv)
 				nilifyEmpty(cp)
