@@ -91,6 +91,58 @@ else:
     sys.exit("headers schema fix-up anchor not found - update hack/update-codegen.sh")
 PYEOF
 
+
+# Scanner metadata is arbitrary JSON (including legacy scalar source targets),
+# not a base64 byte string. Leave its type unconstrained and retain unknown
+# fields. Scope each replacement to its model so unrelated metadata stays typed.
+# TestScannerDocumentsManagedFieldsConversion pins the resulting SMD behavior.
+python3 - "${SCRIPT_ROOT}/pkg/generated/openapi/zz_generated.openapi.go" <<'PYEOF'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+src = path.read_text()
+fields = {
+    "Cvss": ("vendorMetadata",),
+    "Descriptor": ("configuration", "db"),
+    "GrypePackage": ("metadata",),
+    "MatchDetails": ("searchedBy", "found"),
+    "PackageCustomData": ("metadata",),
+    "Source": ("target",),
+    "SyftDescriptor": ("configuration",),
+    "SyftRelationship": ("metadata",),
+    "SyftSource": ("metadata",),
+}
+for model, properties in fields.items():
+    pattern = rf"func schema_pkg_apis_softwarecomposition_v1beta1_{model}\(.*?\n}}"
+    match = re.search(pattern, src, re.S)
+    if match is None:
+        sys.exit(f"scanner JSON schema model not found: {model}")
+    original = updated = match.group()
+    for prop in properties:
+        old = ('\t' * 5 + f'"{prop}": {{\n'
+               + '\t' * 6 + 'SchemaProps: spec.SchemaProps{\n'
+               + '\t' * 7 + 'Type:   []string{"string"},\n'
+               + '\t' * 7 + 'Format: "byte",\n'
+               + '\t' * 6 + '},\n'
+               + '\t' * 5 + '},')
+        new = ('\t' * 5 + f'"{prop}": {{\n'
+               + '\t' * 6 + 'VendorExtensible: spec.VendorExtensible{\n'
+               + '\t' * 7 + 'Extensions: spec.Extensions{\n'
+               + '\t' * 8 + '"x-kubernetes-preserve-unknown-fields": true,\n'
+               + '\t' * 7 + '},\n'
+               + '\t' * 6 + '},\n'
+               + '\t' * 5 + '},')
+        if updated.count(old) == 1:
+            updated = updated.replace(old, new, 1)
+        elif updated.count(new) != 1:
+            sys.exit(f"scanner JSON schema anchor not found: {model}.{prop}")
+    src = src.replace(original, updated, 1)
+path.write_text(src)
+print("scanner JSON schema fix-up applied")
+PYEOF
+
 # Protobuf marshallers are NOT covered by kube_codegen.sh. The aggregated
 # apiserver serves protobuf to clients that negotiate it, so a stale
 # generated.pb.go silently drops any field added after its last generation
