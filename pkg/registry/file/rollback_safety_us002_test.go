@@ -7,9 +7,8 @@ package file
 //	(1) a metadata row exists, (2) rv IS NOT NULL, (3) is_time_series = 0,
 //	(4) a payloads row exists
 //
-// checked in that order, short-circuiting on the first failure. Every
-// negative case below must land on today's existing self-repair path,
-// unchanged.
+// Inspection failures must return errors without mutation. Time-series
+// payloads remain outside the guard and are never pruned by read repair.
 
 import (
 	"context"
@@ -253,13 +252,20 @@ func TestGet_TimeSeriesRowNeverFallsBack(t *testing.T) {
 	conn, err = pool.Take(ctx)
 	require.NoError(t, err)
 	assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must have run, as it does today")
+	assert.True(t, payloadsRowExistsForTest(t, conn, key),
+		"a time-series row's payloads body may be its only copy: self-repair must leave it exactly as before this change, not prune it")
 	pool.Put(conn)
 }
 
-// TestGet_UndecodablePayloadsFallsThroughToExistingSelfRepair: all four
-// conditions hold, but the body does not decode. That is a fall-through to
-// today's self-repair, never a silent wrong-data success.
-func TestGet_UndecodablePayloadsFallsThroughToExistingSelfRepair(t *testing.T) {
+// TestGet_UndecodablePayloadsNeverDeletesAnything: all four conditions hold,
+// so the payloads body IS the object's only surviving copy -- but this binary
+// cannot decode it (a corrupt body, or an encoding a newer binary wrote).
+// That is an INSPECTION FAILURE, not an ineligibility verdict: the read
+// returns an inspection error and deletes NOTHING, so a human -- or the binary that
+// understands the encoding -- can still recover the data. Deleting here would
+// be precisely the destroy-the-last-copy bug this whole mechanism exists to
+// prevent.
+func TestGet_UndecodablePayloadsNeverDeletesAnything(t *testing.T) {
 	t.Run("body is not valid JSON", func(t *testing.T) {
 		s, pool, _ := newRollbackSafetyTestStorage(t)
 		ctx := context.Background()
@@ -273,12 +279,24 @@ func TestGet_UndecodablePayloadsFallsThroughToExistingSelfRepair(t *testing.T) {
 		pool.Put(conn)
 
 		getErr := s.Get(ctx, key, storage.GetOptions{}, &v1beta1.SBOMSyft{})
-		assert.True(t, storage.IsNotFound(getErr), "got %v", getErr)
+		require.Error(t, getErr)
+		assert.False(t, storage.IsNotFound(getErr), "got %v", getErr)
 
 		conn, err = pool.Take(ctx)
 		require.NoError(t, err)
-		assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must have run")
-		assert.False(t, payloadsRowExistsForTest(t, conn, key))
+		assert.True(t, metadataRowExistsForTest(t, conn, key), "an undecodable body must not cost the key its metadata row")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key), "an undecodable body must never be deleted: it is the only copy left")
+		pool.Put(conn)
+
+		// Repeatable and still non-destructive: a second read behaves the
+		// same, so a hot-looping client cannot erode the data either.
+		getErr = s.Get(ctx, key, storage.GetOptions{}, &v1beta1.SBOMSyft{})
+		require.Error(t, getErr)
+		assert.False(t, storage.IsNotFound(getErr))
+		conn, err = pool.Take(ctx)
+		require.NoError(t, err)
+		assert.True(t, metadataRowExistsForTest(t, conn, key))
+		assert.True(t, payloadsRowExistsForTest(t, conn, key))
 		pool.Put(conn)
 	})
 
@@ -297,11 +315,37 @@ func TestGet_UndecodablePayloadsFallsThroughToExistingSelfRepair(t *testing.T) {
 		pool.Put(conn)
 
 		getErr := s.Get(ctx, key, storage.GetOptions{}, &v1beta1.SBOMSyft{})
-		assert.True(t, storage.IsNotFound(getErr), "got %v", getErr)
+		require.Error(t, getErr)
+		assert.False(t, storage.IsNotFound(getErr), "got %v", getErr)
 
 		conn, err = pool.Take(ctx)
 		require.NoError(t, err)
-		assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must have run")
+		assert.True(t, metadataRowExistsForTest(t, conn, key), "an encoding this binary does not know must not cost the key its metadata row")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key), "an encoding this binary does not know must never be deleted -- a newer binary can still read it")
+		pool.Put(conn)
+	})
+
+	t.Run("IgnoreNotFound keeps its contract and still deletes nothing", func(t *testing.T) {
+		s, pool, _ := newRollbackSafetyTestStorage(t)
+		ctx := context.Background()
+		key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/undecodable-ignore"
+		obj := fallbackTestObject("undecodable-ignore")
+
+		conn, err := pool.Take(ctx)
+		require.NoError(t, err)
+		seedMetadataRow(t, conn, key, obj, testFallbackRV, false, testFallbackUID, false)
+		seedRawPayloadsRow(t, conn, key, PayloadEncodingJSONV1Beta1, []byte("this is not json"))
+		pool.Put(conn)
+
+		out := &v1beta1.SBOMSyft{}
+		getErr := s.Get(ctx, key, storage.GetOptions{IgnoreNotFound: true}, out)
+		require.Error(t, getErr)
+		assert.False(t, storage.IsNotFound(getErr))
+
+		conn, err = pool.Take(ctx)
+		require.NoError(t, err)
+		assert.True(t, metadataRowExistsForTest(t, conn, key))
+		assert.True(t, payloadsRowExistsForTest(t, conn, key))
 		pool.Put(conn)
 	})
 }
@@ -397,6 +441,7 @@ func TestGet_UndecodableLegacyFileSitesStillDoNotServeFallback(t *testing.T) {
 		conn, err := pool.Take(ctx)
 		require.NoError(t, err)
 		assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must have run, exactly as before this change")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key), "and the valid native payload next to the corrupt file must survive it, exactly as before this change")
 		pool.Put(conn)
 	})
 
@@ -418,6 +463,7 @@ func TestGet_UndecodableLegacyFileSitesStillDoNotServeFallback(t *testing.T) {
 		conn, err := pool.Take(ctx)
 		require.NoError(t, err)
 		assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must have run, exactly as before this change")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key), "and the valid native payload next to the corrupt file must survive it, exactly as before this change")
 		pool.Put(conn)
 	})
 
@@ -447,6 +493,7 @@ func TestGet_UndecodableLegacyFileSitesStillDoNotServeFallback(t *testing.T) {
 		conn, err := pool.Take(ctx)
 		require.NoError(t, err)
 		assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must have run, exactly as before this change")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key), "and the valid native payload next to the corrupt file must survive it, exactly as before this change")
 		pool.Put(conn)
 	})
 }

@@ -1,10 +1,12 @@
 package file
 
 // Tests for US-001 of .omc/plans/rollback-safety-guard.md, Part 1: the
-// shared DeletePayloads helper wired into both delete paths --
-// deleteLocked's non-gated arm (crash-safety ordering: payloads before
-// metadata) and repairDelete (the single function shared by all 4 of get()'s
-// self-repair call sites).
+// shared DeletePayloads helper wired into the delete paths that may safely
+// use it: deleteLocked's non-gated arm (crash-safety ordering: payloads
+// before metadata, and a failure surfaced to the caller rather than
+// swallowed) and get()'s missing-payload-file self-repair -- and NOT the
+// shared repairDelete, which the other three self-repair sites use and which
+// must never touch a payloads row.
 
 import (
 	"context"
@@ -109,14 +111,25 @@ func TestDelete_RemovesPayloadsRowBeforeMetadataRow(t *testing.T) {
 	assert.True(t, storage.IsNotFound(getErr2))
 }
 
-// TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites is table-driven
+// TestRepairDelete_PrunesPayloadsOnlyAtTheMissingFileSite is table-driven
 // across the 4 sites in storage.go's get() that call repairDelete
 // (~1017/1092/1153/1315 in the plan's line numbering): the missing-payload-
 // file branch, the gob-EOF ("irrecoverable" decode error) branch, and the
 // two migration-tool-failure branches (migrateObject for the hasWriteLock
 // caller state, migrateObjectUnlocked for the noLock/hasReadLock states).
-// Each must leave no orphaned payloads row behind once repairDelete fires.
-func TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites(t *testing.T) {
+//
+// Only the FIRST site prunes the payloads row, and there only for a row a
+// legacy write owns (rv IS NULL) whose payloads body therefore predates it --
+// avoiding a superseded payload that could conflict with ObjectStore insertion.
+//
+// The other three sites fire on an undecodable .g FILE, which says nothing
+// about the payloads row sitting next to it: that row may be a perfectly
+// valid native payload, and these three sites are explicitly out of scope for
+// the rollback-safety guard (docs/features/containerprofile-sqlite-backend.md).
+// They must behave exactly as they did before the guard -- delete the metadata
+// row, leave a recoverable orphan payload behind -- which is what the
+// payloads-survive assertions below pin.
+func TestRepairDelete_PrunesPayloadsOnlyAtTheMissingFileSite(t *testing.T) {
 	t.Run("missing payload file (get() afero.ErrFileNotFound branch)", func(t *testing.T) {
 		s, pool, _ := newRollbackSafetyTestStorage(t)
 		ctx := context.Background()
@@ -135,7 +148,9 @@ func TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites(t *testing.T) {
 
 		conn, err = pool.Take(ctx)
 		require.NoError(t, err)
-		assert.False(t, payloadsRowExistsForTest(t, conn, key), "payloads row must be gone after repairDelete")
+		// writeMetadata leaves rv NULL (the legacy-write shape), so this is
+		// the fallbackPrunable outcome: the one case that prunes payloads.
+		assert.False(t, payloadsRowExistsForTest(t, conn, key), "payloads row must be gone after the missing-file self-repair")
 		pool.Put(conn)
 	})
 
@@ -159,7 +174,8 @@ func TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites(t *testing.T) {
 
 		conn, err = pool.Take(ctx)
 		require.NoError(t, err)
-		assert.False(t, payloadsRowExistsForTest(t, conn, key), "payloads row must be gone after repairDelete")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key),
+			"an undecodable .g file says nothing about the payloads row: this site must leave it recoverable, exactly as before the rollback-safety guard")
 		pool.Put(conn)
 	})
 
@@ -181,6 +197,10 @@ func TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites(t *testing.T) {
 
 		conn, err := pool.Take(ctx)
 		require.NoError(t, err)
+		// An ObjectStore-owned row (rv non-NULL) whose native payload sits
+		// next to a corrupt legacy .g file -- the shape that makes the
+		// payloads-survives assertion below non-vacuous.
+		seedMetadataRow(t, conn, key, &v1beta1.SBOMSyft{ObjectMeta: v1.ObjectMeta{Name: "site3"}}, testFallbackRV, false, testFallbackUID, false)
 		insertPayloadsRowForTest(t, conn, key)
 		pool.Put(conn)
 		require.NoError(t, afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, key), gobPayloadNeedingMigration(t), 0644))
@@ -194,7 +214,9 @@ func TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites(t *testing.T) {
 
 		conn, err = pool.Take(ctx)
 		require.NoError(t, err)
-		assert.False(t, payloadsRowExistsForTest(t, conn, key), "payloads row must be gone after repairDelete")
+		assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must still have deleted the metadata row, exactly as before")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key),
+			"an undecodable .g file says nothing about the payloads row: this site must leave it recoverable, exactly as before the rollback-safety guard")
 		pool.Put(conn)
 	})
 
@@ -208,6 +230,7 @@ func TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites(t *testing.T) {
 
 		conn, err := pool.Take(ctx)
 		require.NoError(t, err)
+		seedMetadataRow(t, conn, key, &v1beta1.SBOMSyft{ObjectMeta: v1.ObjectMeta{Name: "site4"}}, testFallbackRV, false, testFallbackUID, false)
 		insertPayloadsRowForTest(t, conn, key)
 		pool.Put(conn)
 		require.NoError(t, afero.WriteFile(fs, getStoredPayloadFilepath(DefaultStorageRoot, key), gobPayloadNeedingMigration(t), 0644))
@@ -217,7 +240,9 @@ func TestRepairDelete_RemovesPayloadsRowAtAllFourCallSites(t *testing.T) {
 
 		conn, err = pool.Take(ctx)
 		require.NoError(t, err)
-		assert.False(t, payloadsRowExistsForTest(t, conn, key), "payloads row must be gone after repairDelete")
+		assert.False(t, metadataRowExistsForTest(t, conn, key), "self-repair must still have deleted the metadata row, exactly as before")
+		assert.True(t, payloadsRowExistsForTest(t, conn, key),
+			"an undecodable .g file says nothing about the payloads row: this site must leave it recoverable, exactly as before the rollback-safety guard")
 		pool.Put(conn)
 	})
 }

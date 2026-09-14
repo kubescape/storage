@@ -677,6 +677,18 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	if _, err := s.appFs.Stat(makePayloadPath(filepath.Join(s.root, key))); err == nil {
 		return storage.NewKeyExistsError(key, 0)
 	}
+	// Flag-off objects can exist solely in SQLite. Check under the key lock
+	// before a legacy write can replace their metadata; the single-writer
+	// Create path performs its own commit-time database check.
+	visible, err := isFallbackVisible(conn, key)
+	if err != nil {
+		// Fail closed: never overwrite a key we could not check.
+		logger.L().Ctx(ctx).Error("Create - fallback existence check failed", helpers.Error(err), helpers.String("key", key))
+		return fmt.Errorf("create existence check: %w", err)
+	}
+	if visible {
+		return storage.NewKeyExistsError(key, 0)
+	}
 	// resourceVersion should not be set on create
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
 		msg := "resourceVersion should not be set on objects to be created"
@@ -809,11 +821,10 @@ func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key s
 	if s.gate != nil {
 		return s.deleteLockedGated(ctx, key, metaOut, p)
 	}
-	// delete payloads row in SQLite first: a crash between this and the
-	// metadata delete below leaves "metadata row present, no file, no
-	// payloads" -- today's existing, already-correct self-repair case.
+	// Delete the SQL payload before metadata. On failure preserve the other
+	// state so the caller can retry the complete deletion.
 	if err := DeletePayloads(conn, key); err != nil {
-		logger.L().Ctx(ctx).Error("Delete - delete payloads failed", helpers.Error(err), helpers.String("key", key))
+		return fmt.Errorf("delete payloads: %w", err)
 	}
 	// delete metadata in SQLite
 	err := DeleteMetadata(conn, key, metaOut)
@@ -1022,14 +1033,22 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 			// SQLite's write lock for the busy timeout, so a read of an absent
 			// key must not issue it.
 			if _, rerr := ReadMetadata(conn, key); rerr == nil {
-				// Condition 1 of the rollback read fallback holds (a metadata
-				// row exists for the key). If conditions 2-4 hold too, serve
-				// the object from its payloads body instead of self-repairing;
-				// otherwise fall through to today's behavior, unchanged.
-				if s.serveFromPayloadsFallback(ctx, conn, key, objPtr) {
-					return nil
+				outcome, inspectionErr := s.inspectPayloadsFallback(conn, key, objPtr)
+				if inspectionErr != nil {
+					// An unreadable object is not absent. In particular,
+					// IgnoreNotFound must not turn this into an empty object.
+					return fmt.Errorf("get payloads fallback: %w", inspectionErr)
 				}
-				_ = s.repairDelete(ctx, conn, key)
+				switch outcome {
+				case fallbackServed:
+					return nil
+				case fallbackPrunable:
+					_ = s.repairDeleteWithPayloads(ctx, conn, key)
+				case fallbackIneligible:
+					_ = s.repairDelete(ctx, conn, key)
+				}
+			} else if !errors.Is(rerr, ErrMetadataNotFound) {
+				return fmt.Errorf("get fallback metadata: %w", rerr)
 			}
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
@@ -1117,74 +1136,66 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	return err
 }
 
-// serveFromPayloadsFallback is the rollback read fallback
-// (.omc/plans/rollback-safety-guard.md, Part 2), reached only from get()'s
-// missing-payload-file branch. It reports whether objPtr was populated from
-// the key's payloads body; false means the caller must fall through to
-// today's existing self-repair, unchanged.
-//
-// The predicate is four conditions, evaluated in this order and
-// short-circuiting on the first failure:
-//
-//  1. a metadata row exists for the key — established by the caller's
-//     ReadMetadata probe, and re-observed here (a nil candidate means the row
-//     vanished between the probe and this read);
-//  2. the row's rv column is non-NULL. Every legacy write nulls rv
-//     (WriteJSON's INSERT OR REPLACE omits the column), so this excludes both
-//     pre-existing payloads-only orphans (no row at all) and every row a
-//     legacy write has touched since the flip — including the documented
-//     lost-rename case, where a legacy row commit survived a crash that lost
-//     its .g file rename and whose payloads body is therefore stale;
-//  3. the row is not a time-series row (is_time_series = 0). ObjectStore
-//     writes time-series rows with rv non-NULL and no .g file; they keep
-//     today's self-repair behavior under flag-off (explicitly deferred);
-//  4. a payloads row exists for the key.
-//
-// With all four true, rv is guaranteed non-NULL at the stamping below, so
-// there is no NULL-rv fallback branch to get wrong. Any failure — including a
-// read or decode error — is a fall-through, never a partial serve.
-func (s *StorageImpl) serveFromPayloadsFallback(ctx context.Context, conn *sqlite.Conn, key string, objPtr runtime.Object) bool {
-	if s.scheme == nil {
-		return false
-	}
+// fallbackOutcome distinguishes a served object from the two read-repair
+// cases. Inspection failures are returned separately and prohibit mutation.
+type fallbackOutcome int
+
+const (
+	fallbackIneligible fallbackOutcome = iota // Preserve any recoverable payload.
+	fallbackServed
+	fallbackPrunable // A non-time-series legacy write superseded the payload.
+)
+
+// inspectPayloadsFallback is called only when the legacy file is missing.
+// It serves a joined metadata/payloads row with non-NULL rv and no time-series
+// marker. Query, decode, and conversion failures leave both rows untouched.
+func (s *StorageImpl) inspectPayloadsFallback(conn *sqlite.Conn, key string, objPtr runtime.Object) (fallbackOutcome, error) {
 	candidate, err := readFallbackCandidate(conn, key)
 	if err != nil {
-		logger.L().Ctx(ctx).Warning("Get - read fallback candidate failed, falling through to self-repair", helpers.Error(err), helpers.String("key", key))
-		return false
+		return fallbackIneligible, err
 	}
-	// Condition 1: a metadata row exists.
-	if candidate == nil {
-		return false
+	if candidate == nil || candidate.isTimeSeries {
+		return fallbackIneligible, nil
 	}
-	// Condition 2: rv is non-NULL.
+	// Every legacy write clears rv. Its old SQL payload must not be served
+	// after a lost file rename, and can be pruned at this missing-file site.
 	if candidate.rvNull {
-		return false
+		return fallbackPrunable, nil
 	}
-	// Condition 3: not a time-series row.
-	if candidate.isTimeSeries {
-		return false
-	}
-	// Condition 4: a payloads row exists.
 	if !candidate.payloadsFound {
-		return false
+		return fallbackIneligible, nil
+	}
+	if s.scheme == nil {
+		return fallbackIneligible, fmt.Errorf("no scheme to decode payloads body")
 	}
 	if err := decodePayloadBody(s.scheme, candidate.encoding, candidate.body, objPtr); err != nil {
-		logger.L().Ctx(ctx).Warning("Get - payloads body undecodable, falling through to self-repair", helpers.Error(err), helpers.String("key", key))
-		return false
+		return fallbackIneligible, fmt.Errorf("decode payloads body: %w", err)
 	}
 	accessor, err := meta.Accessor(objPtr)
 	if err != nil {
-		logger.L().Ctx(ctx).Warning("Get - decoded payloads body has no object metadata, falling through to self-repair", helpers.Error(err), helpers.String("key", key))
-		return false
+		return fallbackIneligible, fmt.Errorf("access payload metadata: %w", err)
 	}
-	// The object carries what the row says (INV-2 makes these equal already),
-	// exactly as cpexport stamps its exported files.
+	// Use the authoritative columns, as cpexport does.
 	accessor.SetResourceVersion(strconv.FormatInt(candidate.rv, 10))
 	if candidate.uid != "" {
 		accessor.SetUID(types.UID(candidate.uid))
 	}
 	logger.L().Debug("Get - payload file missing, served from the payloads row", helpers.String("key", key))
-	return true
+	return fallbackServed, nil
+}
+
+// isFallbackVisible checks the database fallback predicate without decoding.
+// Even an eligible payload this binary cannot decode must block Create.
+// Query errors are returned so callers cannot overwrite uninspected state.
+func isFallbackVisible(conn *sqlite.Conn, key string) (bool, error) {
+	candidate, err := readFallbackCandidate(conn, key)
+	if err != nil {
+		return false, err
+	}
+	if candidate == nil {
+		return false, nil
+	}
+	return !candidate.rvNull && !candidate.isTimeSeries && candidate.payloadsFound, nil
 }
 
 // repairDelete is get()'s self-repair DELETE of a metadata row whose payload
@@ -1192,7 +1203,27 @@ func (s *StorageImpl) serveFromPayloadsFallback(ctx context.Context, conn *sqlit
 // the repair path. The caller holds the key's read (or write) lock and its
 // pool connection while queued — accepted for these cold paths
 // (write-gate-sharing §3.3). The error is the caller's to swallow, as today.
+//
+// It deletes the metadata row and NOTHING else. In particular it must never
+// touch the key's payloads row: this function is shared by all four of get()'s
+// self-repair sites, three of which fire on an undecodable .g FILE (gob EOF,
+// and the two migration-tool failures) where a perfectly valid native payload
+// may sit next to the corrupt file. Those three sites are explicitly out of
+// scope for the rollback-safety guard and must keep leaving a recoverable
+// orphan payload behind, exactly as they did before it
+// (docs/features/containerprofile-sqlite-backend.md). Only get()'s
+// missing-file site prunes payloads, and only in the narrow case
+// repairDeleteWithPayloads below documents.
 func (s *StorageImpl) repairDelete(ctx context.Context, conn *sqlite.Conn, key string) error {
+	return s.write(ctx, conn, priorityLow, holdPathRepair, resourceFromKey(key), false, func(_ context.Context, conn *sqlite.Conn) error {
+		return DeleteMetadata(conn, key, nil)
+	})
+}
+
+// repairDeleteWithPayloads prunes a superseded SQL payload before metadata.
+// Only the missing-file branch calls it, after establishing rv IS NULL and
+// no time-series marker. Corrupt-file repairs must preserve recovery bytes.
+func (s *StorageImpl) repairDeleteWithPayloads(ctx context.Context, conn *sqlite.Conn, key string) error {
 	return s.write(ctx, conn, priorityLow, holdPathRepair, resourceFromKey(key), false, func(_ context.Context, conn *sqlite.Conn) error {
 		if err := DeletePayloads(conn, key); err != nil {
 			return err

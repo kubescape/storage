@@ -3,10 +3,10 @@ package file
 // Advisory startup check (D) (.omc/plans/rollback-safety-guard.md): a
 // purely informational census, run once at startup when
 // cfg.ContainerProfileSqliteBackend is false, of how many ContainerProfile
-// keys currently satisfy US-002's rollback read fallback predicate --
-// i.e. how many keys are currently being served via the Part 2 fallback
-// (serveFromPayloadsFallback, storage.go) rather than from a legacy .g
-// file. It never fails startup: a query error is logged distinctly from a
+// keys satisfy the rollback read fallback's database predicate. This counts
+// candidates only: it does not check legacy .g file absence or decode payloads,
+// so it does not count objects actually served through the fallback.
+// It never fails startup: a query error is logged distinctly from a
 // genuine zero count, and either way the caller proceeds.
 
 import (
@@ -28,9 +28,9 @@ const advisoryFallbackExampleCap = 10
 
 // FallbackCensusReport is the result of counting, at startup, how many
 // ContainerProfile keys currently satisfy the rollback read fallback's
-// 4-condition predicate.
+// 4-condition database predicate, without file or payload-decode checks.
 type FallbackCensusReport struct {
-	// Count is the total number of fallback-eligible keys found.
+	// Count is the total number of database candidates found.
 	Count int
 	// ExampleKeys holds up to advisoryFallbackExampleCap of those keys'
 	// full storage paths.
@@ -38,11 +38,13 @@ type FallbackCensusReport struct {
 }
 
 // CensusFallbackEligibleContainerProfiles counts ContainerProfile keys
-// currently satisfying the same 4-condition predicate as the rollback read
-// fallback (serveFromPayloadsFallback, storage.go / readFallbackCandidate,
+// currently satisfying the same 4-condition database predicate as the rollback
+// read fallback (inspectPayloadsFallback, storage.go / readFallbackCandidate,
 // sqlite.go): a metadata row exists, rv IS NOT NULL, is_time_series = 0,
 // and a payloads row exists (the two row-existence conditions are enforced
-// here by the JOIN itself).
+// here by the JOIN itself). It does not check whether a legacy .g file exists
+// or whether the payload can be decoded; the count can exceed the number of
+// objects that a missing-file read could actually serve through the fallback.
 //
 // Bounded with its own timeout derived from ctx, rather than inheriting
 // ctx's own deadline (or lack of one) directly -- the caller may pass an
