@@ -19,7 +19,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	softwarecompositionv1beta1 "github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -32,8 +31,8 @@ import (
 type SBOMSyftApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *SBOMSyftSpecApplyConfiguration            `json:"spec,omitempty"`
-	Status                           *softwarecompositionv1beta1.SBOMSyftStatus `json:"status,omitempty"`
+	Spec                             *SBOMSyftSpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *SBOMSyftStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // SBOMSyft constructs a declarative configuration of the SBOMSyft type for use with
@@ -218,8 +217,8 @@ func (b *SBOMSyftApplyConfiguration) WithSpec(value *SBOMSyftSpecApplyConfigurat
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *SBOMSyftApplyConfiguration) WithStatus(value softwarecompositionv1beta1.SBOMSyftStatus) *SBOMSyftApplyConfiguration {
-	b.Status = &value
+func (b *SBOMSyftApplyConfiguration) WithStatus(value *SBOMSyftStatusApplyConfiguration) *SBOMSyftApplyConfiguration {
+	b.Status = value
 	return b
 }
 
