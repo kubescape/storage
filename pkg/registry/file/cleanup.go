@@ -91,7 +91,19 @@ func initResourceToKindHandler(relevancyEnabled bool) map[string][]TypeCleanupHa
 // deleteDeprecated no longer have a type in pkg/apis/softwarecomposition or a
 // REST endpoint that could register a watcher, so they are intentionally
 // omitted here and never reach the watch dispatcher.
+//
+// ContainerProfileKind is not a key of initResourceToKindHandler's base map
+// (container profiles are normally cleaned up by ContainerProfileProcessor.cleanup,
+// see containerprofile_processor.go), but it must still be registered here:
+// ContainerProfileProcessor.cleanup builds its own resourceToKindHandler keyed by
+// ContainerProfileKind and runs it through this same CleanupHandler.CleanupTask /
+// cleanupNamespace / deleteMetadata path, and relevancy-enabled cleanup
+// (initResourceToKindHandler below) adds ContainerProfileKind to the shared map
+// too. Omitting it here silently drops every ContainerProfile Deleted watch
+// event instead of erroring, which is exactly as broken for clients relying on
+// deletion notifications.
 var resourceKindToObjectFunc = map[string]func() runtime.Object{
+	ContainerProfileKind:                  func() runtime.Object { return &softwarecomposition.ContainerProfile{} },
 	"sbomsyft":                            func() runtime.Object { return &softwarecomposition.SBOMSyft{} },
 	"vulnerabilitymanifests":              func() runtime.Object { return &softwarecomposition.VulnerabilityManifest{} },
 	"openvulnerabilityexchangecontainers": func() runtime.Object { return &softwarecomposition.OpenVulnerabilityExchangeContainer{} },

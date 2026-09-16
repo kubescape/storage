@@ -33,6 +33,18 @@ are intentionally omitted from `resourceKindToObjectFunc`; the cleanup loop stil
 their on-disk payload and SQLite metadata row, it just never reaches the watch
 dispatcher for them.
 
+`ContainerProfileKind` ("containerprofile") is registered in `resourceKindToObjectFunc`
+too, even though it is not a key of `initResourceToKindHandler`'s base map. Container
+profiles are normally cleaned up by `ContainerProfileProcessor.cleanup`
+(`containerprofile_processor.go`), but that method builds its own
+`resourceToKindHandler` keyed by `ContainerProfileKind` and runs it through the same
+`CleanupHandler.CleanupTask` / `cleanupNamespace` / `deleteMetadata` path as every other
+cleanup-handled kind, and relevancy-enabled cleanup (`initResourceToKindHandler`) adds
+`ContainerProfileKind` to the shared map as well. An earlier version of this fix omitted
+`ContainerProfileKind` from `resourceKindToObjectFunc`, which meant a ContainerProfile
+delete still succeeded but silently never reached the watch dispatcher instead of
+erroring -- caught in review before merge.
+
 ## Tests
 
 - `pkg/registry/file/cleanup_watch_dispatch_test.go`:
@@ -41,6 +53,11 @@ dispatcher for them.
   `*softwarecomposition.WorkloadConfigurationScan`, not `*file.PartialObjectMetadata`.
   `TestCleanupNamespaceSkipsDispatchForDeprecatedKind` asserts a deprecated kind's delete
   never reaches the watch dispatcher.
+- `pkg/registry/file/cleanup_containerprofile_test.go`:
+  `TestContainerProfileCleanupDispatchesRegisteredTypeToWatchers` runs
+  `ContainerProfileProcessor.cleanup` end to end and asserts a reclaimed container
+  profile's delete dispatches a `*softwarecomposition.ContainerProfile` to an active
+  watcher.
 - `pkg/apiserver/watch_encoding_test.go`:
   `TestWatchEventObjectEncodesThroughApiserverScheme` exercises the actual encode call
   `WatchServer.HandleHTTP` performs (via this package's real `Scheme`/`Codecs`), proving
