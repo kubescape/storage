@@ -78,8 +78,10 @@ func newMigrationEnv(t *testing.T, fs afero.Fs) *migrationEnv {
 	var tpl softwarecomposition.ContainerProfile
 	require.NoError(t, json.Unmarshal(content, &tpl))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	t.Cleanup(cancel)
+	// Seeding and verification share this context with migration, so its
+	// lifetime follows the test rather than a fixed wall-clock budget.
+	// t.Context is canceled before cleanup closes the store and pools.
+	ctx := t.Context()
 	e := &migrationEnv{
 		t: t, ctx: ctx, dir: dir, dbPath: dbPath, fs: fs, scheme: sch,
 		pool: pool, legacyPool: legacyPool, legacy: legacy,

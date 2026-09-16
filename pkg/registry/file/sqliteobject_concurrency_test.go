@@ -518,13 +518,20 @@ func (c keyReserveCounters) delta(t *testing.T) keyReserveCounters {
 //	Regardless of the writer's pace, a series consolidates within ONE tick —
 //	the first attempt may conflict, the reserved retry commits — as long as
 //	the retry runs within keyReserveWaitMax and in-flight same-series writes
-//	drain within keyReserveDrainMax (1 s each; this retry takes ms).
+//	drain within keyReserveDrainMax.
+//
+// Test-local safety deadlines allow slow CI scheduling; the production
+// timeout behavior is verified separately by TestKeyReservations_BoundedWaits.
 //
 // Asserted per round: exactly one tick, no failed tick, no writer wait timed
 // out; over the run: the reserved retry committed at least once (the
 // escalation was exercised, not bypassed), the writer yielded at least once,
 // no update lost. LOAD_TEST=1 raises the rounds.
 func TestObjectStore_UpdateVsConsolidationTick_UnpacedWriter(t *testing.T) {
+	// A 50 ms production writer cap may legitimately expire under CPU or disk
+	// contention. Exercise the no-timeout fairness guarantee here, independently
+	// of runner speed, while retaining a bounded failure for deadlocks.
+	shrinkKeyReserveBounds(t, 30*time.Second, 30*time.Second)
 	rounds := 8
 	if os.Getenv("LOAD_TEST") == "1" {
 		rounds = 40
@@ -556,7 +563,17 @@ func TestObjectStore_UpdateVsConsolidationTick_UnpacedWriter(t *testing.T) {
 		}
 	}()
 
-	race := &tickRace{e: e, rounds: rounds, perRound: perRound, maxTicksPerRound: 2}
+	race := &tickRace{e: e, rounds: rounds, perRound: perRound, maxTicksPerRound: 2,
+		injectOnce: func(_, _ int) {
+			// Force the first attempt to conflict even when the background writer
+			// happens not to run inside this tick's read-to-commit window.
+			if err := e.store.GuaranteedUpdate(e.ctx, e.baseKey, &softwarecomposition.ContainerProfile{}, false, nil, incrementCounter, nil); err != nil {
+				t.Errorf("injected base update: %v", err)
+				return
+			}
+			bgUpdates.Add(1)
+		},
+	}
 	race.run(t)
 	stopOnce.Do(func() { close(stop) })
 	wg.Wait()
