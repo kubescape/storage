@@ -152,7 +152,7 @@ func TestConsolidation_FallbackServedKeyMergesCorrectlyWithoutDivergence(t *test
 
 	// A time series with data, so ConsolidateTimeSeries's list queries pick
 	// up this key and actually run a tick against it.
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	h.writeTsObject(t, key, "1", "new", true)
 
 	c0 := snapshotCounters(t)
