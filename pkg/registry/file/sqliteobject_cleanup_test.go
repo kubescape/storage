@@ -25,10 +25,12 @@ import (
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/config"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 )
@@ -241,6 +243,16 @@ func TestCleanup_ContainerProfileArmUsesRowsUnderTheFlag(t *testing.T) {
 	select {
 	case ev := <-w.ResultChan():
 		require.Equal(t, "DELETED", string(ev.Type))
+		profile, ok := ev.Object.(*softwarecomposition.ContainerProfile)
+		require.True(t, ok, "cleanup watch object must be a registered ContainerProfile, got %T", ev.Object)
+		require.Equal(t, stale.Name, profile.Name)
+		require.Equal(t, e.ns, profile.Namespace)
+		scheme := runtime.NewScheme()
+		install.Install(scheme)
+		codecs := serializer.NewCodecFactory(scheme)
+		_, err := runtime.Encode(codecs.LegacyCodec(v1beta1.SchemeGroupVersion), ev.Object)
+		require.NoError(t, err, "cleanup watch event must encode through the API scheme")
+
 	case <-time.After(5 * time.Second):
 		// A non-blocking default here raced the watch dispatcher's own
 		// goroutine: the event is genuinely async (see WatchDispatcher),

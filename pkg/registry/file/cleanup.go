@@ -17,6 +17,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -117,6 +118,30 @@ func initResourceToKindHandler() map[string][]TypeCleanupHandlerFunc {
 		"workloadconfigurationscans":          {deleteByWlid},
 		"workloadconfigurationscansummaries":  {deleteByWlid},
 	}
+}
+
+// resourceKindToObjectFunc maps a cleanup-handled resource kind to a constructor
+// for its scheme-registered API type. A delete performed by cleanupNamespace may
+// be dispatched to an active watcher, and the apiserver's watch encoder can only
+// serialize a type known to the runtime.Scheme (see issue #405, where the
+// internal, unregistered file.PartialObjectMetadata helper was dispatched
+// directly and broke watch encoding). Deprecated kinds handled by
+// deleteDeprecated no longer have a type in pkg/apis/softwarecomposition or a
+// REST endpoint that could register a watcher, so they are intentionally
+// omitted here and never reach the watch dispatcher.
+//
+// ContainerProfileKind is needed for the legacy processor cleanup path.
+// SQLite-backed ContainerProfiles are deleted through their ObjectStore.
+var resourceKindToObjectFunc = map[string]func() runtime.Object{
+	ContainerProfileKind:                  func() runtime.Object { return &softwarecomposition.ContainerProfile{} },
+	"sbomsyft":                            func() runtime.Object { return &softwarecomposition.SBOMSyft{} },
+	"vulnerabilitymanifests":              func() runtime.Object { return &softwarecomposition.VulnerabilityManifest{} },
+	"openvulnerabilityexchangecontainers": func() runtime.Object { return &softwarecomposition.OpenVulnerabilityExchangeContainer{} },
+	"sbomsyftfiltered":                    func() runtime.Object { return &softwarecomposition.SBOMSyftFiltered{} },
+	"seccompprofiles":                     func() runtime.Object { return &softwarecomposition.SeccompProfile{} },
+	"vulnerabilitymanifestsummaries":      func() runtime.Object { return &softwarecomposition.VulnerabilityManifestSummary{} },
+	"workloadconfigurationscans":          func() runtime.Object { return &softwarecomposition.WorkloadConfigurationScan{} },
+	"workloadconfigurationscansummaries":  func() runtime.Object { return &softwarecomposition.WorkloadConfigurationScanSummary{} },
 }
 
 func NewResourcesCleanupHandler(appFs afero.Fs, root string, pool *sqlitemigration.Pool, watchDispatcher *WatchDispatcher, interval time.Duration, defaultNamespace string, fetcher ResourcesFetcher, relevancyEnabled bool) *ResourcesCleanupHandler {
@@ -253,11 +278,18 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
 				h.deleteFunc(h.appFs, path)
 
-				metaOut, err := h.deleteMetadata(ctx, conn, path)
+				newObjectFunc, hasRegisteredType := resourceKindToObjectFunc[resourceKind]
+				if !hasRegisteredType {
+					newObjectFunc = func() runtime.Object { return &PartialObjectMetadata{} }
+				}
+				metaOut, err := h.deleteMetadata(ctx, conn, path, newObjectFunc)
 				if err != nil {
 					return fmt.Errorf("failed to delete metadata: %w", err)
 				}
-				if h.watchDispatcher != nil {
+				// Only dispatch to watchers when metaOut is a scheme-registered
+				// type (see resourceKindToObjectFunc) -- deprecated kinds have
+				// no registered type and no REST endpoint to watch anyway.
+				if h.watchDispatcher != nil && hasRegisteredType {
 					key := path[len(h.root) : len(path)-len(GobExt)]
 					h.watchDispatcher.Deleted(key, metaOut)
 				}
@@ -308,7 +340,7 @@ func (h *ResourcesCleanupHandler) cleanupContainerProfileRows(ctx context.Contex
 			continue
 		}
 		logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
-		err = h.cpStore.Delete(ctx, key, &PartialObjectMetadata{}, nil, nil, nil, storage.DeleteOptions{})
+		err = h.cpStore.Delete(ctx, key, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
 		if err != nil && !storage.IsNotFound(err) {
 			return fmt.Errorf("failed to delete %s: %w", key, err)
 		}

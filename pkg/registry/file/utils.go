@@ -54,9 +54,9 @@ func NewKubernetesClient() (*kubernetes.Clientset, error) {
 // write-gate-sharing §3.2): today's autocommit statements on the walk's
 // connection with no gate; one gated transaction with the row's JSON decoded
 // after release with one.
-func (h *ResourcesCleanupHandler) deleteMetadata(ctx context.Context, conn *sqlite.Conn, path string) (runtime.Object, error) {
+func (h *ResourcesCleanupHandler) deleteMetadata(ctx context.Context, conn *sqlite.Conn, path string, newObjectFunc func() runtime.Object) (runtime.Object, error) {
 	key := payloadPathToKey(path)
-	metaOut := &PartialObjectMetadata{}
+	metaOut := newObjectFunc()
 	_, _, kind, _, _, _ := K8sPathToKeys(key)
 	if h.gate == nil {
 		err := DeleteMetadata(conn, key, metaOut)
