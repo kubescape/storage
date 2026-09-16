@@ -47,9 +47,9 @@ func NewKubernetesClient() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(clusterConfig)
 }
 
-func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) (runtime.Object, error) {
+func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string, newObjectFunc func() runtime.Object) (runtime.Object, error) {
 	key := payloadPathToKey(path)
-	metaOut := &PartialObjectMetadata{}
+	metaOut := newObjectFunc()
 	err := DeleteMetadata(conn, key, metaOut)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete metadata: %w", err)
