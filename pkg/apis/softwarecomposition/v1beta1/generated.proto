@@ -603,6 +603,21 @@ message IgnoreRule {
   optional string fixstate = 2;
 
   optional IgnoreRulePackage package = 3;
+
+  // SourceKind, SourceName and SourceNamespace identify the object that
+  // caused this suppression (e.g. "SecurityException", its name, and
+  // namespace for a namespaced object).
+  optional string sourcekind = 4;
+
+  optional string sourcename = 5;
+
+  optional string sourcenamespace = 6;
+
+  // Justification and ImpactStatement carry the stated reason for the
+  // suppression, in VEX vocabulary.
+  optional string justification = 7;
+
+  optional string impactstatement = 8;
 }
 
 message IgnoreRulePackage {
@@ -957,9 +972,10 @@ message NetworkNeighbor {
   // See pkg/registry/file/networkmatch for matcher semantics.
   repeated string ipAddresses = 9;
 
-  // ServiceRefNamespace and ServiceRefName reference a single Service,
-  // resolved per-cluster to its ClusterIP(s) and endpoint IPs
-  // (k8sstormcenter/node-agent#92).
+  // ServiceRefNamespace and ServiceRefName reference a single Service; the
+  // resolver expands it to that Service's ClusterIP(s) and backing endpoint
+  // IPs. Portable (a name, resolved per-cluster) and narrow, unlike a
+  // serviceCIDR ipAddresses entry. See k8sstormcenter/node-agent#92.
   optional string serviceRefNamespace = 10;
 
   optional string serviceRefName = 11;
@@ -967,7 +983,9 @@ message NetworkNeighbor {
   // ServiceSelector selects Services by label, resolved like ServiceRef.
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector serviceSelector = 12;
 
-  // Entity is a reserved peer identity not backed by a Service ("host").
+  // Entity is a reserved peer identity not backed by a Service object.
+  // Supported value: "host" (node InternalIP + CNI gateway) — kubelet/health
+  // probes and node-sourced traffic.
   optional string entity = 13;
 }
 
@@ -1746,6 +1764,12 @@ message WorkloadConfigurationScanList {
   repeated WorkloadConfigurationScan items = 2;
 }
 
+// WorkloadConfigurationScanMeta contains producer-supplied metadata about a
+// workload configuration scan report.
+message WorkloadConfigurationScanMeta {
+  optional ReportMeta report = 1;
+}
+
 message WorkloadConfigurationScanSeveritiesSummary {
   optional int64 critical = 1;
 
@@ -1762,6 +1786,12 @@ message WorkloadConfigurationScanSpec {
   map<string, ScannedControl> controls = 2;
 
   repeated WorkloadScanRelatedObject relatedObjects = 3;
+
+  // Metadata contains producer-supplied metadata about this scan report.
+  // +optional
+  // Field 4 preserves the existing wire layout: fields 2 and 3 are stable,
+  // while field 1 was unused when protobuf support was introduced.
+  optional WorkloadConfigurationScanMeta metadata = 4;
 }
 
 // WorkloadConfigurationScanSummary is a summary of a WorkloadConfigurationScan

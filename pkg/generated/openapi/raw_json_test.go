@@ -74,3 +74,29 @@ func TestScannerDocumentsManagedFieldsConversion(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkloadConfigurationScanReportTimestampSchema(t *testing.T) {
+	definitions := openapi.GetOpenAPIDefinitions(func(name string) spec.Ref {
+		return spec.MustCreateRef("#/definitions/" + name)
+	})
+
+	scanSpec := definitions[v1beta1.WorkloadConfigurationScanSpec{}.OpenAPIModelName()].Schema
+	metadata, ok := scanSpec.Properties["metadata"]
+	require.True(t, ok, "scan spec must expose metadata")
+	require.NotNil(t, metadata.Ref)
+	require.NotContains(t, scanSpec.Required, "metadata", "scan metadata must remain optional")
+	require.Equal(t, "#/definitions/"+v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName(), metadata.Ref.String())
+
+	scanMeta := definitions[v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName()].Schema
+	report, ok := scanMeta.Properties["report"]
+	require.True(t, ok, "scan metadata must expose report")
+	require.NotNil(t, report.Ref)
+	require.Equal(t, "#/definitions/"+v1beta1.ReportMeta{}.OpenAPIModelName(), report.Ref.String())
+
+	reportMeta := definitions[v1beta1.ReportMeta{}.OpenAPIModelName()].Schema
+	createdAt, ok := reportMeta.Properties["createdAt"]
+	require.True(t, ok, "report metadata must expose createdAt")
+	require.Equal(t, []string{"string"}, createdAt.Type)
+	require.Equal(t, "date-time", createdAt.Format)
+	require.Contains(t, reportMeta.Required, "createdAt")
+}

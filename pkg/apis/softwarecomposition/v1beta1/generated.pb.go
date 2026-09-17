@@ -352,6 +352,8 @@ func (m *WorkloadConfigurationScan) Reset() { *m = WorkloadConfigurationScan{} }
 
 func (m *WorkloadConfigurationScanList) Reset() { *m = WorkloadConfigurationScanList{} }
 
+func (m *WorkloadConfigurationScanMeta) Reset() { *m = WorkloadConfigurationScanMeta{} }
+
 func (m *WorkloadConfigurationScanSeveritiesSummary) Reset() {
 	*m = WorkloadConfigurationScanSeveritiesSummary{}
 }
@@ -8351,6 +8353,39 @@ func (m *WorkloadConfigurationScanList) MarshalToSizedBuffer(dAtA []byte) (int, 
 	return len(dAtA) - i, nil
 }
 
+func (m *WorkloadConfigurationScanMeta) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WorkloadConfigurationScanMeta) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WorkloadConfigurationScanMeta) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Report.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenerated(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
 func (m *WorkloadConfigurationScanSeveritiesSummary) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -8409,6 +8444,18 @@ func (m *WorkloadConfigurationScanSpec) MarshalToSizedBuffer(dAtA []byte) (int, 
 	_ = i
 	var l int
 	_ = l
+	if m.Metadata != nil {
+		{
+			size, err := m.Metadata.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintGenerated(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
 	if len(m.RelatedObjects) > 0 {
 		for iNdEx := len(m.RelatedObjects) - 1; iNdEx >= 0; iNdEx-- {
 			{
@@ -9620,6 +9667,10 @@ func (m *IgnoreRule) Size() (n int) {
 	n += 1 + l + sovGenerated(uint64(l))
 	l = len(m.FixState)
 	n += 1 + l + sovGenerated(uint64(l))
+	if m.Package != nil {
+		l = m.Package.Size()
+		n += 1 + l + sovGenerated(uint64(l))
+	}
 	l = len(m.SourceKind)
 	n += 1 + l + sovGenerated(uint64(l))
 	l = len(m.SourceName)
@@ -9630,10 +9681,6 @@ func (m *IgnoreRule) Size() (n int) {
 	n += 1 + l + sovGenerated(uint64(l))
 	l = len(m.ImpactStatement)
 	n += 1 + l + sovGenerated(uint64(l))
-	if m.Package != nil {
-		l = m.Package.Size()
-		n += 1 + l + sovGenerated(uint64(l))
-	}
 	return n
 }
 
@@ -11692,6 +11739,17 @@ func (m *WorkloadConfigurationScanList) Size() (n int) {
 	return n
 }
 
+func (m *WorkloadConfigurationScanMeta) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = m.Report.Size()
+	n += 1 + l + sovGenerated(uint64(l))
+	return n
+}
+
 func (m *WorkloadConfigurationScanSeveritiesSummary) Size() (n int) {
 	if m == nil {
 		return 0
@@ -11726,6 +11784,10 @@ func (m *WorkloadConfigurationScanSpec) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovGenerated(uint64(l))
 		}
+	}
+	if m.Metadata != nil {
+		l = m.Metadata.Size()
+		n += 1 + l + sovGenerated(uint64(l))
 	}
 	return n
 }
@@ -12561,6 +12623,11 @@ func (this *IgnoreRule) String() string {
 		`Vulnerability:` + fmt.Sprintf("%v", this.Vulnerability) + `,`,
 		`FixState:` + fmt.Sprintf("%v", this.FixState) + `,`,
 		`Package:` + strings.Replace(this.Package.String(), "IgnoreRulePackage", "IgnoreRulePackage", 1) + `,`,
+		`SourceKind:` + fmt.Sprintf("%v", this.SourceKind) + `,`,
+		`SourceName:` + fmt.Sprintf("%v", this.SourceName) + `,`,
+		`SourceNamespace:` + fmt.Sprintf("%v", this.SourceNamespace) + `,`,
+		`Justification:` + fmt.Sprintf("%v", this.Justification) + `,`,
+		`ImpactStatement:` + fmt.Sprintf("%v", this.ImpactStatement) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -14210,6 +14277,16 @@ func (this *WorkloadConfigurationScanList) String() string {
 	}, "")
 	return s
 }
+func (this *WorkloadConfigurationScanMeta) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&WorkloadConfigurationScanMeta{`,
+		`Report:` + strings.Replace(strings.Replace(this.Report.String(), "ReportMeta", "ReportMeta", 1), `&`, ``, 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *WorkloadConfigurationScanSeveritiesSummary) String() string {
 	if this == nil {
 		return "nil"
@@ -14246,6 +14323,7 @@ func (this *WorkloadConfigurationScanSpec) String() string {
 	s := strings.Join([]string{`&WorkloadConfigurationScanSpec{`,
 		`Controls:` + mapStringForControls + `,`,
 		`RelatedObjects:` + repeatedStringForRelatedObjects + `,`,
+		`Metadata:` + strings.Replace(this.Metadata.String(), "WorkloadConfigurationScanMeta", "WorkloadConfigurationScanMeta", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -39355,6 +39433,89 @@ func (m *WorkloadConfigurationScanList) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *WorkloadConfigurationScanMeta) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WorkloadConfigurationScanMeta: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WorkloadConfigurationScanMeta: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Report", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Report.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *WorkloadConfigurationScanSeveritiesSummary) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -39689,6 +39850,42 @@ func (m *WorkloadConfigurationScanSpec) Unmarshal(dAtA []byte) error {
 			}
 			m.RelatedObjects = append(m.RelatedObjects, WorkloadScanRelatedObject{})
 			if err := m.RelatedObjects[len(m.RelatedObjects)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Metadata", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Metadata == nil {
+				m.Metadata = &WorkloadConfigurationScanMeta{}
+			}
+			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
