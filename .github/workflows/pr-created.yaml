@@ -5,7 +5,6 @@ on:
     paths-ignore:
       - '*.md'
       - '*.yaml'
-      - '.github/workflows/*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,8 +12,9 @@ concurrency:
 
 jobs:
   pr-created:
-    uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@main
+    uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@33aa46c0214e9e1455e0fc069abc1a9dcdfceb0b # configurable test timeout
     with:
       CGO_ENABLED: 0
       GO_VERSION: "1.25"
+      TEST_TIMEOUT_MINUTES: 30
     secrets: inherit

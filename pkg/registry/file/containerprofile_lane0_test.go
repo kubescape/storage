@@ -34,9 +34,10 @@ import (
 const lane0Group = "spdx.softwarecomposition.kubescape.io"
 
 type lane0Harness struct {
-	proc *ContainerProfileProcessor
-	s    *StorageImpl
-	pool *sqlitemigration.Pool
+	referenceTime time.Time
+	proc          *ContainerProfileProcessor
+	s             *StorageImpl
+	pool          *sqlitemigration.Pool
 	// hooks wraps the real ContainerProfileStorage; tests set its fields.
 	hooks *hookedCPStorage
 }
@@ -68,7 +69,7 @@ func newLane0Harness(t *testing.T, busyTimeout time.Duration) *lane0Harness {
 	hooks := &hookedCPStorage{ContainerProfileStorage: NewContainerProfileStorageImpl(s, pool)}
 	// Interval stays 0 so SetStorage does not spawn the maintenance goroutine.
 	proc.SetStorage(hooks)
-	return &lane0Harness{proc: proc, s: s, pool: pool, hooks: hooks}
+	return &lane0Harness{proc: proc, s: s, pool: pool, hooks: hooks, referenceTime: time.Now()}
 }
 
 func lane0Key(ns, name string) string {
@@ -198,7 +199,7 @@ func (h *lane0Harness) writeTsObject(t *testing.T, baseKey, suffix, tag string, 
 	conn, err := h.pool.Take(context.Background())
 	require.NoError(t, err)
 	defer h.pool.Put(conn)
-	_, err = h.s.saveObject(conn, tsKey, obj, &softwarecomposition.ContainerProfile{}, "")
+	_, err = h.s.saveObject(context.Background(), conn, tsKey, obj, &softwarecomposition.ContainerProfile{}, "", priorityLow, holdPathLegacyCommit)
 	require.NoError(t, err)
 	return tsKey
 }
@@ -332,8 +333,10 @@ const (
 	lane0ZeroTime = "0001-01-01T00:00:00Z"
 )
 
-func lane0Ts(minutesAgo int) string {
-	return time.Now().Add(-time.Duration(minutesAgo) * time.Minute).UTC().Format(time.RFC3339)
+// ts preserves exact links between reports even when fixture setup crosses
+// a wall-clock second. Each harness has its own recent reference time.
+func (h *lane0Harness) ts(minutesAgo int) string {
+	return h.referenceTime.Add(-time.Duration(minutesAgo) * time.Minute).UTC().Format(time.RFC3339)
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +359,7 @@ func TestProcessTimeSeriesInTransaction_PanicLeavesNoOpenTransaction(t *testing.
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
 	for _, series := range []string{"A", "B"} {
-		h.seedTsRow(t, ns, name, series, series+"1", lane0Ts(5), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+		h.seedTsRow(t, ns, name, series, series+"1", h.ts(5), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 		h.writeTsObject(t, key, series+"1", "ts-"+series, true)
 	}
 
@@ -383,7 +386,7 @@ func TestProcessTimeSeriesInTransaction_PanicLeavesNoOpenTransaction(t *testing.
 	require.NoError(t, err)
 	defer h.pool.Put(conn)
 	start := time.Now()
-	err = WriteTimeSeriesEntry(conn, "containerprofile", ns, "other", "C", "1", lane0Ts(1), helpersv1.Learning, helpersv1.Partial, "", true)
+	err = WriteTimeSeriesEntry(conn, "containerprofile", ns, "other", "C", "1", h.ts(1), helpersv1.Learning, helpersv1.Partial, "", true)
 	require.NoError(t, err, "a subsequent write must succeed immediately; SQLITE_BUSY means the transaction was left open")
 	require.Less(t, time.Since(start), 400*time.Millisecond)
 
@@ -413,7 +416,7 @@ func TestUpdateProfile_MissingInstanceID_ProcessedIsNil(t *testing.T) {
 	h := newLane0Harness(t, 0)
 	const ns, name = "ns1", "finding-t"
 	key := lane0Key(ns, name)
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(5), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(5), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	tsKey := h.writeTsObject(t, key, "1", "ts-A", false)
 	w := h.watchKey(t, key)
 
@@ -425,7 +428,7 @@ func TestUpdateProfile_MissingInstanceID_ProcessedIsNil(t *testing.T) {
 	profile, id, prefix, root, err := h.proc.loadOrInitializeProfile(ctx, key)
 	require.NoError(t, err)
 
-	processed, err := h.proc.processTimeSeriesInTransaction(ctx, rows, key, profile, prefix, root, id, false)
+	processed, _, err := h.proc.processTimeSeriesInTransaction(ctx, rows, key, profile, prefix, root, id, false)
 	require.NoError(t, err)
 	require.Nil(t, processed, "nothing was persisted, so nothing may be scheduled for deletion")
 
@@ -445,9 +448,9 @@ func TestUpdateProfile_MissingInstanceID_ProcessedIsNil(t *testing.T) {
 func (h *lane0Harness) seedChain(t *testing.T, ns, name, series string, newestStatus, newestCompletion string) map[string]string {
 	t.Helper()
 	key := lane0Key(ns, name)
-	h.seedTsRow(t, ns, name, series, "2", lane0Ts(1), lane0Ts(2), newestStatus, newestCompletion, true)
-	h.seedTsRow(t, ns, name, series, "1", lane0Ts(2), lane0Ts(3), helpersv1.Learning, helpersv1.Partial, true)
-	h.seedTsRow(t, ns, name, series, "0", lane0Ts(3), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, series, "2", h.ts(1), h.ts(2), newestStatus, newestCompletion, true)
+	h.seedTsRow(t, ns, name, series, "1", h.ts(2), h.ts(3), helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, series, "0", h.ts(3), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	return map[string]string{
 		"2": h.writeTsObject(t, key, "2", "ts-2", true),
 		"1": h.writeTsObject(t, key, "1", "ts-1", true),
@@ -563,9 +566,9 @@ func TestMergeTimeSeries_HasDataFalseRow_CollapsedRowIsDeleted(t *testing.T) {
 	const ns, name = "ns1", "u3"
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), h.ts(2), helpersv1.Learning, helpersv1.Partial, true)
 	h.writeTsObject(t, key, "1", "ts-1", true)
-	h.seedTsRow(t, ns, name, "A", "0", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, false)
+	h.seedTsRow(t, ns, name, "A", "0", h.ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, false)
 
 	require.NoError(t, h.proc.ConsolidateTimeSeries(context.Background()))
 
@@ -585,11 +588,11 @@ func TestMergeTimeSeries_AllRowsTransient_NoWriteNoPanic(t *testing.T) {
 	const ns, name = "ns1", "u4"
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
-	h.seedTsRow(t, ns, name, "A", "A2", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
-	h.seedTsRow(t, ns, name, "A", "A1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "A2", h.ts(1), h.ts(2), helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "A1", h.ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	h.writeTsObject(t, key, "A2", "ts-A2", true)
 	h.writeTsObject(t, key, "A1", "ts-A1", true)
-	h.seedTsRow(t, ns, name, "B", "B1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "B", "B1", h.ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	tsB := h.writeTsObject(t, key, "B1", "ts-B1", true)
 
 	h.hooks.getTs = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
@@ -630,7 +633,7 @@ func TestMergeTimeSeries_PermanentReadFailure_RowSurvivesAndKeyStaysEnumerated(t
 	const ns, name = "ns1", "u5"
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
 	reads := 0
 	h.hooks.getTs = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
@@ -724,9 +727,9 @@ func TestConsolidate_FrozenProfile_ReclaimsRowsAndObjectsWithoutMerge(t *testing
 		key := lane0Key(ns, name)
 		h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Completed, helpersv1.Full, "base"))
 		before := h.readPayload(t, key)
-		h.seedTsRow(t, ns, name, "A", "A2", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
-		h.seedTsRow(t, ns, name, "A", "A1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, false)
-		h.seedTsRow(t, ns, name, "B", "B1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+		h.seedTsRow(t, ns, name, "A", "A2", h.ts(1), h.ts(2), helpersv1.Learning, helpersv1.Partial, true)
+		h.seedTsRow(t, ns, name, "A", "A1", h.ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, false)
+		h.seedTsRow(t, ns, name, "B", "B1", h.ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
 		tsA2 := h.writeTsObject(t, key, "A2", "ts-A2", true)
 		tsB1 := h.writeTsObject(t, key, "B1", "ts-B1", true)
 		reads := 0
@@ -772,7 +775,7 @@ func TestConsolidate_CompletingTick_IsNotRefused(t *testing.T) {
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
 	before := h.readPayload(t, key)
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
 	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
 	slugs := h.wireSlugChannel()
 	w := h.watchKey(t, key)
@@ -805,7 +808,7 @@ func TestSaveContainerProfile_RefusesWhenPersistedIsCompletedFull(t *testing.T) 
 	const ns, name = "ns1", "x3"
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
 	w := h.watchKey(t, key)
 	stamped := false
@@ -853,7 +856,7 @@ func TestConsolidate_CompletedPartialProfile_IsNotFrozen(t *testing.T) {
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Completed, helpersv1.Partial, "base"))
 	before := h.readPayload(t, key)
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
 	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
 	w := h.watchKey(t, key)
 
@@ -876,13 +879,13 @@ func TestConsolidate_FrozenGate_UnlistedRowSurvivesToNextTick(t *testing.T) {
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Completed, helpersv1.Full, "base"))
 	before := h.readPayload(t, key)
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(2), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	ts1 := h.writeTsObject(t, key, "1", "ts-1", true)
 	var tsLate string
 	h.hooks.listTs = func(ctx context.Context, k string, next func() (map[string][]softwarecomposition.TimeSeriesContainers, error)) (map[string][]softwarecomposition.TimeSeriesContainers, error) {
 		rows, err := next()
 		if tsLate == "" {
-			h.seedTsRow(t, ns, name, "A", "late", lane0Ts(1), lane0Ts(2), helpersv1.Learning, helpersv1.Partial, true)
+			h.seedTsRow(t, ns, name, "A", "late", h.ts(1), h.ts(2), helpersv1.Learning, helpersv1.Partial, true)
 			tsLate = h.writeTsObject(t, key, "late", "ts-late", true)
 		}
 		return rows, err
@@ -944,7 +947,7 @@ func TestConsolidate_PayloadAheadDivergence_HealsWithoutMerge(t *testing.T) {
 	key, _ := h.makePayloadAhead(t, ns, name)
 	before := h.readPayload(t, key)
 	n := rvOf(t, h.readRow(t, key))
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
 	slugs := h.wireSlugChannel()
 	w := h.watchKey(t, key)
@@ -1021,7 +1024,7 @@ func TestConsolidate_MetadataAheadDivergence_IsObservedNotHealed(t *testing.T) {
 	raw, err := json.Marshal(&row)
 	require.NoError(t, err)
 	h.writeRowRaw(t, key, raw)
-	h.seedTsRow(t, ns, name, "A", "1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Full, true)
+	h.seedTsRow(t, ns, name, "A", "1", h.ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Full, true)
 	tsKey := h.writeTsObject(t, key, "1", "ts-1", true)
 	var handedStatus string
 	h.hooks.save = func(ctx context.Context, k string, p *softwarecomposition.ContainerProfile, next func() error) error {
@@ -1262,9 +1265,9 @@ func TestConsolidate_TerminalBranch_LeavesUnreachedSeriesIntact(t *testing.T) {
 	key := lane0Key(ns, name)
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
 	before := h.readPayload(t, key)
-	h.seedTsRow(t, ns, name, "A", "A1", lane0Ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
+	h.seedTsRow(t, ns, name, "A", "A1", h.ts(1), lane0ZeroTime, helpersv1.Completed, helpersv1.Full, true)
 	tsA := h.writeTsObject(t, key, "A1", "ts-A1", true)
-	h.seedTsRow(t, ns, name, "B", "B1", lane0Ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
+	h.seedTsRow(t, ns, name, "B", "B1", h.ts(1), lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	tsB := h.writeTsObject(t, key, "B1", "ts-B1", true)
 	h.proc.seriesOrder = func(timeSeries map[string][]softwarecomposition.TimeSeriesContainers) []string {
 		require.Len(t, timeSeries, 2)
@@ -1315,14 +1318,14 @@ func TestConsolidate_RowArrivingDuringPass_IsNotDeleted(t *testing.T) {
 	h.createBase(t, key, newBaseProfile(ns, name, helpersv1.Learning, helpersv1.Partial, "base"))
 	// Reuse the report timestamp as the next row's link even if the clock
 	// crosses a second boundary while consolidation is running.
-	firstReport := lane0Ts(2)
+	firstReport := h.ts(2)
 	h.seedTsRow(t, ns, name, "A", "1", firstReport, lane0ZeroTime, helpersv1.Learning, helpersv1.Partial, true)
 	ts1 := h.writeTsObject(t, key, "1", "ts-1", true)
 	var tsLate string
 	h.hooks.getProfile = func(ctx context.Context, k string, next func() (softwarecomposition.ContainerProfile, error)) (softwarecomposition.ContainerProfile, error) {
 		p, err := next()
 		if tsLate == "" {
-			h.seedTsRow(t, ns, name, "A", "late", lane0Ts(1), firstReport, helpersv1.Learning, helpersv1.Partial, true)
+			h.seedTsRow(t, ns, name, "A", "late", h.ts(1), firstReport, helpersv1.Learning, helpersv1.Partial, true)
 			tsLate = h.writeTsObject(t, key, "late", "ts-late", true)
 		}
 		return p, err

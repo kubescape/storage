@@ -72,11 +72,16 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
-	CleanupHandler  *file.ResourcesCleanupHandler
-	OsFs            afero.Fs
-	Pool            *sqlitemigration.Pool
+	CleanupHandler *file.ResourcesCleanupHandler
+	OsFs           afero.Fs
+	Pool           *sqlitemigration.Pool
+	// SqlitePath is the database file behind Pool (see apiserver.ExtraConfig).
+	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
+	// WriteGate is the process's write gate (see apiserver.ExtraConfig); nil
+	// with ContainerProfileSqliteBackend off.
+	WriteGate *file.WriteGate
 }
 
 func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
@@ -313,8 +318,10 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 			CleanupHandler:  o.CleanupHandler,
 			OsFs:            o.OsFs,
 			Pool:            o.Pool,
+			SqlitePath:      o.SqlitePath,
 			StorageConfig:   o.StorageConfig,
 			WatchDispatcher: o.WatchDispatcher,
+			WriteGate:       o.WriteGate,
 		},
 	}
 	return c, nil

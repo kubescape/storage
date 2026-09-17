@@ -39,8 +39,9 @@ profiles are normally cleaned up by `ContainerProfileProcessor.cleanup`
 (`containerprofile_processor.go`), but that method builds its own
 `resourceToKindHandler` keyed by `ContainerProfileKind` and runs it through the same
 `CleanupHandler.CleanupTask` / `cleanupNamespace` / `deleteMetadata` path as every other
-cleanup-handled kind, and relevancy-enabled cleanup (`initResourceToKindHandler`) adds
-`ContainerProfileKind` to the shared map as well. An earlier version of this fix omitted
+cleanup-handled kind when the legacy backend is in use. SQLite-backed profiles
+are cleaned up through their ObjectStore instead, with a typed ContainerProfile
+passed to Delete so its emitted event also encodes through the API scheme. An earlier version of this fix omitted
 `ContainerProfileKind` from `resourceKindToObjectFunc`, which meant a ContainerProfile
 delete still succeeded but silently never reached the watch dispatcher instead of
 erroring -- caught in review before merge.
@@ -64,3 +65,7 @@ erroring -- caught in review before merge.
   `file.PartialObjectMetadata` fails to encode (documenting the historical bug) and that
   the now-dispatched `WorkloadConfigurationScan` type encodes successfully with a valid
   `kind`/`apiVersion` and round-trips its `ObjectMeta`.
+
+The SQLite cleanup regression in `sqliteobject_cleanup_test.go` verifies the
+deleted event type, identity, and API encoding. The workload-scan regression
+runs both with and without the shared write gate.

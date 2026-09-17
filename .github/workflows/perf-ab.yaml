@@ -1,0 +1,83 @@
+name: perf-ab
+
+# Tier B of the storage measurement harness (hack/perf-ab.sh): a paired A/B of
+# the branch against its merge-base, rebuilt in the same run on the same
+# runner. GitHub runners are noisy, so INCONCLUSIVE is expected often here and
+# is reported, not hidden; a local run on a quiet machine is the authoritative
+# one. Only a REGRESSION verdict fails the check.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Commit to compare against (default: merge-base with origin/main)"
+        required: false
+        type: string
+      pairs:
+        description: "Interleaved (base, head) rounds"
+        required: false
+        type: string
+        default: "10"
+  schedule:
+    - cron: "17 3 * * *"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  perf-ab:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'perf')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Resolve base
+        id: base
+        run: |
+          if [ -n "${{ inputs.base }}" ]; then
+            echo "sha=${{ inputs.base }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "sha=$(git rev-list -n 1 --before='1 day ago' origin/main)" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$(git merge-base origin/main HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Paired A/B
+        id: ab
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+          PAIRS: ${{ inputs.pairs || '10' }}
+          PERF_AB_OUT_DIR: ${{ runner.temp }}/perf-ab
+          PERF_AB_ALLOW_NOISY: "1"
+        run: |
+          set +e
+          make perf-ab
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+      - name: Report verdict
+        if: always()
+        env:
+          OUT: ${{ runner.temp }}/perf-ab
+          RC: ${{ steps.ab.outputs.rc }}
+        run: |
+          {
+            echo "## perf-ab: $(cat "$OUT/verdict.txt" 2>/dev/null || echo 'no verdict (driver failed)')"
+            echo
+            echo "base \`${{ steps.base.outputs.sha }}\` vs head \`${{ github.sha }}\`, exit $RC (0 pass, 1 regression, 2 config mismatch, 3 inconclusive, 4 underpowered)"
+            echo
+            if [ -f "$OUT/verdict-table.txt" ]; then echo '```'; cat "$OUT/verdict-table.txt"; echo '```'; fi
+            if [ -f "$OUT/schedule.txt" ]; then echo '<details><summary>schedule</summary>'; echo; echo '```'; cat "$OUT/schedule.txt"; echo '```'; echo '</details>'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload rounds
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-ab-${{ github.run_id }}
+          path: ${{ runner.temp }}/perf-ab
+          if-no-files-found: ignore
+      - name: Fail on regression
+        if: steps.ab.outputs.rc == '1'
+        run: exit 1

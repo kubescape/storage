@@ -46,6 +46,14 @@ func (staleWorkloadFetchMock) FetchResources(_ string) (ResourceMaps, error) {
 // instead. See TestDeletedEventEncodesThroughApiserverScheme (apiserver
 // package) for the actual HTTP-serialization-boundary assertion.
 func TestCleanupNamespaceDispatchesRegisteredTypeToWatchers(t *testing.T) {
+	for _, gated := range []bool{false, true} {
+		t.Run(fmt.Sprintf("gated=%t", gated), func(t *testing.T) {
+			testCleanupNamespaceDispatchesRegisteredTypeToWatchers(t, gated)
+		})
+	}
+}
+
+func testCleanupNamespaceDispatchesRegisteredTypeToWatchers(t *testing.T, gated bool) {
 	memFs := afero.NewMemMapFs()
 
 	const (
@@ -58,13 +66,12 @@ func TestCleanupNamespaceDispatchesRegisteredTypeToWatchers(t *testing.T) {
 	payloadPath := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, ns, name+GobExt)
 	require.NoError(t, afero.WriteFile(memFs, payloadPath, []byte("payload"), 0644))
 
-	pool := NewTestPool(t.TempDir())
+	dir := t.TempDir()
+	pool := NewTestPool(dir)
 	defer func() { _ = pool.Close() }()
-	conn, err := pool.Take(context.Background())
-	require.NoError(t, err)
+	conn := openFixtureConn(t, pool, filepath.Join(dir, "test.sq3"), 5*time.Second)
 	metadataJSON := fmt.Appendf(nil, `{"name":%q,"namespace":%q,"annotations":{"kubescape.io/wlid":%q}}`, name, ns, wlid)
 	require.NoError(t, WriteJSON(conn, payloadPathToKey(payloadPath), metadataJSON))
-	pool.Put(conn)
 
 	watchDispatcher := NewWatchDispatcher()
 	watchKey := "/" + softwarecomposition.GroupName + "/" + kind
@@ -81,7 +88,13 @@ func TestCleanupNamespaceDispatchesRegisteredTypeToWatchers(t *testing.T) {
 		deleteFunc:       deleteFile,
 		watchDispatcher:  watchDispatcher,
 	}
-	handler.resourceToKindHandler = initResourceToKindHandler(false)
+	if gated {
+		gate, err := newWriteGate(context.Background(), pool)
+		require.NoError(t, err)
+		defer gate.Close()
+		handler.SetWriteGate(gate)
+	}
+	handler.resourceToKindHandler = initResourceToKindHandler()
 
 	require.NoError(t, handler.CleanupTask(context.Background(), handler.resourceToKindHandler))
 
@@ -140,7 +153,7 @@ func TestCleanupNamespaceSkipsDispatchForDeprecatedKind(t *testing.T) {
 		deleteFunc:       deleteFile,
 		watchDispatcher:  watchDispatcher,
 	}
-	handler.resourceToKindHandler = initResourceToKindHandler(false)
+	handler.resourceToKindHandler = initResourceToKindHandler()
 
 	require.NoError(t, handler.CleanupTask(context.Background(), handler.resourceToKindHandler))
 
