@@ -2,7 +2,6 @@ package v1beta1
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 	"time"
 
@@ -31,7 +30,7 @@ func TestWorkloadConfigurationScanReportTimestampJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if !reflect.DeepEqual(decoded.Spec.Metadata, original.Spec.Metadata) {
+	if decoded.Spec.Metadata == nil || !decoded.Spec.Metadata.Report.CreatedAt.Time.Equal(original.Spec.Metadata.Report.CreatedAt.Time) {
 		t.Fatalf("JSON round-trip mismatch: got %#v, want %#v", decoded.Spec.Metadata, original.Spec.Metadata)
 	}
 }

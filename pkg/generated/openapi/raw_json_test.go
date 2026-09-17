@@ -7,6 +7,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/generated/openapi"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kube-openapi/pkg/schemaconv"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	smdschema "sigs.k8s.io/structured-merge-diff/v6/schema"
@@ -96,7 +97,11 @@ func TestWorkloadConfigurationScanReportTimestampSchema(t *testing.T) {
 	reportMeta := definitions[v1beta1.ReportMeta{}.OpenAPIModelName()].Schema
 	createdAt, ok := reportMeta.Properties["createdAt"]
 	require.True(t, ok, "report metadata must expose createdAt")
-	require.Equal(t, []string{"string"}, createdAt.Type)
-	require.Equal(t, "date-time", createdAt.Format)
+	require.NotNil(t, createdAt.Ref)
+	require.Equal(t, "#/definitions/"+metav1.Time{}.OpenAPIModelName(), createdAt.Ref.String())
+
+	timeSchema := definitions[metav1.Time{}.OpenAPIModelName()].Schema
+	require.Equal(t, spec.StringOrArray{"string"}, timeSchema.Type)
+	require.Equal(t, "date-time", timeSchema.Format)
 	require.Contains(t, reportMeta.Required, "createdAt")
 }

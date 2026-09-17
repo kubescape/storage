@@ -48,8 +48,11 @@ import (
 )
 
 const (
-	// acg2BusyTimeout lets flag-off repairs finish while the writer stays held.
+	// acg2BusyTimeout is used by the gated topology and fixture connections.
 	acg2BusyTimeout = time.Second
+	// acg2FlagOffBusyTimeout bounds repairs that are intentionally blocked by
+	// the SQLite writer held in the flag-off topology.
+	acg2FlagOffBusyTimeout = 100 * time.Millisecond
 	// acg2Prompt remains the bound used by the independent gate-refusal test.
 	acg2Prompt = 500 * time.Millisecond
 	// This is a deadlock guard, not a read-latency acceptance threshold.
@@ -112,10 +115,10 @@ func (f *acg2Fetcher) FetchResources(string) (ResourceMaps, error) {
 	}, nil
 }
 
-// newACG2Base builds the parts both topologies share: a pool with
-// acg2BusyTimeout on every connection, the legacy StorageImpl over an
-// in-memory filesystem, the ContainerProfileProcessor (its storage is set by
-// the topology), the cleanup handler and the fixture handle.
+// newACG2Base builds the parts both topologies share: the legacy StorageImpl
+// over the topology's pool and an in-memory filesystem, the
+// ContainerProfileProcessor (its storage is set by the topology), the cleanup
+// handler and the fixture handle.
 func newACG2Base(t *testing.T, pool *sqlitemigration.Pool, dbPath string) *acg2Env {
 	t.Helper()
 	sch := runtime.NewScheme()
@@ -159,7 +162,7 @@ var acg2Off = acg2Topology{
 	build: func(t *testing.T) *acg2Env {
 		dbPath := filepath.Join(t.TempDir(), "acg2.sq3")
 		rec := &tableRecorder{}
-		pool := NewPoolWithOptions(dbPath, PoolOptions{Size: 4, BusyTimeout: acg2BusyTimeout, Authorizer: rec.authorizer})
+		pool := NewPoolWithOptions(dbPath, PoolOptions{Size: 4, BusyTimeout: acg2FlagOffBusyTimeout, Authorizer: rec.authorizer})
 		e := newACG2Base(t, pool, dbPath)
 		e.rec = rec
 		t.Cleanup(e.closePool)
@@ -422,8 +425,10 @@ func acg2ReaderStates(r acg2Reader) []acg2KeyState {
 }
 
 // runACG2Matrix runs every (reader × key state) cell of topo, each in a fresh
-// environment, in parallel. Package state the cells share (the migration
-// tool, the collapse TTL) is set once here and restored after the last cell.
+// environment. Gated cells run in parallel; flag-off cells run serially because
+// their repairs deliberately wait on a held SQLite writer lock. Package state
+// the cells share (the migration tool, the collapse TTL) is set once here and
+// restored after the last cell.
 func runACG2Matrix(t *testing.T, topo acg2Topology, readers []acg2Reader) {
 	t.Helper()
 	installACG2MigrationTool(t)
@@ -438,7 +443,9 @@ func runACG2Matrix(t *testing.T, topo acg2Topology, readers []acg2Reader) {
 		for _, st := range acg2ReaderStates(r) {
 			r, st := r, st
 			t.Run(r.name+"/"+st.name, func(t *testing.T) {
-				t.Parallel()
+				if topo.on {
+					t.Parallel()
+				}
 				e := topo.build(t)
 				cell := strings.NewReplacer("(", "-", ")", "", "/", "-").Replace(r.name + "-" + st.name)
 				key := r.key(e, cell)
