@@ -30,6 +30,18 @@ type WorkloadConfigurationScan struct {
 type WorkloadConfigurationScanSpec struct {
 	Controls       map[string]ScannedControl   `json:"controls" protobuf:"bytes,2,rep,name=controls"`
 	RelatedObjects []WorkloadScanRelatedObject `json:"relatedObjects" protobuf:"bytes,3,rep,name=relatedObjects"`
+
+	// Metadata contains producer-supplied metadata about this scan report.
+	// +optional
+	// Field 4 preserves the existing wire layout: fields 2 and 3 are stable,
+	// while field 1 was unused when protobuf support was introduced.
+	Metadata *WorkloadConfigurationScanMeta `json:"metadata,omitempty" protobuf:"bytes,4,opt,name=metadata"`
+}
+
+// WorkloadConfigurationScanMeta contains producer-supplied metadata about a
+// workload configuration scan report.
+type WorkloadConfigurationScanMeta struct {
+	Report ReportMeta `json:"report" protobuf:"bytes,1,req,name=report"`
 }
 
 type ScannedControl struct {

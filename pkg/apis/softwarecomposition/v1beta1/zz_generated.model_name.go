@@ -797,6 +797,11 @@ func (in WorkloadConfigurationScanList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in WorkloadConfigurationScanMeta) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.WorkloadConfigurationScanMeta"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkloadConfigurationScanSeveritiesSummary) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.WorkloadConfigurationScanSeveritiesSummary"
 }

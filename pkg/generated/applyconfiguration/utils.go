@@ -258,6 +258,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.VulnerabilitySummarySpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkloadConfigurationScan"):
 		return &softwarecompositionv1beta1.WorkloadConfigurationScanApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("WorkloadConfigurationScanMeta"):
+		return &softwarecompositionv1beta1.WorkloadConfigurationScanMetaApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkloadConfigurationScanSeveritiesSummary"):
 		return &softwarecompositionv1beta1.WorkloadConfigurationScanSeveritiesSummaryApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkloadConfigurationScanSpec"):

@@ -222,6 +222,68 @@ func TestDifferential_CreateGenerateName(t *testing.T) {
 	assert.NotEqual(t, newMeta.GetName(), newMeta2.GetName())
 }
 
+func TestDifferential_ReportTimestampPersistence(t *testing.T) {
+	h := newHarness(t)
+	ctx := testContext("ns1")
+	timestampA := metav1.NewTime(time.Date(2026, time.January, 15, 10, 11, 12, 0, time.UTC))
+	timestampB := metav1.NewTime(time.Date(2026, time.February, 16, 13, 14, 15, 0, time.UTC))
+	base := workloadConfigurationScan("timestamped", "obj1")
+	base.Spec.Metadata = &softwarecomposition.WorkloadConfigurationScanMeta{
+		Report: softwarecomposition.ReportMeta{CreatedAt: timestampA},
+	}
+
+	mustCreate(t, ctx, h.oldREST, base)
+	mustCreate(t, ctx, h.newREST, base)
+	for name, r := range map[string]rest.StandardStorage{"old": h.oldREST, "new": h.newREST} {
+		t.Run(name, func(t *testing.T) {
+			fetched, err := r.Get(ctx, "timestamped", &metav1.GetOptions{})
+			require.NoError(t, err)
+			stored := fetched.(*softwarecomposition.WorkloadConfigurationScan)
+			require.NotNil(t, stored.Spec.Metadata)
+			assert.True(t, stored.Spec.Metadata.Report.CreatedAt.Time.Equal(timestampA.Time))
+
+			updated := stored.DeepCopy()
+			updated.Spec.Metadata.Report.CreatedAt = timestampB
+			_, _, err = r.Update(ctx, "timestamped", rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+			require.NoError(t, err)
+
+			refetched, err := r.Get(ctx, "timestamped", &metav1.GetOptions{})
+			require.NoError(t, err)
+			updatedStored := refetched.(*softwarecomposition.WorkloadConfigurationScan)
+			require.NotNil(t, updatedStored.Spec.Metadata)
+			assert.True(t, updatedStored.Spec.Metadata.Report.CreatedAt.Time.Equal(timestampB.Time))
+		})
+	}
+}
+
+func TestDifferential_MissingReportTimestampRemainsCompatible(t *testing.T) {
+	h := newHarness(t)
+	ctx := testContext("ns1")
+	base := workloadConfigurationScan("legacy", "obj1")
+
+	mustCreate(t, ctx, h.oldREST, base)
+	mustCreate(t, ctx, h.newREST, base)
+	for name, r := range map[string]rest.StandardStorage{"old": h.oldREST, "new": h.newREST} {
+		t.Run(name, func(t *testing.T) {
+			fetched, err := r.Get(ctx, "legacy", &metav1.GetOptions{})
+			require.NoError(t, err)
+			stored := fetched.(*softwarecomposition.WorkloadConfigurationScan)
+			assert.Nil(t, stored.Spec.Metadata)
+
+			updated := stored.DeepCopy()
+			updated.Spec.RelatedObjects = []softwarecomposition.WorkloadScanRelatedObject{{Name: "obj1-updated"}}
+			_, _, err = r.Update(ctx, "legacy", rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+			require.NoError(t, err)
+
+			refetched, err := r.Get(ctx, "legacy", &metav1.GetOptions{})
+			require.NoError(t, err)
+			updatedStored := refetched.(*softwarecomposition.WorkloadConfigurationScan)
+			assert.Nil(t, updatedStored.Spec.Metadata)
+			assert.Equal(t, "obj1-updated", updatedStored.Spec.RelatedObjects[0].Name)
+		})
+	}
+}
+
 // TestDifferential_CreateSucceeds is the positive-case counterpart proving
 // Create succeeds identically for both implementations (Strategy is a
 // no-op, so there's no rejection case to pair it with here -- see

@@ -7,6 +7,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/generated/openapi"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kube-openapi/pkg/schemaconv"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	smdschema "sigs.k8s.io/structured-merge-diff/v6/schema"
@@ -73,4 +74,34 @@ func TestScannerDocumentsManagedFieldsConversion(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWorkloadConfigurationScanReportTimestampSchema(t *testing.T) {
+	definitions := openapi.GetOpenAPIDefinitions(func(name string) spec.Ref {
+		return spec.MustCreateRef("#/definitions/" + name)
+	})
+
+	scanSpec := definitions[v1beta1.WorkloadConfigurationScanSpec{}.OpenAPIModelName()].Schema
+	metadata, ok := scanSpec.Properties["metadata"]
+	require.True(t, ok, "scan spec must expose metadata")
+	require.NotNil(t, metadata.Ref)
+	require.NotContains(t, scanSpec.Required, "metadata", "scan metadata must remain optional")
+	require.Equal(t, "#/definitions/"+v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName(), metadata.Ref.String())
+
+	scanMeta := definitions[v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName()].Schema
+	report, ok := scanMeta.Properties["report"]
+	require.True(t, ok, "scan metadata must expose report")
+	require.NotNil(t, report.Ref)
+	require.Equal(t, "#/definitions/"+v1beta1.ReportMeta{}.OpenAPIModelName(), report.Ref.String())
+
+	reportMeta := definitions[v1beta1.ReportMeta{}.OpenAPIModelName()].Schema
+	createdAt, ok := reportMeta.Properties["createdAt"]
+	require.True(t, ok, "report metadata must expose createdAt")
+	require.NotNil(t, createdAt.Ref)
+	require.Equal(t, "#/definitions/"+metav1.Time{}.OpenAPIModelName(), createdAt.Ref.String())
+
+	timeSchema := definitions[metav1.Time{}.OpenAPIModelName()].Schema
+	require.Equal(t, spec.StringOrArray{"string"}, timeSchema.Type)
+	require.Equal(t, "date-time", timeSchema.Format)
+	require.Contains(t, reportMeta.Required, "createdAt")
 }

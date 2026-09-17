@@ -188,6 +188,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1beta1.VulnerabilitySummaryStatus{}.OpenAPIModelName():                 schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryStatus(ref),
 		v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScan(ref),
 		v1beta1.WorkloadConfigurationScanList{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(ref),
+		v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanMeta(ref),
 		v1beta1.WorkloadConfigurationScanSeveritiesSummary{}.OpenAPIModelName(): schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref),
 		v1beta1.WorkloadConfigurationScanSpec{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(ref),
 		v1beta1.WorkloadConfigurationScanSummary{}.OpenAPIModelName():           schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummary(ref),
@@ -7324,6 +7325,28 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(r
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkloadConfigurationScanMeta contains producer-supplied metadata about a workload configuration scan report.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"report": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.ReportMeta{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"report"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.ReportMeta{}.OpenAPIModelName()},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7405,12 +7428,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(r
 							},
 						},
 					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Metadata contains producer-supplied metadata about this scan report. Field 4 preserves the existing wire layout: fields 2 and 3 are stable, while field 1 was unused when protobuf support was introduced.",
+							Ref:         ref(v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName()),
+						},
+					},
 				},
 				Required: []string{"controls", "relatedObjects"},
 			},
 		},
 		Dependencies: []string{
-			v1beta1.ScannedControl{}.OpenAPIModelName(), v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()},
+			v1beta1.ScannedControl{}.OpenAPIModelName(), v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName(), v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()},
 	}
 }
 
