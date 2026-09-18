@@ -54,3 +54,30 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	}
 	return &registry.REST{Store: store}, nil
 }
+
+// NewStatusREST returns a RESTStorage object that will work against API services for the status subresource.
+func NewStatusREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter generic.RESTOptionsGetter) (*registry.REST, error) {
+	strategy := NewStrategy(scheme)
+	statusStrategy := SbomSyftStatusStrategy{strategy}
+
+	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: nil, Storage: storageImpl}
+
+	store := &genericregistry.Store{
+		NewFunc:                   func() runtime.Object { return &softwarecomposition.SBOMSyft{} },
+		NewListFunc:               func() runtime.Object { return &softwarecomposition.SBOMSyftList{} },
+		PredicateFunc:             MatchWorkloadConfigurationScan,
+		DefaultQualifiedResource:  softwarecomposition.Resource("sbomsyft"),
+		SingularQualifiedResource: softwarecomposition.Resource("sbomsyfts"),
+
+		Storage: dryRunnableStorage,
+
+		UpdateStrategy: statusStrategy,
+
+		TableConvertor: rest.NewDefaultTableConvertor(softwarecomposition.Resource("sbomsyfts")),
+	}
+	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
+	if err := store.CompleteWithOptions(options); err != nil {
+		return nil, err
+	}
+	return &registry.REST{Store: store}, nil
+}
