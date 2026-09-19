@@ -275,8 +275,8 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 
 	var sbomSet mapset.Set[string]
 	// get files from corresponding sbom
-	sbomName, err := sbomNameForImageInfo(profile.Spec.ImageTag, profile.Spec.ImageID)
-	if err == nil && sbomName != "" {
+	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
+	if err == nil {
 		id := armotypes.ProfileIdentifier{
 			ProfileScope: armotypes.ProfileScope{
 				HostType:               a.HostType,
@@ -299,10 +299,8 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		} else if !storage.IsNotFound(err) {
 			logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 		}
-	} else if err == nil {
-		logger.L().Debug("ContainerProfileProcessor.PreSave - skipping SBOM name generation: image metadata unavailable")
-	} else {
-		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", strings.TrimSpace(profile.Spec.ImageTag)), loggerhelpers.String("imageID", strings.TrimSpace(profile.Spec.ImageID)))
+	} else if profile.Spec.ImageTag != "" || profile.Spec.ImageID != "" {
+		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
 	}
 	settings := dynamicpathdetector.DefaultCollapseSettings()
 	if a.CollapseSettings != nil {
@@ -330,18 +328,6 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	profile.Annotations[helpers.ResourceSizeMetadataKey] = strconv.Itoa(size)
 
 	return nil
-}
-
-// sbomNameForImageInfo returns no name when a container does not expose image
-// metadata. Such containers cannot have a corresponding SBOM, so attempting to
-// slugify empty values only produces a noisy invalid-slug diagnostic.
-func sbomNameForImageInfo(imageTag, imageID string) (string, error) {
-	imageTag = strings.TrimSpace(imageTag)
-	imageID = strings.TrimSpace(imageID)
-	if imageTag == "" && imageID == "" {
-		return "", nil
-	}
-	return names.ImageInfoToSlug(imageTag, imageID)
 }
 
 // SetStorage hands the processor its ContainerProfileStorage. It does NOT
