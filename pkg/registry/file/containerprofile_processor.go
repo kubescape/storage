@@ -299,7 +299,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		} else if !storage.IsNotFound(err) {
 			logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom", loggerhelpers.Error(err), loggerhelpers.String("key", key))
 		}
-	} else {
+	} else if profile.Spec.ImageTag != "" || profile.Spec.ImageID != "" {
 		logger.L().Debug("ContainerProfileProcessor.PreSave - failed to get sbom name", loggerhelpers.Error(err), loggerhelpers.String("imageTag", profile.Spec.ImageTag), loggerhelpers.String("imageID", profile.Spec.ImageID))
 	}
 	settings := dynamicpathdetector.DefaultCollapseSettings()
