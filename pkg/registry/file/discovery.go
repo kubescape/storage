@@ -33,16 +33,17 @@ var (
 )
 
 type ResourcesFetcher interface {
+	FetchNodes(ctx context.Context) ([]corev1.Node, error)
 	FetchResources(ns string) (ResourceMaps, error)
 	ListNamespaces(conn *sqlite.Conn) ([]string, error)
 }
 
 type KubernetesAPI struct {
 	cfg    config.Config
-	client *kubernetes.Clientset
+	client kubernetes.Interface
 }
 
-func NewKubernetesAPI(cfg config.Config, client *kubernetes.Clientset) *KubernetesAPI {
+func NewKubernetesAPI(cfg config.Config, client kubernetes.Interface) *KubernetesAPI {
 	return &KubernetesAPI{
 		cfg:    cfg,
 		client: client,
@@ -54,13 +55,28 @@ var _ ResourcesFetcher = (*KubernetesAPI)(nil)
 // ResourceMaps is a map of running resources in the cluster, based on these maps we can decide which files to delete
 type ResourceMaps struct {
 	// CLUSTER level
+	Hosts                    *hostResources
 	RunningContainerImageIds mapset.Set[string]
 	RunningInstanceIds       mapset.Set[string]
 	// NAMESPACE level
 	RunningTemplateHash          mapset.Set[string]
 	RunningWlidsToContainerNames *maps.SafeMap[string, mapset.Set[string]]
-	// FIXME add nodes
-	// FIXME how about hosts?
+}
+
+// FetchNodes lists existing nodes regardless of readiness, so temporary outages
+// do not make host resources appear orphaned. A failed list returns no snapshot.
+func (h *KubernetesAPI) FetchNodes(ctx context.Context) ([]corev1.Node, error) {
+	var nodes []corev1.Node
+	err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+		return h.client.CoreV1().Nodes().List(ctx, opts)
+	}).EachListItem(ctx, metav1.ListOptions{}, func(obj runtime.Object) error {
+		nodes = append(nodes, *obj.(*corev1.Node))
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+	return nodes, nil
 }
 
 func (h *KubernetesAPI) ListNamespaces(conn *sqlite.Conn) ([]string, error) {
