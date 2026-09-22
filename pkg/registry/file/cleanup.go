@@ -182,6 +182,17 @@ func (h *ResourcesCleanupHandler) RunCleanupTask(ctx context.Context) {
 }
 
 func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKindHandler map[string][]TypeCleanupHandlerFunc) error {
+	// Node discovery failure must not turn live hosts into orphaned resources.
+	var hosts *hostResources
+	nodes, nodeErr := h.fetcher.FetchNodes(ctx)
+	if nodeErr != nil {
+		logger.L().Warning("skipping host cleanup: node discovery failed", helpers.Error(nodeErr))
+	} else {
+		hosts = newHostResources(nodes)
+		if hosts.incomplete {
+			logger.L().Warning("skipping host cleanup: node inventory has missing machine IDs")
+		}
+	}
 	// take SQLite connection from the pool
 	conn, err := h.pool.Take(context.Background())
 	defer h.pool.Put(conn)
@@ -205,6 +216,7 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 		if err != nil {
 			return fmt.Errorf("failed to fetch resources: %w", err)
 		}
+		resources.Hosts = hosts
 		clusterRunningContainerImageIds.Append(resources.RunningContainerImageIds.ToSlice()...)
 		clusterRunningInstanceIds.Append(resources.RunningInstanceIds.ToSlice()...)
 		err = h.cleanupNamespace(ctx, ns, resourceToKindHandler, conn, resources)
@@ -214,6 +226,7 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 	}
 	// cleanup cluster level resources inside defaultNamespace
 	resources := ResourceMaps{
+		Hosts:                        hosts,
 		RunningContainerImageIds:     clusterRunningContainerImageIds,
 		RunningInstanceIds:           clusterRunningInstanceIds,
 		RunningTemplateHash:          mapset.NewSet[string](),
@@ -266,13 +279,7 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				return nil
 			}
 
-			// either run single handler, or perform OR operation on multiple handlers
-			var toDelete bool
-			if len(handlers) == 1 {
-				toDelete = handlers[0](resourceKind, path, metadata, resources)
-			} else {
-				toDelete = or(handlers, resourceKind, path, metadata, resources)
-			}
+			toDelete := shouldCleanupResource(handlers, resourceKind, path, metadata, resources)
 
 			if toDelete {
 				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
@@ -336,7 +343,7 @@ func (h *ResourcesCleanupHandler) cleanupContainerProfileRows(ctx context.Contex
 		if isUserManaged(metadata) {
 			continue
 		}
-		if !or(handlers, resourceKind, key, metadata, resources) {
+		if !shouldCleanupResource(handlers, resourceKind, key, metadata, resources) {
 			continue
 		}
 		logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
@@ -359,6 +366,13 @@ func isUserManaged(metadata *metav1.ObjectMeta) bool {
 		return false
 	}
 	return metadata.Annotations[helpersv1.ManagedByMetadataKey] == helpersv1.ManagedByUserValue
+}
+
+func shouldCleanupResource(handlers []TypeCleanupHandlerFunc, kind, path string, metadata *metav1.ObjectMeta, resources ResourceMaps) bool {
+	if handled, remove := hostResourceCleanupDecision(kind, metadata, resources.Hosts); handled {
+		return remove
+	}
+	return or(handlers, kind, path, metadata, resources)
 }
 
 func or(funcs []TypeCleanupHandlerFunc, kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool {
