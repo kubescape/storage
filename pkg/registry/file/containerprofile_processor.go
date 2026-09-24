@@ -316,15 +316,15 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	size += len(profile.Spec.Ingress)
 	size += len(profile.Spec.Egress)
 
+	// make sure annotations are initialized
+	if profile.Annotations == nil {
+		profile.Annotations = make(map[string]string)
+	}
 	if size > a.MaxContainerProfileSize {
 		// set annotation but don't return an error as we want to save the profile anyway
 		profile.Annotations[helpers.StatusMetadataKey] = helpers.TooLarge
 	}
 
-	// make sure annotations are initialized
-	if profile.Annotations == nil {
-		profile.Annotations = make(map[string]string)
-	}
 	profile.Annotations[helpers.ResourceSizeMetadataKey] = strconv.Itoa(size)
 
 	return nil
