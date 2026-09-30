@@ -18,6 +18,7 @@ package dynamicpathdetectortests
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -378,4 +379,82 @@ func TestAnalyzeExecs_DuplicateWildcardsDoNotTriggerCeiling(t *testing.T) {
 		{"bash", "-c", anyArgs},
 		{"bash", "-x", "/opt/run.sh"},
 	}, execArgs(out))
+}
+
+// Review (#414, round 2): covered deltas numerous enough to generalize in the
+// trie must still be absorbed, so they never broaden the binary.
+func TestAnalyzeExecs_CoveredDeltasAboveTrieThresholdDoNotWiden(t *testing.T) {
+	in := []types.ExecCalls{exec("/usr/bin/bash", "bash", "-c", anyArgs)}
+	for i := 0; i < 3; i++ {
+		in = append(in,
+			exec("/usr/bin/bash", "bash", "-c", fmt.Sprintf("a%d", i)),
+			exec("/usr/bin/bash", "bash", "-c", fmt.Sprintf("b%d", i), "x"),
+		)
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(2, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/usr/bin/bash", "bash", "-c", anyArgs)}, out)
+}
+
+func TestAnalyzeExecs_IncrementalSavesWithDeltasAboveTrieThreshold(t *testing.T) {
+	stored := []types.ExecCalls{
+		exec("/usr/bin/bash", "bash", "-c", anyArgs),
+		exec("/usr/bin/bash", "bash", "/opt/setup.sh"),
+	}
+	for i := 0; i < 5; i++ {
+		var delta []types.ExecCalls
+		for j := 0; j < 4; j++ {
+			delta = append(delta,
+				exec("/usr/bin/bash", "bash", "-c", fmt.Sprintf("cmd-%d-%d", i, j)),
+				exec("/usr/bin/bash", "bash", "-c", fmt.Sprintf("cmd-%d-%d", i, j), "--flag"),
+			)
+		}
+		stored = dynamicpathdetector.AnalyzeExecs(append(stored, delta...), dynamicpathdetector.NewExecAnalyzer(2, nil))
+	}
+	assert.ElementsMatch(t, [][]string{
+		{"bash", "-c", anyArgs},
+		{"bash", "/opt/setup.sh"},
+	}, execArgs(stored))
+	for _, o := range stored {
+		assert.False(t, dynamicpathdetector.CompareExecArgs(o.Args, []string{"bash", "-i"}), "bash -i must stay disallowed")
+	}
+}
+
+// A pattern subsumed by another pattern is absorbed, but a single-arg ⋯ must
+// never be treated as covering ⋯⋯ (zero or more args).
+func TestAnalyzeExecs_PatternSubsumptionIsSound(t *testing.T) {
+	out := dynamicpathdetector.AnalyzeExecs([]types.ExecCalls{
+		exec("/usr/bin/bash", "bash", "-c", anyArgs),
+		exec("/usr/bin/bash", "bash", "-c", dyn),
+	}, dynamicpathdetector.NewExecAnalyzer(3, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/usr/bin/bash", "bash", "-c", anyArgs)}, out)
+
+	out = dynamicpathdetector.AnalyzeExecs([]types.ExecCalls{
+		exec("/usr/bin/bash", "bash", dyn),
+		exec("/usr/bin/bash", "bash", anyArgs),
+	}, dynamicpathdetector.NewExecAnalyzer(3, nil))
+	assert.ElementsMatch(t, [][]string{{"bash", anyArgs}}, execArgs(out),
+		"[bash, ⋯⋯] covers [bash, ⋯]; the reverse must not drop [bash, ⋯⋯]")
+}
+
+// Review (#414, round 2): argv keys must be injective. U+241F is valid
+// argument data and must not make distinct vectors collide.
+func TestAnalyzeExecs_SeparatorInsideArgsDoesNotCollide(t *testing.T) {
+	in := []types.ExecCalls{
+		exec("/usr/bin/bash", "bash", "a␟b", anyArgs),
+		exec("/usr/bin/bash", "bash", "a", "b", anyArgs),
+		exec("/usr/bin/grep", "grep", "x␟y"),
+		exec("/usr/bin/grep", "grep", "x", "y"),
+	}
+	for _, e := range in[2:] {
+		strict := e
+		strict.ArgsRequired = true
+		in = append(in, strict)
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(3, nil))
+	assertCovers(t, out, in)
+	assert.Len(t, out, 6)
+	reversed := append([]types.ExecCalls(nil), in...)
+	slices.Reverse(reversed)
+	assert.Equal(t, out, dynamicpathdetector.AnalyzeExecs(reversed, dynamicpathdetector.NewExecAnalyzer(3, nil)),
+		"output order must not depend on input order even when joined args collide")
 }

@@ -166,12 +166,21 @@ concern for each deployment and outside this change.
   covered literals are absorbed. A delta the stored profile already allows
   (e.g. `bash -c a` under `[bash, -c, ⋯⋯]`) never broadens the binary to
   `[bash, ⋯⋯]` on a later save.
-- **Patterns absorb covered literals.** Any entry containing `⋯` or `⋯⋯` is
-  a pattern and drops the literal entries it covers, per `CompareExecArgs`.
-  That includes a collapsed argv[0] absorbing a new script run later.
+- **Absorb before generalizing, and absorb patterns soundly.** Entries are
+  deduped by argv (envs unioned), and anything an existing pattern already
+  covers is absorbed *before* the trie runs. A stored `[bash, -c, ⋯⋯]` plus
+  many covered deltas therefore can't turn those deltas into new
+  `[bash, -c, ⋯]` patterns that push the binary over the ceiling. After the
+  trie, patterns are consolidated again, and a pattern can absorb another
+  pattern. Coverage is `CompareExecArgs(coverer, covered)` with the covered
+  entry's tokens read as literals. That's sound as long as the covered entry
+  has no `⋯⋯`: a single `⋯` is never taken to cover zero-or-more args, so
+  `⋯⋯` entries are only ever merged with exact duplicates.
+- **Keys are injective.** Dedupe keys are length-prefixed token lists, not
+  `strings.Join`: any separator glyph (including `␟`) is valid argv data.
 - **Output is totally ordered and never nil.** It's sorted by path, then
-  argv, then `ArgsRequired` (false first), then envs, so the stored bytes
-  don't depend on input order. Empty
+  argv (element-wise), then `ArgsRequired` (false first), then envs, so the
+  stored bytes don't depend on input order. Empty
   input returns `[]`, so stored profiles keep encoding empty execs as `[]`,
   as they did with `DeflateStringer`. Exact dedupe now ignores `Envs`, and
   envs of merged entries are unioned.
@@ -186,7 +195,9 @@ concern for each deployment and outside this change.
   | 20 | 9,849 → 657 | 57 | 0 |
   | 10 | 9,849 → 467 | 57 | 0 |
 
-  A second pass over each output is a no-op.
+  A second pass over each output is a no-op, including with a covered delta
+  added. The first deflation of the whole profile takes about 33 ms at the
+  default threshold, and about 0.6 s at thresholds 10–20.
 
 ## Security trade-offs
 
