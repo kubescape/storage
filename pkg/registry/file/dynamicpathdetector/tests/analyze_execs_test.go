@@ -105,7 +105,7 @@ func TestAnalyzeExecs_CollapsesOnlyTheVaryingLevel(t *testing.T) {
 	}, execArgs(out))
 }
 
-func TestAnalyzeExecs_NeverCollapsesArgv0(t *testing.T) {
+func TestAnalyzeExecs_KeepsArgv0LiteralBelowThreshold(t *testing.T) {
 	var in []types.ExecCalls
 	for _, argv0 := range []string{"sh", "/bin/sh"} {
 		for i := 0; i < 4; i++ {
@@ -244,4 +244,80 @@ func execFixture() []types.ExecCalls {
 		exec("/usr/bin/ls", "ls", "-la"),
 	)
 	return in
+}
+
+// Interpreters often run scripts whose path is argv[0]. When a binary sees
+// more than threshold distinct argv[0] values, argv[0] collapses by path
+// shape so the profile stays bounded and the other arguments stay checked.
+func TestAnalyzeExecs_CollapsesHighVarietyArgv0ByPathShape(t *testing.T) {
+	var in []types.ExecCalls
+	for i := 0; i < 200; i++ {
+		in = append(in, exec("/usr/bin/bash", fmt.Sprintf("/tmp/tmp.%d/run.sh", i), "--fixed"))
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(50, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/usr/bin/bash", "/tmp/"+dyn+"/run.sh", "--fixed")}, out)
+	assertCovers(t, out, in)
+}
+
+func TestAnalyzeExecs_CollapsesUnshapedArgv0ToDynamic(t *testing.T) {
+	var in []types.ExecCalls
+	for _, name := range []string{"awk", "gawk", "nawk", "mawk", "busybox"} {
+		in = append(in, exec("/usr/bin/gawk", name, "--version"))
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(3, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/usr/bin/gawk", dyn, "--version")}, out)
+	assertCovers(t, out, in)
+}
+
+func TestAnalyzeExecs_Argv0ThresholdOneStaysMatchable(t *testing.T) {
+	in := []types.ExecCalls{
+		exec("/usr/bin/bash", "/opt/a/run.sh", "x"),
+		exec("/usr/bin/bash", "/opt/b/run.sh", "x"),
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(1, nil))
+	for _, o := range out {
+		assert.NotContains(t, o.Args[0], dynamicpathdetector.WildcardIdentifier, "* is a literal in exec args")
+	}
+	assertCovers(t, out, in)
+}
+
+func TestAnalyzeExecs_Argv0PatternAbsorbsNewLiteral(t *testing.T) {
+	in := []types.ExecCalls{
+		exec("/usr/bin/bash", "/tmp/"+dyn+"/run.sh", "--fixed"),
+		exec("/usr/bin/bash", "/tmp/tmp.999/run.sh", "--fixed"),
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(50, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/usr/bin/bash", "/tmp/"+dyn+"/run.sh", "--fixed")}, out)
+}
+
+// Entries that tie on path and argv are ordered by ArgsRequired, then Envs,
+// so the output (and the stored object's bytes) never depend on input order.
+func TestAnalyzeExecs_TotalOrderOnTies(t *testing.T) {
+	strict := exec("/usr/bin/curl", "curl", "x")
+	strict.ArgsRequired = true
+	strictEnv := strict
+	strictEnv.Envs = []string{"A=1"}
+	learned := exec("/usr/bin/curl", "curl", "x")
+	want := []types.ExecCalls{learned, strict, strictEnv}
+	for _, in := range [][]types.ExecCalls{
+		{strictEnv, strict, learned},
+		{strict, learned, strictEnv},
+		{learned, strictEnv, strict},
+	} {
+		assert.Equal(t, want, dynamicpathdetector.AnalyzeExecs(in, nil))
+	}
+}
+
+func assertCovers(t *testing.T, out, in []types.ExecCalls) {
+	t.Helper()
+	for _, e := range in {
+		covered := false
+		for _, o := range out {
+			if o.Path == e.Path && dynamicpathdetector.CompareExecArgs(o.Args, e.Args) {
+				covered = true
+				break
+			}
+		}
+		assert.True(t, covered, "%s %v not covered by output", e.Path, e.Args)
+	}
 }

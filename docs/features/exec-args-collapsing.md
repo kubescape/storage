@@ -69,7 +69,7 @@ It runs per binary path:
    `Args` pass through unchanged, since they're hand-written or already
    unconstrained.
 2. **Build an argument trie** for each path. Level *i* is argv[*i*], and
-   argv[0] always stays literal. The collapse rule is the same one opens use
+   argv[0] stays literal (see Implementation notes for the high-variety case). The collapse rule is the same one opens use
    (`updateNodeStats` / `createDynamicNode`): when a node's child count goes
    over the threshold, the children merge into one `⋯` child and their
    subtrees are unioned. Each leaf becomes one argv pattern. Levels are
@@ -149,12 +149,25 @@ concern for each deployment and outside this change.
 - **An existing `⋯` child absorbs its siblings**, the same way
   `PathAnalyzer.processSegment` handles `IsNextDynamic`. That's what keeps
   a stored pattern absorbing new literal deltas and makes the pass idempotent.
-- **The fallback is one `[argv0, ⋯⋯]` per distinct argv[0].** For
-  interpreters, argv[0] is often the script (`/bin/dracut`, `/usr/bin/dnf`
-  run through `bash` / `python3`), so the fallback still records which
-  scripts ran. On the measured host profile, `bash` alone had 47 argv[0]
-  values.
-- **Output is sorted and never nil.** It's sorted by path, then argv. Empty
+- **argv[0] stays literal up to the threshold.** For interpreters,
+  argv[0] is often the script (`/bin/dracut`, `/usr/bin/dnf` run through
+  `bash` / `python3`), which is worth keeping. On the measured host profile,
+  `bash` alone had 47 argv[0] values. A binary with more than threshold
+  distinct argv[0] values, like generated scripts under `/tmp/tmp.<N>/`,
+  would otherwise grow one entry per script, even through the fallback. So
+  argv[0] then collapses by path shape using the same `PathAnalyzer` opens
+  use (`/tmp/tmp.1/run.sh` → `/tmp/⋯/run.sh`), and to a bare `⋯` if that
+  still leaves more than threshold. Every rewritten argv[0] is checked with
+  `CompareExecArgs` against the original. The analyzer's threshold-1 `*`
+  shortcut is never used, because `*` is a literal in exec args.
+- **The fallback is one `[argv0, ⋯⋯]` per remaining argv[0]**, so it's
+  bounded by the argv[0] step above.
+- **Patterns absorb covered literals.** Any entry containing `⋯` or `⋯⋯` is
+  a pattern and drops the literal entries it covers, per `CompareExecArgs`.
+  That includes a collapsed argv[0] absorbing a new script run later.
+- **Output is totally ordered and never nil.** It's sorted by path, then
+  argv, then `ArgsRequired` (false first), then envs, so the stored bytes
+  don't depend on input order. Empty
   input returns `[]`, so stored profiles keep encoding empty execs as `[]`,
   as they did with `DeflateStringer`. Exact dedupe now ignores `Envs`, and
   envs of merged entries are unioned.
@@ -166,8 +179,8 @@ concern for each deployment and outside this change.
   | Threshold | Exec entries | `[argv0, ⋯⋯]` entries | Inputs not covered |
   |---|---|---|---|
   | 50 | 9,849 → 1,292 | 88 | 0 |
-  | 20 | 9,849 → 703 | 103 | 0 |
-  | 10 | 9,849 → 526 | 116 | 0 |
+  | 20 | 9,849 → 657 | 57 | 0 |
+  | 10 | 9,849 → 467 | 57 | 0 |
 
   A second pass over each output is a no-op.
 

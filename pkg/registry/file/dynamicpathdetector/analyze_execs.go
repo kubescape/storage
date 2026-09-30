@@ -64,16 +64,21 @@ func newArgNode() *argNode {
 //
 //  1. Entries are grouped by Path. ArgsRequired entries and entries with no
 //     Args pass through unchanged.
-//  2. Each binary's argvs go into tries, one level per argv position, with a
-//     separate trie per (argv[0], argc): argv[0] is never collapsed and argvs
-//     of different lengths never merge into each other. A node with more than
-//     threshold distinct children — or with an existing ⋯ child — has its
-//     children merged into a single ⋯ child, subtrees unioned.
-//  3. If a binary still has more than threshold patterns, it falls back to
+//  2. argv[0] stays literal unless the binary has more than threshold
+//     distinct argv[0] values (typically an interpreter running many
+//     scripts). Then argv[0] collapses by path shape, the way opens do
+//     (/tmp/tmp.1/run.sh → /tmp/⋯/run.sh), and to a bare ⋯ if it is still
+//     over threshold.
+//  3. Each binary's argvs go into tries, one level per argv position, with a
+//     separate trie per (argv[0], argc), so argvs of different lengths never
+//     merge into each other. A node with more than threshold distinct
+//     children — or with an existing ⋯ child — has its children merged into
+//     a single ⋯ child, subtrees unioned.
+//  4. If a binary still has more than threshold patterns, it falls back to
 //     [argv0, ⋯⋯]: known binary, any arguments.
 //
-// Entries already containing ⋯⋯ are kept as patterns and absorb any literal
-// they cover. Envs of merged entries are unioned. Output is sorted by path
+// Entries containing ⋯ or ⋯⋯ are kept as patterns and absorb any literal
+// entry they cover. Envs of merged entries are unioned. Output is sorted by path
 // and argv, and AnalyzeExecs(AnalyzeExecs(x)) == AnalyzeExecs(x). The result
 // is never nil: stored profiles encode empty execs as [], as they did with
 // DeflateStringer.
@@ -107,7 +112,16 @@ func AnalyzeExecs(execs []types.ExecCalls, analyzer *ExecAnalyzer) []types.ExecC
 		if c := strings.Compare(a.Path, b.Path); c != 0 {
 			return c
 		}
-		return strings.Compare(strings.Join(a.Args, execArgsSep), strings.Join(b.Args, execArgsSep))
+		if c := strings.Compare(strings.Join(a.Args, execArgsSep), strings.Join(b.Args, execArgsSep)); c != 0 {
+			return c
+		}
+		if a.ArgsRequired != b.ArgsRequired {
+			if b.ArgsRequired {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(strings.Join(a.Envs, execArgsSep), strings.Join(b.Envs, execArgsSep))
 	})
 	return out
 }
@@ -119,8 +133,9 @@ type argRoot struct {
 	argc  int
 }
 
-// analyzeBinaryExecs runs steps 2 and 3 of AnalyzeExecs for one binary.
+// analyzeBinaryExecs runs steps 2-4 of AnalyzeExecs for one binary.
 func analyzeBinaryExecs(path string, execs []types.ExecCalls, threshold int) []types.ExecCalls {
+	execs = collapseArgv0(execs, threshold)
 	roots := make(map[argRoot]*argNode)
 	var anyArgs []types.ExecCalls
 	for _, e := range execs {
@@ -156,6 +171,56 @@ func analyzeBinaryExecs(path string, execs []types.ExecCalls, threshold int) []t
 		return anyArgsPerArgv0(path, execs)
 	}
 	return absorbCoveredLiterals(append(anyArgs, patterns...))
+}
+
+// collapseArgv0 rewrites argv[0] by path shape when a binary has more than
+// threshold distinct argv[0] values, and to a bare ⋯ when that still leaves
+// more than threshold. Every rewritten value is checked against the original
+// with CompareExecArgs, so the result always matches its input; a path
+// analyzer result that doesn't (e.g. the * its threshold-1 shortcut emits,
+// which is a literal in exec args) falls back to ⋯. Input is not mutated.
+func collapseArgv0(execs []types.ExecCalls, threshold int) []types.ExecCalls {
+	distinct := mapset.NewThreadUnsafeSet[string]()
+	for _, e := range execs {
+		distinct.Add(e.Args[0])
+	}
+	if distinct.Cardinality() <= threshold {
+		return execs
+	}
+
+	analyzer := NewPathAnalyzer(max(threshold, 2))
+	argv0s := mapset.Sorted(distinct)
+	for _, argv0 := range argv0s {
+		_, _ = analyzer.AnalyzePath(argv0, "argv0")
+	}
+	mapped := make(map[string]string, len(argv0s))
+	shapes := mapset.NewThreadUnsafeSet[string]()
+	for _, argv0 := range argv0s {
+		shape, err := analyzer.AnalyzePath(argv0, "argv0")
+		switch {
+		case err != nil || !strings.Contains(shape, DynamicIdentifier):
+			shape = argv0 // unchanged apart from path.Clean: keep the original
+		case !CompareExecArgs([]string{shape}, []string{argv0}):
+			shape = DynamicIdentifier
+		}
+		mapped[argv0] = shape
+		shapes.Add(shape)
+	}
+	if shapes.Cardinality() > threshold {
+		for argv0 := range mapped {
+			mapped[argv0] = DynamicIdentifier
+		}
+	}
+
+	out := make([]types.ExecCalls, len(execs))
+	for i, e := range execs {
+		out[i] = e
+		if shape := mapped[e.Args[0]]; shape != e.Args[0] {
+			out[i].Args = slices.Clone(e.Args)
+			out[i].Args[0] = shape
+		}
+	}
+	return out
 }
 
 // collapseArgNode merges a node's children into a single ⋯ child when there
@@ -219,26 +284,31 @@ func anyArgsPerArgv0(path string, execs []types.ExecCalls) []types.ExecCalls {
 	return out
 }
 
-// absorbCoveredLiterals drops any entry covered by a ⋯⋯ pattern of the same
-// binary (per CompareExecArgs, the runtime matcher), merging its envs into
-// the pattern. Mirrors consolidateOpens; ⋯⋯ patterns are always kept.
+// absorbCoveredLiterals drops any literal entry covered by a pattern entry
+// (one containing ⋯ or ⋯⋯) of the same binary, per CompareExecArgs (the
+// runtime matcher), merging its envs into the pattern. Mirrors
+// consolidateOpens: patterns are always kept. Patterns are tried in sorted
+// order so the pattern that receives the envs doesn't depend on input order.
 func absorbCoveredLiterals(execs []types.ExecCalls) []types.ExecCalls {
-	var anyArgs, rest []types.ExecCalls
+	var patterns, literals []types.ExecCalls
 	for _, e := range execs {
-		if slices.Contains(e.Args[1:], ExecArgsWildcard) {
-			anyArgs = append(anyArgs, e)
+		if slices.ContainsFunc(e.Args, func(arg string) bool { return strings.Contains(arg, DynamicIdentifier) }) {
+			patterns = append(patterns, e)
 		} else {
-			rest = append(rest, e)
+			literals = append(literals, e)
 		}
 	}
-	if len(anyArgs) == 0 {
-		return rest
+	if len(patterns) == 0 {
+		return literals
 	}
-	out := anyArgs
-	for _, e := range rest {
+	slices.SortFunc(patterns, func(a, b types.ExecCalls) int {
+		return strings.Compare(strings.Join(a.Args, execArgsSep), strings.Join(b.Args, execArgsSep))
+	})
+	out := patterns
+	for _, e := range literals {
 		covered := false
-		for i := range anyArgs {
-			if CompareExecArgs(anyArgs[i].Args, e.Args) {
+		for i := range patterns {
+			if CompareExecArgs(patterns[i].Args, e.Args) {
 				out[i].Envs = sortedEnvs(mapset.NewThreadUnsafeSet(slices.Concat(out[i].Envs, e.Envs)...))
 				covered = true
 				break
