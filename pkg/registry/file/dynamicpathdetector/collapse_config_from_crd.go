@@ -49,6 +49,7 @@ type CollapseSettings struct {
 	CollapseConfigs          []CollapseConfig
 	NetworkIPGroupThreshold  int
 	NetworkCIDRFloorBits     int
+	ExecDynamicThreshold     int
 }
 
 // DefaultCollapseSettings returns the built-in baseline. The returned
@@ -63,6 +64,7 @@ func DefaultCollapseSettings() CollapseSettings {
 		CollapseConfigs:          DefaultCollapseConfigs(),
 		NetworkIPGroupThreshold:  NetworkIPGroupThreshold,
 		NetworkCIDRFloorBits:     NetworkCIDRFloorBits,
+		ExecDynamicThreshold:     ExecDynamicThreshold,
 	}
 }
 
@@ -103,6 +105,10 @@ func CollapseSettingsFromCRD(crd *softwarecomposition.CollapseConfiguration) Col
 	if networkCIDRFloor <= 0 {
 		networkCIDRFloor = NetworkCIDRFloorBits
 	}
+	exec := int(crd.Spec.ExecDynamicThreshold)
+	if exec <= 0 {
+		exec = ExecDynamicThreshold
+	}
 	configs := make([]CollapseConfig, len(crd.Spec.CollapseConfigs))
 	for i, entry := range crd.Spec.CollapseConfigs {
 		configs[i] = CollapseConfig{
@@ -116,6 +122,7 @@ func CollapseSettingsFromCRD(crd *softwarecomposition.CollapseConfiguration) Col
 		CollapseConfigs:          configs,
 		NetworkIPGroupThreshold:  networkIPGroup,
 		NetworkCIDRFloorBits:     networkCIDRFloor,
+		ExecDynamicThreshold:     exec,
 	}
 }
 
@@ -141,6 +148,7 @@ func CRDFromCollapseSettings(name string, settings CollapseSettings) *softwareco
 			CollapseConfigs:          entries,
 			NetworkIPGroupThreshold:  clampInt32(settings.NetworkIPGroupThreshold),
 			NetworkCIDRFloorBits:     clampInt32(settings.NetworkCIDRFloorBits),
+			ExecDynamicThreshold:     clampInt32(settings.ExecDynamicThreshold),
 		},
 	}
 }

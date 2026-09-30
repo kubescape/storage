@@ -1174,7 +1174,7 @@ func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileS
 	return softwarecomposition.ContainerProfileSpec{
 		Architectures:        DeflateSortString(container.Architectures),
 		Capabilities:         DeflateSortString(container.Capabilities),
-		Execs:                DeflateStringer(container.Execs),
+		Execs:                dynamicpathdetector.AnalyzeExecs(container.Execs, dynamicpathdetector.NewExecAnalyzer(settings.ExecDynamicThreshold, settings.CollapseConfigs)),
 		Opens:                opens,
 		Syscalls:             DeflateSortString(container.Syscalls),
 		SeccompProfile:       container.SeccompProfile,
@@ -1216,7 +1216,7 @@ func deflateContainerProfileContainers(sections []softwarecomposition.ContainerP
 		out = append(out, softwarecomposition.ContainerProfileContainer{
 			Name:                 s.Name,
 			Capabilities:         DeflateSortString(s.Capabilities),
-			Execs:                DeflateStringer(s.Execs),
+			Execs:                dynamicpathdetector.AnalyzeExecs(s.Execs, dynamicpathdetector.NewExecAnalyzer(settings.ExecDynamicThreshold, settings.CollapseConfigs)),
 			Opens:                opens,
 			Syscalls:             DeflateSortString(s.Syscalls),
 			SeccompProfile:       s.SeccompProfile,

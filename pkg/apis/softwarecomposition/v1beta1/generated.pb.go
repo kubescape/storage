@@ -696,6 +696,9 @@ func (m *CollapseConfigurationSpec) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	_ = i
 	var l int
 	_ = l
+	i = encodeVarintGenerated(dAtA, i, uint64(m.ExecDynamicThreshold))
+	i--
+	dAtA[i] = 0x30
 	i = encodeVarintGenerated(dAtA, i, uint64(m.NetworkCIDRFloorBits))
 	i--
 	dAtA[i] = 0x28
@@ -8877,6 +8880,7 @@ func (m *CollapseConfigurationSpec) Size() (n int) {
 	}
 	n += 1 + sovGenerated(uint64(m.NetworkIPGroupThreshold))
 	n += 1 + sovGenerated(uint64(m.NetworkCIDRFloorBits))
+	n += 1 + sovGenerated(uint64(m.ExecDynamicThreshold))
 	return n
 }
 
@@ -11996,6 +12000,7 @@ func (this *CollapseConfigurationSpec) String() string {
 		`CollapseConfigs:` + repeatedStringForCollapseConfigs + `,`,
 		`NetworkIPGroupThreshold:` + fmt.Sprintf("%v", this.NetworkIPGroupThreshold) + `,`,
 		`NetworkCIDRFloorBits:` + fmt.Sprintf("%v", this.NetworkCIDRFloorBits) + `,`,
+		`ExecDynamicThreshold:` + fmt.Sprintf("%v", this.ExecDynamicThreshold) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -15446,6 +15451,25 @@ func (m *CollapseConfigurationSpec) Unmarshal(dAtA []byte) error {
 				b := dAtA[iNdEx]
 				iNdEx++
 				m.NetworkCIDRFloorBits |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExecDynamicThreshold", wireType)
+			}
+			m.ExecDynamicThreshold = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ExecDynamicThreshold |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

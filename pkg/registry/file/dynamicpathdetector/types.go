@@ -25,6 +25,10 @@ const (
 // NetworkNeighbor entries differing only by IP gets CIDR-collapsed.
 // NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum breadth)
 // a single aggregated block may have.
+// ExecDynamicThreshold is the fallback threshold used by AnalyzeExecs when
+// no CollapseConfig prefix matches the exec path: the most distinct values
+// an argv position may have before it collapses to ⋯, and the most argv
+// patterns a binary may keep before it falls back to [argv0, ⋯⋯].
 // NetworkMaxCIDRSplitBits caps, PER prefix, how far a single cover block broader
 // than the floor is split into floor-width children: up to 2^NetworkMaxCIDRSplitBits
 // blocks (4096 here). A prefix whose split would exceed that is kept as-is rather
@@ -36,6 +40,7 @@ const (
 // CollapseConfiguration field.
 const (
 	OpenDynamicThreshold     = 50
+	ExecDynamicThreshold     = 50
 	EndpointDynamicThreshold = 100
 	NetworkIPGroupThreshold  = 50
 	NetworkCIDRFloorBits     = 24

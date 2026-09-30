@@ -148,6 +148,9 @@ func validateCollapseConfigurationSpec(spec *softwarecomposition.CollapseConfigu
 	if spec.NetworkIPGroupThreshold < 0 {
 		errs = append(errs, field.Invalid(fp.Child("networkIPGroupThreshold"), spec.NetworkIPGroupThreshold, "must be >= 0 (0 means use the compiled-in default)"))
 	}
+	if spec.ExecDynamicThreshold < 0 {
+		errs = append(errs, field.Invalid(fp.Child("execDynamicThreshold"), spec.ExecDynamicThreshold, "must be >= 0 (0 means use the compiled-in default)"))
+	}
 	if spec.NetworkCIDRFloorBits < 0 || spec.NetworkCIDRFloorBits > 32 {
 		errs = append(errs, field.Invalid(fp.Child("networkCIDRFloorBits"), spec.NetworkCIDRFloorBits, "must be 0 (use the compiled-in default) or in the range [1,32]"))
 	}

@@ -1,6 +1,8 @@
-# Exec argument collapsing (design, proposed)
+# Exec argument collapsing
 
-> Status: **proposed**. This is a design for review; no code in this PR.
+> Status: **implemented**. `dynamicpathdetector.AnalyzeExecs`, wired into
+> `DeflateContainerProfileSpec`; see "Implementation notes" for the details the
+> code settled.
 
 ## Summary
 
@@ -137,6 +139,37 @@ Profiles that already hit the limit won't recover from this change alone.
 Consumers that keep the full spec can re-run `DeflateContainerProfileSpec` on
 it. Otherwise the profile has to be reset and learned again. That's a rollout
 concern for each deployment and outside this change.
+
+## Implementation notes
+
+- **One trie per (argv[0], argc).** A single trie per argv[0] would let a
+  high-variety level merge argvs of different lengths (`[grep, -E, x]` would
+  become `[grep, ⋯, x]` next to many `[grep, <pattern>]`). Rooting a separate
+  trie at each argument count is what keeps lengths apart.
+- **An existing `⋯` child absorbs its siblings**, the same way
+  `PathAnalyzer.processSegment` handles `IsNextDynamic`. That's what keeps
+  a stored pattern absorbing new literal deltas and makes the pass idempotent.
+- **The fallback is one `[argv0, ⋯⋯]` per distinct argv[0].** For
+  interpreters, argv[0] is often the script (`/bin/dracut`, `/usr/bin/dnf`
+  run through `bash` / `python3`), so the fallback still records which
+  scripts ran. On the measured host profile, `bash` alone had 47 argv[0]
+  values.
+- **Output is sorted and never nil.** It's sorted by path, then argv. Empty
+  input returns `[]`, so stored profiles keep encoding empty execs as `[]`,
+  as they did with `DeflateStringer`. Exact dedupe now ignores `Envs`, and
+  envs of merged entries are unioned.
+- **Thresholds.** `NewExecAnalyzer` treats a non-positive default as
+  `ExecDynamicThreshold`. Per-prefix entries with `Threshold < 1` are ignored
+  for execs (admission already rejects them).
+- **Measured on the real host profile** (not the flat simulation below):
+
+  | Threshold | Exec entries | `[argv0, ⋯⋯]` entries | Inputs not covered |
+  |---|---|---|---|
+  | 50 | 9,849 → 1,292 | 88 | 0 |
+  | 20 | 9,849 → 703 | 103 | 0 |
+  | 10 | 9,849 → 526 | 116 | 0 |
+
+  A second pass over each output is a no-op.
 
 ## Security trade-offs
 
