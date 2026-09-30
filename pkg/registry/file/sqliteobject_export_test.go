@@ -148,9 +148,11 @@ func TestExport_RoundTripIsBehaviourallyIdentical(t *testing.T) {
 		require.Equal(t, canonicalCP(legacyBefore), canonicalCP(got), "the old binary serves the pre-migration object for %s", k)
 		require.Equal(t, legacyBefore.ResourceVersion, got.ResourceVersion)
 		require.Equal(t, legacyBefore.UID, got.UID)
-		staged, err := afero.Exists(e.fs, e.filePath(name)+".t")
-		require.NoError(t, err)
-		require.False(t, staged, "no staging file left behind")
+	}
+	entries, err := afero.ReadDir(e.fs, filepath.Dir(e.filePath("plain-01")))
+	require.NoError(t, err)
+	for _, entry := range entries {
+		require.False(t, isLegacyStagingFile(entry.Name()), "no staging file left behind: %s", entry.Name())
 	}
 	// The old binary keeps working on the exported files.
 	k := e.key("plain-01")
