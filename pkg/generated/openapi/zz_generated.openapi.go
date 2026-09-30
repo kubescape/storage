@@ -583,6 +583,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationSpec(ref c
 							Format:      "int32",
 						},
 					},
+					"execDynamicThreshold": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExecDynamicThreshold is the fallback threshold for AnalyzeExecs when no per-prefix entry matches the exec path. CollapseConfigs entries apply to exec paths as well as opens. Optional with the same omitted/0-means-compiled-default semantics as OpenDynamicThreshold.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},

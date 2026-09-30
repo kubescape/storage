@@ -1870,6 +1870,7 @@ func autoConvert_v1beta1_CollapseConfigurationSpec_To_softwarecomposition_Collap
 	out.CollapseConfigs = *(*[]softwarecomposition.CollapseConfigEntry)(unsafe.Pointer(&in.CollapseConfigs))
 	out.NetworkIPGroupThreshold = in.NetworkIPGroupThreshold
 	out.NetworkCIDRFloorBits = in.NetworkCIDRFloorBits
+	out.ExecDynamicThreshold = in.ExecDynamicThreshold
 	return nil
 }
 
@@ -1884,6 +1885,7 @@ func autoConvert_softwarecomposition_CollapseConfigurationSpec_To_v1beta1_Collap
 	out.CollapseConfigs = *(*[]CollapseConfigEntry)(unsafe.Pointer(&in.CollapseConfigs))
 	out.NetworkIPGroupThreshold = in.NetworkIPGroupThreshold
 	out.NetworkCIDRFloorBits = in.NetworkCIDRFloorBits
+	out.ExecDynamicThreshold = in.ExecDynamicThreshold
 	return nil
 }
 

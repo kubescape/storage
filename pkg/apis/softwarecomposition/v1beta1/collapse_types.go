@@ -78,6 +78,12 @@ type CollapseConfigurationSpec struct {
 	// omitted/0-means-compiled-default semantics as NetworkIPGroupThreshold.
 	// +optional
 	NetworkCIDRFloorBits int32 `json:"networkCIDRFloorBits,omitempty" protobuf:"varint,5,opt,name=networkCIDRFloorBits"`
+	// ExecDynamicThreshold is the fallback threshold for AnalyzeExecs when no
+	// per-prefix entry matches the exec path. CollapseConfigs entries apply
+	// to exec paths as well as opens. Optional with the same
+	// omitted/0-means-compiled-default semantics as OpenDynamicThreshold.
+	// +optional
+	ExecDynamicThreshold int32 `json:"execDynamicThreshold,omitempty" protobuf:"varint,6,opt,name=execDynamicThreshold"`
 }
 
 // CollapseConfigEntry is one per-prefix threshold override.

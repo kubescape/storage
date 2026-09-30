@@ -1,6 +1,8 @@
-# Exec argument collapsing (design, proposed)
+# Exec argument collapsing
 
-> Status: **proposed**. This is a design for review; no code in this PR.
+> Status: **implemented**. `dynamicpathdetector.AnalyzeExecs`, wired into
+> `DeflateContainerProfileSpec`; see "Implementation notes" for the details the
+> code settled.
 
 ## Summary
 
@@ -67,7 +69,7 @@ It runs per binary path:
    `Args` pass through unchanged, since they're hand-written or already
    unconstrained.
 2. **Build an argument trie** for each path. Level *i* is argv[*i*], and
-   argv[0] always stays literal. The collapse rule is the same one opens use
+   argv[0] stays literal (see Implementation notes for the high-variety case). The collapse rule is the same one opens use
    (`updateNodeStats` / `createDynamicNode`): when a node's child count goes
    over the threshold, the children merge into one `⋯` child and their
    subtrees are unioned. Each leaf becomes one argv pattern. Levels are
@@ -137,6 +139,72 @@ Profiles that already hit the limit won't recover from this change alone.
 Consumers that keep the full spec can re-run `DeflateContainerProfileSpec` on
 it. Otherwise the profile has to be reset and learned again. That's a rollout
 concern for each deployment and outside this change.
+
+## Implementation notes
+
+- **One trie per (argv[0], argc).** A single trie per argv[0] would let a
+  high-variety level merge argvs of different lengths (`[grep, -E, x]` would
+  become `[grep, ⋯, x]` next to many `[grep, <pattern>]`). Rooting a separate
+  trie at each argument count is what keeps lengths apart.
+- **An existing `⋯` child absorbs its siblings**, the same way
+  `PathAnalyzer.processSegment` handles `IsNextDynamic`. That's what keeps
+  a stored pattern absorbing new literal deltas and makes the pass idempotent.
+- **argv[0] stays literal up to the threshold.** For interpreters,
+  argv[0] is often the script (`/bin/dracut`, `/usr/bin/dnf` run through
+  `bash` / `python3`), which is worth keeping. On the measured host profile,
+  `bash` alone had 47 argv[0] values. A binary with more than threshold
+  distinct argv[0] values, like generated scripts under `/tmp/tmp.<N>/`,
+  would otherwise grow one entry per script, even through the fallback. So
+  argv[0] then collapses by path shape (`/tmp/tmp.1/run.sh` →
+  `/tmp/⋯/run.sh`), and to a bare `⋯` only if that still leaves more than
+  threshold. This runs *after* covered entries are absorbed, so deltas a
+  stored argv[0] pattern already covers don't count as variety, and argv[0]
+  values that are already patterns are never re-analyzed. Shapes come from
+  the same argument trie used for argv positions, applied to argv[0]'s
+  `/`-separated segments (one trie per segment count). It only produces `⋯`,
+  exactly the one-segment semantics `CompareExecArgs` gives `⋯` inside an
+  argument, so a `*` in argv[0], whether embedded (`star*dir`) or a whole
+  segment, stays literal. `PathAnalyzer` isn't used here: its `*` is opens
+  glob syntax. Every shape is verified with `CompareExecArgs` against its
+  original.
+- **The fallback is one `[argv0, ⋯⋯]` per remaining argv[0]**, so it's
+  bounded by the argv[0] step above. The ceiling counts distinct entries
+  *after* existing `⋯⋯` patterns are deduped (by argv, envs unioned) and
+  covered literals are absorbed. A delta the stored profile already allows
+  (e.g. `bash -c a` under `[bash, -c, ⋯⋯]`) never broadens the binary to
+  `[bash, ⋯⋯]` on a later save.
+- **Absorb before generalizing, and absorb patterns soundly.** Entries are
+  deduped by argv (envs unioned), and anything an existing pattern already
+  covers is absorbed *before* the trie runs. A stored `[bash, -c, ⋯⋯]` plus
+  many covered deltas therefore can't turn those deltas into new
+  `[bash, -c, ⋯]` patterns that push the binary over the ceiling. After the
+  trie, patterns are consolidated again, and a pattern can absorb another
+  pattern. Coverage is `CompareExecArgs(coverer, covered)` with the covered
+  entry's tokens read as literals. That's sound as long as the covered entry
+  has no `⋯⋯`: a single `⋯` is never taken to cover zero-or-more args, so
+  `⋯⋯` entries are only ever merged with exact duplicates.
+- **Keys are injective.** Dedupe keys are length-prefixed token lists, not
+  `strings.Join`: any separator glyph (including `␟`) is valid argv data.
+- **Output is totally ordered and never nil.** It's sorted by path, then
+  argv (element-wise), then `ArgsRequired` (false first), then envs, so the
+  stored bytes don't depend on input order. Empty
+  input returns `[]`, so stored profiles keep encoding empty execs as `[]`,
+  as they did with `DeflateStringer`. Exact dedupe now ignores `Envs`, and
+  envs of merged entries are unioned.
+- **Thresholds.** `NewExecAnalyzer` treats a non-positive default as
+  `ExecDynamicThreshold`. Per-prefix entries with `Threshold < 1` are ignored
+  for execs (admission already rejects them).
+- **Measured on the real host profile** (not the flat simulation below):
+
+  | Threshold | Exec entries | `[argv0, ⋯⋯]` entries | Inputs not covered |
+  |---|---|---|---|
+  | 50 | 9,849 → 1,292 | 88 | 0 |
+  | 20 | 9,849 → 657 | 57 | 0 |
+  | 10 | 9,849 → 467 | 57 | 0 |
+
+  A second pass over each output is a no-op, including with a covered delta
+  added. The first deflation of the whole profile takes about 33 ms at the
+  default threshold, and about 0.6 s at thresholds 10–20.
 
 ## Security trade-offs
 

@@ -200,6 +200,7 @@ func TestCollapseSettings_FullRoundTrip(t *testing.T) {
 			EndpointDynamicThreshold: 100,
 			NetworkIPGroupThreshold:  50,
 			NetworkCIDRFloorBits:     16,
+			ExecDynamicThreshold:     50,
 			CollapseConfigs: []softwarecomposition.CollapseConfigEntry{
 				{Prefix: "/etc", Threshold: 100},
 				{Prefix: "/var/run", Threshold: 50},
@@ -211,4 +212,32 @@ func TestCollapseSettings_FullRoundTrip(t *testing.T) {
 	roundTripped := dynamicpathdetector.CRDFromCollapseSettings("default", settings)
 	assert.Equal(t, original.Spec, roundTripped.Spec,
 		"CRD → settings → CRD must preserve spec content")
+}
+
+// TestCollapseSettings_ExecDynamicThreshold pins the exec threshold through
+// the defaults, the zero-means-default guard and both conversion directions.
+func TestCollapseSettings_ExecDynamicThreshold(t *testing.T) {
+	assert.Equal(t, dynamicpathdetector.ExecDynamicThreshold,
+		dynamicpathdetector.DefaultCollapseSettings().ExecDynamicThreshold)
+
+	omitted := dynamicpathdetector.CollapseSettingsFromCRD(&softwarecomposition.CollapseConfiguration{
+		Spec: softwarecomposition.CollapseConfigurationSpec{},
+	})
+	assert.Equal(t, dynamicpathdetector.ExecDynamicThreshold, omitted.ExecDynamicThreshold,
+		"omitted execDynamicThreshold must use the compiled default, not 0")
+
+	original := &softwarecomposition.CollapseConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+		Spec: softwarecomposition.CollapseConfigurationSpec{
+			OpenDynamicThreshold:     50,
+			EndpointDynamicThreshold: 100,
+			NetworkIPGroupThreshold:  50,
+			NetworkCIDRFloorBits:     24,
+			ExecDynamicThreshold:     7,
+			CollapseConfigs:          []softwarecomposition.CollapseConfigEntry{{Prefix: "/usr/bin/bash", Threshold: 200}},
+		},
+	}
+	settings := dynamicpathdetector.CollapseSettingsFromCRD(original)
+	assert.Equal(t, 7, settings.ExecDynamicThreshold)
+	assert.Equal(t, original.Spec, dynamicpathdetector.CRDFromCollapseSettings("default", settings).Spec)
 }
