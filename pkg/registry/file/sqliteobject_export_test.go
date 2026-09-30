@@ -8,6 +8,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -473,4 +474,26 @@ func TestExport_ReconcileOpenSucceedsReadFailsFailsExport(t *testing.T) {
 	exists, err = afero.Exists(e.fs, e.filePath("plain-00"))
 	require.NoError(t, err)
 	require.True(t, exists, "the file was never classified, so it must not have been removed either")
+}
+
+func TestExport_LongNameRealFilesystem(t *testing.T) {
+	fs := afero.NewBasePathFs(afero.NewOsFs(), t.TempDir())
+	e := newMigrationEnv(t, fs)
+	e.startNew()
+	e.mustMigrate(ContainerProfileMigrationOptions{})
+	name := strings.Repeat("a", 253)
+	original := e.storeCreate(name)
+	exported := e.export(ContainerProfileExportOptions{})
+	require.Equal(t, 1, exported.Exported)
+	require.Zero(t, exported.Undecodable)
+	require.Equal(t, canonicalCP(original), canonicalCP(decodeGob(t, e.readFile(name))))
+	entries, err := afero.ReadDir(fs, filepath.Dir(e.filePath(name)))
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "only the permanent payload may remain")
+	require.Equal(t, name+GobExt, entries[0].Name())
+	e.stopNew()
+	got := e.legacyGet(e.key(name))
+	require.Equal(t, canonicalCP(original), canonicalCP(got))
+	require.Equal(t, original.ResourceVersion, got.ResourceVersion)
+	require.Equal(t, original.UID, got.UID)
 }

@@ -465,8 +465,9 @@ func makePayloadPath(path string) string {
 
 // makeTempPayloadPath bounds the temporary filename to the common filesystem
 // limit of 255 bytes, including the suffix. Keep the final payload name intact:
-// readers and cleanup reconstruct object keys from that name. Staging in the
-// same directory preserves atomic rename into the final path.
+// readers and cleanup reconstruct object keys from that name. Retain the .g
+// staging marker so migration can identify abandoned files. The same directory
+// preserves atomic rename into the final path.
 func makeTempPayloadPath(finalPayloadPath, suffix string) string {
 	const maxFilenameBytes = 255
 	base := filepath.Base(finalPayloadPath)
@@ -474,7 +475,7 @@ func makeTempPayloadPath(finalPayloadPath, suffix string) string {
 		return finalPayloadPath + suffix
 	}
 	digest := sha256.Sum256([]byte(base))
-	return filepath.Join(filepath.Dir(finalPayloadPath), fmt.Sprintf("%x%s", digest, suffix))
+	return filepath.Join(filepath.Dir(finalPayloadPath), fmt.Sprintf("%x%s%s", digest, GobExt, suffix))
 }
 
 // IsPayloadFile returns true if a given file at `path` is an object payload file, else false
