@@ -458,3 +458,34 @@ func TestAnalyzeExecs_SeparatorInsideArgsDoesNotCollide(t *testing.T) {
 	assert.Equal(t, out, dynamicpathdetector.AnalyzeExecs(reversed, dynamicpathdetector.NewExecAnalyzer(3, nil)),
 		"output order must not depend on input order even when joined args collide")
 }
+
+// Review (#414, round 3): covered argv0 deltas must be absorbed before argv0
+// collapses, so they can't widen a stored script-path constraint.
+func TestAnalyzeExecs_CoveredArgv0DeltasDoNotWidenScriptPath(t *testing.T) {
+	stored := exec("/bin/bash", "/tmp/"+dyn+"/"+dyn+"/run.sh", "--fixed")
+	in := []types.ExecCalls{
+		stored,
+		exec("/bin/bash", "/tmp/a/1/run.sh", "--fixed"),
+		exec("/bin/bash", "/tmp/b/2/run.sh", "--fixed"),
+		exec("/bin/bash", "/tmp/c/3/run.sh", "--fixed"),
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(2, nil))
+	assert.Equal(t, []types.ExecCalls{stored}, out)
+	for _, o := range out {
+		assert.False(t, dynamicpathdetector.CompareExecArgs(o.Args, []string{"/evil/run.sh", "--fixed"}), "/evil/run.sh must stay disallowed")
+	}
+}
+
+// Adjacent varying segments must collapse to per-segment ⋯, not to a bare ⋯
+// that would accept any script path.
+func TestAnalyzeExecs_DeepArgv0VarietyKeepsPathShape(t *testing.T) {
+	var in []types.ExecCalls
+	for i := 0; i < 5; i++ {
+		in = append(in, exec("/bin/bash", fmt.Sprintf("/tmp/a%d/b%d/run.sh", i, i), "--fixed"))
+	}
+	analyzer := func() *dynamicpathdetector.ExecAnalyzer { return dynamicpathdetector.NewExecAnalyzer(2, nil) }
+	out := dynamicpathdetector.AnalyzeExecs(in, analyzer())
+	assert.Equal(t, []types.ExecCalls{exec("/bin/bash", "/tmp/"+dyn+"/"+dyn+"/run.sh", "--fixed")}, out)
+	assertCovers(t, out, in)
+	assert.Equal(t, out, dynamicpathdetector.AnalyzeExecs(append(out, in...), analyzer()), "resave with covered deltas is a no-op")
+}

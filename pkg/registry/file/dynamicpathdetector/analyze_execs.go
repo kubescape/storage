@@ -1,6 +1,7 @@
 package dynamicpathdetector
 
 import (
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -104,14 +105,15 @@ func newArgNode() *argNode {
 //
 //  1. Entries are grouped by Path. ArgsRequired entries and entries with no
 //     Args pass through unchanged.
-//  2. argv[0] stays literal unless the binary has more than threshold
+//  2. Entries are deduped by argv (envs unioned), and anything an existing
+//     pattern already covers is absorbed *before* any generalization
+//     (argv[0] included), so deltas a stored profile already allows can
+//     never widen it.
+//  3. argv[0] stays literal unless the binary still has more than threshold
 //     distinct argv[0] values (typically an interpreter running many
-//     scripts). Then argv[0] collapses by path shape, the way opens do
-//     (/tmp/tmp.1/run.sh → /tmp/⋯/run.sh), and to a bare ⋯ if it is still
-//     over threshold.
-//  3. Entries are deduped by argv (envs unioned), and anything an existing
-//     pattern already covers is absorbed *before* generalizing, so deltas a
-//     stored profile already allows can never widen it.
+//     scripts). Then literal argv[0] values collapse by path shape, the way
+//     opens do (/tmp/tmp.1/run.sh → /tmp/⋯/run.sh), and to a bare ⋯ only if
+//     that is still over threshold. The result is consolidated again.
 //  4. The remaining argvs, except ⋯⋯ patterns, go into tries, one level per
 //     argv position, with a separate trie per (argv[0], argc), so argvs of
 //     different lengths never merge into each other. A node with more than
@@ -165,8 +167,10 @@ type argRoot struct {
 
 // analyzeBinaryExecs runs steps 2-5 of AnalyzeExecs for one binary.
 func analyzeBinaryExecs(path string, execs []types.ExecCalls, threshold int) []types.ExecCalls {
-	execs = collapseArgv0(execs, threshold)
+	// Absorb covered inputs before any generalization, then again after
+	// argv[0] collapses (which can create duplicates and covered entries).
 	entries := consolidateExecs(dedupeByArgv(execs))
+	entries = consolidateExecs(dedupeByArgv(collapseArgv0(entries, threshold)))
 
 	roots := make(map[argRoot]*argNode)
 	var anyArgs []types.ExecCalls
@@ -203,7 +207,7 @@ func analyzeBinaryExecs(path string, execs []types.ExecCalls, threshold int) []t
 	// existing pattern already covers may broaden the binary to [argv0, ⋯⋯].
 	consolidated := consolidateExecs(append(anyArgs, patterns...))
 	if len(consolidated) > threshold {
-		return anyArgsPerArgv0(path, execs)
+		return anyArgsPerArgv0(path, entries)
 	}
 	return consolidated
 }
@@ -230,12 +234,13 @@ func dedupeByArgv(execs []types.ExecCalls) []types.ExecCalls {
 	return out
 }
 
-// collapseArgv0 rewrites argv[0] by path shape when a binary has more than
-// threshold distinct argv[0] values, and to a bare ⋯ when that still leaves
-// more than threshold. Every rewritten value is checked against the original
-// with CompareExecArgs, so the result always matches its input; a path
-// analyzer result that doesn't (e.g. the * its threshold-1 shortcut emits,
-// which is a literal in exec args) falls back to ⋯. Input is not mutated.
+// collapseArgv0 rewrites literal argv[0] values by path shape when a binary
+// has more than threshold distinct argv[0] values, and everything to a bare ⋯
+// when that still leaves more than threshold. argv[0] values that are already
+// patterns are kept as they are (re-analyzing them would re-generalize a
+// stored constraint). Every rewritten value is checked against the original
+// with CompareExecArgs, so the result always matches its input; anything
+// that doesn't falls back to ⋯. Input is not mutated.
 func collapseArgv0(execs []types.ExecCalls, threshold int) []types.ExecCalls {
 	distinct := mapset.NewThreadUnsafeSet[string]()
 	for _, e := range execs {
@@ -246,21 +251,32 @@ func collapseArgv0(execs []types.ExecCalls, threshold int) []types.ExecCalls {
 	}
 
 	analyzer := NewPathAnalyzer(max(threshold, 2))
-	argv0s := mapset.Sorted(distinct)
-	for _, argv0 := range argv0s {
-		_, _ = analyzer.AnalyzePath(argv0, "argv0")
+	var literals []string
+	for _, argv0 := range mapset.Sorted(distinct) {
+		if !strings.Contains(argv0, DynamicIdentifier) {
+			literals = append(literals, argv0)
+			_, _ = analyzer.AnalyzePath(argv0, "argv0")
+		}
 	}
-	mapped := make(map[string]string, len(argv0s))
+	mapped := make(map[string]string, distinct.Cardinality())
 	shapes := mapset.NewThreadUnsafeSet[string]()
-	for _, argv0 := range argv0s {
+	for argv0 := range distinct.Iter() {
+		mapped[argv0] = argv0
+	}
+	for _, argv0 := range literals {
 		shape, err := analyzer.AnalyzePath(argv0, "argv0")
+		if err == nil && strings.Contains(shape, WildcardIdentifier) {
+			shape = expandGlobShape(shape, argv0)
+		}
 		switch {
-		case err != nil || !strings.Contains(shape, DynamicIdentifier):
+		case err != nil || (shape != "" && !strings.Contains(shape, DynamicIdentifier)):
 			shape = argv0 // unchanged apart from path.Clean: keep the original
-		case !CompareExecArgs([]string{shape}, []string{argv0}):
+		case shape == "" || !CompareExecArgs([]string{shape}, []string{argv0}):
 			shape = DynamicIdentifier
 		}
 		mapped[argv0] = shape
+	}
+	for _, shape := range mapped {
 		shapes.Add(shape)
 	}
 	if shapes.Cardinality() > threshold {
@@ -278,6 +294,35 @@ func collapseArgv0(execs []types.ExecCalls, threshold int) []types.ExecCalls {
 		}
 	}
 	return out
+}
+
+// expandGlobShape undoes PathAnalyzer's opens-only "⋯/⋯ → *" compaction for
+// one argv[0]: a * segment (a literal in exec args) is expanded back into as
+// many ⋯ segments as it stands for in original. Returns "" when that is
+// ambiguous (more than one *) or inconsistent.
+func expandGlobShape(shape, original string) string {
+	shapeSegs := strings.Split(shape, "/")
+	origSegs := strings.Split(path.Clean(original), "/")
+	star := -1
+	for i, seg := range shapeSegs {
+		if seg == WildcardIdentifier {
+			if star >= 0 {
+				return ""
+			}
+			star = i
+		}
+	}
+	width := len(origSegs) - (len(shapeSegs) - 1)
+	if star < 0 || width < 2 {
+		return ""
+	}
+	expanded := make([]string, 0, len(origSegs))
+	expanded = append(expanded, shapeSegs[:star]...)
+	for range width {
+		expanded = append(expanded, DynamicIdentifier)
+	}
+	expanded = append(expanded, shapeSegs[star+1:]...)
+	return strings.Join(expanded, "/")
 }
 
 // collapseArgNode merges a node's children into a single ⋯ child when there

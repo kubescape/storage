@@ -156,10 +156,14 @@ concern for each deployment and outside this change.
   distinct argv[0] values, like generated scripts under `/tmp/tmp.<N>/`,
   would otherwise grow one entry per script, even through the fallback. So
   argv[0] then collapses by path shape using the same `PathAnalyzer` opens
-  use (`/tmp/tmp.1/run.sh` → `/tmp/⋯/run.sh`), and to a bare `⋯` if that
-  still leaves more than threshold. Every rewritten argv[0] is checked with
-  `CompareExecArgs` against the original. The analyzer's threshold-1 `*`
-  shortcut is never used, because `*` is a literal in exec args.
+  use (`/tmp/tmp.1/run.sh` → `/tmp/⋯/run.sh`), and to a bare `⋯` only if that
+  still leaves more than threshold. This runs *after* covered entries are
+  absorbed, so deltas a stored argv[0] pattern already covers don't count as
+  variety. argv[0] values that are already patterns are never re-analyzed.
+  The analyzer compacts adjacent `⋯/⋯` into `*`, which is glob semantics for
+  opens but a literal in exec args, so each `*` is expanded back into the
+  right number of `⋯` segments for that argv[0] (`/tmp/⋯/⋯/run.sh`). Every
+  rewritten argv[0] is checked with `CompareExecArgs` against the original.
 - **The fallback is one `[argv0, ⋯⋯]` per remaining argv[0]**, so it's
   bounded by the argv[0] step above. The ceiling counts distinct entries
   *after* existing `⋯⋯` patterns are deduped (by argv, envs unioned) and
