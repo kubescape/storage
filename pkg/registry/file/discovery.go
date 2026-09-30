@@ -215,8 +215,12 @@ func (h *KubernetesAPI) fetchDataFromPods(ns string, resourceMaps *ResourceMaps)
 			resourceMaps.RunningTemplateHash.Add(instanceId.GetTemplateHash())
 		}
 
-		// we don't care about the cluster name, so we remove it to avoid corner cases
-		wlid := wlidPkg.GetK8sWLID("", pod.Namespace, pod.Kind, pod.Name)
+		// we don't care about the cluster name, so we remove it to avoid corner cases.
+		// The kind is spelled out: typed client-go strips TypeMeta from listed objects,
+		// so pod.Kind is empty here and would register the pod as "namespace-<ns>"
+		// instead of "namespace-<ns>/pod-<name>", the key a standalone pod's profile
+		// carries. Every such profile then failed deleteByWlid and was reclaimed.
+		wlid := wlidPkg.GetK8sWLID("", pod.Namespace, "Pod", pod.Name)
 		wlid = wlidWithoutClusterName(wlid)
 
 		containerNames := mapset.NewSet[string]()
