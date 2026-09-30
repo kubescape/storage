@@ -321,3 +321,61 @@ func assertCovers(t *testing.T, out, in []types.ExecCalls) {
 		assert.True(t, covered, "%s %v not covered by output", e.Path, e.Args)
 	}
 }
+
+// Review (#414): the ceiling must count what remains after covered entries
+// are absorbed. Literals an existing pattern already covers add no allowed
+// behavior and must not broaden the binary to [bash, ⋯⋯].
+func TestAnalyzeExecs_CeilingCountsAfterAbsorption(t *testing.T) {
+	in := []types.ExecCalls{
+		exec("/usr/bin/bash", "bash", "-c", anyArgs),
+		exec("/usr/bin/bash", "bash", "-c"),
+		exec("/usr/bin/bash", "bash", "-c", "a"),
+		exec("/usr/bin/bash", "bash", "-c", "a", "b"),
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(3, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/usr/bin/bash", "bash", "-c", anyArgs)}, out)
+	for _, o := range out {
+		assert.False(t, dynamicpathdetector.CompareExecArgs(o.Args, []string{"bash", "-i"}), "bash -i must stay disallowed")
+	}
+}
+
+// Incremental saves: each save deflates the stored result plus a new delta.
+// Covered deltas must keep the fixed -c constraint across many saves.
+func TestAnalyzeExecs_IncrementalSavesKeepCoveredConstraint(t *testing.T) {
+	stored := []types.ExecCalls{exec("/usr/bin/bash", "bash", "-c", anyArgs)}
+	for i := 0; i < 10; i++ {
+		delta := []types.ExecCalls{
+			exec("/usr/bin/bash", "bash", "-c", fmt.Sprintf("cmd-%d", i)),
+			exec("/usr/bin/bash", "bash", "-c", fmt.Sprintf("cmd-%d", i), "--flag"),
+			exec("/usr/bin/bash", "bash", "-c"),
+		}
+		stored = dynamicpathdetector.AnalyzeExecs(append(stored, delta...), dynamicpathdetector.NewExecAnalyzer(3, nil))
+	}
+	assert.Equal(t, []types.ExecCalls{exec("/usr/bin/bash", "bash", "-c", anyArgs)}, stored)
+}
+
+// Review (#414): duplicate wildcard patterns are deduped by path and argv,
+// with envs unioned, and count once toward the ceiling.
+func TestAnalyzeExecs_DedupesWildcardPatternsAndUnionsEnvs(t *testing.T) {
+	a := exec("/usr/bin/bash", "bash", "-c", anyArgs)
+	a.Envs = []string{"A=1"}
+	b := exec("/usr/bin/bash", "bash", "-c", anyArgs)
+	b.Envs = []string{"B=2"}
+	out := dynamicpathdetector.AnalyzeExecs([]types.ExecCalls{a, b, a}, dynamicpathdetector.NewExecAnalyzer(3, nil))
+	want := exec("/usr/bin/bash", "bash", "-c", anyArgs)
+	want.Envs = []string{"A=1", "B=2"}
+	assert.Equal(t, []types.ExecCalls{want}, out)
+}
+
+func TestAnalyzeExecs_DuplicateWildcardsDoNotTriggerCeiling(t *testing.T) {
+	var in []types.ExecCalls
+	for i := 0; i < 5; i++ {
+		in = append(in, exec("/usr/bin/bash", "bash", "-c", anyArgs))
+	}
+	in = append(in, exec("/usr/bin/bash", "bash", "-x", "/opt/run.sh"))
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(2, nil))
+	assert.ElementsMatch(t, [][]string{
+		{"bash", "-c", anyArgs},
+		{"bash", "-x", "/opt/run.sh"},
+	}, execArgs(out))
+}

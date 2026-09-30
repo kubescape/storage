@@ -74,8 +74,10 @@ func newArgNode() *argNode {
 //     merge into each other. A node with more than threshold distinct
 //     children — or with an existing ⋯ child — has its children merged into
 //     a single ⋯ child, subtrees unioned.
-//  4. If a binary still has more than threshold patterns, it falls back to
-//     [argv0, ⋯⋯]: known binary, any arguments.
+//  4. Existing ⋯⋯ patterns are deduped by argv and every pattern absorbs the
+//     literals it covers. If the binary still has more than threshold
+//     distinct entries after that, it falls back to [argv0, ⋯⋯]: known
+//     binary, any arguments.
 //
 // Entries containing ⋯ or ⋯⋯ are kept as patterns and absorb any literal
 // entry they cover. Envs of merged entries are unioned. Output is sorted by path
@@ -138,8 +140,18 @@ func analyzeBinaryExecs(path string, execs []types.ExecCalls, threshold int) []t
 	execs = collapseArgv0(execs, threshold)
 	roots := make(map[argRoot]*argNode)
 	var anyArgs []types.ExecCalls
+	anyArgsIndex := make(map[string]int)
 	for _, e := range execs {
 		if slices.Contains(e.Args[1:], ExecArgsWildcard) {
+			// Existing ⋯⋯ patterns bypass the trie, so dedupe them here by
+			// argv, unioning envs, so each distinct pattern counts once.
+			key := strings.Join(e.Args, execArgsSep)
+			if i, ok := anyArgsIndex[key]; ok {
+				anyArgs[i].Envs = sortedEnvs(mapset.NewThreadUnsafeSet(slices.Concat(anyArgs[i].Envs, e.Envs)...))
+				continue
+			}
+			anyArgsIndex[key] = len(anyArgs)
+			e.Envs = sortedEnvs(mapset.NewThreadUnsafeSet(e.Envs...))
 			anyArgs = append(anyArgs, e)
 			continue
 		}
@@ -167,10 +179,14 @@ func analyzeBinaryExecs(path string, execs []types.ExecCalls, threshold int) []t
 		emitArgPatterns(root, path, []string{key.argv0}, &patterns)
 	}
 
-	if len(patterns)+len(anyArgs) > threshold {
+	// The ceiling counts what remains after absorption: literals an existing
+	// pattern already covers add no allowed behavior and must not broaden the
+	// binary to [argv0, ⋯⋯].
+	consolidated := absorbCoveredLiterals(append(anyArgs, patterns...))
+	if len(consolidated) > threshold {
 		return anyArgsPerArgv0(path, execs)
 	}
-	return absorbCoveredLiterals(append(anyArgs, patterns...))
+	return consolidated
 }
 
 // collapseArgv0 rewrites argv[0] by path shape when a binary has more than

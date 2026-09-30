@@ -161,7 +161,11 @@ concern for each deployment and outside this change.
   `CompareExecArgs` against the original. The analyzer's threshold-1 `*`
   shortcut is never used, because `*` is a literal in exec args.
 - **The fallback is one `[argv0, ⋯⋯]` per remaining argv[0]**, so it's
-  bounded by the argv[0] step above.
+  bounded by the argv[0] step above. The ceiling counts distinct entries
+  *after* existing `⋯⋯` patterns are deduped (by argv, envs unioned) and
+  covered literals are absorbed. A delta the stored profile already allows
+  (e.g. `bash -c a` under `[bash, -c, ⋯⋯]`) never broadens the binary to
+  `[bash, ⋯⋯]` on a later save.
 - **Patterns absorb covered literals.** Any entry containing `⋯` or `⋯⋯` is
   a pattern and drops the literal entries it covers, per `CompareExecArgs`.
   That includes a collapsed argv[0] absorbing a new script run later.
