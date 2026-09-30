@@ -12,8 +12,9 @@ which removes exact duplicates (path plus every arg). Nothing else bounds them.
 This proposal adds `dynamicpathdetector.AnalyzeExecs`. It collapses
 high-variety argument positions into the exec wildcards the matcher already
 supports (`⋯` for one arg, `⋯⋯` for zero or more). A new
-`ExecArgsDynamicThreshold` controls it, with CRD support and per-binary
-overrides.
+`ExecDynamicThreshold` controls it, set through the `CollapseConfiguration`
+CRD. Per-binary overrides reuse the existing `CollapseConfigs`. The profile
+size limit and what happens when a profile hits it stay the same.
 
 ## Why it matters
 
@@ -91,18 +92,28 @@ Step 2 handles the arguments that vary most.
 
 ### Settings and CRD
 
-- Add `ExecArgsDynamicThreshold int` to `CollapseSettings`, with a default
-  constant `ExecArgsDynamicThreshold = 50` (the same as
+- Add `ExecDynamicThreshold int` to `CollapseSettings`, with a compiled-in
+  default constant `ExecDynamicThreshold = 50` (the same as
   `OpenDynamicThreshold`).
-- Add `execArgsDynamicThreshold` to the `CollapseConfiguration` spec, using
-  the same non-positive-means-default guard as the other thresholds in
+- Add `execDynamicThreshold` to the `CollapseConfiguration` spec, using the
+  same non-positive-means-default guard as the other thresholds in
   `CollapseSettingsFromCRD`. A literal 0 would otherwise reduce every binary
   to `⋯⋯`.
-- Per-binary overrides use `CollapseConfig{Prefix, Threshold}` matched
-  against the exec path, with longest prefix winning. Examples: a higher
-  threshold for `/usr/bin/bash` or `/usr/bin/python3` to keep them precise, a
-  lower one for `/usr/bin/grep`. See open question 1 on whether these share
-  the opens list.
+- Per-binary overrides reuse the existing `CollapseConfigs` list: no separate
+  exec list. For execs, `effectiveThreshold` matches the exec path against
+  `CollapseConfig.Prefix` (longest prefix at a path boundary wins), and
+  `ExecDynamicThreshold` is the fallback when no prefix matches. That makes
+  one entry apply to both opens and execs under that prefix. For example,
+  `{Prefix: "/usr/bin", Threshold: 200}` loosens opens under `/usr/bin` and
+  keeps more argv variants for binaries in `/usr/bin`. A single binary can be
+  targeted with its full path, e.g. `{Prefix: "/usr/bin/bash", Threshold: 200}`.
+  The current built-in configs (`/etc` 100, `/etc/apache2` 50, `/opt` 50,
+  `/var/run` 50, `/app` 50) would now also apply to binaries under those
+  paths. All but `/etc` equal the exec default, and binaries rarely run from
+  `/etc`.
+- Tuning is **only through the CRD**. No built-in per-binary defaults are
+  added, including for interpreters. Operators who want stricter or looser
+  handling for `bash`, `python3` and so on set a `CollapseConfigs` entry.
 
 ### Wiring
 
@@ -114,14 +125,18 @@ pattern covers get absorbed by the consolidation pass. Downstream consumers
 that call `DeflateContainerProfileSpec` directly get the behavior when they
 bump the dependency.
 
-### Profiles that already hit the limit
+### Size limit and limit behavior: unchanged
 
-Profiles that already failed with `ObjectTooLargeError` won't recover on
-their own, because node-agent stops learning for that container. Consumers
-that keep the full spec can re-run `DeflateContainerProfileSpec` on it and
-clear the status if the result fits. Otherwise the profile has to be reset
-and learned again. The storage change doesn't need to handle this, but the
-rollout should say which option each deployment uses.
+The profile size limit stays a **count of entries**. It doesn't become a byte
+budget, and a collapsed exec pattern counts as one entry, like any other.
+What happens when a profile hits the limit also stays the same: learning ends
+with `ObjectTooLargeError` as it does today. The change only makes the limit
+much harder to reach, by keeping execs from growing without bound.
+
+Profiles that already hit the limit won't recover from this change alone.
+Consumers that keep the full spec can re-run `DeflateContainerProfileSpec` on
+it. Otherwise the profile has to be reset and learned again. That's a rollout
+concern for each deployment and outside this change.
 
 ## Security trade-offs
 
@@ -132,8 +147,9 @@ rollout should say which option each deployment uses.
 | `[argv0, ⋯⋯]` | Still more than threshold patterns after step 2 | Only the path is checked for that binary. R0001 still checks the path |
 
 The risk sits in the third row: an attacker who knows the baseline could hide
-inside a fully wildcarded interpreter. Mitigations are stricter per-binary
-thresholds for interpreters (`bash`, `sh`, `python*`, `perl`) and emitting a
+inside a fully wildcarded interpreter. Mitigations are `CollapseConfigs`
+entries with stricter thresholds for interpreters (`bash`, `sh`, `python*`,
+`perl`), set through the CRD where the deployment wants them, and emitting a
 metric or annotation that lists binaries which fell back to `⋯⋯`, so it's
 visible rather than silent.
 
@@ -169,18 +185,21 @@ below the first varying position.
   literal position.
 - A sanitized regression fixture built from the measured host profile, with
   a size assertion.
-- A CRD zero-guard test for `execArgsDynamicThreshold`.
+- A CRD zero-guard test for `execDynamicThreshold`.
+- A `CollapseConfigs` test: one prefix entry changes the threshold for both
+  opens and execs under it, and a full binary path targets one binary.
+
+## Decisions
+
+Resolved in review:
+
+1. **Per-prefix overrides:** reuse `CollapseConfigs` for execs. The only new
+   threshold is `ExecDynamicThreshold`.
+2. **Interpreter handling:** only through the CRD. No built-in per-binary
+   defaults.
+3. **Size limit:** stays an entry count. No byte budget.
+4. **Behavior at the limit:** unchanged.
 
 ## Open questions
 
-1. Should exec per-prefix overrides share `CollapseConfigs` with opens or get
-   their own `ExecCollapseConfigs`? A separate list would stop an opens
-   override on `/usr/bin` from quietly changing exec behavior.
-2. Should interpreters get stricter defaults out of the box, or only through
-   the CRD?
-3. Should the `⋯⋯` fallback be visible (annotation or metric)?
-4. Should the size limit count exec patterns like other entries once
-   collapsing exists, or should it move to a byte budget?
-5. Separately: should hitting the size limit stay terminal, or should storage
-   keep the last good spec and drop new entries? That's a bigger change and
-   probably needs its own design.
+1. Should the `⋯⋯` fallback be visible (annotation or metric)?
