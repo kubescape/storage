@@ -489,3 +489,28 @@ func TestAnalyzeExecs_DeepArgv0VarietyKeepsPathShape(t *testing.T) {
 	assertCovers(t, out, in)
 	assert.Equal(t, out, dynamicpathdetector.AnalyzeExecs(append(out, in...), analyzer()), "resave with covered deltas is a no-op")
 }
+
+// Review (#414, round 4): a * embedded in a segment is literal data, not the
+// analyzer's adjacent-⋯ compaction; it must not discard the path shape.
+func TestAnalyzeExecs_EmbeddedLiteralAsteriskKeepsArgv0Shape(t *testing.T) {
+	var in []types.ExecCalls
+	for _, dir := range []string{"a", "b", "c"} {
+		in = append(in, exec("/bin/bash", "/tmp/star*dir/"+dir+"/run.sh", "--fixed"))
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(2, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/bin/bash", "/tmp/star*dir/"+dyn+"/run.sh", "--fixed")}, out)
+	assertCovers(t, out, in)
+	assert.False(t, dynamicpathdetector.CompareExecArgs(out[0].Args, []string{"/evil/run.sh", "--fixed"}))
+}
+
+// A directory literally named * is a standalone * segment that is not
+// compaction either; the shape must keep it as a literal.
+func TestAnalyzeExecs_LiteralAsteriskSegmentKeepsArgv0Shape(t *testing.T) {
+	var in []types.ExecCalls
+	for _, dir := range []string{"a", "b", "c"} {
+		in = append(in, exec("/bin/bash", "/tmp/*/"+dir+"/run.sh", "--fixed"))
+	}
+	out := dynamicpathdetector.AnalyzeExecs(in, dynamicpathdetector.NewExecAnalyzer(2, nil))
+	assert.Equal(t, []types.ExecCalls{exec("/bin/bash", "/tmp/*/"+dyn+"/run.sh", "--fixed")}, out)
+	assertCovers(t, out, in)
+}

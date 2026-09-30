@@ -155,15 +155,18 @@ concern for each deployment and outside this change.
   `bash` alone had 47 argv[0] values. A binary with more than threshold
   distinct argv[0] values, like generated scripts under `/tmp/tmp.<N>/`,
   would otherwise grow one entry per script, even through the fallback. So
-  argv[0] then collapses by path shape using the same `PathAnalyzer` opens
-  use (`/tmp/tmp.1/run.sh` → `/tmp/⋯/run.sh`), and to a bare `⋯` only if that
-  still leaves more than threshold. This runs *after* covered entries are
-  absorbed, so deltas a stored argv[0] pattern already covers don't count as
-  variety. argv[0] values that are already patterns are never re-analyzed.
-  The analyzer compacts adjacent `⋯/⋯` into `*`, which is glob semantics for
-  opens but a literal in exec args, so each `*` is expanded back into the
-  right number of `⋯` segments for that argv[0] (`/tmp/⋯/⋯/run.sh`). Every
-  rewritten argv[0] is checked with `CompareExecArgs` against the original.
+  argv[0] then collapses by path shape (`/tmp/tmp.1/run.sh` →
+  `/tmp/⋯/run.sh`), and to a bare `⋯` only if that still leaves more than
+  threshold. This runs *after* covered entries are absorbed, so deltas a
+  stored argv[0] pattern already covers don't count as variety, and argv[0]
+  values that are already patterns are never re-analyzed. Shapes come from
+  the same argument trie used for argv positions, applied to argv[0]'s
+  `/`-separated segments (one trie per segment count). It only produces `⋯`,
+  exactly the one-segment semantics `CompareExecArgs` gives `⋯` inside an
+  argument, so a `*` in argv[0], whether embedded (`star*dir`) or a whole
+  segment, stays literal. `PathAnalyzer` isn't used here: its `*` is opens
+  glob syntax. Every shape is verified with `CompareExecArgs` against its
+  original.
 - **The fallback is one `[argv0, ⋯⋯]` per remaining argv[0]**, so it's
   bounded by the argv[0] step above. The ceiling counts distinct entries
   *after* existing `⋯⋯` patterns are deduped (by argv, envs unioned) and
