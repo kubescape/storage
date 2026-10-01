@@ -304,7 +304,7 @@ func writeLegacyPayloadFile(fs afero.Fs, p string, obj runtime.Object) error {
 		return fmt.Errorf("mkdir: %w", err)
 	}
 	finalPath := makePayloadPath(p)
-	tmpPath := finalPath + ".t"
+	tmpPath := makeTempPayloadPath(finalPath, ".t")
 	f, err := openPayloadFileWithFallbackFs(fs, tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("open payload file: %w", err)

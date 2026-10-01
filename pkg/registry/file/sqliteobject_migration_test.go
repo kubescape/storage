@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -939,4 +940,40 @@ func TestMigration_SweepTopLevelStatErrorDoesNotMarkDone(t *testing.T) {
 	report := e.mustMigrate(ContainerProfileMigrationOptions{})
 	require.Equal(t, 1, report.Count(MigrationShapeFileWithoutRow))
 	require.True(t, e.migrationDone())
+}
+
+func TestMigration_LongNameStagingFiles(t *testing.T) {
+	fs := afero.NewBasePathFs(afero.NewOsFs(), t.TempDir())
+	e := newMigrationEnv(t, fs)
+	name := strings.Repeat("a", 253)
+	original := e.legacyCreate(e.plain(name))
+	finalPath := e.filePath(name)
+	var staged []string
+	for _, suffix := range []string{".t", ".t.1788802270245700726.18446744073709551615"} {
+		path := makeTempPayloadPath(finalPath, suffix)
+		require.NotEqual(t, finalPath+suffix, path)
+		require.NoError(t, afero.WriteFile(fs, path, []byte("uncommitted"), 0644))
+		staged = append(staged, path)
+	}
+	dry, err := MigrateContainerProfiles(e.ctx, e.pool, nil, fs, DefaultStorageRoot, e.scheme, ContainerProfileMigrationOptions{DryRun: true})
+	require.NoError(t, err)
+	require.Equal(t, len(staged), dry.Count(MigrationShapeTempFile))
+	for _, path := range staged {
+		exists, err := afero.Exists(fs, path)
+		require.NoError(t, err)
+		require.True(t, exists, "dry run must preserve staging files")
+	}
+	e.startNew()
+	report := e.mustMigrate(ContainerProfileMigrationOptions{})
+	require.Equal(t, len(staged), report.Count(MigrationShapeTempFile))
+	require.Equal(t, 1, report.Count(MigrationShapeMigrated))
+	for _, path := range staged {
+		exists, err := afero.Exists(fs, path)
+		require.NoError(t, err)
+		require.False(t, exists, "abandoned hashed staging file must be removed")
+	}
+	exists, err := afero.Exists(fs, finalPath)
+	require.NoError(t, err)
+	require.True(t, exists, "permanent payload must survive migration")
+	require.Equal(t, canonicalCP(original), canonicalCP(e.mustStoreGet(e.key(name))))
 }

@@ -3,6 +3,7 @@ package file
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -462,6 +463,17 @@ func makePayloadPath(path string) string {
 	return path + GobExt
 }
 
+// makeTempPayloadPath hashes every temporary basename: mixing hashed and
+// ordinary names would let a long name collide with an object named after its
+// digest. The digest bounds filenames for the supported staging suffixes while
+// leaving permanent names intact. Retain .g for migration staging recognition
+// and the same directory for atomic rename into the final path.
+func makeTempPayloadPath(finalPayloadPath, suffix string) string {
+	base := filepath.Base(finalPayloadPath)
+	digest := sha256.Sum256([]byte(base))
+	return filepath.Join(filepath.Dir(finalPayloadPath), fmt.Sprintf("%x%s%s", digest, GobExt, suffix))
+}
+
 // IsPayloadFile returns true if a given file at `path` is an object payload file, else false
 func IsPayloadFile(path string) bool {
 	return strings.HasSuffix(path, GobExt)
@@ -549,7 +561,7 @@ func (s *StorageImpl) saveObject(ctx context.Context, conn *sqlite.Conn, key str
 	// insert left GET (new payload) and LIST/RV (old metadata) permanently
 	// divergent.
 	finalPayloadPath := makePayloadPath(p)
-	tmpPayloadPath := finalPayloadPath + ".t"
+	tmpPayloadPath := makeTempPayloadPath(finalPayloadPath, ".t")
 	payloadFile, err := s.openPayloadFileWithFallback(tmpPayloadPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("open payload file: %w", err)
