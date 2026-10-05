@@ -2292,6 +2292,31 @@ func TestGenerateIngressRule_IPAddresses(t *testing.T) {
 // TestGenerateEgressRule_IPAddressVsIPAddresses confirms a bare-IP element of the
 // plural IPAddresses field produces the same peer/PolicyRef shape as an equivalent
 // singular IPAddress entry, including known-server enrichment (AC12).
+func TestGenerateRules_NilPortIsSkipped(t *testing.T) {
+	neighbor := softwarecomposition.NetworkNeighbor{
+		IPAddresses: []string{"10.0.0.0/16"},
+		Ports: []softwarecomposition.NetworkPort{
+			{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-"},
+			{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+		},
+	}
+	tcp := v1.ProtocolTCP
+	want := []softwarecomposition.NetworkPolicyPort{{Protocol: &tcp, Port: ptrToInt32(80)}}
+	knownServers := softwarecomposition.NewKnownServersFinderImpl(nil)
+
+	t.Run("egress", func(t *testing.T) {
+		var rule softwarecomposition.NetworkPolicyEgressRule
+		assert.NotPanics(t, func() { rule, _ = generateEgressRule(neighbor, knownServers) })
+		assert.Equal(t, want, rule.Ports)
+	})
+
+	t.Run("ingress", func(t *testing.T) {
+		var rule softwarecomposition.NetworkPolicyIngressRule
+		assert.NotPanics(t, func() { rule, _ = generateIngressRule(neighbor, knownServers) })
+		assert.Equal(t, want, rule.Ports)
+	})
+}
+
 func TestGenerateEgressRule_IPAddressVsIPAddresses(t *testing.T) {
 	knownServers := softwarecomposition.NewKnownServersFinderImpl([]softwarecomposition.KnownServer{
 		{Spec: softwarecomposition.KnownServerSpec{

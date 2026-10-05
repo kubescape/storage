@@ -421,6 +421,11 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
+		if portInt32 == nil {
+			// Port is optional in the API type; a malformed entry must not
+			// panic the whole policy generation (and with it every LIST).
+			continue
+		}
 
 		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
 		if !portMap[key] {
@@ -515,6 +520,11 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
+		if portInt32 == nil {
+			// Port is optional in the API type; a malformed entry must not
+			// panic the whole policy generation (and with it every LIST).
+			continue
+		}
 
 		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
 		if !portMap[key] {
