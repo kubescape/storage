@@ -11,6 +11,7 @@ import (
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -2292,6 +2293,137 @@ func TestGenerateIngressRule_IPAddresses(t *testing.T) {
 // TestGenerateEgressRule_IPAddressVsIPAddresses confirms a bare-IP element of the
 // plural IPAddresses field produces the same peer/PolicyRef shape as an equivalent
 // singular IPAddress entry, including known-server enrichment (AC12).
+
+// TestGenerateNetworkPolicy_NilOnlySelectorPortsAreDropped ensures a neighbor
+// that supplied ports but only nil values does not become an allow-all-ports
+// selector rule. Empty Ports in Kubernetes NetworkPolicy means all ports.
+func TestGenerateNetworkPolicy_NilOnlySelectorPortsAreDropped(t *testing.T) {
+	timeProvider := metav1.Now()
+	finder := softwarecomposition.NewKnownServersFinderImpl(nil)
+
+	baseMeta := metav1.ObjectMeta{
+		Name:      "deployment-nil-ports",
+		Namespace: "kubescape",
+		Annotations: map[string]string{
+			helpersv1.StatusMetadataKey: helpersv1.Learning,
+		},
+		Labels: map[string]string{
+			helpersv1.RelatedKindMetadataKey: "Deployment",
+			helpersv1.RelatedNameMetadataKey: "nil-ports",
+		},
+	}
+	labels := metav1.LabelSelector{MatchLabels: map[string]string{"app": "web"}}
+
+	t.Run("nil-only pod selector egress", func(t *testing.T) {
+		cp := softwarecomposition.ContainerProfile{
+			ObjectMeta: baseMeta,
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: labels,
+				Egress: []softwarecomposition.NetworkNeighbor{{
+					PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "db"}},
+					Ports: []softwarecomposition.NetworkPort{
+						{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-"},
+					},
+				}},
+			},
+		}
+		got, err := GenerateNetworkPolicy(&cp, finder, timeProvider)
+		assert.NoError(t, err)
+		assert.Empty(t, got.Spec.Spec.Egress, "nil-only selector neighbor must be dropped, not allow-all")
+	})
+
+	t.Run("nil-only namespace selector ingress", func(t *testing.T) {
+		cp := softwarecomposition.ContainerProfile{
+			ObjectMeta: baseMeta,
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: labels,
+				Ingress: []softwarecomposition.NetworkNeighbor{{
+					NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"ns": "other"}},
+					Ports: []softwarecomposition.NetworkPort{
+						{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-"},
+					},
+				}},
+			},
+		}
+		got, err := GenerateNetworkPolicy(&cp, finder, timeProvider)
+		assert.NoError(t, err)
+		assert.Empty(t, got.Spec.Spec.Ingress, "nil-only selector neighbor must be dropped, not allow-all")
+	})
+
+	t.Run("nil-only pod+namespace selector both directions", func(t *testing.T) {
+		neighbor := softwarecomposition.NetworkNeighbor{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"app": "db"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"ns": "data"}},
+			Ports: []softwarecomposition.NetworkPort{
+				{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-"},
+				{Port: nil, Protocol: softwarecomposition.ProtocolUDP, Name: "UDP-"},
+			},
+		}
+		cp := softwarecomposition.ContainerProfile{
+			ObjectMeta: baseMeta,
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: labels,
+				Ingress:       []softwarecomposition.NetworkNeighbor{neighbor},
+				Egress:        []softwarecomposition.NetworkNeighbor{neighbor},
+			},
+		}
+		got, err := GenerateNetworkPolicy(&cp, finder, timeProvider)
+		assert.NoError(t, err)
+		assert.Empty(t, got.Spec.Spec.Ingress)
+		assert.Empty(t, got.Spec.Spec.Egress)
+	})
+
+	t.Run("mixed nil and valid port keeps valid", func(t *testing.T) {
+		cp := softwarecomposition.ContainerProfile{
+			ObjectMeta: baseMeta,
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: labels,
+				Egress: []softwarecomposition.NetworkNeighbor{{
+					PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "db"}},
+					Ports: []softwarecomposition.NetworkPort{
+						{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-"},
+						{Port: ptrToInt32(5432), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-5432"},
+					},
+				}},
+				Ingress: []softwarecomposition.NetworkNeighbor{{
+					NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"ns": "front"}},
+					Ports: []softwarecomposition.NetworkPort{
+						{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-"},
+						{Port: ptrToInt32(8080), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-8080"},
+					},
+				}},
+			},
+		}
+		got, err := GenerateNetworkPolicy(&cp, finder, timeProvider)
+		assert.NoError(t, err)
+		require.Len(t, got.Spec.Spec.Egress, 1)
+		require.Len(t, got.Spec.Spec.Egress[0].Ports, 1)
+		assert.Equal(t, int32(5432), *got.Spec.Spec.Egress[0].Ports[0].Port)
+		require.Len(t, got.Spec.Spec.Ingress, 1)
+		require.Len(t, got.Spec.Spec.Ingress[0].Ports, 1)
+		assert.Equal(t, int32(8080), *got.Spec.Spec.Ingress[0].Ports[0].Port)
+	})
+
+	t.Run("deliberately empty ports remain unrestricted", func(t *testing.T) {
+		cp := softwarecomposition.ContainerProfile{
+			ObjectMeta: baseMeta,
+			Spec: softwarecomposition.ContainerProfileSpec{
+				LabelSelector: labels,
+				Egress: []softwarecomposition.NetworkNeighbor{{
+					PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "db"}},
+					Ports:       nil,
+				}},
+			},
+		}
+		got, err := GenerateNetworkPolicy(&cp, finder, timeProvider)
+		assert.NoError(t, err)
+		require.Len(t, got.Spec.Spec.Egress, 1)
+		assert.Empty(t, got.Spec.Spec.Egress[0].Ports, "empty Ports means all ports")
+		require.Len(t, got.Spec.Spec.Egress[0].To, 1)
+		assert.NotNil(t, got.Spec.Spec.Egress[0].To[0].PodSelector)
+	})
+}
+
 func TestGenerateRules_NilPortIsSkipped(t *testing.T) {
 	neighbor := softwarecomposition.NetworkNeighbor{
 		IPAddresses: []string{"10.0.0.0/16"},
