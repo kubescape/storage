@@ -1,4 +1,6 @@
 name: build
+permissions: read-all
+
 on:
   pull_request_target:
     types: [closed]
@@ -13,7 +15,7 @@ jobs:
   pr-merged:
     if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' }}
     permissions:
-      actions: write
+      actions: read
       id-token: write
       packages: write
       contents: write
