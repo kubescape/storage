@@ -419,8 +419,11 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 
 	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
-		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
+		if portInt32 == nil {
+			continue
+		}
+		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 
 		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
 		if !portMap[key] {
@@ -513,8 +516,11 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 
 	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
-		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
+		if portInt32 == nil {
+			continue
+		}
+		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 
 		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
 		if !portMap[key] {
