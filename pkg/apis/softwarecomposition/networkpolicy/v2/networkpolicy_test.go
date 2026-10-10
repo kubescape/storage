@@ -2194,6 +2194,30 @@ func TestGenerateEgressRule_IPAddresses(t *testing.T) {
 	}
 }
 
+// A NetworkPort with a nil Port (optional in the API type) must be skipped rather than
+// dereferenced; a single malformed port on one neighbor must not panic the whole list.
+func TestGenerateEgressRule_NilPortIsSkippedNotDereferenced(t *testing.T) {
+	neighbor := softwarecomposition.NetworkNeighbor{
+		IPAddresses: []string{"10.0.0.0/16"},
+		Ports: []softwarecomposition.NetworkPort{
+			{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "nil-port"},
+			{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+		},
+	}
+	knownServers := softwarecomposition.NewKnownServersFinderImpl(nil)
+
+	var rule softwarecomposition.NetworkPolicyEgressRule
+	var refs []softwarecomposition.PolicyRef
+	assert.NotPanics(t, func() {
+		rule, refs = generateEgressRule(neighbor, knownServers)
+	})
+
+	if assert.Len(t, rule.Ports, 1) {
+		assert.Equal(t, int32(80), *rule.Ports[0].Port)
+	}
+	assert.NotNil(t, refs)
+}
+
 func TestGenerateIngressRule_IPAddresses(t *testing.T) {
 	tcpPort80 := []softwarecomposition.NetworkPort{
 		{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
@@ -2287,6 +2311,30 @@ func TestGenerateIngressRule_IPAddresses(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The ingress counterpart of TestGenerateEgressRule_NilPortIsSkippedNotDereferenced: a
+// nil Port on one neighbor must not panic the cluster-wide GeneratedNetworkPolicy list.
+func TestGenerateIngressRule_NilPortIsSkippedNotDereferenced(t *testing.T) {
+	neighbor := softwarecomposition.NetworkNeighbor{
+		IPAddresses: []string{"10.0.0.0/16"},
+		Ports: []softwarecomposition.NetworkPort{
+			{Port: nil, Protocol: softwarecomposition.ProtocolTCP, Name: "nil-port"},
+			{Port: ptrToInt32(80), Protocol: softwarecomposition.ProtocolTCP, Name: "TCP-80"},
+		},
+	}
+	knownServers := softwarecomposition.NewKnownServersFinderImpl(nil)
+
+	var rule softwarecomposition.NetworkPolicyIngressRule
+	var refs []softwarecomposition.PolicyRef
+	assert.NotPanics(t, func() {
+		rule, refs = generateIngressRule(neighbor, knownServers)
+	})
+
+	if assert.Len(t, rule.Ports, 1) {
+		assert.Equal(t, int32(80), *rule.Ports[0].Port)
+	}
+	assert.NotNil(t, refs)
 }
 
 // TestGenerateEgressRule_IPAddressVsIPAddresses confirms a bare-IP element of the
