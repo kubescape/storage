@@ -1,5 +1,7 @@
 name: Manual Integration Tests
 
+permissions: read-all
+
 on:
   workflow_dispatch:
     inputs:
@@ -26,6 +28,10 @@ on:
 
 jobs:
   integration-tests:
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     runs-on: ubuntu-large
     steps:
       - name: Checkout code
@@ -142,6 +148,10 @@ jobs:
           fi
 
   failover-tests:
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
