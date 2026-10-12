@@ -417,10 +417,16 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 		return egressRule, policyRefs
 	}
 
+	suppliedPorts := len(neighbor.Ports) > 0
 	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
+		if portInt32 == nil {
+			// Port is optional in the API type; a malformed entry must not
+			// panic the whole policy generation (and with it every LIST).
+			continue
+		}
 
 		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
 		if !portMap[key] {
@@ -430,6 +436,13 @@ func generateEgressRule(neighbor softwarecomposition.NetworkNeighbor, knownServe
 			})
 			portMap[key] = true
 		}
+	}
+
+	// Neighbor supplied ports but filtering left none. Keeping the peer with
+	// empty Ports would allow all ports (Kubernetes NetworkPolicy contract).
+	// Drop the neighbor instead. Deliberately empty Ports stay unrestricted.
+	if suppliedPorts && len(egressRule.Ports) == 0 {
+		return softwarecomposition.NetworkPolicyEgressRule{}, nil
 	}
 
 	return egressRule, policyRefs
@@ -511,10 +524,16 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 		return ingressRule, policyRefs
 	}
 
+	suppliedPorts := len(neighbor.Ports) > 0
 	portMap := make(map[PortProtocolKey]bool)
 	for _, networkPort := range neighbor.Ports {
 		protocol := v1.Protocol(strings.ToUpper(string(networkPort.Protocol)))
 		portInt32 := networkPort.Port
+		if portInt32 == nil {
+			// Port is optional in the API type; a malformed entry must not
+			// panic the whole policy generation (and with it every LIST).
+			continue
+		}
 
 		key := PortProtocolKey{Port: *portInt32, Protocol: protocol}
 		if !portMap[key] {
@@ -524,6 +543,13 @@ func generateIngressRule(neighbor softwarecomposition.NetworkNeighbor, knownServ
 			})
 			portMap[key] = true
 		}
+	}
+
+	// Neighbor supplied ports but filtering left none. Keeping the peer with
+	// empty Ports would allow all ports (Kubernetes NetworkPolicy contract).
+	// Drop the neighbor instead. Deliberately empty Ports stay unrestricted.
+	if suppliedPorts && len(ingressRule.Ports) == 0 {
+		return softwarecomposition.NetworkPolicyIngressRule{}, nil
 	}
 
 	return ingressRule, policyRefs
