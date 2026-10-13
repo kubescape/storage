@@ -1736,9 +1736,7 @@ func setListMeta(listObj runtime.Object, pageLast string) error {
 	if pageLast != "" {
 		listAccessor.SetContinue(pageLast)
 	}
-	if listAccessor.GetResourceVersion() == "" {
-		listAccessor.SetResourceVersion(computeListResourceVersion(listObj))
-	}
+	listAccessor.SetResourceVersion(computeListResourceVersion(listObj))
 	return nil
 }
 

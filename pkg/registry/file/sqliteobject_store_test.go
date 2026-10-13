@@ -412,6 +412,7 @@ func TestObjectStore_ListPagination(t *testing.T) {
 	}
 	for _, rv := range []string{softwarecomposition.ResourceVersionMetadata, softwarecomposition.ResourceVersionFullSpec} {
 		p1 := page(rv, "", 2)
+		assert.Equal(t, []string{"pg-a", "pg-b"}, names(p1), rv)
 		assert.NotEmpty(t, p1.ResourceVersion)
 		require.NotEmpty(t, p1.Continue)
 		require.NoError(t, e.store.GuaranteedUpdate(e.ctx, e.key("pg-a"), &softwarecomposition.ContainerProfile{}, false, nil, setLabel("k", rv), nil))

@@ -512,6 +512,13 @@ func TestStorageImpl_GetList_ResourceVersion(t *testing.T) {
 	require.NoError(t, s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape", storage.ListOptions{Predicate: storage.SelectionPredicate{Limit: 1}}, pageList))
 	require.Len(t, pageList.Items, 1)
 	assert.Equal(t, "2", pageList.ResourceVersion)
+
+	// 5. Reused list object initialized with ResourceVersion "0" or stale value is recomputed.
+	reusedList := &v1beta1.SBOMSyftList{
+		ListMeta: v1.ListMeta{ResourceVersion: "0"},
+	}
+	require.NoError(t, s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape", storage.ListOptions{}, reusedList))
+	assert.Equal(t, "2", reusedList.ResourceVersion)
 }
 
 func TestStorageImpl_GuaranteedUpdate(t *testing.T) {
