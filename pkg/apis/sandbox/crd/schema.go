@@ -66,7 +66,11 @@ func labelSelector() schema {
 	labels := mapOf(schema{Type: "string"})
 	expressions := array(expression)
 	expressions.MinItems = nil
-	return object(map[string]schema{"matchLabels": labels, "matchExpressions": expressions})
+	selector := object(map[string]schema{"matchLabels": labels, "matchExpressions": expressions})
+	// metav1.LabelSelector is an atomic struct. Preserve that native apply
+	// contract so multiple managers cannot assemble an unintended selector.
+	selector.XMapType = stringptr("atomic")
+	return selector
 }
 func classes() schema {
 	entries := stringList()
