@@ -366,7 +366,7 @@ func (s *ObjectStore) GetList(ctx context.Context, key string, opts storage.List
 		}
 		cursor = pageLast
 	}
-	return setListContinue(listObj, pageLast)
+	return setListMeta(listObj, pageLast)
 }
 
 func (s *ObjectStore) fetchListPage(ctx context.Context, conn *sqlite.Conn, key, cursor string, remaining int64, isFullSpec bool, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type) (listPageResult, error) {

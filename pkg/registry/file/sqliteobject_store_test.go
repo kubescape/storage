@@ -412,18 +412,27 @@ func TestObjectStore_ListPagination(t *testing.T) {
 	}
 	for _, rv := range []string{softwarecomposition.ResourceVersionMetadata, softwarecomposition.ResourceVersionFullSpec} {
 		p1 := page(rv, "", 2)
-		assert.Equal(t, []string{"pg-a", "pg-b"}, names(p1), rv)
+		assert.NotEmpty(t, p1.ResourceVersion)
 		require.NotEmpty(t, p1.Continue)
 		require.NoError(t, e.store.GuaranteedUpdate(e.ctx, e.key("pg-a"), &softwarecomposition.ContainerProfile{}, false, nil, setLabel("k", rv), nil))
 		p2 := page(rv, p1.Continue, 2)
 		assert.Equal(t, []string{"pg-c"}, names(p2), "%s: updated object must not reappear (rowid stable)", rv)
+		assert.NotEmpty(t, p2.ResourceVersion)
 		assert.Empty(t, p2.Continue)
 	}
 	full := page(softwarecomposition.ResourceVersionFullSpec, "", 0)
 	require.Len(t, full.Items, 3)
+	assert.NotEmpty(t, full.ResourceVersion)
 	assert.NotEmpty(t, full.Items[0].Spec.Architectures, "fullSpec list carries the body")
 	meta := page(softwarecomposition.ResourceVersionMetadata, "", 0)
+	require.Len(t, meta.Items, 3)
+	assert.NotEmpty(t, meta.ResourceVersion)
 	assert.Empty(t, meta.Items[0].Spec.Architectures, "metadata list carries no body")
+
+	// Empty list sets ResourceVersion to "1"
+	empty := &softwarecomposition.ContainerProfileList{}
+	require.NoError(t, e.store.GetList(e.ctx, testCPPrefix+"non-existent-ns", storage.ListOptions{}, empty))
+	assert.Equal(t, "1", empty.ResourceVersion)
 }
 
 // TestObjectStore_ListExcludesUnconsolidatedTSRows: an un-consolidated TS

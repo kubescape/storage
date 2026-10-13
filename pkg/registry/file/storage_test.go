@@ -457,8 +457,61 @@ func TestStorageImpl_GetList(t *testing.T) {
 				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			assert.Equal(t, tt.want, len(tt.args.listObj.(*v1beta1.SBOMSyftList).Items))
+			assert.NotEmpty(t, tt.args.listObj.(*v1beta1.SBOMSyftList).ResourceVersion)
 		})
 	}
+}
+
+func TestStorageImpl_GetList_ResourceVersion(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	// 1. Empty list returns a non-empty, non-zero resourceVersion ("1").
+	emptyList := &v1beta1.SBOMSyftList{}
+	err := s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape", storage.ListOptions{}, emptyList)
+	require.NoError(t, err)
+	assert.Empty(t, emptyList.Items)
+	assert.Equal(t, "1", emptyList.ResourceVersion)
+
+	// 2. Add an object (created at RV "1").
+	obj1 := &v1beta1.SBOMSyft{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "obj1",
+			Namespace: "kubescape",
+		},
+	}
+	require.NoError(t, s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/obj1", obj1, nil, 0))
+
+	list1 := &v1beta1.SBOMSyftList{}
+	require.NoError(t, s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape", storage.ListOptions{}, list1))
+	require.Len(t, list1.Items, 1)
+	assert.Equal(t, "1", list1.ResourceVersion)
+
+	// 3. Update the object (bumps RV to "2").
+	require.NoError(t, s.GuaranteedUpdate(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape/obj1", &v1beta1.SBOMSyft{}, false, nil, func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		o := input.(*v1beta1.SBOMSyft)
+		o.Labels = map[string]string{"updated": "true"}
+		return o, nil, nil
+	}, nil))
+
+	list2 := &v1beta1.SBOMSyftList{}
+	require.NoError(t, s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape", storage.ListOptions{}, list2))
+	require.Len(t, list2.Items, 1)
+	assert.Equal(t, "2", list2.ResourceVersion)
+
+	// 4. Paginated list also sets non-empty resourceVersion.
+	pageList := &v1beta1.SBOMSyftList{}
+	require.NoError(t, s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape", storage.ListOptions{Predicate: storage.SelectionPredicate{Limit: 1}}, pageList))
+	require.Len(t, pageList.Items, 1)
+	assert.Equal(t, "2", pageList.ResourceVersion)
 }
 
 func TestStorageImpl_GuaranteedUpdate(t *testing.T) {

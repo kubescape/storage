@@ -1726,18 +1726,50 @@ func (s *StorageImpl) fetchListPage(ctx context.Context, conn *sqlite.Conn, key 
 	return listPageResult{pageLast: pageLast, count: len(entries)}, nil
 }
 
-// setListContinue sets listObj's continue token, mirroring what GetList/
-// GetListWithConn used to do inline at the end of their pagination loop.
-func setListContinue(listObj runtime.Object, pageLast string) error {
-	if pageLast == "" {
-		return nil
-	}
+// setListMeta sets listObj's continue token and ensures listObj has a non-empty
+// resourceVersion, satisfying client-go's RetryWatcher (issue #419).
+func setListMeta(listObj runtime.Object, pageLast string) error {
 	listAccessor, err := meta.ListAccessor(listObj)
 	if err != nil {
 		return fmt.Errorf("list accessor: %w", err)
 	}
-	listAccessor.SetContinue(pageLast)
+	if pageLast != "" {
+		listAccessor.SetContinue(pageLast)
+	}
+	if listAccessor.GetResourceVersion() == "" {
+		listAccessor.SetResourceVersion(computeListResourceVersion(listObj))
+	}
 	return nil
+}
+
+// setListContinue sets listObj's continue token and resourceVersion.
+func setListContinue(listObj runtime.Object, pageLast string) error {
+	return setListMeta(listObj, pageLast)
+}
+
+// computeListResourceVersion returns the maximum resourceVersion among the
+// items in listObj, or "1" if the list is empty or has no numeric resourceVersion.
+// This guarantees list responses return a valid non-empty, non-zero resourceVersion
+// required by client-go RetryWatcher (issue #419).
+func computeListResourceVersion(listObj runtime.Object) string {
+	items, err := meta.ExtractList(listObj)
+	if err != nil || len(items) == 0 {
+		return "1"
+	}
+	var maxRV uint64
+	for _, item := range items {
+		if acc, err := meta.Accessor(item); err == nil {
+			if rvStr := acc.GetResourceVersion(); rvStr != "" {
+				if rv, err := strconv.ParseUint(rvStr, 10, 64); err == nil && rv > maxRV {
+					maxRV = rv
+				}
+			}
+		}
+	}
+	if maxRV > 0 {
+		return strconv.FormatUint(maxRV, 10)
+	}
+	return "1"
 }
 
 // getListWithSpec is the same as GetList, but it returns the full objects instead of just the metadata.
@@ -1782,7 +1814,7 @@ func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage
 			logger.L().Ctx(ctx).Error("getListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
 		}
 	}
-	return nil
+	return setListMeta(listObj, "")
 }
 
 func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object) (*objState, error) {
