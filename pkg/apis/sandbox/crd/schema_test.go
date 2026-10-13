@@ -157,3 +157,14 @@ func assertPreserved(t *testing.T, before, after any) {
 		}
 	}
 }
+
+func TestSelectorApplySemantics(t *testing.T) {
+	for _, definition := range Definitions()[:2] {
+		selectors := definition.Spec.Versions[0].Schema.OpenAPIV3Schema.Properties["spec"].Properties["selector"].Properties
+		for name, selector := range selectors {
+			if selector.XMapType == nil || *selector.XMapType != "atomic" {
+				t.Fatalf("%s.%s must preserve metav1.LabelSelector's atomic apply semantics", definition.Spec.Names.Kind, name)
+			}
+		}
+	}
+}
