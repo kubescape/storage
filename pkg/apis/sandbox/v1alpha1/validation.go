@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -18,6 +19,9 @@ func ValidatePolicySpec(spec PolicySpec) error {
 	check := func(rule Rule) error {
 		if rule.Name == "" {
 			return fmt.Errorf("rule name must not be empty")
+		}
+		if utf8.RuneCountInString(rule.Name) > MaxRuleNameLength {
+			return fmt.Errorf("rule name must be at most %d characters", MaxRuleNameLength)
 		}
 		if names[rule.Name] {
 			return fmt.Errorf("rule name %q must be unique across the policy", rule.Name)

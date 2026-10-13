@@ -4,6 +4,7 @@ package crd
 
 import (
 	"encoding/json"
+	"fmt"
 	sandbox "github.com/kubescape/storage/pkg/apis/sandbox/v1alpha1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +80,7 @@ func classes() schema {
 }
 func rule(target schema) schema {
 	return object(map[string]schema{
-		"name": text(), "description": {Type: "string"}, "actor": actor(), "target": target,
+		"name": boundedText(sandbox.MaxRuleNameLength), "description": {Type: "string"}, "actor": actor(), "target": target,
 		"action": action(), "mode": ruleMode(), "origin": text(),
 	}, "name", "target", "action")
 }
@@ -157,24 +158,63 @@ func policySpec(cluster bool) schema {
 		"privilege": privilegeSection(), "identity": identitySection(),
 	}, "selector", "containers", "mode")
 }
+func boundedText(limit int64) schema {
+	s := text()
+	s.MaxLength = int64ptr(limit)
+	return s
+}
+func timestamp() schema { return schema{Type: "string", Format: "date-time", MaxLength: int64ptr(64)} }
 func conditions() schema {
-	return listMap(object(map[string]schema{
-		"type": text(), "status": enumeration("True", "False", "Unknown"), "observedGeneration": nonnegative(),
-		"lastTransitionTime": {Type: "string", Format: "date-time"}, "reason": text(), "message": {Type: "string"},
+	s := listMap(object(map[string]schema{
+		"type": boundedText(sandbox.MaxStatusConditionKeyLength), "status": enumeration("True", "False", "Unknown"), "observedGeneration": nonnegative(),
+		"lastTransitionTime": timestamp(), "reason": boundedText(sandbox.MaxStatusConditionKeyLength),
+		"message": {Type: "string", MaxLength: int64ptr(sandbox.MaxStatusDiagnosticLength)},
 	}, "type", "status", "lastTransitionTime", "reason", "message"), "type")
+	s.MaxItems = int64ptr(sandbox.MaxStatusConditions)
+	return s
 }
 func status() schema {
-	tier := enumeration("bpf-lsm", "kprobe-override", "tripwire", "seccomp-only", "audit-only")
-	node := object(map[string]schema{
-		"name": text(), "tier": tier, "observedGeneration": nonnegative(), "conditions": conditions(),
-		"degraded":         listMap(object(map[string]schema{"rule": text(), "requested": ruleMode(), "effective": enumeration("audit", "enforce", "tripwire"), "reason": text()}, "rule", "requested", "effective", "reason"), "rule"),
-		"appliesOnRestart": stringList(), "shadowedAllows": stringList(), "ruleHitCounts": mapOf(nonnegative()),
-		"stale": boolean(), "error": {Type: "string"}, "lastCompiled": {Type: "string", Format: "date-time"},
-	}, "name", "tier", "stale")
+	summary := object(map[string]schema{"total": nonnegative(), "reporting": nonnegative(), "ready": nonnegative(), "degraded": nonnegative(), "stale": nonnegative()}, "total", "reporting", "ready", "degraded", "stale")
+	summary.XValidations = apiextensions.ValidationRules{{Rule: "self.reporting <= self.total && self.ready <= self.reporting && self.degraded <= self.reporting && self.stale <= self.reporting", Message: "reporting must be at most total; each categorized count must be at most reporting"}}
 	return object(map[string]schema{
-		"observedGeneration": nonnegative(), "conditions": conditions(), "nodes": listMap(node, "name"),
-		"compiled": object(map[string]schema{"rules": nonnegative(), "fromSources": nonnegative(), "classesResolved": nonnegative(), "classesUnresolved": nonnegative()}, "rules", "fromSources", "classesResolved", "classesUnresolved"),
+		"observedGeneration": nonnegative(), "conditions": conditions(), "nodeSummary": summary, "lastAggregated": timestamp(),
 	})
+}
+func nodeStatusSpec() schema {
+	spec := object(map[string]schema{
+		"policyRef": object(map[string]schema{"kind": enumeration("SandboxPolicy", "ClusterSandboxPolicy"), "name": boundedText(sandbox.MaxReferenceNameLength), "uid": boundedText(sandbox.MaxReferenceUIDLength)}, "kind", "name", "uid"),
+		"nodeRef":   object(map[string]schema{"name": boundedText(sandbox.MaxReferenceNameLength), "uid": boundedText(sandbox.MaxReferenceUIDLength)}, "name", "uid"),
+	}, "policyRef", "nodeRef")
+	spec.XValidations = apiextensions.ValidationRules{{Rule: "self == oldSelf", Message: "policy/node report identity is immutable"}}
+	return spec
+}
+func nodeStatus() schema {
+	details := array(boundedText(sandbox.MaxRuleNameLength))
+	details.MinItems = nil
+	details.MaxItems = int64ptr(sandbox.MaxStatusRuleDetails)
+	degraded := listMap(object(map[string]schema{
+		"rule": boundedText(sandbox.MaxRuleNameLength), "requested": ruleMode(), "effective": enumeration("audit", "enforce", "tripwire"), "reason": boundedText(sandbox.MaxStatusDiagnosticLength),
+	}, "rule", "requested", "effective", "reason"), "rule")
+	degraded.MaxItems = int64ptr(sandbox.MaxStatusRuleDetails)
+	hits := mapOf(nonnegative())
+	hits.MaxProperties = int64ptr(sandbox.MaxStatusRuleDetails)
+	hits.XValidations = apiextensions.ValidationRules{{Rule: fmt.Sprintf("self.all(k, size(k) > 0 && size(k) <= %d)", sandbox.MaxRuleNameLength), Message: "rule names must be at most 256 characters"}}
+	s := object(map[string]schema{
+		"tier":               enumeration("bpf-lsm", "kprobe-override", "tripwire", "seccomp-only", "audit-only"),
+		"observedGeneration": nonnegative(), "lastReported": timestamp(), "conditions": conditions(),
+		"compiled": object(map[string]schema{"rules": nonnegative(), "fromSources": nonnegative(), "classesResolved": nonnegative(), "classesUnresolved": nonnegative()}, "rules", "fromSources", "classesResolved", "classesUnresolved"),
+		"degraded": degraded, "appliesOnRestart": details, "shadowedAllows": details, "ruleHitCounts": hits,
+		"counts":    object(map[string]schema{"degraded": nonnegative(), "appliesOnRestart": nonnegative(), "shadowedAllows": nonnegative(), "ruleHitCounts": nonnegative()}, "degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"),
+		"truncated": boolean(), "stale": boolean(), "error": {Type: "string", MaxLength: int64ptr(sandbox.MaxStatusErrorLength)}, "lastCompiled": timestamp(),
+	}, "tier", "observedGeneration", "lastReported", "counts", "truncated", "stale")
+	for _, name := range []string{"degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"} {
+		size := "(has(self." + name + ") ? size(self." + name + ") : 0)"
+		s.XValidations = append(s.XValidations,
+			apiextensions.ValidationRule{Rule: "self.counts." + name + " >= " + size, Message: "counts." + name + " must include every stored detail"},
+			apiextensions.ValidationRule{Rule: "self.truncated || self.counts." + name + " == " + size, Message: "omitted " + name + " details require truncated=true"},
+		)
+	}
+	return s
 }
 
 // Definitions returns fresh CRDs in a stable order. Policy status uses a
@@ -186,15 +226,17 @@ func Definitions() []apiextensions.CustomResourceDefinition {
 		scope                  apiextensions.ResourceScope
 		spec                   schema
 		hasStatus              bool
+		statusSchema           schema
 	}{
-		{"SandboxPolicy", "sandboxpolicies", "sandboxpolicy", apiextensions.NamespaceScoped, policySpec(false), true},
-		{"ClusterSandboxPolicy", "clustersandboxpolicies", "clustersandboxpolicy", apiextensions.ClusterScoped, policySpec(true), true},
-		{"SandboxPolicyClasses", "sandboxpolicyclasses", "sandboxpolicyclasses", apiextensions.ClusterScoped, classes(), false},
+		{"SandboxPolicy", "sandboxpolicies", "sandboxpolicy", apiextensions.NamespaceScoped, policySpec(false), true, status()},
+		{"ClusterSandboxPolicy", "clustersandboxpolicies", "clustersandboxpolicy", apiextensions.ClusterScoped, policySpec(true), true, status()},
+		{"SandboxPolicyClasses", "sandboxpolicyclasses", "sandboxpolicyclasses", apiextensions.ClusterScoped, classes(), false, schema{}},
+		{"SandboxPolicyNodeStatus", "sandboxpolicynodestatuses", "sandboxpolicynodestatus", apiextensions.NamespaceScoped, nodeStatusSpec(), true, nodeStatus()},
 	} {
 		props := map[string]schema{"apiVersion": {Type: "string"}, "kind": {Type: "string"}, "metadata": {Type: "object"}, "spec": entry.spec}
 		version := apiextensions.CustomResourceDefinitionVersion{Name: sandbox.SchemeGroupVersion.Version, Served: true, Storage: true}
 		if entry.hasStatus {
-			props["status"] = status()
+			props["status"] = entry.statusSchema
 			version.Subresources = &apiextensions.CustomResourceSubresources{Status: &apiextensions.CustomResourceSubresourceStatus{}}
 		}
 		version.Schema = &apiextensions.CustomResourceValidation{OpenAPIV3Schema: ptrSchema(object(props, "spec"))}

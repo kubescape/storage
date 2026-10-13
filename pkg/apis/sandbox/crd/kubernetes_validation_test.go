@@ -5,7 +5,9 @@ package crd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	sandbox "github.com/kubescape/storage/pkg/apis/sandbox/v1alpha1"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -187,25 +189,12 @@ func TestKubernetesStatus(t *testing.T) {
 	data := `spec: {selector: {podSelector: {}}, containers: ["*"], mode: audit}
 status:
   observedGeneration: 3
-  compiled: {rules: 41, fromSources: 17, classesResolved: 6, classesUnresolved: 1}
+  nodeSummary: {total: 10000, reporting: 9999, ready: 9990, degraded: 9, stale: 1}
+  lastAggregated: "2026-09-24T09:12:03Z"
   conditions:
-    - {type: Ready, status: "False", lastTransitionTime: "2026-09-24T09:12:03Z", reason: ClassUnresolved, message: "empty modelProvider class"}
-  nodes:
-    - name: node-1
-      tier: bpf-lsm
-      observedGeneration: 3
-      conditions:
-        - {type: Ready, status: "False", lastTransitionTime: "2026-09-24T09:12:03Z", reason: ClassUnresolved, message: "empty class"}
-      degraded: [{rule: no-capabilities, requested: enforce, effective: audit, reason: no-hook}]
-      appliesOnRestart: [no-new-namespaces]
-      shadowedAllows: [allow-credentials]
-      ruleHitCounts: {no-capabilities: 12}
-      stale: true
-      error: last compile failed
-      lastCompiled: "2026-09-24T09:12:03Z"
+    - {type: Ready, status: "False", lastTransitionTime: "2026-09-24T09:12:03Z", reason: ReportsMissing, message: "1 node has no current report"}
 `
 	object := decode(t, data)
-	// Round-trip through the typed API as well as server pruning and validation.
 	raw, err := json.Marshal(object)
 	if err != nil {
 		t.Fatal(err)
@@ -224,18 +213,21 @@ status:
 	}
 	assertPreserved(t, object, typed)
 	before := runtime.DeepCopyJSONValue(object["status"])
-	if errs := validate(t, Definitions()[0], object); len(errs) != 0 {
-		t.Fatal(errs.ToAggregate())
+	for _, definition := range Definitions()[:2] {
+		if errs := validate(t, definition, object); len(errs) != 0 {
+			t.Fatal(errs.ToAggregate())
+		}
+		if !reflect.DeepEqual(before, object["status"]) {
+			t.Fatal("status fields pruned")
+		}
+		if _, ok := definition.Spec.Versions[0].Schema.OpenAPIV3Schema.Properties["status"].Properties["nodes"]; ok {
+			t.Fatal("policy still embeds per-node status")
+		}
 	}
-	if !reflect.DeepEqual(before, object["status"]) {
-		t.Fatal("status fields pruned")
-	}
-	duplicate := decode(t, data)
-	status := duplicate["status"].(map[string]any)
-	nodes := status["nodes"].([]any)
-	status["nodes"] = append(nodes, nodes[0])
-	if errs := validate(t, Definitions()[0], duplicate); len(errs) == 0 {
-		t.Fatal("duplicate node map-list key accepted")
+	invalid := decode(t, data)
+	invalid["status"].(map[string]any)["nodeSummary"].(map[string]any)["ready"] = int64(10000)
+	if errs := validate(t, Definitions()[0], invalid); len(errs) == 0 {
+		t.Fatal("ready nodes exceeded reporting count")
 	}
 }
 
@@ -251,4 +243,153 @@ func TestKubernetesEmptyLabelValues(t *testing.T) {
 	if errs := validate(t, Definitions()[0], object); len(errs) != 0 {
 		t.Fatal(errs.ToAggregate())
 	}
+}
+
+func nodeReportExample(t *testing.T) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile("../../../../artifacts/sandboxpolicy/sandboxpolicynodestatus.example.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return decode(t, string(data))
+}
+
+func TestKubernetesNodeStatusIdentity(t *testing.T) {
+	definition := Definitions()[3]
+	if definition.Spec.Scope != extensionsv1.NamespaceScoped || definition.Spec.Versions[0].Subresources.Status == nil {
+		t.Fatal("node reports must be namespaced with a status subresource")
+	}
+	original := nodeReportExample(t)
+	_, structural, celValidator := validators(t, definition)
+	for _, reference := range []string{"policyRef", "nodeRef"} {
+		for _, fieldName := range []string{"name", "uid"} {
+			t.Run(reference+"-"+fieldName, func(t *testing.T) {
+				changed := runtime.DeepCopyJSONValue(original).(map[string]any)
+				changed["spec"].(map[string]any)[reference].(map[string]any)[fieldName] = "changed"
+				errs, _ := celValidator.Validate(context.Background(), field.NewPath("object"), structural, changed, original, celconfig.RuntimeCELCostBudget)
+				if len(errs) == 0 {
+					t.Fatal("mutable report identity")
+				}
+			})
+		}
+	}
+	changed := runtime.DeepCopyJSONValue(original).(map[string]any)
+	changed["status"].(map[string]any)["observedGeneration"] = int64(4)
+	errs, _ := celValidator.Validate(context.Background(), field.NewPath("object"), structural, changed, original, celconfig.RuntimeCELCostBudget)
+	if len(errs) != 0 {
+		t.Fatal("status-only update blocked:", errs.ToAggregate())
+	}
+	cluster := nodeReportExample(t)
+	cluster["spec"].(map[string]any)["policyRef"].(map[string]any)["kind"] = "ClusterSandboxPolicy"
+	// This is a distinct report creation, not mutation of a namespaced identity.
+	if errs := validate(t, definition, cluster); len(errs) != 0 {
+		t.Fatal(errs.ToAggregate())
+	}
+	missing := nodeReportExample(t)
+	delete(missing["spec"].(map[string]any)["policyRef"].(map[string]any), "uid")
+	if errs := validate(t, definition, missing); len(errs) == 0 {
+		t.Fatal("missing policy UID accepted")
+	}
+}
+
+func TestKubernetesNodeStatusBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"too-many-degraded", func(s map[string]any) {
+			items := []any{}
+			for i := 0; i <= sandbox.MaxStatusRuleDetails; i++ {
+				items = append(items, map[string]any{"rule": fmt.Sprintf("rule-%d", i), "requested": "enforce", "effective": "audit", "reason": "no-hook"})
+			}
+			s["degraded"] = items
+			s["counts"].(map[string]any)["degraded"] = int64(sandbox.MaxStatusRuleDetails + 1)
+			s["truncated"] = true
+		}},
+		{"too-many-restart", func(s map[string]any) {
+			items := []any{}
+			for i := 0; i <= sandbox.MaxStatusRuleDetails; i++ {
+				items = append(items, fmt.Sprintf("rule-%d", i))
+			}
+			s["appliesOnRestart"] = items
+			s["counts"].(map[string]any)["appliesOnRestart"] = int64(sandbox.MaxStatusRuleDetails + 1)
+			s["truncated"] = true
+		}},
+		{"too-many-shadowed", func(s map[string]any) {
+			items := []any{}
+			for i := 0; i <= sandbox.MaxStatusRuleDetails; i++ {
+				items = append(items, fmt.Sprintf("rule-%d", i))
+			}
+			s["shadowedAllows"] = items
+			s["counts"].(map[string]any)["shadowedAllows"] = int64(sandbox.MaxStatusRuleDetails + 1)
+			s["truncated"] = true
+		}},
+		{"too-many-counts", func(s map[string]any) {
+			items := map[string]any{}
+			for i := 0; i <= sandbox.MaxStatusRuleDetails; i++ {
+				items[fmt.Sprintf("rule-%d", i)] = int64(1)
+			}
+			s["ruleHitCounts"] = items
+			s["counts"].(map[string]any)["ruleHitCounts"] = int64(sandbox.MaxStatusRuleDetails + 1)
+			s["truncated"] = true
+		}},
+		{"long-error", func(s map[string]any) { s["error"] = strings.Repeat("x", sandbox.MaxStatusErrorLength+1) }},
+		{"long-map-key", func(s map[string]any) {
+			s["ruleHitCounts"] = map[string]any{strings.Repeat("x", sandbox.MaxRuleNameLength+1): int64(1)}
+		}},
+		{"missing-truncation", func(s map[string]any) { s["counts"].(map[string]any)["degraded"] = int64(200) }},
+		{"undercounted-details", func(s map[string]any) { s["counts"].(map[string]any)["degraded"] = int64(0) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			object := nodeReportExample(t)
+			tc.mutate(object["status"].(map[string]any))
+			if errs := validate(t, Definitions()[3], object); len(errs) == 0 {
+				t.Fatal("invalid node status admitted")
+			}
+		})
+	}
+	object := nodeReportExample(t)
+	object["status"].(map[string]any)["counts"].(map[string]any)["degraded"] = int64(200)
+	object["status"].(map[string]any)["truncated"] = true
+	if errs := validate(t, Definitions()[3], object); len(errs) != 0 {
+		t.Fatal("honest truncation rejected:", errs.ToAggregate())
+	}
+}
+
+func TestNodeStatusMaximumSnapshotSize(t *testing.T) {
+	report := nodeReportExample(t)
+	status := report["status"].(map[string]any)
+	var degraded, restarts, shadowed []any
+	hits := map[string]any{}
+	for i := 0; i < sandbox.MaxStatusRuleDetails; i++ {
+		// JSON control characters require six-byte escapes, exercising worst-case
+		// serialization expansion rather than only ordinary ASCII identifiers.
+		name := fmt.Sprintf("%04d", i) + strings.Repeat("\x00", sandbox.MaxRuleNameLength-4)
+		degraded = append(degraded, map[string]any{"rule": name, "requested": "enforce", "effective": "audit", "reason": strings.Repeat("\x00", sandbox.MaxStatusDiagnosticLength)})
+		restarts = append(restarts, name)
+		shadowed = append(shadowed, name)
+		hits[name] = int64(math.MaxInt64)
+	}
+	status["degraded"] = degraded
+	status["appliesOnRestart"] = restarts
+	status["shadowedAllows"] = shadowed
+	status["ruleHitCounts"] = hits
+	status["counts"] = map[string]any{"degraded": int64(sandbox.MaxStatusRuleDetails), "appliesOnRestart": int64(sandbox.MaxStatusRuleDetails), "shadowedAllows": int64(sandbox.MaxStatusRuleDetails), "ruleHitCounts": int64(sandbox.MaxStatusRuleDetails)}
+	status["error"] = strings.Repeat("\x00", sandbox.MaxStatusErrorLength)
+	var conditions []any
+	for i := 0; i < sandbox.MaxStatusConditions; i++ {
+		conditions = append(conditions, map[string]any{"type": fmt.Sprintf("%04d", i) + strings.Repeat("\x00", sandbox.MaxStatusConditionKeyLength-4), "reason": strings.Repeat("\x00", sandbox.MaxStatusConditionKeyLength), "message": strings.Repeat("\x00", sandbox.MaxStatusDiagnosticLength), "status": "False", "lastTransitionTime": "2026-09-24T09:12:03Z"})
+	}
+	status["conditions"] = conditions
+	if errs := validate(t, Definitions()[3], report); len(errs) != 0 {
+		t.Fatal(errs.ToAggregate())
+	}
+	raw, err := json.Marshal(status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) > 768*1024 {
+		t.Fatalf("bounded node snapshot too large: %d bytes", len(raw))
+	}
+	t.Logf("maximum-detail escaped node snapshot: %d bytes", len(raw))
 }

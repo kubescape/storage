@@ -1,0 +1,40 @@
+apiVersion: kubescape.io/v1alpha1
+kind: SandboxPolicyNodeStatus
+metadata:
+  # NodeStatusName(policyUID, nodeUID) for the example references below.
+  name: sandboxpolicy-979d83476ed076904595f669576f89523b056c0688f32d2881032b38421f269a
+  namespace: agents
+  ownerReferences:
+    - apiVersion: kubescape.io/v1alpha1
+      kind: SandboxPolicy
+      name: agent-runner
+      uid: 73b5d432-f848-4da9-88df-99b5f3e4f717
+spec:
+  policyRef:
+    kind: SandboxPolicy
+    name: agent-runner
+    uid: 73b5d432-f848-4da9-88df-99b5f3e4f717
+  nodeRef:
+    name: node-1
+    uid: dc65b0d8-5c73-4595-a087-68c8e11b4ad5
+status:
+  observedGeneration: 3
+  lastReported: "2026-09-24T09:12:03Z"
+  tier: bpf-lsm
+  compiled: {rules: 41, fromSources: 17, classesResolved: 6, classesUnresolved: 1}
+  conditions:
+    - type: Ready
+      status: "False"
+      observedGeneration: 3
+      lastTransitionTime: "2026-09-24T09:12:03Z"
+      reason: ClassUnresolved
+      message: empty modelProvider class
+  degraded: [{rule: no-capabilities, requested: enforce, effective: audit, reason: no-hook}]
+  appliesOnRestart: [no-new-namespaces]
+  shadowedAllows: [allow-credentials]
+  ruleHitCounts: {no-capabilities: 12}
+  counts: {degraded: 1, appliesOnRestart: 1, shadowedAllows: 1, ruleHitCounts: 1}
+  truncated: false
+  stale: true
+  error: last compile failed
+  lastCompiled: "2026-09-24T09:12:03Z"

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -251,13 +252,60 @@ type NetworkDefault struct {
 	Listen Action `json:"listen"`
 }
 
-// SandboxPolicyStatus is written by future consumers through the status subresource.
+// SandboxPolicyStatus contains only aggregate, constant-size policy status.
+// Individual node agents write SandboxPolicyNodeStatus, never a shared nodes list.
 type SandboxPolicyStatus struct {
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
-	Compiled           *CompiledStatus    `json:"compiled,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
-	// Nodes is a map-list keyed by name, allowing independent per-node patches.
-	Nodes []NodeStatus `json:"nodes,omitempty"`
+	NodeSummary        *NodeStatusSummary `json:"nodeSummary,omitempty"`
+	LastAggregated     *metav1.Time       `json:"lastAggregated,omitempty"`
+}
+
+// NodeStatusSummary counts eligible nodes and current-generation node reports.
+// Total includes eligible nodes without reports; Reporting counts valid reports.
+// Categories may overlap (for example, a stale node may also be degraded). Missing reports are
+// not Ready and must be accounted for by a future aggregation controller.
+type NodeStatusSummary struct {
+	Total     int64 `json:"total"`
+	Reporting int64 `json:"reporting"`
+	Ready     int64 `json:"ready"`
+	Degraded  int64 `json:"degraded"`
+	Stale     int64 `json:"stale"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// SandboxPolicyNodeStatus is one bounded report per policy UID / node UID pair.
+// For SandboxPolicy it lives in the policy namespace; for ClusterSandboxPolicy
+// it lives in the configured agent namespace. Its spec is immutable.
+type SandboxPolicyNodeStatus struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SandboxPolicyNodeStatusSpec `json:"spec"`
+	Status            *NodeStatus                 `json:"status,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type SandboxPolicyNodeStatusList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SandboxPolicyNodeStatus `json:"items"`
+}
+type SandboxPolicyNodeStatusSpec struct {
+	PolicyRef SandboxPolicyReference `json:"policyRef"`
+	NodeRef   NodeReference          `json:"nodeRef"`
+}
+
+// SandboxPolicyReference identifies either policy kind by UID, not just name.
+// A SandboxPolicy reference always resolves in the report's own namespace;
+// ClusterSandboxPolicy references resolve cluster-wide.
+type SandboxPolicyReference struct {
+	Kind string    `json:"kind"`
+	Name string    `json:"name"`
+	UID  types.UID `json:"uid"`
+}
+type NodeReference struct {
+	Name string    `json:"name"`
+	UID  types.UID `json:"uid"`
 }
 type CompiledStatus struct {
 	Rules             int64 `json:"rules"`
@@ -265,18 +313,33 @@ type CompiledStatus struct {
 	ClassesResolved   int64 `json:"classesResolved"`
 	ClassesUnresolved int64 `json:"classesUnresolved"`
 }
+
+// NodeStatus holds a single node's snapshot. Collections and diagnostics are
+// bounded by the CRD schema; Counts records full collection sizes, and Truncated
+// indicates omitted entries or shortened diagnostic text. This is not an event log.
 type NodeStatus struct {
-	Name               string             `json:"name"`
 	Tier               string             `json:"tier"`
-	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration"`
+	LastReported       metav1.Time        `json:"lastReported"`
+	Compiled           *CompiledStatus    `json:"compiled,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 	Degraded           []DegradedRule     `json:"degraded,omitempty"`
 	AppliesOnRestart   []string           `json:"appliesOnRestart,omitempty"`
 	ShadowedAllows     []string           `json:"shadowedAllows,omitempty"`
 	RuleHitCounts      map[string]int64   `json:"ruleHitCounts,omitempty"`
+	Counts             NodeStatusCounts   `json:"counts"`
+	Truncated          bool               `json:"truncated"`
 	Stale              bool               `json:"stale"`
 	Error              string             `json:"error,omitempty"`
 	LastCompiled       *metav1.Time       `json:"lastCompiled,omitempty"`
+}
+
+// NodeStatusCounts preserves cardinality even when bounded details are omitted.
+type NodeStatusCounts struct {
+	Degraded         int64 `json:"degraded"`
+	AppliesOnRestart int64 `json:"appliesOnRestart"`
+	ShadowedAllows   int64 `json:"shadowedAllows"`
+	RuleHitCounts    int64 `json:"ruleHitCounts"`
 }
 type DegradedRule struct {
 	Rule      string   `json:"rule"`

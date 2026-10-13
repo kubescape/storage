@@ -34,7 +34,7 @@ func TestManifestConsistency(t *testing.T) {
 }
 func TestTypedFieldsCoveredBySchema(t *testing.T) {
 	definitions := Definitions()
-	for i, typ := range []reflect.Type{reflect.TypeOf(sandbox.SandboxPolicy{}), reflect.TypeOf(sandbox.ClusterSandboxPolicy{}), reflect.TypeOf(sandbox.SandboxPolicyClasses{})} {
+	for i, typ := range []reflect.Type{reflect.TypeOf(sandbox.SandboxPolicy{}), reflect.TypeOf(sandbox.ClusterSandboxPolicy{}), reflect.TypeOf(sandbox.SandboxPolicyClasses{}), reflect.TypeOf(sandbox.SandboxPolicyNodeStatus{})} {
 		t.Run(typ.Name(), func(t *testing.T) { assertCoverage(t, typ, *definitions[i].Spec.Versions[0].Schema.OpenAPIV3Schema) })
 	}
 }
@@ -89,6 +89,7 @@ func TestExamplesRoundTrip(t *testing.T) {
 		{"sandboxpolicy.example.yaml", &sandbox.SandboxPolicy{}},
 		{"clustersandboxpolicy.example.yaml", &sandbox.ClusterSandboxPolicy{}},
 		{"sandboxpolicyclasses.example.yaml", &sandbox.SandboxPolicyClasses{}},
+		{"sandboxpolicynodestatus.example.yaml", &sandbox.SandboxPolicyNodeStatus{}},
 	} {
 		t.Run(example.name, func(t *testing.T) {
 			data, err := os.ReadFile(filepath.Join("../../../../artifacts/sandboxpolicy", example.name))
@@ -103,6 +104,10 @@ func TestExamplesRoundTrip(t *testing.T) {
 				err = sandbox.ValidatePolicySpec(p.Spec.PolicySpec)
 			case *sandbox.ClusterSandboxPolicy:
 				err = sandbox.ValidatePolicySpec(p.Spec.PolicySpec)
+			case *sandbox.SandboxPolicyNodeStatus:
+				if p.Name != sandbox.NodeStatusName(p.Spec.PolicyRef.UID, p.Spec.NodeRef.UID) {
+					t.Fatal("example uses noncanonical report name")
+				}
 			}
 			if err != nil {
 				t.Fatal(err)

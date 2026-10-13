@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -18,7 +19,7 @@ func TestSchemeAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	codec := serializer.NewCodecFactory(scheme).UniversalDeserializer()
-	for _, kind := range []string{"SandboxPolicy", "SandboxPolicyList", "ClusterSandboxPolicy", "ClusterSandboxPolicyList", "SandboxPolicyClasses", "SandboxPolicyClassesList"} {
+	for _, kind := range []string{"SandboxPolicy", "SandboxPolicyList", "ClusterSandboxPolicy", "ClusterSandboxPolicyList", "SandboxPolicyClasses", "SandboxPolicyClassesList", "SandboxPolicyNodeStatus", "SandboxPolicyNodeStatusList"} {
 		gvk := SchemeGroupVersion.WithKind(kind)
 		obj, err := scheme.New(gvk)
 		if err != nil {
@@ -75,7 +76,7 @@ func TestFileDefaultRoundTrip(t *testing.T) {
 	}
 }
 func TestExplicitFalseAndDeepCopy(t *testing.T) {
-	raw := `{"spec":{"selector":{"podSelector":{}},"containers":["*"],"mode":"audit","classes":{"pathClasses":{"workspace":["/workspace/**"]}},"exec":{"default":"deny","rules":[{"name":"exec","actor":{"fromImage":false,"ancestor":{"path":["/bin/sh"],"depth":2}},"target":{"fromImage":false,"argv":{"stdinIsPipe":false}},"action":"deny"}]},"identity":{"default":"allow","rules":[{"name":"identity","target":{"imds":false,"envRead":false},"action":"deny"}]}},"status":{"nodes":[{"name":"node-1","tier":"audit-only","stale":false,"ruleHitCounts":{"exec":3}}]}}`
+	raw := `{"spec":{"selector":{"podSelector":{}},"containers":["*"],"mode":"audit","classes":{"pathClasses":{"workspace":["/workspace/**"]}},"exec":{"default":"deny","rules":[{"name":"exec","actor":{"fromImage":false,"ancestor":{"path":["/bin/sh"],"depth":2}},"target":{"fromImage":false,"argv":{"stdinIsPipe":false}},"action":"deny"}]},"identity":{"default":"allow","rules":[{"name":"identity","target":{"imds":false,"envRead":false},"action":"deny"}]}},"status":{"nodeSummary":{"total":1,"reporting":1,"ready":1,"degraded":0,"stale":0}}}`
 	var policy SandboxPolicy
 	if err := json.Unmarshal([]byte(raw), &policy); err != nil {
 		t.Fatal(err)
@@ -93,8 +94,8 @@ func TestExplicitFalseAndDeepCopy(t *testing.T) {
 	*copied.Spec.Exec.Rules[0].Actor.FromImage = true
 	copied.Spec.Exec.Rules[0].Actor.Ancestor.Path[0] = "changed"
 	copied.Spec.Classes.PathClasses["workspace"][0] = "changed"
-	copied.Status.Nodes[0].RuleHitCounts["exec"] = 10
-	if *policy.Spec.Exec.Rules[0].Actor.FromImage || policy.Spec.Exec.Rules[0].Actor.Ancestor.Path[0] != "/bin/sh" || policy.Spec.Classes.PathClasses["workspace"][0] != "/workspace/**" || policy.Status.Nodes[0].RuleHitCounts["exec"] != 3 {
+	copied.Status.NodeSummary.Ready = 0
+	if *policy.Spec.Exec.Rules[0].Actor.FromImage || policy.Spec.Exec.Rules[0].Actor.Ancestor.Path[0] != "/bin/sh" || policy.Spec.Classes.PathClasses["workspace"][0] != "/workspace/**" || policy.Status.NodeSummary.Ready != 1 {
 		t.Fatal("deep copy aliased nested fields")
 	}
 	var absent Actor
@@ -157,5 +158,33 @@ func TestAllResourceDeepCopies(t *testing.T) {
 	copyClasses.Spec.DestClasses["imds"][0] = "changed"
 	if classes.Spec.DestClasses["imds"][0] != "169.254.169.254/32" {
 		t.Fatal("class alias")
+	}
+}
+
+func TestNodeStatusIdentityAndDeepCopy(t *testing.T) {
+	report := &SandboxPolicyNodeStatus{
+		Spec: SandboxPolicyNodeStatusSpec{
+			PolicyRef: SandboxPolicyReference{Kind: "SandboxPolicy", Name: "policy", UID: "policy-uid"},
+			NodeRef:   NodeReference{Name: "node-1", UID: "node-uid"},
+		},
+		Status: &NodeStatus{Tier: "audit-only", RuleHitCounts: map[string]int64{"rule": 3}, Degraded: []DegradedRule{{Rule: "rule", Reason: "no-hook"}}},
+	}
+	copied := report.DeepCopy()
+	copied.Status.RuleHitCounts["rule"] = 10
+	copied.Status.Degraded[0].Reason = "changed"
+	if report.Status.RuleHitCounts["rule"] != 3 || report.Status.Degraded[0].Reason != "no-hook" {
+		t.Fatal("node report deepcopy alias")
+	}
+	name := NodeStatusName("policy-uid", "node-uid")
+	if name != NodeStatusName("policy-uid", "node-uid") || len(name) > 253 {
+		t.Fatal("noncanonical report name")
+	}
+	for _, pair := range [][2]string{{"new-policy-uid", "node-uid"}, {"policy-uid", "new-node-uid"}} {
+		if name == NodeStatusName(types.UID(pair[0]), types.UID(pair[1])) {
+			t.Fatal("recreated resource reused report identity")
+		}
+	}
+	if NodeStatusName("a", "bc") == NodeStatusName("ab", "c") {
+		t.Fatal("ambiguous concatenation")
 	}
 }
