@@ -424,3 +424,50 @@ status: {nodeSummary: {total: 1, reporting: 1, ready: 1, degraded: 0, stale: 1}}
 		}
 	}
 }
+
+func TestKubernetesClassNames(t *testing.T) {
+	for _, definition := range Definitions()[:3] {
+		for _, name := range []string{"pathClasses", "destClasses"} {
+			t.Run(definition.Spec.Names.Kind+"-"+name, func(t *testing.T) {
+				var object map[string]any
+				if definition.Spec.Names.Kind == "SandboxPolicyClasses" {
+					object = decode(t, "spec: {}")
+				} else {
+					object = decode(t, `spec: {selector: {podSelector: {}}, containers: ["*"], mode: audit, classes: {}}`)
+				}
+				classes := object["spec"].(map[string]any)
+				if definition.Spec.Names.Kind != "SandboxPolicyClasses" {
+					classes = classes["classes"].(map[string]any)
+				}
+				classes[name] = map[string]any{"": []any{}}
+				if errs := validate(t, definition, object); len(errs) == 0 {
+					t.Fatal("empty class name admitted")
+				}
+				classes[name] = map[string]any{"named-empty-class": []any{}}
+				if errs := validate(t, definition, object); len(errs) != 0 {
+					t.Fatal("named empty sets must remain valid", errs.ToAggregate())
+				}
+			})
+		}
+	}
+}
+
+func TestSelectorSyntaxConsumerBoundary(t *testing.T) {
+	object := decode(t, `spec: {selector: {podSelector: {matchLabels: {"bad key": "bad value"}}}, containers: ["*"], mode: audit}`)
+	// Shape validation is not native label syntax validation for a CRD field.
+	// Pin this documented gap and prove the consumer entrypoint rejects it.
+	if errs := validate(t, Definitions()[0], object); len(errs) != 0 {
+		t.Fatal(errs.ToAggregate())
+	}
+	raw, err := json.Marshal(object)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var policy sandbox.SandboxPolicy
+	if err = json.Unmarshal(raw, &policy); err != nil {
+		t.Fatal(err)
+	}
+	if err = sandbox.ValidateSandboxPolicySpec(policy.Spec); err == nil {
+		t.Fatal("consumer accepted invalid native selector syntax")
+	}
+}

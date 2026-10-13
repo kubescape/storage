@@ -76,7 +76,9 @@ func labelSelector() schema {
 func classes() schema {
 	entries := stringList()
 	entries.MinItems = nil
-	return object(map[string]schema{"pathClasses": mapOf(entries), "destClasses": mapOf(entries)})
+	named := mapOf(entries)
+	named.XValidations = apiextensions.ValidationRules{{Rule: "self.all(k, size(k) > 0)", Message: "class names must not be empty"}}
+	return object(map[string]schema{"pathClasses": named, "destClasses": named})
 }
 func rule(target schema) schema {
 	return object(map[string]schema{

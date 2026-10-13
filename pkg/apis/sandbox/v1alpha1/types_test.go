@@ -188,3 +188,33 @@ func TestNodeStatusIdentityAndDeepCopy(t *testing.T) {
 		t.Fatal("ambiguous concatenation")
 	}
 }
+
+func TestNativeSelectorAndClassValidation(t *testing.T) {
+	for _, selector := range []metav1.LabelSelector{
+		{MatchLabels: map[string]string{"bad key": "value"}},
+		{MatchLabels: map[string]string{"app": "bad value"}},
+		{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "bad/key/format", Operator: metav1.LabelSelectorOpExists}}},
+	} {
+		if err := ValidateSandboxPolicySpec(SandboxPolicySpec{Selector: PodPolicySelector{PodSelector: selector}}); err == nil {
+			t.Fatal("invalid pod selector accepted")
+		}
+		if err := ValidateClusterSandboxPolicySpec(ClusterSandboxPolicySpec{Selector: ClusterPolicySelector{NamespaceSelector: &selector}}); err == nil {
+			t.Fatal("invalid namespace selector accepted")
+		}
+	}
+	valid := metav1.LabelSelector{MatchLabels: map[string]string{"example.com/Agent_1": ""}}
+	if err := ValidateSandboxPolicySpec(SandboxPolicySpec{Selector: PodPolicySelector{PodSelector: valid}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, classes := range []PolicyClasses{{PathClasses: map[string][]string{"": {}}}, {DestClasses: map[string][]string{"": {}}}} {
+		if err := ValidatePolicyClasses(classes); err == nil {
+			t.Fatal("unreferenceable class admitted")
+		}
+		if err := ValidatePolicySpec(PolicySpec{Classes: &classes}); err == nil {
+			t.Fatal("inline empty class admitted")
+		}
+	}
+	if err := ValidatePolicyClasses(PolicyClasses{DestClasses: map[string][]string{"modelProvider": {}}}); err != nil {
+		t.Fatal("unresolved named class must remain valid configuration", err)
+	}
+}

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // ValidatePolicySpec checks semantic constraints that cannot all be expressed
@@ -15,6 +17,11 @@ import (
 // prove that an allow is shadowed. Consumers must also respect admission schema
 // constraints when constructing typed objects without using the API server.
 func ValidatePolicySpec(spec PolicySpec) error {
+	if spec.Classes != nil {
+		if err := ValidatePolicyClasses(*spec.Classes); err != nil {
+			return err
+		}
+	}
 	names := map[string]bool{}
 	check := func(rule Rule) error {
 		if rule.Name == "" {
@@ -95,4 +102,38 @@ func validatePort(port intstr.IntOrString) error {
 		}
 	}
 	return fmt.Errorf("port %q must be 1..65535 or an ordered inclusive range within 1..65535", port.String())
+}
+
+// ValidatePolicyClasses checks named-set semantics independently of membership
+// resolution. Empty sets are supported, but their names must be non-empty.
+func ValidatePolicyClasses(classes PolicyClasses) error {
+	for _, entries := range []map[string][]string{classes.PathClasses, classes.DestClasses} {
+		if _, exists := entries[""]; exists {
+			return fmt.Errorf("class names must not be empty")
+		}
+	}
+	return nil
+}
+
+// ValidateSandboxPolicySpec includes native Kubernetes selector syntax checks
+// that structural shape/operator validation alone does not provide. Like
+// ValidatePolicySpec, it complements rather than replaces admission validation.
+func ValidateSandboxPolicySpec(spec SandboxPolicySpec) error {
+	errs := metav1validation.ValidateLabelSelector(&spec.Selector.PodSelector, metav1validation.LabelSelectorValidationOptions{}, field.NewPath("spec", "selector", "podSelector"))
+	if err := errs.ToAggregate(); err != nil {
+		return err
+	}
+	return ValidatePolicySpec(spec.PolicySpec)
+}
+
+// ValidateClusterSandboxPolicySpec validates both native label selectors and
+// the shared semantic constraints without imposing arbitrary selector limits.
+func ValidateClusterSandboxPolicySpec(spec ClusterSandboxPolicySpec) error {
+	opts := metav1validation.LabelSelectorValidationOptions{}
+	errs := metav1validation.ValidateLabelSelector(&spec.Selector.PodSelector, opts, field.NewPath("spec", "selector", "podSelector"))
+	errs = append(errs, metav1validation.ValidateLabelSelector(spec.Selector.NamespaceSelector, opts, field.NewPath("spec", "selector", "namespaceSelector"))...)
+	if err := errs.ToAggregate(); err != nil {
+		return err
+	}
+	return ValidatePolicySpec(spec.PolicySpec)
 }
