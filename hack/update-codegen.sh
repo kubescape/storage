@@ -18,7 +18,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+SCRIPT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "${SCRIPT_ROOT}"
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 API_KNOWN_VIOLATIONS_DIR="${API_KNOWN_VIOLATIONS_DIR:-"${SCRIPT_ROOT}/api-rules"}"
 
@@ -162,3 +163,8 @@ if command -v go-to-protobuf >/dev/null 2>&1; then
 else
     echo "WARNING: go-to-protobuf not on PATH - protobuf marshallers NOT regenerated. If you changed pkg/apis types, the protobuf wire will silently drop the new fields for protobuf-negotiating clients."
 fi
+
+# Sandbox policies are Kubernetes CRDs, not aggregated storage resources.
+# The verifier redirects manifests to a temporary directory to detect drift
+# without repairing checked-in artifacts as a side effect.
+go run ./hack/sandbox-crds --output "${SANDBOX_CRD_OUTPUT:-artifacts/sandboxpolicy}"
