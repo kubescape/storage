@@ -175,7 +175,7 @@ func conditions() schema {
 }
 func status() schema {
 	summary := object(map[string]schema{"total": nonnegative(), "reporting": nonnegative(), "ready": nonnegative(), "degraded": nonnegative(), "stale": nonnegative()}, "total", "reporting", "ready", "degraded", "stale")
-	summary.XValidations = apiextensions.ValidationRules{{Rule: "self.reporting <= self.total && self.ready <= self.reporting && self.degraded <= self.reporting && self.stale <= self.reporting", Message: "reporting must be at most total; each categorized count must be at most reporting"}}
+	summary.XValidations = apiextensions.ValidationRules{{Rule: "self.reporting <= self.total && self.ready <= self.reporting && self.degraded <= self.reporting && self.stale <= self.reporting && self.ready <= self.reporting - self.stale", Message: "reporting must be at most total; categories must fit reporting and ready cannot include stale nodes"}}
 	return object(map[string]schema{
 		"observedGeneration": nonnegative(), "conditions": conditions(), "nodeSummary": summary, "lastAggregated": timestamp(),
 	})
@@ -192,6 +192,7 @@ func nodeStatus() schema {
 	details := array(boundedText(sandbox.MaxRuleNameLength))
 	details.MinItems = nil
 	details.MaxItems = int64ptr(sandbox.MaxStatusRuleDetails)
+	details.XListType = stringptr("set")
 	degraded := listMap(object(map[string]schema{
 		"rule": boundedText(sandbox.MaxRuleNameLength), "requested": ruleMode(), "effective": enumeration("audit", "enforce", "tripwire"), "reason": boundedText(sandbox.MaxStatusDiagnosticLength),
 	}, "rule", "requested", "effective", "reason"), "rule")

@@ -139,7 +139,9 @@ required `lastReported` heartbeat timestamps the snapshot independently of
 not Ready. `ready` counts explicit `Ready=True`, non-stale reports; `degraded`
 and `stale` are independent categories and may overlap. Read degradation from the
 full counts, not the truncated list. Every categorized count must be at most
-`reporting`, which must be at most `total`. Match `observedGeneration` and check
+`reporting`, which must be at most `total`; Ready and stale are disjoint
+(`ready <= reporting - stale`). Restart and shadowed-rule detail lists are sets,
+so duplicate names cannot consume bounded slots or inflate cardinalities. Match `observedGeneration` and check
 `lastAggregated` freshness before trusting the summary. A generation change,
 removed node or missing report must never leave an old Ready count treated as
 current. Aggregation, cleanup, freshness expiry and status writes are deliberately

@@ -30,9 +30,9 @@ STUB
   cp -a "$root/artifacts" "$root/original-artifacts"
   actual_status=0
   (
-    cd "$root"
+    cd "$tmp"
     if [[ "$scenario" == generation-failure ]]; then export SIMULATE_GENERATOR_FAILURE=true; fi
-    bash hack/verify-codegen.sh
+    bash "$root/hack/verify-codegen.sh"
   ) > "$root/output.log" 2>&1 || actual_status=$?
   if [[ "$actual_status" != "$expected_status" ]]; then
     cat "$root/output.log"
