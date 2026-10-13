@@ -162,3 +162,6 @@ if command -v go-to-protobuf >/dev/null 2>&1; then
 else
     echo "WARNING: go-to-protobuf not on PATH - protobuf marshallers NOT regenerated. If you changed pkg/apis types, the protobuf wire will silently drop the new fields for protobuf-negotiating clients."
 fi
+
+# Sandbox policies are Kubernetes CRDs, not aggregated storage resources.
+go run ./hack/sandbox-crds
