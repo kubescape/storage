@@ -143,18 +143,43 @@ spec:
 	}
 }
 func TestKubernetesFileDefaultPreserved(t *testing.T) {
-	// Pin the intentional schema gap: arbitrary values survive admission and
-	// therefore MUST be rejected by FileDefault.UnmarshalJSON/Validate.
-	for _, value := range []string{"allow", "deny", "{read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}"} {
-		obj := decode(t, "spec: {selector: {podSelector: {}}, containers: ['*'], mode: audit, file: {default: "+value+"}}")
-		before := runtime.DeepCopyJSONValue(obj["spec"].(map[string]any)["file"].(map[string]any)["default"])
-		if errs := validate(t, Definitions()[0], obj); len(errs) != 0 {
-			t.Fatal(errs.ToAggregate())
-		}
-		after := obj["spec"].(map[string]any)["file"].(map[string]any)["default"]
-		if !reflect.DeepEqual(before, after) {
-			t.Fatal("file default pruned")
-		}
+	// Pin both halves of the intentional schema gap: Kubernetes preserves and
+	// admits non-null arbitrary values, but typed consumers reject invalid ones.
+	for _, tc := range []struct {
+		name, value string
+		valid       bool
+	}{
+		{"allow", "allow", true},
+		{"deny", "deny", true},
+		{"per-access", "{read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}", true},
+		{"invalid-scalar", "audit", false},
+		{"empty-object", "{}", false},
+		{"incomplete-object", "{read: allow}", false},
+		{"unknown-object-key", "{read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow, unknown: deny}", false},
+		{"boolean", "true", false},
+		{"number", "42", false},
+		{"array", "[allow, deny]", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := decode(t, "spec: {selector: {podSelector: {}}, containers: ['*'], mode: audit, file: {default: "+tc.value+"}}")
+			before := runtime.DeepCopyJSONValue(obj["spec"].(map[string]any)["file"].(map[string]any)["default"])
+			if errs := validate(t, Definitions()[0], obj); len(errs) != 0 {
+				t.Fatal(errs.ToAggregate())
+			}
+			after := obj["spec"].(map[string]any)["file"].(map[string]any)["default"]
+			if !reflect.DeepEqual(before, after) {
+				t.Fatal("file default pruned")
+			}
+			raw, err := json.Marshal(after)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var typed sandbox.FileDefault
+			err = json.Unmarshal(raw, &typed)
+			if (err == nil) != tc.valid {
+				t.Fatalf("typed consumer validation: valid=%t, error=%v", tc.valid, err)
+			}
+		})
 	}
 }
 
