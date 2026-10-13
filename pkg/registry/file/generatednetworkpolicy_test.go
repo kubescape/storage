@@ -280,4 +280,10 @@ func TestGeneratedNetworkPolicyStorage_GetList_SelectorAppliedAfterGeneration(t 
 	require.NoError(t, err)
 	require.Len(t, list.Items, 1)
 	assert.Equal(t, "deployment-foo", list.Items[0].Name)
+	assert.NotEmpty(t, list.ResourceVersion)
+
+	emptyList := &softwarecomposition.GeneratedNetworkPolicyList{}
+	require.NoError(t, s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/empty-ns", storage.ListOptions{}, emptyList))
+	assert.Empty(t, emptyList.Items)
+	assert.Equal(t, "1", emptyList.ResourceVersion)
 }

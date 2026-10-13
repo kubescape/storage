@@ -153,7 +153,7 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 		return err
 	}
 
-	return nil
+	return setListMeta(listObj, "")
 }
 
 // buildConfigurationScanSummaryForCluster generates a configuration scan summary list for the cluster, where each item is a configuration scan summary for a namespace

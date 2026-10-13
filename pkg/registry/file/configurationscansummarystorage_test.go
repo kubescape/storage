@@ -162,6 +162,9 @@ func TestConfigurationScanSummaryStorage_GetList(t *testing.T) {
 					Kind:       "ConfigurationScanSummary",
 					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
+				ListMeta: v1.ListMeta{
+					ResourceVersion: "1",
+				},
 				Items: []v1beta1.ConfigurationScanSummary{
 					{
 						TypeMeta: v1.TypeMeta{
