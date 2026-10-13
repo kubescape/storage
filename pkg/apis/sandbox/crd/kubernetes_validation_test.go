@@ -393,3 +393,34 @@ func TestNodeStatusMaximumSnapshotSize(t *testing.T) {
 	}
 	t.Logf("maximum-detail escaped node snapshot: %d bytes", len(raw))
 }
+
+func TestNodeDetailSetsRejectDuplicateRuleIDs(t *testing.T) {
+	for _, name := range []string{"appliesOnRestart", "shadowedAllows"} {
+		t.Run(name, func(t *testing.T) {
+			report := nodeReportExample(t)
+			status := report["status"].(map[string]any)
+			status[name] = []any{"same-rule", "same-rule"}
+			status["counts"].(map[string]any)[name] = int64(2)
+			if errs := validate(t, Definitions()[3], report); len(errs) == 0 {
+				t.Fatal("duplicates inflated rule cardinality")
+			}
+		})
+	}
+}
+
+func TestAggregateReadyExcludesStale(t *testing.T) {
+	for _, definition := range Definitions()[:2] {
+		report := decode(t, `spec: {selector: {podSelector: {}}, containers: ["*"], mode: audit}
+status: {nodeSummary: {total: 1, reporting: 1, ready: 1, degraded: 0, stale: 1}}
+`)
+		if errs := validate(t, definition, report); len(errs) == 0 {
+			t.Fatal("same reporting node counted both ready and stale")
+		}
+		summary := report["status"].(map[string]any)["nodeSummary"].(map[string]any)
+		summary["ready"] = int64(0)
+		summary["degraded"] = int64(1)
+		if errs := validate(t, definition, report); len(errs) != 0 {
+			t.Fatal("degraded and stale may overlap:", errs.ToAggregate())
+		}
+	}
+}
