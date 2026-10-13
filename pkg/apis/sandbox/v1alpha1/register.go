@@ -17,6 +17,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SandboxPolicy{}, &SandboxPolicyList{},
 		&ClusterSandboxPolicy{}, &ClusterSandboxPolicyList{},
 		&SandboxPolicyClasses{}, &SandboxPolicyClassesList{},
+		&SandboxPolicyNodeStatus{}, &SandboxPolicyNodeStatusList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

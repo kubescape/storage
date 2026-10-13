@@ -1,6 +1,6 @@
 # Sandbox policy API foundation
 
-`pkg/apis/sandbox/v1alpha1` defines three Kubernetes-served resources in
+`pkg/apis/sandbox/v1alpha1` defines four Kubernetes-served resources in
 `kubescape.io/v1alpha1`:
 
 | Kind | Scope | Status subresource |
@@ -8,6 +8,7 @@
 | `SandboxPolicy` | Namespaced | Yes |
 | `ClusterSandboxPolicy` | Cluster | Yes |
 | `SandboxPolicyClasses` | Cluster | No |
+| `SandboxPolicyNodeStatus` | Namespaced | Yes |
 
 These are real CRDs, **not** resources of storage's aggregated
 `spdx.softwarecomposition.kubescape.io` API. Import the package and call
@@ -44,8 +45,9 @@ supports them yet.
   incomplete objects, and unknown object keys. Future unstructured consumers
   must perform equivalent validation before compiling; admission alone is not
   a validity guarantee for this field.
-- Rules are map-lists keyed by `name`, nodes by `name`, conditions by `type`, and
-  degraded entries by `rule`. This enables independent per-node status patches.
+- Rules are map-lists keyed by `name`, conditions by `type`, and degraded entries
+  by `rule`. Rule names are limited to 256 characters so status identifiers can
+  remain bounded without being silently shortened.
   `ValidatePolicySpec` additionally rejects duplicate names **across sections**.
 - Integer ports are schema-bounded to 1..65535. String ports must have the form
   `a-b` with at most five digits per endpoint; `ValidatePolicySpec` checks endpoint
@@ -64,9 +66,84 @@ supports them yet.
 - `kubescape.io/managed-by: armo` is metadata only. **No ownership webhook is
   included**, so this annotation does not prevent human edits. Consumers and
   backend authors must not claim single-writer protection until admission exists.
-- Consumer-written status includes compile counts, conditions, per-node tiers,
-  degradation, restart requirements, last-good/stale/error information, shadowed
-  allows and rule hit counts. Status types do not implement a status writer.
+- Per-node compile counts, tiers, degradation, restart requirements, last-good/
+  stale/error information, shadowed allows and hit counts live in separate
+  `SandboxPolicyNodeStatus` resources. Status types do not implement writers.
+
+## Per-node status contract (review-approved design amendment)
+
+The original design embeds `status.nodes` in each policy. The author explicitly
+selected separate node-status resources during PR review instead: the shared
+object would grow as nodes × rules and eventually prevent status updates.
+Neither policy kind now contains a node list or per-node data. Its status keeps
+only `observedGeneration`, bounded conditions, `lastAggregated`, and `nodeSummary`
+counts (`total`, `reporting`, `ready`, `degraded`, `stale`). Adding cluster nodes
+creates independent report objects, not a larger shared policy object.
+
+### Identity, scope and lifecycle
+
+- `SandboxPolicyNodeStatus.spec.policyRef` requires policy kind, name and UID;
+  `nodeRef` requires node name and UID. The entire spec is immutable. A report
+  cannot be retargeted to a different policy, node, or recreated object.
+- For `SandboxPolicy`, create the report in the **policy's namespace**. Its
+  policy reference has no namespace field and resolves only there. For
+  `ClusterSandboxPolicy`, create reports in the configured **agent namespace**.
+  Use a single configured namespace consistently for cluster-policy reports.
+- Writers use `NodeStatusName(policyUID, nodeUID)` as the resource name. This
+  hashes a length-prefixed identity into a fixed DNS-safe name. Each node writes
+  only its own report's status; it does not contend on the parent policy object.
+  Spec immutability does not enforce uniqueness across separately named objects;
+  writers must use the canonical name, and readers must reject noncanonical names.
+- Set a policy `ownerReference` with the same kind/name/UID as `policyRef`.
+  Namespaced dependents can reference a same-namespace policy or a cluster policy,
+  consistent with [Kubernetes ownership rules](https://kubernetes.io/docs/concepts/architecture/garbage-collection/).
+  Do not add a second Node owner: either surviving owner would retain the report.
+  A future controller must remove reports for deleted/recreated nodes and ignore
+  old node/policy UIDs. Normal policy deletion can garbage-collect owned reports;
+  orphan deletion requires explicit controller cleanup.
+- These are still normal CRDs, stored by Kubernetes in etcd, not SQLite/files.
+  Neither admission nor these API types resolve referenced objects or authenticate
+  the reporting node. Runtime identity validation and least-privilege writer RBAC
+  remain prerequisites for trustworthy enforcement status, outside this slice.
+
+### Bounded snapshots and honest truncation
+
+Per report, schema limits are 64 entries **per** rule-detail collection
+(`degraded`, `appliesOnRestart`, `shadowedAllows`, `ruleHitCounts`), 8 conditions,
+256-character rule names, 128-character condition type/reason codes,
+512-character diagnostic messages/degradation reasons, and 2048-character errors.
+These bound status detail size, **not** policy rule count or cluster node count.
+Regression tests populate every detail limit with JSON-escaped control characters
+and verify the snapshot stays below 768 KiB. Keep report metadata minimal; the
+usual Kubernetes whole-object request/storage limits still apply.
+
+Future writers must emit full collection cardinalities in `status.counts`, retain
+a deterministic first 64 details in rule-name order, and set `truncated: true`
+when entries or diagnostic text are omitted. Admission rejects counts smaller
+than stored details and omitted counted entries with `truncated: false`.
+Condition lists must remain within their documented 8-entry contract; readers
+must not infer Ready from missing or omitted conditions. Diagnostic text may be
+shortened at Unicode-character boundaries with the truncation flag set; stable
+rule identifiers and condition codes must never be silently shortened. Full
+per-rule telemetry belongs in the event/metrics pipeline, not this snapshot.
+The report is replaced, not append-only, so it does not grow over time.
+
+A future **single aggregation controller** writes policy summaries, not each node.
+`total` counts eligible nodes; `reporting` counts canonical, fresh reports for live
+policy/node UIDs and the policy's current generation. Per-node `observedGeneration`
+refers to the **parent policy generation**, not the report object's generation,
+and records the latest processed attempt, including a failed compile. On failure,
+`stale` is true and `compiled`/`lastCompiled` retain last-good information. The
+required `lastReported` heartbeat timestamps the snapshot independently of
+`lastCompiled`; reports past the configured freshness deadline are not current. Nodes without a current report are
+not Ready. `ready` counts explicit `Ready=True`, non-stale reports; `degraded`
+and `stale` are independent categories and may overlap. Read degradation from the
+full counts, not the truncated list. Every categorized count must be at most
+`reporting`, which must be at most `total`. Match `observedGeneration` and check
+`lastAggregated` freshness before trusting the summary. A generation change,
+removed node or missing report must never leave an old Ready count treated as
+current. Aggregation, cleanup, freshness expiry and status writes are deliberately
+not implemented by this API-only PR.
 
 ## Generation and validation
 
@@ -82,7 +159,7 @@ hack/verify-sandbox-crds.sh -count=1
 
 `artifacts/sandboxpolicy/*.crd.yaml` are canonical generated manifests. The chart
 copies live under `charts/kubescape-operator/crds/` in `kubescape/helm-charts`.
-Three `*.example.yaml` files exercise the API; they are not installed by the chart.
+Four `*.example.yaml` files exercise the API; they are not installed by the chart.
 The general `hack/verify-codegen.sh` compares generated manifests in temporary
 output against committed artifacts without modifying them; regression tests
 cover clean, stale, missing, obsolete and failed-generation cases.
