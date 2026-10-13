@@ -101,9 +101,11 @@ func TestExamplesRoundTrip(t *testing.T) {
 			}
 			switch p := example.object.(type) {
 			case *sandbox.SandboxPolicy:
-				err = sandbox.ValidatePolicySpec(p.Spec.PolicySpec)
+				err = sandbox.ValidateSandboxPolicySpec(p.Spec)
 			case *sandbox.ClusterSandboxPolicy:
-				err = sandbox.ValidatePolicySpec(p.Spec.PolicySpec)
+				err = sandbox.ValidateClusterSandboxPolicySpec(p.Spec)
+			case *sandbox.SandboxPolicyClasses:
+				err = sandbox.ValidatePolicyClasses(p.Spec)
 			case *sandbox.SandboxPolicyNodeStatus:
 				if p.Name != sandbox.NodeStatusName(p.Spec.PolicyRef.UID, p.Spec.NodeRef.UID) {
 					t.Fatal("example uses noncanonical report name")

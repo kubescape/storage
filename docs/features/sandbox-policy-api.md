@@ -29,6 +29,13 @@ supports them yet.
   A namespaced policy cannot contain `selector.namespaceSelector`: the schema
   explicitly rejects its presence instead of silently pruning it. Only a cluster
   policy supports that selector; omission matches all namespaces.
+- Selector shape/operators are schema-validated; full native Kubernetes
+  qualified-key and label-value syntax is a consumer check. Use
+  `ValidateSandboxPolicySpec` / `ValidateClusterSandboxPolicySpec` before compiling
+  typed policies; these call Kubernetes' own selector validator and the shared
+  semantic checks. They complement, not replace, API-server schema validation.
+  The API does not invent maximum selector-map/list counts to accommodate CEL
+  string-pattern cost estimates.
 - `containers: ["*"]` means regular containers only. Init/ephemeral container
   names must be explicit. Schema cannot inspect the selected pods to check names.
 - Policy modes: `audit`, `enforce`, `off`. Rule modes: `audit`, `enforce`, or
@@ -59,7 +66,8 @@ supports them yet.
   schema acceptance alone must not be treated as a compiled-policy guarantee.
 - Optional predicate booleans are pointers: absent means unconstrained, `false`
   is an explicit predicate. Lists within a predicate are ORed; fields are ANDed.
-- Empty class sets are valid configuration. Resolving classes, DNS/globs,
+- Empty class names are rejected by CEL and `ValidatePolicyClasses`, including
+  inline policy classes. Empty class sets are valid configuration. Resolving classes, DNS/globs,
   detecting shadowed allows, and deciding readiness/degradation are future
   consumer responsibilities. No class contents are implicitly injected by these
   API types. The classes example is illustrative, not a deployed built-in set.
