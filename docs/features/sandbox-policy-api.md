@@ -83,6 +83,9 @@ hack/verify-sandbox-crds.sh -count=1
 `artifacts/sandboxpolicy/*.crd.yaml` are canonical generated manifests. The chart
 copies live under `charts/kubescape-operator/crds/` in `kubescape/helm-charts`.
 Three `*.example.yaml` files exercise the API; they are not installed by the chart.
+The general `hack/verify-codegen.sh` compares generated manifests in temporary
+output against committed artifacts without modifying them; regression tests
+cover clean, stale, missing, obsolete and failed-generation cases.
 The regular tests pin manifest/type coverage, examples, scheme registration,
 JSON round trips, explicit-false predicates, deep copies and semantic validation.
 

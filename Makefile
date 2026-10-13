@@ -17,6 +17,7 @@ test:
 test-sandbox-api:
 	go test ./pkg/apis/sandbox/... ./hack/sandbox-crds
 	hack/verify-sandbox-crds.sh -count=1
+	hack/tests/verify-codegen-test.sh
 
 # Paired A/B of HEAD against its merge-base on this machine (Tier B of the
 # storage measurement harness). Mandatory before SHIP for any change under

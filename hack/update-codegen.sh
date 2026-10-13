@@ -164,4 +164,6 @@ else
 fi
 
 # Sandbox policies are Kubernetes CRDs, not aggregated storage resources.
-go run ./hack/sandbox-crds
+# The verifier redirects manifests to a temporary directory to detect drift
+# without repairing checked-in artifacts as a side effect.
+go run ./hack/sandbox-crds --output "${SANDBOX_CRD_OUTPUT:-artifacts/sandboxpolicy}"
