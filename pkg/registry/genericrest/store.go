@@ -356,9 +356,6 @@ func (r *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 	if err := r.Storage.GetList(ctx, key, storageOpts, list); err != nil {
 		return nil, storeerr.InterpretListError(err, r.DefaultQualifiedResource)
 	}
-	if listAccessor, err := meta.ListAccessor(list); err == nil && listAccessor.GetResourceVersion() == "" {
-		listAccessor.SetResourceVersion("1")
-	}
 	return list, nil
 }
 
