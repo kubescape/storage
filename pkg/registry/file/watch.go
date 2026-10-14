@@ -69,10 +69,18 @@ type watcher struct {
 	stop           context.CancelFunc
 	outCh, inCh    chan watch.Event
 	sendFullObject bool
+	// initialCh delivers the watch list replay; nil for a watch that starts live.
+	initialCh chan initialEvents
 }
 
 // newWatcher creates a new watcher
 func newWatcher(ctx context.Context, sendFullObject bool) *watcher {
+	return newWatcherWithInitialEvents(ctx, sendFullObject, false)
+}
+
+// newWatcherWithInitialEvents creates a watcher that, when replay is set, buffers live
+// events until the initial events arrive on initialCh and ships those first.
+func newWatcherWithInitialEvents(ctx context.Context, sendFullObject, replay bool) *watcher {
 	ctx, cn := context.WithCancel(ctx)
 	w := &watcher{
 		ctx:            ctx,
@@ -80,6 +88,9 @@ func newWatcher(ctx context.Context, sendFullObject bool) *watcher {
 		outCh:          make(chan watch.Event, 100),
 		inCh:           make(chan watch.Event),
 		sendFullObject: sendFullObject,
+	}
+	if replay {
+		w.initialCh = make(chan initialEvents, 1)
 	}
 	go w.shipIt()
 	return w
@@ -93,6 +104,9 @@ func (w *watcher) ResultChan() <-chan watch.Event { return w.outCh }
 // See discussion on constraint #3 above for rationale for this approach.
 func (w *watcher) shipIt() {
 	defer close(w.outCh)
+	if w.initialCh != nil && !w.shipInitial() {
+		return
+	}
 	for {
 		var ev watch.Event
 		select { // we want both reads and writes to be interruptable, hence complexity here.
@@ -100,12 +114,52 @@ func (w *watcher) shipIt() {
 			return
 		case ev = <-w.inCh:
 		}
-		select {
-		case <-w.ctx.Done():
+		if !w.ship(ev) {
 			return
-		case w.outCh <- ev:
 		}
 	}
+}
+
+// ship forwards one event to outCh, reporting false once the watch is gone.
+func (w *watcher) ship(ev watch.Event) bool {
+	select {
+	case <-w.ctx.Done():
+		return false
+	case w.outCh <- ev:
+		return true
+	}
+}
+
+// shipInitial keeps draining live events while the initial list is computed, then ships
+// the initial events followed by the buffered live events the list did not already hold.
+func (w *watcher) shipInitial() bool {
+	var buffered []watch.Event
+	var initial initialEvents
+	received := false
+	for !received {
+		select {
+		case <-w.ctx.Done():
+			return false
+		case ev := <-w.inCh:
+			buffered = append(buffered, ev)
+		case initial = <-w.initialCh:
+			received = true
+		}
+	}
+	for _, ev := range initial.events {
+		if !w.ship(ev) {
+			return false
+		}
+	}
+	for _, ev := range buffered {
+		if initial.covers(ev) {
+			continue
+		}
+		if !w.ship(ev) {
+			return false
+		}
+	}
+	return true
 }
 
 func (w *watcher) notify(eventFull, eventMeta watch.Event) {

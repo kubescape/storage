@@ -39,22 +39,15 @@ func TestPersistentPreRunESkipLeavesGatesUntouched(t *testing.T) {
 	assert.Equal(t, before, utilfeature.DefaultFeatureGate.Enabled(features.WatchList))
 }
 
-// TestPersistentPreRunEDisablesWatchList is the regression test for the feature-gate
-// ordering bug behind https://github.com/kubescape/storage/issues/318: the flag value used
-// to be populated only after ComponentGlobalsRegistry.Set() had already run, so the
-// WatchList override silently never applied. After the fix, PersistentPreRunE must succeed
-// (boot safety) and the gate must be effective at request time, which makes the apiserver
-// watch handler (k8s.io/apiserver/pkg/endpoints/handlers/get.go ListResource) reject
-// sendInitialEvents watch requests before the stream opens (HTTP 422). WatchList-enabled
-// clients (client-go >= v0.35 reflectors, Rancher) then use legacy list+watch instead of
-// hanging while awaiting an initial-events-end bookmark that the file-based storage never
-// sends.
-func TestPersistentPreRunEDisablesWatchList(t *testing.T) {
+// TestPersistentPreRunEKeepsWatchListEnabled pins the gate the file-based storage honours
+// since https://github.com/kubescape/storage/issues/320: PersistentPreRunE leaves WatchList
+// at its default, so the apiserver watch handler accepts sendInitialEvents watch requests
+// and the storage replays the initial events followed by the initial-events-end bookmark.
+func TestPersistentPreRunEKeepsWatchListEnabled(t *testing.T) {
 	cmd := NewCommandStartWardleServer(context.TODO(), newTestOptions(), false)
 	require.NoError(t, cmd.PersistentPreRunE(cmd, nil))
-	assert.False(t, utilfeature.DefaultFeatureGate.Enabled(features.WatchList))
+	assert.True(t, utilfeature.DefaultFeatureGate.Enabled(features.WatchList))
 
-	// Assert the exact decision point the watch handler uses with the now-effective gate.
 	opts := internalversion.ListOptions{
 		Watch:                true,
 		AllowWatchBookmarks:  true,
@@ -62,8 +55,7 @@ func TestPersistentPreRunEDisablesWatchList(t *testing.T) {
 		ResourceVersionMatch: metav1.ResourceVersionMatchNotOlderThan,
 	}
 	errs := metainternalversionvalidation.ValidateListOptions(&opts, utilfeature.DefaultFeatureGate.Enabled(features.WatchList))
-	require.NotEmpty(t, errs, "sendInitialEvents watch requests must be rejected pre-stream when WatchList is disabled")
-	assert.Contains(t, errs.ToAggregate().Error(), "sendInitialEvents is forbidden for watch")
+	assert.Empty(t, errs, "sendInitialEvents watch requests must pass the handler-level validation")
 }
 
 // TestPersistentPreRunERejectsUnknownGate ensures a stale feature-gate token (such as
