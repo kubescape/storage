@@ -197,7 +197,7 @@ func (tv testVEX) event(typ watch.EventType) watch.Event {
 }
 
 func (tv testVEX) listed() listedObject {
-	return listedObject{uid: tv.uid, created: v1.NewTime(tv.created), rv: tv.rv}
+	return listedObject{uid: tv.uid, rv: tv.rv}
 }
 
 func describeEvents(t *testing.T, events []watch.Event) []string {
@@ -299,6 +299,12 @@ func TestInitialEventsReconcileKeepsOnlyWhatTheSnapshotLacks(t *testing.T) {
 	cur := func(name, rv string) testVEX {
 		return testVEX{name: name, rv: rv, uid: types.UID(name + "-new"), created: t0.Add(time.Minute)}
 	}
+	// A replacement whose creation timestamp predates the snapshot's object: the timestamp
+	// is stamped before validation, so a request that paused there can commit after a later
+	// one was created, snapshotted and deleted.
+	stale := func(name, rv string) testVEX {
+		return testVEX{name: name, rv: rv, uid: types.UID(name + "-stale"), created: t0.Add(-time.Minute)}
+	}
 	snapshot := func(objs ...testVEX) map[string]listedObject {
 		m := map[string]listedObject{}
 		for _, o := range objs {
@@ -337,8 +343,11 @@ func TestInitialEventsReconcileKeepsOnlyWhatTheSnapshotLacks(t *testing.T) {
 		{name: "recreate after the list and an update of the replacement", listed: snapshot(old("a", "3")),
 			buffered: []watch.Event{old("a", "3").event(watch.Deleted), cur("a", "1").event(watch.Added), cur("a", "2").event(watch.Modified)},
 			want:     []string{"DELETED:a@3", "ADDED:a@1", "MODIFIED:a@2"}},
-		{name: "history of the earlier incarnation whose replacement the list holds", listed: snapshot(cur("a", "1")),
-			buffered: []watch.Event{old("a", "2").event(watch.Modified), old("a", "2").event(watch.Deleted)}},
+		{name: "recreate after the list by a request stamped before the snapshot's object", listed: snapshot(cur("a", "3")),
+			buffered: []watch.Event{cur("a", "3").event(watch.Deleted), stale("a", "1").event(watch.Added)},
+			want:     []string{"DELETED:a@3", "ADDED:a@1"}},
+		{name: "delete and recreate before the list by a request stamped before the snapshot's object", listed: snapshot(stale("a", "1")),
+			buffered: []watch.Event{cur("a", "3").event(watch.Deleted), stale("a", "1").event(watch.Added)}},
 		{name: "recreate after a delete the list saw", listed: snapshot(),
 			buffered: []watch.Event{old("b", "2").event(watch.Deleted), cur("b", "1").event(watch.Added)}, want: []string{"ADDED:b@1"}},
 		{name: "history after the update the list holds", listed: snapshot(old("a", "3")),

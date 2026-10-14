@@ -20,16 +20,20 @@ the listed objects, then the buffered events reconciled against the snapshot, an
 then the bookmark, so the state a client holds when it finishes its initial sync is one
 that existed even when the list's pages straddled writes.
 
-The reconciliation keys on the object's incarnation, its uid and creation time, because
-versions restart at every creation. For each object, the snapshot read happened at some
-point of its buffered history: the last `ADDED` or `MODIFIED` of the listed incarnation at
-the listed `resourceVersion` marks that point when the object was listed, the last
-`DELETED` marks it when it was not, and everything up to that point is dropped as already
-represented. Without such a mark, the history of an earlier incarnation of a listed name
-is dropped as superseded, and so is an `ADDED` or `MODIFIED` of the listed incarnation at
-or below the listed version; everything else ships in order, so a delete and recreate
-after the read reaches the client as a delete and an add. Writers never wait on the
-replay: the watcher keeps draining its inbound channel throughout.
+The reconciliation keys on the object's incarnation, its uid, because versions restart at
+every creation, and on event order: both backends publish an object's events while they
+still hold its per-key lock, so the buffered events of one name are in commit order. For
+each object, the snapshot read happened at some point of that history: the last `ADDED` or
+`MODIFIED` of the listed incarnation at the listed `resourceVersion` marks that point when
+the object was listed, the last `DELETED` marks it when it was not, and everything up to
+that point is dropped as already represented. Without such a mark, an `ADDED` or
+`MODIFIED` of the listed incarnation at or below the listed version is dropped as
+superseded, and an event of another incarnation of a listed name ships: that incarnation
+can only follow the snapshot's own creation, which was published before the watcher
+registered. A delete and recreate after the read therefore reaches the client as a delete
+and an add, whatever the versions or creation timestamps of the two objects. Writers do
+not wait on the list; while the replay is being shipped they wait only if the client's
+outbound buffer is full, as on any watch.
 
 The bookmark's `resourceVersion` is the one a list of the same key returns, raised to the
 version of any update shipped before it. When the client asks for a numeric minimum

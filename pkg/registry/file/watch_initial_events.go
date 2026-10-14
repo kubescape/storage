@@ -28,12 +28,11 @@ type initialEvents struct {
 	rv       uint64
 }
 
-// listedObject is what the snapshot knows about one object: which incarnation (uid and
-// creation time, since versions restart at every creation) and at which version.
+// listedObject is what the snapshot knows about one object: which incarnation, by uid,
+// since versions restart at every creation, and at which version.
 type listedObject struct {
-	uid     types.UID
-	created metav1.Time
-	rv      string
+	uid types.UID
+	rv  string
 }
 
 type eventIdentity struct {
@@ -47,7 +46,7 @@ func identify(ev watch.Event) (eventIdentity, bool) {
 		return eventIdentity{}, false
 	}
 	return eventIdentity{
-		listedObject: listedObject{uid: acc.GetUID(), created: acc.GetCreationTimestamp(), rv: acc.GetResourceVersion()},
+		listedObject: listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion()},
 		key:          listedKey(acc),
 	}, true
 }
@@ -56,38 +55,20 @@ func listedKey(acc metav1.Object) string {
 	return acc.GetNamespace() + "/" + acc.GetName()
 }
 
-// incarnation orders an event's object against the listed one: the same object, an
-// earlier incarnation of the name, or a later one. Different uids are ordered by creation
-// time; a tie counts as later so the event ships rather than being dropped.
-type incarnation int
-
-const (
-	sameIncarnation incarnation = iota
-	earlierIncarnation
-	laterIncarnation
-)
-
-func (snap listedObject) incarnationOf(ev eventIdentity) incarnation {
-	if ev.uid == snap.uid {
-		return sameIncarnation
-	}
-	if ev.created.Before(&snap.created) {
-		return earlierIncarnation
-	}
-	return laterIncarnation
-}
-
 func wantsInitialEvents(opts storage.ListOptions) bool {
 	return opts.SendInitialEvents != nil && *opts.SendInitialEvents
 }
 
 // reconcile returns the buffered live events the snapshot does not already represent, in
-// order. The snapshot read of each object happened at some point of its buffered history:
-// the last Added or Modified of the listed incarnation at the listed version marks that
-// point when the object was listed, the last Deleted marks it when it was not, and
-// everything up to the mark is already in the snapshot. Without a mark, the history of an
-// earlier incarnation of a listed name is superseded, and so is an Added or Modified of the
-// listed incarnation at or below the listed version.
+// order. Both backends publish an object's events while they still hold its per-key lock,
+// so the buffered events of one name are in commit order, and the snapshot read of each
+// object sits at some point of that history: the last Added or Modified of the listed
+// incarnation at the listed version marks that point when the object was listed, the last
+// Deleted marks it when it was not, and everything up to the mark is already in the
+// snapshot. Without a mark, an Added or Modified of the listed incarnation at or below the
+// listed version is superseded by the snapshot and dropped; an event of another incarnation
+// of a listed name can only follow the snapshot's own creation, since that creation was
+// published before the watcher registered, so it is a later incarnation and ships.
 func (ie initialEvents) reconcile(buffered []watch.Event) []watch.Event {
 	cut := make(map[string]int, len(buffered))
 	for i, ev := range buffered {
@@ -97,7 +78,7 @@ func (ie initialEvents) reconcile(buffered []watch.Event) []watch.Event {
 		}
 		snap, listed := ie.listed[id.key]
 		switch {
-		case listed && isUpsert(ev) && snap.incarnationOf(id) == sameIncarnation && id.rv == snap.rv:
+		case listed && isUpsert(ev) && id.uid == snap.uid && id.rv == snap.rv:
 			cut[id.key] = i
 		case !listed && ev.Type == watch.Deleted:
 			cut[id.key] = i
@@ -116,15 +97,8 @@ func (ie initialEvents) reconcile(buffered []watch.Event) []watch.Event {
 			}
 			continue
 		}
-		if snap, listed := ie.listed[id.key]; listed {
-			switch snap.incarnationOf(id) {
-			case earlierIncarnation:
-				continue
-			case sameIncarnation:
-				if isUpsert(ev) && !newerThan(id.rv, snap.rv) {
-					continue
-				}
-			}
+		if snap, listed := ie.listed[id.key]; listed && isUpsert(ev) && id.uid == snap.uid && !newerThan(id.rv, snap.rv) {
+			continue
 		}
 		kept = append(kept, ev)
 	}
@@ -246,7 +220,7 @@ func buildInitialEvents(ctx context.Context, lister initialLister, scheme *runti
 		if err != nil {
 			return initialEvents{}, err
 		}
-		ie.listed[listedKey(acc)] = listedObject{uid: acc.GetUID(), created: acc.GetCreationTimestamp(), rv: acc.GetResourceVersion()}
+		ie.listed[listedKey(acc)] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion()}
 		ie.events = append(ie.events, watch.Event{Type: watch.Added, Object: item})
 	}
 	if predicate.AllowWatchBookmarks {
