@@ -203,11 +203,11 @@ func TestWatchListBuffersWritesThatLandDuringTheList(t *testing.T) {
 	}
 
 	var got []string
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 3; i++ {
 		ev := nextEvent(t, w)
 		got = append(got, string(ev.Type)+":"+objectName(t, ev.Object))
 	}
-	assert.Equal(t, []string{"ADDED:listed", "BOOKMARK:", "ADDED:new", "DELETED:gone"}, got)
+	assert.Equal(t, []string{"ADDED:listed", "BOOKMARK:", "ADDED:new"}, got, "the snapshot never held gone, so its delete has nothing to undo")
 
 	later := watch.Event{Type: watch.Modified, Object: vex("listed", "4")}
 	w.notify(later, later)
@@ -218,16 +218,113 @@ func TestWatchListBuffersWritesThatLandDuringTheList(t *testing.T) {
 	assertClosed(t, w)
 }
 
-func TestInitialEventsCoversOnlyListedState(t *testing.T) {
-	vex := func(name, rv string) *softwarecomposition.OpenVulnerabilityExchangeContainer {
-		return &softwarecomposition.OpenVulnerabilityExchangeContainer{ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "kubescape", ResourceVersion: rv}}
+func TestInitialEventsReconcileKeepsOnlyWhatTheSnapshotLacks(t *testing.T) {
+	ev := func(typ watch.EventType, name, rv string) watch.Event {
+		return watch.Event{Type: typ, Object: &softwarecomposition.OpenVulnerabilityExchangeContainer{ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "kubescape", ResourceVersion: rv}}}
 	}
-	ie := initialEvents{listed: map[string]string{"kubescape/a": "3"}}
-	assert.True(t, ie.covers(watch.Event{Type: watch.Added, Object: vex("a", "3")}))
-	assert.True(t, ie.covers(watch.Event{Type: watch.Modified, Object: vex("a", "3")}))
-	assert.False(t, ie.covers(watch.Event{Type: watch.Modified, Object: vex("a", "4")}), "a newer version is not covered")
-	assert.False(t, ie.covers(watch.Event{Type: watch.Added, Object: vex("b", "3")}), "an unlisted object is not covered")
-	assert.False(t, ie.covers(watch.Event{Type: watch.Deleted, Object: vex("a", "3")}), "a delete is never covered")
+	describe := func(events []watch.Event) []string {
+		var out []string
+		for _, e := range events {
+			acc, _ := meta.Accessor(e.Object)
+			out = append(out, string(e.Type)+":"+acc.GetName()+"@"+acc.GetResourceVersion())
+		}
+		return out
+	}
+	tests := []struct {
+		name     string
+		listed   map[string]string
+		buffered []watch.Event
+		want     []string
+	}{
+		{name: "two updates before the list", listed: map[string]string{"kubescape/a": "3"},
+			buffered: []watch.Event{ev(watch.Modified, "a", "2"), ev(watch.Modified, "a", "3")}},
+		{name: "delete and recreate before the list", listed: map[string]string{"kubescape/a": "1"},
+			buffered: []watch.Event{ev(watch.Deleted, "a", "3"), ev(watch.Added, "a", "1")}},
+		{name: "delete before the list", listed: map[string]string{},
+			buffered: []watch.Event{ev(watch.Deleted, "a", "3")}},
+		{name: "create and delete before the list", listed: map[string]string{},
+			buffered: []watch.Event{ev(watch.Added, "b", "1"), ev(watch.Deleted, "b", "1")}},
+		{name: "stale update whose successor the list already holds", listed: map[string]string{"kubescape/a": "3"},
+			buffered: []watch.Event{ev(watch.Modified, "a", "2")}},
+		{name: "create after the list", listed: map[string]string{},
+			buffered: []watch.Event{ev(watch.Added, "b", "1")}, want: []string{"ADDED:b@1"}},
+		{name: "update after the list", listed: map[string]string{"kubescape/a": "3"},
+			buffered: []watch.Event{ev(watch.Modified, "a", "4")}, want: []string{"MODIFIED:a@4"}},
+		{name: "delete after the list", listed: map[string]string{"kubescape/a": "3"},
+			buffered: []watch.Event{ev(watch.Deleted, "a", "3")}, want: []string{"DELETED:a@3"}},
+		{name: "history after the update the list holds", listed: map[string]string{"kubescape/a": "3"},
+			buffered: []watch.Event{ev(watch.Modified, "a", "3"), ev(watch.Deleted, "a", "3"), ev(watch.Added, "a", "1")},
+			want:     []string{"DELETED:a@3", "ADDED:a@1"}},
+		{name: "recreate after a delete the list saw", listed: map[string]string{},
+			buffered: []watch.Event{ev(watch.Deleted, "b", "2"), ev(watch.Added, "b", "1")}, want: []string{"ADDED:b@1"}},
+		{name: "other objects keep their own order", listed: map[string]string{"kubescape/a": "3"},
+			buffered: []watch.Event{ev(watch.Added, "b", "1"), ev(watch.Modified, "a", "3"), ev(watch.Modified, "b", "2"), ev(watch.Modified, "a", "4")},
+			want:     []string{"ADDED:b@1", "MODIFIED:b@2", "MODIFIED:a@4"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ie := initialEvents{listed: tt.listed}
+			assert.Equal(t, tt.want, describe(ie.reconcile(tt.buffered)))
+		})
+	}
+}
+
+func TestWatchListRejectsAMinimumVersionAboveTheSnapshot(t *testing.T) {
+	s := newWatchListStorage(t)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	opts := watchListOptions(true)
+	opts.ResourceVersion = "100"
+	_, err := s.Watch(ctx, vexRootKey, opts)
+	require.Error(t, err, "an empty collection cannot be shown to be at least as new as version 100")
+	assert.True(t, apierrors.HasStatusCause(err, v1.CauseTypeResourceVersionTooLarge), err.Error())
+
+	createVEX(t, ctx, s, "a", nil)
+	for _, rv := range []string{"", "0", "1"} {
+		opts.ResourceVersion = rv
+		w, err := s.Watch(ctx, vexRootKey, opts)
+		require.NoError(t, err, "resourceVersion %q", rv)
+		require.Equal(t, watch.Added, nextEvent(t, w).Type)
+		bookmark := nextEvent(t, w)
+		require.Equal(t, watch.Bookmark, bookmark.Type)
+		acc, err := meta.Accessor(bookmark.Object)
+		require.NoError(t, err)
+		assert.Equal(t, "1", acc.GetResourceVersion())
+		w.Stop()
+	}
+}
+
+func TestWatchListNamedReplayReadsLikeTheList(t *testing.T) {
+	s := newWatchListStorage(t)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+	createVEX(t, ctx, s, "a", nil)
+
+	named := watchListOptions(true)
+	named.Recursive = false
+	w, err := s.Watch(ctx, vexRootKey+"/a", named)
+	require.NoError(t, err)
+	defer w.Stop()
+	ev := nextEvent(t, w)
+	require.Equal(t, watch.Added, ev.Type)
+	assert.Equal(t, "a", objectName(t, ev.Object))
+	assert.Empty(t, ev.Object.(*softwarecomposition.OpenVulnerabilityExchangeContainer).Spec.ID, "a default named replay is metadata only")
+	assert.Equal(t, watch.Bookmark, nextEvent(t, w).Type)
+
+	named.ResourceVersion = softwarecomposition.ResourceVersionFullSpec
+	full, err := s.Watch(ctx, vexRootKey+"/a", named)
+	require.NoError(t, err)
+	defer full.Stop()
+	ev = nextEvent(t, full)
+	require.Equal(t, watch.Added, ev.Type)
+	assert.Equal(t, "vex-a", ev.Object.(*softwarecomposition.OpenVulnerabilityExchangeContainer).Spec.ID)
+
+	named.ResourceVersion = ""
+	missing, err := s.Watch(ctx, vexRootKey+"/absent", named)
+	require.NoError(t, err)
+	defer missing.Stop()
+	assert.Equal(t, watch.Bookmark, nextEvent(t, missing).Type, "a named watch on an absent object starts with just the bookmark")
 }
 
 func TestImmutableStorageWatchRefusesWatchList(t *testing.T) {
@@ -253,6 +350,7 @@ func TestNewObjectsForKeyResolvesRegisteredResources(t *testing.T) {
 		wantList interface{}
 	}{
 		{key: "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/n", wantItem: &softwarecomposition.ContainerProfile{}, wantList: &softwarecomposition.ContainerProfileList{}},
+		{key: "/spdx.softwarecomposition.kubescape.io/containerprofile/kubescape/n", wantItem: &softwarecomposition.ContainerProfile{}, wantList: &softwarecomposition.ContainerProfileList{}},
 		{key: "/spdx.softwarecomposition.kubescape.io/sbomsyftfiltereds", wantItem: &softwarecomposition.SBOMSyftFiltered{}, wantList: &softwarecomposition.SBOMSyftFilteredList{}},
 		{key: "/spdx.softwarecomposition.kubescape.io/knownservers", wantItem: &softwarecomposition.KnownServer{}, wantList: &softwarecomposition.KnownServerList{}},
 		{key: "/spdx.softwarecomposition.kubescape.io/vulnerabilitymanifestsummaries/ns", wantItem: &softwarecomposition.VulnerabilityManifestSummary{}, wantList: &softwarecomposition.VulnerabilityManifestSummaryList{}},

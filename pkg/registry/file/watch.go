@@ -151,10 +151,7 @@ func (w *watcher) shipInitial() bool {
 			return false
 		}
 	}
-	for _, ev := range buffered {
-		if initial.covers(ev) {
-			continue
-		}
+	for _, ev := range initial.reconcile(buffered) {
 		if !w.ship(ev) {
 			return false
 		}
