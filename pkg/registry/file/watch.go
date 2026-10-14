@@ -131,7 +131,8 @@ func (w *watcher) ship(ev watch.Event) bool {
 }
 
 // shipInitial keeps draining live events while the initial list is computed, then ships
-// the initial events followed by the buffered live events the list did not already hold.
+// the listed objects, the buffered live events the list did not already hold, and only
+// then the bookmark, so the state the client holds at the bookmark is one that existed.
 func (w *watcher) shipInitial() bool {
 	var buffered []watch.Event
 	var initial initialEvents
@@ -151,10 +152,14 @@ func (w *watcher) shipInitial() bool {
 			return false
 		}
 	}
-	for _, ev := range initial.reconcile(buffered) {
+	shipped := initial.reconcile(buffered)
+	for _, ev := range shipped {
 		if !w.ship(ev) {
 			return false
 		}
+	}
+	if bookmark, ok := initial.bookmarkEvent(shipped); ok && !w.ship(bookmark) {
+		return false
 	}
 	return true
 }
