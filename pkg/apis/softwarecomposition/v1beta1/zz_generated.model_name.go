@@ -142,6 +142,11 @@ func (in CvssMetrics) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in DNSLookup) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.DNSLookup"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Descriptor) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.Descriptor"
 }

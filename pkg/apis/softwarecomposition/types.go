@@ -352,6 +352,13 @@ func (p *ContainerProfile) SetLearningStatus(ts TimeSeriesContainers) {
 }
 
 type ContainerProfileSpec struct {
+	// DNSLookups is learned from answered DNS responses, independently of connections.
+	DNSLookups []DNSLookup `json:"dnsLookups,omitempty" protobuf:"bytes,12,rep,name=dnsLookups"`
+	// DNSBaselineVersion distinguishes DNS-aware profiles from older profiles requiring relearning.
+	DNSBaselineVersion string `json:"dnsBaselineVersion,omitempty" protobuf:"bytes,13,opt,name=dnsBaselineVersion"`
+	// DNSBaselineTruncated makes an incomplete baseline unsuitable for anomaly matching.
+	DNSBaselineTruncated bool `json:"dnsBaselineTruncated,omitempty" protobuf:"varint,14,opt,name=dnsBaselineTruncated"`
+
 	// WARNING report the execution/profile fields here
 	Architectures        []string
 	Capabilities         []string
@@ -383,6 +390,13 @@ type ContainerProfileSpec struct {
 // multi-container ContainerProfile document: the union of the legacy
 // ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
 type ContainerProfileContainer struct {
+	// DNSLookups is learned from answered DNS responses, independently of connections.
+	DNSLookups []DNSLookup `json:"dnsLookups,omitempty" protobuf:"bytes,12,rep,name=dnsLookups"`
+	// DNSBaselineVersion distinguishes DNS-aware profiles from older profiles requiring relearning.
+	DNSBaselineVersion string `json:"dnsBaselineVersion,omitempty" protobuf:"bytes,13,opt,name=dnsBaselineVersion"`
+	// DNSBaselineTruncated makes an incomplete baseline unsuitable for anomaly matching.
+	DNSBaselineTruncated bool `json:"dnsBaselineTruncated,omitempty" protobuf:"varint,14,opt,name=dnsBaselineTruncated"`
+
 	Name                 string
 	Capabilities         []string
 	Execs                []ExecCalls
@@ -856,4 +870,12 @@ type SeccompProfileList struct {
 	metav1.ListMeta
 
 	Items []SeccompProfile
+}
+
+// DNSLookup records one resolved name and all executable paths that looked it up.
+// Addresses are supporting evidence, never the DNS matching key.
+type DNSLookup struct {
+	Name      string   `json:"name" protobuf:"bytes,1,opt,name=name"`
+	ExePaths  []string `json:"exePaths,omitempty" protobuf:"bytes,2,rep,name=exePaths"`
+	Addresses []string `json:"addresses,omitempty" protobuf:"bytes,3,rep,name=addresses"`
 }
