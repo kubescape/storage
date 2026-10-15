@@ -41,3 +41,17 @@ func TestDNSBaselineProtobufAndDeepCopy(t *testing.T) {
 	copy.Spec.DNSLookups[0].ExePaths[0] = "changed"
 	require.Equal(t, "/app", profile.Spec.DNSLookups[0].ExePaths[0])
 }
+
+func TestDNSBaselineMixedVersionsStayUnavailable(t *testing.T) {
+	for _, versions := range [][]string{{"", "v1"}, {"v1", ""}} {
+		profile := &softwarecomposition.ContainerProfile{}
+		for _, version := range versions {
+			mergeContainerProfileTS(profile, &softwarecomposition.ContainerProfile{Spec: softwarecomposition.ContainerProfileSpec{DNSBaselineVersion: version}})
+		}
+		require.True(t, profile.Spec.DNSBaselineTruncated)
+	}
+	profile := &softwarecomposition.ContainerProfile{Spec: softwarecomposition.ContainerProfileSpec{Architectures: []string{"amd64"}}}
+	mergeContainerProfileTS(profile, &softwarecomposition.ContainerProfile{Spec: softwarecomposition.ContainerProfileSpec{DNSBaselineVersion: "v1"}})
+	require.Equal(t, "legacy", profile.Spec.DNSBaselineVersion)
+	require.True(t, profile.Spec.DNSBaselineTruncated)
+}

@@ -315,6 +315,9 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	size += len(profile.Spec.IdentifiedCallStacks)
 	size += len(profile.Spec.Ingress)
 	size += len(profile.Spec.Egress)
+	for _, lookup := range profile.Spec.DNSLookups {
+		size += 1 + len(lookup.ExePaths) + len(lookup.Addresses)
+	}
 
 	// make sure annotations are initialized
 	if profile.Annotations == nil {
@@ -1251,6 +1254,23 @@ func isZeroTime(s string) bool {
 
 // mergeContainerProfileTS is copied from node-agent but works on the softwarecomposition internal type
 func mergeContainerProfileTS(profile, tsProfile *softwarecomposition.ContainerProfile) {
+	// Every source report must be DNS-aware. A mixed-version learning window
+	// cannot prove that unobserved names were absent; keep that loss sticky.
+	incomingDNSVersion := tsProfile.Spec.DNSBaselineVersion
+	if incomingDNSVersion == "" {
+		incomingDNSVersion = "legacy"
+	}
+	if profile.Spec.DNSBaselineVersion == "" {
+		if len(profile.Spec.Architectures) > 0 || profile.Spec.ImageID != "" || profile.Spec.ImageTag != "" {
+			profile.Spec.DNSBaselineVersion = "legacy"
+		} else {
+			profile.Spec.DNSBaselineVersion = incomingDNSVersion
+		}
+	}
+	if profile.Spec.DNSBaselineVersion != incomingDNSVersion {
+		profile.Spec.DNSBaselineTruncated = true
+	}
+
 	// merge annotations
 	profile.Annotations = utils.MergeMaps(profile.Annotations, tsProfile.Annotations,
 		helpers.CompletionMetadataKey, helpers.PreviousReportTimestampMetadataKey,
@@ -1288,9 +1308,7 @@ func mergeContainerProfileTS(profile, tsProfile *softwarecomposition.ContainerPr
 		profile.Spec.DNSLookups = profile.Spec.DNSLookups[:MaxDNSBaselineNames]
 	}
 	profile.Spec.DNSBaselineTruncated = profile.Spec.DNSBaselineTruncated || tsProfile.Spec.DNSBaselineTruncated
-	if tsProfile.Spec.DNSBaselineVersion != "" {
-		profile.Spec.DNSBaselineVersion = tsProfile.Spec.DNSBaselineVersion
-	}
+
 }
 
 // mergePolicies is copied from node-agent but works on the softwarecomposition internal type

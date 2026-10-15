@@ -52,3 +52,11 @@ func TestContainerProfilePreSave_SizeAnnotations(t *testing.T) {
 		}
 	}
 }
+
+func TestContainerProfilePreSave_DNSCountsNamesProcessesAndAddresses(t *testing.T) {
+	profile := &softwarecomposition.ContainerProfile{ObjectMeta: metav1.ObjectMeta{Name: "dns-profile"}, Spec: softwarecomposition.ContainerProfileSpec{DNSBaselineVersion: "v1", DNSLookups: []softwarecomposition.DNSLookup{{Name: "example.com.", ExePaths: []string{"/app", "/usr/bin/python3"}, Addresses: []string{"192.0.2.1"}}}}}
+	processor := ContainerProfileProcessor{MaxContainerProfileSize: 3, ContainerProfileStorage: &fakeStorage{}}
+	require.NoError(t, processor.PreSave(t.Context(), profile))
+	require.Equal(t, "4", profile.Annotations[helpersv1.ResourceSizeMetadataKey])
+	require.Equal(t, helpersv1.TooLarge, profile.Annotations[helpersv1.StatusMetadataKey])
+}

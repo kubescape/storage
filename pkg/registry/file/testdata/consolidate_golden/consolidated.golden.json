@@ -1,4 +1,5 @@
 {
+  "dnsBaselineVersion": "legacy",
   "Architectures": [
     "amd64",
     "arm64"
