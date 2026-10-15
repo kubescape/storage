@@ -131,8 +131,9 @@ func (w *watcher) ship(ev watch.Event) bool {
 }
 
 // shipInitial keeps draining live events while the initial list is computed, then ships
-// the listed objects, the buffered live events the list did not already hold, and only
-// then the bookmark, so the state the client holds at the bookmark is one that existed.
+// the listed objects, the transitions to the committed state of every object a buffered
+// event touched, and only then the bookmark, so the state the client holds at the bookmark
+// is one the store held. A failed re-read ends the watch with an error event instead.
 func (w *watcher) shipInitial() bool {
 	var buffered []watch.Event
 	var initial initialEvents
@@ -152,7 +153,11 @@ func (w *watcher) shipInitial() bool {
 			return false
 		}
 	}
-	shipped := initial.reconcile(buffered)
+	shipped, err := initial.reconcile(w.ctx, buffered)
+	if err != nil {
+		w.ship(errorEvent(err))
+		return false
+	}
 	for _, ev := range shipped {
 		if !w.ship(ev) {
 			return false

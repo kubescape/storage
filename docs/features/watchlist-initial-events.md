@@ -20,20 +20,21 @@ the listed objects, then the buffered events reconciled against the snapshot, an
 then the bookmark, so the state a client holds when it finishes its initial sync is one
 that existed even when the list's pages straddled writes.
 
-The reconciliation keys on the object's incarnation, its uid, because versions restart at
-every creation, and on event order: both backends publish an object's events while they
-still hold its per-key lock, so the buffered events of one name are in commit order. For
-each object, the snapshot read happened at some point of that history: the last `ADDED` or
-`MODIFIED` of the listed incarnation at the listed `resourceVersion` marks that point when
-the object was listed, the last `DELETED` marks it when it was not, and everything up to
-that point is dropped as already represented. Without such a mark, an `ADDED` or
-`MODIFIED` of the listed incarnation at or below the listed version is dropped as
-superseded, and an event of another incarnation of a listed name ships: that incarnation
-can only follow the snapshot's own creation, which was published before the watcher
-registered. A delete and recreate after the read therefore reaches the client as a delete
-and an add, whatever the versions or creation timestamps of the two objects. Writers do
-not wait on the list; while the replay is being shipped they wait only if the client's
-outbound buffer is full, as on any watch.
+The buffered events are not trusted for the state itself: both backends publish an
+object's events after releasing their lock on it, so two updates can be published in the
+wrong order, and the replay must not finish a client's initial sync on an older version
+than the store holds. The buffered events only say which objects moved. Once the list is
+in, every object a buffered event names is re-read, after the list and so after any write
+the list could have straddled, and the client gets the transition from the snapshot to
+what the store holds now: nothing when the object is unchanged, a `MODIFIED` when the same
+incarnation (the uid, since versions restart at every creation) has a newer version, a
+`DELETED` when it is gone, an `ADDED` when it was not listed, and a `DELETED` followed by an
+`ADDED` when the name now belongs to another incarnation. A re-read that fails ends the
+watch with an error event instead of a bookmark, so the client relists. Writers do not
+wait on the list; while the replay is being shipped they wait only if the client's
+outbound buffer is full, as on any watch. A notification that is published after the
+re-read but belongs to an older commit reaches the client live, as it would on any watch;
+that weakness of the live stream predates the replay.
 
 The bookmark's `resourceVersion` is the one a list of the same key returns, raised to the
 version of any update shipped before it. When the client asks for a numeric minimum
@@ -58,10 +59,15 @@ list plus watch, where the watch is the idle one from #330.
 
 - `pkg/registry/file/watch_initial_events_test.go`: replay order and bookmark, selector and
   full-spec handling, the buffering of writes that land during the list with the bookmark
-  last, writes between list pages applied before the bookmark, the reconciliation table
-  (updates, deletes and recreates before and after the snapshot, across incarnations),
-  the bookmark version, the minimum-version refusal, named replays on both backends, the
-  computed-resource rejection.
+  last, writes between list pages applied before the bookmark, a failed re-read ending the
+  watch with an error, the transition table against a stub store (updates and deletes
+  before and after the snapshot, recreates on either side of it, notifications published
+  out of commit order, writes whose publication is still pending), the object key for
+  namespaced, all-namespace, cluster-scoped and named watches, the bookmark version, the
+  minimum-version refusal, named replays on both backends, the computed-resource rejection.
+- `pkg/registry/file/watch_initial_events_objectstore_test.go`: the same against the real
+  ContainerProfile SQLite backend, including the reordered update and delete-recreate
+  sequences.
 - `pkg/registry/genericrest/store_watchlist_test.go`: a client-go reflector in watch-list
   mode syncs from the `Store` and receives later writes on the same stream without ever
   calling `List`.

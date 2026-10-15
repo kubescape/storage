@@ -16,6 +16,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/watch"
@@ -197,7 +198,57 @@ func (tv testVEX) event(typ watch.EventType) watch.Event {
 }
 
 func (tv testVEX) listed() listedObject {
-	return listedObject{uid: tv.uid, rv: tv.rv}
+	return listedObject{uid: tv.uid, rv: tv.rv, obj: tv.object()}
+}
+
+// stubStore is the store the replay re-reads from in the watcher-level tests: a fixed map
+// of object key to the committed object, or an error.
+type stubStore struct {
+	objects map[string]*softwarecomposition.OpenVulnerabilityExchangeContainer
+	err     error
+	reads   []string
+}
+
+func (st *stubStore) Get(_ context.Context, key string, _ storage.GetOptions, objPtr runtime.Object) error {
+	st.reads = append(st.reads, key)
+	if st.err != nil {
+		return st.err
+	}
+	if obj, ok := st.objects[key]; ok {
+		obj.DeepCopyInto(objPtr.(*softwarecomposition.OpenVulnerabilityExchangeContainer))
+		return nil
+	}
+	return runtime.SetZeroValue(objPtr)
+}
+
+func (st *stubStore) GetList(context.Context, string, storage.ListOptions, runtime.Object) error {
+	return nil
+}
+
+func stubInitialEvents(store *stubStore, bookmark bool, snapshot ...testVEX) initialEvents {
+	ie := initialEvents{
+		listed:    map[string]listedObject{},
+		lister:    store,
+		newObject: func() runtime.Object { return &softwarecomposition.OpenVulnerabilityExchangeContainer{} },
+		key:       vexRootKey,
+		recursive: true,
+		readRV:    softwarecomposition.ResourceVersionMetadata,
+	}
+	for _, o := range snapshot {
+		ie.listed["kubescape/"+o.name] = o.listed()
+		ie.events = append(ie.events, o.event(watch.Added))
+		if rv, err := strconv.ParseUint(o.rv, 10, 64); err == nil && rv > ie.rv {
+			ie.rv = rv
+		}
+	}
+	if bookmark {
+		bm := &softwarecomposition.OpenVulnerabilityExchangeContainer{}
+		if err := storage.AnnotateInitialEventsEndBookmark(bm); err != nil {
+			panic(err)
+		}
+		ie.bookmark = bm
+	}
+	return ie
 }
 
 func describeEvents(t *testing.T, events []watch.Event) []string {
@@ -237,18 +288,15 @@ func TestWatchListBuffersWritesThatLandDuringTheList(t *testing.T) {
 	for _, ev := range []watch.Event{listed.event(watch.Added), fresh.event(watch.Added), gone.event(watch.Deleted)} {
 		w.notify(ev, ev)
 	}
-
-	bookmark := &softwarecomposition.OpenVulnerabilityExchangeContainer{}
-	require.NoError(t, storage.AnnotateInitialEventsEndBookmark(bookmark))
-	w.initialCh <- initialEvents{
-		events:   []watch.Event{listed.event(watch.Added)},
-		listed:   map[string]listedObject{"kubescape/listed": listed.listed()},
-		bookmark: bookmark,
-		rv:       3,
-	}
+	store := &stubStore{objects: map[string]*softwarecomposition.OpenVulnerabilityExchangeContainer{
+		vexRootKey + "/listed": listed.object(),
+		vexRootKey + "/new":    fresh.object(),
+	}}
+	w.initialCh <- stubInitialEvents(store, true, listed)
 
 	got := collectEvents(t, w, 3)
 	assert.Equal(t, []string{"ADDED:listed@3", "ADDED:new@7", "BOOKMARK:@7"}, describeEvents(t, got), "the bookmark comes after the reconciled events and carries the version the client then holds")
+	assert.ElementsMatch(t, []string{vexRootKey + "/listed", vexRootKey + "/new", vexRootKey + "/gone"}, store.reads, "every touched object is re-read once")
 
 	later := testVEX{name: "listed", rv: "4", uid: "listed-uid", created: now}.event(watch.Modified)
 	w.notify(later, later)
@@ -273,14 +321,8 @@ func TestWatchListReconcilesWritesBetweenListPagesBeforeTheBookmark(t *testing.T
 	for _, ev := range []watch.Event{a.event(watch.Deleted), b.event(watch.Modified)} {
 		w.notify(ev, ev)
 	}
-	bookmark := &softwarecomposition.OpenVulnerabilityExchangeContainer{}
-	require.NoError(t, storage.AnnotateInitialEventsEndBookmark(bookmark))
-	w.initialCh <- initialEvents{
-		events:   []watch.Event{a.event(watch.Added), b.event(watch.Added)},
-		listed:   map[string]listedObject{"kubescape/a": a.listed(), "kubescape/b": b.listed()},
-		bookmark: bookmark,
-		rv:       2,
-	}
+	store := &stubStore{objects: map[string]*softwarecomposition.OpenVulnerabilityExchangeContainer{vexRootKey + "/b": b.object()}}
+	w.initialCh <- stubInitialEvents(store, true, a, b)
 
 	got := collectEvents(t, w, 4)
 	assert.Equal(t, []string{"ADDED:a@1", "ADDED:b@2", "DELETED:a@1", "BOOKMARK:@2"}, describeEvents(t, got))
@@ -291,78 +333,97 @@ func TestWatchListReconcilesWritesBetweenListPagesBeforeTheBookmark(t *testing.T
 	assertClosed(t, w)
 }
 
-func TestInitialEventsReconcileKeepsOnlyWhatTheSnapshotLacks(t *testing.T) {
-	t0 := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
-	old := func(name, rv string) testVEX {
-		return testVEX{name: name, rv: rv, uid: types.UID(name + "-old"), created: t0}
-	}
-	cur := func(name, rv string) testVEX {
-		return testVEX{name: name, rv: rv, uid: types.UID(name + "-new"), created: t0.Add(time.Minute)}
-	}
-	// A replacement whose creation timestamp predates the snapshot's object: the timestamp
-	// is stamped before validation, so a request that paused there can commit after a later
-	// one was created, snapshotted and deleted.
-	stale := func(name, rv string) testVEX {
-		return testVEX{name: name, rv: rv, uid: types.UID(name + "-stale"), created: t0.Add(-time.Minute)}
-	}
-	snapshot := func(objs ...testVEX) map[string]listedObject {
-		m := map[string]listedObject{}
+func TestWatchListEndsWithAnErrorWhenTheReReadFails(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	w := newWatcherWithInitialEvents(ctx, false, true)
+	a := testVEX{name: "a", rv: "1", uid: "a-uid"}
+	ev := a.event(watch.Modified)
+	w.notify(ev, ev)
+	w.initialCh <- stubInitialEvents(&stubStore{err: assert.AnError}, true, a)
+
+	got := collectEvents(t, w, 2)
+	assert.Equal(t, watch.Added, got[0].Type)
+	assert.Equal(t, watch.Error, got[1].Type, "a state nobody could confirm is not declared synchronized")
+	assertClosed(t, w)
+}
+
+func TestInitialEventsReconcileShipsTheTransitionToTheCommittedState(t *testing.T) {
+	old := func(name, rv string) testVEX { return testVEX{name: name, rv: rv, uid: types.UID(name + "-old")} }
+	cur := func(name, rv string) testVEX { return testVEX{name: name, rv: rv, uid: types.UID(name + "-new")} }
+	committed := func(objs ...testVEX) map[string]*softwarecomposition.OpenVulnerabilityExchangeContainer {
+		m := map[string]*softwarecomposition.OpenVulnerabilityExchangeContainer{}
 		for _, o := range objs {
-			m["kubescape/"+o.name] = o.listed()
+			m[vexRootKey+"/"+o.name] = o.object()
 		}
 		return m
 	}
 	tests := []struct {
-		name     string
-		listed   map[string]listedObject
-		buffered []watch.Event
-		want     []string
+		name      string
+		snapshot  []testVEX
+		buffered  []watch.Event
+		committed map[string]*softwarecomposition.OpenVulnerabilityExchangeContainer
+		want      []string
 	}{
-		{name: "two updates before the list", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{old("a", "2").event(watch.Modified), old("a", "3").event(watch.Modified)}},
-		{name: "stale update whose successor the list already holds", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{old("a", "2").event(watch.Modified)}},
-		{name: "update after the list", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{old("a", "4").event(watch.Modified)}, want: []string{"MODIFIED:a@4"}},
-		{name: "delete after the list", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{old("a", "3").event(watch.Deleted)}, want: []string{"DELETED:a@3"}},
-		{name: "delete before the list", listed: snapshot(),
-			buffered: []watch.Event{old("a", "3").event(watch.Deleted)}},
-		{name: "create after the list", listed: snapshot(),
-			buffered: []watch.Event{cur("b", "1").event(watch.Added)}, want: []string{"ADDED:b@1"}},
-		{name: "create and delete before the list", listed: snapshot(),
-			buffered: []watch.Event{cur("b", "1").event(watch.Added), cur("b", "1").event(watch.Deleted)}},
-		{name: "delete and recreate before the list", listed: snapshot(cur("a", "1")),
-			buffered: []watch.Event{old("a", "3").event(watch.Deleted), cur("a", "1").event(watch.Added)}},
-		{name: "recreate after the list at a lower version", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{old("a", "3").event(watch.Deleted), cur("a", "1").event(watch.Added)},
-			want:     []string{"DELETED:a@3", "ADDED:a@1"}},
-		{name: "recreate after the list at the same version", listed: snapshot(old("a", "1")),
-			buffered: []watch.Event{old("a", "1").event(watch.Deleted), cur("a", "1").event(watch.Added)},
-			want:     []string{"DELETED:a@1", "ADDED:a@1"}},
-		{name: "recreate after the list and an update of the replacement", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{old("a", "3").event(watch.Deleted), cur("a", "1").event(watch.Added), cur("a", "2").event(watch.Modified)},
-			want:     []string{"DELETED:a@3", "ADDED:a@1", "MODIFIED:a@2"}},
-		{name: "recreate after the list by a request stamped before the snapshot's object", listed: snapshot(cur("a", "3")),
-			buffered: []watch.Event{cur("a", "3").event(watch.Deleted), stale("a", "1").event(watch.Added)},
-			want:     []string{"DELETED:a@3", "ADDED:a@1"}},
-		{name: "delete and recreate before the list by a request stamped before the snapshot's object", listed: snapshot(stale("a", "1")),
-			buffered: []watch.Event{cur("a", "3").event(watch.Deleted), stale("a", "1").event(watch.Added)}},
-		{name: "recreate after a delete the list saw", listed: snapshot(),
-			buffered: []watch.Event{old("b", "2").event(watch.Deleted), cur("b", "1").event(watch.Added)}, want: []string{"ADDED:b@1"}},
-		{name: "history after the update the list holds", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{old("a", "3").event(watch.Modified), old("a", "3").event(watch.Deleted), cur("a", "1").event(watch.Added)},
-			want:     []string{"DELETED:a@3", "ADDED:a@1"}},
-		{name: "other objects keep their own order", listed: snapshot(old("a", "3")),
-			buffered: []watch.Event{cur("b", "1").event(watch.Added), old("a", "3").event(watch.Modified), cur("b", "2").event(watch.Modified), old("a", "4").event(watch.Modified)},
-			want:     []string{"ADDED:b@1", "MODIFIED:b@2", "MODIFIED:a@4"}},
+		{name: "two updates before the list, published in order", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{old("a", "2").event(watch.Modified), old("a", "3").event(watch.Modified)}, committed: committed(old("a", "3"))},
+		{name: "two updates before the list, published out of order", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{old("a", "3").event(watch.Modified), old("a", "2").event(watch.Modified)}, committed: committed(old("a", "3"))},
+		{name: "updates after the list, published out of order", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{old("a", "5").event(watch.Modified), old("a", "4").event(watch.Modified)}, committed: committed(old("a", "5")),
+			want: []string{"MODIFIED:a@5"}},
+		{name: "update after the list whose publication is still pending", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{old("a", "4").event(watch.Modified)}, committed: committed(old("a", "6")),
+			want: []string{"MODIFIED:a@6"}},
+		{name: "delete after the list", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{old("a", "3").event(watch.Deleted)}, committed: committed(),
+			want: []string{"DELETED:a@3"}},
+		{name: "delete before the list", snapshot: nil,
+			buffered: []watch.Event{old("a", "3").event(watch.Deleted)}, committed: committed()},
+		{name: "create after the list", snapshot: nil,
+			buffered: []watch.Event{cur("b", "1").event(watch.Added)}, committed: committed(cur("b", "1")),
+			want: []string{"ADDED:b@1"}},
+		{name: "create and delete around the list", snapshot: nil,
+			buffered: []watch.Event{cur("b", "1").event(watch.Added), cur("b", "1").event(watch.Deleted)}, committed: committed()},
+		{name: "delete and recreate before the list", snapshot: []testVEX{cur("a", "1")},
+			buffered: []watch.Event{old("a", "3").event(watch.Deleted), cur("a", "1").event(watch.Added)}, committed: committed(cur("a", "1"))},
+		{name: "delete and recreate after the list", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{old("a", "3").event(watch.Deleted), cur("a", "1").event(watch.Added)}, committed: committed(cur("a", "1")),
+			want: []string{"DELETED:a@3", "ADDED:a@1"}},
+		{name: "delete and recreate after the list, published out of order", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{cur("a", "1").event(watch.Added), old("a", "3").event(watch.Deleted)}, committed: committed(cur("a", "1")),
+			want: []string{"DELETED:a@3", "ADDED:a@1"}},
+		{name: "recreate after the list whose creation is still unpublished", snapshot: []testVEX{old("a", "3")},
+			buffered: []watch.Event{old("a", "3").event(watch.Deleted)}, committed: committed(cur("a", "1")),
+			want: []string{"DELETED:a@3", "ADDED:a@1"}},
+		{name: "recreate at the same version", snapshot: []testVEX{old("a", "1")},
+			buffered: []watch.Event{old("a", "1").event(watch.Deleted), cur("a", "1").event(watch.Added)}, committed: committed(cur("a", "1")),
+			want: []string{"DELETED:a@1", "ADDED:a@1"}},
+		{name: "several objects, each at its committed state", snapshot: []testVEX{old("a", "3"), old("c", "1")},
+			buffered:  []watch.Event{cur("b", "1").event(watch.Added), old("a", "4").event(watch.Modified), old("c", "1").event(watch.Deleted), cur("b", "2").event(watch.Modified)},
+			committed: committed(cur("b", "2"), old("a", "4")),
+			want:      []string{"ADDED:b@2", "MODIFIED:a@4", "DELETED:c@1"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ie := initialEvents{listed: tt.listed}
-			assert.Equal(t, tt.want, describeEvents(t, ie.reconcile(tt.buffered)))
+			store := &stubStore{objects: tt.committed}
+			ie := stubInitialEvents(store, false, tt.snapshot...)
+			got, err := ie.reconcile(context.Background(), tt.buffered)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, describeEvents(t, got))
 		})
 	}
+}
+
+func TestInitialEventsObjectKey(t *testing.T) {
+	namespaced := initialEvents{key: "/spdx.softwarecomposition.kubescape.io/openvulnerabilityexchangecontainers/kubescape", recursive: true}
+	assert.Equal(t, namespaced.key+"/a", namespaced.objectKey("kubescape", "a"))
+	allNamespaces := initialEvents{key: "/spdx.softwarecomposition.kubescape.io/openvulnerabilityexchangecontainers", recursive: true}
+	assert.Equal(t, allNamespaces.key+"/kubescape/a", allNamespaces.objectKey("kubescape", "a"))
+	clusterScoped := initialEvents{key: "/spdx.softwarecomposition.kubescape.io/knownservers", recursive: true}
+	assert.Equal(t, clusterScoped.key+"/a", clusterScoped.objectKey("", "a"))
+	named := initialEvents{key: namespaced.key + "/a"}
+	assert.Equal(t, named.key, named.objectKey("kubescape", "a"))
 }
 
 func TestInitialEventsBookmarkCarriesTheVersionTheClientHolds(t *testing.T) {
