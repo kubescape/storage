@@ -1,9 +1,10 @@
 package file
 
 import (
-	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"sort"
 	"strings"
+
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
 const MaxDNSBaselineNames = 4096
@@ -44,4 +45,13 @@ func cappedDNSLookups(entries []softwarecomposition.DNSLookup) ([]softwarecompos
 		return entries[:MaxDNSBaselineNames], true
 	}
 	return entries, false
+}
+
+// dnsLookupElementCount includes every retained DNS name, process and address.
+func dnsLookupElementCount(entries []softwarecomposition.DNSLookup) int {
+	count := 0
+	for _, lookup := range entries {
+		count += 1 + len(lookup.ExePaths) + len(lookup.Addresses)
+	}
+	return count
 }

@@ -60,3 +60,29 @@ func TestContainerProfilePreSave_DNSCountsNamesProcessesAndAddresses(t *testing.
 	require.Equal(t, "4", profile.Annotations[helpersv1.ResourceSizeMetadataKey])
 	require.Equal(t, helpersv1.TooLarge, profile.Annotations[helpersv1.StatusMetadataKey])
 }
+
+func TestContainerProfilePreSave_DNSCountsContainerGroups(t *testing.T) {
+	for _, group := range []string{"containers", "initContainers", "ephemeralContainers", "all"} {
+		t.Run(group, func(t *testing.T) {
+			section := softwarecomposition.ContainerProfileContainer{Name: "app", DNSBaselineVersion: "v1", DNSLookups: []softwarecomposition.DNSLookup{{Name: "example.com.", ExePaths: []string{"/app", "/usr/bin/python3"}, Addresses: []string{"192.0.2.1"}}}}
+			profile := &softwarecomposition.ContainerProfile{ObjectMeta: metav1.ObjectMeta{Name: "grouped-dns"}}
+			if group == "containers" || group == "all" {
+				profile.Spec.Containers = []softwarecomposition.ContainerProfileContainer{section}
+			}
+			if group == "initContainers" || group == "all" {
+				profile.Spec.InitContainers = []softwarecomposition.ContainerProfileContainer{section}
+			}
+			if group == "ephemeralContainers" || group == "all" {
+				profile.Spec.EphemeralContainers = []softwarecomposition.ContainerProfileContainer{section}
+			}
+			count := 4
+			if group == "all" {
+				count = 12
+			}
+			processor := ContainerProfileProcessor{MaxContainerProfileSize: count - 1, ContainerProfileStorage: &fakeStorage{}}
+			require.NoError(t, processor.PreSave(t.Context(), profile))
+			require.Equal(t, strconv.Itoa(count), profile.Annotations[helpersv1.ResourceSizeMetadataKey])
+			require.Equal(t, helpersv1.TooLarge, profile.Annotations[helpersv1.StatusMetadataKey])
+		})
+	}
+}

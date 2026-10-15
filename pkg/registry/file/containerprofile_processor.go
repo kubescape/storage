@@ -315,8 +315,11 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	size += len(profile.Spec.IdentifiedCallStacks)
 	size += len(profile.Spec.Ingress)
 	size += len(profile.Spec.Egress)
-	for _, lookup := range profile.Spec.DNSLookups {
-		size += 1 + len(lookup.ExePaths) + len(lookup.Addresses)
+	size += dnsLookupElementCount(profile.Spec.DNSLookups)
+	for _, group := range [][]softwarecomposition.ContainerProfileContainer{profile.Spec.Containers, profile.Spec.InitContainers, profile.Spec.EphemeralContainers} {
+		for _, container := range group {
+			size += dnsLookupElementCount(container.DNSLookups)
+		}
 	}
 
 	// make sure annotations are initialized
@@ -714,6 +717,12 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 		}
 	case err != nil:
 		err = fmt.Errorf("failed to get profile: %w", err)
+	default:
+		// A successful read proves this aggregate predates DNS versioning even
+		// when it has no architecture, image metadata, or observations.
+		if profile.Spec.DNSBaselineVersion == "" {
+			profile.Spec.DNSBaselineVersion = "legacy"
+		}
 	}
 
 	return profile, id, prefix, root, err
@@ -1261,11 +1270,9 @@ func mergeContainerProfileTS(profile, tsProfile *softwarecomposition.ContainerPr
 		incomingDNSVersion = "legacy"
 	}
 	if profile.Spec.DNSBaselineVersion == "" {
-		if len(profile.Spec.Architectures) > 0 || profile.Spec.ImageID != "" || profile.Spec.ImageTag != "" {
-			profile.Spec.DNSBaselineVersion = "legacy"
-		} else {
-			profile.Spec.DNSBaselineVersion = incomingDNSVersion
-		}
+		// Only a newly initialized aggregate has no version: loaded unversioned
+		// profiles are explicitly marked legacy by loadOrInitializeProfile.
+		profile.Spec.DNSBaselineVersion = incomingDNSVersion
 	}
 	if profile.Spec.DNSBaselineVersion != incomingDNSVersion {
 		profile.Spec.DNSBaselineTruncated = true

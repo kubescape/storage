@@ -2,11 +2,14 @@ package file
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"github.com/stretchr/testify/require"
-	"testing"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestDNSBaselineConsolidation(t *testing.T) {
@@ -50,8 +53,39 @@ func TestDNSBaselineMixedVersionsStayUnavailable(t *testing.T) {
 		}
 		require.True(t, profile.Spec.DNSBaselineTruncated)
 	}
-	profile := &softwarecomposition.ContainerProfile{Spec: softwarecomposition.ContainerProfileSpec{Architectures: []string{"amd64"}}}
+	profile := &softwarecomposition.ContainerProfile{Spec: softwarecomposition.ContainerProfileSpec{DNSBaselineVersion: "legacy"}}
 	mergeContainerProfileTS(profile, &softwarecomposition.ContainerProfile{Spec: softwarecomposition.ContainerProfileSpec{DNSBaselineVersion: "v1"}})
 	require.Equal(t, "legacy", profile.Spec.DNSBaselineVersion)
 	require.True(t, profile.Spec.DNSBaselineTruncated)
+}
+
+func TestDNSBaselineLoadedUnversionedProfileRetainsLegacyProvenance(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		persisted bool
+		syscalls  []string
+	}{{"new", false, nil}, {"persisted empty", true, nil}, {"persisted syscalls only", true, []string{"read"}}} {
+		t.Run(tc.name, func(t *testing.T) {
+			processor, _, cleanup := newConsolidationTestProcessor(t, time.Hour)
+			defer cleanup()
+			ctx, release, err := processor.ContainerProfileStorage.WithConnection(t.Context())
+			require.NoError(t, err)
+			defer release()
+			key := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", "default", "legacy-dns")
+			if tc.persisted {
+				profile := &softwarecomposition.ContainerProfile{ObjectMeta: metav1.ObjectMeta{Name: "legacy-dns", Namespace: "default"}, Spec: softwarecomposition.ContainerProfileSpec{Syscalls: tc.syscalls}}
+				require.NoError(t, processor.ContainerProfileStorage.SaveContainerProfile(ctx, key, profile))
+			}
+			profile, _, _, _, err := processor.loadOrInitializeProfile(ctx, key)
+			require.NoError(t, err)
+			mergeContainerProfileTS(&profile, &softwarecomposition.ContainerProfile{Spec: softwarecomposition.ContainerProfileSpec{DNSBaselineVersion: "v1"}})
+			if tc.persisted {
+				require.Equal(t, "legacy", profile.Spec.DNSBaselineVersion)
+				require.True(t, profile.Spec.DNSBaselineTruncated)
+			} else {
+				require.Equal(t, "v1", profile.Spec.DNSBaselineVersion)
+				require.False(t, profile.Spec.DNSBaselineTruncated)
+			}
+		})
+	}
 }
