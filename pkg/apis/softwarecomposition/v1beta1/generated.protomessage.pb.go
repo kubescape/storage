@@ -69,6 +69,8 @@ func (*Cvss) ProtoMessage() {}
 
 func (*CvssMetrics) ProtoMessage() {}
 
+func (*DNSLookup) ProtoMessage() {}
+
 func (*Descriptor) ProtoMessage() {}
 
 func (*Digest) ProtoMessage() {}

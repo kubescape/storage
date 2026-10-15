@@ -78,6 +78,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.DigestApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Distribution"):
 		return &softwarecompositionv1beta1.DistributionApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("DNSLookup"):
+		return &softwarecompositionv1beta1.DNSLookupApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ELFSecurityFeatures"):
 		return &softwarecompositionv1beta1.ELFSecurityFeaturesApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ExecCalls"):

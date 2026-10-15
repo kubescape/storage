@@ -88,6 +88,8 @@ func (m *Cvss) Reset() { *m = Cvss{} }
 
 func (m *CvssMetrics) Reset() { *m = CvssMetrics{} }
 
+func (m *DNSLookup) Reset() { *m = DNSLookup{} }
+
 func (m *Descriptor) Reset() { *m = Descriptor{} }
 
 func (m *Digest) Reset() { *m = Digest{} }
@@ -1141,6 +1143,33 @@ func (m *ContainerProfileContainer) MarshalToSizedBuffer(dAtA []byte) (int, erro
 			dAtA[i] = 0xb2
 		}
 	}
+	i--
+	if m.DNSBaselineTruncated {
+		dAtA[i] = 1
+	} else {
+		dAtA[i] = 0
+	}
+	i--
+	dAtA[i] = 0x70
+	i -= len(m.DNSBaselineVersion)
+	copy(dAtA[i:], m.DNSBaselineVersion)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.DNSBaselineVersion)))
+	i--
+	dAtA[i] = 0x6a
+	if len(m.DNSLookups) > 0 {
+		for iNdEx := len(m.DNSLookups) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DNSLookups[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenerated(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x62
+		}
+	}
 	if len(m.IdentifiedCallStacks) > 0 {
 		for iNdEx := len(m.IdentifiedCallStacks) - 1; iNdEx >= 0; iNdEx-- {
 			{
@@ -1431,6 +1460,33 @@ func (m *ContainerProfileSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	dAtA[i] = 0x6
 	i--
 	dAtA[i] = 0xaa
+	i--
+	if m.DNSBaselineTruncated {
+		dAtA[i] = 1
+	} else {
+		dAtA[i] = 0
+	}
+	i--
+	dAtA[i] = 0x70
+	i -= len(m.DNSBaselineVersion)
+	copy(dAtA[i:], m.DNSBaselineVersion)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.DNSBaselineVersion)))
+	i--
+	dAtA[i] = 0x6a
+	if len(m.DNSLookups) > 0 {
+		for iNdEx := len(m.DNSLookups) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DNSLookups[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenerated(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x62
+		}
+	}
 	if len(m.IdentifiedCallStacks) > 0 {
 		for iNdEx := len(m.IdentifiedCallStacks) - 1; iNdEx >= 0; iNdEx-- {
 			{
@@ -1740,6 +1796,52 @@ func (m *CvssMetrics) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.BaseScore))))
 	i--
 	dAtA[i] = 0x9
+	return len(dAtA) - i, nil
+}
+
+func (m *DNSLookup) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DNSLookup) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DNSLookup) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Addresses) > 0 {
+		for iNdEx := len(m.Addresses) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Addresses[iNdEx])
+			copy(dAtA[i:], m.Addresses[iNdEx])
+			i = encodeVarintGenerated(dAtA, i, uint64(len(m.Addresses[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.ExePaths) > 0 {
+		for iNdEx := len(m.ExePaths) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.ExePaths[iNdEx])
+			copy(dAtA[i:], m.ExePaths[iNdEx])
+			i = encodeVarintGenerated(dAtA, i, uint64(len(m.ExePaths[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	i -= len(m.Name)
+	copy(dAtA[i:], m.Name)
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.Name)))
+	i--
+	dAtA[i] = 0xa
 	return len(dAtA) - i, nil
 }
 
@@ -9068,6 +9170,15 @@ func (m *ContainerProfileContainer) Size() (n int) {
 			n += 1 + l + sovGenerated(uint64(l))
 		}
 	}
+	if len(m.DNSLookups) > 0 {
+		for _, e := range m.DNSLookups {
+			l = e.Size()
+			n += 1 + l + sovGenerated(uint64(l))
+		}
+	}
+	l = len(m.DNSBaselineVersion)
+	n += 1 + l + sovGenerated(uint64(l))
+	n += 2
 	if len(m.Ingress) > 0 {
 		for _, e := range m.Ingress {
 			l = e.Size()
@@ -9163,6 +9274,15 @@ func (m *ContainerProfileSpec) Size() (n int) {
 			n += 1 + l + sovGenerated(uint64(l))
 		}
 	}
+	if len(m.DNSLookups) > 0 {
+		for _, e := range m.DNSLookups {
+			l = e.Size()
+			n += 1 + l + sovGenerated(uint64(l))
+		}
+	}
+	l = len(m.DNSBaselineVersion)
+	n += 1 + l + sovGenerated(uint64(l))
+	n += 2
 	l = m.LabelSelector.Size()
 	n += 2 + l + sovGenerated(uint64(l))
 	if len(m.Ingress) > 0 {
@@ -9263,6 +9383,29 @@ func (m *CvssMetrics) Size() (n int) {
 	}
 	if m.ImpactScore != nil {
 		n += 9
+	}
+	return n
+}
+
+func (m *DNSLookup) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	n += 1 + l + sovGenerated(uint64(l))
+	if len(m.ExePaths) > 0 {
+		for _, s := range m.ExePaths {
+			l = len(s)
+			n += 1 + l + sovGenerated(uint64(l))
+		}
+	}
+	if len(m.Addresses) > 0 {
+		for _, s := range m.Addresses {
+			l = len(s)
+			n += 1 + l + sovGenerated(uint64(l))
+		}
 	}
 	return n
 }
@@ -12146,6 +12289,11 @@ func (this *ContainerProfileContainer) String() string {
 		repeatedStringForIdentifiedCallStacks += strings.Replace(strings.Replace(f.String(), "IdentifiedCallStack", "IdentifiedCallStack", 1), `&`, ``, 1) + ","
 	}
 	repeatedStringForIdentifiedCallStacks += "}"
+	repeatedStringForDNSLookups := "[]DNSLookup{"
+	for _, f := range this.DNSLookups {
+		repeatedStringForDNSLookups += strings.Replace(strings.Replace(f.String(), "DNSLookup", "DNSLookup", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForDNSLookups += "}"
 	repeatedStringForIngress := "[]NetworkNeighbor{"
 	for _, f := range this.Ingress {
 		repeatedStringForIngress += strings.Replace(strings.Replace(f.String(), "NetworkNeighbor", "NetworkNeighbor", 1), `&`, ``, 1) + ","
@@ -12178,6 +12326,9 @@ func (this *ContainerProfileContainer) String() string {
 		`ImageTag:` + fmt.Sprintf("%v", this.ImageTag) + `,`,
 		`PolicyByRuleId:` + mapStringForPolicyByRuleId + `,`,
 		`IdentifiedCallStacks:` + repeatedStringForIdentifiedCallStacks + `,`,
+		`DNSLookups:` + repeatedStringForDNSLookups + `,`,
+		`DNSBaselineVersion:` + fmt.Sprintf("%v", this.DNSBaselineVersion) + `,`,
+		`DNSBaselineTruncated:` + fmt.Sprintf("%v", this.DNSBaselineTruncated) + `,`,
 		`Ingress:` + repeatedStringForIngress + `,`,
 		`Egress:` + repeatedStringForEgress + `,`,
 		`}`,
@@ -12224,6 +12375,11 @@ func (this *ContainerProfileSpec) String() string {
 		repeatedStringForIdentifiedCallStacks += strings.Replace(strings.Replace(f.String(), "IdentifiedCallStack", "IdentifiedCallStack", 1), `&`, ``, 1) + ","
 	}
 	repeatedStringForIdentifiedCallStacks += "}"
+	repeatedStringForDNSLookups := "[]DNSLookup{"
+	for _, f := range this.DNSLookups {
+		repeatedStringForDNSLookups += strings.Replace(strings.Replace(f.String(), "DNSLookup", "DNSLookup", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForDNSLookups += "}"
 	repeatedStringForIngress := "[]NetworkNeighbor{"
 	for _, f := range this.Ingress {
 		repeatedStringForIngress += strings.Replace(strings.Replace(f.String(), "NetworkNeighbor", "NetworkNeighbor", 1), `&`, ``, 1) + ","
@@ -12271,6 +12427,9 @@ func (this *ContainerProfileSpec) String() string {
 		`ImageTag:` + fmt.Sprintf("%v", this.ImageTag) + `,`,
 		`PolicyByRuleId:` + mapStringForPolicyByRuleId + `,`,
 		`IdentifiedCallStacks:` + repeatedStringForIdentifiedCallStacks + `,`,
+		`DNSLookups:` + repeatedStringForDNSLookups + `,`,
+		`DNSBaselineVersion:` + fmt.Sprintf("%v", this.DNSBaselineVersion) + `,`,
+		`DNSBaselineTruncated:` + fmt.Sprintf("%v", this.DNSBaselineTruncated) + `,`,
 		`LabelSelector:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.LabelSelector), "LabelSelector", "v1.LabelSelector", 1), `&`, ``, 1) + `,`,
 		`Ingress:` + repeatedStringForIngress + `,`,
 		`Egress:` + repeatedStringForEgress + `,`,
@@ -12333,6 +12492,18 @@ func (this *CvssMetrics) String() string {
 		`BaseScore:` + fmt.Sprintf("%v", this.BaseScore) + `,`,
 		`ExploitabilityScore:` + valueToStringGenerated(this.ExploitabilityScore) + `,`,
 		`ImpactScore:` + valueToStringGenerated(this.ImpactScore) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *DNSLookup) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&DNSLookup{`,
+		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
+		`ExePaths:` + fmt.Sprintf("%v", this.ExePaths) + `,`,
+		`Addresses:` + fmt.Sprintf("%v", this.Addresses) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -17144,6 +17315,92 @@ func (m *ContainerProfileContainer) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DNSLookups", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DNSLookups = append(m.DNSLookups, DNSLookup{})
+			if err := m.DNSLookups[len(m.DNSLookups)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 13:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DNSBaselineVersion", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DNSBaselineVersion = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 14:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DNSBaselineTruncated", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DNSBaselineTruncated = bool(v != 0)
 		case 102:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Ingress", wireType)
@@ -17837,6 +18094,92 @@ func (m *ContainerProfileSpec) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DNSLookups", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DNSLookups = append(m.DNSLookups, DNSLookup{})
+			if err := m.DNSLookups[len(m.DNSLookups)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 13:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DNSBaselineVersion", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DNSBaselineVersion = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 14:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DNSBaselineTruncated", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DNSBaselineTruncated = bool(v != 0)
 		case 101:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field LabelSelector", wireType)
@@ -18563,6 +18906,152 @@ func (m *CvssMetrics) Unmarshal(dAtA []byte) error {
 			iNdEx += 8
 			v2 := float64(math.Float64frombits(v))
 			m.ImpactScore = &v2
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DNSLookup) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DNSLookup: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DNSLookup: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExePaths", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ExePaths = append(m.ExePaths, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Addresses", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Addresses = append(m.Addresses, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenerated(dAtA[iNdEx:])

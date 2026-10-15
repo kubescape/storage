@@ -228,6 +228,15 @@ message ContainerProfile {
 // multi-container ContainerProfile document: the union of the legacy
 // ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
 message ContainerProfileContainer {
+  // DNSLookups is learned from answered DNS responses, independently of connections.
+  repeated DNSLookup dnsLookups = 12;
+
+  // DNSBaselineVersion distinguishes DNS-aware profiles from older profiles requiring relearning.
+  optional string dnsBaselineVersion = 13;
+
+  // DNSBaselineTruncated makes an incomplete baseline unsuitable for anomaly matching.
+  optional bool dnsBaselineTruncated = 14;
+
   optional string name = 1;
 
   repeated string capabilities = 2;
@@ -271,6 +280,15 @@ message ContainerProfileList {
 }
 
 message ContainerProfileSpec {
+  // DNSLookups is learned from answered DNS responses, independently of connections.
+  repeated DNSLookup dnsLookups = 12;
+
+  // DNSBaselineVersion distinguishes DNS-aware profiles from older profiles requiring relearning.
+  optional string dnsBaselineVersion = 13;
+
+  // DNSBaselineTruncated makes an incomplete baseline unsuitable for anomaly matching.
+  optional bool dnsBaselineTruncated = 14;
+
   // WARNING report the execution/profile fields here
   repeated string architectures = 1;
 
@@ -361,6 +379,16 @@ message CvssMetrics {
   optional double exploitabilityScore = 2;
 
   optional double impactScore = 3;
+}
+
+// DNSLookup records one resolved name and all executable paths that looked it up.
+// Addresses are supporting evidence, never the DNS matching key.
+message DNSLookup {
+  optional string name = 1;
+
+  repeated string exePaths = 2;
+
+  repeated string addresses = 3;
 }
 
 message Descriptor {

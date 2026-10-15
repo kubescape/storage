@@ -25,6 +25,12 @@ import (
 // ContainerProfileSpecApplyConfiguration represents a declarative configuration of the ContainerProfileSpec type for use
 // with apply.
 type ContainerProfileSpecApplyConfiguration struct {
+	// DNSLookups is learned from answered DNS responses, independently of connections.
+	DNSLookups []DNSLookupApplyConfiguration `json:"dnsLookups,omitempty"`
+	// DNSBaselineVersion distinguishes DNS-aware profiles from older profiles requiring relearning.
+	DNSBaselineVersion *string `json:"dnsBaselineVersion,omitempty"`
+	// DNSBaselineTruncated makes an incomplete baseline unsuitable for anomaly matching.
+	DNSBaselineTruncated *bool `json:"dnsBaselineTruncated,omitempty"`
 	// WARNING report the execution/profile fields here
 	Architectures        []string                                `json:"architectures,omitempty"`
 	Capabilities         []string                                `json:"capabilities,omitempty"`
@@ -56,6 +62,35 @@ type ContainerProfileSpecApplyConfiguration struct {
 // apply.
 func ContainerProfileSpec() *ContainerProfileSpecApplyConfiguration {
 	return &ContainerProfileSpecApplyConfiguration{}
+}
+
+// WithDNSLookups adds the given value to the DNSLookups field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the DNSLookups field.
+func (b *ContainerProfileSpecApplyConfiguration) WithDNSLookups(values ...*DNSLookupApplyConfiguration) *ContainerProfileSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithDNSLookups")
+		}
+		b.DNSLookups = append(b.DNSLookups, *values[i])
+	}
+	return b
+}
+
+// WithDNSBaselineVersion sets the DNSBaselineVersion field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DNSBaselineVersion field is set to the value of the last call.
+func (b *ContainerProfileSpecApplyConfiguration) WithDNSBaselineVersion(value string) *ContainerProfileSpecApplyConfiguration {
+	b.DNSBaselineVersion = &value
+	return b
+}
+
+// WithDNSBaselineTruncated sets the DNSBaselineTruncated field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DNSBaselineTruncated field is set to the value of the last call.
+func (b *ContainerProfileSpecApplyConfiguration) WithDNSBaselineTruncated(value bool) *ContainerProfileSpecApplyConfiguration {
+	b.DNSBaselineTruncated = &value
+	return b
 }
 
 // WithArchitectures adds the given value to the Architectures field in the declarative configuration
