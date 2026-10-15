@@ -89,3 +89,8 @@ func TestDNSBaselineLoadedUnversionedProfileRetainsLegacyProvenance(t *testing.T
 		})
 	}
 }
+
+func TestDNSBaselinePreservesRootName(t *testing.T) {
+	result := DeflateDNSLookups([]softwarecomposition.DNSLookup{{Name: ".", ExePaths: []string{"/app"}}, {Name: ""}})
+	require.Equal(t, []softwarecomposition.DNSLookup{{Name: ".", ExePaths: []string{"/app"}}}, result)
+}

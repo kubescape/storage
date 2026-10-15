@@ -18,7 +18,7 @@ func DeflateDNSLookups(entries []softwarecomposition.DNSLookup) []softwarecompos
 	byName := make(map[string]softwarecomposition.DNSLookup)
 	for _, entry := range entries {
 		name := strings.ToLower(strings.TrimSuffix(entry.Name, "."))
-		if name == "" {
+		if entry.Name == "" {
 			continue
 		}
 		name += "."
