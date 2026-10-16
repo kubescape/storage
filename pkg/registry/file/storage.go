@@ -927,8 +927,22 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	// dispatched through the exact same code already proven correct for
 	// cluster-scoped resources. See docs/features/namespace-watch-enabled.md.
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
-	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
+	sendFullObject := opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
+	if !wantsInitialEvents(opts) {
+		nw := newWatcher(ctx, sendFullObject)
+		s.watchDispatcher.Register(key, nw)
+		return nw, nil
+	}
+	// Register before listing so a write landing while the list runs is buffered by the
+	// watcher rather than missed; the replay drops what the list already contains.
+	nw := newWatcherWithInitialEvents(ctx, sendFullObject, true)
 	s.watchDispatcher.Register(key, nw)
+	initial, err := buildInitialEvents(ctx, s, s.scheme, key, opts)
+	if err != nil {
+		nw.Stop()
+		return nil, err
+	}
+	nw.initialCh <- initial
 	return nw, nil
 }
 
@@ -2303,7 +2317,13 @@ func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, 
 // Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
 // It returns an idle, event-free watch that closes on client disconnect or Stop:
 // a pre-closed channel would send reflectors into a "very short watch" tight retry loop.
-func (immutableStorage) Watch(ctx context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+// A watch list has nothing to replay here, so it is refused with a non-retriable error
+// that makes client-go fall back to list and watch.
+func (immutableStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	if wantsInitialEvents(opts) {
+		_, group, resource, _, _, _ := K8sPathToKeys(key)
+		return nil, apierrors.NewMethodNotSupported(schema.GroupResource{Group: group, Resource: resource}, "watch with sendInitialEvents")
+	}
 	return newIdleWatch(ctx), nil
 }
 

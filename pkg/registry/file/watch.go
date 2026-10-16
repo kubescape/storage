@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"slices"
 	"sync"
@@ -69,10 +70,18 @@ type watcher struct {
 	stop           context.CancelFunc
 	outCh, inCh    chan watch.Event
 	sendFullObject bool
+	// initialCh delivers the watch list replay; nil for a watch that starts live.
+	initialCh chan initialEvents
 }
 
 // newWatcher creates a new watcher
 func newWatcher(ctx context.Context, sendFullObject bool) *watcher {
+	return newWatcherWithInitialEvents(ctx, sendFullObject, false)
+}
+
+// newWatcherWithInitialEvents creates a watcher that, when replay is set, buffers live
+// events until the initial events arrive on initialCh and ships those first.
+func newWatcherWithInitialEvents(ctx context.Context, sendFullObject, replay bool) *watcher {
 	ctx, cn := context.WithCancel(ctx)
 	w := &watcher{
 		ctx:            ctx,
@@ -80,6 +89,9 @@ func newWatcher(ctx context.Context, sendFullObject bool) *watcher {
 		outCh:          make(chan watch.Event, 100),
 		inCh:           make(chan watch.Event),
 		sendFullObject: sendFullObject,
+	}
+	if replay {
+		w.initialCh = make(chan initialEvents, 1)
 	}
 	go w.shipIt()
 	return w
@@ -93,6 +105,9 @@ func (w *watcher) ResultChan() <-chan watch.Event { return w.outCh }
 // See discussion on constraint #3 above for rationale for this approach.
 func (w *watcher) shipIt() {
 	defer close(w.outCh)
+	if w.initialCh != nil && !w.shipInitial() {
+		return
+	}
 	for {
 		var ev watch.Event
 		select { // we want both reads and writes to be interruptable, hence complexity here.
@@ -100,10 +115,120 @@ func (w *watcher) shipIt() {
 			return
 		case ev = <-w.inCh:
 		}
+		if !w.ship(ev) {
+			return
+		}
+	}
+}
+
+// ship forwards one event to outCh, reporting false once the watch is gone. A stopped
+// watch emits nothing, not even an event that was ready to go.
+func (w *watcher) ship(ev watch.Event) bool {
+	if w.ctx.Err() != nil {
+		return false
+	}
+	select {
+	case <-w.ctx.Done():
+		return false
+	case w.outCh <- ev:
+		return true
+	}
+}
+
+// shipInitial keeps draining live events while the initial list is computed, then ships
+// the listed objects, the transitions to the committed state of every object a buffered
+// event touched, and only then the bookmark, so the state the client holds at the bookmark
+// is one the store held. The re-reads behind those transitions run while the watcher keeps
+// receiving, and what arrives meanwhile is settled against them before the bookmark; a
+// name whose arrivals cannot be settled is re-read in another round. A failed re-read, or
+// a name that keeps being recreated for maxReconcileRounds rounds, ends the watch with an
+// error event instead.
+func (w *watcher) shipInitial() bool {
+	var buffered []watch.Event
+	var initial initialEvents
+	received := false
+	for !received {
 		select {
 		case <-w.ctx.Done():
-			return
-		case w.outCh <- ev:
+			return false
+		case ev := <-w.inCh:
+			buffered = append(buffered, ev)
+		case initial = <-w.initialCh:
+			received = true
+		}
+	}
+	for _, ev := range initial.events {
+		if !w.ship(ev) {
+			return false
+		}
+	}
+	var shipped []watch.Event
+	for round := 0; len(buffered) > 0; round++ {
+		if round == maxReconcileRounds {
+			w.ship(errorEvent(fmt.Errorf("objects under %s kept being recreated for %d rounds of re-reads", initial.key, round)))
+			return false
+		}
+		transitions, late, err := w.reconcileWhileReceiving(&initial, buffered)
+		if err != nil {
+			w.ship(errorEvent(err))
+			return false
+		}
+		for _, ev := range transitions {
+			if !w.ship(ev) {
+				return false
+			}
+		}
+		settled, unsettled := initial.settle(late)
+		for _, ev := range settled {
+			if !w.ship(ev) {
+				return false
+			}
+		}
+		shipped = append(append(shipped, transitions...), settled...)
+		buffered = unsettled
+	}
+	if bookmark, ok := initial.bookmarkEvent(shipped); ok && !w.ship(bookmark) {
+		return false
+	}
+	return true
+}
+
+// reconcileWhileReceiving runs the re-reads of one round on their own goroutine and keeps
+// receiving live events meanwhile: a writer publishes an object's event while it still
+// holds the object's lock, and a re-read of that object waits for the same lock, so a
+// watcher that stopped receiving would hold the writer and the writer the read. The
+// events received are returned for settling. A stopped watch cancels the reads and waits
+// for them to return before giving up.
+func (w *watcher) reconcileWhileReceiving(initial *initialEvents, buffered []watch.Event) (transitions, late []watch.Event, err error) {
+	ctx, cancel := context.WithCancel(w.ctx)
+	defer cancel()
+	type result struct {
+		events []watch.Event
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		events, err := initial.reconcile(ctx, buffered)
+		done <- result{events: events, err: err}
+	}()
+	for {
+		select {
+		case <-w.ctx.Done():
+			cancel()
+			<-done
+			return nil, nil, w.ctx.Err()
+		case ev := <-w.inCh:
+			late = append(late, ev)
+		case r := <-done:
+			for drained := false; !drained; {
+				select {
+				case ev := <-w.inCh:
+					late = append(late, ev)
+				default:
+					drained = true
+				}
+			}
+			return r.events, late, r.err
 		}
 	}
 }
