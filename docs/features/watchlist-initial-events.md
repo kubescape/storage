@@ -30,11 +30,24 @@ what the store holds now: nothing when the object is unchanged, a `MODIFIED` whe
 incarnation (the uid, since versions restart at every creation) has a newer version, a
 `DELETED` when it is gone, an `ADDED` when it was not listed, and a `DELETED` followed by an
 `ADDED` when the name now belongs to another incarnation. A re-read that fails ends the
-watch with an error event instead of a bookmark, so the client relists. Writers do not
-wait on the list; while the replay is being shipped they wait only if the client's
-outbound buffer is full, as on any watch. A notification that is published after the
-re-read but belongs to an older commit reaches the client live, as it would on any watch;
-that weakness of the live stream predates the replay.
+watch with an error event instead of a bookmark, so the client relists.
+
+The re-reads take the per-object lock, and a writer publishes an object's event while it
+still holds that lock (`StorageImpl.Delete` does, for one), so the watcher keeps receiving
+while its reads run: the reads happen on their own goroutine and the main loop goes on
+taking live events. What arrives during a round is settled against the reads before the
+bookmark: an event of the incarnation the client holds ships when its version is newer
+and is dropped otherwise, a delete of that incarnation ships, a later event of a deleted
+incarnation (a delete is final, a uid never returns) is dropped, and a name the client
+does not hold ships as an `ADDED`. An event of another incarnation while one is held
+cannot be ordered against the reads, since versions restart at every creation, so the
+next round re-reads that name. Rounds are bounded (`maxReconcileRounds`); a name
+recreated on every round for that long ends the watch with an error event and the client
+relists. A stopped watch cancels the reads, waits for them to return and emits nothing
+more. Writers never wait on the reads; while the replay is being shipped they wait only
+if the client's outbound buffer is full, as on any watch. A notification that is
+published after the bookmark but belongs to an older commit reaches the client live, as
+it would on any watch; that weakness of the live stream predates the replay.
 
 The bookmark's `resourceVersion` is the one a list of the same key returns, raised to the
 version of any update shipped before it. When the client asks for a numeric minimum
@@ -62,8 +75,14 @@ list plus watch, where the watch is the idle one from #330.
   last, writes between list pages applied before the bookmark, a failed re-read ending the
   watch with an error, the transition table against a stub store (updates and deletes
   before and after the snapshot, recreates on either side of it, notifications published
-  out of commit order, writes whose publication is still pending), the object key for
-  namespaced, all-namespace, cluster-scoped and named watches, the bookmark version, the
+  out of commit order, writes whose publication is still pending), live events taken and
+  settled while a re-read is paused, a recreate published out of order during a re-read
+  taking a second round, the settle table (newer, older, deleted, dead incarnation,
+  unknown name, other incarnation, unparsable version), the round bound ending in an
+  error, a stop during a re-read closing the watch without events, and the real-store
+  regression where a `Delete` commits while the re-read of the same object is in flight
+  and the replay still ends with the bookmark. Also the object key for namespaced,
+  all-namespace, cluster-scoped and named watches, the bookmark version, the
   minimum-version refusal, named replays on both backends, the computed-resource rejection.
 - `pkg/registry/file/watch_initial_events_objectstore_test.go`: the same against the real
   ContainerProfile SQLite backend, including the reordered update and delete-recreate

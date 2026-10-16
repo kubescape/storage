@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"slices"
 	"sync"
@@ -120,8 +121,12 @@ func (w *watcher) shipIt() {
 	}
 }
 
-// ship forwards one event to outCh, reporting false once the watch is gone.
+// ship forwards one event to outCh, reporting false once the watch is gone. A stopped
+// watch emits nothing, not even an event that was ready to go.
 func (w *watcher) ship(ev watch.Event) bool {
+	if w.ctx.Err() != nil {
+		return false
+	}
 	select {
 	case <-w.ctx.Done():
 		return false
@@ -133,7 +138,11 @@ func (w *watcher) ship(ev watch.Event) bool {
 // shipInitial keeps draining live events while the initial list is computed, then ships
 // the listed objects, the transitions to the committed state of every object a buffered
 // event touched, and only then the bookmark, so the state the client holds at the bookmark
-// is one the store held. A failed re-read ends the watch with an error event instead.
+// is one the store held. The re-reads behind those transitions run while the watcher keeps
+// receiving, and what arrives meanwhile is settled against them before the bookmark; a
+// name whose arrivals cannot be settled is re-read in another round. A failed re-read, or
+// a name that keeps being recreated for maxReconcileRounds rounds, ends the watch with an
+// error event instead.
 func (w *watcher) shipInitial() bool {
 	var buffered []watch.Event
 	var initial initialEvents
@@ -153,20 +162,75 @@ func (w *watcher) shipInitial() bool {
 			return false
 		}
 	}
-	shipped, err := initial.reconcile(w.ctx, buffered)
-	if err != nil {
-		w.ship(errorEvent(err))
-		return false
-	}
-	for _, ev := range shipped {
-		if !w.ship(ev) {
+	var shipped []watch.Event
+	for round := 0; len(buffered) > 0; round++ {
+		if round == maxReconcileRounds {
+			w.ship(errorEvent(fmt.Errorf("objects under %s kept being recreated for %d rounds of re-reads", initial.key, round)))
 			return false
 		}
+		transitions, late, err := w.reconcileWhileReceiving(&initial, buffered)
+		if err != nil {
+			w.ship(errorEvent(err))
+			return false
+		}
+		for _, ev := range transitions {
+			if !w.ship(ev) {
+				return false
+			}
+		}
+		settled, unsettled := initial.settle(late)
+		for _, ev := range settled {
+			if !w.ship(ev) {
+				return false
+			}
+		}
+		shipped = append(append(shipped, transitions...), settled...)
+		buffered = unsettled
 	}
 	if bookmark, ok := initial.bookmarkEvent(shipped); ok && !w.ship(bookmark) {
 		return false
 	}
 	return true
+}
+
+// reconcileWhileReceiving runs the re-reads of one round on their own goroutine and keeps
+// receiving live events meanwhile: a writer publishes an object's event while it still
+// holds the object's lock, and a re-read of that object waits for the same lock, so a
+// watcher that stopped receiving would hold the writer and the writer the read. The
+// events received are returned for settling. A stopped watch cancels the reads and waits
+// for them to return before giving up.
+func (w *watcher) reconcileWhileReceiving(initial *initialEvents, buffered []watch.Event) (transitions, late []watch.Event, err error) {
+	ctx, cancel := context.WithCancel(w.ctx)
+	defer cancel()
+	type result struct {
+		events []watch.Event
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		events, err := initial.reconcile(ctx, buffered)
+		done <- result{events: events, err: err}
+	}()
+	for {
+		select {
+		case <-w.ctx.Done():
+			cancel()
+			<-done
+			return nil, nil, w.ctx.Err()
+		case ev := <-w.inCh:
+			late = append(late, ev)
+		case r := <-done:
+			for drained := false; !drained; {
+				select {
+				case ev := <-w.inCh:
+					late = append(late, ev)
+				default:
+					drained = true
+				}
+			}
+			return r.events, late, r.err
+		}
+	}
 }
 
 func (w *watcher) notify(eventFull, eventMeta watch.Event) {

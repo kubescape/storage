@@ -22,8 +22,15 @@ import (
 // committed state of every object a live event touched while the list ran, and then the
 // initial-events-end bookmark when the client allows bookmarks.
 type initialEvents struct {
-	events   []watch.Event
-	listed   map[string]listedObject
+	events []watch.Event
+	// held is what the client holds for each object after the events shipped so far,
+	// keyed by namespace/name: the snapshot at first, then every transition and every
+	// settled live event.
+	held map[string]listedObject
+	// gone holds the incarnations whose delete was seen. A delete is final and a uid
+	// never returns, so a later event of that incarnation, published out of order, is
+	// dropped rather than mistaken for a new object.
+	gone     map[types.UID]struct{}
 	bookmark runtime.Object
 	rv       uint64
 
@@ -34,7 +41,7 @@ type initialEvents struct {
 	readRV    string
 }
 
-// listedObject is what the snapshot holds for one object: its incarnation (the uid, since
+// listedObject is what the client holds for one object: its incarnation (the uid, since
 // versions restart at every creation), its version, and the object itself.
 type listedObject struct {
 	uid types.UID
@@ -50,13 +57,21 @@ func wantsInitialEvents(opts storage.ListOptions) bool {
 	return opts.SendInitialEvents != nil && *opts.SendInitialEvents
 }
 
+// maxReconcileRounds bounds how many times the replay re-reads objects that moved while
+// the previous round's reads were in flight. A round only re-reads the names whose late
+// events settle could not order against the reads, so a busy updater does not extend the
+// replay; a name recreated on every round for this many rounds ends the watch with an
+// error and the client relists.
+const maxReconcileRounds = 8
+
 // reconcile re-reads every object the buffered live events name and returns the events
-// that take the client from the snapshot to what the store holds now. The buffered events
+// that take the client from what it holds to what the store holds now. The buffered events
 // only say which objects moved: the store publishes an object's events after releasing
 // its lock, so they can arrive out of commit order and are not trusted for the state
 // itself. A re-read happens after the list, so it sees every write the list could have
-// straddled.
-func (ie initialEvents) reconcile(ctx context.Context, buffered []watch.Event) ([]watch.Event, error) {
+// straddled. The reads take the per-object lock, so the caller must keep receiving live
+// events meanwhile: a writer publishes while it still holds that lock.
+func (ie *initialEvents) reconcile(ctx context.Context, buffered []watch.Event) ([]watch.Event, error) {
 	type touched struct {
 		namespace, name string
 	}
@@ -66,6 +81,9 @@ func (ie initialEvents) reconcile(ctx context.Context, buffered []watch.Event) (
 		acc, err := meta.Accessor(ev.Object)
 		if err != nil {
 			continue
+		}
+		if ev.Type == watch.Deleted {
+			ie.markGone(acc.GetUID())
 		}
 		t := touched{namespace: acc.GetNamespace(), name: acc.GetName()}
 		if !seen[t] {
@@ -83,25 +101,82 @@ func (ie initialEvents) reconcile(ctx context.Context, buffered []watch.Event) (
 		if err != nil {
 			return nil, err
 		}
-		snap, listed := ie.listed[t.namespace+"/"+t.name]
+		k := t.namespace + "/" + t.name
+		snap, held := ie.held[k]
 		present := acc.GetName() != ""
 		switch {
-		case !present && !listed:
+		case !present && !held:
 		case !present:
 			out = append(out, watch.Event{Type: watch.Deleted, Object: snap.obj})
-		case !listed:
+			ie.markGone(snap.uid)
+		case !held:
 			out = append(out, watch.Event{Type: watch.Added, Object: current})
 		case acc.GetUID() != snap.uid:
 			out = append(out, watch.Event{Type: watch.Deleted, Object: snap.obj}, watch.Event{Type: watch.Added, Object: current})
+			ie.markGone(snap.uid)
 		case acc.GetResourceVersion() != snap.rv:
 			out = append(out, watch.Event{Type: watch.Modified, Object: current})
+		}
+		if present {
+			ie.held[k] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion(), obj: current}
+		} else {
+			delete(ie.held, k)
 		}
 	}
 	return out, nil
 }
 
+// markGone records that an incarnation was deleted.
+func (ie *initialEvents) markGone(uid types.UID) {
+	if ie.gone == nil {
+		ie.gone = map[types.UID]struct{}{}
+	}
+	ie.gone[uid] = struct{}{}
+}
+
+// settle applies the live events that arrived while a round of re-reads ran, with those
+// reads as the reference. An event of the incarnation the client holds ships when its
+// version is newer and is dropped otherwise; a delete of that incarnation ships, and any
+// later event of a deleted incarnation is dropped. An event of another incarnation while
+// one is held cannot be ordered against the reads, since versions restart at every
+// creation, so it is returned for the next round to re-read.
+func (ie *initialEvents) settle(late []watch.Event) (shipped, unsettled []watch.Event) {
+	for _, ev := range late {
+		acc, err := meta.Accessor(ev.Object)
+		if err != nil {
+			continue
+		}
+		k := listedKey(acc)
+		cur, held := ie.held[k]
+		rv, rvErr := strconv.ParseUint(acc.GetResourceVersion(), 10, 64)
+		heldRV, heldErr := strconv.ParseUint(cur.rv, 10, 64)
+		if ev.Type == watch.Deleted {
+			ie.markGone(acc.GetUID())
+		}
+		_, gone := ie.gone[acc.GetUID()]
+		switch {
+		case ev.Type != watch.Added && ev.Type != watch.Modified && ev.Type != watch.Deleted:
+		case held && acc.GetUID() != cur.uid:
+			unsettled = append(unsettled, ev)
+		case ev.Type == watch.Deleted && held:
+			shipped = append(shipped, ev)
+			delete(ie.held, k)
+		case ev.Type == watch.Deleted, gone:
+		case rvErr != nil, held && heldErr != nil:
+			unsettled = append(unsettled, ev)
+		case !held:
+			shipped = append(shipped, watch.Event{Type: watch.Added, Object: ev.Object})
+			ie.held[k] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion(), obj: ev.Object}
+		case rv > heldRV:
+			shipped = append(shipped, watch.Event{Type: watch.Modified, Object: ev.Object})
+			ie.held[k] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion(), obj: ev.Object}
+		}
+	}
+	return shipped, unsettled
+}
+
 // objectKey is the storage key of one object under the watched key.
-func (ie initialEvents) objectKey(namespace, name string) string {
+func (ie *initialEvents) objectKey(namespace, name string) string {
 	if !ie.recursive {
 		return ie.key
 	}
@@ -114,7 +189,7 @@ func (ie initialEvents) objectKey(namespace, name string) string {
 
 // bookmarkEvent returns the initial-events-end bookmark for the state the client holds
 // after the shipped events, or false when the client did not ask for bookmarks.
-func (ie initialEvents) bookmarkEvent(shipped []watch.Event) (watch.Event, bool) {
+func (ie *initialEvents) bookmarkEvent(shipped []watch.Event) (watch.Event, bool) {
 	if ie.bookmark == nil {
 		return watch.Event{}, false
 	}
@@ -217,7 +292,7 @@ func buildInitialEvents(ctx context.Context, lister initialLister, scheme *runti
 
 	ie := initialEvents{
 		events:    make([]watch.Event, 0, len(items)),
-		listed:    make(map[string]listedObject, len(items)),
+		held:      make(map[string]listedObject, len(items)),
 		rv:        snapshotRV,
 		lister:    lister,
 		newObject: itemObj.DeepCopyObject,
@@ -230,7 +305,7 @@ func buildInitialEvents(ctx context.Context, lister initialLister, scheme *runti
 		if err != nil {
 			return initialEvents{}, err
 		}
-		ie.listed[listedKey(acc)] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion(), obj: item}
+		ie.held[listedKey(acc)] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion(), obj: item}
 		ie.events = append(ie.events, watch.Event{Type: watch.Added, Object: item})
 	}
 	if predicate.AllowWatchBookmarks {

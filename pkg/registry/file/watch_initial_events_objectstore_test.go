@@ -81,7 +81,7 @@ func TestObjectStoreWatchListReconcilesReorderedNotifications(t *testing.T) {
 	root := testCPPrefix + e.ns
 	snapshot := func(objs ...*softwarecomposition.ContainerProfile) initialEvents {
 		ie := initialEvents{
-			listed:    map[string]listedObject{},
+			held:      map[string]listedObject{},
 			lister:    e.store,
 			newObject: func() runtime.Object { return &softwarecomposition.ContainerProfile{} },
 			key:       root,
@@ -89,7 +89,7 @@ func TestObjectStoreWatchListReconcilesReorderedNotifications(t *testing.T) {
 			readRV:    softwarecomposition.ResourceVersionMetadata,
 		}
 		for _, o := range objs {
-			ie.listed[o.Namespace+"/"+o.Name] = listedObject{uid: o.UID, rv: o.ResourceVersion, obj: o}
+			ie.held[o.Namespace+"/"+o.Name] = listedObject{uid: o.UID, rv: o.ResourceVersion, obj: o}
 		}
 		return ie
 	}
@@ -107,12 +107,14 @@ func TestObjectStoreWatchListReconcilesReorderedNotifications(t *testing.T) {
 	v3.Spec.Architectures = append(v3.Spec.Architectures, "s390x")
 	v3 = updateProfile(t, e, e.key("a"), v3)
 	require.Equal(t, "3", v3.ResourceVersion)
-	got, err := snapshot(v3).reconcile(e.ctx, []watch.Event{event(watch.Modified, v3), event(watch.Modified, v2)})
+	ie := snapshot(v3)
+	got, err := ie.reconcile(e.ctx, []watch.Event{event(watch.Modified, v3), event(watch.Modified, v2)})
 	require.NoError(t, err)
 	assert.Empty(t, got)
 
 	// Snapshot at 2, the update to 3 published before the one to 2: the client gets 3 once.
-	got, err = snapshot(v2).reconcile(e.ctx, []watch.Event{event(watch.Modified, v3), event(watch.Modified, v2)})
+	ie = snapshot(v2)
+	got, err = ie.reconcile(e.ctx, []watch.Event{event(watch.Modified, v3), event(watch.Modified, v2)})
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	assert.Equal(t, watch.Modified, got[0].Type)
@@ -123,7 +125,8 @@ func TestObjectStoreWatchListReconcilesReorderedNotifications(t *testing.T) {
 	require.NoError(t, e.store.Delete(e.ctx, e.key("a"), nil, nil, nil, nil, storage.DeleteOptions{}))
 	recreated := e.create(e.plain("a"))
 	require.NotEqual(t, v1.UID, recreated.UID)
-	got, err = snapshot(v3).reconcile(e.ctx, []watch.Event{event(watch.Added, recreated), event(watch.Deleted, v3)})
+	ie = snapshot(v3)
+	got, err = ie.reconcile(e.ctx, []watch.Event{event(watch.Added, recreated), event(watch.Deleted, v3)})
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	assert.Equal(t, watch.Deleted, got[0].Type)
@@ -132,7 +135,8 @@ func TestObjectStoreWatchListReconcilesReorderedNotifications(t *testing.T) {
 	assert.Equal(t, recreated.UID, got[1].Object.(*softwarecomposition.ContainerProfile).UID)
 
 	// The same with only the delete published so far: the re-read still finds the new one.
-	got, err = snapshot(v3).reconcile(e.ctx, []watch.Event{event(watch.Deleted, v3)})
+	ie = snapshot(v3)
+	got, err = ie.reconcile(e.ctx, []watch.Event{event(watch.Deleted, v3)})
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	assert.Equal(t, watch.Deleted, got[0].Type)
