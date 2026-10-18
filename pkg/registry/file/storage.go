@@ -777,7 +777,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 // unchanged connection-then-lock internal acquisition for its direct
 // callers (none currently, but its signature/behavior is preserved as
 // documented Phase 1 scope).
-func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	if s.gate != nil {
 		// The statements run on the gate's connection: the per-key lock only,
 		// no pool connection held while queued (write-gate-sharing §3.2/§3.3).
@@ -788,7 +788,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 		ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 		span.SetAttributes(attribute.String("key", key))
 		defer span.End()
-		return s.delete(ctx, nil, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+		return s.delete(ctx, nil, key, metaOut, preconditions, validateDeletion, nil, storage.DeleteOptions{})
 	}
 	conn, err := s.acquireLockedConn(ctx, "delete", key, s.locks.Lock, s.locks.Unlock)
 	if err != nil {
@@ -800,7 +800,7 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+	return s.delete(ctx, conn, key, metaOut, preconditions, validateDeletion, nil, storage.DeleteOptions{})
 }
 
 // lockKey is acquireLockedConn's lock step alone, for the gated paths that
@@ -825,7 +825,7 @@ func (s *StorageImpl) lockKey(ctx context.Context, op, key string, acquire func(
 	return nil
 }
 
-func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -845,7 +845,7 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	if lockDuration > time.Second {
 		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
-	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+	return s.delete(ctx, conn, key, metaOut, preconditions, validateDeletion, nil, storage.DeleteOptions{})
 }
 
 // deleteLocked is the SQLite and filesystem half of delete. It takes no lock,
@@ -924,8 +924,13 @@ func (s *StorageImpl) deleteLockedGated(ctx context.Context, key string, metaOut
 	return nil
 }
 
-func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+// delete runs with the per-key write lock held, so the object checked by
+// checkDeletable cannot change before deleteLocked removes it.
+func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	if err := s.refuseForeign("delete", key); err != nil {
+		return err
+	}
+	if err := s.checkDeletable(ctx, conn, key, metaOut, preconditions, validateDeletion); err != nil {
 		return err
 	}
 	if err := s.deleteLocked(ctx, conn, key, metaOut); err != nil {
@@ -933,6 +938,51 @@ func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string,
 	}
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
+	return nil
+}
+
+// checkDeletable reads the stored object and applies the delete preconditions
+// and validation to it, as etcd3's Delete does. It is a no-op when neither is
+// supplied. The caller holds the per-key write lock, which every writer takes
+// to commit, so the object cannot change before the caller deletes it. The
+// gated Delete path holds no connection, so one is taken here (lock, then
+// connection -- the order acquireLockedConn uses) for the read only.
+func (s *StorageImpl) checkDeletable(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc) error {
+	if preconditions == nil && validateDeletion == nil {
+		return nil
+	}
+	v, err := conversion.EnforcePtr(metaOut)
+	if err != nil {
+		return fmt.Errorf("unable to convert output object to pointer: %v", err)
+	}
+	if conn == nil {
+		poolCtx, cancel := poolContext()
+		defer cancel()
+		beforePool := time.Now()
+		conn, err = s.pool.Take(poolCtx)
+		if err != nil {
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
+			return newContentionTimeoutError("delete", key, err)
+		}
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
+		defer s.pool.Put(conn)
+	}
+	existing := reflect.New(v.Type()).Interface().(runtime.Object)
+	if err := s.get(ctx, conn, key, storage.GetOptions{}, existing, hasWriteLock); err != nil {
+		return err
+	}
+	return checkDeleteObject(ctx, key, existing, preconditions, validateDeletion)
+}
+
+// checkDeleteObject applies the delete preconditions, then the validation, to
+// the stored object. Shared by every file-backed Delete implementation.
+func checkDeleteObject(ctx context.Context, key string, existing runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc) error {
+	if err := preconditions.Check(key, existing); err != nil {
+		return err
+	}
+	if validateDeletion != nil {
+		return validateDeletion(ctx, existing)
+	}
 	return nil
 }
 

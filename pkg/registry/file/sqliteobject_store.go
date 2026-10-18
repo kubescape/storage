@@ -1067,8 +1067,53 @@ func (s *ObjectStore) guaranteedUpdate(ctx context.Context, key string, metaOut 
 
 // Delete implements storage.Interface (§3.4 Delete): metadata + payloads +
 // time_series rows removed in one transaction; KeyNotFound when no row.
-func (s *ObjectStore) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
-	return s.deleteKey(ctx, key, metaOut, nil, priorityHigh)
+// With preconditions or a validator it reads the object, checks it, and issues
+// the DELETE with the CAS of the (rv, uid) it read, retrying from a fresh read
+// when the row changed in between -- the same loop GuaranteedUpdate runs.
+func (s *ObjectStore) Delete(ctx context.Context, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	if preconditions == nil && validateDeletion == nil {
+		return s.deleteKey(ctx, key, metaOut, nil, priorityHigh)
+	}
+	v, err := conversion.EnforcePtr(metaOut)
+	if err != nil {
+		return fmt.Errorf("unable to convert output object to pointer: %v", err)
+	}
+	var conflictAttempts int
+	for {
+		expect, err := s.checkDeletable(ctx, key, v.Type(), preconditions, validateDeletion)
+		if err != nil {
+			return err
+		}
+		err = s.deleteKey(ctx, key, metaOut, expect, priorityHigh)
+		if !errors.Is(err, errWriteConflict) {
+			return err
+		}
+		conflictAttempts++
+		metrics.IncSingleWriterConflictRetry(resourceFromKey(key))
+		if backoffErr := singleWriterConflictBackoff(ctx, conflictAttempts); backoffErr != nil {
+			return newContentionTimeoutError("delete", key, backoffErr)
+		}
+	}
+}
+
+// checkDeletable reads the stored object on a pool connection, applies the
+// delete preconditions and validation to it, and returns the (rv, uid) it was
+// read with for the DELETE's CAS.
+func (s *ObjectStore) checkDeletable(ctx context.Context, key string, typ reflect.Type, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc) (*rowVersion, error) {
+	conn, err := s.takeConn(ctx, "delete", key)
+	if err != nil {
+		return nil, err
+	}
+	defer s.pool.Put(conn)
+	existing := reflect.New(typ).Interface().(runtime.Object)
+	row, err := s.getWithConn(ctx, conn, key, storage.GetOptions{}, existing)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkDeleteObject(ctx, key, existing, preconditions, validateDeletion); err != nil {
+		return nil, err
+	}
+	return &rowVersion{rv: row.rv, uid: row.uid}, nil
 }
 
 func (s *ObjectStore) deleteKey(ctx context.Context, key string, metaOut runtime.Object, expect *rowVersion, priority writePriority) error {
@@ -1078,7 +1123,7 @@ func (s *ObjectStore) deleteKey(ctx context.Context, key string, metaOut runtime
 		return s.execDelete(conn, key, expect, &res, s.stmtHook(conn, holdPathDelete))
 	})
 	if err != nil {
-		if !storage.IsNotFound(err) {
+		if !storage.IsNotFound(err) && !errors.Is(err, errWriteConflict) {
 			logger.L().Ctx(ctx).Error("Delete - delete failed", helpers.Error(err), helpers.String("key", key))
 		}
 		return err
