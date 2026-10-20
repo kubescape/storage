@@ -3,9 +3,11 @@ package file
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
@@ -13,6 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/storage"
@@ -317,4 +321,102 @@ func TestObjectStore_Delete_ConcurrentUpdateRetriesAgainstFreshState(t *testing.
 		assert.Equal(t, "b", got.Labels["a"])
 		assert.NotEqual(t, rv, got.ResourceVersion)
 	})
+}
+
+// TestDelete_GatedPreconditionsDoNotPinKeyLockWhilePoolExhausted reproduces the
+// lock/pool cycle of a gated delete that must read the stored object: the
+// delete holds Lock(key) while waiting for a pool connection, and a full-spec
+// list holding the last connection waits for RLock(key) in get. With the pool
+// at its smallest supported size (two, one of which the gate owns) a single
+// reader suffices. The delete must release the key lock between bounded
+// connection attempts so the list completes, with the object, long before
+// lockTimeout.
+func TestDelete_GatedPreconditionsDoNotPinKeyLockWhilePoolExhausted(t *testing.T) {
+	pool := NewPoolWithOptions(filepath.Join(t.TempDir(), "test.sq3"), PoolOptions{Size: 2})
+	t.Cleanup(func() { _ = pool.Close() })
+	sch := runtime.NewScheme()
+	install.Install(sch)
+	s := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch).(*StorageImpl)
+	gate, err := NewWriteGate(t.Context(), pool)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, gate.Close()) })
+	s.SetWriteGate(gate)
+
+	key := testProfileKey("pinned")
+	out := &softwarecomposition.ContainerProfile{}
+	require.NoError(t, s.Create(t.Context(), key, &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "pinned", Namespace: "ns1", UID: "uid-pinned"},
+	}, out, 0))
+
+	// The list's connection: the last one the gate left in the pool.
+	conn, err := pool.Take(t.Context())
+	require.NoError(t, err)
+	released := false
+	releaseConn := func() {
+		if !released {
+			released = true
+			pool.Put(conn)
+		}
+	}
+	t.Cleanup(releaseConn)
+
+	uid := out.UID
+	var validated atomic.Int32
+	deleteDone := make(chan error, 1)
+	go func() {
+		deleteDone <- s.Delete(t.Context(), key, &softwarecomposition.ContainerProfile{},
+			&storage.Preconditions{UID: &uid},
+			func(context.Context, runtime.Object) error { validated.Add(1); return nil },
+			nil, storage.DeleteOptions{})
+	}()
+
+	// The delete is in the contended phase once it holds the key lock (it
+	// cannot proceed: the pool is empty). The probe is a bounded TryLock.
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
+		defer cancel()
+		if s.locks.Lock(ctx, key) != nil {
+			return true
+		}
+		s.locks.Unlock(key)
+		return false
+	}, 5*time.Second, time.Millisecond, "delete never reached the key-locked connection wait")
+	require.Zero(t, validated.Load())
+
+	list := &softwarecomposition.ContainerProfileList{}
+	listDone := make(chan error, 1)
+	go func() {
+		listDone <- s.GetListWithConn(t.Context(), conn, testProfileKey(""), storage.ListOptions{
+			ResourceVersion: softwarecomposition.ResourceVersionFullSpec,
+			Predicate:       storage.SelectionPredicate{Label: labels.Everything(), Field: fields.Everything(), GetAttrs: storage.DefaultNamespaceScopedAttr},
+			Recursive:       true,
+		}, list)
+	}()
+
+	select {
+	case err := <-listDone:
+		require.NoError(t, err)
+	case <-time.After(lockTimeout / 2):
+		releaseConn()
+		t.Fatalf("list still blocked on the key lock after %s: delete pins it while waiting for a connection", lockTimeout/2)
+	}
+	require.Len(t, list.Items, 1, "list silently omitted the object")
+	assert.Equal(t, "pinned", list.Items[0].Name)
+
+	// Free the connection: the delete now reads, validates and deletes.
+	select {
+	case err := <-deleteDone:
+		t.Fatalf("delete finished before a connection was free: %v", err)
+	default:
+	}
+	releaseConn()
+	select {
+	case err := <-deleteDone:
+		require.NoError(t, err)
+	case <-time.After(lockTimeout):
+		t.Fatal("delete did not complete after the connection was released")
+	}
+	assert.Equal(t, int32(1), validated.Load())
+	err = s.Get(t.Context(), key, storage.GetOptions{}, &softwarecomposition.ContainerProfile{})
+	assert.True(t, storage.IsNotFound(err), "%v", err)
 }
