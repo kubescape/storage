@@ -137,9 +137,11 @@ func (ie *initialEvents) markGone(uid types.UID) {
 // settle applies the live events that arrived while a round of re-reads ran, with those
 // reads as the reference. An event of the incarnation the client holds ships when its
 // version is newer and is dropped otherwise; a delete of that incarnation ships, and any
-// later event of a deleted incarnation is dropped. An event of another incarnation while
-// one is held cannot be ordered against the reads, since versions restart at every
-// creation, so it is returned for the next round to re-read.
+// later event of a deleted incarnation is dropped. Anything else is returned for the next
+// round to re-read: an event of another incarnation while one is held cannot be ordered
+// against the reads, since versions restart at every creation, and an event of a name the
+// client does not hold proves nothing about the store, since a create can be published
+// after its object was deleted and the delete published before this watch registered.
 func (ie *initialEvents) settle(late []watch.Event) (shipped, unsettled []watch.Event) {
 	for _, ev := range late {
 		acc, err := meta.Accessor(ev.Object)
@@ -162,11 +164,8 @@ func (ie *initialEvents) settle(late []watch.Event) (shipped, unsettled []watch.
 			shipped = append(shipped, ev)
 			delete(ie.held, k)
 		case ev.Type == watch.Deleted, gone:
-		case rvErr != nil, held && heldErr != nil:
+		case !held, rvErr != nil, heldErr != nil:
 			unsettled = append(unsettled, ev)
-		case !held:
-			shipped = append(shipped, watch.Event{Type: watch.Added, Object: ev.Object})
-			ie.held[k] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion(), obj: ev.Object}
 		case rv > heldRV:
 			shipped = append(shipped, watch.Event{Type: watch.Modified, Object: ev.Object})
 			ie.held[k] = listedObject{uid: acc.GetUID(), rv: acc.GetResourceVersion(), obj: ev.Object}

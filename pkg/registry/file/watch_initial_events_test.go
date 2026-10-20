@@ -391,8 +391,8 @@ func TestWatchListEndsWithAnErrorWhenTheReReadFails(t *testing.T) {
 // TestWatchListKeepsReceivingWhileItReReads delivers live events while the re-read of a
 // buffered object is in flight. The watcher must take them without waiting for the read,
 // and what arrived is settled against the read before the bookmark: a newer version of
-// the held incarnation ships, an older one is dropped, a name the client does not hold
-// ships as an add.
+// the held incarnation ships, an older one is dropped, and a name the client does not
+// hold is re-read in a second round, which here finds nothing.
 func TestWatchListKeepsReceivingWhileItReReads(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -412,12 +412,57 @@ func TestWatchListKeepsReceivingWhileItReReads(t *testing.T) {
 	notifyWithin(t, w, testVEX{name: "a", rv: "2", uid: "a-uid"}.event(watch.Modified))
 	notifyWithin(t, w, testVEX{name: "b", rv: "1", uid: "b-uid"}.event(watch.Modified))
 	store.release <- struct{}{}
+	assert.Equal(t, vexRootKey+"/b", <-store.started, "the unheld name is re-read, not trusted")
+	store.release <- struct{}{}
 
-	got := collectEvents(t, w, 3)
-	assert.Equal(t, []string{"MODIFIED:a@5", "ADDED:b@1", "BOOKMARK:@5"}, describeEvents(t, got))
-	assert.Equal(t, []string{vexRootKey + "/a"}, store.reads, "settled arrivals need no second read")
+	got := collectEvents(t, w, 2)
+	assert.Equal(t, []string{"MODIFIED:a@5", "BOOKMARK:@5"}, describeEvents(t, got))
+	assert.Equal(t, []string{vexRootKey + "/a", vexRootKey + "/b"}, store.reads, "the held name's arrivals settle without a second read")
 	w.Stop()
 	assertClosed(t, w)
+}
+
+// TestWatchListReReadsALateCreateInsteadOfTrustingIt models an object created, deleted and
+// its delete published before this watch registered, with the create's publication only
+// arriving while an unrelated re-read is in flight. The list and the store never had it, so
+// the late add must not ship: the name is re-read, and the read finds nothing. When the
+// store does hold the object, the same re-read ships it.
+func TestWatchListReReadsALateCreateInsteadOfTrustingIt(t *testing.T) {
+	a := testVEX{name: "a", rv: "3", uid: "a-uid"}
+	b := testVEX{name: "b", rv: "1", uid: "b-uid"}
+	for _, tt := range []struct {
+		name    string
+		inStore bool
+		want    []string
+	}{
+		{name: "deleted before the watch registered", want: []string{"BOOKMARK:@3"}},
+		{name: "still in the store", inStore: true, want: []string{"ADDED:b@1", "BOOKMARK:@3"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			w := newWatcherWithInitialEvents(ctx, false, true)
+			during := a.event(watch.Modified)
+			w.notify(during, during)
+			objects := map[string]*softwarecomposition.OpenVulnerabilityExchangeContainer{vexRootKey + "/a": a.object()}
+			if tt.inStore {
+				objects[vexRootKey+"/b"] = b.object()
+			}
+			store := &pausingStore{stubStore: stubStore{objects: objects}, started: make(chan string), release: make(chan struct{})}
+			w.initialCh <- stubInitialEvents(store, true, a)
+			assert.Equal(t, []string{"ADDED:a@3"}, describeEvents(t, collectEvents(t, w, 1)))
+
+			assert.Equal(t, vexRootKey+"/a", <-store.started)
+			notifyWithin(t, w, b.event(watch.Added))
+			store.release <- struct{}{}
+			assert.Equal(t, vexRootKey+"/b", <-store.started)
+			store.release <- struct{}{}
+
+			assert.Equal(t, tt.want, describeEvents(t, collectEvents(t, w, len(tt.want))))
+			w.Stop()
+			assertClosed(t, w)
+		})
+	}
 }
 
 // TestWatchListReReadsAnIncarnationItCannotSettle models a delete and recreate committed
@@ -648,8 +693,8 @@ func TestInitialEventsSettleOrdersLateArrivalsAgainstTheReads(t *testing.T) {
 			late: []watch.Event{held("a", "5").event(watch.Modified)}, want: []string{"MODIFIED:a@5"}, wantHeldAfter: []string{"a@5"}},
 		{name: "older or equal version is dropped", holds: []testVEX{held("a", "3")},
 			late: []watch.Event{held("a", "2").event(watch.Modified), held("a", "3").event(watch.Added)}, wantHeldAfter: []string{"a@3"}},
-		{name: "a name not held ships as an add whatever the event type", holds: nil,
-			late: []watch.Event{other("b", "1").event(watch.Modified)}, want: []string{"ADDED:b@1"}, wantHeldAfter: []string{"b@1"}},
+		{name: "a name not held is re-read whatever the event type", holds: nil,
+			late: []watch.Event{other("b", "1").event(watch.Modified)}, wantUnsettled: []string{"MODIFIED:b@1"}},
 		{name: "delete of the held incarnation ships", holds: []testVEX{held("a", "3")},
 			late: []watch.Event{held("a", "3").event(watch.Deleted)}, want: []string{"DELETED:a@3"}},
 		{name: "delete of a name not held is final and its reordered events are dropped", holds: nil,
@@ -660,12 +705,12 @@ func TestInitialEventsSettleOrdersLateArrivalsAgainstTheReads(t *testing.T) {
 			late: []watch.Event{other("a", "1").event(watch.Added)}, wantUnsettled: []string{"ADDED:a@1"}, wantHeldAfter: []string{"a@3"}},
 		{name: "an unparsable version is re-read", holds: []testVEX{held("a", "3")},
 			late: []watch.Event{held("a", "x").event(watch.Modified)}, wantUnsettled: []string{"MODIFIED:a@x"}, wantHeldAfter: []string{"a@3"}},
-		{name: "a sequence in arrival order needs no re-read", holds: []testVEX{held("a", "3")},
+		{name: "a sequence in arrival order settles the held incarnation and re-reads the new one", holds: []testVEX{held("a", "3")},
 			late: []watch.Event{held("a", "4").event(watch.Modified), held("a", "4").event(watch.Deleted), other("a", "1").event(watch.Added), other("a", "2").event(watch.Modified)},
-			want: []string{"MODIFIED:a@4", "DELETED:a@4", "ADDED:a@1", "MODIFIED:a@2"}, wantHeldAfter: []string{"a@2"}},
-		{name: "the same sequence with the add published first is re-read", holds: []testVEX{held("a", "3")},
+			want: []string{"MODIFIED:a@4", "DELETED:a@4"}, wantUnsettled: []string{"ADDED:a@1", "MODIFIED:a@2"}},
+		{name: "the same sequence with the add published first", holds: []testVEX{held("a", "3")},
 			late: []watch.Event{other("a", "1").event(watch.Added), held("a", "4").event(watch.Modified), held("a", "4").event(watch.Deleted), other("a", "2").event(watch.Modified)},
-			want: []string{"MODIFIED:a@4", "DELETED:a@4", "ADDED:a@2"}, wantUnsettled: []string{"ADDED:a@1"}, wantHeldAfter: []string{"a@2"}},
+			want: []string{"MODIFIED:a@4", "DELETED:a@4"}, wantUnsettled: []string{"ADDED:a@1", "MODIFIED:a@2"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

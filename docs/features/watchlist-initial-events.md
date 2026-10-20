@@ -33,21 +33,23 @@ incarnation (the uid, since versions restart at every creation) has a newer vers
 watch with an error event instead of a bookmark, so the client relists.
 
 The re-reads take the per-object lock, and a writer publishes an object's event while it
-still holds that lock (`StorageImpl.Delete` does, for one), so the watcher keeps receiving
-while its reads run: the reads happen on their own goroutine and the main loop goes on
-taking live events. What arrives during a round is settled against the reads before the
-bookmark: an event of the incarnation the client holds ships when its version is newer
-and is dropped otherwise, a delete of that incarnation ships, a later event of a deleted
-incarnation (a delete is final, a uid never returns) is dropped, and a name the client
-does not hold ships as an `ADDED`. An event of another incarnation while one is held
-cannot be ordered against the reads, since versions restart at every creation, so the
-next round re-reads that name. Rounds are bounded (`maxReconcileRounds`); a name
-recreated on every round for that long ends the watch with an error event and the client
-relists. A stopped watch cancels the reads, waits for them to return and emits nothing
-more. Writers never wait on the reads; while the replay is being shipped they wait only
-if the client's outbound buffer is full, as on any watch. A notification that is
-published after the bookmark but belongs to an older commit reaches the client live, as
-it would on any watch; that weakness of the live stream predates the replay.
+still holds that lock (`StorageImpl.Delete` does, for one), so the watcher keeps
+receiving while its reads run: the reads happen on their own goroutine and the main loop
+goes on taking live events. What arrives during a round is settled against the reads
+before the bookmark: an event of the incarnation the client holds ships when its version
+is newer and is dropped otherwise, a delete of that incarnation ships, a later event of
+a deleted incarnation (a delete is final, a uid never returns) is dropped. Anything else
+is re-read by the next round: an event of another incarnation while one is held cannot
+be ordered against the reads, since versions restart at every creation, and an event of
+a name the client does not hold proves nothing about the store, since a create can be
+published after its object was deleted and the delete published before the watch
+registered. Rounds are bounded (`maxReconcileRounds`); a name recreated on every round
+for that long ends the watch with an error event and the client relists. A stopped watch
+cancels the reads, waits for them to return and emits nothing more. Writers never wait
+on the reads; while the replay is being shipped they wait only if the client's outbound
+buffer is full, as on any watch. A notification that is published after the bookmark but
+belongs to an older commit reaches the client live, as it would on any watch; that
+weakness of the live stream predates the replay.
 
 The bookmark's `resourceVersion` is the one a list of the same key returns, raised to the
 version of any update shipped before it. When the client asks for a numeric minimum
