@@ -166,12 +166,21 @@ func (s *ObjectStore) Stats(context.Context) (storage.Stats, error) {
 }
 
 func (s *ObjectStore) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
+	nw := newWatcherWithInitialEvents(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec, wantsInitialEvents(opts))
 	if wd, ok := s.watchDispatcher.(*WatchDispatcher); ok {
 		wd.Register(key, nw)
 	} else if r, ok := s.watchDispatcher.(interface{ Register(string, *watcher) }); ok {
 		r.Register(key, nw)
 	}
+	if nw.initialCh == nil {
+		return nw, nil
+	}
+	initial, err := buildInitialEvents(ctx, s, s.scheme, key, opts)
+	if err != nil {
+		nw.Stop()
+		return nil, err
+	}
+	nw.initialCh <- initial
 	return nw, nil
 }
 
