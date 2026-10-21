@@ -10,7 +10,6 @@ import (
 
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/goradd/maps"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
@@ -224,16 +223,19 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 			return err
 		}
 	}
-	// cleanup cluster level resources inside defaultNamespace
-	resources := ResourceMaps{
-		Hosts:                        hosts,
-		RunningContainerImageIds:     clusterRunningContainerImageIds,
-		RunningInstanceIds:           clusterRunningInstanceIds,
-		RunningTemplateHash:          mapset.NewSet[string](),
-		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
+	// cleanup cluster level resources inside defaultNamespace, together with the
+	// workloads that run there: their images and instances count as running for the
+	// cluster level records, and their own records are judged like any namespace's
+	resources, err := h.fetcher.FetchResources(h.defaultNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to fetch resources: %w", err)
 	}
-	err = h.cleanupNamespace(ctx, h.defaultNamespace, resourceToKindHandler, conn, resources)
-	return nil
+	resources.Hosts = hosts
+	clusterRunningContainerImageIds.Append(resources.RunningContainerImageIds.ToSlice()...)
+	clusterRunningInstanceIds.Append(resources.RunningInstanceIds.ToSlice()...)
+	resources.RunningContainerImageIds = clusterRunningContainerImageIds
+	resources.RunningInstanceIds = clusterRunningInstanceIds
+	return h.cleanupNamespace(ctx, h.defaultNamespace, resourceToKindHandler, conn, resources)
 }
 
 func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns string, resourceToKindHandler map[string][]TypeCleanupHandlerFunc, conn *sqlite.Conn, resources ResourceMaps) error {
