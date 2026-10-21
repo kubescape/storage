@@ -102,7 +102,7 @@ func extractKindAndVerbFromPath(r *http.Request) (kind, verb string) {
 			}
 		}
 		// If "namespaces" is not present, fallback to the current logic
-		if len(parts) >= 4 {
+		if len(parts) >= 4 && parts[3] != "" {
 			return parts[3], r.Method
 		}
 	}

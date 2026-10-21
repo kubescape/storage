@@ -19,6 +19,9 @@ func TestHostResourceCleanupDecision(t *testing.T) {
 		sum := sha256.Sum256([]byte(id))
 		return &metav1.ObjectMeta{Labels: map[string]string{"kubescape.io/host": fmt.Sprintf("truncated-sanitized-name-%x", sum[:16])}}
 	}
+	posture := func(wlid string) *metav1.ObjectMeta {
+		return &metav1.ObjectMeta{Annotations: map[string]string{"kubescape.io/wlid": wlid}}
+	}
 	profile := func(id string) *metav1.ObjectMeta {
 		return &metav1.ObjectMeta{Labels: map[string]string{"kubescape.io/workload-kind": "Node", "kubescape.io/workload-namespace": "host"}, Annotations: map[string]string{"kubescape.io/wlid": "wlid://cluster-unknown/namespace-host/host-" + id}}
 	}
@@ -45,6 +48,17 @@ func TestHostResourceCleanupDecision(t *testing.T) {
 		{"ordinary image", "sbomsyfts", &metav1.ObjectMeta{}, snapshot, false, false},
 		{"ordinary profile", ContainerProfileKind, &metav1.ObjectMeta{Labels: map[string]string{"kubescape.io/workload-kind": "Pod"}}, snapshot, false, false},
 		{"other kind", "applicationprofiles", profile(nodeName), snapshot, false, false},
+		{"node posture scan", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-/node-" + nodeName), snapshot, true, false},
+		{"node posture summary", "workloadconfigurationscansummaries", posture("wlid://cluster-test/namespace-/node-" + nodeName), snapshot, true, false},
+		{"orphan node posture scan", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-/node-deleted"), snapshot, true, true},
+		{"orphan node posture summary", "workloadconfigurationscansummaries", posture("wlid://cluster-test/namespace-/node-deleted"), snapshot, true, true},
+		{"machine id is not a node name", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-/node-" + machineID), snapshot, true, true},
+		{"node posture without machine ids", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-/node-" + nodeName), newHostResources([]corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}}), true, false},
+		{"node posture discovery unavailable", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-/node-deleted"), nil, true, false},
+		{"malformed node posture", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-/node-a/b"), snapshot, false, false},
+		{"pod posture", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-default/pod-deleted"), snapshot, false, false},
+		{"secret posture", "workloadconfigurationscans", posture("wlid://cluster-test/namespace-default/secret-deleted"), snapshot, false, false},
+		{"posture without wlid", "workloadconfigurationscans", &metav1.ObjectMeta{}, snapshot, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			handled, remove := hostResourceCleanupDecision(tc.kind, tc.meta, tc.hosts)

@@ -1,4 +1,6 @@
 name: build
+permissions: read-all
+
 on:
   pull_request_target:
     types: [closed]
@@ -13,7 +15,7 @@ jobs:
   pr-merged:
     if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' }}
     permissions:
-      actions: write
+      actions: read
       id-token: write
       packages: write
       contents: write
@@ -27,7 +29,7 @@ jobs:
       CGO_ENABLED: 0
       GO111MODULE: "on"
       BUILD_PLATFORM: linux/amd64,linux/arm64
-      GO_VERSION: "1.25"
+      GO_VERSION: "1.26"
       REQUIRED_TESTS: '[
                         "relevantCVEs",
                         "relevancy_enabled_stop_sniffing",

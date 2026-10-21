@@ -927,8 +927,22 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	// dispatched through the exact same code already proven correct for
 	// cluster-scoped resources. See docs/features/namespace-watch-enabled.md.
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
-	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
+	sendFullObject := opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
+	if !wantsInitialEvents(opts) {
+		nw := newWatcher(ctx, sendFullObject)
+		s.watchDispatcher.Register(key, nw)
+		return nw, nil
+	}
+	// Register before listing so a write landing while the list runs is buffered by the
+	// watcher rather than missed; the replay drops what the list already contains.
+	nw := newWatcherWithInitialEvents(ctx, sendFullObject, true)
 	s.watchDispatcher.Register(key, nw)
+	initial, err := buildInitialEvents(ctx, s, s.scheme, key, opts)
+	if err != nil {
+		nw.Stop()
+		return nil, err
+	}
+	nw.initialCh <- initial
 	return nw, nil
 }
 
@@ -1726,18 +1740,48 @@ func (s *StorageImpl) fetchListPage(ctx context.Context, conn *sqlite.Conn, key 
 	return listPageResult{pageLast: pageLast, count: len(entries)}, nil
 }
 
-// setListContinue sets listObj's continue token, mirroring what GetList/
-// GetListWithConn used to do inline at the end of their pagination loop.
-func setListContinue(listObj runtime.Object, pageLast string) error {
-	if pageLast == "" {
-		return nil
-	}
+// setListMeta sets listObj's continue token and ensures listObj has a non-empty
+// resourceVersion, satisfying client-go's RetryWatcher (issue #419).
+func setListMeta(listObj runtime.Object, pageLast string) error {
 	listAccessor, err := meta.ListAccessor(listObj)
 	if err != nil {
 		return fmt.Errorf("list accessor: %w", err)
 	}
-	listAccessor.SetContinue(pageLast)
+	if pageLast != "" {
+		listAccessor.SetContinue(pageLast)
+	}
+	listAccessor.SetResourceVersion(computeListResourceVersion(listObj))
 	return nil
+}
+
+// setListContinue sets listObj's continue token and resourceVersion.
+func setListContinue(listObj runtime.Object, pageLast string) error {
+	return setListMeta(listObj, pageLast)
+}
+
+// computeListResourceVersion returns the maximum resourceVersion among the
+// items in listObj, or "1" if the list is empty or has no numeric resourceVersion.
+// This guarantees list responses return a valid non-empty, non-zero resourceVersion
+// required by client-go RetryWatcher (issue #419).
+func computeListResourceVersion(listObj runtime.Object) string {
+	items, err := meta.ExtractList(listObj)
+	if err != nil || len(items) == 0 {
+		return "1"
+	}
+	var maxRV uint64
+	for _, item := range items {
+		if acc, err := meta.Accessor(item); err == nil {
+			if rvStr := acc.GetResourceVersion(); rvStr != "" {
+				if rv, err := strconv.ParseUint(rvStr, 10, 64); err == nil && rv > maxRV {
+					maxRV = rv
+				}
+			}
+		}
+	}
+	if maxRV > 0 {
+		return strconv.FormatUint(maxRV, 10)
+	}
+	return "1"
 }
 
 // getListWithSpec is the same as GetList, but it returns the full objects instead of just the metadata.
@@ -1782,7 +1826,7 @@ func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage
 			logger.L().Ctx(ctx).Error("getListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
 		}
 	}
-	return nil
+	return setListMeta(listObj, "")
 }
 
 func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object) (*objState, error) {
@@ -2273,7 +2317,13 @@ func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, 
 // Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
 // It returns an idle, event-free watch that closes on client disconnect or Stop:
 // a pre-closed channel would send reflectors into a "very short watch" tight retry loop.
-func (immutableStorage) Watch(ctx context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+// A watch list has nothing to replay here, so it is refused with a non-retriable error
+// that makes client-go fall back to list and watch.
+func (immutableStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	if wantsInitialEvents(opts) {
+		_, group, resource, _, _, _ := K8sPathToKeys(key)
+		return nil, apierrors.NewMethodNotSupported(schema.GroupResource{Group: group, Resource: resource}, "watch with sendInitialEvents")
+	}
 	return newIdleWatch(ctx), nil
 }
 

@@ -270,3 +270,29 @@ func TestStore_DeleteCollection_NegativeLimitDeletesNothing(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, remaining, total, "a negative Limit must not delete anything, matching List's own negative-limit contract")
 }
+
+func TestStore_List_ResourceVersionNonEmpty(t *testing.T) {
+	store := newTestStore(t)
+	ctx := testContext()
+
+	// 1. List on empty store must return non-empty resourceVersion (issue #419).
+	emptyList, err := store.List(ctx, &metainternalversion.ListOptions{})
+	require.NoError(t, err)
+	accessor, err := meta.ListAccessor(emptyList)
+	require.NoError(t, err)
+	assert.NotEmpty(t, accessor.GetResourceVersion())
+	assert.Equal(t, "1", accessor.GetResourceVersion())
+
+	// 2. List on store with items must return non-empty resourceVersion.
+	_, err = store.Create(ctx, &softwarecomposition.KnownServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "server-01"},
+	}, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	populatedList, err := store.List(ctx, &metainternalversion.ListOptions{})
+	require.NoError(t, err)
+	accessor, err = meta.ListAccessor(populatedList)
+	require.NoError(t, err)
+	assert.NotEmpty(t, accessor.GetResourceVersion())
+	assert.Equal(t, "1", accessor.GetResourceVersion())
+}

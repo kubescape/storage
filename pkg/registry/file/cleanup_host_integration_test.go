@@ -157,3 +157,61 @@ func TestCleanupHostSQLiteContainerProfiles(t *testing.T) {
 		}
 	}
 }
+
+func TestCleanupNodePostureRecords(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		nodes    []corev1.Node
+		err      error
+		keepNode bool
+	}{
+		{name: "existing node", nodes: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "worker-1"}}}, keepNode: true},
+		{name: "deleted node", nodes: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "worker-2"}}}},
+		{name: "failed discovery", err: errors.New("nodes list forbidden"), keepNode: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+			pool := NewTestPool(t.TempDir())
+			t.Cleanup(func() { require.NoError(t, pool.Close()) })
+			conn, err := pool.Take(t.Context())
+			require.NoError(t, err)
+			paths := map[string]bool{}
+			for _, kind := range []string{"workloadconfigurationscans", "workloadconfigurationscansummaries"} {
+				for name, record := range map[string]struct {
+					wlid string
+					keep bool
+				}{
+					"node-worker-1": {"wlid://cluster-test/namespace-/node-worker-1", tc.keepNode},
+					// Not cleaned by storage yet: it cannot list Secrets.
+					"secret-gone": {"wlid://cluster-test/namespace-default/secret-gone", true},
+				} {
+					metadata := metav1.ObjectMeta{Name: name, Namespace: "kubescape", Annotations: map[string]string{"kubescape.io/wlid": record.wlid}}
+					path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "kubescape", name+GobExt)
+					require.NoError(t, afero.WriteFile(fs, path, []byte("payload"), 0644))
+					data, err := json.Marshal(metadata)
+					require.NoError(t, err)
+					require.NoError(t, WriteJSON(conn, payloadPathToKey(path), data))
+					paths[path] = record.keep
+				}
+			}
+			pool.Put(conn)
+			fetcher := &hostCleanupFetcher{nodes: tc.nodes, err: tc.err}
+			h := NewResourcesCleanupHandler(fs, DefaultStorageRoot, pool, nil, 0, "kubescape", fetcher, true)
+			require.NoError(t, h.CleanupTask(t.Context(), h.resourceToKindHandler))
+			conn, err = pool.Take(t.Context())
+			require.NoError(t, err)
+			defer pool.Put(conn)
+			for path, keep := range paths {
+				exists, err := afero.Exists(fs, path)
+				require.NoError(t, err)
+				assert.Equal(t, keep, exists, path)
+				_, err = ReadMetadata(conn, payloadPathToKey(path))
+				if keep {
+					assert.NoError(t, err, path)
+				} else {
+					assert.Error(t, err, path)
+				}
+			}
+		})
+	}
+}

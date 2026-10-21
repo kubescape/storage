@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -13,13 +14,16 @@ import (
 type hostResources struct {
 	ids    map[string]struct{}
 	hashes map[string]struct{}
+	// Node names only, for records that name the Node object itself.
+	names map[string]struct{}
 	// Missing machine IDs make fallback ownership impossible to rule out.
 	incomplete bool
 }
 
 func newHostResources(nodes []corev1.Node) *hostResources {
-	h := &hostResources{ids: make(map[string]struct{}), hashes: make(map[string]struct{})}
+	h := &hostResources{ids: make(map[string]struct{}), hashes: make(map[string]struct{}), names: make(map[string]struct{})}
 	for _, node := range nodes {
+		h.names[node.Name] = struct{}{}
 		if node.Status.NodeInfo.MachineID == "" {
 			h.incomplete = true
 		}
@@ -81,6 +85,21 @@ func hostResourceCleanupDecision(kind string, metadata *metav1.ObjectMeta, hosts
 			return true, false
 		}
 		_, exists := hosts.ids[id]
+		return true, !exists
+	}
+	if kind == "workloadconfigurationscans" || kind == "workloadconfigurationscansummaries" {
+		// Posture records of a Node are named after the Node object, so the
+		// node list alone proves an orphan. Other cluster-scoped kinds are
+		// left to deleteByWlid, which keeps them.
+		wlid := metadata.Annotations[helpersv1.WlidMetadataKey]
+		name, found := strings.CutPrefix(wlidWithoutClusterName(wlid), "namespace-/node-")
+		if !strings.HasPrefix(wlid, "wlid://cluster-") || !found || name == "" || strings.Contains(name, "/") {
+			return false, false
+		}
+		if hosts == nil {
+			return true, false
+		}
+		_, exists := hosts.names[name]
 		return true, !exists
 	}
 	return false, false

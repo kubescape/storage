@@ -322,5 +322,5 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		return err
 	}
 
-	return nil
+	return setListMeta(listObj, "")
 }
