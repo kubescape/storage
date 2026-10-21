@@ -833,19 +833,15 @@ func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key s
 	if s.gate != nil {
 		return s.deleteLockedGated(ctx, key, metaOut, p)
 	}
-	// Delete the SQL payload before metadata. On failure preserve the other
-	// state so the caller can retry the complete deletion.
+	// The rows go first and the payload file last: a row delete that fails returns
+	// with the object still whole, so the caller can retry the complete deletion
+	// and no watcher is told of a delete that did not happen.
 	if err := DeletePayloads(conn, key); err != nil {
 		return fmt.Errorf("delete payloads: %w", err)
 	}
-	// delete metadata in SQLite
-	err := DeleteMetadata(conn, key, metaOut)
-	if err != nil {
+	if err := DeleteMetadata(conn, key, metaOut); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
-	}
-	// delete payload file
-	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
-		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
+		return fmt.Errorf("delete metadata: %w", err)
 	}
 	// delete time series entries if this is a containerprofile
 	_, _, kind, _, _, _ := K8sPathToKeys(key)
@@ -854,6 +850,10 @@ func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key s
 			logger.L().Ctx(ctx).Error("Delete - delete time series entries failed", helpers.Error(err), helpers.String("key", key))
 			return fmt.Errorf("delete time series entries: %w", err)
 		}
+	}
+	// delete payload file
+	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
+		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
 	return nil
 }
@@ -881,12 +881,10 @@ func (s *StorageImpl) deleteLockedGated(ctx context.Context, key string, metaOut
 	})
 	if err != nil {
 		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
+		return err
 	}
 	if rerr := s.appFs.Remove(makePayloadPath(p)); rerr != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(rerr), helpers.String("key", key))
-	}
-	if err != nil {
-		return err
 	}
 	if metaOut != nil && len(raw) > 0 {
 		if uerr := json.Unmarshal(raw, metaOut); uerr != nil {
