@@ -99,7 +99,7 @@ func TestConsolidateData(t *testing.T) {
 		var profile softwarecomposition.ContainerProfile
 		err = json.Unmarshal(content, &profile)
 		require.NoError(t, err)
-		err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0)
+		err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0)
 		require.NoError(t, err)
 	}
 
@@ -129,7 +129,7 @@ func TestConsolidateData(t *testing.T) {
 	defer pool.Put(conn)
 
 	containerProfile := softwarecomposition.ContainerProfile{}
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &containerProfile)
 	assert.NoError(t, err)
 	assert.Equal(t, softwarecomposition.CallID("test-call-id"), containerProfile.Spec.IdentifiedCallStacks[0].CallID)
@@ -153,12 +153,12 @@ func TestLoadOrInitializeProfile_NewProfileGetsUID(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanupConn()
 
-	keyA := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", "ns-a", "pod-a")
+	keyA := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofiles", "", "ns-a", "pod-a")
 	profileA, _, _, _, err := processor.loadOrInitializeProfile(ctx, keyA)
 	require.NoError(t, err)
 	assert.NotEmpty(t, profileA.UID, "a brand-new profile must get a UID or standard Kubernetes PATCH against it later 404s (kubescape/storage#385)")
 
-	keyB := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", "ns-a", "pod-b")
+	keyB := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofiles", "", "ns-a", "pod-b")
 	profileB, _, _, _, err := processor.loadOrInitializeProfile(ctx, keyB)
 	require.NoError(t, err)
 	assert.NotEmpty(t, profileB.UID)
@@ -204,9 +204,9 @@ func seedTimeSeriesRow(t *testing.T, pool *sqlitemigration.Pool, ns, name, serie
 	conn, err := pool.Take(context.TODO())
 	require.NoError(t, err)
 	defer pool.Put(conn)
-	err = WriteTimeSeriesEntry(conn, "containerprofile", ns, name, seriesID, tsSuffix, reportTimestamp, helpersv1.Learning, helpersv1.Partial, "", hasData)
+	err = WriteTimeSeriesEntry(conn, "containerprofiles", ns, name, seriesID, tsSuffix, reportTimestamp, helpersv1.Learning, helpersv1.Partial, "", hasData)
 	require.NoError(t, err)
-	return K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", ns, name)
+	return K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofiles", "", ns, name)
 }
 
 // TestConsolidateTimeSeries_Concurrent_NoDeadlock drives the worker pool over
@@ -225,7 +225,7 @@ func TestConsolidateTimeSeries_Concurrent_NoDeadlock(t *testing.T) {
 		require.NoError(t, err)
 		var profile softwarecomposition.ContainerProfile
 		require.NoError(t, json.Unmarshal(content, &profile))
-		require.NoError(t, s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0))
+		require.NoError(t, s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0))
 	}
 	// consolidate runs a pass under a deadlock guard (Workers=4, so keys sharing
 	// the multiple-containers workload apKey are processed concurrently).

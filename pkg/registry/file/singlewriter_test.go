@@ -91,7 +91,7 @@ func newSingleWriterTestStorageWithPoolSize(t *testing.T, poolSize int) (*Storag
 }
 
 func testProfileKey(name string) string {
-	return "/spdx.softwarecomposition.kubescape.io/containerprofile/ns1/" + name
+	return "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns1/" + name
 }
 
 // TestSingleWriter_CreateThenGet is the basic round-trip: Create via the new

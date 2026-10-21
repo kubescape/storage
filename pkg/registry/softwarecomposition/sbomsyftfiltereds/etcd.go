@@ -36,8 +36,8 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.SBOMSyftFiltered{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.SBOMSyftFilteredList{} },
 		PredicateFunc:             MatchWorkloadConfigurationScan,
-		DefaultQualifiedResource:  softwarecomposition.Resource("sbomsyftfiltered"),
-		SingularQualifiedResource: softwarecomposition.Resource("sbomsyftfiltereds"),
+		DefaultQualifiedResource:  softwarecomposition.Resource("sbomsyftfiltereds"),
+		SingularQualifiedResource: softwarecomposition.Resource("sbomsyftfiltered"),
 
 		Storage: dryRunnableStorage,
 

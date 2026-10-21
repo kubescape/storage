@@ -36,7 +36,7 @@ import (
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-const testCPPrefix = "/spdx.softwarecomposition.kubescape.io/containerprofile/"
+const testCPPrefix = "/spdx.softwarecomposition.kubescape.io/containerprofiles/"
 
 // tableAction is one authorizer observation: an SQLite action type on a table
 // (SQLITE_READ / INSERT / UPDATE / DELETE), recorded per connection.
@@ -365,8 +365,8 @@ func allCPKeys(t *testing.T, conn *sqlite.Conn) []string {
 		}
 		return nil
 	}
-	require.NoError(t, sqlitex.Execute(conn, `SELECT namespace, name FROM metadata WHERE kind = 'containerprofile'`, &sqlitex.ExecOptions{ResultFunc: add}))
-	require.NoError(t, sqlitex.Execute(conn, `SELECT namespace, name FROM payloads WHERE kind = 'containerprofile'`, &sqlitex.ExecOptions{ResultFunc: add}))
+	require.NoError(t, sqlitex.Execute(conn, `SELECT namespace, name FROM metadata WHERE kind = 'containerprofiles'`, &sqlitex.ExecOptions{ResultFunc: add}))
+	require.NoError(t, sqlitex.Execute(conn, `SELECT namespace, name FROM payloads WHERE kind = 'containerprofiles'`, &sqlitex.ExecOptions{ResultFunc: add}))
 	return keys
 }
 

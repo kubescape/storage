@@ -36,8 +36,8 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.SeccompProfile{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.SeccompProfileList{} },
 		PredicateFunc:             MatchWorkloadConfigurationScan,
-		DefaultQualifiedResource:  softwarecomposition.Resource("seccompprofile"),
-		SingularQualifiedResource: softwarecomposition.Resource("seccompprofiles"),
+		DefaultQualifiedResource:  softwarecomposition.Resource("seccompprofiles"),
+		SingularQualifiedResource: softwarecomposition.Resource("seccompprofile"),
 
 		Storage: dryRunnableStorage,
 

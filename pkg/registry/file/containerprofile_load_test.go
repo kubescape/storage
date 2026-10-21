@@ -90,6 +90,15 @@ func loadBackend() string {
 	return "legacy"
 }
 
+// The same harness is overlaid onto the pre-prefix-migration baseline. Use
+// each arm's canonical names so cleanup does identical work in both arms.
+func loadSBOMKind() string {
+	if ContainerProfileKind == "containerprofile" {
+		return "sbomsyft"
+	}
+	return "sbomsyfts"
+}
+
 func loadPoolSize() int      { return envInt("LOAD_POOL", 6) }
 func loadWriters() int       { return envInt("LOAD_WRITERS", 6) }
 func loadReaders() int       { return envInt("LOAD_READERS", 25) }
@@ -284,7 +293,7 @@ func loadLabelUpdate(input k8sruntime.Object, _ storage.ResponseMeta) (k8sruntim
 // (consolidated) key that REST readers GET and the consolidator writes.
 type cpTemplate struct {
 	profile softwarecomposition.ContainerProfile
-	baseKey string // /spdx.../containerprofile/<ns>/<baseName>  (no ts suffix)
+	baseKey string // /spdx.../containerprofiles/<ns>/<baseName>  (no ts suffix)
 	baseNm  string // name without the ts suffix
 	ns      string
 }
@@ -302,7 +311,7 @@ func loadTemplates(t *testing.T) []cpTemplate {
 			profile: p,
 			baseNm:  baseNm,
 			ns:      p.Namespace,
-			baseKey: "/spdx.softwarecomposition.kubescape.io/containerprofile/" + p.Namespace + "/" + baseNm,
+			baseKey: "/spdx.softwarecomposition.kubescape.io/" + ContainerProfileKind + "/" + p.Namespace + "/" + baseNm,
 		})
 	}
 	return out
@@ -631,7 +640,7 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	legacyKinds, cleanup := kinds.s, kinds.cleanup
 
 	templates := loadTemplates(t)
-	nsListKey := "/spdx.softwarecomposition.kubescape.io/containerprofile/" + templates[0].ns
+	nsListKey := "/spdx.softwarecomposition.kubescape.io/" + ContainerProfileKind + "/" + templates[0].ns
 
 	// Preseed: create the base testdata TS profiles and consolidate once so
 	// the base keys readers GET and updaters update exist from the start. The
@@ -646,7 +655,7 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		p := tpl.profile.DeepCopy()
 		p.Annotations[helpersv1.StatusMetadataKey] = helpersv1.Learning
 		p.Annotations[helpersv1.CompletionMetadataKey] = helpersv1.Partial
-		key := "/spdx.softwarecomposition.kubescape.io/containerprofile/" + p.Namespace + "/" + p.Name
+		key := "/spdx.softwarecomposition.kubescape.io/" + ContainerProfileKind + "/" + p.Namespace + "/" + p.Name
 		require.NoError(t, s.Create(seedCtx, key, p, nil, 0))
 	}
 	seedWorkers := processor.Workers
@@ -658,7 +667,7 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 	for i := 0; i < cfg.CleanupRows; i++ {
 		name := fmt.Sprintf("dead-%d", i)
 		obj := &softwarecomposition.SBOMSyft{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: loadCleanupNS, Annotations: map[string]string{helpersv1.ImageIDMetadataKey: "sha256:" + name}}}
-		require.NoError(t, legacyKinds.Create(seedCtx, loadLegacyKey("sbomsyft", loadCleanupNS, name), obj, nil, 0))
+		require.NoError(t, legacyKinds.Create(seedCtx, loadLegacyKey(loadSBOMKind(), loadCleanupNS, name), obj, nil, 0))
 	}
 	seedCancel()
 
@@ -727,7 +736,7 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 				p.Annotations[helpersv1.StatusMetadataKey] = helpersv1.Learning
 				p.Annotations[helpersv1.CompletionMetadataKey] = helpersv1.Partial
 				p.ResourceVersion = ""
-				key := "/spdx.softwarecomposition.kubescape.io/containerprofile/" + p.Namespace + "/" + p.Name
+				key := "/spdx.softwarecomposition.kubescape.io/" + ContainerProfileKind + "/" + p.Namespace + "/" + p.Name
 				ctx, cancel := reqCtx()
 				t0 := time.Now()
 				err := s.Create(ctx, key, p, nil, 0)
@@ -823,7 +832,7 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 				var fresh func() k8sruntime.Object
 				if i%2 == 0 {
 					name := "sbom-" + strconv.FormatInt(n, 36)
-					key = loadLegacyKey("sbomsyft", loadLegacyNS, name)
+					key = loadLegacyKey(loadSBOMKind(), loadLegacyNS, name)
 					obj = loadSizedSBOM(name, loadLegacyNS, cfg.LegacySizeKB)
 					fresh = func() k8sruntime.Object { return &softwarecomposition.SBOMSyft{} }
 				} else {
@@ -860,7 +869,7 @@ func runLoadScenario(t *testing.T, cfg loadConfig) loadReport {
 		go func() {
 			defer clients.Done()
 			t0 := time.Now()
-			err := cleanup.CleanupTask(context.Background(), map[string][]TypeCleanupHandlerFunc{"sbomsyft": {deleteByImageId}})
+			err := cleanup.CleanupTask(context.Background(), map[string][]TypeCleanupHandlerFunc{loadSBOMKind(): {deleteByImageId}})
 			cleanupTicks.record(time.Since(t0), err)
 		}()
 	}
@@ -1449,7 +1458,7 @@ func TestContainerProfileLockFailFast(t *testing.T) {
 	s, _, pool := newLoadStorage(t, n+5)
 	defer func() { _ = pool.Close() }()
 
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/failfast-probe"
+	key := "/spdx.softwarecomposition.kubescape.io/" + ContainerProfileKind + "/kube-system/failfast-probe"
 	// Hold the write lock for the whole test so every GET contends.
 	require.NoError(t, s.locks.Lock(context.Background(), key))
 	defer s.locks.Unlock(key)

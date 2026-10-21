@@ -21,10 +21,7 @@ import (
 )
 
 const (
-	// ContainerProfiles are stored under the SINGULAR kind segment "containerprofile"
-	// (ContainerProfileKind). The plural "containerprofiles" is only the REST resource
-	// name and does NOT match the stored keys, so a plural lookup misses every profile
-	// and the aggregation returns NotFound/empty for every workload.
+	// Use the canonical storage prefix shared with the ContainerProfile backend.
 	containerProfileResource = ContainerProfileKind
 	knownServersResource     = "knownservers"
 	// containerProfileListLimit bounds the internal namespace listing used to

@@ -122,7 +122,7 @@ func acg2SbomKeyOf(e *acg2Env, p *softwarecomposition.ContainerProfile) string {
 		},
 		Name: slug,
 	}
-	return BuildContainerProfileKey(id, "sbomsyft")
+	return BuildContainerProfileKey(id, "sbomsyfts")
 }
 
 // acg2OnReaders are the flag-on-only entry points: PreSave for a base CP,

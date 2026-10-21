@@ -108,11 +108,11 @@ func initResourceToKindHandler() map[string][]TypeCleanupHandlerFunc {
 		"sbomspdxv2p3":                {deleteDeprecated},
 		"sbomsummaries":               {deleteDeprecated},
 		// CLUSTER level
-		"sbomsyft":               {deleteByImageId},
+		"sbomsyfts":              {deleteByImageId},
 		"vulnerabilitymanifests": {deleteByImageIdOrInstanceId},
 		// NAMESPACE level
 		"openvulnerabilityexchangecontainers": {deleteByInstanceId},
-		"sbomsyftfiltered":                    {deleteByInstanceId},
+		"sbomsyftfiltereds":                   {deleteByInstanceId},
 		"seccompprofiles":                     {deleteByTemplateHashOrWlid},
 		"vulnerabilitymanifestsummaries":      {deleteByWlidAndContainer},
 		"workloadconfigurationscans":          {deleteByWlid},
@@ -134,10 +134,10 @@ func initResourceToKindHandler() map[string][]TypeCleanupHandlerFunc {
 // SQLite-backed ContainerProfiles are deleted through their ObjectStore.
 var resourceKindToObjectFunc = map[string]func() runtime.Object{
 	ContainerProfileKind:                  func() runtime.Object { return &softwarecomposition.ContainerProfile{} },
-	"sbomsyft":                            func() runtime.Object { return &softwarecomposition.SBOMSyft{} },
+	"sbomsyfts":                           func() runtime.Object { return &softwarecomposition.SBOMSyft{} },
 	"vulnerabilitymanifests":              func() runtime.Object { return &softwarecomposition.VulnerabilityManifest{} },
 	"openvulnerabilityexchangecontainers": func() runtime.Object { return &softwarecomposition.OpenVulnerabilityExchangeContainer{} },
-	"sbomsyftfiltered":                    func() runtime.Object { return &softwarecomposition.SBOMSyftFiltered{} },
+	"sbomsyftfiltereds":                   func() runtime.Object { return &softwarecomposition.SBOMSyftFiltered{} },
 	"seccompprofiles":                     func() runtime.Object { return &softwarecomposition.SeccompProfile{} },
 	"vulnerabilitymanifestsummaries":      func() runtime.Object { return &softwarecomposition.VulnerabilityManifestSummary{} },
 	"workloadconfigurationscans":          func() runtime.Object { return &softwarecomposition.WorkloadConfigurationScan{} },

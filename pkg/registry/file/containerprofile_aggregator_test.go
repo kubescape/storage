@@ -81,8 +81,8 @@ func TestComputeAggregatedData_Basic(t *testing.T) {
 	// Prepare fake profiles
 	// Two child keys; both are main containers (ContainerType == "containers"),
 	// both have Completed status and Full completion, with specific sync checksums.
-	child1 := "/spdx.softwarecomposition.kubescape.io/containerprofile/ns/a"
-	child2 := "/spdx.softwarecomposition.kubescape.io/containerprofile/ns/b"
+	child1 := "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns/a"
+	child2 := "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns/b"
 
 	p1 := softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{
