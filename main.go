@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
 	"k8s.io/klog/v2"
+	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 func main() {
@@ -139,33 +141,8 @@ func main() {
 		}
 	}
 
-	// The ContainerProfile data migration (full-acid-storage-architecture.md
-	// §8.2): synchronously, after the pool and the gate exist and BEFORE the
-	// cleanup goroutine and the API server — nothing else writes the
-	// database while it runs, and its batches are gated writes like every
-	// other (AC-G1). The reconcile of legacy-written rows runs on every
-	// start; the file sweeps once. A failure is fatal: the backend must not
-	// serve a half-reconciled store, and the flag can be turned off (§8.4).
-	// Precondition: one storage pod at a time (the chart's replicas: 1 +
-	// strategy: Recreate) — nothing in the database fences an older binary.
-	if cfg.ContainerProfileSqliteBackend || cfg.ContainerProfileMigrationDryRun {
-		report, err := file.MigrateContainerProfiles(ctx, pool, writeGate, osFs, file.DefaultStorageRoot, apiserver.Scheme,
-			file.ContainerProfileMigrationOptions{DryRun: cfg.ContainerProfileMigrationDryRun})
-		if err != nil {
-			logger.L().Ctx(ctx).Fatal("containerprofile migration error", helpers.Error(err))
-		}
-		logger.L().Info("containerprofile migration finished",
-			helpers.Interface("counts", report.Counts), helpers.Int("batches", report.Batches),
-			helpers.Interface("sweepsRun", report.SweepsRun), helpers.Interface("dryRun", report.DryRun),
-			helpers.String("elapsed", report.Elapsed.String()))
-	} else {
-		// Advisory startup check (D) (.omc/plans/rollback-safety-guard.md):
-		// flag-off only -- with the backend on, keys are served from
-		// ObjectStore directly and the rollback read fallback never fires, so
-		// there is nothing to report. Purely informational: never Fatal, and
-		// bounded with its own timeout rather than ctx's (an untimed signal
-		// context).
-		file.LogFallbackEligibleContainerProfilesCensus(ctx, pool, cfg.PoolTimeout)
+	if err := migratePersistentStorage(ctx, pool, writeGate, osFs, file.DefaultStorageRoot, cfg); err != nil {
+		logger.L().Ctx(ctx).Fatal("persistent storage migration error", helpers.Error(err))
 	}
 
 	// setup watcher
@@ -200,4 +177,32 @@ func main() {
 		}
 	}
 	os.Exit(code)
+}
+
+// migratePersistentStorage is the startup barrier: callers must not construct
+// processors, cleanup handlers, or API storage until it succeeds. All other
+// processes must be stopped; the in-process gate cannot fence an older binary.
+func migratePersistentStorage(ctx context.Context, pool *sqlitemigration.Pool, gate *file.WriteGate, fs afero.Fs, root string, cfg config.Config) error {
+	report, err := file.MigrateQualifiedResourcePrefixes(ctx, pool, gate, fs, root,
+		file.QualifiedResourceMigrationOptions{Direction: "forward", DryRun: cfg.ContainerProfileMigrationDryRun})
+	if err != nil {
+		return err
+	}
+	if cfg.ContainerProfileMigrationDryRun && report.Resources != 0 {
+		return fmt.Errorf("resource prefix migration required; stop storage and run resourceprefixmigration before serving")
+	}
+	if report.Resources > 0 {
+		logger.L().Info("qualified resource prefix migration finished", helpers.Int("resources", report.Resources), helpers.Interface("details", report.Details))
+	}
+	if cfg.ContainerProfileSqliteBackend || cfg.ContainerProfileMigrationDryRun {
+		backend, err := file.MigrateContainerProfiles(ctx, pool, gate, fs, root, apiserver.Scheme,
+			file.ContainerProfileMigrationOptions{DryRun: cfg.ContainerProfileMigrationDryRun})
+		if err != nil {
+			return err
+		}
+		logger.L().Info("containerprofile migration finished", helpers.Interface("counts", backend.Counts), helpers.Int("batches", backend.Batches), helpers.Interface("sweepsRun", backend.SweepsRun), helpers.Interface("dryRun", backend.DryRun), helpers.String("elapsed", backend.Elapsed.String()))
+	} else {
+		file.LogFallbackEligibleContainerProfilesCensus(ctx, pool, cfg.PoolTimeout)
+	}
+	return nil
 }

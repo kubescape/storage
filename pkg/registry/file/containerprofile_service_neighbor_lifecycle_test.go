@@ -19,7 +19,7 @@ import (
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
-const cpPrefixKey = "/spdx.softwarecomposition.kubescape.io/containerprofile"
+const cpPrefixKey = "/spdx.softwarecomposition.kubescape.io/containerprofiles"
 
 func svcNeighbor(ns, name, portName string, port int32) softwarecomposition.NetworkNeighbor {
 	return softwarecomposition.NetworkNeighbor{
@@ -256,7 +256,7 @@ func TestServiceNeighborLifecycle_FieldOnlyUpdateRefreshesRVAndWatch(t *testing.
 
 	// cold list (namespace scan decodes every payload from disk)
 	list := softwarecomposition.ContainerProfileList{}
-	require.NoError(t, s2.GetByNamespace(ctx, "spdx.softwarecomposition.kubescape.io", "containerprofile", ns, &list))
+	require.NoError(t, s2.GetByNamespace(ctx, "spdx.softwarecomposition.kubescape.io", "containerprofiles", ns, &list))
 	require.Len(t, list.Items, 1)
 	var listName string
 	for _, e := range list.Items[0].Spec.Egress {

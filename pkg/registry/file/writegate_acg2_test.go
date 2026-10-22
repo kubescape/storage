@@ -58,7 +58,7 @@ const (
 	// This is a deadlock guard, not a read-latency acceptance threshold.
 	acg2Deadline = 30 * time.Second
 
-	acg2Kind      = "sbomsyft"
+	acg2Kind      = "sbomsyfts"
 	acg2Group     = "spdx.softwarecomposition.kubescape.io"
 	acg2DefaultNS = "kubescape" // the SBOM namespace (ContainerProfileProcessor.DefaultNamespace)
 	acg2LiveImage = "sha256:live"

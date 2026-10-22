@@ -10,15 +10,14 @@ import (
 )
 
 // TestIsContainerProfileKind pins the singular/plural acceptance and rejection of
-// unrelated kinds. The storage keys use the SINGULAR kind; the plural is only the
-// REST resource name, so both must be recognized while unrelated kinds are not.
+// unrelated kinds. Legacy aliases normalize to the canonical plural prefix.
 func TestIsContainerProfileKind(t *testing.T) {
 	tests := []struct {
 		kind string
 		want bool
 	}{
-		{ContainerProfileKind, true},       // "containerprofile"
-		{ContainerProfileKindPlural, true}, // "containerprofiles"
+		{ContainerProfileKind, true},       // canonical plural
+		{ContainerProfileKindLegacy, true}, // legacy singular
 		{"sbomsyft", false},                // unrelated
 		{"networkneighborhood", false},     // unrelated
 		{"", false},                        // empty
@@ -29,15 +28,14 @@ func TestIsContainerProfileKind(t *testing.T) {
 	}
 }
 
-// TestNormalizeContainerProfileKind pins that the plural is folded to the
-// singular stored kind while singular and unrelated kinds pass through unchanged.
+// TestNormalizeContainerProfileKind pins legacy alias normalization.
 func TestNormalizeContainerProfileKind(t *testing.T) {
 	tests := []struct {
 		in   string
 		want string
 	}{
-		{ContainerProfileKindPlural, ContainerProfileKind}, // plural -> singular
-		{ContainerProfileKind, ContainerProfileKind},       // singular unchanged
+		{ContainerProfileKindLegacy, ContainerProfileKind}, // legacy -> canonical
+		{ContainerProfileKind, ContainerProfileKind},       // canonical unchanged
 		{"sbomsyft", "sbomsyft"},                           // unrelated unchanged
 		{"", ""},                                           // empty unchanged
 	}

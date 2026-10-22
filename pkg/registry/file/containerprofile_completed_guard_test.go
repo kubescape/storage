@@ -24,14 +24,14 @@ func TestPreSave_ConsolidatedCompletedImmutability(t *testing.T) {
 	)
 
 	// consolidatedKey mirrors the key PreSave builds for the consolidated
-	// profile: same scope, Name == profile.Name, kind "containerprofile".
+	// profile: same scope, Name == profile.Name, kind "containerprofiles".
 	consolidatedKey := BuildContainerProfileKey(armotypes.ProfileIdentifier{
 		ProfileScope: armotypes.ProfileScope{
 			HostType:  armotypes.HostTypeKubernetes,
 			Namespace: ns,
 		},
 		Name: name,
-	}, "containerprofile")
+	}, "containerprofiles")
 
 	newIncoming := func(status string) *softwarecomposition.ContainerProfile {
 		return &softwarecomposition.ContainerProfile{

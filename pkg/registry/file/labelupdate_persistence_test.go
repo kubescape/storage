@@ -28,7 +28,7 @@ func TestLabelOnlyUpdatePersists(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/ns1/label-x"
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns1/label-x"
 
 	mk := func(state string) *softwarecomposition.ContainerProfile {
 		return &softwarecomposition.ContainerProfile{

@@ -12,6 +12,11 @@ RUN --mount=target=. \
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/resourceprefixmigration ./cmd/resourceprefixmigration
+
+RUN --mount=target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg \
     GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/cpexport ./cmd/cpexport/main.go
 
 RUN --mount=target=. \
@@ -23,6 +28,7 @@ FROM gcr.io/distroless/static-debian13:nonroot
 
 COPY --from=builder /out/storage /usr/bin/storage
 COPY --from=builder /out/migration /usr/bin/migration
+COPY --from=builder /out/resourceprefixmigration /usr/bin/resourceprefixmigration
 COPY --from=builder /out/cpexport /usr/bin/cpexport
 ARG image_version
 ENV RELEASE=$image_version

@@ -26,7 +26,7 @@ func TestGet_AbsentKeyDoesNotWaitOnWriter(t *testing.T) {
 
 	var out softwarecomposition.ContainerProfile
 	start := time.Now()
-	err := s.Get(context.Background(), "/spdx.softwarecomposition.kubescape.io/containerprofile/ns/absent", storage.GetOptions{IgnoreNotFound: true}, &out)
+	err := s.Get(context.Background(), "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns/absent", storage.GetOptions{IgnoreNotFound: true}, &out)
 	elapsed := time.Since(start)
 
 	require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestGet_PrunesOrphanedMetadataRow(t *testing.T) {
 	require.NoError(t, err)
 	var profile softwarecomposition.ContainerProfile
 	require.NoError(t, json.Unmarshal(content, &profile))
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/" + profile.Namespace + "/" + profile.Name
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/" + profile.Namespace + "/" + profile.Name
 	require.NoError(t, s.Create(ctx, key, &profile, nil, 0))
 
 	conn, err := s.pool.Take(ctx)

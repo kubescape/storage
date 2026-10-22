@@ -205,7 +205,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 			},
 			Name: name,
 		}
-		key := BuildContainerProfileKey(id, "containerprofile")
+		key := BuildContainerProfileKey(id, "containerprofiles")
 		existingProfile, err := a.ContainerProfileStorage.GetContainerProfileMetadataNoLock(ctx, key)
 		if err != nil {
 			return nil
@@ -246,7 +246,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 			},
 			Name: profile.Name,
 		}
-		key := BuildContainerProfileKey(id, "containerprofile")
+		key := BuildContainerProfileKey(id, "containerprofiles")
 		// Use the no-lock metadata read: PreSave is invoked from within
 		// GuaranteedUpdate, which already holds the write lock for this key, so
 		// GetContainerProfileMetadata (which takes a read lock) would self-deadlock.
@@ -288,7 +288,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 			},
 			Name: sbomName,
 		}
-		key := BuildContainerProfileKey(id, "sbomsyft")
+		key := BuildContainerProfileKey(id, "sbomsyfts")
 		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, key)
 		if err == nil {
 			// fill sbomSet
@@ -411,7 +411,7 @@ func (a *ContainerProfileProcessor) cleanup() error {
 	a.LastCleanup = time.Now()
 	resourceToKindHandler := map[string][]TypeCleanupHandlerFunc{
 		// keyed by the storage kind segment, not the REST resource name:
-		// container profiles live under the singular "containerprofile"
+		// container profiles live under the canonical "containerprofiles"
 		ContainerProfileKind: a.CleanupHandler.ContainerProfileHandlers(),
 	}
 	return a.CleanupHandler.CleanupTask(context.TODO(), resourceToKindHandler)

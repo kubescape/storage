@@ -36,8 +36,8 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.ContainerProfile{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.ContainerProfileList{} },
 		PredicateFunc:             MatchContainerProfile,
-		DefaultQualifiedResource:  softwarecomposition.Resource("containerprofile"),
-		SingularQualifiedResource: softwarecomposition.Resource("containerprofiles"),
+		DefaultQualifiedResource:  softwarecomposition.Resource("containerprofiles"),
+		SingularQualifiedResource: softwarecomposition.Resource("containerprofile"),
 
 		Storage: dryRunnableStorage,
 

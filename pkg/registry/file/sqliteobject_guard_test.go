@@ -170,7 +170,7 @@ func TestINV4_LegacyStoreRefusesContainerProfileKeys(t *testing.T) {
 	})
 
 	t.Run("other kinds are served", func(t *testing.T) {
-		key := "/spdx.softwarecomposition.kubescape.io/sbomsyft/" + e.ns + "/img"
+		key := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/" + e.ns + "/img"
 		require.NoError(t, e.legacy.Create(e.ctx, key, &softwarecomposition.SBOMSyft{ObjectMeta: metav1.ObjectMeta{Name: "img", Namespace: e.ns}}, nil, 0))
 		require.NoError(t, e.legacy.Get(e.ctx, key, storage.GetOptions{}, &softwarecomposition.SBOMSyft{}))
 		require.NoError(t, e.legacy.Delete(e.ctx, key, &softwarecomposition.SBOMSyft{}, nil, nil, nil, storage.DeleteOptions{}))

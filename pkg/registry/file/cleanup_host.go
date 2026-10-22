@@ -46,7 +46,7 @@ func hostResourceCleanupDecision(kind string, metadata *metav1.ObjectMeta, hosts
 	if metadata == nil {
 		return false, false
 	}
-	if kind == "sbomsyft" {
+	if kind == "sbomsyfts" {
 		// Preserve the existing exemption for legacy artifacts.
 		if isHostOrNode(metadata) {
 			return true, false

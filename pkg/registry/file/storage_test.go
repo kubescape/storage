@@ -848,7 +848,7 @@ func Test_calculateChecksum(t *testing.T) {
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			name: "containerprofile",
+			name: "containerprofiles",
 			obj: &softwarecomposition.ContainerProfile{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "toto",
@@ -1661,8 +1661,8 @@ func TestStorageImpl_GetList_ReleasesConnectionBetweenPages(t *testing.T) {
 // cpexport -root flag can be given, then recovering key from it.
 func TestKeyFromPayloadPath_RoundTripsForEveryRootShape(t *testing.T) {
 	keys := []string{
-		"/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/plain-00",
-		"/spdx.softwarecomposition.kubescape.io/containerprofile/default/app-with-dots.and-dashes",
+		"/spdx.softwarecomposition.kubescape.io/containerprofiles/kube-system/plain-00",
+		"/spdx.softwarecomposition.kubescape.io/containerprofiles/default/app-with-dots.and-dashes",
 	}
 	roots := []string{"/data", "/data/", ".", "/", "/data/../data", "data"}
 	for _, root := range roots {

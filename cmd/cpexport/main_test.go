@@ -100,7 +100,7 @@ func run(t *testing.T, bin string, args ...string) result {
 	return r
 }
 
-const prefix = "/spdx.softwarecomposition.kubescape.io/containerprofile/"
+const prefix = "/spdx.softwarecomposition.kubescape.io/containerprofiles/"
 
 // migratedRoot seeds n ContainerProfiles through the legacy StorageImpl over
 // a real root, migrates them into the ObjectStore schema, and returns the

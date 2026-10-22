@@ -36,7 +36,7 @@ func (f *hostCleanupFetcher) ListNamespaces(*sqlite.Conn) ([]string, error) {
 
 func hostCleanupMetadata(kind, namespace, name string) metav1.ObjectMeta {
 	metadata := metav1.ObjectMeta{Name: name, Namespace: namespace}
-	if kind == "sbomsyft" {
+	if kind == "sbomsyfts" {
 		sum := sha256.Sum256([]byte("worker-1"))
 		identifier := fmt.Sprintf("worker-1-%x", sum[:16])
 		metadata.Labels = map[string]string{"kubescape.io/host": identifier, "kubescape.io/node-name": identifier}
@@ -81,7 +81,7 @@ func TestCleanupHostFileResources(t *testing.T) {
 			require.NoError(t, err)
 			paths := map[string]bool{}
 			for _, ns := range []string{"default", "kubescape"} {
-				for _, kind := range []string{"sbomsyft", ContainerProfileKind} {
+				for _, kind := range []string{"sbomsyfts", ContainerProfileKind} {
 					for _, host := range []bool{true, false} {
 						name := "ordinary-stale"
 						if host {

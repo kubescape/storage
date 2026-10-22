@@ -73,7 +73,7 @@ func newLane0Harness(t *testing.T, busyTimeout time.Duration) *lane0Harness {
 }
 
 func lane0Key(ns, name string) string {
-	return K8sKeysToPath("", lane0Group, "containerprofile", "", ns, name)
+	return K8sKeysToPath("", lane0Group, "containerprofiles", "", ns, name)
 }
 
 // hookedCPStorage forwards every ContainerProfileStorage call to the wrapped
@@ -174,7 +174,7 @@ func (h *lane0Harness) seedTsRow(t *testing.T, ns, name, seriesID, suffix, repor
 	conn, err := h.pool.Take(context.Background())
 	require.NoError(t, err)
 	defer h.pool.Put(conn)
-	require.NoError(t, WriteTimeSeriesEntry(conn, "containerprofile", ns, name, seriesID, suffix, report, status, completion, prev, hasData))
+	require.NoError(t, WriteTimeSeriesEntry(conn, "containerprofiles", ns, name, seriesID, suffix, report, status, completion, prev, hasData))
 }
 
 // writeTsObject persists a TS ContainerProfile object at baseKey+"-"+suffix
@@ -386,7 +386,7 @@ func TestProcessTimeSeriesInTransaction_PanicLeavesNoOpenTransaction(t *testing.
 	require.NoError(t, err)
 	defer h.pool.Put(conn)
 	start := time.Now()
-	err = WriteTimeSeriesEntry(conn, "containerprofile", ns, "other", "C", "1", h.ts(1), helpersv1.Learning, helpersv1.Partial, "", true)
+	err = WriteTimeSeriesEntry(conn, "containerprofiles", ns, "other", "C", "1", h.ts(1), helpersv1.Learning, helpersv1.Partial, "", true)
 	require.NoError(t, err, "a subsequent write must succeed immediately; SQLITE_BUSY means the transaction was left open")
 	require.Less(t, time.Since(start), 400*time.Millisecond)
 

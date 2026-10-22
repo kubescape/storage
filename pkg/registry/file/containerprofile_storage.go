@@ -21,7 +21,8 @@ import (
 // Storage kinds for container profile artifacts. ContainerProfileKind is the
 // canonical observed CP produced by time-series consolidation.
 const (
-	ContainerProfileKind       = "containerprofile"
+	ContainerProfileKind       = "containerprofiles"
+	ContainerProfileKindLegacy = "containerprofile"
 	ContainerProfileKindPlural = "containerprofiles"
 )
 
@@ -346,11 +347,11 @@ func (c *ContainerProfileStorageImpl) WriteTimeSeriesEntry(ctx context.Context, 
 }
 
 func IsContainerProfileKind(kind string) bool {
-	return kind == ContainerProfileKind || kind == ContainerProfileKindPlural
+	return kind == ContainerProfileKind || kind == ContainerProfileKindLegacy
 }
 
 func NormalizeContainerProfileKind(kind string) string {
-	if kind == ContainerProfileKindPlural {
+	if kind == ContainerProfileKindLegacy {
 		return ContainerProfileKind
 	}
 	return kind

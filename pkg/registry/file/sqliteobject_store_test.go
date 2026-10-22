@@ -127,9 +127,9 @@ func TestObjectStore_CASMatrix(t *testing.T) {
 	seedRow := func(uid string) func(conn *sqlite.Conn) {
 		return func(conn *sqlite.Conn) {
 			meta := fmt.Sprintf(`{"name":"cas","namespace":%q,"uid":%q,"resourceVersion":"1"}`, e.ns, uid)
-			require.NoError(t, sqlitex.Execute(conn, `INSERT INTO metadata (kind,namespace,name,metadata,rv,uid) VALUES ('containerprofile',?, 'cas', ?, 1, ?)`,
+			require.NoError(t, sqlitex.Execute(conn, `INSERT INTO metadata (kind,namespace,name,metadata,rv,uid) VALUES ('containerprofiles',?, 'cas', ?, 1, ?)`,
 				&sqlitex.ExecOptions{Args: []any{e.ns, meta, uid}}))
-			require.NoError(t, sqlitex.Execute(conn, `INSERT INTO payloads (kind,namespace,name,encoding,body) VALUES ('containerprofile',?, 'cas', ?, ?)`,
+			require.NoError(t, sqlitex.Execute(conn, `INSERT INTO payloads (kind,namespace,name,encoding,body) VALUES ('containerprofiles',?, 'cas', ?, ?)`,
 				&sqlitex.ExecOptions{Args: []any{e.ns, PayloadEncodingJSONV1Beta1, body}}))
 		}
 	}
@@ -157,7 +157,7 @@ func TestObjectStore_CASMatrix(t *testing.T) {
 				e.withFixture(func(conn *sqlite.Conn) {
 					wipe(t, conn, e.ns, "cas")
 					st.seed(conn)
-					pw := &preparedWrite{key: e.key("cas"), kind: "containerprofile", namespace: e.ns, name: "cas",
+					pw := &preparedWrite{key: e.key("cas"), kind: "containerprofiles", namespace: e.ns, name: "cas",
 						metadataJSON: []byte(fmt.Sprintf(`{"name":"cas","namespace":%q,"uid":%q,"resourceVersion":"%d"}`, e.ns, "uid-new", ex.expectRV+1)),
 						body:         body, rv: ex.expectRV + 1, uid: "uid-new", insert: ex.insert, expectRV: ex.expectRV, expectUID: ex.expectUID}
 					if ex.insert {
@@ -186,8 +186,8 @@ func TestObjectStore_CASMatrix(t *testing.T) {
 
 func wipe(t *testing.T, conn *sqlite.Conn, ns, name string) {
 	t.Helper()
-	require.NoError(t, sqlitex.Execute(conn, `DELETE FROM metadata WHERE kind='containerprofile' AND namespace=? AND name=?`, &sqlitex.ExecOptions{Args: []any{ns, name}}))
-	require.NoError(t, sqlitex.Execute(conn, `DELETE FROM payloads WHERE kind='containerprofile' AND namespace=? AND name=?`, &sqlitex.ExecOptions{Args: []any{ns, name}}))
+	require.NoError(t, sqlitex.Execute(conn, `DELETE FROM metadata WHERE kind='containerprofiles' AND namespace=? AND name=?`, &sqlitex.ExecOptions{Args: []any{ns, name}}))
+	require.NoError(t, sqlitex.Execute(conn, `DELETE FROM payloads WHERE kind='containerprofiles' AND namespace=? AND name=?`, &sqlitex.ExecOptions{Args: []any{ns, name}}))
 }
 
 // TestObjectStore_TSAdmissionInsideTransaction: the base's four states. The

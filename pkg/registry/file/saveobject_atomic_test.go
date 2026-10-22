@@ -32,7 +32,7 @@ func TestSaveObject_MetadataFailureLeavesPayloadUntouched(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/ns1/atomic-a"
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns1/atomic-a"
 
 	mk := func(state string) *softwarecomposition.ContainerProfile {
 		return &softwarecomposition.ContainerProfile{
@@ -90,7 +90,7 @@ func TestSaveObject_RenameFailureRollsBackMetadata(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/ns1/atomic-r"
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns1/atomic-r"
 
 	mk := func(state string) *softwarecomposition.ContainerProfile {
 		return &softwarecomposition.ContainerProfile{
@@ -120,7 +120,7 @@ func TestSaveObject_RenameFailureRollsBackMetadata(t *testing.T) {
 
 	// METADATA rolled back too: the namespace-scoped List reads metadata.
 	list := &softwarecomposition.ContainerProfileList{}
-	require.NoError(t, si.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/ns1", storage.ListOptions{Recursive: true, Predicate: storage.Everything}, list))
+	require.NoError(t, si.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns1", storage.ListOptions{Recursive: true, Predicate: storage.Everything}, list))
 	require.Len(t, list.Items, 1)
 	require.Equal(t, "rogue", list.Items[0].Labels["test.kubescape.io/state"],
 		"metadata must be ROLLED BACK when the rename fails — no inverse divergence")

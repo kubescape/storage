@@ -269,7 +269,7 @@ func newBudgetEnv(t *testing.T, rec *budgetRecorder) *budgetEnv {
 		tpl:       tpl,
 		baseNm:    baseNm,
 		ns:        tpl.Namespace,
-		baseKey:   "/spdx.softwarecomposition.kubescape.io/containerprofile/" + tpl.Namespace + "/" + baseNm,
+		baseKey:   "/spdx.softwarecomposition.kubescape.io/containerprofiles/" + tpl.Namespace + "/" + baseNm,
 		now:       time.Now().Round(0),
 	}
 	// Warm the CollapseConfiguration cache (10 s TTL) so no scenario pays the
@@ -307,7 +307,7 @@ func (e *budgetEnv) ts(suffix string, n int, status, completion string) *softwar
 // restCreate is the node-agent write: StorageImpl.Create of a TS profile.
 func (e *budgetEnv) restCreate(p *softwarecomposition.ContainerProfile) {
 	e.t.Helper()
-	key := "/spdx.softwarecomposition.kubescape.io/containerprofile/" + p.Namespace + "/" + p.Name
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/" + p.Namespace + "/" + p.Name
 	require.NoError(e.t, e.s.Create(e.ctx, key, p, nil, 0))
 }
 

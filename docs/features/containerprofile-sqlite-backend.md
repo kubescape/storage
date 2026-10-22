@@ -66,7 +66,7 @@ gates only the file sweeps (steps 3–4).
 | | | `legacy_rewrite{source=payloads}` | same, no file (a row-only legacy write): the `payloads` body is kept, re-stamped at `rv` |
 | | | `undecodable` | neither gob nor the tool decoded the file: skipped and counted, **never deleted**, the file left for the export tool (PM-2) |
 | 2b | `payloads` row of kind `containerprofile` with no `metadata` row | `orphan_payload` | a `repairDelete` self-repair on one of the 3 undecodable-file `get()` sites (a corrupt or unmigratable `.g` file) still leaves its `payloads` row behind — the read-time fallback below can't safely serve a stale body there, only the every-start reconcile can. The missing-file branch also leaves payloads behind for excluded time-series rows; only an `rv IS NULL`, non-time-series ContainerProfile receives payload cleanup there. See "Rollback safety: read-time fallback" below. An orphan that reaches ObjectStore insertion would conflict with the payloads UNIQUE constraint; startup reconciliation removes it first. Deleted. |
-| 3 (done-flag) | `.g` file under `/data/<group>/containerprofile/` with no row | `file_without_row` | imported at the file's `resourceVersion` and UID |
+| 3 (done-flag) | `.g` file under `/data/<group>/containerprofiles/` with no row | `file_without_row` | imported at the file's `resourceVersion` and UID |
 | 4 (done-flag) | `*.g.t*` staging files | `temp_file` | removed (never committed) |
 
 Every non-`migrated` outcome is logged per key at Warning: this is where the field frequency of
@@ -212,3 +212,7 @@ batch waits its turn behind another gate holder. `sqliteobject_cleanup_test.go` 
 `sqliteobject_gnp_test.go` pin the cleanup and GNP re-pointing; all of them fail on the previous
 wiring. The X-A frozen gate (Lane 0) is not on this branch's base; INV-3 is asserted as parity
 between the backends.
+
+Qualified-resource prefixes migrate before backend conversion. For older-image
+downgrades, export first and then reverse the prefixes as described in
+[qualified-resource migration](qualified-resource-migration.md).

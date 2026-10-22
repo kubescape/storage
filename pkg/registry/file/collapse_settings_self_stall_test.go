@@ -180,7 +180,7 @@ func TestConsolidateTimeSeries_DoesNotStallOnCollapseRefresh(t *testing.T) {
 		require.NoError(t, err)
 		var profile softwarecomposition.ContainerProfile
 		require.NoError(t, json.Unmarshal(content, &profile))
-		require.NoError(t, s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0))
+		require.NoError(t, s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0))
 	}
 
 	start := time.Now()

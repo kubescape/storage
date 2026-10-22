@@ -36,8 +36,8 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.SBOMSyft{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.SBOMSyftList{} },
 		PredicateFunc:             MatchWorkloadConfigurationScan,
-		DefaultQualifiedResource:  softwarecomposition.Resource("sbomsyft"),
-		SingularQualifiedResource: softwarecomposition.Resource("sbomsyfts"),
+		DefaultQualifiedResource:  softwarecomposition.Resource("sbomsyfts"),
+		SingularQualifiedResource: softwarecomposition.Resource("sbomsyft"),
 
 		Storage: dryRunnableStorage,
 
