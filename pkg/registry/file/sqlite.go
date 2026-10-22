@@ -622,7 +622,8 @@ func ListTimeSeriesExpired(conn *sqlite.Conn, d time.Duration) ([]string, error)
 	if d <= 0 {
 		return keys, nil
 	}
-	threshold := time.Now().Add(-d).String()
+	// Compare in UTC to match UTC time.Time.String report timestamps.
+	threshold := time.Now().UTC().Add(-d).String()
 	observeStmt("ListTimeSeriesExpired")
 	err := sqlitex.Execute(conn,
 		`SELECT kind, namespace, name

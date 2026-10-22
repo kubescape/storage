@@ -279,8 +279,8 @@ func TestConsolidateTimeSeries_Dedup(t *testing.T) {
 	processor, pool, cleanup := newConsolidationTestProcessor(t, time.Hour)
 	defer cleanup()
 
-	old := time.Now().Add(-2 * time.Hour).String()      // < now-1h threshold => expired
-	recent := time.Now().Add(-1 * time.Minute).String() // > threshold => not expired
+	old := time.Now().UTC().Add(-2 * time.Hour).String()      // < now-1h threshold => expired
+	recent := time.Now().UTC().Add(-1 * time.Minute).String() // > threshold => not expired
 
 	// keyA: two rows, both expired AND hasData => appears twice in each list and in both lists.
 	keyA := seedTimeSeriesRow(t, pool, "ns-a", "name-a", "series-a", "1", old, true)
@@ -321,7 +321,7 @@ func TestConsolidateTimeSeries_ErrorIsolation(t *testing.T) {
 	processor, pool, cleanup := newConsolidationTestProcessor(t, time.Hour)
 	defer cleanup()
 
-	recent := time.Now().Add(-1 * time.Minute).String()
+	recent := time.Now().UTC().Add(-1 * time.Minute).String()
 	var keys []string
 	for _, n := range []string{"k0", "k1", "k2", "k3"} {
 		keys = append(keys, seedTimeSeriesRow(t, pool, "ns", n, "series", "1", recent, true))
