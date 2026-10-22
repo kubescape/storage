@@ -4,10 +4,8 @@ API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/soft
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,Capabilities
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,Egress
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,Endpoints
-API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,Execs
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,IdentifiedCallStacks
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,Ingress
-API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,Opens
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileContainer,Syscalls
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Architectures
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Capabilities
@@ -15,11 +13,9 @@ API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/soft
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Egress
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Endpoints
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,EphemeralContainers
-API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Execs
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,IdentifiedCallStacks
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Ingress
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,InitContainers
-API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Opens
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ContainerProfileSpec,Syscalls
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Distribution,IDLike
 API rule violation: list_type_missing,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,ExecCalls,Args

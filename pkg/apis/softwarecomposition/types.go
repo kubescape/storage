@@ -353,9 +353,11 @@ func (p *ContainerProfile) SetLearningStatus(ts TimeSeriesContainers) {
 
 type ContainerProfileSpec struct {
 	// WARNING report the execution/profile fields here
-	Architectures        []string
-	Capabilities         []string
-	Execs                []ExecCalls
+	Architectures []string
+	Capabilities  []string
+	// +listType=atomic
+	Execs []ExecCalls
+	// +listType=atomic
 	Opens                []OpenCalls
 	Syscalls             []string
 	SeccompProfile       SingleSeccompProfile
@@ -383,9 +385,11 @@ type ContainerProfileSpec struct {
 // multi-container ContainerProfile document: the union of the legacy
 // ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
 type ContainerProfileContainer struct {
-	Name                 string
-	Capabilities         []string
-	Execs                []ExecCalls
+	Name         string
+	Capabilities []string
+	// +listType=atomic
+	Execs []ExecCalls
+	// +listType=atomic
 	Opens                []OpenCalls
 	Syscalls             []string
 	SeccompProfile       SingleSeccompProfile
