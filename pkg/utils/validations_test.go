@@ -26,6 +26,11 @@ func TestValidateStatusAnnotation(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			name:        "valid status - failed (non-zero exit container)",
+			annotations: map[string]string{"kubescape.io/status": "failed"},
+			wantErr:     false,
+		},
+		{
 			name:        "valid status - incomplete",
 			annotations: map[string]string{"kubescape.io/status": "incomplete"},
 			wantErr:     false,
