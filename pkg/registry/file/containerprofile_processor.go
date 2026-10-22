@@ -315,6 +315,12 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	size += len(profile.Spec.IdentifiedCallStacks)
 	size += len(profile.Spec.Ingress)
 	size += len(profile.Spec.Egress)
+	size += dnsLookupElementCount(profile.Spec.DNSLookups)
+	for _, group := range [][]softwarecomposition.ContainerProfileContainer{profile.Spec.Containers, profile.Spec.InitContainers, profile.Spec.EphemeralContainers} {
+		for _, container := range group {
+			size += dnsLookupElementCount(container.DNSLookups)
+		}
+	}
 
 	// make sure annotations are initialized
 	if profile.Annotations == nil {
@@ -711,6 +717,12 @@ func (a *ContainerProfileProcessor) loadOrInitializeProfile(ctx context.Context,
 		}
 	case err != nil:
 		err = fmt.Errorf("failed to get profile: %w", err)
+	default:
+		// A successful read proves this aggregate predates DNS versioning even
+		// when it has no architecture, image metadata, or observations.
+		if profile.Spec.DNSBaselineVersion == "" {
+			profile.Spec.DNSBaselineVersion = "legacy"
+		}
 	}
 
 	return profile, id, prefix, root, err
@@ -1170,6 +1182,7 @@ func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileS
 	}
 	endpoints := dynamicpathdetector.AnalyzeEndpoints(&container.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.EndpointDynamicThreshold, settings.CollapseConfigs))
 	identifiedCallStacks := callstack.UnifyIdentifiedCallStacks(container.IdentifiedCallStacks)
+	dnsLookups, dnsTruncated := cappedDNSLookups(container.DNSLookups)
 
 	return softwarecomposition.ContainerProfileSpec{
 		Architectures:        DeflateSortString(container.Architectures),
@@ -1187,8 +1200,11 @@ func DeflateContainerProfileSpec(container softwarecomposition.ContainerProfileS
 			MatchLabels:      container.MatchLabels,
 			MatchExpressions: DeflateLabelSelectorRequirement(container.MatchExpressions),
 		},
-		Ingress: deflateNetworkNeighbors(container.Ingress, settings),
-		Egress:  deflateNetworkNeighbors(container.Egress, settings),
+		Ingress:              deflateNetworkNeighbors(container.Ingress, settings),
+		Egress:               deflateNetworkNeighbors(container.Egress, settings),
+		DNSLookups:           dnsLookups,
+		DNSBaselineVersion:   container.DNSBaselineVersion,
+		DNSBaselineTruncated: container.DNSBaselineTruncated || dnsTruncated,
 		// User-authored multi-container documents carry per-subtype container
 		// groups. Rebuilding the spec without them silently strips every group
 		// on write (learned profiles leave them empty, so this only affects
@@ -1213,6 +1229,7 @@ func deflateContainerProfileContainers(sections []softwarecomposition.ContainerP
 			opens = DeflateStringer(s.Opens)
 		}
 		endpoints := dynamicpathdetector.AnalyzeEndpoints(&s.Endpoints, dynamicpathdetector.NewPathAnalyzerWithConfigs(settings.EndpointDynamicThreshold, settings.CollapseConfigs))
+		dnsLookups, dnsTruncated := cappedDNSLookups(s.DNSLookups)
 		out = append(out, softwarecomposition.ContainerProfileContainer{
 			Name:                 s.Name,
 			Capabilities:         DeflateSortString(s.Capabilities),
@@ -1227,6 +1244,9 @@ func deflateContainerProfileContainers(sections []softwarecomposition.ContainerP
 			IdentifiedCallStacks: callstack.UnifyIdentifiedCallStacks(s.IdentifiedCallStacks),
 			Ingress:              deflateNetworkNeighbors(s.Ingress, settings),
 			Egress:               deflateNetworkNeighbors(s.Egress, settings),
+			DNSLookups:           dnsLookups,
+			DNSBaselineVersion:   s.DNSBaselineVersion,
+			DNSBaselineTruncated: s.DNSBaselineTruncated || dnsTruncated,
 		})
 	}
 	return out
@@ -1243,6 +1263,21 @@ func isZeroTime(s string) bool {
 
 // mergeContainerProfileTS is copied from node-agent but works on the softwarecomposition internal type
 func mergeContainerProfileTS(profile, tsProfile *softwarecomposition.ContainerProfile) {
+	// Every source report must be DNS-aware. A mixed-version learning window
+	// cannot prove that unobserved names were absent; keep that loss sticky.
+	incomingDNSVersion := tsProfile.Spec.DNSBaselineVersion
+	if incomingDNSVersion == "" {
+		incomingDNSVersion = "legacy"
+	}
+	if profile.Spec.DNSBaselineVersion == "" {
+		// Only a newly initialized aggregate has no version: loaded unversioned
+		// profiles are explicitly marked legacy by loadOrInitializeProfile.
+		profile.Spec.DNSBaselineVersion = incomingDNSVersion
+	}
+	if profile.Spec.DNSBaselineVersion != incomingDNSVersion {
+		profile.Spec.DNSBaselineTruncated = true
+	}
+
 	// merge annotations
 	profile.Annotations = utils.MergeMaps(profile.Annotations, tsProfile.Annotations,
 		helpers.CompletionMetadataKey, helpers.PreviousReportTimestampMetadataKey,
@@ -1274,6 +1309,13 @@ func mergeContainerProfileTS(profile, tsProfile *softwarecomposition.ContainerPr
 	profile.Spec.LabelSelector.MatchExpressions = append(profile.Spec.LabelSelector.MatchExpressions, tsProfile.Spec.LabelSelector.MatchExpressions...)
 	profile.Spec.Ingress = append(profile.Spec.Ingress, tsProfile.Spec.Ingress...)
 	profile.Spec.Egress = append(profile.Spec.Egress, tsProfile.Spec.Egress...)
+	profile.Spec.DNSLookups = DeflateDNSLookups(append(profile.Spec.DNSLookups, tsProfile.Spec.DNSLookups...))
+	if len(profile.Spec.DNSLookups) > MaxDNSBaselineNames {
+		profile.Spec.DNSBaselineTruncated = true
+		profile.Spec.DNSLookups = profile.Spec.DNSLookups[:MaxDNSBaselineNames]
+	}
+	profile.Spec.DNSBaselineTruncated = profile.Spec.DNSBaselineTruncated || tsProfile.Spec.DNSBaselineTruncated
+
 }
 
 // mergePolicies is copied from node-agent but works on the softwarecomposition internal type

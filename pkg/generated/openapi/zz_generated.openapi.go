@@ -57,6 +57,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1beta1.Coordinates{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_Coordinates(ref),
 		v1beta1.Cvss{}.OpenAPIModelName():                                       schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref),
 		v1beta1.CvssMetrics{}.OpenAPIModelName():                                schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref),
+		v1beta1.DNSLookup{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_DNSLookup(ref),
 		v1beta1.Descriptor{}.OpenAPIModelName():                                 schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref),
 		v1beta1.Digest{}.OpenAPIModelName():                                     schema_pkg_apis_softwarecomposition_v1beta1_Digest(ref),
 		v1beta1.Distribution{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref),
@@ -914,6 +915,42 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileContainer(ref c
 				Description: "ContainerProfileContainer is one container's profile inside a user-authored multi-container ContainerProfile document: the union of the legacy ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"dnsLookups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "DNSLookups is learned from answered DNS responses, independently of connections.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.DNSLookup{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"dnsBaselineVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DNSBaselineVersion distinguishes DNS-aware profiles from older profiles requiring relearning.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dnsBaselineTruncated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DNSBaselineTruncated makes an incomplete baseline unsuitable for anomaly matching.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -1089,7 +1126,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileContainer(ref c
 			},
 		},
 		Dependencies: []string{
-			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName()},
+			v1beta1.DNSLookup{}.OpenAPIModelName(), v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName()},
 	}
 }
 
@@ -1147,6 +1184,42 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"dnsLookups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "DNSLookups is learned from answered DNS responses, independently of connections.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.DNSLookup{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"dnsBaselineVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DNSBaselineVersion distinguishes DNS-aware profiles from older profiles requiring relearning.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dnsBaselineTruncated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DNSBaselineTruncated makes an incomplete baseline unsuitable for anomaly matching.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"architectures": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WARNING report the execution/profile fields here",
@@ -1424,7 +1497,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 			},
 		},
 		Dependencies: []string{
-			v1beta1.ContainerProfileContainer{}.OpenAPIModelName(), v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
+			v1beta1.ContainerProfileContainer{}.OpenAPIModelName(), v1beta1.DNSLookup{}.OpenAPIModelName(), v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
 	}
 }
 
@@ -1562,6 +1635,65 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CvssMetrics(ref common.Referenc
 					},
 				},
 				Required: []string{"baseScore"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_DNSLookup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DNSLookup records one resolved name and all executable paths that looked it up. Addresses are supporting evidence, never the DNS matching key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"exePaths": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"addresses": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
 			},
 		},
 	}
