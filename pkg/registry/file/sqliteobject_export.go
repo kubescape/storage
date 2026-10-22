@@ -311,6 +311,7 @@ func writeLegacyPayloadFile(fs afero.Fs, p string, obj runtime.Object) error {
 	}
 	w := NewDirectIOWriter(f)
 	stampPortZero(obj)
+	defer restorePortZero(obj)
 	if err := gob.NewEncoder(w).Encode(obj); err != nil {
 		_ = w.Close()
 		_ = f.Close()

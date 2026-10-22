@@ -98,6 +98,7 @@ func TestPortZero_MigrationAndExportCodecs(t *testing.T) {
 	in := portZeroCP()
 	in.Spec.Egress[0].Ports = append(in.Spec.Egress[0].Ports, softwarecomposition.NetworkPort{Name: "absent"})
 	require.NoError(t, writeLegacyPayloadFile(fs, filepath.Join(root, key), in))
+	forEachNetworkPort(in, func(p *softwarecomposition.NetworkPort) { require.False(t, p.PortZero) })
 	migrated, exists, err := decodeLegacyFileAt(t.Context(), fs, root, key)
 	require.NoError(t, err)
 	require.True(t, exists)
@@ -206,4 +207,87 @@ func TestPortZero_StorageReadPaths(t *testing.T) {
 			require.Zero(t, *list.Items[0].Spec.Egress[0].Ports[0].Port)
 		})
 	}
+}
+
+func TestPortZero_ReusedReadDestination(t *testing.T) {
+	for _, writer := range []bool{false, true} {
+		name := "legacy"
+		if writer {
+			name = "single-writer"
+		}
+		t.Run(name, func(t *testing.T) {
+			old := singleWriterEnabled
+			singleWriterEnabled = writer
+			t.Cleanup(func() { singleWriterEnabled = old })
+			s, cleanup := newSingleWriterTestStorage(t)
+			defer cleanup()
+			ports := []*int32{ptr32(53), ptr32(0), nil}
+			keys := []string{"/spdx.softwarecomposition.kubescape.io/containerprofiles/ns/nonzero", "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns/zero", "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns/absent"}
+			for i, key := range keys {
+				in := portZeroCP()
+				in.Name = filepath.Base(key)
+				in.Spec.Egress[0].Ports[0].Port = ports[i]
+				require.NoError(t, s.Create(t.Context(), key, in, nil, 0))
+			}
+			for _, fast := range []bool{false, true} {
+				out := &softwarecomposition.ContainerProfile{}
+				for i, key := range keys {
+					if fast {
+						decoded, err := s.tryDecodePayload(key, out)
+						require.NoError(t, err)
+						require.True(t, decoded)
+					} else {
+						require.NoError(t, s.Get(t.Context(), key, storage.GetOptions{}, out))
+					}
+					require.Equal(t, ports[i], out.Spec.Egress[0].Ports[0].Port, "key=%s fast=%v", key, fast)
+					require.False(t, out.Spec.Egress[0].Ports[0].PortZero)
+				}
+			}
+		})
+	}
+}
+
+func TestPortZero_ReturnedProfileUnchangedUpdate(t *testing.T) {
+	for _, writer := range []bool{false, true} {
+		name := "legacy"
+		if writer {
+			name = "single-writer"
+		}
+		t.Run(name, func(t *testing.T) {
+			old := singleWriterEnabled
+			singleWriterEnabled = writer
+			t.Cleanup(func() { singleWriterEnabled = old })
+			s, cleanup := newSingleWriterTestStorage(t)
+			defer cleanup()
+			const key = "/spdx.softwarecomposition.kubescape.io/containerprofiles/ns/p"
+			in, created := portZeroCP(), &softwarecomposition.ContainerProfile{}
+			require.NoError(t, s.Create(t.Context(), key, in, created, 0))
+			forEachNetworkPort(in, func(p *softwarecomposition.NetworkPort) { require.False(t, p.PortZero) })
+			forEachNetworkPort(created, func(p *softwarecomposition.NetworkPort) { require.False(t, p.PortZero) })
+			version := created.ResourceVersion
+			out := &softwarecomposition.ContainerProfile{}
+			require.NoError(t, s.GuaranteedUpdate(t.Context(), key, out, false, nil,
+				func(runtime.Object, storage.ResponseMeta) (runtime.Object, *uint64, error) { return created, nil, nil }, nil))
+			require.Equal(t, version, out.ResourceVersion, "unchanged update must not bump resource version")
+		})
+	}
+}
+
+func TestPortZero_DecodeFailureLeavesDestinationUntouched(t *testing.T) {
+	out := portZeroCP()
+	out.Spec.Egress[0].Ports[0].Port = ptr32(53)
+	before := out.DeepCopy()
+	var buf bytes.Buffer
+	require.NoError(t, gob.NewEncoder(&buf).Encode(portZeroCP()))
+	data := buf.Bytes()
+	require.Error(t, decodeGobPayload(gob.NewDecoder(bytes.NewReader(data[:len(data)-1])), out))
+	require.Equal(t, before, out)
+	buf.Reset()
+	in := portZeroCP()
+	stampPortZero(in)
+	require.NoError(t, gob.NewEncoder(&buf).Encode(in))
+	require.NoError(t, decodeGobPayload(gob.NewDecoder(&buf), out))
+	require.NotNil(t, out.Spec.Egress[0].Ports[0].Port)
+	require.Zero(t, *out.Spec.Egress[0].Ports[0].Port)
+	require.False(t, out.Spec.Egress[0].Ports[0].PortZero)
 }

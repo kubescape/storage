@@ -1,8 +1,10 @@
 package file
 
 import (
+	"encoding/gob"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 )
 
 // gob flattens *int32 and omits zero values, so an explicit port 0 decodes as
@@ -11,6 +13,20 @@ import (
 // the pointer after decode. Legacy payloads carry no PortZero and are
 // untouched: nonzero ports never need the marker, and their lost *0s were
 // already nil at rest.
+
+// Decode into a fresh value: gob merges omitted fields into an existing
+// destination, which would retain a previous port or marker. Publish only a
+// successful decode so a failed attempt cannot contaminate migration retries.
+func decodeGobPayload(decoder *gob.Decoder, obj runtime.Object) error {
+	dst := reflect.ValueOf(obj).Elem()
+	fresh := reflect.New(dst.Type()).Interface().(runtime.Object)
+	if err := decoder.Decode(fresh); err != nil {
+		return err
+	}
+	restorePortZero(fresh)
+	dst.Set(reflect.ValueOf(fresh).Elem())
+	return nil
+}
 
 func stampPortZero(obj runtime.Object) {
 	forEachNetworkPort(obj, func(p *softwarecomposition.NetworkPort) {
