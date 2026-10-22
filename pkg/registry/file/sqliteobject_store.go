@@ -953,7 +953,7 @@ func (s *ObjectStore) prepareUpdate(ctx context.Context, h *readHandle, key stri
 		}
 	}
 
-	if reflect.DeepEqual(orig, ret) {
+	if sameStoredContent(orig, ret) {
 		logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 		return nil, nil
 	}
