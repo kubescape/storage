@@ -281,10 +281,10 @@ func newBudgetEnv(t *testing.T, rec *budgetRecorder) *budgetEnv {
 func (e *budgetEnv) tsKey(suffix string) string { return e.baseKey + "-" + suffix }
 
 // reportTimestamp stamps report n of the series in the same format
-// ListTimeSeriesExpired compares against (time.Time.String, local zone), so
+// ListTimeSeriesExpired compares against (time.Time.String, UTC), so
 // the lexical expiry check is consistent and nothing seeded here is expired.
 func (e *budgetEnv) reportTimestamp(n int) string {
-	return e.now.Add(time.Duration(n-10) * time.Minute).String()
+	return e.now.UTC().Add(time.Duration(n-10) * time.Minute).String()
 }
 
 // ts clones the template as report n of its series under suffix. Reports
