@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -636,6 +637,27 @@ func (s *StorageImpl) saveObject(ctx context.Context, conn *sqlite.Conn, key str
 		val.Set(reflect.ValueOf(obj).Elem())
 	}
 	return metadata, nil
+}
+
+// sameStoredContent ignores request bookkeeping when deciding whether an update
+// needs a write. All write paths discard managedFields. TypeMeta describes the
+// request representation, not a content change (the native backend may persist
+// it). Kubernetes semantic equality also treats nil and empty collections alike.
+func sameStoredContent(stored, incoming runtime.Object) bool {
+	// Storage objects are pointers to structs with embedded ObjectMeta/TypeMeta.
+	// Shallow copies let us replace those fields without mutating the caller's
+	// objects or copying their potentially large, read-only specs.
+	copies := [2]runtime.Object{}
+	for i, obj := range []runtime.Object{stored, incoming} {
+		copy := reflect.New(reflect.TypeOf(obj).Elem())
+		copy.Elem().Set(reflect.ValueOf(obj).Elem())
+		copies[i] = copy.Interface().(runtime.Object)
+		if m, ok := copies[i].(metav1.Object); ok {
+			m.SetManagedFields(nil)
+		}
+	}
+	copies[0].GetObjectKind().SetGroupVersionKind(copies[1].GetObjectKind().GroupVersionKind())
+	return equality.Semantic.DeepEqual(copies[0], copies[1])
 }
 
 // Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
@@ -2083,7 +2105,7 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// check if the object is the same as the original
-		if reflect.DeepEqual(orig, ret) {
+		if sameStoredContent(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object
 			v.Set(reflect.ValueOf(origState.obj).Elem())

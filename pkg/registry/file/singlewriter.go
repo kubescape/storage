@@ -1185,7 +1185,7 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 		s.pool.Put(conn)
 		poolCancel()
 
-		if reflect.DeepEqual(orig, ret) {
+		if sameStoredContent(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			v.Set(reflect.ValueOf(origState.obj).Elem())
 			return nil
