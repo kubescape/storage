@@ -2,9 +2,10 @@ package file
 
 import (
 	"encoding/gob"
+	"reflect"
+
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"k8s.io/apimachinery/pkg/runtime"
-	"reflect"
 )
 
 // gob flattens *int32 and omits zero values, so an explicit port 0 decodes as
