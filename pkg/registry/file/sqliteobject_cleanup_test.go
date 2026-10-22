@@ -274,12 +274,9 @@ func TestCleanup_ContainerProfileArmUsesRowsUnderTheFlag(t *testing.T) {
 // maintenance; only an explicit StartMaintenance, called once all such
 // wiring is complete, may.
 func TestContainerProfileProcessor_MaintenanceDoesNotStartUntilExplicit(t *testing.T) {
-	// A throwaway pool/store this test never closes: StartMaintenance's
-	// runMaintenanceTasks loops forever with no stop mechanism (matching
-	// production, where it runs for the process's life), so once started it
-	// outlives this test function. Reusing newObjectStoreEnv's pool would
-	// race that leaked goroutine against the env's own t.Cleanup closing it;
-	// an isolated, never-closed pool has nothing left for it to race.
+	// Keep this pool open: StopMaintenance signals the maintenance loop but
+	// does not wait for an in-flight iteration to finish using the pool.
+	// The ObjectStore checkpointer is stopped separately below.
 	dir := t.TempDir()
 	sch := runtime.NewScheme()
 	install.Install(sch)
@@ -308,6 +305,9 @@ func TestContainerProfileProcessor_MaintenanceDoesNotStartUntilExplicit(t *testi
 
 	store, err := NewObjectStore(pool, filepath.Join(dir, "metadata.sq3"), wd, sch, processor, legacy, gate, ObjectStoreOptions{})
 	require.NoError(t, err)
+	// Close joins the background checkpointer before later tests change
+	// package-level timeouts that it reads on each checkpoint.
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
 
 	// SetStorage (called inside NewObjectStore) alone: no cleanup handler
 	// wired yet (the production ordering's dangerous window), and no
