@@ -236,12 +236,10 @@ type ContainerProfileSpec struct {
 	// WARNING report the execution/profile fields here
 	Architectures []string `json:"architectures" protobuf:"bytes,1,rep,name=architectures"`
 	Capabilities  []string `json:"capabilities" protobuf:"bytes,2,rep,name=capabilities"`
-	// +patchMergeKey=path
-	// +patchStrategy=merge
-	Execs []ExecCalls `json:"execs" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
-	// +patchMergeKey=path
-	// +patchStrategy=merge
-	Opens          []OpenCalls          `json:"opens" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
+	// +listType=atomic
+	Execs []ExecCalls `json:"execs" protobuf:"bytes,3,rep,name=execs"`
+	// +listType=atomic
+	Opens          []OpenCalls          `json:"opens" protobuf:"bytes,4,rep,name=opens"`
 	Syscalls       []string             `json:"syscalls" protobuf:"bytes,5,rep,name=syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
 	// +patchStrategy=merge
@@ -280,12 +278,10 @@ type ContainerProfileSpec struct {
 type ContainerProfileContainer struct {
 	Name         string   `json:"name" protobuf:"bytes,1,req,name=name"`
 	Capabilities []string `json:"capabilities,omitempty" protobuf:"bytes,2,rep,name=capabilities"`
-	// +patchMergeKey=path
-	// +patchStrategy=merge
-	Execs []ExecCalls `json:"execs,omitempty" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,3,rep,name=execs"`
-	// +patchMergeKey=path
-	// +patchStrategy=merge
-	Opens          []OpenCalls          `json:"opens,omitempty" patchStrategy:"merge" patchMergeKey:"path" protobuf:"bytes,4,rep,name=opens"`
+	// +listType=atomic
+	Execs []ExecCalls `json:"execs,omitempty" protobuf:"bytes,3,rep,name=execs"`
+	// +listType=atomic
+	Opens          []OpenCalls          `json:"opens,omitempty" protobuf:"bytes,4,rep,name=opens"`
 	Syscalls       []string             `json:"syscalls,omitempty" protobuf:"bytes,5,rep,name=syscalls"`
 	SeccompProfile SingleSeccompProfile `json:"seccompProfile,omitempty" protobuf:"bytes,6,opt,name=seccompProfile"`
 	// +patchStrategy=merge
