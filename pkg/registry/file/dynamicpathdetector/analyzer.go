@@ -116,6 +116,11 @@ func hasPrefixAtBoundary(pathPrefix, prefix string) bool {
 }
 
 func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
+	// path.Clean("") returns "." — an empty input must stay empty, never mint
+	// a relative segment into a consolidated profile.
+	if p == "" {
+		return "", nil
+	}
 	p = path.Clean(p)
 	node, exists := ua.RootNodes[identifier]
 	if !exists {
