@@ -545,6 +545,7 @@ func decodeLegacyFileAt(ctx context.Context, fs afero.Fs, root, key string) (*so
 	obj := &softwarecomposition.ContainerProfile{}
 	err = gob.NewDecoder(bytes.NewReader(data)).Decode(obj)
 	if err == nil {
+		restorePortZero(obj)
 		return obj, true, nil
 	}
 	if strings.Contains(err.Error(), "gob: wrong type") || strings.Contains(err.Error(), "extra fields") {

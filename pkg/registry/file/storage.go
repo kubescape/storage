@@ -569,6 +569,7 @@ func (s *StorageImpl) saveObject(ctx context.Context, conn *sqlite.Conn, key str
 	directIOWriter := NewDirectIOWriter(payloadFile)
 
 	// write payload
+	stampPortZero(obj) // explicit port-0 survives gob's zero-value elision
 	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
 		_ = directIOWriter.Close()
@@ -1093,6 +1094,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
 	err = decoder.Decode(objPtr)
 	if err == nil {
+		restorePortZero(objPtr)
 		return nil
 	}
 
@@ -1270,6 +1272,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 		errRetry := decoderRetry.Decode(objPtr)
 		_ = payloadFileRetry.Close()
 		if errRetry == nil {
+			restorePortZero(objPtr)
 			logger.L().Ctx(ctx).Info("Get - migration already completed by another thread", helpers.String("key", key))
 			return nil
 		}
@@ -1337,6 +1340,7 @@ func (s *StorageImpl) tryDecodePayload(path string, objPtr runtime.Object) (bool
 	if decodeErr := decoder.Decode(objPtr); decodeErr != nil {
 		return false, nil
 	}
+	restorePortZero(objPtr)
 	return true, nil
 }
 
@@ -2193,6 +2197,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 				_ = payloadFileRetry.Close()
 				if errRetry == nil {
 					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - migration already completed by another thread", helpers.String("path", path))
+					restorePortZero(obj)
 					v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
 					return nil
 				}
@@ -2252,6 +2257,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 		}
 	}
 
+	restorePortZero(obj)
 	v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
 
 	return nil
