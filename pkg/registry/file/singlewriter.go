@@ -898,6 +898,8 @@ func (s *StorageImpl) prepareSingleWriterPayload(key string, obj runtime.Object,
 	}
 	directIOWriter := NewDirectIOWriter(payloadFile)
 
+	stampPortZero(obj)
+	defer restorePortZero(obj)
 	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
 		_ = directIOWriter.Close()

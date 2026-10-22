@@ -50,6 +50,12 @@ type NetworkPort struct {
 	Name     string // protocol-port
 	Protocol Protocol
 	Port     *int32
+	// PortZero marks an explicit Port==0 across the gob payload round-trip:
+	// gob flattens the pointer and omits zero values, so *0 decodes as nil
+	// (losing the distinction between an explicit zero and an absent port).
+	// Internal-only; stamped on save, consumed on read, never converted out.
+	// json:"-": gob carries it (gob ignores json tags); JSON views must not.
+	PortZero bool `json:"-"`
 }
 
 func (p NetworkPort) String() string {

@@ -569,6 +569,8 @@ func (s *StorageImpl) saveObject(ctx context.Context, conn *sqlite.Conn, key str
 	directIOWriter := NewDirectIOWriter(payloadFile)
 
 	// write payload
+	stampPortZero(obj)
+	defer restorePortZero(obj)
 	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
 		_ = directIOWriter.Close()
@@ -1091,7 +1093,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 
 	// Try normal decode first
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
-	err = decoder.Decode(objPtr)
+	err = decodeGobPayload(decoder, objPtr)
 	if err == nil {
 		return nil
 	}
@@ -1267,7 +1269,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 	payloadFileRetry, err := s.openPayloadFileWithFallback(makePayloadPath(path), os.O_RDONLY, 0)
 	if err == nil {
 		decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
-		errRetry := decoderRetry.Decode(objPtr)
+		errRetry := decodeGobPayload(decoderRetry, objPtr)
 		_ = payloadFileRetry.Close()
 		if errRetry == nil {
 			logger.L().Ctx(ctx).Info("Get - migration already completed by another thread", helpers.String("key", key))
@@ -1305,11 +1307,13 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 	}
 
 	// Migration tool outputted JSON, unmarshal it into objPtr
-	if unmarshalErr := json.Unmarshal(out.Bytes(), objPtr); unmarshalErr != nil {
+	fresh := reflect.New(reflect.TypeOf(objPtr).Elem()).Interface().(runtime.Object)
+	if unmarshalErr := json.Unmarshal(out.Bytes(), fresh); unmarshalErr != nil {
 		logger.L().Ctx(ctx).Error("Get - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("key", key))
 		return unmarshalErr
 	}
 
+	reflect.ValueOf(objPtr).Elem().Set(reflect.ValueOf(fresh).Elem())
 	logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
 
 	if _, saveErr := s.saveObject(ctx, conn, key, objPtr, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
@@ -1334,7 +1338,7 @@ func (s *StorageImpl) tryDecodePayload(path string, objPtr runtime.Object) (bool
 	}
 	defer func() { _ = f.Close() }()
 	decoder := gob.NewDecoder(NewDirectIOReader(f))
-	if decodeErr := decoder.Decode(objPtr); decodeErr != nil {
+	if decodeErr := decodeGobPayload(decoder, objPtr); decodeErr != nil {
 		return false, nil
 	}
 	return true, nil
@@ -1464,10 +1468,12 @@ func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Co
 			}
 			return storage.NewKeyNotFoundError(key, 0)
 		}
-		if unmarshalErr := json.Unmarshal(migratedJSON, objPtr); unmarshalErr != nil {
+		fresh := reflect.New(reflect.TypeOf(objPtr).Elem()).Interface().(runtime.Object)
+		if unmarshalErr := json.Unmarshal(migratedJSON, fresh); unmarshalErr != nil {
 			logger.L().Ctx(ctx).Error("Get - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("key", key))
 			return unmarshalErr
 		}
+		reflect.ValueOf(objPtr).Elem().Set(reflect.ValueOf(fresh).Elem())
 		logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
 		if _, saveErr := s.saveObject(ctx, conn, key, objPtr, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
 			logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
@@ -2166,7 +2172,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 
 	// Try normal decode first
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
-	err = decoder.Decode(obj)
+	err = decodeGobPayload(decoder, obj)
 	if err != nil {
 		// If it fails with type error, try legacy decoding via external tool
 		if strings.Contains(err.Error(), "gob: wrong type") || strings.Contains(err.Error(), "extra fields") {
@@ -2189,7 +2195,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			payloadFileRetry, err := s.openPayloadFileWithFallback(path, os.O_RDONLY, 0)
 			if err == nil {
 				decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
-				errRetry := decoderRetry.Decode(obj)
+				errRetry := decodeGobPayload(decoderRetry, obj)
 				_ = payloadFileRetry.Close()
 				if errRetry == nil {
 					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - migration already completed by another thread", helpers.String("path", path))
@@ -2223,6 +2229,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			}
 
 			// Migration tool outputted JSON, unmarshal it into obj
+			obj = reflect.New(v.Type().Elem()).Interface().(runtime.Object)
 			if unmarshalErr := json.Unmarshal(out.Bytes(), obj); unmarshalErr != nil {
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("path", path))
 				return unmarshalErr
