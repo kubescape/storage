@@ -874,6 +874,9 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 			return ids
 		}
 	}
+	previousStatus := profile.Annotations[helpers.StatusMetadataKey]
+	previousCompletion := profile.Annotations[helpers.CompletionMetadataKey]
+
 	// Process each time series
 	for _, seriesID := range order(timeSeries) {
 		processResult, err := a.processTimeSeries(ctx, timeSeries, seriesID, key, &profile, &creationTimestamp, expired)
@@ -899,10 +902,11 @@ func (a *ContainerProfileProcessor) updateProfile(ctx context.Context, timeSerie
 		return nil, nil
 	}
 
-	// Persist the canonical observed CP only when time-series consolidation
-	// produced new data this tick. The observed CP is the time-series-only
-	// view (kubescape/storage#315 review).
-	if newData {
+	// Finalization may change lifecycle annotations after all payload data
+	// was merged. Save them even when this pass has no new payload data.
+	statusChanged := profile.Annotations[helpers.StatusMetadataKey] != previousStatus ||
+		profile.Annotations[helpers.CompletionMetadataKey] != previousCompletion
+	if newData || statusChanged {
 		if profile.CreationTimestamp.IsZero() {
 			profile.CreationTimestamp = creationTimestamp
 		}

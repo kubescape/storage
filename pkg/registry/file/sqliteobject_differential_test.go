@@ -732,3 +732,63 @@ func TestDifferential_ConsolidationWindows(t *testing.T) {
 }
 
 var _ = metav1.Now
+
+// Lifecycle finalization can run after the last payload was merged. It must
+// persist the annotations before the remaining time-series rows are removed.
+func TestConsolidate_StatusTransitionWithoutNewData(t *testing.T) {
+	for _, backendCase := range []struct {
+		name       string
+		newBackend func(*testing.T, processorWrap) *backend
+	}{{"legacy", newLegacyBackend}, {"objectstore", newObjectBackend}} {
+		t.Run(backendCase.name, func(t *testing.T) {
+			for _, expired := range []bool{false, true} {
+				t.Run(fmt.Sprintf("expired=%t", expired), func(t *testing.T) {
+					b := backendCase.newBackend(t, nil)
+					defer b.watcher.Stop()
+					ctx := context.Background()
+					f := loadDiffFixtures(t)
+					b.processor.DeleteThreshold = 24 * time.Hour
+					part := f.ts("r1", 1, helpersv1.Learning, helpersv1.Partial)
+					require.NoError(t, b.store.Create(ctx, f.tsKey("r1"), part, nil, 0))
+					require.NoError(t, b.processor.ConsolidateTimeSeries(ctx))
+					before := &softwarecomposition.ContainerProfile{}
+					require.NoError(t, b.store.Get(ctx, f.baseKey, storage.GetOptions{}, before))
+					require.Equal(t, helpersv1.Learning, before.Annotations[helpersv1.StatusMetadataKey])
+					require.True(t, storage.IsNotFound(b.store.Get(ctx, f.tsKey("r1"), storage.GetOptions{}, &softwarecomposition.ContainerProfile{})))
+
+					wantCompletion := helpersv1.Partial
+					if expired {
+						// The fixture report is nine minutes old: expire it deterministically,
+						// without sleeping or introducing another payload.
+						b.processor.DeleteThreshold = time.Minute
+						require.NoError(t, b.processor.ConsolidateTimeSeries(ctx))
+					} else {
+						// Model a completed series whose payload was consumed previously.
+						writer := b.processor.ContainerProfileStorage.(TimeSeriesEntryWriter)
+						writeCtx, release, err := b.processor.ContainerProfileStorage.WithConnection(ctx)
+						require.NoError(t, err)
+						require.NoError(t, writer.WriteTimeSeriesEntry(writeCtx, ContainerProfileKind,
+							f.ns, f.baseNm, part.Annotations[helpersv1.ReportSeriesIdMetadataKey], "r1",
+							part.Annotations[helpersv1.ReportTimestampMetadataKey], helpersv1.Completed,
+							helpersv1.Full, part.Annotations[helpersv1.PreviousReportTimestampMetadataKey], false))
+						release()
+						require.NoError(t, b.processor.consolidateKeyTimeSeries(ctx, f.baseKey, false))
+						wantCompletion = helpersv1.Full
+					}
+					after := &softwarecomposition.ContainerProfile{}
+					require.NoError(t, b.store.Get(ctx, f.baseKey, storage.GetOptions{}, after))
+					assert.Equal(t, helpersv1.Completed, after.Annotations[helpersv1.StatusMetadataKey])
+					assert.Equal(t, wantCompletion, after.Annotations[helpersv1.CompletionMetadataKey])
+					assert.NotEqual(t, before.ResourceVersion, after.ResourceVersion)
+					assert.Equal(t, before.Spec, after.Spec)
+					assert.Zero(t, b.tsRows(t, f.baseKey))
+					// Once finalized, another tick has nothing to save.
+					require.NoError(t, b.processor.ConsolidateTimeSeries(ctx))
+					again := &softwarecomposition.ContainerProfile{}
+					require.NoError(t, b.store.Get(ctx, f.baseKey, storage.GetOptions{}, again))
+					assert.Equal(t, after.ResourceVersion, again.ResourceVersion)
+				})
+			}
+		})
+	}
+}
