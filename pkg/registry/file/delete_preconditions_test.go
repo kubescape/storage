@@ -324,13 +324,15 @@ func TestObjectStore_Delete_ConcurrentUpdateRetriesAgainstFreshState(t *testing.
 }
 
 // TestDelete_GatedPreconditionsDoNotPinKeyLockWhilePoolExhausted reproduces the
-// lock/pool cycle of a gated delete that must read the stored object: the
-// delete holds Lock(key) while waiting for a pool connection, and a full-spec
-// list holding the last connection waits for RLock(key) in get. With the pool
-// at its smallest supported size (two, one of which the gate owns) a single
-// reader suffices. The delete must release the key lock between bounded
-// connection attempts so the list completes, with the object, long before
-// lockTimeout.
+// lock/pool cycle of gated deletes that must read the stored object: a delete
+// queued for Lock(key) while waiting for a pool connection blocks, through
+// MapMutex's writer preference, a full-spec list that holds the last connection
+// and waits for RLock(key) in get. With the pool at its smallest supported size
+// (two, one of which the gate owns) a single reader suffices, and TWO same-key
+// deleters defeat any scheme where a deleter merely yields the lock and
+// re-queues (the second takes it while the first is off it). Deleters must
+// await the connection without queuing for the key lock, so the list completes,
+// with the object, long before lockTimeout.
 func TestDelete_GatedPreconditionsDoNotPinKeyLockWhilePoolExhausted(t *testing.T) {
 	pool := NewPoolWithOptions(filepath.Join(t.TempDir(), "test.sq3"), PoolOptions{Size: 2})
 	t.Cleanup(func() { _ = pool.Close() })
@@ -360,28 +362,34 @@ func TestDelete_GatedPreconditionsDoNotPinKeyLockWhilePoolExhausted(t *testing.T
 	}
 	t.Cleanup(releaseConn)
 
+	// Each deleter signals just before its pool.Take, which cannot succeed
+	// while the test holds the only free connection.
+	atConnWait := make(chan struct{}, 16)
+	deleteConnWaitHook = func() { atConnWait <- struct{}{} }
+	t.Cleanup(func() { deleteConnWaitHook = nil })
+
 	uid := out.UID
 	var validated atomic.Int32
-	deleteDone := make(chan error, 1)
-	go func() {
-		deleteDone <- s.Delete(t.Context(), key, &softwarecomposition.ContainerProfile{},
-			&storage.Preconditions{UID: &uid},
-			func(context.Context, runtime.Object) error { validated.Add(1); return nil },
-			nil, storage.DeleteOptions{})
-	}()
-
-	// The delete is in the contended phase once it holds the key lock (it
-	// cannot proceed: the pool is empty). The probe is a bounded TryLock.
-	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
-		defer cancel()
-		if s.locks.Lock(ctx, key) != nil {
-			return true
+	deleteDone := make(chan error, 2)
+	startDelete := func() {
+		go func() {
+			deleteDone <- s.Delete(t.Context(), key, &softwarecomposition.ContainerProfile{},
+				&storage.Preconditions{UID: &uid},
+				func(context.Context, runtime.Object) error { validated.Add(1); return nil },
+				nil, storage.DeleteOptions{})
+		}()
+	}
+	awaitConnWait := func(who string) {
+		select {
+		case <-atConnWait:
+		case <-time.After(5 * time.Second):
+			releaseConn()
+			t.Fatalf("%s never reached the connection wait", who)
 		}
-		s.locks.Unlock(key)
-		return false
-	}, 5*time.Second, time.Millisecond, "delete never reached the key-locked connection wait")
-	require.Zero(t, validated.Load())
+	}
+
+	startDelete()
+	awaitConnWait("first delete")
 
 	list := &softwarecomposition.ContainerProfileList{}
 	listDone := make(chan error, 1)
@@ -393,29 +401,52 @@ func TestDelete_GatedPreconditionsDoNotPinKeyLockWhilePoolExhausted(t *testing.T
 		}, list)
 	}()
 
+	startDelete()
+	awaitConnWait("second delete")
+
 	select {
 	case err := <-listDone:
 		require.NoError(t, err)
 	case <-time.After(lockTimeout / 2):
 		releaseConn()
-		t.Fatalf("list still blocked on the key lock after %s: delete pins it while waiting for a connection", lockTimeout/2)
+		t.Fatalf("list still blocked on the key lock after %s: a deleter pins it while waiting for a connection", lockTimeout/2)
 	}
 	require.Len(t, list.Items, 1, "list silently omitted the object")
 	assert.Equal(t, "pinned", list.Items[0].Name)
 
-	// Free the connection: the delete now reads, validates and deletes.
+	// Neither delete may have run without a connection.
+	require.Zero(t, validated.Load())
 	select {
 	case err := <-deleteDone:
 		t.Fatalf("delete finished before a connection was free: %v", err)
 	default:
 	}
+
+	// Free the connection: exactly one delete reads, validates and deletes;
+	// the other finds the object gone and must not delete anything else.
 	releaseConn()
-	select {
-	case err := <-deleteDone:
-		require.NoError(t, err)
-	case <-time.After(lockTimeout):
-		t.Fatal("delete did not complete after the connection was released")
+	var errs []error
+	for range 2 {
+		select {
+		case err := <-deleteDone:
+			errs = append(errs, err)
+		case <-time.After(lockTimeout):
+			t.Fatal("a delete did not complete after the connection was released")
+		}
 	}
+	var ok, notFound int
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			ok++
+		case storage.IsNotFound(err):
+			notFound++
+		default:
+			t.Errorf("unexpected delete error: %v", err)
+		}
+	}
+	assert.Equal(t, 1, ok, "errs=%v", errs)
+	assert.Equal(t, 1, notFound, "errs=%v", errs)
 	assert.Equal(t, int32(1), validated.Load())
 	err = s.Get(t.Context(), key, storage.GetOptions{}, &softwarecomposition.ContainerProfile{})
 	assert.True(t, storage.IsNotFound(err), "%v", err)

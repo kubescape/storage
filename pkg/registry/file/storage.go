@@ -291,6 +291,71 @@ func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acq
 	}
 }
 
+// acquireConnThenLock is the write-side counterpart of acquireLockedConn for a
+// gated delete that must read the stored object. It awaits the pool connection
+// FIRST, holding no key lock, and only then queues for the key's write lock.
+//
+// Invariant: a goroutine is in (or repeatedly re-enters) the key's writer queue
+// only while it already owns a pool connection. MapMutex.RLock refuses new
+// readers while a writer is pending, so a writer that queued while the pool was
+// exhausted would block a reader holding the last connection, which is the only
+// goroutine that can free one. Here, pool exhaustion is waited out outside the
+// key lock, so no writer can be pending on behalf of a connection it lacks and
+// no yield or ordering between competing deleters can starve that reader.
+//
+// The lock wait is bounded by connAttemptTimeout per attempt: a holder of the
+// key lock may itself be waiting for a connection this call holds, so on a
+// short miss the connection is returned and the whole acquisition retried. The
+// accumulated lock wait is capped at lockTimeout and the whole call at
+// poolTimeout, and ctx cancellation aborts both.
+//
+// On success the caller owns the key write lock (s.locks.Unlock) and the
+// connection (s.pool.Put).
+//
+// deleteConnWaitHook, when set by a test, is called just before each
+// pool.Take so the test can tell a deleter has reached the connection wait.
+var deleteConnWaitHook func()
+
+func (s *StorageImpl) acquireConnThenLock(ctx context.Context, op, key string) (*sqlite.Conn, error) {
+	budgetCtx, budgetCancel := context.WithTimeout(ctx, poolTimeout)
+	defer budgetCancel()
+	var lockWaited time.Duration
+	for {
+		if deleteConnWaitHook != nil {
+			deleteConnWaitHook()
+		}
+		beforePool := time.Now()
+		conn, err := s.pool.Take(budgetCtx)
+		if err != nil {
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
+			return nil, newContentionTimeoutError(op, key, err)
+		}
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
+
+		_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+		beforeLock := time.Now()
+		attempt := min(connAttemptTimeout, lockTimeout-lockWaited)
+		lockCtx, lockCancel := context.WithTimeout(budgetCtx, attempt)
+		lockErr := s.locks.Lock(lockCtx, key)
+		lockCancel()
+		spanLock.End()
+		waited := time.Since(beforeLock)
+		lockWaited += waited
+		if lockErr == nil {
+			metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, waited)
+			// Pool.Take bound conn's interrupt to budgetCtx, which ends when
+			// this call returns; rebind to the caller's ctx for its real use.
+			conn.SetInterrupt(ctx.Done())
+			return conn, nil
+		}
+		s.pool.Put(conn)
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, waited)
+		if budgetCtx.Err() != nil || lockWaited >= lockTimeout {
+			return nil, newContentionTimeoutError(op, key, lockErr)
+		}
+	}
+}
+
 // resourceFromKey extracts an approximate plural resource name from a storage key for use
 // in the error's informational Details/message; correctness rides on RetryAfterSeconds, so
 // an approximate resource string is acceptable.
@@ -812,10 +877,10 @@ func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Ob
 // deleteGated is Delete under the shared gate. The statements run on the
 // gate's connection, so a plain delete holds the per-key lock only. A delete
 // with preconditions or validation must first read the stored object: it takes
-// the lock and a read connection through acquireLockedConn (lock, then
-// connection, releasing the lock between bounded connection attempts), so it
-// never pins the key lock while blocked on an exhausted pool -- which would
-// stall a list holding the last connection while waiting for the same key.
+// the lock and a read connection through acquireConnThenLock (connection
+// first, then lock), so it never queues for the key lock while blocked on an
+// exhausted pool -- which would stall a list holding the last connection while
+// waiting for the same key, however many deleters contend.
 // The read connection is returned before the gated delete is queued; the key
 // lock is kept throughout, so the object checked is the object deleted.
 func (s *StorageImpl) deleteGated(ctx context.Context, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc) error {
@@ -827,7 +892,7 @@ func (s *StorageImpl) deleteGated(ctx context.Context, key string, metaOut runti
 			return err
 		}
 	} else {
-		conn, err := s.acquireLockedConn(ctx, "delete", key, s.locks.Lock, s.locks.Unlock)
+		conn, err := s.acquireConnThenLock(ctx, "delete", key)
 		if err != nil {
 			return err
 		}
