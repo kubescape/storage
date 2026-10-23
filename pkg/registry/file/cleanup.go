@@ -2,6 +2,9 @@ package file
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,7 +27,9 @@ import (
 )
 
 const (
-	MinSizeToReport = 30 * 1024 * 1024 // 30MB
+	MinSizeToReport         = 30 * 1024 * 1024 // 30MB
+	cleanupQuarantinePrefix = ".kubescape-orphan-"
+	cleanupQuarantineSuffix = ".pending"
 )
 
 type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
@@ -235,7 +240,200 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 	clusterRunningInstanceIds.Append(resources.RunningInstanceIds.ToSlice()...)
 	resources.RunningContainerImageIds = clusterRunningContainerImageIds
 	resources.RunningInstanceIds = clusterRunningInstanceIds
-	return h.cleanupNamespace(ctx, h.defaultNamespace, resourceToKindHandler, conn, resources)
+	if err := h.cleanupNamespace(ctx, h.defaultNamespace, resourceToKindHandler, conn, resources); err != nil {
+		return err
+	}
+	// Metadata rows are the usual source of namespaces. A failed payload
+	// removal can leave a file behind after the last row in its namespace was
+	// deleted, so revisit those on-disk namespaces after normal cleanup. An
+	// orphan removal failure must not starve ordinary cleanup on later ticks.
+	return h.cleanupOrphansInUnlistedNamespaces(ctx, conn, resourceToKindHandler, namespaces)
+}
+
+// cleanupOrphansInUnlistedNamespaces recovers payloads that normal cleanup
+// cannot reach through the metadata-backed namespace list. A namespace with
+// no metadata rows needs no workload inventory: only files without a matching
+// row or legacy metadata sidecar are removed here. A rename under SQLite's
+// write lock separates an orphan from its old key before Remove runs, so a
+// concurrent Create cannot lose its newly committed payload.
+func (h *ResourcesCleanupHandler) cleanupOrphansInUnlistedNamespaces(ctx context.Context, conn *sqlite.Conn, handlers map[string][]TypeCleanupHandlerFunc, namespaces []string) error {
+	listed := make(map[string]struct{}, len(namespaces))
+	var sweepErr error
+	recordError := func(err error) {
+		if sweepErr == nil {
+			sweepErr = err
+		}
+	}
+	for _, ns := range namespaces {
+		listed[ns] = struct{}{}
+	}
+	for kind := range handlers {
+		// The SQLite ContainerProfile backend owns this kind. Legacy files
+		// remain on disk for the export tool and must not be walked here.
+		if h.cpStore != nil && IsContainerProfileKind(kind) {
+			continue
+		}
+		kindDir := filepath.Join(h.root, softwarecomposition.GroupName, kind)
+		entries, err := afero.ReadDir(h.appFs, kindDir)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			recordError(fmt.Errorf("read payload namespaces in %s: %w", kindDir, err))
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			if _, ok := listed[entry.Name()]; ok {
+				continue
+			}
+			nsDir := filepath.Join(kindDir, entry.Name())
+			children, err := afero.ReadDir(h.appFs, nsDir)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				recordError(fmt.Errorf("read orphan payload directory %s: %w", nsDir, err))
+				continue
+			}
+			if len(children) == 0 {
+				continue
+			}
+			err = afero.Walk(h.appFs, nsDir, func(path string, info os.FileInfo, walkErr error) error {
+				if errors.Is(walkErr, os.ErrNotExist) {
+					return nil // another cleanup or writer removed it
+				}
+				if walkErr != nil {
+					recordError(fmt.Errorf("walk orphan payload %s: %w", path, walkErr))
+					return nil
+				}
+				fileErr := func() error {
+					if !info.Mode().IsRegular() {
+						return nil
+					}
+					if isCleanupQuarantineFile(path) {
+						return h.removeCleanupQuarantine(path)
+					}
+					if !IsPayloadFile(path) {
+						return nil
+					}
+					key, err := keyFromPayloadPath(h.root, path)
+					if err != nil {
+						return err
+					}
+					if _, err := ReadMetadata(conn, key); err == nil {
+						return nil // a concurrent writer made the namespace current
+					} else if !errors.Is(err, ErrMetadataNotFound) {
+						return fmt.Errorf("read metadata for %s: %w", path, err)
+					}
+					sidecar := path[:len(path)-len(GobExt)] + MetadataExt
+					if _, err := h.appFs.Stat(sidecar); err == nil {
+						// A legacy sidecar may still be the only metadata for this
+						// payload. Leave the pair for its ordinary migration path.
+						return nil
+					} else if !errors.Is(err, os.ErrNotExist) {
+						return fmt.Errorf("stat metadata sidecar for %s: %w", path, err)
+					}
+					quarantine, err := h.quarantineOrphanPayload(ctx, conn, kind, path)
+					if err != nil {
+						return err
+					}
+					if quarantine != "" {
+						return h.removeCleanupQuarantine(quarantine)
+					}
+					return nil
+				}()
+				if fileErr != nil {
+					recordError(fmt.Errorf("recover orphan payload %s: %w", path, fileErr))
+				}
+				return nil
+			})
+			if err != nil {
+				recordError(fmt.Errorf("walk orphan payloads in %s: %w", nsDir, err))
+			}
+		}
+	}
+	return sweepErr
+}
+
+func (h *ResourcesCleanupHandler) withCleanupWriteLock(ctx context.Context, conn *sqlite.Conn, kind string, fn func(context.Context, *sqlite.Conn) error) error {
+	if h.gate != nil {
+		return h.gate.run(ctx, priorityLow, holdPathCleanup, kind, fn)
+	}
+	end, err := sqlitex.ImmediateTransaction(conn)
+	if err != nil {
+		return fmt.Errorf("begin orphan recovery transaction: %w", err)
+	}
+	err = fn(ctx, conn)
+	end(&err)
+	return err
+}
+
+func isCleanupQuarantineFile(path string) bool {
+	name := filepath.Base(path)
+	if !strings.HasPrefix(name, cleanupQuarantinePrefix) || !strings.HasSuffix(name, cleanupQuarantineSuffix) {
+		return false
+	}
+	nonce := strings.TrimSuffix(strings.TrimPrefix(name, cleanupQuarantinePrefix), cleanupQuarantineSuffix)
+	if len(nonce) != 32 {
+		return false
+	}
+	_, err := hex.DecodeString(nonce)
+	return err == nil
+}
+
+func (h *ResourcesCleanupHandler) removeCleanupQuarantine(path string) error {
+	if err := h.appFs.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove orphan payload %s: %w", path, err)
+	}
+	return nil
+}
+
+// quarantineOrphanPayload takes the same SQLite write lock as Create, then
+// rechecks the row before moving the file. Only one same-directory rename is
+// done while the gate is held; the potentially slow Remove follows after it.
+// Quarantine names do not end in .g, so file-backed LIST cannot serve them.
+func (h *ResourcesCleanupHandler) quarantineOrphanPayload(ctx context.Context, conn *sqlite.Conn, kind, path string) (string, error) {
+	var nonce [16]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return "", fmt.Errorf("generate orphan quarantine name: %w", err)
+	}
+	quarantine := filepath.Join(filepath.Dir(path), cleanupQuarantinePrefix+hex.EncodeToString(nonce[:])+cleanupQuarantineSuffix)
+	if exists, err := afero.Exists(h.appFs, quarantine); err != nil {
+		return "", fmt.Errorf("check orphan quarantine path: %w", err)
+	} else if exists {
+		return "", fmt.Errorf("orphan quarantine path already exists: %s", quarantine)
+	}
+	key, err := keyFromPayloadPath(h.root, path)
+	if err != nil {
+		return "", err
+	}
+	moved := false
+	move := func(_ context.Context, lockedConn *sqlite.Conn) error {
+		if _, err := ReadMetadata(lockedConn, key); err == nil {
+			return nil // an in-flight Create committed while we waited
+		} else if !errors.Is(err, ErrMetadataNotFound) {
+			return fmt.Errorf("read metadata for %s: %w", path, err)
+		}
+		if err := h.appFs.Rename(path, quarantine); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			return fmt.Errorf("quarantine orphan payload %s: %w", path, err)
+		}
+		moved = true
+		return nil
+	}
+	err = h.withCleanupWriteLock(ctx, conn, kind, move)
+	if err != nil {
+		return "", fmt.Errorf("recover orphan payload %s: %w", path, err)
+	}
+	if moved {
+		return quarantine, nil
+	}
+	return "", nil
 }
 
 func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns string, resourceToKindHandler map[string][]TypeCleanupHandlerFunc, conn *sqlite.Conn, resources ResourceMaps) error {
@@ -258,6 +456,12 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 
 			// skip directories
 			if info.IsDir() {
+				return nil
+			}
+			if isCleanupQuarantineFile(path) {
+				if err := h.removeCleanupQuarantine(path); err != nil {
+					logger.L().Ctx(ctx).Error("failed removing orphan quarantine", helpers.Error(err), helpers.String("path", path))
+				}
 				return nil
 			}
 

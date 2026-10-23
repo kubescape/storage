@@ -301,8 +301,9 @@ func (g *writeGate) held() bool {
 
 // run executes fn inside BEGIN IMMEDIATE … COMMIT on the gate's connection,
 // holding the gate for exactly that span. fn must contain only SQL on
-// already-prepared bytes (INV-1; the legacy kinds' INV-1′ adds one rename of
-// a file this process finished writing before the ticket). fn receives a
+// already-prepared bytes (INV-1; the legacy kinds' INV-1′ adds one
+// same-directory rename of a staged payload, or an orphan being quarantined,
+// before the ticket is released). fn receives a
 // ctx marked as gate-held: a nested acquire through it fails at O(1)
 // (errGateReentrant) instead of queuing behind its own holder. A non-nil
 // error from fn rolls the transaction back and is returned; a panic in fn is
