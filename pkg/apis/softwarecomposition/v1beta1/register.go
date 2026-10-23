@@ -77,6 +77,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SeccompProfileList{},
 		&CollapseConfiguration{},
 		&CollapseConfigurationList{},
+		&MCPServer{},
+		&MCPServerList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

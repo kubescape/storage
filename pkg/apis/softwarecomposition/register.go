@@ -81,6 +81,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SeccompProfileList{},
 		&CollapseConfiguration{},
 		&CollapseConfigurationList{},
+		&MCPServer{},
+		&MCPServerList{},
 	)
 	return nil
 }

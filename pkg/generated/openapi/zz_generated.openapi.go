@@ -103,6 +103,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1beta1.Location{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Location(ref),
 		v1beta1.LocationData{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref),
 		v1beta1.LocationMetadata{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref),
+		v1beta1.MCPServer{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_MCPServer(ref),
+		v1beta1.MCPServerList{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_MCPServerList(ref),
 		v1beta1.Match{}.OpenAPIModelName():                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		v1beta1.MatchDetails{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
 		v1beta1.Metadata{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
@@ -3622,6 +3624,90 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref common.Ref
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_MCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServer is the parent resource of the mcp connect subresource, which serves the read-only MCP endpoint (designs-and-proposals storage-mcp-endpoint.md). It has no fields beyond metadata and is never stored.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_MCPServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerList is a list of MCPServer.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.MCPServer{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.MCPServer{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
