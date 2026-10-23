@@ -857,27 +857,33 @@ func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key s
 	if s.gate != nil {
 		return s.deleteLockedGated(ctx, key, metaOut, p)
 	}
-	// Delete the SQL payload before metadata. On failure preserve the other
-	// state so the caller can retry the complete deletion.
-	if err := DeletePayloads(conn, key); err != nil {
-		return fmt.Errorf("delete payloads: %w", err)
-	}
-	// delete metadata in SQLite
-	err := DeleteMetadata(conn, key, metaOut)
+	// The rows go in one savepoint and the payload file last: a row delete that fails
+	// rolls the others back and returns with the object whole, so the caller can retry
+	// the complete deletion and no watcher is told of a delete that did not happen.
+	_, _, kind, _, _, _ := K8sPathToKeys(key)
+	release := sqlitex.Save(conn)
+	err := func() error {
+		if err := DeletePayloads(conn, key); err != nil {
+			return fmt.Errorf("delete payloads: %w", err)
+		}
+		if err := DeleteMetadata(conn, key, metaOut); err != nil {
+			return fmt.Errorf("delete metadata: %w", err)
+		}
+		if IsContainerProfileKind(kind) {
+			if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
+				return fmt.Errorf("delete time series entries: %w", err)
+			}
+		}
+		return nil
+	}()
+	release(&err)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Delete - delete rows failed", helpers.Error(err), helpers.String("key", key))
+		return err
 	}
 	// delete payload file
 	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
-	}
-	// delete time series entries if this is a containerprofile
-	_, _, kind, _, _, _ := K8sPathToKeys(key)
-	if IsContainerProfileKind(kind) {
-		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
-			logger.L().Ctx(ctx).Error("Delete - delete time series entries failed", helpers.Error(err), helpers.String("key", key))
-			return fmt.Errorf("delete time series entries: %w", err)
-		}
 	}
 	return nil
 }
@@ -905,12 +911,10 @@ func (s *StorageImpl) deleteLockedGated(ctx context.Context, key string, metaOut
 	})
 	if err != nil {
 		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
+		return err
 	}
 	if rerr := s.appFs.Remove(makePayloadPath(p)); rerr != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(rerr), helpers.String("key", key))
-	}
-	if err != nil {
-		return err
 	}
 	if metaOut != nil && len(raw) > 0 {
 		if uerr := json.Unmarshal(raw, metaOut); uerr != nil {
