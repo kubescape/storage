@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -157,8 +158,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 // countingDeleteStorage wraps a storage.Interface, invoking cancel once its
 // Delete method has been called cancelAfter times. Used to deterministically
 // cancel a context partway through a bulk delete without depending on
-// rest.ValidateObjectFunc (StorageImpl.Delete ignores that parameter
-// entirely -- ValidateObjectFunc is not a usable interception point here).
+// rest.ValidateObjectFunc.
 type countingDeleteStorage struct {
 	storage.Interface
 	count       int32
@@ -269,6 +269,115 @@ func TestStore_DeleteCollection_NegativeLimitDeletesNothing(t *testing.T) {
 	remaining, err := meta.ExtractList(remainingList)
 	require.NoError(t, err)
 	assert.Len(t, remaining, total, "a negative Limit must not delete anything, matching List's own negative-limit contract")
+}
+
+// updateBeforeDeleteStorage wraps a storage.Interface and, once armed, updates
+// the object just before forwarding Delete -- after Store.Delete has already
+// read it and passed rest.BeforeDelete's own precondition check against that
+// read. This is the window only the storage layer's check can close.
+type updateBeforeDeleteStorage struct {
+	storage.Interface
+	armed bool
+}
+
+func (u *updateBeforeDeleteStorage) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
+	if u.armed {
+		u.armed = false
+		err := u.Interface.GuaranteedUpdate(ctx, key, &softwarecomposition.KnownServer{}, false, nil,
+			func(existing runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+				updated := existing.(*softwarecomposition.KnownServer).DeepCopy()
+				updated.Spec = softwarecomposition.KnownServerSpec{{Server: "raced"}}
+				return updated, nil, nil
+			}, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return u.Interface.Delete(ctx, key, out, preconditions, validateDeletion, cachedExistingObject, opts)
+}
+
+// TestStore_Delete_ResourceVersionPreconditionRacingUpdateIsConflict proves
+// Store.Delete hands DeleteOptions.Preconditions to the file-backed storage:
+// the precondition matches the object Store.Delete reads, but the object is
+// updated before the storage Delete runs, so only the storage layer can reject
+// it. It must return 409 Conflict and leave the object stored. Without the
+// storage-level check the changed object would be deleted.
+func TestStore_Delete_ResourceVersionPreconditionRacingUpdateIsConflict(t *testing.T) {
+	sch := newTestScheme(t)
+	pool := file.NewTestPool(t.TempDir())
+	t.Cleanup(func() { _ = pool.Close() })
+	racing := &updateBeforeDeleteStorage{Interface: file.NewStorageImpl(afero.NewMemMapFs(), file.DefaultStorageRoot, pool, nil, sch)}
+	optsGetter := &options.StorageFactoryRestOptionsFactory{StorageFactory: &options.SimpleStorageFactory{}}
+	store, err := knownservers.NewCustomREST(sch, racing, optsGetter)
+	require.NoError(t, err)
+	ctx := testContext()
+	const name = "racing"
+
+	created, err := store.Create(ctx, &softwarecomposition.KnownServer{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
+	require.NoError(t, err)
+	rv := created.(*softwarecomposition.KnownServer).ResourceVersion
+
+	racing.armed = true
+	_, _, err = store.Delete(ctx, name, rest.ValidateAllObjectFunc, &metav1.DeleteOptions{
+		Preconditions: &metav1.Preconditions{ResourceVersion: &rv},
+	})
+	require.Error(t, err)
+	assert.True(t, apierrors.IsConflict(err), "got %v", err)
+
+	got, err := store.Get(ctx, name, &metav1.GetOptions{})
+	require.NoError(t, err, "the raced delete must leave the object stored")
+	assert.NotEqual(t, rv, got.(*softwarecomposition.KnownServer).ResourceVersion)
+}
+
+// TestStore_Delete_StaleResourceVersionPreconditionIsConflict proves that
+// DeleteOptions.Preconditions reach the file-backed storage through
+// Store.Delete: a stale resourceVersion is rejected with the 409 Conflict the
+// API server writes for this error, and the object is not deleted.
+func TestStore_Delete_StaleResourceVersionPreconditionIsConflict(t *testing.T) {
+	store := newTestStore(t)
+	ctx := testContext()
+	const name = "precondition"
+
+	created, err := store.Create(ctx, &softwarecomposition.KnownServer{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
+	require.NoError(t, err)
+	stale := created.(*softwarecomposition.KnownServer).ResourceVersion
+
+	// Move the object to a new resourceVersion so `stale` is genuinely stale.
+	_, _, err = store.Update(ctx, name,
+		rest.DefaultUpdatedObjectInfo(nil, func(_ context.Context, _, oldObj runtime.Object) (runtime.Object, error) {
+			updated := oldObj.(*softwarecomposition.KnownServer).DeepCopy()
+			updated.Spec = softwarecomposition.KnownServerSpec{{Server: "changed"}}
+			return updated, nil
+		}),
+		rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	require.NoError(t, err)
+	current, err := store.Get(ctx, name, &metav1.GetOptions{})
+	require.NoError(t, err)
+	currentRV := current.(*softwarecomposition.KnownServer).ResourceVersion
+	require.NotEqual(t, stale, currentRV)
+
+	_, _, err = store.Delete(ctx, name, rest.ValidateAllObjectFunc, &metav1.DeleteOptions{
+		Preconditions: &metav1.Preconditions{ResourceVersion: &stale},
+	})
+	require.Error(t, err)
+	assert.True(t, apierrors.IsConflict(err), "got %v", err)
+	var statusErr apierrors.APIStatus
+	require.True(t, errors.As(err, &statusErr))
+	assert.EqualValues(t, http.StatusConflict, statusErr.Status().Code)
+
+	_, err = store.Get(ctx, name, &metav1.GetOptions{})
+	require.NoError(t, err, "a rejected delete must leave the object stored")
+
+	_, _, err = store.Delete(ctx, name, rest.ValidateAllObjectFunc, &metav1.DeleteOptions{
+		Preconditions: &metav1.Preconditions{ResourceVersion: &currentRV},
+	})
+	require.NoError(t, err)
+	_, err = store.Get(ctx, name, &metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "got %v", err)
 }
 
 func TestStore_List_ResourceVersionNonEmpty(t *testing.T) {
