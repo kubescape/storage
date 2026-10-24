@@ -346,6 +346,11 @@ func (c *ContainerProfileStorageImpl) WriteTimeSeriesEntry(ctx context.Context, 
 	return WriteTimeSeriesEntry(conn, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp, hasData)
 }
 
+func (c *ContainerProfileStorageImpl) ListOrphanTimeSeriesObjects(ctx context.Context, limit int) ([]string, error) {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	return ListOrphanTimeSeriesObjects(conn, ContainerProfileKind, limit)
+}
+
 func IsContainerProfileKind(kind string) bool {
 	return kind == ContainerProfileKind || kind == ContainerProfileKindLegacy
 }

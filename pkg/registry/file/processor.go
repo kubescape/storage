@@ -40,6 +40,10 @@ type TimeSeriesEntryWriter interface {
 	WriteTimeSeriesEntry(ctx context.Context, kind, namespace, name, seriesID, tsSuffix, reportTimestamp, status, completion, previousReportTimestamp string, hasData bool) error
 }
 
+type OrphanTimeSeriesLister interface {
+	ListOrphanTimeSeriesObjects(ctx context.Context, limit int) ([]string, error)
+}
+
 // ProcessedDeleteStager is implemented by a ContainerProfileStorage whose
 // BeginTransaction stages writes for one atomic commit: the consolidation pass
 // then hands it the processed time-series deletes BEFORE the end function

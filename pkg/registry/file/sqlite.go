@@ -669,6 +669,50 @@ func ListTimeSeriesWithData(conn *sqlite.Conn) ([]string, error) {
 }
 
 // ReadMetadata reads metadata for the given path and returns it as a byte slice.
+func ListOrphanTimeSeriesObjects(conn *sqlite.Conn, kind string, limit int) ([]string, error) {
+	var keys []string
+	observeStmt("ListOrphanTimeSeriesObjects")
+	err := sqlitex.Execute(conn,
+		`SELECT m.namespace, m.name
+				FROM metadata m
+				WHERE m.kind = ?
+				  AND length(m.name) > 33
+				  AND substr(m.name, length(m.name) - 32, 1) = '-'
+				  AND NOT EXISTS (
+				  	SELECT 1 FROM time_series t
+				  	WHERE t.kind = m.kind AND t.namespace = m.namespace
+				  	  AND t.name || '-' || t.tsSuffix = m.name)
+				LIMIT ?;`,
+		&sqlitex.ExecOptions{
+			Args: []any{kind, limit},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				ns := stmt.ColumnText(0)
+				name := stmt.ColumnText(1)
+				if _, suffix := SplitProfileName(name); !isHexSuffix(suffix) {
+					return nil
+				}
+				keys = append(keys, K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", kind, "", ns, name))
+				return nil
+			},
+		})
+	if err != nil {
+		return nil, fmt.Errorf("list orphan time series objects: %w", err)
+	}
+	return keys, nil
+}
+
+func isHexSuffix(s string) bool {
+	if len(s) != 32 {
+		return false
+	}
+	for _, c := range s {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 func ReadMetadata(conn *sqlite.Conn, path string) ([]byte, error) {
 	_, _, kind, _, namespace, name := K8sPathToKeys(path)
 	var metadataJSON string

@@ -432,6 +432,7 @@ func (a *ContainerProfileProcessor) ConsolidateTimeSeries(ctx context.Context) e
 	if err != nil {
 		return fmt.Errorf("failed to take connection for listing: %w", err)
 	}
+	a.registerOrphanTimeSeriesObjects(listCtx)
 	// Phase 1: expired time series (past deleteThreshold), marked Completed/Partial.
 	expired, err := a.ContainerProfileStorage.ListTimeSeriesExpired(listCtx, a.DeleteThreshold)
 	if err != nil {
@@ -804,6 +805,32 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeriesAfterCommit(ctx con
 		return fmt.Errorf("failed to delete %d processed time series profile(s): %w", failed, first)
 	}
 	return nil
+}
+
+const orphanTimeSeriesCensusLimit = 500
+
+func (a *ContainerProfileProcessor) registerOrphanTimeSeriesObjects(ctx context.Context) {
+	lister, ok := a.ContainerProfileStorage.(OrphanTimeSeriesLister)
+	if !ok {
+		return
+	}
+	keys, err := lister.ListOrphanTimeSeriesObjects(ctx, orphanTimeSeriesCensusLimit)
+	if err != nil {
+		logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.registerOrphanTimeSeriesObjects - census failed, skipping", loggerhelpers.Error(err))
+		return
+	}
+	registered := 0
+	for _, tsKey := range keys {
+		if err := a.reregisterTimeSeriesRow(ctx, tsKey); err != nil {
+			logger.L().Ctx(ctx).Debug("ContainerProfileProcessor.registerOrphanTimeSeriesObjects - object skipped", loggerhelpers.Error(err), loggerhelpers.String("tsKey", tsKey))
+			continue
+		}
+		registered++
+	}
+	if registered > 0 {
+		logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.registerOrphanTimeSeriesObjects - time series objects without a row re-registered for consolidation",
+			loggerhelpers.Int("registered", registered), loggerhelpers.Int("candidates", len(keys)))
+	}
 }
 
 func (a *ContainerProfileProcessor) reregisterTimeSeriesRow(ctx context.Context, tsKey string) error {

@@ -4,6 +4,7 @@
       "DeleteMetadata": 3,
       "DeletePayloads": 3,
       "DeleteTimeSeriesContainerEntries": 3,
+      "ListOrphanTimeSeriesObjects": 1,
       "ListTimeSeriesContainers": 1,
       "ListTimeSeriesExpired": 1,
       "ListTimeSeriesWithData": 1,
@@ -33,6 +34,7 @@
   },
   "S2_empty_tick": {
     "stmt": {
+      "ListOrphanTimeSeriesObjects": 1,
       "ListTimeSeriesExpired": 1,
       "ListTimeSeriesWithData": 1
     },
@@ -58,6 +60,7 @@
       "DeleteMetadata": 2,
       "DeletePayloads": 2,
       "DeleteTimeSeriesContainerEntries": 2,
+      "ListOrphanTimeSeriesObjects": 1,
       "ListTimeSeriesContainers": 1,
       "ListTimeSeriesExpired": 1,
       "ListTimeSeriesWithData": 1,
@@ -87,6 +90,7 @@
       "DeleteMetadata": 2,
       "DeletePayloads": 2,
       "DeleteTimeSeriesContainerEntries": 2,
+      "ListOrphanTimeSeriesObjects": 1,
       "ListTimeSeriesContainers": 1,
       "ListTimeSeriesExpired": 1,
       "ListTimeSeriesWithData": 1,
