@@ -145,8 +145,32 @@ func prefixDirectory(fs afero.Fs, path string) (exists, populated bool, err erro
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return false, false, fmt.Errorf("%s is not a real directory", path)
 	}
+	populated, err = prefixTreeHasFiles(fs, path)
+	return true, populated, err
+}
+
+func prefixTreeHasFiles(fs afero.Fs, path string) (bool, error) {
 	entries, err := afero.ReadDir(fs, path)
-	return true, len(entries) != 0, err
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			return true, nil
+		}
+		found, err := prefixTreeHasFiles(fs, filepath.Join(path, entry.Name()))
+		if err != nil || found {
+			return found, err
+		}
+	}
+	return false, nil
+}
+
+func removeEmptyPrefixTree(fs afero.Fs, path string) error {
+	if err := fs.RemoveAll(path); err != nil {
+		return err
+	}
+	return syncPrefixParent(fs, path)
 }
 
 func (m *prefixMove) inspect(conn *sqlite.Conn, fs afero.Fs, direction string) error {
@@ -187,6 +211,12 @@ func (m *prefixMove) inspect(conn *sqlite.Conn, fs afero.Fs, direction string) e
 	toExists, toFiles, err := prefixDirectory(fs, m.toPath)
 	if err != nil {
 		return err
+	}
+	if fromExists && !fromFiles && !m.pending && (toFiles || m.state != "") {
+		if err := removeEmptyPrefixTree(fs, m.fromPath); err != nil {
+			return err
+		}
+		fromExists = false
 	}
 	// A resource directory that is itself a mount cannot be renamed into
 	// its parent filesystem. Refuse before writing an intent for any resource.
@@ -362,10 +392,7 @@ func (m *prefixMove) apply(ctx context.Context, pool prefixPool, gate *WriteGate
 			if populated {
 				return fmt.Errorf("destination became populated: %s", m.toPath)
 			}
-			if err := fs.Remove(m.toPath); err != nil {
-				return err
-			}
-			if err := syncPrefixParent(fs, m.toPath); err != nil {
+			if err := removeEmptyPrefixTree(fs, m.toPath); err != nil {
 				return err
 			}
 		}
