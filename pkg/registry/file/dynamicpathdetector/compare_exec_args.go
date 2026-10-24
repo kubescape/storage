@@ -1,6 +1,9 @@
 package dynamicpathdetector
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // MatchExecArgs reports whether runtimeArgs satisfies a profile entry's argv
 // contract. argsRequired carries the entry's ExecCalls.ArgsRequired flag:
@@ -46,49 +49,61 @@ func matchExecArgsStrict(profileArgs, runtimeArgs []string) bool {
 		return len(runtimeArgs) == 0
 	}
 
-	type state struct{ pi, ri int }
-	memo := make(map[state]bool, (len(profileArgs)+1)*(len(runtimeArgs)+1))
-	seen := make(map[state]bool, (len(profileArgs)+1)*(len(runtimeArgs)+1))
+	if !slices.Contains(profileArgs, ExecArgsWildcard) {
+		if len(profileArgs) != len(runtimeArgs) {
+			return false
+		}
+		for i := range profileArgs {
+			if !argMatches(profileArgs[i], runtimeArgs[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	np, nr := len(profileArgs), len(runtimeArgs)
+	memo := make([]uint8, (np+1)*(nr+1))
 
 	var match func(pi, ri int) bool
 	match = func(pi, ri int) bool {
-		s := state{pi: pi, ri: ri}
-		if seen[s] {
-			return memo[s]
+		idx := pi*(nr+1) + ri
+		if m := memo[idx]; m != 0 {
+			return m == 2
 		}
-		seen[s] = true
+		store := func(v bool) bool {
+			if v {
+				memo[idx] = 2
+			} else {
+				memo[idx] = 1
+			}
+			return v
+		}
 
-		if pi == len(profileArgs) {
-			memo[s] = ri == len(runtimeArgs)
-			return memo[s]
+		if pi == np {
+			return store(ri == nr)
 		}
 
 		head := profileArgs[pi]
 
 		if head == ExecArgsWildcard {
 			// Absorb 0..remaining runtime args; first successful split wins.
-			for k := ri; k <= len(runtimeArgs); k++ {
+			for k := ri; k <= nr; k++ {
 				if match(pi+1, k) {
-					memo[s] = true
-					return true
+					return store(true)
 				}
 			}
-			memo[s] = false
-			return false
+			return store(false)
 		}
 
-		if ri == len(runtimeArgs) {
-			memo[s] = false
-			return false
+		if ri == nr {
+			return store(false)
 		}
 
 		if argMatches(head, runtimeArgs[ri]) {
-			memo[s] = match(pi+1, ri+1)
-			return memo[s]
+			return store(match(pi+1, ri+1))
 		}
 
-		memo[s] = false
-		return false
+		return store(false)
 	}
 
 	return match(0, 0)

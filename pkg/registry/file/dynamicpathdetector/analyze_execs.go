@@ -436,37 +436,51 @@ func consolidateExecs(execs []types.ExecCalls) []types.ExecCalls {
 		}
 	}
 
-	envs := make([]mapset.Set[string], len(sorted))
-	var kept []int
+	var kept, keptPatterns []int
 	for i := range sorted {
-		envs[i] = mapset.NewThreadUnsafeSet(sorted[i].Envs...)
 		if !covered[i] {
 			kept = append(kept, i)
+			if hasDynamicToken(sorted[i].Args) {
+				keptPatterns = append(keptPatterns, i)
+			}
 		}
 	}
+	merged := map[int]mapset.Set[string]{}
 	for i := range sorted {
 		if !covered[i] {
 			continue
 		}
 		into := -1
-		for _, j := range kept {
-			if hasDynamicToken(sorted[j].Args) && covers(j, i) {
+		for _, j := range keptPatterns {
+			if covers(j, i) {
 				into = j
 				break
 			}
 		}
 		if into < 0 {
 			kept = append(kept, i) // no kept coverer: keeping it is always safe
+			if hasDynamicToken(sorted[i].Args) {
+				keptPatterns = append(keptPatterns, i)
+			}
 			continue
 		}
-		envs[into].Append(sorted[i].Envs...)
+		set, ok := merged[into]
+		if !ok {
+			set = mapset.NewThreadUnsafeSet(sorted[into].Envs...)
+			merged[into] = set
+		}
+		set.Append(sorted[i].Envs...)
 	}
 
 	slices.Sort(kept)
 	out := make([]types.ExecCalls, 0, len(kept))
 	for _, i := range kept {
 		e := sorted[i]
-		e.Envs = sortedEnvs(envs[i])
+		if set, ok := merged[i]; ok {
+			e.Envs = sortedEnvs(set)
+		} else {
+			e.Envs = normalizedEnvs(e.Envs)
+		}
 		out = append(out, e)
 	}
 	return out
@@ -477,4 +491,13 @@ func sortedEnvs(set mapset.Set[string]) []string {
 		return nil
 	}
 	return mapset.Sorted(set)
+}
+
+func normalizedEnvs(envs []string) []string {
+	if len(envs) == 0 {
+		return nil
+	}
+	out := slices.Clone(envs)
+	slices.Sort(out)
+	return slices.Compact(out)
 }
