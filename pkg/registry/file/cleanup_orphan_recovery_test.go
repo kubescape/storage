@@ -206,7 +206,8 @@ func testCleanupDoesNotRemoveUncommittedCreatePayload(t *testing.T, gated bool) 
 	close(wrapped.resume)
 	// Before the writer commits, a recovery pass must not remove its payload.
 	select {
-	case <-done:
+	case err := <-done:
+		t.Fatalf("cleanup completed before the writer committed: %v", err)
 	case <-time.After(100 * time.Millisecond):
 	}
 	exists, err := afero.Exists(fs, record.path())
