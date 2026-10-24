@@ -372,6 +372,16 @@ func (in LocationMetadata) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServer) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.MCPServer"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerList) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.MCPServerList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Match) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.Match"
 }
