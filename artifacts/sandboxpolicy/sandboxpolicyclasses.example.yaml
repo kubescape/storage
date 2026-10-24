@@ -1,0 +1,13 @@
+apiVersion: kubescape.io/v1alpha1
+kind: SandboxPolicyClasses
+metadata: {name: default}
+spec:
+  pathClasses:
+    credentialStore: ["/root/.aws/**", "**/.netrc"]
+    agentConfig: ["**/.claude/**", "**/AGENTS.md"]
+    workspace: []
+  destClasses:
+    imds: ["169.254.169.254/32", "fd00:ec2::254/128", "metadata.google.internal"]
+    workloadCredentialEndpoint: ["169.254.170.2/32", "169.254.170.23/32", "fd00:ec2::23/128"]
+    privateRanges: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    modelProvider: []
