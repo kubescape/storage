@@ -18,10 +18,12 @@ package apiserver
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/config"
+	"github.com/kubescape/storage/pkg/mcp/endpoint"
 	"github.com/kubescape/storage/pkg/registry"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
@@ -49,6 +51,8 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
@@ -96,6 +100,9 @@ type ExtraConfig struct {
 	// by the ObjectStore, the legacy StorageImpl and the cleanup handler; nil
 	// with the flag off.
 	WriteGate *file.WriteGate
+	// ClientConfig reaches kube-apiserver. The MCP endpoint sends its
+	// SubjectAccessReviews with it.
+	ClientConfig *restclient.Config
 }
 
 // Config defines the config for the apiserver
@@ -386,9 +393,46 @@ func (c completedConfig) New() (*WardleServer, error) {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "seccompprofiles")
 	}
 
+	if c.ExtraConfig.StorageConfig.MCP.Enabled {
+		if err := addMCPEndpoint(c, apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]); err != nil {
+			return nil, fmt.Errorf("unable to create the MCP endpoint: %w", err)
+		}
+	}
+
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err
 	}
 
 	return s, nil
+}
+
+// addMCPEndpoint adds mcpservers and its mcp connect subresource. It reads
+// through the storage already in m, so it runs after the custom REST storage
+// above has replaced the default one.
+func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
+	if c.ExtraConfig.ClientConfig == nil {
+		return fmt.Errorf("no kube-apiserver client config")
+	}
+	// The timeout of k8s.io/apiserver's delegated authorization.
+	clientConfig := restclient.CopyConfig(c.ExtraConfig.ClientConfig)
+	clientConfig.Timeout = 10 * time.Second
+	client, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return err
+	}
+	authz, err := endpoint.NewAuthorizer(client.AuthorizationV1())
+	if err != nil {
+		return err
+	}
+	e, err := endpoint.New(endpoint.Config{
+		RequestHeader:          c.GenericConfig.Authentication.RequestHeaderConfig,
+		Authorizer:             authz,
+		Scheme:                 Scheme,
+		VulnerabilityManifests: m["vulnerabilitymanifests"],
+	})
+	if err != nil {
+		return err
+	}
+	m["mcpservers"], m["mcpservers/mcp"] = e.Storage()
+	return nil
 }

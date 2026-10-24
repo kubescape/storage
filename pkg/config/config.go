@@ -22,6 +22,12 @@ type KindQueueConfig struct {
 	MaxObjectSize int `mapstructure:"maxObjectSize"`
 }
 
+// MCPConfig configures the read-only MCP endpoint, the mcpservers/mcp connect
+// subresource (see pkg/mcp/endpoint).
+type MCPConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
 type Config struct {
 	CleanupInterval               time.Duration      `mapstructure:"cleanupInterval"`
 	DefaultNamespace              string             `mapstructure:"defaultNamespace"`
@@ -29,6 +35,7 @@ type Config struct {
 	DisableVirtualCRDs            bool               `mapstructure:"disableVirtualCRDs"`
 	DisableSeccompProfileEndpoint bool               `mapstructure:"disableSeccompProfileEndpoint"`
 	ExcludeJsonPaths              []string           `mapstructure:"excludeJsonPaths"`
+	MCP                           MCPConfig          `mapstructure:"mcp"`
 	MaxContainerProfileSize       int                `mapstructure:"maxContainerProfileSize"`
 	MaxSniffingTime               time.Duration      `mapstructure:"maxSniffingTimePerContainer"`
 	RateLimitPerClient            float64            `mapstructure:"rateLimitPerClient"`
@@ -178,6 +185,7 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("cleanupInterval", 24*time.Hour)
 	v.SetDefault("defaultNamespace", "kubescape")
 	v.SetDefault("maxContainerProfileSize", 40000)
+	v.SetDefault("mcp.enabled", false)
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)
