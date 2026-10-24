@@ -623,7 +623,7 @@ func (a *ContainerProfileProcessor) consolidateKeyTimeSeriesOnce(ctx context.Con
 		if a.Hooks.BeforeProcessedDeletes != nil {
 			a.Hooks.BeforeProcessedDeletes(key)
 		}
-		if err := a.deleteProcessedTimeSeries(ctx, processed); err != nil {
+		if err := a.deleteProcessedTimeSeriesAfterCommit(ctx, processed); err != nil {
 			return err
 		}
 	}
@@ -778,6 +778,48 @@ func (a *ContainerProfileProcessor) deleteProcessedTimeSeries(ctx context.Contex
 		}
 	}
 	return nil
+}
+
+func (a *ContainerProfileProcessor) deleteProcessedTimeSeriesAfterCommit(ctx context.Context, processed []string) error {
+	var first error
+	failed := 0
+	for _, tsKey := range processed {
+		err := a.deleteContainerProfileArbitrated(ctx, tsKey)
+		if err == nil || isKeyNotFoundErr(err) {
+			continue
+		}
+		failed++
+		if first == nil {
+			first = err
+		}
+		if rerr := a.reregisterTimeSeriesRow(ctx, tsKey); rerr != nil {
+			logger.L().Ctx(ctx).Error("ContainerProfileProcessor.deleteProcessedTimeSeries - processed time series object could not be deleted and its row could not be re-registered; the object is orphaned",
+				loggerhelpers.Error(err), loggerhelpers.Interface("reregisterError", rerr), loggerhelpers.String("tsKey", tsKey))
+			continue
+		}
+		logger.L().Ctx(ctx).Warning("ContainerProfileProcessor.deleteProcessedTimeSeries - processed time series object could not be deleted; its row is re-registered for the next tick",
+			loggerhelpers.Error(err), loggerhelpers.String("tsKey", tsKey))
+	}
+	if first != nil {
+		return fmt.Errorf("failed to delete %d processed time series profile(s): %w", failed, first)
+	}
+	return nil
+}
+
+func (a *ContainerProfileProcessor) reregisterTimeSeriesRow(ctx context.Context, tsKey string) error {
+	ts, err := a.ContainerProfileStorage.GetTsContainerProfile(ctx, tsKey)
+	if err != nil {
+		return err
+	}
+	row, _, ok := a.TimeSeriesRowFor(&ts)
+	if !ok {
+		return fmt.Errorf("%s carries no report series annotation", tsKey)
+	}
+	writer, ok := a.ContainerProfileStorage.(TimeSeriesEntryWriter)
+	if !ok {
+		return fmt.Errorf("storage does not write time series entries")
+	}
+	return writer.WriteTimeSeriesEntry(ctx, row.Kind, row.Namespace, row.Name, row.SeriesID, row.TsSuffix, row.ReportTimestamp, row.Status, row.Completion, row.PreviousReportTimestamp, true)
 }
 
 // deleteContainerProfileArbitrated deletes key's processed TS profile through
