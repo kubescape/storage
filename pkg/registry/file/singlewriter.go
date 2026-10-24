@@ -983,6 +983,9 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 			metadata.SetAnnotations(annotations)
 			logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
 			// fall through: still need to save the object with updated annotations
+		} else if errors.Is(err, ObjectCompletedError) {
+			s.pool.Put(conn)
+			return newCompletedObjectConflict(key, obj, err)
 		} else {
 			s.pool.Put(conn)
 			return err

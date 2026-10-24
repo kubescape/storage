@@ -154,6 +154,16 @@ func SetPoolTimeout(timeout time.Duration) {
 // rather than our lockTimeout/poolTimeout child context expiring), a Retry-After signal is
 // misleading -- there is no client left to retry -- so this returns a plain InternalError
 // without one instead of ServerTimeout.
+func newCompletedObjectConflict(key string, obj runtime.Object, err error) *apierrors.StatusError {
+	name := ""
+	if m, ok := obj.(metav1.Object); ok {
+		name = m.GetName()
+	}
+	return apierrors.NewConflict(
+		schema.GroupResource{Group: softwarecomposition.GroupName, Resource: resourceFromKey(key)},
+		name, err)
+}
+
 func newContentionTimeoutError(op, key string, err error) *apierrors.StatusError {
 	if errors.Is(err, context.Canceled) {
 		logger.L().Warning("acquisition cancelled",
@@ -828,6 +838,8 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 			metadata.SetAnnotations(annotations)
 			logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
 			// we don't return here as we still need to save the object with updated annotations
+		} else if errors.Is(err, ObjectCompletedError) {
+			return newCompletedObjectConflict(key, obj, err)
 		} else {
 			return err
 		}
