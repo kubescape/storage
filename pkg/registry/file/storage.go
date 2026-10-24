@@ -156,11 +156,11 @@ func SetPoolTimeout(timeout time.Duration) {
 // without one instead of ServerTimeout.
 func newContentionTimeoutError(op, key string, err error) *apierrors.StatusError {
 	if errors.Is(err, context.Canceled) {
-		logger.L().Debug("acquisition cancelled",
+		logger.L().Warning("acquisition cancelled",
 			helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
 		return apierrors.NewInternalError(fmt.Errorf("%s %s: acquisition cancelled: %w", op, key, err))
 	}
-	logger.L().Debug("acquisition timed out",
+	logger.L().Warning("acquisition timed out",
 		helpers.String("op", op), helpers.String("key", key), helpers.Error(err))
 	return apierrors.NewServerTimeout(
 		schema.GroupResource{Group: softwarecomposition.GroupName, Resource: resourceFromKey(key)},

@@ -114,6 +114,7 @@ type writeGate struct {
 	// watchdog and the hold-age gauge.
 	holdStart          time.Time
 	holdPath, holdKind string
+	busySince          time.Time
 	// conn is the dedicated write connection, taken once from the pool and
 	// returned only by Close (K-5: sqlitex.Pool.Close blocks until every
 	// connection is back).
@@ -196,6 +197,7 @@ func (g *writeGate) acquire(ctx context.Context, priority writePriority) error {
 	}
 	if !g.busy {
 		g.busy = true
+		g.busySince = time.Now()
 		g.mu.Unlock()
 		metrics.ObserveWriteGateWait(priority.label(), 0)
 		return nil
@@ -277,11 +279,13 @@ func (g *writeGate) release() {
 	defer g.mu.Unlock()
 	g.holdStart, g.holdPath, g.holdKind = time.Time{}, "", ""
 	if next := g.pickNext(); next != nil {
+		g.busySince = time.Now()
 		next.granted = true
 		next.ch <- struct{}{}
 		return
 	}
 	g.busy = false
+	g.busySince = time.Time{}
 	g.idle.Broadcast()
 }
 
@@ -414,8 +418,12 @@ func (g *writeGate) watchdog() {
 		case <-ticker.C:
 		}
 		g.mu.Lock()
-		busy, start, path, kind := g.busy, g.holdStart, g.holdPath, g.holdKind
+		busy, start, since, path, kind := g.busy, g.holdStart, g.busySince, g.holdPath, g.holdKind
 		g.mu.Unlock()
+		registered := !start.IsZero()
+		if !registered {
+			start = since
+		}
 		if !busy || start.IsZero() {
 			metrics.SetWriteGateHoldAge(0)
 			logged = false
@@ -428,8 +436,13 @@ func (g *writeGate) watchdog() {
 			g.watchdogFired.Add(1)
 			buf := make([]byte, 1<<20)
 			n := runtime.Stack(buf, true)
-			logger.L().Error("write gate: held past the watchdog threshold; every writer of every kind is queued behind it",
-				helpers.String("path", path), helpers.String("kind", kind), helpers.String("age", age.String()), helpers.String("stacks", string(buf[:n])))
+			if registered {
+				logger.L().Error("write gate: held past the watchdog threshold; every writer of every kind is queued behind it",
+					helpers.String("path", path), helpers.String("kind", kind), helpers.String("age", age.String()), helpers.String("stacks", string(buf[:n])))
+			} else {
+				logger.L().Error("write gate: busy without a registered holder past the watchdog threshold; every writer of every kind is queued behind it",
+					helpers.String("age", age.String()), helpers.String("stacks", string(buf[:n])))
+			}
 		}
 	}
 }

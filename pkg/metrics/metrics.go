@@ -37,6 +37,7 @@ const (
 	CommitOutcomeCommitted = "committed"
 	CommitOutcomeConflict  = "conflict"
 	CommitOutcomeError     = "error"
+	CommitOutcomeCancelled = "cancelled"
 	// CommitOutcomePanic: the commit panicked past every guard and the shard
 	// goroutine's recover converted it to an error. Must stay zero.
 	CommitOutcomePanic = "panic"

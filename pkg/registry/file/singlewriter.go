@@ -182,6 +182,8 @@ type commitJob struct {
 	tmpPayloadPath   string
 	finalPayloadPath string
 
+	enqueued atomic.Bool
+
 	// resultCh is buffered (capacity 1) so the writer goroutine's send in
 	// process() never blocks, even if the submitting caller has already given
 	// up (ctx done) and nobody will ever receive it.
@@ -410,6 +412,12 @@ func (w *singleWriter) process(job *commitJob) {
 	select {
 	case job.resultCh <- res:
 	default:
+		if res.err != nil {
+			logger.L().Warning("single-writer: commit finished after the caller stopped waiting",
+				helpers.String("op", commitOpName(job)),
+				helpers.String("key", job.key),
+				helpers.Error(res.err))
+		}
 	}
 }
 
@@ -431,6 +439,7 @@ func (w *singleWriter) submit(ctx context.Context, job *commitJob, priority writ
 	job.enqueuedAt = time.Now()
 	select {
 	case ch <- job:
+		job.enqueued.Store(true)
 		metrics.SetSingleWriterQueueDepth(priority.label(), w.queueDepth(priority))
 	case <-ctx.Done():
 		return commitResult{}, ctx.Err()
@@ -465,6 +474,13 @@ func commitOpName(job *commitJob) string {
 // callers like WithConnection that hold a connection and request an RLock.
 func (w *singleWriter) commit(job *commitJob) commitResult {
 	s := w.s
+	if err := job.ctx.Err(); err != nil {
+		if job.tmpPayloadPath != "" {
+			_ = s.appFs.Remove(job.tmpPayloadPath)
+		}
+		metrics.IncSingleWriterCommit(resourceFromKey(job.key), job.priority.label(), metrics.CommitOutcomeCancelled)
+		return commitResult{err: fmt.Errorf("%s %s: caller gone before commit: %w", commitOpName(job), job.key, err)}
+	}
 	if s.gate != nil {
 		return w.commitGated(job)
 	}
@@ -992,7 +1008,9 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 	}
 	res, err := writer.submit(ctx, job, priority)
 	if err != nil {
-		_ = s.appFs.Remove(tmpPath)
+		if !job.enqueued.Load() {
+			_ = s.appFs.Remove(tmpPath)
+		}
 		return err
 	}
 	if res.err != nil {
@@ -1209,7 +1227,9 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 		}
 		res, err := writer.submit(ctx, job, priority)
 		if err != nil {
-			_ = s.appFs.Remove(tmpPath)
+			if !job.enqueued.Load() {
+				_ = s.appFs.Remove(tmpPath)
+			}
 			return err
 		}
 		if res.err != nil {
