@@ -1,0 +1,25 @@
+{
+  "call": {
+    "name": "list_vulnerabilities_in_manifest",
+    "arguments": {
+      "manifest_name": "nginx-32fdf9",
+      "min_severity": "Severe",
+      "namespace": "kubescape"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "min_severity must be one of Critical, High, Medium, Low, Negligible (got \"Severe\")",
+    "details": {
+      "argument": "min_severity",
+      "supported_values": [
+        "Critical",
+        "High",
+        "Medium",
+        "Low",
+        "Negligible"
+      ]
+    }
+  }
+}

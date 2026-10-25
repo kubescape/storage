@@ -1,0 +1,14 @@
+{
+  "call": {
+    "name": "list_vulnerabilities_in_manifest",
+    "arguments": {
+      "manifest_name": "redis-a1c3e5",
+      "namespace": "restricted"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RBAC_DENIED",
+    "message": "vulnerabilitymanifests.spdx.softwarecomposition.kubescape.io \"redis-a1c3e5\" is forbidden: User \"system:serviceaccount:kagent:agent\" cannot get resource \"vulnerabilitymanifests\" in API group \"spdx.softwarecomposition.kubescape.io\" in the namespace \"restricted\""
+  }
+}

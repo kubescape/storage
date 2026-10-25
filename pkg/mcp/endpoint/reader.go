@@ -39,20 +39,26 @@ func NewAuthorizer(client authorizationv1client.AuthorizationV1Interface) (autho
 	}.New()
 }
 
+// listGetter is REST storage that can list and get.
+type listGetter interface {
+	rest.Lister
+	rest.Getter
+}
+
 // reader implements tools.Reader on storage's REST storage, in process. Every
 // read is first checked against the caller's RBAC, with the same verb,
 // resource, namespace and name as the matching kubectl call.
 type reader struct {
 	authorizer             authorizer.Authorizer
 	scheme                 *runtime.Scheme
-	vulnerabilityManifests rest.Lister
+	vulnerabilityManifests listGetter
 }
 
 func (r *reader) ListVulnerabilityManifests(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.VulnerabilityManifestList, error) {
 	if err := r.authorize(ctx, "list", "vulnerabilitymanifests", namespace, ""); err != nil {
 		return nil, err
 	}
-	obj, err := r.list(ctx, r.vulnerabilityManifests, namespace, opts)
+	obj, err := r.list(readContext(ctx, "list", "vulnerabilitymanifests", namespace, ""), r.vulnerabilityManifests, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +69,44 @@ func (r *reader) ListVulnerabilityManifests(ctx context.Context, namespace strin
 	return out, nil
 }
 
-func (r *reader) list(ctx context.Context, lister rest.Lister, namespace string, opts metav1.ListOptions) (runtime.Object, error) {
+func (r *reader) GetVulnerabilityManifest(ctx context.Context, namespace, name string) (*v1beta1.VulnerabilityManifest, error) {
+	if err := r.authorize(ctx, "get", "vulnerabilitymanifests", namespace, name); err != nil {
+		return nil, err
+	}
+	obj, err := r.vulnerabilityManifests.Get(readContext(ctx, "get", "vulnerabilitymanifests", namespace, name), name, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	out := &v1beta1.VulnerabilityManifest{}
+	if err := r.scheme.Convert(obj, out, nil); err != nil {
+		return nil, fmt.Errorf("convert vulnerability manifest: %w", err)
+	}
+	return out, nil
+}
+
+func (r *reader) list(ctx context.Context, lister rest.Lister, opts metav1.ListOptions) (runtime.Object, error) {
 	internalOpts := &metainternalversion.ListOptions{}
 	if err := metainternalversion.Convert_v1_ListOptions_To_internalversion_ListOptions(&opts, internalOpts, nil); err != nil {
 		return nil, apierrors.NewBadRequest(err.Error())
 	}
-	return lister.List(genericapirequest.WithNamespace(ctx, namespace), internalOpts)
+	return lister.List(ctx, internalOpts)
+}
+
+// readContext is the context of one in-process read: the namespace and the
+// request info of the matching kubectl call. The REST storage names the
+// resource in its errors after the request info, which would otherwise be the
+// one of the mcpservers/mcp call.
+func readContext(ctx context.Context, verb, resource, namespace, name string) context.Context {
+	return genericapirequest.WithRequestInfo(genericapirequest.WithNamespace(ctx, namespace), &genericapirequest.RequestInfo{
+		IsResourceRequest: true,
+		Verb:              verb,
+		APIPrefix:         "apis",
+		APIGroup:          softwarecomposition.GroupName,
+		APIVersion:        v1beta1.SchemeGroupVersion.Version,
+		Namespace:         namespace,
+		Resource:          resource,
+		Name:              name,
+	})
 }
 
 // authorize returns a Forbidden error unless the caller may do verb on

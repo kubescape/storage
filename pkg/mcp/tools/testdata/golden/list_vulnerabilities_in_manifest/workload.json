@@ -1,0 +1,59 @@
+{
+  "call": {
+    "name": "list_vulnerabilities_in_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web-nginx-8b1f2c",
+      "namespace": "kubescape"
+    }
+  },
+  "isError": false,
+  "response": {
+    "total": 3,
+    "returned": 3,
+    "truncated": false,
+    "vulnerabilities": [
+      {
+        "id": "CVE-2017-12424",
+        "severity": "Critical",
+        "package": "login",
+        "version": "1:4.4-4.1",
+        "package_type": "deb",
+        "purl": "pkg:deb/debian/login@1:4.4-4.1?arch=amd64\u0026upstream=shadow\u0026distro=debian-9",
+        "fix": {
+          "versions": [
+            "1:4.4-4.1+deb9u1"
+          ],
+          "state": "fixed"
+        }
+      },
+      {
+        "id": "CVE-2017-12424",
+        "severity": "Critical",
+        "package": "passwd",
+        "version": "1:4.4-4.1",
+        "package_type": "deb",
+        "purl": "pkg:deb/debian/passwd@1:4.4-4.1?arch=amd64\u0026upstream=shadow\u0026distro=debian-9",
+        "fix": {
+          "versions": [
+            "1:4.4-4.1+deb9u1"
+          ],
+          "state": "fixed"
+        }
+      },
+      {
+        "id": "CVE-2017-15670",
+        "severity": "Critical",
+        "package": "libc6",
+        "version": "2.24-11+deb9u3",
+        "package_type": "deb",
+        "purl": "pkg:deb/debian/libc6@2.24-11+deb9u3?arch=amd64\u0026upstream=glibc\u0026distro=debian-9",
+        "fix": {
+          "versions": [
+            "2.24-11+deb9u4"
+          ],
+          "state": "fixed"
+        }
+      }
+    ]
+  }
+}

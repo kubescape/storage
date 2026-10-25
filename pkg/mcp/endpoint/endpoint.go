@@ -63,9 +63,9 @@ func New(cfg Config) (*Endpoint, error) {
 	if cfg.Authorizer == nil || cfg.Scheme == nil {
 		return nil, errors.New("the MCP endpoint needs an authorizer and a scheme")
 	}
-	vulnerabilityManifests, ok := cfg.VulnerabilityManifests.(rest.Lister)
+	vulnerabilityManifests, ok := cfg.VulnerabilityManifests.(listGetter)
 	if !ok {
-		return nil, errors.New("the vulnerabilitymanifests storage cannot list")
+		return nil, errors.New("the vulnerabilitymanifests storage cannot list and get")
 	}
 
 	// k8s.io/apiserver's own front-proxy check: the wrapped authenticator runs
