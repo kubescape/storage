@@ -315,6 +315,7 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 			StorageConfig:   o.StorageConfig,
 			WatchDispatcher: o.WatchDispatcher,
 			WriteGate:       o.WriteGate,
+			ClientConfig:    serverConfig.ClientConfig,
 		},
 	}
 	return c, nil
