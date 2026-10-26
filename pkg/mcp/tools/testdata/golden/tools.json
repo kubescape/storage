@@ -1,0 +1,112 @@
+[
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "List the vulnerabilities in a given manifest, one entry per CVE and affected package, most severe first. Returns a page of results (see limit/offset) with the total count; long text fields are left out unless include_details is true.",
+    "inputSchema": {
+      "properties": {
+        "fixable_only": {
+          "description": "Only return vulnerabilities that have a fixed version (optional, default false)",
+          "type": "boolean"
+        },
+        "include_details": {
+          "description": "Include description, CVSS, URLs, advisories and data source for each entry (optional, default false; makes the response much larger)",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Maximum number of entries to return (optional, default 100, maximum 500)",
+          "type": "number"
+        },
+        "manifest_name": {
+          "description": "Name of the manifest to list vulnerabilities from",
+          "type": "string"
+        },
+        "min_severity": {
+          "description": "Minimum severity to include: Critical, High, Medium, Low, Negligible (optional; by default every severity, including unclassified ones, is returned)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Number of entries to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "manifest_name"
+      ],
+      "type": "object"
+    },
+    "name": "list_vulnerabilities_in_manifest"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Discover available vulnerability manifests at image and workload levels. Kubescape stores them in its own namespace (usually kubescape).",
+    "inputSchema": {
+      "properties": {
+        "continue": {
+          "description": "Optional Kubernetes continuation token for pagination",
+          "type": "string"
+        },
+        "level": {
+          "description": "Type of vulnerability manifests to list",
+          "enum": [
+            "image",
+            "workload",
+            "both"
+          ],
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_vulnerability_manifests"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "List all vulnerability matches for a given CVE in a given manifest",
+    "inputSchema": {
+      "properties": {
+        "cve_id": {
+          "description": "ID of the CVE to list matches for",
+          "type": "string"
+        },
+        "manifest_name": {
+          "description": "Name of the manifest to list vulnerabilities from",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manifest_name",
+        "cve_id"
+      ],
+      "type": "object"
+    },
+    "name": "list_vulnerability_matches_for_cve"
+  }
+]

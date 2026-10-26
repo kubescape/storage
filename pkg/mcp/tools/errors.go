@@ -58,3 +58,43 @@ func stringArg(args map[string]any, name string) (string, *mcp.CallToolResult) {
 		return "", toolError(ErrCodeInvalidArgument, fmt.Sprintf("%s must be a string", name), map[string]any{"argument": name})
 	}
 }
+
+// requiredStringArg is stringArg for an argument that must be given and not be
+// empty.
+func requiredStringArg(args map[string]any, name string) (string, *mcp.CallToolResult) {
+	s, toolErr := stringArg(args, name)
+	if toolErr != nil {
+		return "", toolErr
+	}
+	if s == "" {
+		return "", toolError(ErrCodeInvalidArgument, fmt.Sprintf("%s is required", name), map[string]any{"argument": name})
+	}
+	return s, nil
+}
+
+// boolArg returns the boolean argument name, or false when it is missing or
+// null.
+func boolArg(args map[string]any, name string) (bool, *mcp.CallToolResult) {
+	switch v := args[name].(type) {
+	case nil:
+		return false, nil
+	case bool:
+		return v, nil
+	default:
+		return false, toolError(ErrCodeInvalidArgument, fmt.Sprintf("%s must be a boolean", name), map[string]any{"argument": name})
+	}
+}
+
+// intArg returns the integer argument name and whether it was given. JSON
+// numbers arrive as float64; a null is treated as missing.
+func intArg(args map[string]any, name string) (int, bool, *mcp.CallToolResult) {
+	switch v := args[name].(type) {
+	case nil:
+		return 0, false, nil
+	case float64:
+		if v == float64(int(v)) {
+			return int(v), true, nil
+		}
+	}
+	return 0, false, toolError(ErrCodeInvalidArgument, fmt.Sprintf("%s must be an integer", name), map[string]any{"argument": name})
+}

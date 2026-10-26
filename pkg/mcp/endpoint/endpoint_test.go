@@ -91,7 +91,20 @@ type fakeLister struct {
 	rest.TableConvertor
 	calls     int
 	namespace string
+	info      *genericapirequest.RequestInfo
 	items     []softwarecomposition.VulnerabilityManifest
+}
+
+func (f *fakeLister) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	f.calls++
+	f.namespace = genericapirequest.NamespaceValue(ctx)
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
+	for i := range f.items {
+		if f.items[i].Namespace == f.namespace && f.items[i].Name == name {
+			return &f.items[i], nil
+		}
+	}
+	return nil, apierrors.NewNotFound(softwarecomposition.Resource("vulnerabilitymanifests"), name)
 }
 
 func (f *fakeLister) New() runtime.Object { return &softwarecomposition.VulnerabilityManifest{} }
@@ -104,6 +117,7 @@ func (f *fakeLister) NewList() runtime.Object {
 func (f *fakeLister) List(ctx context.Context, _ *metainternalversion.ListOptions) (runtime.Object, error) {
 	f.calls++
 	f.namespace = genericapirequest.NamespaceValue(ctx)
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
 	return &softwarecomposition.VulnerabilityManifestList{Items: f.items}, nil
 }
 
@@ -116,12 +130,16 @@ type testEndpoint struct {
 }
 
 // newTestEndpoint returns an endpoint whose authorizer allows only
-// "list vulnerabilitymanifests" in allowedNS.
+// "list" and "get" on vulnerabilitymanifests in allowedNS.
 func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 	t.Helper()
 	te := &testEndpoint{frontCA: newTestCA(t, "front-proxy-ca"), allowedNS: allowedNS, lister: &fakeLister{
 		items: []softwarecomposition.VulnerabilityManifest{
-			{ObjectMeta: metav1.ObjectMeta{Namespace: allowedNS, Name: "nginx-1.21"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: allowedNS, Name: "nginx-1.21"},
+				Spec: softwarecomposition.VulnerabilityManifestSpec{Payload: softwarecomposition.GrypeDocument{Matches: []softwarecomposition.Match{
+					{Vulnerability: softwarecomposition.Vulnerability{VulnerabilityMetadata: softwarecomposition.VulnerabilityMetadata{ID: "CVE-2017-12424", Severity: "Critical"}},
+						Artifact: softwarecomposition.GrypePackage{Name: "login", Version: "1:4.4-4.1", Type: "deb"}},
+				}}}},
 		},
 	}}
 	ca, err := dynamiccertificates.NewStaticCAContent("front-proxy-ca", te.frontCA.pem)
@@ -135,7 +153,7 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 		},
 		Authorizer: authorizer.AuthorizerFunc(func(_ context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			te.attrs = append(te.attrs, a)
-			if a.GetVerb() == "list" && a.GetResource() == "vulnerabilitymanifests" && a.GetNamespace() == te.allowedNS {
+			if (a.GetVerb() == "list" || a.GetVerb() == "get") && a.GetResource() == "vulnerabilitymanifests" && a.GetNamespace() == te.allowedNS {
 				return authorizer.DecisionAllow, "", nil
 			}
 			return authorizer.DecisionNoOpinion, "", nil
@@ -229,6 +247,8 @@ func TestToolReadsAreCheckedForTheCaller(t *testing.T) {
 	assert.Contains(t, text, `"manifest_name":"nginx-1.21"`)
 	assert.Equal(t, 1, te.lister.calls)
 	assert.Equal(t, "kubescape", te.lister.namespace)
+	require.NotNil(t, te.lister.info)
+	assert.Equal(t, []string{"list", "vulnerabilitymanifests", "kubescape"}, []string{te.lister.info.Verb, te.lister.info.Resource, te.lister.info.Namespace})
 	require.Len(t, te.attrs, 1)
 	a := te.attrs[0]
 	assert.Equal(t, agent.Name, a.GetUser().GetName())
@@ -246,6 +266,43 @@ func TestToolReadsAreCheckedForTheCaller(t *testing.T) {
 	assert.Contains(t, toolErr.Message, `cannot list resource "vulnerabilitymanifests" in API group "spdx.softwarecomposition.kubescape.io" in the namespace "kagent"`)
 	assert.Equal(t, "kagent", te.attrs[1].GetNamespace())
 	assert.Equal(t, 1, te.lister.calls)
+}
+
+func TestGetIsCheckedForTheCallerWithTheName(t *testing.T) {
+	te := newTestEndpoint(t, "kubescape")
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	call := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_vulnerabilities_in_manifest","arguments":%s}}`
+
+	// Allowed: checked as "kubectl get vulnerabilitymanifests nginx-1.21 -n
+	// kubescape", and the tool sees the manifest's matches.
+	text, isError := toolResult(t, te.call(t, "kagent", cert, agent, strings.Replace(call, "%s", `{"namespace":"kubescape","manifest_name":"nginx-1.21"}`, 1)))
+	require.False(t, isError, text)
+	assert.Contains(t, text, `"id":"CVE-2017-12424"`)
+	require.Len(t, te.attrs, 1)
+	a := te.attrs[0]
+	assert.Equal(t, []any{"get", "vulnerabilitymanifests", "kubescape", "nginx-1.21"},
+		[]any{a.GetVerb(), a.GetResource(), a.GetNamespace(), a.GetName()})
+	assert.Equal(t, 1, te.lister.calls)
+	// The REST storage names the resource in its errors after the request
+	// info, so the read carries its own, not the one of mcpservers/mcp.
+	require.NotNil(t, te.lister.info)
+	assert.Equal(t, []string{"get", "spdx.softwarecomposition.kubescape.io", "vulnerabilitymanifests", "kubescape", "nginx-1.21"},
+		[]string{te.lister.info.Verb, te.lister.info.APIGroup, te.lister.info.Resource, te.lister.info.Namespace, te.lister.info.Name})
+
+	// Denied in the path namespace: RBAC_DENIED and nothing is read.
+	text, isError = toolResult(t, te.call(t, "kagent", cert, agent, strings.Replace(call, "%s", `{"manifest_name":"nginx-1.21"}`, 1)))
+	require.True(t, isError)
+	var toolErr tools.ToolError
+	require.NoError(t, json.Unmarshal([]byte(text), &toolErr))
+	assert.Equal(t, tools.ErrCodeRBACDenied, toolErr.Code)
+	assert.Contains(t, toolErr.Message, `cannot get resource "vulnerabilitymanifests" in API group "spdx.softwarecomposition.kubescape.io" in the namespace "kagent"`)
+	assert.Equal(t, 1, te.lister.calls)
+
+	// Allowed but missing: RESOURCE_NOT_FOUND.
+	text, isError = toolResult(t, te.call(t, "kagent", cert, agent, strings.Replace(call, "%s", `{"namespace":"kubescape","manifest_name":"redis"}`, 1)))
+	require.True(t, isError)
+	require.NoError(t, json.Unmarshal([]byte(text), &toolErr))
+	assert.Equal(t, tools.ErrCodeResourceNotFound, toolErr.Code)
 }
 
 func TestRequestBodyLimit(t *testing.T) {
