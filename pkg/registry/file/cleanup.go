@@ -1,9 +1,11 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -60,6 +62,60 @@ type ResourcesCleanupHandler struct {
 	// have no payload file, and a legacy file-then-row delete would leave the
 	// payloads row behind.
 	cpStore *ObjectStore
+	// beforeGatedDelete runs after the walk decided to delete an object and before
+	// the gated recheck; a test seam, nil in production.
+	beforeGatedDelete func(key string)
+}
+
+// deleteUnlessChanged removes a payload and its rows the way the orphan path does:
+// under the write gate, after reading the row again and leaving the object alone when
+// the row is no longer the one the decision was made on, so a writer that updated or
+// re-created it between the walk's read and this point keeps it. The rows go inside the
+// gate and the file after it, so a failure leaves a payload the orphan sweep recovers,
+// never a row without its payload. deleted says whether anything went.
+func (h *ResourcesCleanupHandler) deleteUnlessChanged(ctx context.Context, conn *sqlite.Conn, kind, path string, decidedJSON []byte, newObjectFunc func() runtime.Object) (runtime.Object, bool, error) {
+	key := payloadPathToKey(path)
+	metaOut := newObjectFunc()
+	deleted := false
+	if h.beforeGatedDelete != nil {
+		h.beforeGatedDelete(key)
+	}
+	err := h.withCleanupWriteLock(ctx, conn, kind, func(_ context.Context, lockedConn *sqlite.Conn) error {
+		currentJSON, err := ReadMetadata(lockedConn, key)
+		if errors.Is(err, ErrMetadataNotFound) {
+			return nil // gone since the decision
+		}
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(currentJSON, decidedJSON) {
+			logger.L().Debug("cleanup - object changed since the decision, keeping it", helpers.String("key", key))
+			return nil
+		}
+		raw, err := deleteMetadataRaw(lockedConn, key)
+		if err != nil {
+			return err
+		}
+		if IsContainerProfileKind(kind) {
+			if err := DeleteTimeSeriesContainerEntries(lockedConn, key); err != nil {
+				return fmt.Errorf("failed to delete time series entries: %w", err)
+			}
+		}
+		if len(raw) > 0 {
+			if err := json.Unmarshal(raw, metaOut); err != nil {
+				return err
+			}
+		}
+		deleted = true
+		return nil
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	if deleted {
+		h.deleteFunc(h.appFs, path)
+	}
+	return metaOut, deleted, nil
 }
 
 // SetWriteGate hands the cleanup handler the shared write gate (nil = no
@@ -474,7 +530,7 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				return nil
 			}
 
-			metadata, err := h.readMetadata(ctx, conn, path)
+			metadata, decidedJSON, err := h.readMetadata(ctx, conn, path)
 			if err != nil {
 				logger.L().Error("load metadata error", helpers.Error(err))
 				return nil
@@ -489,20 +545,18 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 
 			if toDelete {
 				logger.L().Debug("deleting", helpers.String("kind", resourceKind), helpers.String("namespace", metadata.Namespace), helpers.String("name", metadata.Name))
-				h.deleteFunc(h.appFs, path)
-
 				newObjectFunc, hasRegisteredType := resourceKindToObjectFunc[resourceKind]
 				if !hasRegisteredType {
 					newObjectFunc = func() runtime.Object { return &PartialObjectMetadata{} }
 				}
-				metaOut, err := h.deleteMetadata(ctx, conn, path, newObjectFunc)
+				metaOut, deleted, err := h.deleteUnlessChanged(ctx, conn, resourceKind, path, decidedJSON, newObjectFunc)
 				if err != nil {
 					return fmt.Errorf("failed to delete metadata: %w", err)
 				}
 				// Only dispatch to watchers when metaOut is a scheme-registered
 				// type (see resourceKindToObjectFunc) -- deprecated kinds have
 				// no registered type and no REST endpoint to watch anyway.
-				if h.watchDispatcher != nil && hasRegisteredType {
+				if deleted && h.watchDispatcher != nil && hasRegisteredType {
 					key := path[len(h.root) : len(path)-len(GobExt)]
 					h.watchDispatcher.Deleted(key, metaOut)
 				}
