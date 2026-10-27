@@ -13,6 +13,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.7.0
 	github.com/dghubble/trie v0.1.0
 	github.com/didip/tollbooth/v7 v7.0.2
+	github.com/emicklei/go-restful/v3 v3.12.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/goradd/maps v1.0.0
 	github.com/grafana/pyroscope-go v1.2.2
@@ -80,7 +81,6 @@ require (
 	github.com/docker/docker-credential-helpers v0.9.5 // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/facebookincubator/nvdtools v0.1.5 // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
@@ -133,7 +133,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mackerelio/go-osstat v0.2.5 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
