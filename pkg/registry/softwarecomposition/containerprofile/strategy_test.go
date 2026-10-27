@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 )
 
@@ -122,3 +123,23 @@ var _ interface {
 	NamespaceScoped() bool
 	PrepareForCreate(context.Context, runtime.Object)
 } = ContainerProfileStrategy{}
+
+// A scope annotation becomes a segment of the storage key, so one that cannot be a
+// segment is refused at the API, on create and on update.
+func TestStrategy_RejectsAScopeAnnotationThatIsNotAKeySegment(t *testing.T) {
+	s := NewStrategy(nil)
+	ctx := context.Background()
+	cp := &softwarecomposition.ContainerProfile{ObjectMeta: metav1.ObjectMeta{
+		Name: "replicaset-nginx-aaaa-nginx-1111-2222", Namespace: "default",
+		Annotations: map[string]string{helpers.ClusterMetadataKey: "../../etc"},
+	}}
+	errs := s.Validate(ctx, cp)
+	if assert.Len(t, errs, 1) {
+		assert.Equal(t, "metadata.annotations.kubescape.io/cluster", errs[0].Field)
+	}
+	assert.Len(t, s.ValidateUpdate(ctx, cp, cp), 1)
+
+	cp.Annotations[helpers.ClusterMetadataKey] = "prod"
+	assert.Empty(t, s.Validate(ctx, cp))
+	assert.Empty(t, s.ValidateUpdate(ctx, cp, cp))
+}

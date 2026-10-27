@@ -116,3 +116,31 @@ func TestValidateCompletionAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateProfileScopeAnnotations(t *testing.T) {
+	keys := []string{"kubescape.io/cluster", "kubescape.io/cloud-account-identifier", "kubescape.io/region", "kubescape.io/host-id", "kubescape.io/report-series-id"}
+	for _, key := range keys {
+		for value, wantErr := range map[string]bool{
+			"prod-cluster": false,
+			"":             false,
+			"a/b":          true,
+			"..":           true,
+			".":            true,
+			"pr%2fod":      true,
+			"a\\b":        true,
+			"a\x00b":       true,
+		} {
+			errs := ValidateProfileScopeAnnotations(map[string]string{key: value})
+			if wantErr {
+				if len(errs) != 1 || errs[0].Field != "metadata.annotations."+key {
+					t.Errorf("%s=%q: errors = %v, want one on the annotation", key, value, errs)
+				}
+			} else if len(errs) != 0 {
+				t.Errorf("%s=%q: errors = %v, want none", key, value, errs)
+			}
+		}
+	}
+	if errs := ValidateProfileScopeAnnotations(nil); len(errs) != 0 {
+		t.Errorf("no annotations: errors = %v", errs)
+	}
+}

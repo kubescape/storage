@@ -111,6 +111,19 @@ type ConsolidationHooks struct {
 	BeforeProcessedDeletes func(key string)
 }
 
+// profileScope reads the scope a profile's annotations give it, the part of its key that
+// is not its name.
+func (a *ContainerProfileProcessor) profileScope(profile *softwarecomposition.ContainerProfile) armotypes.ProfileScope {
+	return armotypes.ProfileScope{
+		HostType:               a.HostType,
+		Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
+		Namespace:              profile.Namespace,
+		CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
+		Region:                 profile.Annotations[helpers.RegionMetadataKey],
+		HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
+	}
+}
+
 // TimeSeriesRowFor returns the time_series row a TS ContainerProfile create
 // records and the base key whose Completed/Full or TooLarge state must refuse
 // it; ok=false for a non-TS profile.
@@ -125,16 +138,10 @@ func (a *ContainerProfileProcessor) TimeSeriesRowFor(object runtime.Object) (Tim
 	}
 	// remove the suffix from the name after the last hyphen
 	name, tsSuffix := SplitProfileName(profile.Name)
-	id := armotypes.ProfileIdentifier{
-		ProfileScope: armotypes.ProfileScope{
-			HostType:               a.HostType,
-			Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
-			Namespace:              profile.Namespace,
-			CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
-			Region:                 profile.Annotations[helpers.RegionMetadataKey],
-			HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
-		},
-		Name: name,
+	id := armotypes.ProfileIdentifier{ProfileScope: a.profileScope(profile), Name: name}
+	if err := ValidateProfileIdentifier(id); err != nil {
+		logger.L().Warning("ContainerProfileProcessor.TimeSeriesRowFor - refusing a profile whose scope is not a key", loggerhelpers.Error(err), loggerhelpers.String("name", profile.Name))
+		return TimeSeriesRow{}, "", false
 	}
 	return TimeSeriesRow{
 		Kind:                    ContainerProfileKind,
@@ -187,6 +194,11 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	if !ok || profile.Name == "" {
 		// do not return an error as we might call this on AP and NN as part of the updateProfile() flow below
 		return nil
+	}
+	// The REST strategy refuses these at the API; a writer that bypasses it must not get
+	// a key with extra segments, or one that walks out of the data root, either.
+	if err := ValidateProfileIdentifier(armotypes.ProfileIdentifier{ProfileScope: a.profileScope(profile), Name: profile.Name}); err != nil {
+		return err
 	}
 
 	// detect TS profiles
