@@ -1290,19 +1290,12 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 			s.locks.RUnlock(key)
 			if lockErr := s.locks.Lock(ctx, key); lockErr != nil {
 				logger.L().Ctx(ctx).Error("Get - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("key", key))
-				// Best-effort: restore the read lock so the caller's deferred
-				// RUnlock is not left unmatched.
-				if rlockErr := s.locks.RLock(ctx, key); rlockErr != nil {
-					logger.L().Ctx(ctx).Error("Get - failed to restore read lock after write lock failure", helpers.Error(rlockErr), helpers.String("key", key))
-				}
+				s.restoreReadLock(ctx, key)
 				return fmt.Errorf("failed to acquire write lock for migration: %w", lockErr)
 			}
 			migErr = s.migrateObjectUnlocked(ctx, conn, p, key, opts, objPtr)
 			s.locks.Unlock(key)
-			if rlockErr := s.locks.RLock(ctx, key); rlockErr != nil {
-				logger.L().Ctx(ctx).Error("Get - failed to restore read lock after migration", helpers.Error(rlockErr), helpers.String("key", key))
-				return fmt.Errorf("failed to restore read lock after migration: %w", rlockErr)
-			}
+			s.restoreReadLock(ctx, key)
 
 		case noLock:
 			// We hold a temporary read lock (ownedRLock=true); release it and
@@ -2322,6 +2315,18 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 }
 
 // appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
+// restoreReadLock re-takes the read lock a migration dropped. The caller's deferred RUnlock
+// runs whatever happens, so this acquire must not fail on a request context that is already
+// done: an RUnlock without its acquire leaves the key's reader count at -1, which no later
+// Lock can pass, or dereferences a state that was evicted in between. The cancellation is
+// removed the way GuaranteedUpdate's relockCtx removes it, and the wait stays bounded by
+// the writer that holds the key.
+func (s *StorageImpl) restoreReadLock(ctx context.Context, key string) {
+	if err := s.locks.RLock(context.WithoutCancel(ctx), key); err != nil {
+		logger.L().Ctx(ctx).Error("failed to restore read lock", helpers.Error(err), helpers.String("key", key))
+	}
+}
+
 func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
 	if err := s.refuseForeign("list", key); err != nil {
@@ -2357,7 +2362,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			// We upgrade to a write lock BEFORE running the migration tool to prevent concurrent migration attempts
 			s.locks.RUnlock(key)
 			// re-acquire read lock if anything fails or when we are done
-			defer s.locks.RLock(ctx, key)
+			defer s.restoreReadLock(ctx, key)
 
 			if lockErr := s.locks.Lock(ctx, key); lockErr != nil {
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("path", path))
