@@ -109,6 +109,8 @@ func (ContainerProfileStrategy) Validate(_ context.Context, obj runtime.Object) 
 		allErrors = append(allErrors, err)
 	}
 
+	allErrors = append(allErrors, utils.ValidateProfileScopeAnnotations(cp.Annotations)...)
+
 	allErrors = append(allErrors, validateNetworkProfileEntries(&cp.Spec)...)
 
 	return allErrors
@@ -211,6 +213,8 @@ func (ContainerProfileStrategy) ValidateUpdate(_ context.Context, obj, _ runtime
 	if err := utils.ValidateStatusAnnotation(cp.Annotations); err != nil {
 		allErrors = append(allErrors, err)
 	}
+
+	allErrors = append(allErrors, utils.ValidateProfileScopeAnnotations(cp.Annotations)...)
 
 	allErrors = append(allErrors, validateNetworkProfileEntries(&cp.Spec)...)
 

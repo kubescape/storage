@@ -12,6 +12,7 @@ import (
 
 	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -261,6 +262,37 @@ func BuildContainerProfileKey(id armotypes.ProfileIdentifier, kind string) strin
 	default:
 		return HostKeysToPath("", softwarecomposition.GroupName, kind, id.HostID, id.CloudAccountIdentifier, id.Region, id.Name)
 	}
+}
+
+// ValidateProfileIdentifier refuses an identifier whose segments would not survive the
+// round trip through BuildContainerProfileKey and ParseContainerProfileKey: a segment
+// with a slash, "." or ".." changes the key's shape or walks out of it for every host
+// type, and an ECS or Host key has no shape for an empty segment, while a Kubernetes key
+// keeps its legacy form without a cluster.
+func ValidateProfileIdentifier(id armotypes.ProfileIdentifier) error {
+	var segments []string
+	mayBeEmpty := false
+	switch id.HostType {
+	case armotypes.HostTypeEcsEc2, armotypes.HostTypeEcsFargate:
+		segments = []string{id.Cluster, id.CloudAccountIdentifier, id.Region, id.Name}
+	case armotypes.HostTypeKubernetes, "":
+		segments = []string{id.Cluster, id.Namespace, id.Name}
+		mayBeEmpty = true
+	default:
+		segments = []string{id.HostID, id.CloudAccountIdentifier, id.Region, id.Name}
+	}
+	for _, segment := range segments {
+		if segment == "" {
+			if mayBeEmpty {
+				continue
+			}
+			return fmt.Errorf("profile identifier %+v: an empty segment has no place in a %q key", id, id.HostType)
+		}
+		if msg := utils.PathSegmentProblem(segment); msg != "" {
+			return fmt.Errorf("profile identifier segment %q: %s", segment, msg)
+		}
+	}
+	return nil
 }
 
 // ParseContainerProfileKey parses a storage key back into a ProfileIdentifier
