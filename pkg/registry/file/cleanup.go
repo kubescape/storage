@@ -32,6 +32,9 @@ const (
 	MinSizeToReport         = 30 * 1024 * 1024 // 30MB
 	cleanupQuarantinePrefix = ".kubescape-orphan-"
 	cleanupQuarantineSuffix = ".pending"
+	// cleanupDeletingSuffix marks a payload the cleanup reserved under the write gate
+	// for removal: <payload>.g.<nonce>.deleting, not a payload for LIST or the walks.
+	cleanupDeletingSuffix = ".deleting"
 )
 
 type TypeCleanupHandlerFunc func(kind, path string, metadata *metav1.ObjectMeta, resourceMaps ResourceMaps) bool
@@ -63,24 +66,31 @@ type ResourcesCleanupHandler struct {
 	// payloads row behind.
 	cpStore *ObjectStore
 	// beforeGatedDelete runs after the walk decided to delete an object and before
-	// the gated recheck; a test seam, nil in production.
-	beforeGatedDelete func(key string)
+	// the gated recheck; beforeReservedRemoval runs after the gate released and before
+	// the reserved payload is removed. Test seams, nil in production.
+	beforeGatedDelete     func(key string)
+	beforeReservedRemoval func(key string)
 }
 
 // deleteUnlessChanged removes a payload and its rows the way the orphan path does:
-// under the write gate, after reading the row again and leaving the object alone when
-// the row is no longer the one the decision was made on, so a writer that updated or
-// re-created it between the walk's read and this point keeps it. The rows go inside the
-// gate and the file after it, so a failure leaves a payload the orphan sweep recovers,
-// never a row without its payload. deleted says whether anything went.
+// through the write gate when there is one, after reading the row again and leaving the
+// object alone when the row is no longer the one the decision was made on, so a writer
+// that updated or re-created it between the walk's read and this point keeps it. The
+// rows go inside the gate, where the payload is also renamed to a reserved name, and the
+// reserved file is removed after the gate: a create that lands on the payload's path
+// once the gate is released is never the file that gets removed. A gate that fails after
+// the rename puts the payload back; a crash in between leaves a reserved file the next
+// walk settles. Without a gate the statements run on the walk's connection, as every
+// legacy write does. deleted says whether anything went.
 func (h *ResourcesCleanupHandler) deleteUnlessChanged(ctx context.Context, conn *sqlite.Conn, kind, path string, decidedJSON []byte, newObjectFunc func() runtime.Object) (runtime.Object, bool, error) {
 	key := payloadPathToKey(path)
 	metaOut := newObjectFunc()
 	deleted := false
+	reserved := ""
 	if h.beforeGatedDelete != nil {
 		h.beforeGatedDelete(key)
 	}
-	err := h.withCleanupWriteLock(ctx, conn, kind, func(_ context.Context, lockedConn *sqlite.Conn) error {
+	err := h.write(ctx, conn, holdPathCleanup, resourceFromKey(key), func(_ context.Context, lockedConn *sqlite.Conn) error {
 		currentJSON, err := ReadMetadata(lockedConn, key)
 		if errors.Is(err, ErrMetadataNotFound) {
 			return nil // gone since the decision
@@ -106,14 +116,36 @@ func (h *ResourcesCleanupHandler) deleteUnlessChanged(ctx context.Context, conn 
 				return err
 			}
 		}
+		name, err := reservedDeletingPath(path)
+		if err != nil {
+			return err
+		}
+		switch err := h.appFs.Rename(path, name); {
+		case err == nil:
+			reserved = name
+		case errors.Is(err, os.ErrNotExist):
+			// nothing left to remove
+		default:
+			// The rows go anyway. A payload left at its path is an orphan the next sweep
+			// recovers under the gate, and nothing is removed after the gate for it.
+			logger.L().Ctx(ctx).Warning("cleanup - could not reserve the payload, leaving it to the orphan sweep", helpers.Error(err), helpers.String("path", path))
+		}
 		deleted = true
 		return nil
 	})
 	if err != nil {
+		if reserved != "" {
+			if restoreErr := h.appFs.Rename(reserved, path); restoreErr != nil {
+				logger.L().Ctx(ctx).Error("cleanup - failed to put back a reserved payload", helpers.Error(restoreErr), helpers.String("path", reserved))
+			}
+		}
 		return nil, false, err
 	}
-	if deleted {
-		h.deleteFunc(h.appFs, path)
+	if h.beforeReservedRemoval != nil {
+		h.beforeReservedRemoval(key)
+	}
+	if reserved != "" {
+		h.deleteFunc(h.appFs, reserved)
 	}
 	return metaOut, deleted, nil
 }
@@ -372,6 +404,9 @@ func (h *ResourcesCleanupHandler) cleanupOrphansInUnlistedNamespaces(ctx context
 					if isCleanupQuarantineFile(path) {
 						return h.removeCleanupQuarantine(path)
 					}
+					if original, ok := isCleanupDeletingFile(path); ok {
+						return h.settleDeletingFile(conn, path, original)
+					}
 					if !IsPayloadFile(path) {
 						return nil
 					}
@@ -438,6 +473,59 @@ func isCleanupQuarantineFile(path string) bool {
 	}
 	_, err := hex.DecodeString(nonce)
 	return err == nil
+}
+
+// reservedDeletingPath names the file a payload is renamed to under the write gate before
+// it is removed, so a create landing on the payload's path after the gate is released
+// is never the file that gets removed.
+func reservedDeletingPath(path string) (string, error) {
+	var nonce [8]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return "", fmt.Errorf("generate deleting name: %w", err)
+	}
+	return path + "." + hex.EncodeToString(nonce[:]) + cleanupDeletingSuffix, nil
+}
+
+// isCleanupDeletingFile says whether path is a payload reserved for removal, and gives
+// the payload path it was reserved from.
+func isCleanupDeletingFile(path string) (string, bool) {
+	if !strings.HasSuffix(path, cleanupDeletingSuffix) {
+		return "", false
+	}
+	i := strings.LastIndex(path, GobExt+".")
+	if i < 0 {
+		return "", false
+	}
+	original := path[:i+len(GobExt)]
+	nonce := path[i+len(GobExt)+1 : len(path)-len(cleanupDeletingSuffix)]
+	if len(nonce) != 16 {
+		return "", false
+	}
+	if _, err := hex.DecodeString(nonce); err != nil {
+		return "", false
+	}
+	return original, true
+}
+
+// settleDeletingFile finishes what a reserved payload was left in by a crash: with its
+// row still there and nothing at its path, the rows were never deleted, so the payload
+// goes back where the row expects it; otherwise the deletion went through and the
+// reserved file is removed.
+func (h *ResourcesCleanupHandler) settleDeletingFile(conn *sqlite.Conn, path, original string) error {
+	if _, err := ReadMetadata(conn, payloadPathToKey(original)); err == nil {
+		if exists, _ := afero.Exists(h.appFs, original); !exists {
+			if err := h.appFs.Rename(path, original); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("restore reserved payload %s: %w", path, err)
+			}
+			return nil
+		}
+	} else if !errors.Is(err, ErrMetadataNotFound) {
+		return fmt.Errorf("read metadata for %s: %w", original, err)
+	}
+	if err := h.appFs.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove reserved payload %s: %w", path, err)
+	}
+	return nil
 }
 
 func (h *ResourcesCleanupHandler) removeCleanupQuarantine(path string) error {
@@ -517,6 +605,12 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 			if isCleanupQuarantineFile(path) {
 				if err := h.removeCleanupQuarantine(path); err != nil {
 					logger.L().Ctx(ctx).Error("failed removing orphan quarantine", helpers.Error(err), helpers.String("path", path))
+				}
+				return nil
+			}
+			if original, ok := isCleanupDeletingFile(path); ok {
+				if err := h.settleDeletingFile(conn, path, original); err != nil {
+					logger.L().Ctx(ctx).Error("failed settling a reserved payload", helpers.Error(err), helpers.String("path", path))
 				}
 				return nil
 			}
