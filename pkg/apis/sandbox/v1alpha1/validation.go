@@ -24,6 +24,12 @@ func ValidatePolicySpec(spec PolicySpec) error {
 	}
 	names := map[string]bool{}
 	check := func(rule Rule) error {
+		if rule.Actor != nil && rule.Actor.Ancestor != nil {
+			depth := rule.Actor.Ancestor.Depth
+			if depth < 1 || depth > MaxAncestorDepth {
+				return fmt.Errorf("rule %q: ancestor depth must be 1..%d", rule.Name, MaxAncestorDepth)
+			}
+		}
 		if rule.Name == "" {
 			return fmt.Errorf("rule name must not be empty")
 		}
@@ -44,7 +50,7 @@ func ValidatePolicySpec(spec PolicySpec) error {
 		}
 	}
 	if spec.File != nil {
-		if err := spec.File.Default.Validate(); err != nil {
+		if err := spec.File.ValidateDefaults(); err != nil {
 			return err
 		}
 		for _, rule := range spec.File.Rules {
@@ -75,12 +81,18 @@ func ValidatePolicySpec(spec PolicySpec) error {
 			if err := check(rule.Rule); err != nil {
 				return err
 			}
+			if err := rule.Target.Validate(); err != nil {
+				return fmt.Errorf("rule %q: %w", rule.Name, err)
+			}
 		}
 	}
 	if spec.Identity != nil {
 		for _, rule := range spec.Identity.Rules {
 			if err := check(rule.Rule); err != nil {
 				return err
+			}
+			if err := rule.Target.Validate(); err != nil {
+				return fmt.Errorf("rule %q: %w", rule.Name, err)
 			}
 		}
 	}
@@ -129,6 +141,9 @@ func ValidateSandboxPolicySpec(spec SandboxPolicySpec) error {
 // ValidateClusterSandboxPolicySpec validates both native label selectors and
 // the shared semantic constraints without imposing arbitrary selector limits.
 func ValidateClusterSandboxPolicySpec(spec ClusterSandboxPolicySpec) error {
+	if spec.Selector.NamespaceSelector == nil {
+		return fmt.Errorf("namespaceSelector is required; use {} explicitly for all namespaces")
+	}
 	opts := metav1validation.LabelSelectorValidationOptions{}
 	errs := metav1validation.ValidateLabelSelector(&spec.Selector.PodSelector, opts, field.NewPath("spec", "selector", "podSelector"))
 	errs = append(errs, metav1validation.ValidateLabelSelector(spec.Selector.NamespaceSelector, opts, field.NewPath("spec", "selector", "namespaceSelector"))...)
@@ -136,4 +151,38 @@ func ValidateClusterSandboxPolicySpec(spec ClusterSandboxPolicySpec) error {
 		return err
 	}
 	return ValidatePolicySpec(spec.PolicySpec)
+}
+
+// Validate keeps independently observed hook primitives out of one AND rule.
+func (t PrivilegeTarget) Validate() error {
+	kinds := 0
+	for _, values := range [][]string{t.Syscall, t.Capability, t.MountFSType, t.PathClass} {
+		if len(values) > 0 {
+			kinds++
+		}
+	}
+	if kinds != 1 {
+		return fmt.Errorf("privilege target requires exactly one of syscall, capability, mountFsType or pathClass")
+	}
+	if len(t.Flags) > 0 && len(t.Syscall) == 0 {
+		return fmt.Errorf("privilege flags require syscall")
+	}
+	return nil
+}
+
+func (t IdentityTarget) Validate() error {
+	kinds := 0
+	if len(t.Path) > 0 || len(t.PathClass) > 0 {
+		kinds++
+	}
+	if t.IMDS != nil {
+		kinds++
+	}
+	if t.EnvRead != nil {
+		kinds++
+	}
+	if kinds != 1 {
+		return fmt.Errorf("identity target requires exactly one of path/pathClass, imds or envRead")
+	}
+	return nil
 }

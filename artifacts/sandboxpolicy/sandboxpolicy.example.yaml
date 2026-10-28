@@ -39,7 +39,7 @@ spec:
         mode: audit
         description: Audit a bypass attempt
   file:
-    default: {read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}
+    defaultByAccess: {read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}
     rules:
       - name: workspace-writes
         target: {path: ["/workspace/**"], access: [write, create, delete, rename]}
@@ -69,11 +69,18 @@ spec:
         target:
           syscall: [unshare, setns, clone, clone3]
           flags: [CLONE_NEWUSER, CLONE_NEWNS]
-          capability: [SYS_ADMIN]
-          mountFsType: [proc, tmpfs]
-          pathClass: [containerRuntimeSocket, hostDevices]
         action: deny
         mode: audit
+      - name: no-admin-capability
+        target: {capability: [SYS_ADMIN]}
+        action: deny
+        mode: audit
+      - name: no-host-mounts
+        target: {mountFsType: [proc, tmpfs]}
+        action: deny
+      - name: no-runtime-socket
+        target: {pathClass: [containerRuntimeSocket, hostDevices]}
+        action: deny
   identity:
     default: allow
     rules:
@@ -81,5 +88,5 @@ spec:
         target: {imds: true}
         action: deny
       - name: no-environ-scrape
-        target: {envRead: true, pathClass: [credentialStore], path: ["/proc/*/environ"]}
+        target: {envRead: true}
         action: deny

@@ -39,42 +39,6 @@ func TestSchemeAndRoundTrip(t *testing.T) {
 		}
 	}
 }
-func TestFileDefaultRoundTrip(t *testing.T) {
-	for _, raw := range []string{`"allow"`, `"deny"`, `{"read":"allow","write":"deny","create":"deny","delete":"deny","rename":"deny","chmod":"deny","execMap":"allow"}`} {
-		t.Run(raw, func(t *testing.T) {
-			var value FileDefault
-			if err := json.Unmarshal([]byte(raw), &value); err != nil {
-				t.Fatal(err)
-			}
-			encoded, err := json.Marshal(value)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var again FileDefault
-			if err = json.Unmarshal(encoded, &again); err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(value, again) {
-				t.Fatalf("round trip changed default: %s", encoded)
-			}
-		})
-	}
-	for _, raw := range []string{`null`, `true`, `1`, `[]`, `"audit"`, `{}`, `{"read":"allow"}`, `{"read":"allow","write":"allow","create":"allow","delete":"allow","rename":"allow","chmod":"allow","execMap":"allow","unknown":"deny"}`} {
-		t.Run("invalid-"+raw, func(t *testing.T) {
-			original := FileDefault{Action: ActionDeny}
-			value := original
-			if err := json.Unmarshal([]byte(raw), &value); err == nil {
-				t.Fatal("invalid default accepted")
-			}
-			if !reflect.DeepEqual(value, original) {
-				t.Fatal("failed decode mutated last good value")
-			}
-		})
-	}
-	if _, err := json.Marshal(FileDefault{Action: ActionAllow, PerAccess: &FileAccessDefaults{}}); err == nil {
-		t.Fatal("ambiguous default accepted")
-	}
-}
 func TestExplicitFalseAndDeepCopy(t *testing.T) {
 	raw := `{"spec":{"selector":{"podSelector":{}},"containers":["*"],"mode":"audit","classes":{"pathClasses":{"workspace":["/workspace/**"]}},"exec":{"default":"deny","rules":[{"name":"exec","actor":{"fromImage":false,"ancestor":{"path":["/bin/sh"],"depth":2}},"target":{"fromImage":false,"argv":{"stdinIsPipe":false}},"action":"deny"}]},"identity":{"default":"allow","rules":[{"name":"identity","target":{"imds":false,"envRead":false},"action":"deny"}]}},"status":{"nodeSummary":{"total":1,"reporting":1,"ready":1,"degraded":0,"stale":0}}}`
 	var policy SandboxPolicy
@@ -124,6 +88,7 @@ func TestPolicySemanticValidation(t *testing.T) {
 		t.Fatal("cross-section duplicate accepted")
 	}
 	spec.Identity.Rules[0].Name = "identity"
+	spec.Identity.Rules[0].Target.Path = []string{"/run/token"}
 	if err := ValidatePolicySpec(spec); err != nil {
 		t.Fatal(err)
 	}
@@ -138,8 +103,11 @@ func TestPolicySemanticValidation(t *testing.T) {
 		}
 	}
 	spec.Network = &NetworkSection{Rules: []NetworkRule{{Rule: Rule{Name: "net"}, Target: NetworkTarget{CIDR: []string{"not-cidr"}}}}}
-	if err := ValidatePolicySpec(spec); err == nil {
-		t.Fatal("malformed CIDR accepted")
+	for _, cidr := range []string{"not-cidr", "010.0.0.0/8"} {
+		spec.Network.Rules[0].Target.CIDR = []string{cidr}
+		if err := ValidatePolicySpec(spec); err == nil {
+			t.Fatalf("malformed CIDR accepted: %s", cidr)
+		}
 	}
 	spec.Network.Rules[0].Target.CIDR = []string{"10.0.0.0/8", "::1/128"}
 	if err := ValidatePolicySpec(spec); err != nil {
