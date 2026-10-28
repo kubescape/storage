@@ -92,8 +92,8 @@ type PodPolicySelector struct {
 }
 type ClusterPolicySelector struct {
 	PodSelector metav1.LabelSelector `json:"podSelector"`
-	// An omitted namespaceSelector matches all namespaces for a cluster policy.
-	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+	// NamespaceSelector is required; an explicit empty selector matches all namespaces.
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector"`
 }
 
 // PolicySpec is shared content without selectors, so the namespaced API cannot
@@ -135,6 +135,10 @@ type Actor struct {
 	UID       []int64   `json:"uid,omitempty"`
 	Container []string  `json:"container,omitempty"`
 }
+
+// MaxAncestorDepth is the supported bounded process-ancestry walk.
+const MaxAncestorDepth = 16
+
 type Ancestor struct {
 	Path  []string `json:"path"`
 	Depth int32    `json:"depth"`
@@ -198,25 +202,33 @@ type NetworkTarget struct {
 	DestClass []string             `json:"destClass,omitempty"`
 	Direction string               `json:"direction,omitempty"`
 }
+
+// PrivilegeTarget selects exactly one hook family. Flags qualify syscall only.
 type PrivilegeTarget struct {
-	PathTarget  `json:",inline"`
+	PathClass   []string `json:"pathClass,omitempty"`
 	Syscall     []string `json:"syscall,omitempty"`
 	Flags       []string `json:"flags,omitempty"`
 	Capability  []string `json:"capability,omitempty"`
 	MountFSType []string `json:"mountFsType,omitempty"`
 }
+
+// IdentityTarget selects path reads, IMDS access, or environment reads.
 type IdentityTarget struct {
-	PathTarget `json:",inline"`
-	IMDS       *bool `json:"imds,omitempty"`
-	EnvRead    *bool `json:"envRead,omitempty"`
+	Path      []string `json:"path,omitempty"`
+	PathClass []string `json:"pathClass,omitempty"`
+	IMDS      *bool    `json:"imds,omitempty"`
+	EnvRead   *bool    `json:"envRead,omitempty"`
 }
 type ExecSection struct {
 	Default Action     `json:"default"`
 	Rules   []ExecRule `json:"rules,omitempty"`
 }
+
+// FileSection requires exactly one of Default and DefaultByAccess.
 type FileSection struct {
-	Default FileDefault `json:"default"`
-	Rules   []FileRule  `json:"rules,omitempty"`
+	Default         Action              `json:"default,omitempty"`
+	DefaultByAccess *FileAccessDefaults `json:"defaultByAccess,omitempty"`
+	Rules           []FileRule          `json:"rules,omitempty"`
 }
 type NetworkSection struct {
 	Default NetworkDefault `json:"default"`
@@ -231,13 +243,7 @@ type IdentitySection struct {
 	Rules   []IdentityRule `json:"rules,omitempty"`
 }
 
-// FileDefault is either an Action scalar or per-access defaults. Exactly one
-// representation must be set. The object form must specify every access kind,
-// avoiding an undefined fallback for omitted kinds.
-type FileDefault struct {
-	Action    Action              `json:"-"`
-	PerAccess *FileAccessDefaults `json:"-"`
-}
+// FileAccessDefaults is complete: every access kind requires allow or deny.
 type FileAccessDefaults struct {
 	Read    Action `json:"read"`
 	Write   Action `json:"write"`

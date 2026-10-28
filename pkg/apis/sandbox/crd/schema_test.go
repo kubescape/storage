@@ -43,12 +43,6 @@ func assertCoverage(t *testing.T, typ reflect.Type, s schema) {
 	if typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
-	if typ == reflect.TypeOf(sandbox.FileDefault{}) {
-		if s.XPreserveUnknownFields == nil || !*s.XPreserveUnknownFields {
-			t.Fatal("file default must preserve its union")
-		}
-		return
-	}
 	if typ.Kind() == reflect.Slice {
 		assertCoverage(t, typ.Elem(), *s.Items.Schema)
 		return

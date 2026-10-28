@@ -53,6 +53,7 @@ func actor() schema {
 	uid.Maximum = floatptr(4294967295)
 	depth := nonnegative()
 	depth.Minimum = floatptr(1)
+	depth.Maximum = floatptr(sandbox.MaxAncestorDepth)
 	depth.Format = "int32"
 	return object(map[string]schema{
 		"path": stringList(), "fromImage": boolean(), "role": stringList(), "uid": array(uid), "container": stringList(),
@@ -98,12 +99,10 @@ func execSection() schema {
 func fileSection() schema {
 	fields := pathFields()
 	fields["access"] = array(enumeration("read", "write", "create", "delete", "rename", "chmod", "execMap"))
-	// Kubernetes structural schemas have no string-or-object union. This opaque
-	// field retains both design forms without pruning. FileDefault.Validate in
-	// the typed API checks the union; consumers must not assume admission did so.
-	preserve := true
-	defaultSchema := schema{XPreserveUnknownFields: &preserve, Description: "allow or deny, or an object with read/write/create/delete/rename/chmod/execMap each set to allow or deny. Consumers must validate this string-or-object union; Kubernetes structural validation cannot do so."}
-	return section(defaultSchema, object(fields))
+	defaults := object(map[string]schema{"read": action(), "write": action(), "create": action(), "delete": action(), "rename": action(), "chmod": action(), "execMap": action()}, "read", "write", "create", "delete", "rename", "chmod", "execMap")
+	result := object(map[string]schema{"default": action(), "defaultByAccess": defaults, "rules": listMap(rule(object(fields)), "name")})
+	result.XValidations = apiextensions.ValidationRules{{Rule: "has(self.default) != has(self.defaultByAccess)", Message: "exactly one of default and defaultByAccess is required"}}
+	return result
 }
 func networkSection() schema {
 	port := schema{
@@ -116,31 +115,51 @@ func networkSection() schema {
 	// here would require arbitrary limits on enclosing rule/port lists merely
 	// to satisfy admission cost estimates; the design defines no such limits.
 
+	cidr := text()
+	cidr.Format = "cidr"
 	target := object(map[string]schema{
-		"cidr": stringList(), "ports": array(port), "proto": array(enumeration("tcp", "udp", "icmp", "unix")),
+		"cidr": array(cidr), "ports": array(port), "proto": array(enumeration("tcp", "udp", "icmp", "unix")),
 		"dnsName": stringList(), "destClass": stringList(), "direction": enumeration("egress", "listen"),
 	})
-	// CIDR validity and DNS/glob semantics are consumer checks, not string formats.
+	// CIDR format provides baseline admission on Kubernetes 1.28; consumers use
+	// netip for strict syntax (the format allows leading zeros). DNS/globs remain
+	// consumer checks.
 	return section(object(map[string]schema{"egress": action(), "listen": action()}, "egress", "listen"), target)
 }
+
+// forbidden retains known removed predicates through pruning so admission rejects
+// them, rather than silently broadening a rule by deleting its constraint.
+func forbidden(s schema) schema { s.Not = &schema{}; return s }
 func privilegeSection() schema {
-	fields := pathFields()
-	fields["syscall"] = array(enumeration("unshare", "setns", "clone", "clone3", "mount", "umount2", "pivot_root", "chroot", "open_tree", "move_mount", "ptrace", "process_vm_readv", "process_vm_writev", "init_module", "finit_module", "bpf", "perf_event_open", "kexec_load", "keyctl", "userfaultfd", "io_uring_setup", "mknod", "setuid", "setgid", "capset"))
-	fields["flags"] = array(enumeration("CLONE_NEWUSER", "CLONE_NEWNS", "CLONE_NEWPID", "CLONE_NEWNET", "CLONE_NEWUTS", "CLONE_NEWIPC", "CLONE_NEWCGROUP"))
-	fields["capability"] = stringList()
-	fields["mountFsType"] = stringList()
-	return section(action(), object(fields))
+	fields := map[string]schema{
+		"pathClass": stringList(),
+		"path":      forbidden(stringList()), "fromImage": forbidden(boolean()), "fsType": forbidden(stringList()),
+		"syscall":    array(enumeration("unshare", "setns", "clone", "clone3", "mount", "umount2", "pivot_root", "chroot", "open_tree", "move_mount", "ptrace", "process_vm_readv", "process_vm_writev", "init_module", "finit_module", "bpf", "perf_event_open", "kexec_load", "keyctl", "userfaultfd", "io_uring_setup", "mknod", "setuid", "setgid", "capset")),
+		"flags":      array(enumeration("CLONE_NEWUSER", "CLONE_NEWNS", "CLONE_NEWPID", "CLONE_NEWNET", "CLONE_NEWUTS", "CLONE_NEWIPC", "CLONE_NEWCGROUP")),
+		"capability": stringList(), "mountFsType": stringList(),
+	}
+	target := object(fields)
+	// Presence-only oneOf avoids CEL cost amplification across unbounded rule lists
+	// on Kubernetes 1.28 while preserving the single-primitive contract.
+	target.OneOf = []schema{{Required: []string{"syscall"}}, {Required: []string{"capability"}}, {Required: []string{"mountFsType"}}, {Required: []string{"pathClass"}}}
+	target.XValidations = apiextensions.ValidationRules{{Rule: "!has(self.flags) || has(self.syscall)", Message: "flags require syscall"}}
+	return section(action(), target)
 }
 func identitySection() schema {
-	fields := pathFields()
-	fields["imds"] = boolean()
-	fields["envRead"] = boolean()
-	return section(action(), object(fields))
+	fields := map[string]schema{"path": stringList(), "pathClass": stringList(), "imds": boolean(), "envRead": boolean(), "fromImage": forbidden(boolean()), "fsType": forbidden(stringList())}
+	target := object(fields)
+	target.OneOf = []schema{
+		{AnyOf: []schema{{Required: []string{"path"}}, {Required: []string{"pathClass"}}}},
+		{Required: []string{"imds"}}, {Required: []string{"envRead"}},
+	}
+	return section(action(), target)
 }
 func policySpec(cluster bool) schema {
 	selectors := map[string]schema{"podSelector": labelSelector()}
+	requiredSelectors := []string{"podSelector"}
 	if cluster {
 		selectors["namespaceSelector"] = labelSelector()
+		requiredSelectors = append(requiredSelectors, "namespaceSelector")
 	} else {
 		// Reject rather than silently prune a misplaced cross-namespace selector.
 		// This is a forbidden field, not a supported namespaced API field.
@@ -154,7 +173,7 @@ func policySpec(cluster bool) schema {
 		"include":          array(enumeration("execs", "opens", "egress", "syscalls", "capabilities")),
 	}, "containerProfile", "include")
 	return object(map[string]schema{
-		"selector": object(selectors, "podSelector"), "containers": stringList(), "mode": enumeration("audit", "enforce", "off"),
+		"selector": object(selectors, requiredSelectors...), "containers": stringList(), "mode": enumeration("audit", "enforce", "off"),
 		"rootRole": text(), "sources": array(source), "classes": classes(),
 		"exec": execSection(), "file": fileSection(), "network": networkSection(),
 		"privilege": privilegeSection(), "identity": identitySection(),

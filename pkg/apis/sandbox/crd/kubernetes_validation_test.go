@@ -144,44 +144,87 @@ spec:
 		t.Fatal(errs.ToAggregate())
 	}
 }
-func TestKubernetesFileDefaultPreserved(t *testing.T) {
-	// Pin both halves of the intentional schema gap: Kubernetes preserves and
-	// admits non-null arbitrary values, but typed consumers reject invalid ones.
+func TestKubernetesFileDefaultAdmission(t *testing.T) {
 	for _, tc := range []struct {
-		name, value string
-		valid       bool
+		name, fields string
+		valid        bool
 	}{
-		{"allow", "allow", true},
-		{"deny", "deny", true},
-		{"per-access", "{read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}", true},
-		{"invalid-scalar", "audit", false},
-		{"empty-object", "{}", false},
-		{"incomplete-object", "{read: allow}", false},
-		{"unknown-object-key", "{read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow, unknown: deny}", false},
-		{"boolean", "true", false},
-		{"number", "42", false},
-		{"array", "[allow, deny]", false},
+		{"allow", "default: allow", true}, {"deny", "default: deny", true},
+		{"per-access", "defaultByAccess: {read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}", true},
+		{"missing", "", false}, {"invalid-action", "default: audit", false},
+		{"old-object", "default: {read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}", false},
+		{"number", "default: 42", false}, {"array", "default: [1, 2]", false}, {"boolean", "default: true", false},
+		{"empty-access", "defaultByAccess: {}", false}, {"incomplete-access", "defaultByAccess: {read: allow}", false},
+		{"bad-access-action", "defaultByAccess: {read: audit, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}", false},
+		{"both", "default: allow, defaultByAccess: {read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			obj := decode(t, "spec: {selector: {podSelector: {}}, containers: ['*'], mode: audit, file: {default: "+tc.value+"}}")
-			before := runtime.DeepCopyJSONValue(obj["spec"].(map[string]any)["file"].(map[string]any)["default"])
-			if errs := validate(t, Definitions()[0], obj); len(errs) != 0 {
-				t.Fatal(errs.ToAggregate())
+			obj := decode(t, "spec: {selector: {podSelector: {}}, containers: ['*'], mode: audit, file: {"+tc.fields+"}}")
+			if errs := validate(t, Definitions()[0], obj); (len(errs) == 0) != tc.valid {
+				t.Fatalf("valid=%t, errors=%v", tc.valid, errs)
 			}
-			after := obj["spec"].(map[string]any)["file"].(map[string]any)["default"]
-			if !reflect.DeepEqual(before, after) {
-				t.Fatal("file default pruned")
-			}
-			raw, err := json.Marshal(after)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var typed sandbox.FileDefault
-			err = json.Unmarshal(raw, &typed)
-			if (err == nil) != tc.valid {
-				t.Fatalf("typed consumer validation: valid=%t, error=%v", tc.valid, err)
+			if tc.valid {
+				raw, err := json.Marshal(obj)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var policy sandbox.SandboxPolicy
+				if err = json.Unmarshal(raw, &policy); err != nil {
+					t.Fatal(err)
+				}
+				if err = sandbox.ValidatePolicySpec(policy.Spec.PolicySpec); err != nil {
+					t.Fatal(err)
+				}
 			}
 		})
+	}
+}
+
+func TestKubernetesExplicitClusterNamespaceSelector(t *testing.T) {
+	for _, selector := range []string{"", ", namespaceSelector: null", ", namespaceSelector: {}"} {
+		obj := decode(t, "spec: {selector: {podSelector: {}"+selector+"}, containers: ['*'], mode: audit}")
+		errs := validate(t, Definitions()[1], obj)
+		if (len(errs) == 0) != (selector == ", namespaceSelector: {}") {
+			t.Fatalf("selector %q: %v", selector, errs)
+		}
+	}
+}
+
+func TestKubernetesHookTargetAdmission(t *testing.T) {
+	for _, tc := range []struct {
+		section, target string
+		valid           bool
+	}{
+		{"privilege", "{syscall: [unshare], flags: [CLONE_NEWUSER]}", true},
+		{"privilege", "{capability: [SYS_ADMIN]}", true},
+		{"privilege", "{mountFsType: [tmpfs]}", true},
+		{"privilege", "{pathClass: [hostDevices]}", true},
+		{"privilege", "{}", false},
+		{"privilege", "{flags: [CLONE_NEWUSER]}", false},
+		{"privilege", "{syscall: [init_module], capability: [SYS_MODULE]}", false},
+		{"privilege", "{capability: [SYS_ADMIN], flags: [CLONE_NEWUSER]}", false},
+		{"privilege", "{syscall: [mount], path: [/tmp]}", false},
+		{"privilege", "{syscall: [mount], fromImage: false}", false},
+		{"privilege", "{syscall: [mount], fsType: [tmpfs]}", false},
+		{"identity", "{path: [/run/token], pathClass: [credentialStore]}", true},
+		{"identity", "{imds: true}", true}, {"identity", "{envRead: false}", true},
+		{"identity", "{}", false}, {"identity", "{imds: true, envRead: true}", false},
+		{"identity", "{path: [/run/token], imds: true}", false},
+		{"identity", "{path: [/run/token], fromImage: false}", false},
+		{"identity", "{path: [/run/token], fsType: [tmpfs]}", false},
+	} {
+		t.Run(tc.section+tc.target, func(t *testing.T) {
+			obj := decode(t, "spec: {selector: {podSelector: {}}, containers: ['*'], mode: audit, "+tc.section+": {default: deny, rules: [{name: test, target: "+tc.target+", action: deny}]}}")
+			if errs := validate(t, Definitions()[0], obj); (len(errs) == 0) != tc.valid {
+				t.Fatalf("valid=%t errors=%v", tc.valid, errs)
+			}
+		})
+	}
+	for _, depth := range []int{0, 1, 16, 17} {
+		obj := decode(t, fmt.Sprintf("spec: {selector: {podSelector: {}}, containers: ['*'], mode: audit, exec: {default: deny, rules: [{name: test, actor: {ancestor: {path: [/bin/sh], depth: %d}}, target: {}, action: allow}]}}", depth))
+		if errs := validate(t, Definitions()[0], obj); (len(errs) == 0) != (depth >= 1 && depth <= 16) {
+			t.Fatalf("depth=%d errors=%v", depth, errs)
+		}
 	}
 }
 
@@ -214,6 +257,9 @@ status:
 	assertPreserved(t, object, typed)
 	before := runtime.DeepCopyJSONValue(object["status"])
 	for _, definition := range Definitions()[:2] {
+		if definition.Spec.Names.Kind == "ClusterSandboxPolicy" {
+			object["spec"].(map[string]any)["selector"].(map[string]any)["namespaceSelector"] = map[string]any{}
+		}
 		if errs := validate(t, definition, object); len(errs) != 0 {
 			t.Fatal(errs.ToAggregate())
 		}
@@ -413,6 +459,9 @@ func TestAggregateReadyExcludesStale(t *testing.T) {
 		report := decode(t, `spec: {selector: {podSelector: {}}, containers: ["*"], mode: audit}
 status: {nodeSummary: {total: 1, reporting: 1, ready: 1, degraded: 0, stale: 1}}
 `)
+		if definition.Spec.Names.Kind == "ClusterSandboxPolicy" {
+			report["spec"].(map[string]any)["selector"].(map[string]any)["namespaceSelector"] = map[string]any{}
+		}
 		if errs := validate(t, definition, report); len(errs) == 0 {
 			t.Fatal("same reporting node counted both ready and stale")
 		}
@@ -434,6 +483,9 @@ func TestKubernetesClassNames(t *testing.T) {
 					object = decode(t, "spec: {}")
 				} else {
 					object = decode(t, `spec: {selector: {podSelector: {}}, containers: ["*"], mode: audit, classes: {}}`)
+				}
+				if definition.Spec.Names.Kind == "ClusterSandboxPolicy" {
+					object["spec"].(map[string]any)["selector"].(map[string]any)["namespaceSelector"] = map[string]any{}
 				}
 				classes := object["spec"].(map[string]any)
 				if definition.Spec.Names.Kind != "SandboxPolicyClasses" {
@@ -469,5 +521,26 @@ func TestSelectorSyntaxConsumerBoundary(t *testing.T) {
 	}
 	if err = sandbox.ValidateSandboxPolicySpec(policy.Spec); err == nil {
 		t.Fatal("consumer accepted invalid native selector syntax")
+	}
+}
+
+func TestKubernetesCIDRAdmission(t *testing.T) {
+	for _, tc := range []struct {
+		cidr  string
+		valid bool
+	}{
+		{"10.0.0.0/8", true}, {"2001:db8::/32", true},
+		{"garbage", false}, {"10.0.0.0/33", false},
+		{"2001:db8::/129", false}, {"10.0.0.1", false},
+		// Kubernetes 1.28's CIDR format permits leading zeros; typed consumers
+		// additionally use netip.ParsePrefix to enforce strict CIDR syntax.
+		{"010.0.0.0/8", true},
+	} {
+		t.Run(tc.cidr, func(t *testing.T) {
+			obj := decode(t, fmt.Sprintf("spec: {selector: {podSelector: {}}, containers: ['*'], mode: audit, network: {default: {egress: deny, listen: deny}, rules: [{name: test, target: {cidr: [%q]}, action: allow}]}}", tc.cidr))
+			if errs := validate(t, Definitions()[0], obj); (len(errs) == 0) != tc.valid {
+				t.Fatalf("valid=%t errors=%v", tc.valid, errs)
+			}
+		})
 	}
 }
