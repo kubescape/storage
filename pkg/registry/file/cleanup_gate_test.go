@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -134,4 +135,98 @@ func TestCleanupSettlesAReservedPayloadLeftByACrash(t *testing.T) {
 	exists, _ := afero.Exists(memFs, payload("gone"))
 	assert.False(t, exists, "a payload without a row must not come back")
 	assert.Empty(t, listDeleting(t, memFs, dir))
+}
+
+// Without a gate, a writer on another connection replaces the row and the payload after
+// the walk's recheck: the delete, in the same transaction as the recheck, fails on the
+// stale snapshot and the replacement stays whole.
+func TestCleanupLeavesAReplacementThatLandsAfterTheRecheck(t *testing.T) {
+	const kind = "applicationprofiles"
+	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns", "app"+GobExt)
+	key := payloadPathToKey(path)
+	meta := func(rv string) []byte {
+		return []byte(fmt.Sprintf(`{"name":"app","namespace":"ns","uid":"u%s","resourceVersion":%q}`, rv, rv))
+	}
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, path, []byte("old payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	writer, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(writer)
+	require.NoError(t, WriteJSON(conn, key, meta("1")))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	h.afterRecheck = func(k string) {
+		if k == key {
+			require.NoError(t, afero.WriteFile(memFs, path, []byte("new payload"), 0644))
+			require.NoError(t, WriteJSON(writer, key, meta("2")))
+		}
+	}
+	_ = h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{})
+
+	content, err := afero.ReadFile(memFs, path)
+	require.NoError(t, err, "the replacement payload was removed")
+	assert.Equal(t, "new payload", string(content))
+	row, err := ReadMetadata(conn, key)
+	require.NoError(t, err, "the replacement row was removed")
+	assert.Equal(t, string(meta("2")), string(row))
+	assert.Empty(t, listDeleting(t, memFs, filepath.Dir(path)))
+}
+
+// A replacement that lands at the path between the walk's sighting of a reserved file and
+// its settlement is the live payload: the reserved copy goes and the replacement stays.
+func TestCleanupSettleLeavesAReplacementCreatedBeforeTheRestore(t *testing.T) {
+	const kind = "applicationprofiles"
+	dir := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns")
+	original := filepath.Join(dir, "app"+GobExt)
+	reserved := original + ".0123456789abcdef" + cleanupDeletingSuffix
+	key := payloadPathToKey(original)
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, reserved, []byte("stale payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	require.NoError(t, WriteJSON(conn, key, []byte(`{"name":"app","namespace":"ns","annotations":{"kubescape.io/image-id":"live"}}`)))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	h.beforeRestore = func(k string) {
+		if k == key {
+			require.NoError(t, afero.WriteFile(memFs, original, []byte("new payload"), 0644))
+		}
+	}
+	keep := func(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool { return false }
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {keep}}, conn, ResourceMaps{}))
+
+	content, err := afero.ReadFile(memFs, original)
+	require.NoError(t, err)
+	assert.Equal(t, "new payload", string(content), "the replacement was clobbered by the stale payload")
+	assert.Empty(t, listDeleting(t, memFs, dir))
+}
+
+func TestRenameUnlessPresent(t *testing.T) {
+	for name, fs := range map[string]afero.Fs{"os": afero.NewOsFs(), "mem": afero.NewMemMapFs()} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if name == "mem" {
+				dir = "/d"
+			}
+			from, to := filepath.Join(dir, "from"), filepath.Join(dir, "to")
+			require.NoError(t, afero.WriteFile(fs, from, []byte("payload"), 0644))
+			require.NoError(t, renameUnlessPresent(fs, from, to))
+			got, err := afero.ReadFile(fs, to)
+			require.NoError(t, err)
+			assert.Equal(t, "payload", string(got))
+			exists, _ := afero.Exists(fs, from)
+			assert.False(t, exists)
+
+			require.NoError(t, afero.WriteFile(fs, from, []byte("stale"), 0644))
+			require.NoError(t, afero.WriteFile(fs, to, []byte("live"), 0644))
+			assert.ErrorIs(t, renameUnlessPresent(fs, from, to), os.ErrExist)
+			got, err = afero.ReadFile(fs, to)
+			require.NoError(t, err)
+			assert.Equal(t, "live", string(got), "a present target is never replaced")
+		})
+	}
 }

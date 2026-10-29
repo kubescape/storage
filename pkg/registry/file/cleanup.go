@@ -69,7 +69,9 @@ type ResourcesCleanupHandler struct {
 	// the gated recheck; beforeReservedRemoval runs after the gate released and before
 	// the reserved payload is removed. Test seams, nil in production.
 	beforeGatedDelete     func(key string)
+	afterRecheck          func(key string)
 	beforeReservedRemoval func(key string)
+	beforeRestore         func(key string)
 }
 
 // deleteUnlessChanged removes a payload and its rows the way the orphan path does:
@@ -80,8 +82,9 @@ type ResourcesCleanupHandler struct {
 // reserved file is removed after the gate: a create that lands on the payload's path
 // once the gate is released is never the file that gets removed. A gate that fails after
 // the rename puts the payload back; a crash in between leaves a reserved file the next
-// walk settles. Without a gate the statements run on the walk's connection, as every
-// legacy write does. deleted says whether anything went.
+// walk settles. Without a gate the statements run in one transaction on the walk's
+// connection, so a row another connection replaced after the recheck fails the delete
+// instead of being deleted. deleted says whether anything went.
 func (h *ResourcesCleanupHandler) deleteUnlessChanged(ctx context.Context, conn *sqlite.Conn, kind, path string, decidedJSON []byte, newObjectFunc func() runtime.Object) (runtime.Object, bool, error) {
 	key := payloadPathToKey(path)
 	metaOut := newObjectFunc()
@@ -90,7 +93,7 @@ func (h *ResourcesCleanupHandler) deleteUnlessChanged(ctx context.Context, conn 
 	if h.beforeGatedDelete != nil {
 		h.beforeGatedDelete(key)
 	}
-	err := h.write(ctx, conn, holdPathCleanup, resourceFromKey(key), func(_ context.Context, lockedConn *sqlite.Conn) error {
+	err := h.writeTxn(ctx, conn, holdPathCleanup, resourceFromKey(key), func(_ context.Context, lockedConn *sqlite.Conn) error {
 		currentJSON, err := ReadMetadata(lockedConn, key)
 		if errors.Is(err, ErrMetadataNotFound) {
 			return nil // gone since the decision
@@ -101,6 +104,9 @@ func (h *ResourcesCleanupHandler) deleteUnlessChanged(ctx context.Context, conn 
 		if !bytes.Equal(currentJSON, decidedJSON) {
 			logger.L().Debug("cleanup - object changed since the decision, keeping it", helpers.String("key", key))
 			return nil
+		}
+		if h.afterRecheck != nil {
+			h.afterRecheck(key)
 		}
 		raw, err := deleteMetadataRaw(lockedConn, key)
 		if err != nil {
@@ -135,8 +141,10 @@ func (h *ResourcesCleanupHandler) deleteUnlessChanged(ctx context.Context, conn 
 	})
 	if err != nil {
 		if reserved != "" {
-			if restoreErr := h.appFs.Rename(reserved, path); restoreErr != nil {
-				logger.L().Ctx(ctx).Error("cleanup - failed to put back a reserved payload", helpers.Error(restoreErr), helpers.String("path", reserved))
+			// the rows were rolled back with the transaction; the payload goes back under
+			// the same protection, unless a writer put one at the path meanwhile
+			if settleErr := h.settleReserved(ctx, conn, kind, reserved, path); settleErr != nil {
+				logger.L().Ctx(ctx).Error("cleanup - failed to settle a reserved payload, the next walk will", helpers.Error(settleErr), helpers.String("path", reserved))
 			}
 		}
 		return nil, false, err
@@ -177,6 +185,14 @@ func (h *ResourcesCleanupHandler) ContainerProfileHandlers() []TypeCleanupHandle
 
 func (h *ResourcesCleanupHandler) write(ctx context.Context, conn *sqlite.Conn, path, kind string, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
 	return gatedWrite(h.gate, ctx, conn, priorityLow, path, kind, false, fn)
+}
+
+// writeTxn is write with one transaction around fn when there is no gate: the gate runs
+// fn in its own transaction, and without it the statements would each commit on their
+// own, so a read fn relies on could be stale by the time its write runs. In a savepoint
+// the write fails instead when another connection committed in between.
+func (h *ResourcesCleanupHandler) writeTxn(ctx context.Context, conn *sqlite.Conn, path, kind string, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
+	return gatedWrite(h.gate, ctx, conn, priorityLow, path, kind, true, fn)
 }
 
 func initResourceToKindHandler() map[string][]TypeCleanupHandlerFunc {
@@ -405,7 +421,7 @@ func (h *ResourcesCleanupHandler) cleanupOrphansInUnlistedNamespaces(ctx context
 						return h.removeCleanupQuarantine(path)
 					}
 					if original, ok := isCleanupDeletingFile(path); ok {
-						return h.settleDeletingFile(conn, path, original)
+						return h.settleReserved(ctx, conn, kind, path, original)
 					}
 					if !IsPayloadFile(path) {
 						return nil
@@ -507,25 +523,56 @@ func isCleanupDeletingFile(path string) (string, bool) {
 	return original, true
 }
 
-// settleDeletingFile finishes what a reserved payload was left in by a crash: with its
-// row still there and nothing at its path, the rows were never deleted, so the payload
-// goes back where the row expects it; otherwise the deletion went through and the
-// reserved file is removed.
-func (h *ResourcesCleanupHandler) settleDeletingFile(conn *sqlite.Conn, path, original string) error {
-	if _, err := ReadMetadata(conn, payloadPathToKey(original)); err == nil {
-		if exists, _ := afero.Exists(h.appFs, original); !exists {
-			if err := h.appFs.Rename(path, original); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("restore reserved payload %s: %w", path, err)
-			}
-			return nil
+// renameUnlessPresent moves from to to, and fails with os.ErrExist when something already
+// sits at to. On the operating system's filesystem a link makes that one step, so a
+// payload a writer put there meanwhile is never replaced; elsewhere an existence check
+// comes first.
+func renameUnlessPresent(fs afero.Fs, from, to string) error {
+	if _, ok := fs.(*afero.OsFs); ok {
+		if err := os.Link(from, to); err != nil {
+			return err
 		}
-	} else if !errors.Is(err, ErrMetadataNotFound) {
-		return fmt.Errorf("read metadata for %s: %w", original, err)
+		return fs.Remove(from)
 	}
-	if err := h.appFs.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove reserved payload %s: %w", path, err)
+	if exists, err := afero.Exists(fs, to); err != nil {
+		return err
+	} else if exists {
+		return os.ErrExist
 	}
-	return nil
+	return fs.Rename(from, to)
+}
+
+// settleReserved finishes what a reserved payload was left in, under the protection
+// writers use, with the row read again there: with the row still present and nothing at
+// the path, the rows were never deleted and the payload goes back; with the row gone,
+// the deletion went through and the reserved file is removed; with a payload a writer
+// put at the path meanwhile, that one is the live one and the reserved copy goes.
+func (h *ResourcesCleanupHandler) settleReserved(ctx context.Context, conn *sqlite.Conn, kind, reserved, original string) error {
+	key := payloadPathToKey(original)
+	return h.withCleanupWriteLock(ctx, conn, kind, func(_ context.Context, lockedConn *sqlite.Conn) error {
+		if h.beforeRestore != nil {
+			h.beforeRestore(key)
+		}
+		rowPresent := false
+		if _, err := ReadMetadata(lockedConn, key); err == nil {
+			rowPresent = true
+		} else if !errors.Is(err, ErrMetadataNotFound) {
+			return fmt.Errorf("read metadata for %s: %w", original, err)
+		}
+		if rowPresent {
+			err := renameUnlessPresent(h.appFs, reserved, original)
+			if err == nil || errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			if !errors.Is(err, os.ErrExist) {
+				return fmt.Errorf("restore reserved payload %s: %w", reserved, err)
+			}
+		}
+		if err := h.appFs.Remove(reserved); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("remove reserved payload %s: %w", reserved, err)
+		}
+		return nil
+	})
 }
 
 func (h *ResourcesCleanupHandler) removeCleanupQuarantine(path string) error {
@@ -609,7 +656,7 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				return nil
 			}
 			if original, ok := isCleanupDeletingFile(path); ok {
-				if err := h.settleDeletingFile(conn, path, original); err != nil {
+				if err := h.settleReserved(ctx, conn, resourceKind, path, original); err != nil {
 					logger.L().Ctx(ctx).Error("failed settling a reserved payload", helpers.Error(err), helpers.String("path", path))
 				}
 				return nil
