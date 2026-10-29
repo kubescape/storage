@@ -47,6 +47,9 @@ func TestCleanupTask(t *testing.T) {
 	var filesDeleted []string
 	deleteFunc := func(appFs afero.Fs, path string) {
 		if err := appFs.Remove(path); err == nil {
+			if original, ok := isCleanupDeletingFile(path); ok {
+				path = original // the walk reserves a payload under a nonce name before removing it
+			}
 			filesDeleted = append(filesDeleted, path)
 		}
 	}
