@@ -24,20 +24,45 @@ each carrying their own copy, so there is exactly one list to maintain.
 
 ## What happens when the list is stale
 
-Nothing crashes. `ReflectTypeFromJSONName` returns `nil` for a name it does not
-know, `UnmarshalJSON` returns `errUnknownMetadataType`, and the caller swallows
-that error and keeps the metadata as raw JSON.
+**The two registries fail differently, and the difference decides how urgent a
+sync is.** Both call `ReflectTypeFromJSONName`, which returns `nil` for a name
+it does not know, but the callers do opposite things with that.
 
-So a missing entry is **lossy but safe**: the package is still stored and still
-scannable, but its typed metadata is not materialised, and anything reading the
-structured fields of that metadata sees nothing. The symptom is quiet — no log
-line, no failed write — which is why the list drifts without anyone noticing.
+### Package metadata — lossy but safe
+
+`unpackPkgMetadata` returns the `errUnknownMetadataType` sentinel, and
+`SyftPackage.UnmarshalJSON` swallows exactly that error and keeps the metadata
+as raw JSON.
+
+So a missing package entry is **lossy but safe**: the package is still stored
+and still scannable, but its typed metadata is not materialised, and anything
+reading the structured fields of that metadata sees nothing. The symptom is
+quiet — no log line, no failed write — which is why the list drifts without
+anyone noticing.
 
 The practical consequence of drift is per-ecosystem. A stale list in a cluster
 running a newer syft means the ecosystems added since the last sync (uv and PDM
 lockfiles, pnpm and Bun lockfiles, Deno, CPAN, Homebrew, Conda, Terraform
 provider locks, GGUF and SafeTensors model files, …) store their metadata
 untyped.
+
+### Source metadata — a hard decode failure
+
+`unpackSrcMetadata` has **no sentinel**. For a non-empty `type` it does not
+recognise it returns a plain
+`fmt.Errorf("unable to find source metadata type=%q", …)`, which propagates
+straight out of `SyftSource.UnmarshalJSON` in *both* API versions. Nothing
+swallows it and the metadata is not retained.
+
+So a missing **source** entry fails the whole decode. An empty `type` is the
+one documented exception — objects from the watcher arrive without one — and
+stays non-fatal.
+
+This is why the source list, short as it is, deserves the same attention as the
+package list on every bump: before the v1.55.0 sync added them, an SBOM whose
+source was a `snap` or an `oci-model` failed to decode outright, rather than
+degrading. `TestSyftSourceUnmarshal_UnknownTypeIsAHardError` and
+`TestSyftSourceUnmarshal_KnownTypesDecode` pin both halves of that.
 
 ## Keeping it in sync
 

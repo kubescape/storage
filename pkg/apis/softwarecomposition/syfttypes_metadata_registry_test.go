@@ -73,3 +73,36 @@ func TestSyftPackageUnmarshal_NoMetadataType(t *testing.T) {
 	assert.Equal(t, "example", p.Name)
 	assert.Empty(t, p.MetadataType)
 }
+
+// The two registries do NOT fail the same way, and the difference matters when
+// deciding how urgent a sync is. unpackSrcMetadata returns a plain error for an
+// unknown non-empty source type, with no errUnknownMetadataType sentinel for
+// the caller to swallow, so a missing SOURCE name fails the whole decode —
+// unlike a missing PACKAGE metadata name, which degrades to raw JSON.
+func TestSyftSourceUnmarshal_UnknownTypeIsAHardError(t *testing.T) {
+	var s SyftSource
+	err := json.Unmarshal([]byte(`{"id":"src-1","name":"example","type":"some-future-source","metadata":{"a":1}}`), &s)
+
+	require.Error(t, err, "an unknown source type must not silently degrade")
+	assert.Contains(t, err.Error(), "unable to find source metadata type")
+	assert.Empty(t, s.Metadata, "the metadata is not retained on this path")
+}
+
+func TestSyftSourceUnmarshal_KnownTypesDecode(t *testing.T) {
+	for _, ty := range []string{"image", "directory", "file", "snap", "oci-model"} {
+		t.Run(ty, func(t *testing.T) {
+			var s SyftSource
+			raw := `{"id":"src-1","name":"example","type":"` + ty + `","metadata":{}}`
+			require.NoError(t, json.Unmarshal([]byte(raw), &s))
+			assert.Equal(t, ty, s.Type)
+		})
+	}
+}
+
+// An empty type is the documented exception: objects from the watcher arrive
+// without one, and that must stay non-fatal.
+func TestSyftSourceUnmarshal_EmptyTypeIsNotAnError(t *testing.T) {
+	var s SyftSource
+	require.NoError(t, json.Unmarshal([]byte(`{"id":"src-1","name":"example"}`), &s))
+	assert.Empty(t, s.Type)
+}
