@@ -50,17 +50,36 @@ On every `anchore/syft` bump:
    exactly as syft wrote them.
 2. Do the same for `internal/sourcemetadata/names.go`.
 3. `go mod tidy`, `go build ./...`, `go test ./pkg/apis/...`.
+4. `TestRegistryIsSelfConsistent` asserts the registered type count, so it will
+   fail and tell you the new number — update it as part of the sync rather than
+   before, so the count is a deliberate acknowledgement that the list moved.
 
 The legacy aliases matter: they exist so that documents written by older syft
 versions still decode. Never drop one, even if the current name is different.
 
-Nothing here is a Kubernetes API struct, so a sync does not require running
-`hack/update-codegen.sh`.
+Read the schema delta off `internal/constants.go` (`JSONSchemaVersion`) in each
+syft version, not off the filenames under `schema/json/` — that directory
+bundles every historical schema for backward decoding, so its oldest entry is
+not what the version you are leaving actually emits.
+
+Nothing here is a Kubernetes API struct. Running `hack/update-codegen.sh` after
+a sync produces no diff *attributable to the sync* — but it is not a clean run
+either: there is pre-existing drift in `IgnoreRule`
+(`SourceKind`/`SourceName`/`SourceNamespace`/`Justification`/`ImpactStatement`)
+and in `NetworkNeighbor` doc comments, between the committed `zz_generated.*`
+files and what the generator emits today. Verify by running the script on your
+branch and on a clean `origin/main` worktree and diffing the two results; they
+should be identical. Do not commit that drift as part of a syft bump.
 
 ## syft v1.55.0 sync
 
-The bump from v1.42.3 to v1.55.0 moves the syftjson schema from 16.0.39 to
-16.1.11 — a minor bump inside schema major 16, so no wire break.
+The bump from v1.42.3 to v1.55.0 moves the syftjson schema from **16.1.3 to
+16.1.11** — a patch bump inside schema minor 16.1, so no wire break.
+
+(SUB-9486 originally cited `16.0.39 -> 16.1.11`, carried over from a ticket that
+compared against syft v1.32.0. The repo was on v1.42.3, whose
+`internal/constants.go` sets `JSONSchemaVersion = "16.1.3"`; `16.0.39` is just
+the oldest bundled backward-decode schema file.)
 
 Twenty-eight metadata types were added and none removed:
 
