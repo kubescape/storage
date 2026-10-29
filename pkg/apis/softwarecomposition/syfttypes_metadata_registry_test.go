@@ -19,17 +19,23 @@ func syftPackageJSON(metadataType, metadata string) []byte {
 	}`)
 }
 
-// A name the registry knows decodes into the syft struct and re-encodes with
-// that struct's field names.
+// A name the registry knows is decoded into the syft struct and re-encoded from
+// it. Asserting a known field survives is not enough to prove that — the raw
+// JSON fallback would preserve it too. What separates the two paths is that a
+// typed decode drops fields the struct does not declare, and materialises the
+// ones it does.
 func TestSyftPackageUnmarshal_KnownMetadataTypeDecodesTyped(t *testing.T) {
 	var p SyftPackage
-	require.NoError(t, json.Unmarshal(syftPackageJSON("python-uv-lock-entry", `{"index":"https://pypi.org/simple"}`), &p))
+	raw := `{"index":"https://pypi.org/simple","notAFieldOfThisType":"dropped"}`
+	require.NoError(t, json.Unmarshal(syftPackageJSON("python-uv-lock-entry", raw), &p))
 
 	assert.Equal(t, "python-uv-lock-entry", p.MetadataType)
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal(p.Metadata, &got))
 	assert.Equal(t, "https://pypi.org/simple", got["index"])
+	assert.NotContains(t, got, "notAFieldOfThisType", "went through the raw-JSON fallback, not pkg.PythonUvLockEntry")
+	assert.Contains(t, got, "dependencies", "pkg.PythonUvLockEntry declares dependencies without omitempty")
 }
 
 // A legacy name still decodes, to the type it has always mapped to.
