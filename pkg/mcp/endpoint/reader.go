@@ -52,6 +52,7 @@ type reader struct {
 	authorizer             authorizer.Authorizer
 	scheme                 *runtime.Scheme
 	vulnerabilityManifests listGetter
+	sbomSyfts              listGetter
 }
 
 func (r *reader) ListVulnerabilityManifests(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.VulnerabilityManifestList, error) {
@@ -80,6 +81,36 @@ func (r *reader) GetVulnerabilityManifest(ctx context.Context, namespace, name s
 	out := &v1beta1.VulnerabilityManifest{}
 	if err := r.scheme.Convert(obj, out, nil); err != nil {
 		return nil, fmt.Errorf("convert vulnerability manifest: %w", err)
+	}
+	return out, nil
+}
+
+func (r *reader) ListSBOMSyfts(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.SBOMSyftList, error) {
+	if err := r.authorize(ctx, "list", "sbomsyfts", namespace, ""); err != nil {
+		return nil, err
+	}
+	obj, err := r.list(readContext(ctx, "list", "sbomsyfts", namespace, ""), r.sbomSyfts, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1beta1.SBOMSyftList{}
+	if err := r.scheme.Convert(obj, out, nil); err != nil {
+		return nil, fmt.Errorf("convert SBOMs: %w", err)
+	}
+	return out, nil
+}
+
+func (r *reader) GetSBOMSyft(ctx context.Context, namespace, name string) (*v1beta1.SBOMSyft, error) {
+	if err := r.authorize(ctx, "get", "sbomsyfts", namespace, name); err != nil {
+		return nil, err
+	}
+	obj, err := r.sbomSyfts.Get(readContext(ctx, "get", "sbomsyfts", namespace, name), name, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	out := &v1beta1.SBOMSyft{}
+	if err := r.scheme.Convert(obj, out, nil); err != nil {
+		return nil, fmt.Errorf("convert SBOM: %w", err)
 	}
 	return out, nil
 }

@@ -1,0 +1,13 @@
+{
+  "call": {
+    "name": "list_sboms",
+    "arguments": {
+      "namespace": "restricted"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RBAC_DENIED",
+    "message": "sbomsyfts.spdx.softwarecomposition.kubescape.io is forbidden: User \"system:serviceaccount:kagent:agent\" cannot list resource \"sbomsyfts\" in API group \"spdx.softwarecomposition.kubescape.io\" in the namespace \"restricted\""
+  }
+}

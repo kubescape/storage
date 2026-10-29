@@ -18,6 +18,7 @@ import (
 // NotFound, and any read in the namespace "restricted" is Forbidden.
 type memReader struct {
 	manifests []v1beta1.VulnerabilityManifest
+	sboms     []v1beta1.SBOMSyft
 }
 
 func newMemReader(manifests ...v1beta1.VulnerabilityManifest) *memReader {
@@ -66,4 +67,29 @@ func (r *memReader) GetVulnerabilityManifest(_ context.Context, namespace, name 
 		}
 	}
 	return nil, apierrors.NewNotFound(v1beta1.Resource("vulnerabilitymanifests"), name)
+}
+
+func (r *memReader) ListSBOMSyfts(_ context.Context, namespace string, _ metav1.ListOptions) (*v1beta1.SBOMSyftList, error) {
+	if namespace == restrictedNamespace {
+		return nil, forbidden("list", "sbomsyfts", namespace, "")
+	}
+	out := &v1beta1.SBOMSyftList{}
+	for _, s := range r.sboms {
+		if s.Namespace == namespace {
+			out.Items = append(out.Items, v1beta1.SBOMSyft{ObjectMeta: s.ObjectMeta})
+		}
+	}
+	return out, nil
+}
+
+func (r *memReader) GetSBOMSyft(_ context.Context, namespace, name string) (*v1beta1.SBOMSyft, error) {
+	if namespace == restrictedNamespace {
+		return nil, forbidden("get", "sbomsyfts", namespace, name)
+	}
+	for i := range r.sboms {
+		if r.sboms[i].Namespace == namespace && r.sboms[i].Name == name {
+			return r.sboms[i].DeepCopy(), nil
+		}
+	}
+	return nil, apierrors.NewNotFound(v1beta1.Resource("sbomsyfts"), name)
 }

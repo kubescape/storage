@@ -1,0 +1,28 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "namespace": "kubescape",
+      "package_type": "java-archive",
+      "sbom_name": "nginx-32fdf9"
+    }
+  },
+  "isError": false,
+  "response": {
+    "sbom_name": "nginx-32fdf9",
+    "distro": "debian 9",
+    "total": 1,
+    "returned": 1,
+    "truncated": false,
+    "packages": [
+      {
+        "name": "libintl",
+        "version": "",
+        "type": "java-archive",
+        "language": "java",
+        "purl": "pkg:maven/libintl/libintl",
+        "licenses": []
+      }
+    ]
+  }
+}
