@@ -1,0 +1,41 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "name": "NGINX",
+      "namespace": "kubescape",
+      "sbom_name": "nginx-32fdf9"
+    }
+  },
+  "isError": false,
+  "response": {
+    "sbom_name": "nginx-32fdf9",
+    "distro": "debian 9",
+    "total": 3,
+    "returned": 3,
+    "truncated": false,
+    "packages": [
+      {
+        "name": "nginx",
+        "version": "1.14.1-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx@1.14.1-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "nginx-module-geoip",
+        "version": "1.14.1-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx-module-geoip@1.14.1-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "nginx-module-njs",
+        "version": "1.14.1.0.2.5-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx-module-njs@1.14.1.0.2.5-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      }
+    ]
+  }
+}

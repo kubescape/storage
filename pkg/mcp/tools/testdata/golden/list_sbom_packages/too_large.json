@@ -1,0 +1,18 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "namespace": "kubescape",
+      "sbom_name": "redis-a1c3e5"
+    }
+  },
+  "isError": false,
+  "response": {
+    "sbom_name": "redis-a1c3e5",
+    "status": "too-large",
+    "total": 0,
+    "returned": 0,
+    "truncated": false,
+    "packages": []
+  }
+}

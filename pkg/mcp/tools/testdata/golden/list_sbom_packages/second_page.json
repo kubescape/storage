@@ -1,0 +1,61 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "limit": 5,
+      "namespace": "kubescape",
+      "offset": 5,
+      "sbom_name": "nginx-32fdf9"
+    }
+  },
+  "isError": false,
+  "response": {
+    "sbom_name": "nginx-32fdf9",
+    "distro": "debian 9",
+    "total": 12,
+    "returned": 5,
+    "truncated": true,
+    "next_offset": 10,
+    "packages": [
+      {
+        "name": "login",
+        "version": "1:4.4-4.1",
+        "type": "deb",
+        "purl": "pkg:deb/debian/login@1:4.4-4.1?arch=amd64\u0026upstream=shadow\u0026distro=debian-9",
+        "licenses": [
+          "GPL-2.0-only"
+        ]
+      },
+      {
+        "name": "nginx",
+        "version": "1.14.1-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx@1.14.1-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "nginx-module-geoip",
+        "version": "1.14.1-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx-module-geoip@1.14.1-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "nginx-module-njs",
+        "version": "1.14.1.0.2.5-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx-module-njs@1.14.1.0.2.5-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "passwd",
+        "version": "1:4.4-4.1",
+        "type": "deb",
+        "purl": "pkg:deb/debian/passwd@1:4.4-4.1?arch=amd64\u0026upstream=shadow\u0026distro=debian-9",
+        "licenses": [
+          "GPL-2.0-only"
+        ]
+      }
+    ]
+  }
+}
