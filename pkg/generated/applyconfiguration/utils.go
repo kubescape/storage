@@ -170,6 +170,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &softwarecompositionv1beta1.SBOMSyftFilteredApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SBOMSyftSpec"):
 		return &softwarecompositionv1beta1.SBOMSyftSpecApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("SBOMSyftStatus"):
+		return &softwarecompositionv1beta1.SBOMSyftStatusApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ScannedControl"):
 		return &softwarecompositionv1beta1.ScannedControlApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ScannedControlRule"):
