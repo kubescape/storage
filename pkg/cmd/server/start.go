@@ -41,6 +41,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/version"
+	apifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -341,8 +342,14 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 		fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
 		ipLimiter := tollbooth.NewLimiter(rateLimitPerClient, nil)
 		ipLimiter.SetIPLookups([]string{"X-Forwarded-For"}) // api-server acts as a reverse proxy
-		globalLimiter := NewConcurrentLimiter(rateLimitTotal)
-		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
+		globalLimiter := NewConcurrentLimiter(rateLimitTotal, c.GenericConfig.LongRunningFunc)
+		// This wrapper runs before the default chain attaches RequestInfo.
+		// Use the completed server's resolver so the long-running check sees
+		// the same Kubernetes verbs as the rest of the API server.
+		server.GenericAPIServer.Handler.FullHandlerChain = apifilters.WithRequestInfo(
+			globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP),
+			c.GenericConfig.RequestInfoResolver,
+		)
 	}
 
 	if o.StorageConfig.QueueProcessingStatsPrint {
