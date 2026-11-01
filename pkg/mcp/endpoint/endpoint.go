@@ -15,6 +15,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
@@ -55,6 +56,10 @@ type Config struct {
 	WorkloadConfigurationScans rest.Storage
 	// ContainerProfiles is the containerprofiles REST storage.
 	ContainerProfiles rest.Storage
+	// CallTimeout bounds the work of one tool call.
+	CallTimeout time.Duration
+	// MaxResponseBytes caps the text of one tool result.
+	MaxResponseBytes int
 }
 
 type Endpoint struct {
@@ -68,6 +73,9 @@ func New(cfg Config) (*Endpoint, error) {
 	}
 	if cfg.Authorizer == nil || cfg.Scheme == nil {
 		return nil, errors.New("the MCP endpoint needs an authorizer and a scheme")
+	}
+	if cfg.CallTimeout <= 0 || cfg.MaxResponseBytes <= 0 {
+		return nil, errors.New("the MCP endpoint needs a positive call timeout and response size cap")
 	}
 	vulnerabilityManifests, ok := cfg.VulnerabilityManifests.(listGetter)
 	if !ok {
@@ -96,7 +104,9 @@ func New(cfg Config) (*Endpoint, error) {
 		frontProxy: x509request.NewDynamicCAVerifier(cfg.RequestHeader.CAContentProvider.VerifyOptions, accept, cfg.RequestHeader.AllowedClientNames),
 	}
 
-	s := server.NewMCPServer("kubescape-storage", "v1beta1", server.WithToolHandlerMiddleware(audit))
+	s := server.NewMCPServer("kubescape-storage", "v1beta1", server.WithToolHandlerMiddleware(audit),
+		// After audit, so that the audit line records the limited answer.
+		server.WithToolHandlerMiddleware(limit(cfg.CallTimeout, cfg.MaxResponseBytes)))
 	tools.Register(s, &reader{
 		authorizer:             cfg.Authorizer,
 		scheme:                 cfg.Scheme,
