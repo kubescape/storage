@@ -1,0 +1,14 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "namespace": "restricted",
+      "sbom_name": "redis-a1c3e5"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RBAC_DENIED",
+    "message": "sbomsyfts.spdx.softwarecomposition.kubescape.io \"redis-a1c3e5\" is forbidden: User \"system:serviceaccount:kagent:agent\" cannot get resource \"sbomsyfts\" in API group \"spdx.softwarecomposition.kubescape.io\" in the namespace \"restricted\""
+  }
+}

@@ -167,13 +167,15 @@ func payloadPathToKey(path string) string {
 	return path[len(DefaultStorageRoot) : len(path)-len(GobExt)]
 }
 
-func (h *ResourcesCleanupHandler) readMetadata(ctx context.Context, conn *sqlite.Conn, payloadFilePath string) (*metav1.ObjectMeta, error) {
+// readMetadata loads a payload's metadata from its row, migrating a legacy sidecar file
+// into the row on the way, and returns the JSON the row holds next to the parsed form.
+func (h *ResourcesCleanupHandler) readMetadata(ctx context.Context, conn *sqlite.Conn, payloadFilePath string) (*metav1.ObjectMeta, []byte, error) {
 	key := payloadPathToKey(payloadFilePath)
 	metadataJSON, err := ReadMetadata(conn, key)
 	if err == nil {
 		metadata, err := loadMetadata(metadataJSON)
 		if err == nil {
-			return metadata, nil
+			return metadata, metadataJSON, nil
 		}
 	}
 	// end of happy path - migration starts here
@@ -183,19 +185,23 @@ func (h *ResourcesCleanupHandler) readMetadata(ctx context.Context, conn *sqlite
 	if err != nil {
 		// no metadata in SQLite nor on disk, delete payload file
 		h.deleteFunc(h.appFs, payloadFilePath)
-		return nil, fmt.Errorf("failed to read metadata file: %w", err)
+		return nil, nil, fmt.Errorf("failed to read metadata file: %w", err)
 	}
 	// write to SQLite (W9b: through the gate when there is one)
 	err = h.write(ctx, conn, holdPathCleanupMigrate, resourceFromKey(key), func(_ context.Context, conn *sqlite.Conn) error {
 		return WriteJSON(conn, key, metadataJSON)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to migrate metadata to SQLite: %w", err)
+		return nil, nil, fmt.Errorf("failed to migrate metadata to SQLite: %w", err)
 	}
 	// delete old metadata file
 	h.deleteFunc(h.appFs, metadataFilePath)
 	// load metadata
-	return loadMetadata(metadataJSON)
+	metadata, err := loadMetadata(metadataJSON)
+	if err != nil {
+		return nil, nil, err
+	}
+	return metadata, metadataJSON, nil
 }
 
 func wlidWithoutClusterName(wlid string) string {

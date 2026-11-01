@@ -1,0 +1,13 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "sbom_name": "nginx-32fdf9"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "sbomsyfts.spdx.softwarecomposition.kubescape.io \"nginx-32fdf9\" not found"
+  }
+}

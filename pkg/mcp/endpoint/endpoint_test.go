@@ -121,16 +121,47 @@ func (f *fakeLister) List(ctx context.Context, _ *metainternalversion.ListOption
 	return &softwarecomposition.VulnerabilityManifestList{Items: f.items}, nil
 }
 
+// fakeSBOMs stands in for the sbomsyfts REST storage.
+type fakeSBOMs struct {
+	rest.TableConvertor
+	calls int
+	info  *genericapirequest.RequestInfo
+	items []softwarecomposition.SBOMSyft
+}
+
+func (f *fakeSBOMs) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	f.calls++
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
+	namespace := genericapirequest.NamespaceValue(ctx)
+	for i := range f.items {
+		if f.items[i].Namespace == namespace && f.items[i].Name == name {
+			return &f.items[i], nil
+		}
+	}
+	return nil, apierrors.NewNotFound(softwarecomposition.Resource("sbomsyfts"), name)
+}
+
+func (f *fakeSBOMs) New() runtime.Object     { return &softwarecomposition.SBOMSyft{} }
+func (f *fakeSBOMs) Destroy()                {}
+func (f *fakeSBOMs) NewList() runtime.Object { return &softwarecomposition.SBOMSyftList{} }
+
+func (f *fakeSBOMs) List(ctx context.Context, _ *metainternalversion.ListOptions) (runtime.Object, error) {
+	f.calls++
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
+	return &softwarecomposition.SBOMSyftList{Items: f.items}, nil
+}
+
 type testEndpoint struct {
 	connect   rest.Storage
 	lister    *fakeLister
+	sboms     *fakeSBOMs
 	frontCA   testCA
 	attrs     []authorizer.Attributes
 	allowedNS string
 }
 
 // newTestEndpoint returns an endpoint whose authorizer allows only
-// "list" and "get" on vulnerabilitymanifests in allowedNS.
+// "list" and "get" on vulnerabilitymanifests and sbomsyfts in allowedNS.
 func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 	t.Helper()
 	te := &testEndpoint{frontCA: newTestCA(t, "front-proxy-ca"), allowedNS: allowedNS, lister: &fakeLister{
@@ -141,6 +172,12 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 						Artifact: softwarecomposition.GrypePackage{Name: "login", Version: "1:4.4-4.1", Type: "deb"}},
 				}}}},
 		},
+	}}
+	te.sboms = &fakeSBOMs{items: []softwarecomposition.SBOMSyft{
+		{ObjectMeta: metav1.ObjectMeta{Namespace: allowedNS, Name: "nginx-1.21"},
+			Spec: softwarecomposition.SBOMSyftSpec{Syft: softwarecomposition.SyftDocument{Artifacts: []softwarecomposition.SyftPackage{
+				{PackageBasicData: softwarecomposition.PackageBasicData{Name: "login", Version: "1:4.4-4.1", Type: "deb"}},
+			}}}},
 	}}
 	ca, err := dynamiccertificates.NewStaticCAContent("front-proxy-ca", te.frontCA.pem)
 	require.NoError(t, err)
@@ -153,13 +190,14 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 		},
 		Authorizer: authorizer.AuthorizerFunc(func(_ context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			te.attrs = append(te.attrs, a)
-			if (a.GetVerb() == "list" || a.GetVerb() == "get") && a.GetResource() == "vulnerabilitymanifests" && a.GetNamespace() == te.allowedNS {
+			if (a.GetVerb() == "list" || a.GetVerb() == "get") && (a.GetResource() == "vulnerabilitymanifests" || a.GetResource() == "sbomsyfts") && a.GetNamespace() == te.allowedNS {
 				return authorizer.DecisionAllow, "", nil
 			}
 			return authorizer.DecisionNoOpinion, "", nil
 		}),
 		Scheme:                 scheme,
 		VulnerabilityManifests: te.lister,
+		SBOMSyfts:              te.sboms,
 	})
 	require.NoError(t, err)
 	_, te.connect = e.Storage()
@@ -303,6 +341,50 @@ func TestGetIsCheckedForTheCallerWithTheName(t *testing.T) {
 	require.True(t, isError)
 	require.NoError(t, json.Unmarshal([]byte(text), &toolErr))
 	assert.Equal(t, tools.ErrCodeResourceNotFound, toolErr.Code)
+}
+
+func TestSBOMReadsAreCheckedForTheCaller(t *testing.T) {
+	te := newTestEndpoint(t, "kubescape")
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	call := func(tool, args string) string {
+		return `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"` + tool + `","arguments":` + args + `}}`
+	}
+
+	// list_sboms: checked as "kubectl get sbomsyfts -n kubescape".
+	text, isError := toolResult(t, te.call(t, "kagent", cert, agent, call("list_sboms", `{"namespace":"kubescape"}`)))
+	require.False(t, isError, text)
+	assert.Contains(t, text, `"sbom_name":"nginx-1.21"`)
+	require.Len(t, te.attrs, 1)
+	assert.Equal(t, []any{"list", "sbomsyfts", "kubescape", ""},
+		[]any{te.attrs[0].GetVerb(), te.attrs[0].GetResource(), te.attrs[0].GetNamespace(), te.attrs[0].GetName()})
+	require.NotNil(t, te.sboms.info)
+	assert.Equal(t, []string{"list", "sbomsyfts", "kubescape"}, []string{te.sboms.info.Verb, te.sboms.info.Resource, te.sboms.info.Namespace})
+
+	// list_sbom_packages: checked as "kubectl get sbomsyfts nginx-1.21 -n kubescape".
+	text, isError = toolResult(t, te.call(t, "kagent", cert, agent, call("list_sbom_packages", `{"namespace":"kubescape","sbom_name":"nginx-1.21"}`)))
+	require.False(t, isError, text)
+	assert.Contains(t, text, `"name":"login"`)
+	require.Len(t, te.attrs, 2)
+	assert.Equal(t, []any{"get", "sbomsyfts", "kubescape", "nginx-1.21"},
+		[]any{te.attrs[1].GetVerb(), te.attrs[1].GetResource(), te.attrs[1].GetNamespace(), te.attrs[1].GetName()})
+	assert.Equal(t, []string{"get", "sbomsyfts", "kubescape", "nginx-1.21"},
+		[]string{te.sboms.info.Verb, te.sboms.info.Resource, te.sboms.info.Namespace, te.sboms.info.Name})
+	assert.Equal(t, 2, te.sboms.calls)
+
+	// Denied in the path namespace: RBAC_DENIED and nothing is read.
+	for _, tc := range []struct{ tool, args, message string }{
+		{"list_sboms", `{}`, `cannot list resource "sbomsyfts"`},
+		{"list_sbom_packages", `{"sbom_name":"nginx-1.21"}`, `cannot get resource "sbomsyfts"`},
+	} {
+		text, isError = toolResult(t, te.call(t, "kagent", cert, agent, call(tc.tool, tc.args)))
+		require.True(t, isError)
+		var toolErr tools.ToolError
+		require.NoError(t, json.Unmarshal([]byte(text), &toolErr))
+		assert.Equal(t, tools.ErrCodeRBACDenied, toolErr.Code)
+		assert.Contains(t, toolErr.Message, tc.message)
+	}
+	assert.Equal(t, 2, te.sboms.calls)
+	assert.Zero(t, te.lister.calls)
 }
 
 func TestRequestBodyLimit(t *testing.T) {

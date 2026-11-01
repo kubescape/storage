@@ -1,0 +1,10 @@
+{
+  "call": {
+    "name": "list_sboms",
+    "arguments": {}
+  },
+  "isError": false,
+  "response": {
+    "sboms": []
+  }
+}

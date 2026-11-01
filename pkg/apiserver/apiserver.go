@@ -429,6 +429,7 @@ func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
 		Authorizer:             authz,
 		Scheme:                 Scheme,
 		VulnerabilityManifests: m["vulnerabilitymanifests"],
+		SBOMSyfts:              m["sbomsyfts"],
 	})
 	if err != nil {
 		return err

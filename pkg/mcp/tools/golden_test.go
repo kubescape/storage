@@ -16,7 +16,7 @@ import (
 
 // The golden files pin what an agent sees: the tool list with its argument
 // schemas, and the answers to fixed calls on the objects in testdata, which
-// are cut from a real grype scan of nginx (kubevuln's testdata). kubescape
+// are cut from a real grype scan and syft SBOM of nginx (kubevuln's testdata). kubescape
 // mcpserver serves the same tools, so its tests can read these files from the
 // storage module to check that both answer the same way.
 //
@@ -64,6 +64,19 @@ var goldenCalls = []struct {
 	{"list_vulnerability_matches_for_cve/two_packages", goldenCall{"list_vulnerability_matches_for_cve", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9", "cve_id": "CVE-2017-12424"}}},
 	{"list_vulnerability_matches_for_cve/no_match", goldenCall{"list_vulnerability_matches_for_cve", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9", "cve_id": "CVE-2021-44228"}}},
 	{"list_vulnerability_matches_for_cve/no_cve", goldenCall{"list_vulnerability_matches_for_cve", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9"}}},
+
+	{"list_sboms/namespace", goldenCall{"list_sboms", map[string]any{"namespace": "kubescape"}}},
+	{"list_sboms/path_namespace", goldenCall{"list_sboms", map[string]any{}}},
+	{"list_sboms/forbidden", goldenCall{"list_sboms", map[string]any{"namespace": restrictedNamespace}}},
+
+	{"list_sbom_packages/default", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9"}}},
+	{"list_sbom_packages/name", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9", "name": "NGINX"}}},
+	{"list_sbom_packages/package_type", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9", "package_type": "java-archive"}}},
+	{"list_sbom_packages/second_page", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9", "limit": 5, "offset": 5}}},
+	{"list_sbom_packages/too_large", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "redis-a1c3e5"}}},
+	{"list_sbom_packages/not_found", goldenCall{"list_sbom_packages", map[string]any{"sbom_name": "nginx-32fdf9"}}},
+	{"list_sbom_packages/forbidden", goldenCall{"list_sbom_packages", map[string]any{"namespace": restrictedNamespace, "sbom_name": "redis-a1c3e5"}}},
+	{"list_sbom_packages/invalid_limit", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9", "limit": 501}}},
 }
 
 func goldenServer(t *testing.T) *server.MCPServer {
@@ -72,8 +85,12 @@ func goldenServer(t *testing.T) *server.MCPServer {
 	require.NoError(t, err)
 	var manifests []v1beta1.VulnerabilityManifest
 	require.NoError(t, json.Unmarshal(b, &manifests))
+	r := newMemReader(manifests...)
+	b, err = os.ReadFile(filepath.Join("testdata", "sbomsyfts.json"))
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(b, &r.sboms))
 	s := server.NewMCPServer("kubescape-storage", "v1beta1")
-	Register(s, newMemReader(manifests...))
+	Register(s, r)
 	return s
 }
 

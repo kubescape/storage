@@ -1,0 +1,18 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "limit": 501,
+      "namespace": "kubescape",
+      "sbom_name": "nginx-32fdf9"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "limit must be between 1 and 500",
+    "details": {
+      "argument": "limit"
+    }
+  }
+}
