@@ -465,6 +465,45 @@ var (
 	)
 )
 
+// MCP tool calls (pkg/mcp/endpoint). Tool names are bounded: a call to an
+// unknown tool is refused before it is counted. The result is "ok", the tool
+// error's code (for example RBAC_DENIED or TIMEOUT), or "error" for a
+// JSON-RPC error.
+var (
+	MCPToolCallsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "mcp_tool_calls_total",
+			Help:           "Count of MCP tool calls, by tool and result (ok, the tool error code, or error).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"tool", "result"},
+	)
+
+	MCPToolCallDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem:      "storage",
+			Name:           "mcp_tool_call_duration_seconds",
+			Help:           "Duration of MCP tool calls, by tool.",
+			Buckets:        waitBuckets,
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"tool"},
+	)
+
+	MCPToolResponseBytes = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Subsystem: "storage",
+			Name:      "mcp_tool_response_bytes",
+			Help:      "Size of the text of MCP tool results, by tool.",
+			// 1 KiB to 1 MiB.
+			Buckets:        metrics.ExponentialBuckets(1024, 2, 11),
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"tool"},
+	)
+)
+
 func init() {
 	legacyregistry.MustRegister(LockWaitDuration)
 	legacyregistry.MustRegister(PoolWaitDuration)
@@ -493,6 +532,16 @@ func init() {
 	legacyregistry.MustRegister(SqliteWriteHoldStepDuration)
 	legacyregistry.MustRegister(WriteGateHoldAge)
 	legacyregistry.MustRegister(WriteGateReentrantTotal)
+	legacyregistry.MustRegister(MCPToolCallsTotal)
+	legacyregistry.MustRegister(MCPToolCallDuration)
+	legacyregistry.MustRegister(MCPToolResponseBytes)
+}
+
+// ObserveMCPToolCall records one MCP tool call.
+func ObserveMCPToolCall(tool, result string, d time.Duration, responseBytes int) {
+	MCPToolCallsTotal.WithLabelValues(tool, result).Inc()
+	MCPToolCallDuration.WithLabelValues(tool).Observe(d.Seconds())
+	MCPToolResponseBytes.WithLabelValues(tool).Observe(float64(responseBytes))
 }
 
 // IncSqliteUngatedWrite records one write statement prepared on a pool
