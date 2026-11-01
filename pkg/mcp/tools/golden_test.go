@@ -17,7 +17,8 @@ import (
 // The golden files pin what an agent sees: the tool list with its argument
 // schemas, and the answers to fixed calls on the objects in testdata, which
 // are cut from a real grype scan and syft SBOM of nginx (kubevuln's testdata)
-// and from configuration scans that kubescape stored on a kind cluster. kubescape
+// from configuration scans that kubescape stored on a kind cluster, and from
+// the container profile in storage's network policy testdata. kubescape
 // mcpserver serves the same tools, so its tests can read these files from the
 // storage module to check that both answer the same way.
 //
@@ -90,6 +91,15 @@ var goldenCalls = []struct {
 	{"get_configuration_security_scan_manifest/forbidden", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": restrictedNamespace, "manifest_name": "serviceaccount-default"}}},
 	{"get_configuration_security_scan_manifest/invalid_status", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "status": "failed,excepted"}}},
 	{"get_configuration_security_scan_manifest/invalid_severity", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "min_severity": "Negligible"}}},
+
+	{"list_container_profiles/namespace", goldenCall{"list_container_profiles", map[string]any{"namespace": "kubescape"}}},
+	{"list_container_profiles/path_namespace", goldenCall{"list_container_profiles", map[string]any{}}},
+	{"list_container_profiles/forbidden", goldenCall{"list_container_profiles", map[string]any{"namespace": restrictedNamespace}}},
+
+	{"get_container_profile/default", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d"}}},
+	{"get_container_profile/not_found", goldenCall{"get_container_profile", map[string]any{"profile_name": "replicaset-operator-55df98fc6d"}}},
+	{"get_container_profile/forbidden", goldenCall{"get_container_profile", map[string]any{"namespace": restrictedNamespace, "profile_name": "replicaset-operator-55df98fc6d"}}},
+	{"get_container_profile/no_name", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape"}}},
 }
 
 func goldenServer(t *testing.T) *server.MCPServer {
@@ -105,6 +115,9 @@ func goldenServer(t *testing.T) *server.MCPServer {
 	b, err = os.ReadFile(filepath.Join("testdata", "workloadconfigurationscans.json"))
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(b, &r.scans))
+	b, err = os.ReadFile(filepath.Join("testdata", "containerprofiles.json"))
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(b, &r.profiles))
 	s := server.NewMCPServer("kubescape-storage", "v1beta1")
 	Register(s, r)
 	return s

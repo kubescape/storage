@@ -54,6 +54,7 @@ type reader struct {
 	vulnerabilityManifests listGetter
 	sbomSyfts              listGetter
 	configurationScans     listGetter
+	containerProfiles      listGetter
 }
 
 func (r *reader) ListVulnerabilityManifests(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.VulnerabilityManifestList, error) {
@@ -142,6 +143,36 @@ func (r *reader) GetWorkloadConfigurationScan(ctx context.Context, namespace, na
 	out := &v1beta1.WorkloadConfigurationScan{}
 	if err := r.scheme.Convert(obj, out, nil); err != nil {
 		return nil, fmt.Errorf("convert configuration scan: %w", err)
+	}
+	return out, nil
+}
+
+func (r *reader) ListContainerProfiles(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.ContainerProfileList, error) {
+	if err := r.authorize(ctx, "list", "containerprofiles", namespace, ""); err != nil {
+		return nil, err
+	}
+	obj, err := r.list(readContext(ctx, "list", "containerprofiles", namespace, ""), r.containerProfiles, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1beta1.ContainerProfileList{}
+	if err := r.scheme.Convert(obj, out, nil); err != nil {
+		return nil, fmt.Errorf("convert container profiles: %w", err)
+	}
+	return out, nil
+}
+
+func (r *reader) GetContainerProfile(ctx context.Context, namespace, name string) (*v1beta1.ContainerProfile, error) {
+	if err := r.authorize(ctx, "get", "containerprofiles", namespace, name); err != nil {
+		return nil, err
+	}
+	obj, err := r.containerProfiles.Get(readContext(ctx, "get", "containerprofiles", namespace, name), name, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	out := &v1beta1.ContainerProfile{}
+	if err := r.scheme.Convert(obj, out, nil); err != nil {
+		return nil, fmt.Errorf("convert container profile: %w", err)
 	}
 	return out, nil
 }

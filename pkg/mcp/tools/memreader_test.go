@@ -20,6 +20,7 @@ type memReader struct {
 	manifests []v1beta1.VulnerabilityManifest
 	sboms     []v1beta1.SBOMSyft
 	scans     []v1beta1.WorkloadConfigurationScan
+	profiles  []v1beta1.ContainerProfile
 }
 
 func newMemReader(manifests ...v1beta1.VulnerabilityManifest) *memReader {
@@ -118,4 +119,29 @@ func (r *memReader) GetWorkloadConfigurationScan(_ context.Context, namespace, n
 		}
 	}
 	return nil, apierrors.NewNotFound(v1beta1.Resource("workloadconfigurationscans"), name)
+}
+
+func (r *memReader) ListContainerProfiles(_ context.Context, namespace string, _ metav1.ListOptions) (*v1beta1.ContainerProfileList, error) {
+	if namespace == restrictedNamespace {
+		return nil, forbidden("list", "containerprofiles", namespace, "")
+	}
+	out := &v1beta1.ContainerProfileList{}
+	for _, p := range r.profiles {
+		if p.Namespace == namespace {
+			out.Items = append(out.Items, v1beta1.ContainerProfile{ObjectMeta: p.ObjectMeta})
+		}
+	}
+	return out, nil
+}
+
+func (r *memReader) GetContainerProfile(_ context.Context, namespace, name string) (*v1beta1.ContainerProfile, error) {
+	if namespace == restrictedNamespace {
+		return nil, forbidden("get", "containerprofiles", namespace, name)
+	}
+	for i := range r.profiles {
+		if r.profiles[i].Namespace == namespace && r.profiles[i].Name == name {
+			return r.profiles[i].DeepCopy(), nil
+		}
+	}
+	return nil, apierrors.NewNotFound(v1beta1.Resource("containerprofiles"), name)
 }

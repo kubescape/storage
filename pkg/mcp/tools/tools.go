@@ -22,6 +22,8 @@ type Reader interface {
 	GetSBOMSyft(ctx context.Context, namespace, name string) (*v1beta1.SBOMSyft, error)
 	ListWorkloadConfigurationScans(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.WorkloadConfigurationScanList, error)
 	GetWorkloadConfigurationScan(ctx context.Context, namespace, name string) (*v1beta1.WorkloadConfigurationScan, error)
+	ListContainerProfiles(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.ContainerProfileList, error)
+	GetContainerProfile(ctx context.Context, namespace, name string) (*v1beta1.ContainerProfile, error)
 }
 
 // Register adds every tool to s.
@@ -33,6 +35,8 @@ func Register(s *server.MCPServer, r Reader) {
 	s.AddTool(listSBOMPackagesTool, listSBOMPackages(r))
 	s.AddTool(listConfigurationScansTool, listConfigurationScans(r))
 	s.AddTool(getConfigurationScanTool, getConfigurationScan(r))
+	s.AddTool(listContainerProfilesTool, listContainerProfiles(r))
+	s.AddTool(getContainerProfileTool, getContainerProfile(r))
 }
 
 // readOnlyTool is mcp.NewTool with the hints of a tool that only reads
