@@ -160,6 +160,11 @@ func (r *reader) authorize(ctx context.Context, verb, resource, namespace, name 
 	}
 	decision, reason, err := r.authorizer.Authorize(ctx, attrs)
 	allowed := decision == authorizer.DecisionAllow
+	if err != nil && reason == "" {
+		// A check that failed, for example cut by the call's deadline, is not
+		// a denial; the audit line says why.
+		reason = err.Error()
+	}
 	recordRead(ctx, read{Verb: verb, Resource: resource, Namespace: namespace, Name: name, Allowed: allowed, Reason: reason})
 	switch {
 	case allowed:

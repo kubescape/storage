@@ -26,6 +26,11 @@ type KindQueueConfig struct {
 // subresource (see pkg/mcp/endpoint).
 type MCPConfig struct {
 	Enabled bool `mapstructure:"enabled"`
+	// CallTimeout bounds the work of one tool call. The agent gets a TIMEOUT
+	// tool error when it is reached, well before kube-apiserver's 60s cut.
+	CallTimeout time.Duration `mapstructure:"callTimeout"`
+	// MaxResponseBytes caps the text of one tool result.
+	MaxResponseBytes int `mapstructure:"maxResponseBytes"`
 }
 
 type Config struct {
@@ -186,6 +191,8 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("defaultNamespace", "kubescape")
 	v.SetDefault("maxContainerProfileSize", 40000)
 	v.SetDefault("mcp.enabled", false)
+	v.SetDefault("mcp.callTimeout", 20*time.Second)
+	v.SetDefault("mcp.maxResponseBytes", 256<<10)
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)

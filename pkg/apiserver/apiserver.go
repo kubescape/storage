@@ -430,6 +430,8 @@ func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
 		Scheme:                 Scheme,
 		VulnerabilityManifests: m["vulnerabilitymanifests"],
 		SBOMSyfts:              m["sbomsyfts"],
+		CallTimeout:            c.ExtraConfig.StorageConfig.MCP.CallTimeout,
+		MaxResponseBytes:       c.ExtraConfig.StorageConfig.MCP.MaxResponseBytes,
 	})
 	if err != nil {
 		return err

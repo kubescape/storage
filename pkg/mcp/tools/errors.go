@@ -16,6 +16,10 @@ const (
 	ErrCodeResourceNotFound ErrorCode = "RESOURCE_NOT_FOUND"
 	ErrCodeRBACDenied       ErrorCode = "RBAC_DENIED"
 	ErrCodeInvalidArgument  ErrorCode = "INVALID_ARGUMENT"
+	ErrCodeTimeout          ErrorCode = "TIMEOUT"
+	// ErrCodeResponseTooLarge is the answer to a call whose result is above
+	// the endpoint's size cap.
+	ErrCodeResponseTooLarge ErrorCode = "RESPONSE_TOO_LARGE"
 )
 
 // ToolError is the JSON text of a tool error result.
@@ -23,6 +27,11 @@ type ToolError struct {
 	Code    ErrorCode      `json:"code"`
 	Message string         `json:"message"`
 	Details map[string]any `json:"details,omitempty"`
+}
+
+// ErrorResult is the tool error result with code, message and details.
+func ErrorResult(code ErrorCode, message string, details map[string]any) *mcp.CallToolResult {
+	return toolError(code, message, details)
 }
 
 func toolError(code ErrorCode, message string, details map[string]any) *mcp.CallToolResult {

@@ -161,8 +161,9 @@ type testEndpoint struct {
 }
 
 // newTestEndpoint returns an endpoint whose authorizer allows only
-// "list" and "get" on vulnerabilitymanifests and sbomsyfts in allowedNS.
-func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
+// "list" and "get" on vulnerabilitymanifests and sbomsyfts in allowedNS. opts
+// change its configuration.
+func newTestEndpoint(t *testing.T, allowedNS string, opts ...func(*Config)) *testEndpoint {
 	t.Helper()
 	te := &testEndpoint{frontCA: newTestCA(t, "front-proxy-ca"), allowedNS: allowedNS, lister: &fakeLister{
 		items: []softwarecomposition.VulnerabilityManifest{
@@ -183,7 +184,7 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 	require.NoError(t, err)
 	scheme := runtime.NewScheme()
 	install.Install(scheme)
-	e, err := New(Config{
+	cfg := Config{
 		RequestHeader: &authenticatorfactory.RequestHeaderConfig{
 			CAContentProvider:  ca,
 			AllowedClientNames: headerrequest.StaticStringSlice{frontProxyName},
@@ -198,7 +199,13 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 		Scheme:                 scheme,
 		VulnerabilityManifests: te.lister,
 		SBOMSyfts:              te.sboms,
-	})
+		CallTimeout:            20 * time.Second,
+		MaxResponseBytes:       256 << 10,
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	e, err := New(cfg)
 	require.NoError(t, err)
 	_, te.connect = e.Storage()
 	return te
@@ -385,6 +392,35 @@ func TestSBOMReadsAreCheckedForTheCaller(t *testing.T) {
 	}
 	assert.Equal(t, 2, te.sboms.calls)
 	assert.Zero(t, te.lister.calls)
+}
+
+func TestResponseSizeCap(t *testing.T) {
+	te := newTestEndpoint(t, "kubescape", func(c *Config) { c.MaxResponseBytes = 100 })
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	text, isError := toolResult(t, te.call(t, "kagent", cert, agent, toolCall(`{"namespace":"kubescape"}`)))
+	require.True(t, isError)
+	var toolErr tools.ToolError
+	require.NoError(t, json.Unmarshal([]byte(text), &toolErr))
+	assert.Equal(t, tools.ErrCodeResponseTooLarge, toolErr.Code)
+	assert.EqualValues(t, 100, toolErr.Details["max_bytes"])
+	assert.Equal(t, 1, te.lister.calls, "the read happened; only the answer is replaced")
+}
+
+func TestNewNeedsLimits(t *testing.T) {
+	ca, err := dynamiccertificates.NewStaticCAContent("front-proxy-ca", newTestCA(t, "front-proxy-ca").pem)
+	require.NoError(t, err)
+	scheme := runtime.NewScheme()
+	install.Install(scheme)
+	_, err = New(Config{
+		RequestHeader: &authenticatorfactory.RequestHeaderConfig{CAContentProvider: ca},
+		Authorizer: authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
+			return authorizer.DecisionNoOpinion, "", nil
+		}),
+		Scheme:                 scheme,
+		VulnerabilityManifests: &fakeLister{},
+		SBOMSyfts:              &fakeSBOMs{},
+	})
+	assert.ErrorContains(t, err, "positive call timeout and response size cap")
 }
 
 func TestRequestBodyLimit(t *testing.T) {
