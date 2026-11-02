@@ -1,0 +1,12 @@
+{
+  "call": {
+    "name": "list_container_profiles",
+    "arguments": {}
+  },
+  "isError": false,
+  "response": {
+    "container_profiles": {
+      "profiles": []
+    }
+  }
+}

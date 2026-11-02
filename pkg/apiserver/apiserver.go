@@ -431,6 +431,7 @@ func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
 		VulnerabilityManifests:     m["vulnerabilitymanifests"],
 		SBOMSyfts:                  m["sbomsyfts"],
 		WorkloadConfigurationScans: m["workloadconfigurationscans"],
+		ContainerProfiles:          m["containerprofiles"],
 	})
 	if err != nil {
 		return err

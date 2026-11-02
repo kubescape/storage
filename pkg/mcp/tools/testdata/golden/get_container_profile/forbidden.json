@@ -1,0 +1,14 @@
+{
+  "call": {
+    "name": "get_container_profile",
+    "arguments": {
+      "namespace": "restricted",
+      "profile_name": "replicaset-operator-55df98fc6d"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RBAC_DENIED",
+    "message": "containerprofiles.spdx.softwarecomposition.kubescape.io \"replicaset-operator-55df98fc6d\" is forbidden: User \"system:serviceaccount:kagent:agent\" cannot get resource \"containerprofiles\" in API group \"spdx.softwarecomposition.kubescape.io\" in the namespace \"restricted\""
+  }
+}

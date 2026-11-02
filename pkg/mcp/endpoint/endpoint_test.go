@@ -183,19 +183,52 @@ func (f *fakeScans) List(ctx context.Context, _ *metainternalversion.ListOptions
 	return &softwarecomposition.WorkloadConfigurationScanList{Items: f.items}, nil
 }
 
+// fakeProfiles stands in for the containerprofiles REST storage.
+type fakeProfiles struct {
+	rest.TableConvertor
+	calls int
+	info  *genericapirequest.RequestInfo
+	items []softwarecomposition.ContainerProfile
+}
+
+func (f *fakeProfiles) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	f.calls++
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
+	namespace := genericapirequest.NamespaceValue(ctx)
+	for i := range f.items {
+		if f.items[i].Namespace == namespace && f.items[i].Name == name {
+			return &f.items[i], nil
+		}
+	}
+	return nil, apierrors.NewNotFound(softwarecomposition.Resource("containerprofiles"), name)
+}
+
+func (f *fakeProfiles) New() runtime.Object { return &softwarecomposition.ContainerProfile{} }
+func (f *fakeProfiles) Destroy()            {}
+func (f *fakeProfiles) NewList() runtime.Object {
+	return &softwarecomposition.ContainerProfileList{}
+}
+
+func (f *fakeProfiles) List(ctx context.Context, _ *metainternalversion.ListOptions) (runtime.Object, error) {
+	f.calls++
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
+	return &softwarecomposition.ContainerProfileList{Items: f.items}, nil
+}
+
 type testEndpoint struct {
 	connect   rest.Storage
 	lister    *fakeLister
 	sboms     *fakeSBOMs
 	scans     *fakeScans
+	profiles  *fakeProfiles
 	frontCA   testCA
 	attrs     []authorizer.Attributes
 	allowedNS string
 }
 
 // newTestEndpoint returns an endpoint whose authorizer allows only
-// "list" and "get" on vulnerabilitymanifests, sbomsyfts and
-// workloadconfigurationscans in allowedNS.
+// "list" and "get" on vulnerabilitymanifests, sbomsyfts,
+// workloadconfigurationscans and containerprofiles in allowedNS.
 func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 	t.Helper()
 	te := &testEndpoint{frontCA: newTestCA(t, "front-proxy-ca"), allowedNS: allowedNS, lister: &fakeLister{
@@ -219,6 +252,10 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 				"C-0017": {ControlID: "C-0017", Severity: softwarecomposition.ControlSeverity{Severity: "Low"}, Status: softwarecomposition.ScannedControlStatus{Status: "failed"}},
 			}}},
 	}}
+	te.profiles = &fakeProfiles{items: []softwarecomposition.ContainerProfile{
+		{ObjectMeta: metav1.ObjectMeta{Namespace: allowedNS, Name: "replicaset-web-7d4b9c-nginx"},
+			Spec: softwarecomposition.ContainerProfileSpec{Syscalls: []string{"accept4"}}},
+	}}
 	ca, err := dynamiccertificates.NewStaticCAContent("front-proxy-ca", te.frontCA.pem)
 	require.NoError(t, err)
 	scheme := runtime.NewScheme()
@@ -230,7 +267,7 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 		},
 		Authorizer: authorizer.AuthorizerFunc(func(_ context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			te.attrs = append(te.attrs, a)
-			if (a.GetVerb() == "list" || a.GetVerb() == "get") && (a.GetResource() == "vulnerabilitymanifests" || a.GetResource() == "sbomsyfts" || a.GetResource() == "workloadconfigurationscans") && a.GetNamespace() == te.allowedNS {
+			if (a.GetVerb() == "list" || a.GetVerb() == "get") && (a.GetResource() == "vulnerabilitymanifests" || a.GetResource() == "sbomsyfts" || a.GetResource() == "workloadconfigurationscans" || a.GetResource() == "containerprofiles") && a.GetNamespace() == te.allowedNS {
 				return authorizer.DecisionAllow, "", nil
 			}
 			return authorizer.DecisionNoOpinion, "", nil
@@ -239,6 +276,7 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 		VulnerabilityManifests:     te.lister,
 		SBOMSyfts:                  te.sboms,
 		WorkloadConfigurationScans: te.scans,
+		ContainerProfiles:          te.profiles,
 	})
 	require.NoError(t, err)
 	_, te.connect = e.Storage()
@@ -468,6 +506,48 @@ func TestConfigurationScanReadsAreCheckedForTheCaller(t *testing.T) {
 		assert.Contains(t, toolErr.Message, tc.message)
 	}
 	assert.Equal(t, 2, te.scans.calls)
+}
+
+func TestContainerProfileReadsAreCheckedForTheCaller(t *testing.T) {
+	te := newTestEndpoint(t, "kubescape")
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	call := func(tool, args string) string {
+		return `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"` + tool + `","arguments":` + args + `}}`
+	}
+
+	// list: checked as "kubectl get containerprofiles -n kubescape".
+	text, isError := toolResult(t, te.call(t, "kagent", cert, agent, call("list_container_profiles", `{"namespace":"kubescape"}`)))
+	require.False(t, isError, text)
+	assert.Contains(t, text, `"profile_name":"replicaset-web-7d4b9c-nginx"`)
+	require.Len(t, te.attrs, 1)
+	assert.Equal(t, []any{"list", "containerprofiles", "kubescape", ""},
+		[]any{te.attrs[0].GetVerb(), te.attrs[0].GetResource(), te.attrs[0].GetNamespace(), te.attrs[0].GetName()})
+	require.NotNil(t, te.profiles.info)
+	assert.Equal(t, []string{"list", "containerprofiles", "kubescape"}, []string{te.profiles.info.Verb, te.profiles.info.Resource, te.profiles.info.Namespace})
+
+	// get: checked as "kubectl get containerprofiles replicaset-web-7d4b9c-nginx -n kubescape".
+	text, isError = toolResult(t, te.call(t, "kagent", cert, agent, call("get_container_profile", `{"namespace":"kubescape","profile_name":"replicaset-web-7d4b9c-nginx"}`)))
+	require.False(t, isError, text)
+	assert.Contains(t, text, `"accept4"`)
+	require.Len(t, te.attrs, 2)
+	assert.Equal(t, []any{"get", "containerprofiles", "kubescape", "replicaset-web-7d4b9c-nginx"},
+		[]any{te.attrs[1].GetVerb(), te.attrs[1].GetResource(), te.attrs[1].GetNamespace(), te.attrs[1].GetName()})
+	assert.Equal(t, []string{"get", "containerprofiles", "kubescape", "replicaset-web-7d4b9c-nginx"},
+		[]string{te.profiles.info.Verb, te.profiles.info.Resource, te.profiles.info.Namespace, te.profiles.info.Name})
+
+	// Denied in the path namespace: RBAC_DENIED and nothing is read.
+	for _, tc := range []struct{ tool, args, message string }{
+		{"list_container_profiles", `{}`, `cannot list resource "containerprofiles"`},
+		{"get_container_profile", `{"profile_name":"replicaset-web-7d4b9c-nginx"}`, `cannot get resource "containerprofiles"`},
+	} {
+		text, isError = toolResult(t, te.call(t, "kagent", cert, agent, call(tc.tool, tc.args)))
+		require.True(t, isError)
+		var toolErr tools.ToolError
+		require.NoError(t, json.Unmarshal([]byte(text), &toolErr))
+		assert.Equal(t, tools.ErrCodeRBACDenied, toolErr.Code)
+		assert.Contains(t, toolErr.Message, tc.message)
+	}
+	assert.Equal(t, 2, te.profiles.calls)
 }
 
 func TestRequestBodyLimit(t *testing.T) {
