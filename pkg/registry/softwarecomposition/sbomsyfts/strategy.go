@@ -68,11 +68,11 @@ func (SbomSyftStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []
 	return nil
 }
 
-func (SbomSyftStrategy) AllowCreateOnUpdate() bool {
+func (SbomSyftStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (SbomSyftStrategy) AllowUnconditionalUpdate() bool {
+func (SbomSyftStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

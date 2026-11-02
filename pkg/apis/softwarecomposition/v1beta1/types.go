@@ -342,12 +342,12 @@ type Component struct {
 }
 
 type Product struct {
-	Component     `protobuf:"bytes,1,opt,name=component"`
+	Component     `json:",inline" protobuf:"bytes,1,opt,name=component"`
 	Subcomponents []Subcomponent `json:"subcomponents,omitempty" protobuf:"bytes,2,opt,name=subcomponents"`
 }
 
 type Subcomponent struct {
-	Component `protobuf:"bytes,1,opt,name=component"`
+	Component `json:",inline" protobuf:"bytes,1,opt,name=component"`
 }
 
 type VexVulnerability struct {
@@ -415,7 +415,7 @@ type Statement struct {
 }
 
 type VEX struct {
-	Metadata   `protobuf:"bytes,1,opt,name=metadata"`
+	Metadata   `json:",inline" protobuf:"bytes,1,opt,name=metadata"`
 	Statements []Statement `json:"statements" protobuf:"bytes,2,rep,name=statements"`
 }
 

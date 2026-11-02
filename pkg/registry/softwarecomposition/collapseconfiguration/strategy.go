@@ -98,11 +98,11 @@ func (CollapseConfigurationStrategy) WarningsOnCreate(_ context.Context, _ runti
 	return nil
 }
 
-func (CollapseConfigurationStrategy) AllowCreateOnUpdate() bool {
+func (CollapseConfigurationStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (CollapseConfigurationStrategy) AllowUnconditionalUpdate() bool {
+func (CollapseConfigurationStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 
