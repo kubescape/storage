@@ -87,14 +87,21 @@ syft version, not off the filenames under `schema/json/` — that directory
 bundles every historical schema for backward decoding, so its oldest entry is
 not what the version you are leaving actually emits.
 
-Nothing here is a Kubernetes API struct. Running `hack/update-codegen.sh` after
-a sync produces no diff *attributable to the sync* — but it is not a clean run
-either: there is pre-existing drift in `IgnoreRule`
-(`SourceKind`/`SourceName`/`SourceNamespace`/`Justification`/`ImpactStatement`)
-and in `NetworkNeighbor` doc comments, between the committed `zz_generated.*`
-files and what the generator emits today. Verify by running the script on your
-branch and on a clean `origin/main` worktree and diffing the two results; they
-should be identical. Do not commit that drift as part of a syft bump.
+Nothing here is a Kubernetes API struct, so a sync produces no codegen diff
+*attributable to it*. Do not assume the run is otherwise clean, though: when
+this was written there was also pre-existing drift between the committed
+`zz_generated.*` files and what the generator emits. The `IgnoreRule` half of
+that (`SourceKind`/`SourceName`/`SourceNamespace`/`Justification`/
+`ImpactStatement`) was fixed on main by #473; the `NetworkNeighbor` doc-comment
+half has not been re-measured since.
+
+Verify by running the script on your branch and on a clean `origin/main`
+worktree and diffing the two results; they should be identical, and only a
+difference between them is yours. Two traps: the script needs a sibling
+`../code-generator` checkout or it dies at line 25, and an `origin/main`
+worktree under `/tmp` aborts in `gen_client` ("directory outside main module"),
+which silently skips the post-generation fix-ups and makes the two diffs look
+different. Do not commit pre-existing drift as part of a syft bump.
 
 ## syft v1.55.0 sync
 
