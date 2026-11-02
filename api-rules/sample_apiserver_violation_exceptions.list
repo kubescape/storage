@@ -103,7 +103,6 @@ API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwareco
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,GrypePackage,CPEs
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,IgnoreRule,FixState
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,IgnoreRulePackage,UpstreamName
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,IgnoredMatch,Match
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,License,URLs
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Location,LocationData
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Location,LocationMetadata
@@ -115,7 +114,6 @@ API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwareco
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Metadata,LastUpdated
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,PackageBasicData,CPEs
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,PackageBasicDataV01011,CPEs
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Product,Component
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,RulePolicy,AllowedContainer
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,RulePolicy,AllowedProcesses
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Statement,ActionStatement
@@ -124,18 +122,13 @@ API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwareco
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Statement,ImpactStatement
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Statement,LastUpdated
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Statement,StatusNotes
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Subcomponent,Component
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,SyftCoordinates,FileSystemID
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,SyftCoordinates,RealPath
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,SyftDocument,SyftDescriptor
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,SyftDocument,SyftSource
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,SyftPackage,PackageBasicData
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,SyftPackage,PackageCustomData
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VEX,Metadata
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VexVulnerability,ID
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilitiesComponents,ImageVulnerabilitiesObj
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilitiesComponents,WorkloadVulnerabilitiesObj
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Vulnerability,VulnerabilityMetadata
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilityManifestSummarySpec,Vulnerabilities
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilityMetadata,URLs
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,VulnerabilitySummarySpec,WorkloadVulnerabilitiesObj

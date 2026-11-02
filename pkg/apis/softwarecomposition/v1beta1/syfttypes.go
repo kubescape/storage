@@ -180,8 +180,8 @@ type SyftRelationship struct {
 
 // SyftPackage represents a pkg.SyftPackage object specialized for JSON marshaling and unmarshalling.
 type SyftPackage struct {
-	PackageBasicData  `protobuf:"bytes,1,opt,name=packageBasicData"`
-	PackageCustomData `protobuf:"bytes,2,opt,name=packageCustomData"`
+	PackageBasicData  `json:",inline" protobuf:"bytes,1,opt,name=packageBasicData"`
+	PackageCustomData `json:",inline" protobuf:"bytes,2,opt,name=packageCustomData"`
 }
 
 // PackageBasicData contains non-ambiguous values (type-wise) from pkg.SyftPackage.

@@ -63,6 +63,14 @@ unrelated artifacts to repair this builder. Sources:
 [module dependencies](../../go.mod) and
 [generation script](../../hack/update-codegen.sh).
 
+Embedded v1beta1 structs (`VulnerabilityMetadata` in `Vulnerability`, `Match`
+in `IgnoredMatch`, the syft package data, `Component`, and VEX `Metadata`) carry
+`json:",inline"`. Go's JSON encoding inlines an untagged embedded struct anyway,
+but openapi-gen only inlines it with the tag. Without it, the generated schema
+nests the fields under the type name, and structured-merge-diff v6.4 (k8s v0.37)
+rejects real objects with `field not declared in schema` when it builds managed
+fields. `TestScannerDocumentsManagedFieldsConversion` covers this.
+
 Regression coverage checks every added field for omission, nonempty values,
 explicit empty strings, chaining, and last-call-wins behavior. It also checks
 JSON decoding into the existing API type and nesting under `IgnoredMatch`.
