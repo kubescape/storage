@@ -1046,7 +1046,7 @@ func (a *ContainerProfileProcessor) consolidateContinuousTimeSeries(
 	newTimeSeries = append(newTimeSeries, timeSeries[j])
 
 	// Update creation timestamp if this is earlier
-	if t, err := time.Parse(time.RFC3339, timeSeries[j].ReportTimestamp); err == nil && creationTimestamp.After(t) {
+	if t, ok := parseReportTimestamp(timeSeries[j].ReportTimestamp); ok && creationTimestamp.After(t) {
 		*creationTimestamp = metav1.NewTime(t)
 	}
 
@@ -1246,6 +1246,37 @@ func deflateContainerProfileContainers(sections []softwarecomposition.ContainerP
 		})
 	}
 	return out
+}
+
+// Report timestamps reach this package as node-agent rendered them, which is
+// time.Time.String() (its monitoring.go assigns time.Now() and stores the
+// String() of it), not RFC3339.
+const (
+	goTimeLayout = "2006-01-02 15:04:05.999999999 -0700 MST"
+	// A zone whose offset is not a whole number of hours renders a bare numeric
+	// abbreviation that the MST element cannot read. Do not fold this into the
+	// layout above; both spellings occur.
+	goTimeLayoutNumeric = "2006-01-02 15:04:05.999999999 -0700 -0700"
+)
+
+// parseReportTimestamp parses the spellings the ReportTimestamp column is known
+// to carry. isZeroTime below already tolerates both the String() and the RFC3339
+// zero value, which is the standing evidence that both formats reach this field.
+//
+// time.Now().String() carries a " m=+..." monotonic suffix that defeats every
+// layout, so it is cut before parsing. RFC3339 stays accepted: rows written by
+// other producers and the test fixtures use it.
+//
+// Mirrors node-agent's parseReportTimestamp (containerprofile_split.go), whose
+// own comment notes it mirrors isZeroTime here.
+func parseReportTimestamp(s string) (time.Time, bool) {
+	s, _, _ = strings.Cut(s, " m=")
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, goTimeLayout, goTimeLayoutNumeric} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func isZeroTime(s string) bool {
