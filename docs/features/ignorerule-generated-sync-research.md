@@ -52,10 +52,13 @@ and [nested apply builder](../../pkg/generated/applyconfiguration/softwarecompos
 
 ## Generation and verification
 
-The module pins `k8s.io/code-generator` to v0.35.0, and the repository generation
+The module pins `k8s.io/code-generator` to v0.37.0, and the repository generation
 script enables apply-configuration generation. Use that pinned generator with
 `GOFLAGS=-mod=readonly` and a temporary output directory, then compare and copy
-only the intended generated result. Do not edit dependencies or regenerate
+only the intended generated result. Run it with the Go toolchain the module
+declares (1.26): under Go 1.27, where `encoding/json/v2` is the default,
+the deepcopy generator spells `json.RawMessage` as `jsontext.Value` and the
+output drifts. Do not edit dependencies or regenerate
 unrelated artifacts to repair this builder. Sources:
 [module dependencies](../../go.mod) and
 [generation script](../../hack/update-codegen.sh).

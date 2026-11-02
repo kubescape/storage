@@ -65,11 +65,11 @@ func (GeneratedNetworkPolicyStrategy) WarningsOnCreate(_ context.Context, _ runt
 	return nil
 }
 
-func (GeneratedNetworkPolicyStrategy) AllowCreateOnUpdate() bool {
+func (GeneratedNetworkPolicyStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (GeneratedNetworkPolicyStrategy) AllowUnconditionalUpdate() bool {
+func (GeneratedNetworkPolicyStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

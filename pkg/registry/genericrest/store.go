@@ -92,11 +92,11 @@ type Strategy interface {
 	Validate(ctx context.Context, obj runtime.Object) field.ErrorList
 	WarningsOnCreate(ctx context.Context, obj runtime.Object) []string
 	Canonicalize(obj runtime.Object)
-	AllowCreateOnUpdate() bool
+	AllowCreateOnUpdate(ctx context.Context) bool
 	PrepareForUpdate(ctx context.Context, obj, old runtime.Object)
 	ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList
 	WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string
-	AllowUnconditionalUpdate() bool
+	AllowUnconditionalUpdate(ctx context.Context) bool
 }
 
 // Store is a hand-written rest.Storage implementation, generic over any
@@ -542,7 +542,7 @@ func (r *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 		storagePreconditions.ResourceVersion = preconditions.ResourceVersion
 	}
 
-	ignoreNotFound := r.Strategy.AllowCreateOnUpdate() || forceAllowCreate
+	ignoreNotFound := r.Strategy.AllowCreateOnUpdate(ctx) || forceAllowCreate
 
 	var (
 		creating    bool
@@ -555,7 +555,7 @@ func (r *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 		if err != nil {
 			return nil, nil, err
 		}
-		if existingResourceVersion == 0 && !r.Strategy.AllowCreateOnUpdate() && !forceAllowCreate {
+		if existingResourceVersion == 0 && !r.Strategy.AllowCreateOnUpdate(ctx) && !forceAllowCreate {
 			return nil, nil, apierrors.NewNotFound(r.DefaultQualifiedResource, name)
 		}
 
@@ -568,7 +568,7 @@ func (r *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 		if err != nil {
 			return nil, nil, err
 		}
-		doUnconditionalUpdate := newResourceVersion == 0 && r.Strategy.AllowUnconditionalUpdate()
+		doUnconditionalUpdate := newResourceVersion == 0 && r.Strategy.AllowUnconditionalUpdate(ctx)
 
 		if existingResourceVersion == 0 {
 			objectMeta, err := meta.Accessor(obj)
