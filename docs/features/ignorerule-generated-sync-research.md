@@ -64,12 +64,16 @@ unrelated artifacts to repair this builder. Sources:
 [generation script](../../hack/update-codegen.sh).
 
 Embedded v1beta1 structs (`VulnerabilityMetadata` in `Vulnerability`, `Match`
-in `IgnoredMatch`, the syft package data, `Component`, and VEX `Metadata`) carry
+in `IgnoredMatch`, the syft package data, the `Location` parts and their
+`Coordinates`, `Component`, and VEX `Metadata`) carry
 `json:",inline"`. Go's JSON encoding inlines an untagged embedded struct anyway,
 but openapi-gen only inlines it with the tag. Without it, the generated schema
 nests the fields under the type name, and structured-merge-diff v6.4 (k8s v0.37)
 rejects real objects with `field not declared in schema` when it builds managed
-fields. `TestScannerDocumentsManagedFieldsConversion` covers this.
+fields. Inlining also moves `PackageCustomData.metadata` into `SyftPackage`, so
+the scanner JSON fix-up in `hack/update-codegen.sh` lists `SyftPackage` too.
+`TestScannerDocumentsManagedFieldsConversion` and
+`TestSyftPackageManagedFieldsConversion` cover this.
 
 Regression coverage checks every added field for omission, nonempty values,
 explicit empty strings, chaining, and last-call-wins behavior. It also checks

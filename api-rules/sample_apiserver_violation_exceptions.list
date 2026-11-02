@@ -104,9 +104,6 @@ API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwareco
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,IgnoreRule,FixState
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,IgnoreRulePackage,UpstreamName
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,License,URLs
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Location,LocationData
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Location,LocationMetadata
-API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,LocationData,Coordinates
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,LocationData,VirtualPath
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Metadata,AuthorRole
 API rule violation: names_match,github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1,Metadata,Context

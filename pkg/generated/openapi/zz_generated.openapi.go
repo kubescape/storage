@@ -3521,24 +3521,46 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Location(ref common.ReferenceCa
 				Description: "Location represents a path relative to a particular filesystem resolved to a specific file.Reference. This struct is used as a key in content fetching to uniquely identify a file relative to a request (the VirtualPath).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"LocationData": {
+					"path": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.LocationData{}.OpenAPIModelName()),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
-					"LocationMetadata": {
+					"layerID": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.LocationMetadata{}.OpenAPIModelName()),
+							Description: "The path where all path ancestors have no hardlinks / symlinks",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"accessPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "note: it is IMPORTANT to ignore anything but the coordinates for a Location when considering the ID (hash value) since the coordinates are the minimally correct ID for a location (symlinks should not come into play)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
-				Required: []string{"LocationData", "LocationMetadata"},
+				Required: []string{"path", "accessPath"},
 			},
 		},
-		Dependencies: []string{
-			v1beta1.LocationData{}.OpenAPIModelName(), v1beta1.LocationMetadata{}.OpenAPIModelName()},
 	}
 }
 
@@ -3548,10 +3570,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref common.Referen
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Coordinates": {
+					"path": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.Coordinates{}.OpenAPIModelName()),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"layerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The path where all path ancestors have no hardlinks / symlinks",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"accessPath": {
@@ -3563,11 +3593,9 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"Coordinates", "accessPath"},
+				Required: []string{"path", "accessPath"},
 			},
 		},
-		Dependencies: []string{
-			v1beta1.Coordinates{}.OpenAPIModelName()},
 	}
 }
 
@@ -6417,9 +6445,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref common.Referenc
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},

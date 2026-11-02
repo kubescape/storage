@@ -47,7 +47,7 @@ func TestScannerDocumentsManagedFieldsConversion(t *testing.T) {
 			for model, properties := range map[string][]string{
 				"Cvss": {"vendorMetadata"}, "Descriptor": {"configuration", "db"},
 				"GrypePackage": {"metadata"}, "MatchDetails": {"searchedBy", "found"},
-				"PackageCustomData": {"metadata"}, "Source": {"target"},
+				"PackageCustomData": {"metadata"}, "Source": {"target"}, "SyftPackage": {"metadata"},
 				"SyftDescriptor": {"configuration"}, "SyftRelationship": {"metadata"},
 				"SyftSource": {"metadata"},
 			} {
