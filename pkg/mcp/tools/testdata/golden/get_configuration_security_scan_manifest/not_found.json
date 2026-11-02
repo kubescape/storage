@@ -1,0 +1,13 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "workloadconfigurationscans.spdx.softwarecomposition.kubescape.io \"deployment-web\" not found"
+  }
+}

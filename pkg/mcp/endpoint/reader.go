@@ -53,6 +53,7 @@ type reader struct {
 	scheme                 *runtime.Scheme
 	vulnerabilityManifests listGetter
 	sbomSyfts              listGetter
+	configurationScans     listGetter
 }
 
 func (r *reader) ListVulnerabilityManifests(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.VulnerabilityManifestList, error) {
@@ -111,6 +112,36 @@ func (r *reader) GetSBOMSyft(ctx context.Context, namespace, name string) (*v1be
 	out := &v1beta1.SBOMSyft{}
 	if err := r.scheme.Convert(obj, out, nil); err != nil {
 		return nil, fmt.Errorf("convert SBOM: %w", err)
+	}
+	return out, nil
+}
+
+func (r *reader) ListWorkloadConfigurationScans(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.WorkloadConfigurationScanList, error) {
+	if err := r.authorize(ctx, "list", "workloadconfigurationscans", namespace, ""); err != nil {
+		return nil, err
+	}
+	obj, err := r.list(readContext(ctx, "list", "workloadconfigurationscans", namespace, ""), r.configurationScans, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1beta1.WorkloadConfigurationScanList{}
+	if err := r.scheme.Convert(obj, out, nil); err != nil {
+		return nil, fmt.Errorf("convert configuration scans: %w", err)
+	}
+	return out, nil
+}
+
+func (r *reader) GetWorkloadConfigurationScan(ctx context.Context, namespace, name string) (*v1beta1.WorkloadConfigurationScan, error) {
+	if err := r.authorize(ctx, "get", "workloadconfigurationscans", namespace, name); err != nil {
+		return nil, err
+	}
+	obj, err := r.configurationScans.Get(readContext(ctx, "get", "workloadconfigurationscans", namespace, name), name, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	out := &v1beta1.WorkloadConfigurationScan{}
+	if err := r.scheme.Convert(obj, out, nil); err != nil {
+		return nil, fmt.Errorf("convert configuration scan: %w", err)
 	}
 	return out, nil
 }

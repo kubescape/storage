@@ -19,6 +19,7 @@ import (
 type memReader struct {
 	manifests []v1beta1.VulnerabilityManifest
 	sboms     []v1beta1.SBOMSyft
+	scans     []v1beta1.WorkloadConfigurationScan
 }
 
 func newMemReader(manifests ...v1beta1.VulnerabilityManifest) *memReader {
@@ -92,4 +93,29 @@ func (r *memReader) GetSBOMSyft(_ context.Context, namespace, name string) (*v1b
 		}
 	}
 	return nil, apierrors.NewNotFound(v1beta1.Resource("sbomsyfts"), name)
+}
+
+func (r *memReader) ListWorkloadConfigurationScans(_ context.Context, namespace string, _ metav1.ListOptions) (*v1beta1.WorkloadConfigurationScanList, error) {
+	if namespace == restrictedNamespace {
+		return nil, forbidden("list", "workloadconfigurationscans", namespace, "")
+	}
+	out := &v1beta1.WorkloadConfigurationScanList{}
+	for _, s := range r.scans {
+		if s.Namespace == namespace {
+			out.Items = append(out.Items, v1beta1.WorkloadConfigurationScan{ObjectMeta: s.ObjectMeta})
+		}
+	}
+	return out, nil
+}
+
+func (r *memReader) GetWorkloadConfigurationScan(_ context.Context, namespace, name string) (*v1beta1.WorkloadConfigurationScan, error) {
+	if namespace == restrictedNamespace {
+		return nil, forbidden("get", "workloadconfigurationscans", namespace, name)
+	}
+	for i := range r.scans {
+		if r.scans[i].Namespace == namespace && r.scans[i].Name == name {
+			return r.scans[i].DeepCopy(), nil
+		}
+	}
+	return nil, apierrors.NewNotFound(v1beta1.Resource("workloadconfigurationscans"), name)
 }

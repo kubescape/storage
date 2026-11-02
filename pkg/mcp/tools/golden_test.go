@@ -16,7 +16,8 @@ import (
 
 // The golden files pin what an agent sees: the tool list with its argument
 // schemas, and the answers to fixed calls on the objects in testdata, which
-// are cut from a real grype scan and syft SBOM of nginx (kubevuln's testdata). kubescape
+// are cut from a real grype scan and syft SBOM of nginx (kubevuln's testdata)
+// and from configuration scans that kubescape stored on a kind cluster. kubescape
 // mcpserver serves the same tools, so its tests can read these files from the
 // storage module to check that both answer the same way.
 //
@@ -77,6 +78,18 @@ var goldenCalls = []struct {
 	{"list_sbom_packages/not_found", goldenCall{"list_sbom_packages", map[string]any{"sbom_name": "nginx-32fdf9"}}},
 	{"list_sbom_packages/forbidden", goldenCall{"list_sbom_packages", map[string]any{"namespace": restrictedNamespace, "sbom_name": "redis-a1c3e5"}}},
 	{"list_sbom_packages/invalid_limit", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9", "limit": 501}}},
+
+	{"list_configuration_security_scan_manifests/namespace", goldenCall{"list_configuration_security_scan_manifests", map[string]any{"namespace": "default"}}},
+	{"list_configuration_security_scan_manifests/path_namespace", goldenCall{"list_configuration_security_scan_manifests", map[string]any{}}},
+	{"list_configuration_security_scan_manifests/forbidden", goldenCall{"list_configuration_security_scan_manifests", map[string]any{"namespace": restrictedNamespace}}},
+
+	{"get_configuration_security_scan_manifest/default", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web"}}},
+	{"get_configuration_security_scan_manifest/failed", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "status": "failed"}}},
+	{"get_configuration_security_scan_manifest/failed_high", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "status": "failed", "min_severity": "High"}}},
+	{"get_configuration_security_scan_manifest/not_found", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"manifest_name": "deployment-web"}}},
+	{"get_configuration_security_scan_manifest/forbidden", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": restrictedNamespace, "manifest_name": "serviceaccount-default"}}},
+	{"get_configuration_security_scan_manifest/invalid_status", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "status": "failed,excepted"}}},
+	{"get_configuration_security_scan_manifest/invalid_severity", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "min_severity": "Negligible"}}},
 }
 
 func goldenServer(t *testing.T) *server.MCPServer {
@@ -89,6 +102,9 @@ func goldenServer(t *testing.T) *server.MCPServer {
 	b, err = os.ReadFile(filepath.Join("testdata", "sbomsyfts.json"))
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(b, &r.sboms))
+	b, err = os.ReadFile(filepath.Join("testdata", "workloadconfigurationscans.json"))
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(b, &r.scans))
 	s := server.NewMCPServer("kubescape-storage", "v1beta1")
 	Register(s, r)
 	return s

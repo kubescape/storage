@@ -6,6 +6,64 @@
       "idempotentHint": true,
       "openWorldHint": false
     },
+    "description": "Get details of a specific security configuration scan result. Most controls in a result usually passed; set status to \"failed\" to get only the controls that need fixing.",
+    "inputSchema": {
+      "properties": {
+        "manifest_name": {
+          "description": "Name of the configuration manifest to get details for (get this from the list_configuration_security_scan_manifests tool)",
+          "type": "string"
+        },
+        "min_severity": {
+          "description": "Only return controls at or above this severity: Critical, High, Medium or Low (optional)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the manifest, as returned by list_configuration_security_scan_manifests (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "status": {
+          "description": "Only return controls with these statuses, comma-separated: failed, passed, skipped (optional; by default every control is returned)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manifest_name"
+      ],
+      "type": "object"
+    },
+    "name": "get_configuration_security_scan_manifest"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Discover available security configuration scan results at workload level (this returns a list of manifests, not the scan results themselves, to get the scan results, use the get_configuration_security_scan_manifest tool)",
+    "inputSchema": {
+      "properties": {
+        "continue": {
+          "description": "Optional Kubernetes continuation token for pagination",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL). A workload's scan is stored in the workload's namespace; scans of cluster-scoped resources are in Kubescape's own namespace (usually kubescape)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_configuration_security_scan_manifests"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
     "description": "List the packages in an image SBOM (name, version, type, purl, licenses), sorted by name. Returns a page of results (see limit/offset) with the total count. Use name or package_type to look for specific packages.",
     "inputSchema": {
       "properties": {

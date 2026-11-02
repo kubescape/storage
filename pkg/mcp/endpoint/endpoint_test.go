@@ -151,17 +151,51 @@ func (f *fakeSBOMs) List(ctx context.Context, _ *metainternalversion.ListOptions
 	return &softwarecomposition.SBOMSyftList{Items: f.items}, nil
 }
 
+// fakeScans stands in for the workloadconfigurationscans REST storage.
+type fakeScans struct {
+	rest.TableConvertor
+	calls int
+	info  *genericapirequest.RequestInfo
+	items []softwarecomposition.WorkloadConfigurationScan
+}
+
+func (f *fakeScans) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	f.calls++
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
+	namespace := genericapirequest.NamespaceValue(ctx)
+	for i := range f.items {
+		if f.items[i].Namespace == namespace && f.items[i].Name == name {
+			return &f.items[i], nil
+		}
+	}
+	return nil, apierrors.NewNotFound(softwarecomposition.Resource("workloadconfigurationscans"), name)
+}
+
+func (f *fakeScans) New() runtime.Object { return &softwarecomposition.WorkloadConfigurationScan{} }
+func (f *fakeScans) Destroy()            {}
+func (f *fakeScans) NewList() runtime.Object {
+	return &softwarecomposition.WorkloadConfigurationScanList{}
+}
+
+func (f *fakeScans) List(ctx context.Context, _ *metainternalversion.ListOptions) (runtime.Object, error) {
+	f.calls++
+	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
+	return &softwarecomposition.WorkloadConfigurationScanList{Items: f.items}, nil
+}
+
 type testEndpoint struct {
 	connect   rest.Storage
 	lister    *fakeLister
 	sboms     *fakeSBOMs
+	scans     *fakeScans
 	frontCA   testCA
 	attrs     []authorizer.Attributes
 	allowedNS string
 }
 
 // newTestEndpoint returns an endpoint whose authorizer allows only
-// "list" and "get" on vulnerabilitymanifests and sbomsyfts in allowedNS.
+// "list" and "get" on vulnerabilitymanifests, sbomsyfts and
+// workloadconfigurationscans in allowedNS.
 func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 	t.Helper()
 	te := &testEndpoint{frontCA: newTestCA(t, "front-proxy-ca"), allowedNS: allowedNS, lister: &fakeLister{
@@ -179,6 +213,12 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 				{PackageBasicData: softwarecomposition.PackageBasicData{Name: "login", Version: "1:4.4-4.1", Type: "deb"}},
 			}}}},
 	}}
+	te.scans = &fakeScans{items: []softwarecomposition.WorkloadConfigurationScan{
+		{ObjectMeta: metav1.ObjectMeta{Namespace: allowedNS, Name: "deployment-web"},
+			Spec: softwarecomposition.WorkloadConfigurationScanSpec{Controls: map[string]softwarecomposition.ScannedControl{
+				"C-0017": {ControlID: "C-0017", Severity: softwarecomposition.ControlSeverity{Severity: "Low"}, Status: softwarecomposition.ScannedControlStatus{Status: "failed"}},
+			}}},
+	}}
 	ca, err := dynamiccertificates.NewStaticCAContent("front-proxy-ca", te.frontCA.pem)
 	require.NoError(t, err)
 	scheme := runtime.NewScheme()
@@ -190,14 +230,15 @@ func newTestEndpoint(t *testing.T, allowedNS string) *testEndpoint {
 		},
 		Authorizer: authorizer.AuthorizerFunc(func(_ context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			te.attrs = append(te.attrs, a)
-			if (a.GetVerb() == "list" || a.GetVerb() == "get") && (a.GetResource() == "vulnerabilitymanifests" || a.GetResource() == "sbomsyfts") && a.GetNamespace() == te.allowedNS {
+			if (a.GetVerb() == "list" || a.GetVerb() == "get") && (a.GetResource() == "vulnerabilitymanifests" || a.GetResource() == "sbomsyfts" || a.GetResource() == "workloadconfigurationscans") && a.GetNamespace() == te.allowedNS {
 				return authorizer.DecisionAllow, "", nil
 			}
 			return authorizer.DecisionNoOpinion, "", nil
 		}),
-		Scheme:                 scheme,
-		VulnerabilityManifests: te.lister,
-		SBOMSyfts:              te.sboms,
+		Scheme:                     scheme,
+		VulnerabilityManifests:     te.lister,
+		SBOMSyfts:                  te.sboms,
+		WorkloadConfigurationScans: te.scans,
 	})
 	require.NoError(t, err)
 	_, te.connect = e.Storage()
@@ -385,6 +426,48 @@ func TestSBOMReadsAreCheckedForTheCaller(t *testing.T) {
 	}
 	assert.Equal(t, 2, te.sboms.calls)
 	assert.Zero(t, te.lister.calls)
+}
+
+func TestConfigurationScanReadsAreCheckedForTheCaller(t *testing.T) {
+	te := newTestEndpoint(t, "kubescape")
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	call := func(tool, args string) string {
+		return `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"` + tool + `","arguments":` + args + `}}`
+	}
+
+	// list: checked as "kubectl get workloadconfigurationscans -n kubescape".
+	text, isError := toolResult(t, te.call(t, "kagent", cert, agent, call("list_configuration_security_scan_manifests", `{"namespace":"kubescape"}`)))
+	require.False(t, isError, text)
+	assert.Contains(t, text, `"manifest_name":"deployment-web"`)
+	require.Len(t, te.attrs, 1)
+	assert.Equal(t, []any{"list", "workloadconfigurationscans", "kubescape", ""},
+		[]any{te.attrs[0].GetVerb(), te.attrs[0].GetResource(), te.attrs[0].GetNamespace(), te.attrs[0].GetName()})
+	require.NotNil(t, te.scans.info)
+	assert.Equal(t, []string{"list", "workloadconfigurationscans", "kubescape"}, []string{te.scans.info.Verb, te.scans.info.Resource, te.scans.info.Namespace})
+
+	// get: checked as "kubectl get workloadconfigurationscans deployment-web -n kubescape".
+	text, isError = toolResult(t, te.call(t, "kagent", cert, agent, call("get_configuration_security_scan_manifest", `{"namespace":"kubescape","manifest_name":"deployment-web"}`)))
+	require.False(t, isError, text)
+	assert.Contains(t, text, `"controlID":"C-0017"`)
+	require.Len(t, te.attrs, 2)
+	assert.Equal(t, []any{"get", "workloadconfigurationscans", "kubescape", "deployment-web"},
+		[]any{te.attrs[1].GetVerb(), te.attrs[1].GetResource(), te.attrs[1].GetNamespace(), te.attrs[1].GetName()})
+	assert.Equal(t, []string{"get", "workloadconfigurationscans", "kubescape", "deployment-web"},
+		[]string{te.scans.info.Verb, te.scans.info.Resource, te.scans.info.Namespace, te.scans.info.Name})
+
+	// Denied in the path namespace: RBAC_DENIED and nothing is read.
+	for _, tc := range []struct{ tool, args, message string }{
+		{"list_configuration_security_scan_manifests", `{}`, `cannot list resource "workloadconfigurationscans"`},
+		{"get_configuration_security_scan_manifest", `{"manifest_name":"deployment-web"}`, `cannot get resource "workloadconfigurationscans"`},
+	} {
+		text, isError = toolResult(t, te.call(t, "kagent", cert, agent, call(tc.tool, tc.args)))
+		require.True(t, isError)
+		var toolErr tools.ToolError
+		require.NoError(t, json.Unmarshal([]byte(text), &toolErr))
+		assert.Equal(t, tools.ErrCodeRBACDenied, toolErr.Code)
+		assert.Contains(t, toolErr.Message, tc.message)
+	}
+	assert.Equal(t, 2, te.scans.calls)
 }
 
 func TestRequestBodyLimit(t *testing.T) {

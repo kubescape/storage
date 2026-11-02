@@ -425,11 +425,12 @@ func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
 		return err
 	}
 	e, err := endpoint.New(endpoint.Config{
-		RequestHeader:          c.GenericConfig.Authentication.RequestHeaderConfig,
-		Authorizer:             authz,
-		Scheme:                 Scheme,
-		VulnerabilityManifests: m["vulnerabilitymanifests"],
-		SBOMSyfts:              m["sbomsyfts"],
+		RequestHeader:              c.GenericConfig.Authentication.RequestHeaderConfig,
+		Authorizer:                 authz,
+		Scheme:                     Scheme,
+		VulnerabilityManifests:     m["vulnerabilitymanifests"],
+		SBOMSyfts:                  m["sbomsyfts"],
+		WorkloadConfigurationScans: m["workloadconfigurationscans"],
 	})
 	if err != nil {
 		return err

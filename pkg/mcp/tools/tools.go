@@ -20,6 +20,8 @@ type Reader interface {
 	GetVulnerabilityManifest(ctx context.Context, namespace, name string) (*v1beta1.VulnerabilityManifest, error)
 	ListSBOMSyfts(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.SBOMSyftList, error)
 	GetSBOMSyft(ctx context.Context, namespace, name string) (*v1beta1.SBOMSyft, error)
+	ListWorkloadConfigurationScans(ctx context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.WorkloadConfigurationScanList, error)
+	GetWorkloadConfigurationScan(ctx context.Context, namespace, name string) (*v1beta1.WorkloadConfigurationScan, error)
 }
 
 // Register adds every tool to s.
@@ -29,6 +31,8 @@ func Register(s *server.MCPServer, r Reader) {
 	s.AddTool(listVulnerabilityMatchesForCVETool, listVulnerabilityMatchesForCVE(r))
 	s.AddTool(listSBOMsTool, listSBOMs(r))
 	s.AddTool(listSBOMPackagesTool, listSBOMPackages(r))
+	s.AddTool(listConfigurationScansTool, listConfigurationScans(r))
+	s.AddTool(getConfigurationScanTool, getConfigurationScan(r))
 }
 
 // readOnlyTool is mcp.NewTool with the hints of a tool that only reads
