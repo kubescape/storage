@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/spf13/afero"
@@ -202,9 +201,7 @@ func (m *prefixMove) inspect(conn *sqlite.Conn, fs afero.Fs, direction string) e
 		if e != nil {
 			return e
 		}
-		a, aok := info.Sys().(*syscall.Stat_t)
-		b, bok := parent.Sys().(*syscall.Stat_t)
-		if aok && bok && a.Dev != b.Dev {
+		if crossesFilesystem(info, parent) {
 			return fmt.Errorf("resource directory crosses filesystems: %s", path)
 		}
 	}
