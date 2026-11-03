@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kubescape/storage/pkg/apiauth"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/config"
@@ -421,7 +420,7 @@ func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
 	if err != nil {
 		return err
 	}
-	authz, err := apiauth.NewAuthorizer(client.AuthorizationV1())
+	authz, err := endpoint.NewAuthorizer(client.AuthorizationV1())
 	if err != nil {
 		return err
 	}

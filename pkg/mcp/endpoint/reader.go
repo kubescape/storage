@@ -3,6 +3,7 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -11,10 +12,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
+	genericoptions "k8s.io/apiserver/pkg/server/options"
+	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
+
+// Cache durations of the per-read authorizer, the defaults of k8s.io/apiserver's
+// delegated authorization.
+const (
+	allowCacheTTL = 10 * time.Second
+	denyCacheTTL  = 10 * time.Second
+)
+
+// NewAuthorizer returns an authorizer that asks kube-apiserver with a
+// SubjectAccessReview and caches the answer. Storage's ServiceAccount is bound
+// to system:auth-delegator, which allows it to create SubjectAccessReviews.
+func NewAuthorizer(client authorizationv1client.AuthorizationV1Interface) (authorizer.Authorizer, error) {
+	return authorizerfactory.DelegatingAuthorizerConfig{
+		SubjectAccessReviewClient: client,
+		AllowCacheTTL:             allowCacheTTL,
+		DenyCacheTTL:              denyCacheTTL,
+		WebhookRetryBackoff:       genericoptions.DefaultAuthWebhookRetryBackoff(),
+	}.New()
+}
 
 // listGetter is REST storage that can list and get.
 type listGetter interface {
