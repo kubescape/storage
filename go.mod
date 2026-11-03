@@ -135,6 +135,7 @@ require (
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/kubescape/storage/pkg/apiauth v0.0.0
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mackerelio/go-osstat v0.2.5 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
@@ -232,3 +233,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+replace github.com/kubescape/storage/pkg/apiauth => ./pkg/apiauth
