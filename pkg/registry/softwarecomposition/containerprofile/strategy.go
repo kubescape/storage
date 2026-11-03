@@ -190,11 +190,11 @@ func (ContainerProfileStrategy) WarningsOnCreate(_ context.Context, _ runtime.Ob
 	return nil
 }
 
-func (ContainerProfileStrategy) AllowCreateOnUpdate() bool {
+func (ContainerProfileStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (ContainerProfileStrategy) AllowUnconditionalUpdate() bool {
+func (ContainerProfileStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

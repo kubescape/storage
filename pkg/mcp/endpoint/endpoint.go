@@ -53,6 +53,8 @@ type Config struct {
 	SBOMSyfts rest.Storage
 	// WorkloadConfigurationScans is the workloadconfigurationscans REST storage.
 	WorkloadConfigurationScans rest.Storage
+	// ContainerProfiles is the containerprofiles REST storage.
+	ContainerProfiles rest.Storage
 }
 
 type Endpoint struct {
@@ -79,6 +81,10 @@ func New(cfg Config) (*Endpoint, error) {
 	if !ok {
 		return nil, errors.New("the workloadconfigurationscans storage cannot list and get")
 	}
+	containerProfiles, ok := cfg.ContainerProfiles.(listGetter)
+	if !ok {
+		return nil, errors.New("the containerprofiles storage cannot list and get")
+	}
 
 	// k8s.io/apiserver's own front-proxy check: the wrapped authenticator runs
 	// only when the client certificate chains to the request-header CA and has
@@ -97,6 +103,7 @@ func New(cfg Config) (*Endpoint, error) {
 		vulnerabilityManifests: vulnerabilityManifests,
 		sbomSyfts:              sbomSyfts,
 		configurationScans:     configurationScans,
+		containerProfiles:      containerProfiles,
 	})
 	e.mcp = server.NewStreamableHTTPServer(s,
 		server.WithStateLess(true),

@@ -114,8 +114,8 @@ func TestStrategy_CreateUpdateValidate(t *testing.T) {
 	assert.Empty(t, s.ValidateUpdate(ctx, updated, cp))
 	assert.Nil(t, s.WarningsOnCreate(ctx, cp))
 	assert.Nil(t, s.WarningsOnUpdate(ctx, updated, cp))
-	assert.False(t, s.AllowCreateOnUpdate())
-	assert.False(t, s.AllowUnconditionalUpdate())
+	assert.False(t, s.AllowCreateOnUpdate(context.Background()))
+	assert.False(t, s.AllowUnconditionalUpdate(context.Background()))
 }
 
 // compile-time guard: the strategy implements the interfaces the REST store needs.

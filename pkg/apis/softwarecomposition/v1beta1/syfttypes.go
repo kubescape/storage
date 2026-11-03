@@ -36,12 +36,12 @@ type Coordinates struct {
 // Location represents a path relative to a particular filesystem resolved to a specific file.Reference. This struct is used as a key
 // in content fetching to uniquely identify a file relative to a request (the VirtualPath).
 type Location struct {
-	LocationData     `cyclonedx:"" protobuf:"bytes,1,opt,name=locationData"`
-	LocationMetadata `cyclonedx:"" protobuf:"bytes,2,opt,name=locationMetadata"`
+	LocationData     `json:",inline" cyclonedx:"" protobuf:"bytes,1,opt,name=locationData"`
+	LocationMetadata `json:",inline" cyclonedx:"" protobuf:"bytes,2,opt,name=locationMetadata"`
 }
 
 type LocationData struct {
-	Coordinates `cyclonedx:"" protobuf:"bytes,1,opt,name=coordinates"` // Empty string here means there is no intermediate property name, e.g. syft:locations:0:path without "coordinates"
+	Coordinates `json:",inline" cyclonedx:"" protobuf:"bytes,1,opt,name=coordinates"` // Empty string here means there is no intermediate property name, e.g. syft:locations:0:path without "coordinates"
 	// note: it is IMPORTANT to ignore anything but the coordinates for a Location when considering the ID (hash value)
 	// since the coordinates are the minimally correct ID for a location (symlinks should not come into play)
 	VirtualPath string `hash:"ignore" json:"accessPath" protobuf:"bytes,2,req,name=accessPath"` // The path to the file which may or may not have hardlinks / symlinks
@@ -180,8 +180,8 @@ type SyftRelationship struct {
 
 // SyftPackage represents a pkg.SyftPackage object specialized for JSON marshaling and unmarshalling.
 type SyftPackage struct {
-	PackageBasicData  `protobuf:"bytes,1,opt,name=packageBasicData"`
-	PackageCustomData `protobuf:"bytes,2,opt,name=packageCustomData"`
+	PackageBasicData  `json:",inline" protobuf:"bytes,1,opt,name=packageBasicData"`
+	PackageCustomData `json:",inline" protobuf:"bytes,2,opt,name=packageCustomData"`
 }
 
 // PackageBasicData contains non-ambiguous values (type-wise) from pkg.SyftPackage.

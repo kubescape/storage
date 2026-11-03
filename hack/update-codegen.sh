@@ -109,6 +109,7 @@ fields = {
     "GrypePackage": ("metadata",),
     "MatchDetails": ("searchedBy", "found"),
     "PackageCustomData": ("metadata",),
+    "SyftPackage": ("metadata",),
     "Source": ("target",),
     "SyftDescriptor": ("configuration",),
     "SyftRelationship": ("metadata",),

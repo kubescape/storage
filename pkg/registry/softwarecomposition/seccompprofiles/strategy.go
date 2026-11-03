@@ -68,11 +68,11 @@ func (SeccompProfileStrategy) WarningsOnCreate(_ context.Context, _ runtime.Obje
 	return nil
 }
 
-func (SeccompProfileStrategy) AllowCreateOnUpdate() bool {
+func (SeccompProfileStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (SeccompProfileStrategy) AllowUnconditionalUpdate() bool {
+func (SeccompProfileStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

@@ -52,13 +52,28 @@ and [nested apply builder](../../pkg/generated/applyconfiguration/softwarecompos
 
 ## Generation and verification
 
-The module pins `k8s.io/code-generator` to v0.35.0, and the repository generation
+The module pins `k8s.io/code-generator` to v0.37.0, and the repository generation
 script enables apply-configuration generation. Use that pinned generator with
 `GOFLAGS=-mod=readonly` and a temporary output directory, then compare and copy
-only the intended generated result. Do not edit dependencies or regenerate
+only the intended generated result. Run it with the Go toolchain the module
+declares (1.26): under Go 1.27, where `encoding/json/v2` is the default,
+the deepcopy generator spells `json.RawMessage` as `jsontext.Value` and the
+output drifts. Do not edit dependencies or regenerate
 unrelated artifacts to repair this builder. Sources:
 [module dependencies](../../go.mod) and
 [generation script](../../hack/update-codegen.sh).
+
+Embedded v1beta1 structs (`VulnerabilityMetadata` in `Vulnerability`, `Match`
+in `IgnoredMatch`, the syft package data, the `Location` parts and their
+`Coordinates`, `Component`, and VEX `Metadata`) carry
+`json:",inline"`. Go's JSON encoding inlines an untagged embedded struct anyway,
+but openapi-gen only inlines it with the tag. Without it, the generated schema
+nests the fields under the type name, and structured-merge-diff v6.4 (k8s v0.37)
+rejects real objects with `field not declared in schema` when it builds managed
+fields. Inlining also moves `PackageCustomData.metadata` into `SyftPackage`, so
+the scanner JSON fix-up in `hack/update-codegen.sh` lists `SyftPackage` too.
+`TestScannerDocumentsManagedFieldsConversion` and
+`TestSyftPackageManagedFieldsConversion` cover this.
 
 Regression coverage checks every added field for omission, nonempty values,
 explicit empty strings, chaining, and last-call-wins behavior. It also checks

@@ -28,7 +28,7 @@ type VulnerabilityMetadata struct {
 }
 
 type Vulnerability struct {
-	VulnerabilityMetadata `protobuf:"bytes,8,opt,name=vulnerabilityMetadata"`
+	VulnerabilityMetadata `json:",inline" protobuf:"bytes,8,opt,name=vulnerabilityMetadata"`
 	Fix                   Fix        `json:"fix" protobuf:"bytes,9,req,name=fix"`
 	Advisories            []Advisory `json:"advisories" protobuf:"bytes,10,rep,name=advisories"`
 }
@@ -86,7 +86,7 @@ type MatchDetails struct {
 }
 
 type IgnoredMatch struct {
-	Match              `protobuf:"bytes,1,opt,name=match"`
+	Match              `json:",inline" protobuf:"bytes,1,opt,name=match"`
 	AppliedIgnoreRules []IgnoreRule `json:"appliedIgnoreRules" protobuf:"bytes,2,rep,name=appliedIgnoreRules"`
 }
 

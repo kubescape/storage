@@ -40,6 +40,32 @@
       "idempotentHint": true,
       "openWorldHint": false
     },
+    "description": "Get details of a specific container profile",
+    "inputSchema": {
+      "properties": {
+        "namespace": {
+          "description": "Namespace of the profile, as returned by list_container_profiles (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "profile_name": {
+          "description": "Name of the container profile to get details for (get this from the list_container_profiles tool)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_name"
+      ],
+      "type": "object"
+    },
+    "name": "get_container_profile"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
     "description": "Discover available security configuration scan results at workload level (this returns a list of manifests, not the scan results themselves, to get the scan results, use the get_configuration_security_scan_manifest tool)",
     "inputSchema": {
       "properties": {
@@ -56,6 +82,30 @@
       "type": "object"
     },
     "name": "list_configuration_security_scan_manifests"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Discover available container profiles at workload level (this returns a list of profiles, not the profile results themselves, to get the profile results, use the get_container_profile tool)",
+    "inputSchema": {
+      "properties": {
+        "continue": {
+          "description": "Optional Kubernetes continuation token for pagination",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL). A container's profile is stored in its workload's namespace",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_container_profiles"
   },
   {
     "annotations": {
