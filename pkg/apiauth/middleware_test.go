@@ -143,10 +143,12 @@ type next struct {
 	called bool
 	user   string
 	ok     bool
+	authz  string
 }
 
 func (n *next) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	n.called = true
+	n.authz = r.Header.Get("Authorization")
 	if u, ok := UserFrom(r.Context()); ok {
 		n.user, n.ok = u.GetName(), true
 	}
@@ -314,6 +316,28 @@ func TestMiddleware_AllowedPassesAndSetsUser(t *testing.T) {
 	}
 	if !n.ok || n.user != "system:serviceaccount:kubescape:operator" {
 		t.Fatalf("UserFrom = %q, %v", n.user, n.ok)
+	}
+}
+
+func TestMiddleware_StripsBearerTokenBeforeNext(t *testing.T) {
+	f := newFakeAPIServer(t)
+	mw := newMiddleware(t, f.client(t), scansRoute)
+	n := &next{}
+	req := httptest.NewRequest(http.MethodPost, "/v1/scan", nil)
+	req.Header.Set("Authorization", "Bearer tok")
+	rec := httptest.NewRecorder()
+	mw(n).ServeHTTP(rec, req)
+	if !n.called || rec.Code != http.StatusNoContent {
+		t.Fatalf("called=%v code=%d body=%q", n.called, rec.Code, rec.Body.String())
+	}
+	if n.authz != "" {
+		t.Errorf("next saw Authorization %q, want none", n.authz)
+	}
+	if !n.ok || n.user != "system:serviceaccount:kubescape:operator" {
+		t.Errorf("UserFrom = %q, %v", n.user, n.ok)
+	}
+	if got := req.Header.Get("Authorization"); got != "Bearer tok" {
+		t.Errorf("caller's request mutated: Authorization = %q", got)
 	}
 }
 

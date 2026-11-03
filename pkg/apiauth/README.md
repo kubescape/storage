@@ -11,7 +11,8 @@ Server middleware and client helpers for service-account bearer authentication b
 2. authenticates the token with a TokenReview for `Config.Audience`,
 3. authorizes the user with a SubjectAccessReview for the route's group,
    resource and verb, in the route's namespace or `Config.Namespace`,
-4. stores the user in the request context (`UserFrom(ctx)`).
+4. stores the user in the request context (`UserFrom(ctx)`) and removes the
+   `Authorization` header from the request passed to the next handler.
 
 `Config` fields: `Client` (needs `system:auth-delegator`), `Audience`,
 `Namespace` (default SubjectAccessReview namespace), `Route`

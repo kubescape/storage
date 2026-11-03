@@ -209,5 +209,10 @@ func (m *middleware) serve(next http.Handler, w http.ResponseWriter, r *http.Req
 
 	m.log.Info("API request allowed", "user", info.GetName(), "verb", attrs.Verb, "resource", attrs.Resource,
 		"outcome", "allowed", "path", r.URL.Path)
-	next.ServeHTTP(w, r.WithContext(request.WithUser(r.Context(), info)))
+	// Like kube-apiserver, drop the bearer token once it has been used so no
+	// downstream handler can forward or log it. Clone deep-copies the headers,
+	// leaving the caller's request untouched.
+	out := r.Clone(request.WithUser(r.Context(), info))
+	out.Header.Del("Authorization")
+	next.ServeHTTP(w, out)
 }
