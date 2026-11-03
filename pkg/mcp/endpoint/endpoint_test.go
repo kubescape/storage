@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubescape/storage/pkg/apiauth"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/mcp/tools"
@@ -581,7 +582,7 @@ func TestNewAuthorizerAsksKubeAPIServerAndCaches(t *testing.T) {
 	defer srv.Close()
 	client, err := kubernetes.NewForConfig(&restclient.Config{Host: srv.URL})
 	require.NoError(t, err)
-	authz, err := NewAuthorizer(client.AuthorizationV1())
+	authz, err := apiauth.NewAuthorizer(client.AuthorizationV1())
 	require.NoError(t, err)
 
 	attrs := func(namespace string) authorizer.Attributes {

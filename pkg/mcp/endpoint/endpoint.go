@@ -43,7 +43,7 @@ type Config struct {
 	// RequestHeader is storage's front-proxy configuration: the CA and the
 	// names of the client certificate kube-apiserver forwards requests with.
 	RequestHeader *authenticatorfactory.RequestHeaderConfig
-	// Authorizer checks each read for the caller (see NewAuthorizer).
+	// Authorizer checks each read for the caller (see apiauth.NewAuthorizer).
 	Authorizer authorizer.Authorizer
 	// Scheme converts what the REST storage returns to v1beta1.
 	Scheme *runtime.Scheme

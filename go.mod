@@ -20,6 +20,7 @@ require (
 	github.com/kinbiko/jsonassert v1.2.0
 	github.com/kubescape/go-logger v0.0.35
 	github.com/kubescape/k8s-interface v0.0.214
+	github.com/kubescape/storage/pkg/apiauth v0.1.0
 	github.com/mark3labs/mcp-go v1.0.0
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
