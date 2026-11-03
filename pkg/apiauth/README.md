@@ -28,7 +28,11 @@ Responses, all `Content-Type: application/json`:
 | 403 | `{"error":"forbidden","reason":"<SubjectAccessReview reason>"}` | RBAC denies the request |
 | 503 | `{"error":"unavailable","reason":"authentication backend error"}` | kube-apiserver cannot be reached or refuses the review |
 
+At startup `New` probes with two SelfSubjectAccessReviews that the client may
+create `tokenreviews` and `subjectaccessreviews`, and returns an error naming
+`system:auth-delegator` if either is refused or fails (10 second timeout).
+
 Off switch: with `KS_API_AUTH_DISABLED=true`, `New` logs a warning and
-returns a pass-through middleware.
+returns a pass-through middleware (the probe is skipped).
 
 `NewAuthorizer` returns the cached SubjectAccessReview authorizer on its own.

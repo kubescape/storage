@@ -24,14 +24,19 @@ import (
 const testAudience = "kubescape.io"
 
 type fakeAPIServer struct {
-	mu   sync.Mutex
-	trs  []authenticationv1.TokenReview
-	sars []authorizationv1.SubjectAccessReview
+	mu    sync.Mutex
+	trs   []authenticationv1.TokenReview
+	sars  []authorizationv1.SubjectAccessReview
+	ssars []authorizationv1.SelfSubjectAccessReview
 
 	// tokenReview fills the status of a TokenReview, or returns an HTTP error code.
 	tokenReview func(tr *authenticationv1.TokenReview) int
 	// sar fills the status of a SubjectAccessReview, or returns an HTTP error code.
 	sar func(sar *authorizationv1.SubjectAccessReview) int
+
+	// ssar fills the status of a SelfSubjectAccessReview (the startup probe),
+	// or returns an HTTP error code.
+	ssar func(ssar *authorizationv1.SelfSubjectAccessReview) int
 
 	srv *httptest.Server
 }
@@ -54,9 +59,14 @@ func allowed(sar *authorizationv1.SubjectAccessReview) int {
 	return 0
 }
 
+func probeAllowed(ssar *authorizationv1.SelfSubjectAccessReview) int {
+	ssar.Status = authorizationv1.SubjectAccessReviewStatus{Allowed: true}
+	return 0
+}
+
 func newFakeAPIServer(t *testing.T) *fakeAPIServer {
 	t.Helper()
-	f := &fakeAPIServer{tokenReview: authenticated, sar: allowed}
+	f := &fakeAPIServer{tokenReview: authenticated, sar: allowed, ssar: probeAllowed}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/apis/authentication.k8s.io/v1/tokenreviews", func(w http.ResponseWriter, r *http.Request) {
 		var tr authenticationv1.TokenReview
@@ -87,6 +97,21 @@ func newFakeAPIServer(t *testing.T) *fakeAPIServer {
 			return
 		}
 		writeJSON(w, &sar)
+	})
+	mux.HandleFunc("/apis/authorization.k8s.io/v1/selfsubjectaccessreviews", func(w http.ResponseWriter, r *http.Request) {
+		var ssar authorizationv1.SelfSubjectAccessReview
+		if err := json.NewDecoder(r.Body).Decode(&ssar); err != nil {
+			t.Errorf("decode SelfSubjectAccessReview: %v", err)
+		}
+		f.mu.Lock()
+		f.ssars = append(f.ssars, ssar)
+		f.mu.Unlock()
+		ssar.TypeMeta = metav1.TypeMeta{APIVersion: "authorization.k8s.io/v1", Kind: "SelfSubjectAccessReview"}
+		if code := f.ssar(&ssar); code != 0 {
+			writeStatus(w, code)
+			return
+		}
+		writeJSON(w, &ssar)
 	})
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
@@ -124,7 +149,11 @@ func (f *fakeAPIServer) subjectAccessReviews() []authorizationv1.SubjectAccessRe
 
 func (f *fakeAPIServer) client(t *testing.T) kubernetes.Interface {
 	t.Helper()
-	c, err := kubernetes.NewForConfig(&restclient.Config{Host: f.srv.URL})
+	c, err := kubernetes.NewForConfig(&restclient.Config{
+		Host: f.srv.URL,
+		// The typed clients default to protobuf; the fake decodes JSON.
+		ContentConfig: restclient.ContentConfig{ContentType: "application/json"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,5 +490,62 @@ func TestNew_RequiresClientRouteAudience(t *testing.T) {
 				t.Fatalf("New err = %v, want an apiauth config error", err)
 			}
 		})
+	}
+}
+
+func probeConfig(c kubernetes.Interface) Config {
+	return Config{Client: c, Audience: testAudience, Namespace: "kubescape", Route: scansRoute}
+}
+
+func TestNew_ProbeOK(t *testing.T) {
+	f := newFakeAPIServer(t)
+	if _, err := New(context.Background(), probeConfig(f.client(t))); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	got := map[string]bool{}
+	for _, r := range f.ssars {
+		a := r.Spec.ResourceAttributes
+		if a == nil || a.Verb != "create" {
+			t.Fatalf("unexpected probe %+v", r.Spec)
+		}
+		got[a.Group+"/"+a.Resource] = true
+	}
+	if len(f.ssars) != 2 || !got["authentication.k8s.io/tokenreviews"] || !got["authorization.k8s.io/subjectaccessreviews"] {
+		t.Errorf("probes = %v, want create tokenreviews and subjectaccessreviews", got)
+	}
+}
+
+func TestNew_FailsWhenProbeForbidden(t *testing.T) {
+	for name, fail := range map[string]func(*authorizationv1.SelfSubjectAccessReview) int{
+		"tokenreviews denied": func(s *authorizationv1.SelfSubjectAccessReview) int {
+			s.Status.Allowed = s.Spec.ResourceAttributes.Resource != "tokenreviews"
+			return 0
+		},
+		"subjectaccessreviews denied": func(s *authorizationv1.SelfSubjectAccessReview) int {
+			s.Status.Allowed = s.Spec.ResourceAttributes.Resource != "subjectaccessreviews"
+			return 0
+		},
+		"call fails": func(*authorizationv1.SelfSubjectAccessReview) int { return http.StatusForbidden },
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFakeAPIServer(t)
+			f.ssar = fail
+			_, err := New(context.Background(), probeConfig(f.client(t)))
+			if err == nil || !strings.Contains(err.Error(), "system:auth-delegator") {
+				t.Fatalf("New err = %v, want an error mentioning system:auth-delegator", err)
+			}
+		})
+	}
+}
+
+func TestNew_DisabledSkipsProbe(t *testing.T) {
+	t.Setenv(DisabledEnv, "true")
+	f := newFakeAPIServer(t)
+	f.ssar = func(*authorizationv1.SelfSubjectAccessReview) int { return http.StatusForbidden }
+	if _, err := New(context.Background(), probeConfig(f.client(t))); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if len(f.ssars) != 0 {
+		t.Errorf("probes = %d, want 0", len(f.ssars))
 	}
 }

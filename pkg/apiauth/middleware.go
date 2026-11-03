@@ -3,12 +3,15 @@ package apiauth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	authorizationv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -84,7 +87,9 @@ func UserFrom(ctx context.Context) (user.Info, bool) {
 // Unauthenticated requests get 401, unauthorized ones 403, and requests that
 // cannot be checked because kube-apiserver cannot be reached or refuses the
 // review get 503. If $KS_API_AUTH_DISABLED is "true", New returns a
-// pass-through middleware.
+// pass-through middleware. Otherwise New first checks with
+// SelfSubjectAccessReviews that the client may create TokenReviews and
+// SubjectAccessReviews, and returns an error naming system:auth-delegator if not.
 func New(ctx context.Context, cfg Config) (func(http.Handler) http.Handler, error) {
 	log := cfg.Logger
 	if log.GetSink() == nil {
@@ -102,6 +107,10 @@ func New(ctx context.Context, cfg Config) (func(http.Handler) http.Handler, erro
 	}
 	if cfg.Audience == "" {
 		return nil, errors.New("apiauth: Config.Audience is required")
+	}
+
+	if err := probePermissions(ctx, cfg.Client); err != nil {
+		return nil, err
 	}
 
 	authn, _, err := authenticatorfactory.DelegatingAuthenticatorConfig{
@@ -124,6 +133,35 @@ func New(ctx context.Context, cfg Config) (func(http.Handler) http.Handler, erro
 			m.serve(next, w, r)
 		})
 	}, nil
+}
+
+// probeTimeout bounds the startup permission probe.
+const probeTimeout = 10 * time.Second
+
+// probePermissions checks with SelfSubjectAccessReviews that the caller may
+// create TokenReviews and SubjectAccessReviews, so a missing
+// system:auth-delegator binding fails at startup, not on the first request.
+func probePermissions(ctx context.Context, client kubernetes.Interface) error {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	for _, a := range []authorizationv1.ResourceAttributes{
+		{Verb: "create", Group: "authentication.k8s.io", Resource: "tokenreviews"},
+		{Verb: "create", Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
+	} {
+		a := a
+		resp, err := client.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx,
+			&authorizationv1.SelfSubjectAccessReview{Spec: authorizationv1.SelfSubjectAccessReviewSpec{ResourceAttributes: &a}},
+			metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("apiauth: cannot check permission to create %s.%s (the ServiceAccount needs the system:auth-delegator ClusterRole): %w",
+				a.Resource, a.Group, err)
+		}
+		if !resp.Status.Allowed {
+			return fmt.Errorf("apiauth: not allowed to create %s.%s: bind the ServiceAccount to the system:auth-delegator ClusterRole",
+				a.Resource, a.Group)
+		}
+	}
+	return nil
 }
 
 type middleware struct {
