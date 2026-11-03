@@ -40,3 +40,12 @@ jobs:
       - name: Test pkg/apiauth
         working-directory: pkg/apiauth
         run: go test ./...
+      # The root module consumes pkg/apiauth as a published version, the same way
+      # operator, node-agent, kubescape, kubevuln and synchronizer do. A local
+      # replace would build here but leave every downstream consumer unresolvable.
+      - name: Root module must not replace pkg/apiauth
+        run: |
+          if grep -Eq '^replace .*storage/pkg/apiauth' go.mod; then
+            echo "go.mod replaces pkg/apiauth with a local path; require a tagged version instead" >&2
+            exit 1
+          fi
