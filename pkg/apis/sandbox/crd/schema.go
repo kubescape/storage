@@ -5,6 +5,8 @@ package crd
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+
 	sandbox "github.com/kubescape/storage/pkg/apis/sandbox/v1alpha1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,14 +83,64 @@ func classes() schema {
 	named.XValidations = apiextensions.ValidationRules{{Rule: "self.all(k, size(k) > 0)", Message: "class names must not be empty"}}
 	return object(map[string]schema{"pathClasses": named, "destClasses": named})
 }
+
+// predicatePresence is a structural validation branch, not a second schema.
+// Nonempty list constraints live in the structural fields; explicit false is
+// a predicate. An empty nested argv object is not a predicate.
+func predicatePresence(s schema) schema {
+	keys := make([]string, 0, len(s.Properties))
+	for key, prop := range s.Properties {
+		if prop.Not == nil {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	result := schema{}
+	for _, key := range keys {
+		branch := schema{Required: []string{key}}
+		if key == "argv" {
+			branch.Properties = map[string]schema{key: predicatePresence(s.Properties[key])}
+		}
+		result.AnyOf = append(result.AnyOf, branch)
+	}
+	return result
+}
 func rule(target schema) schema {
-	return object(map[string]schema{
-		"name": boundedText(sandbox.MaxRuleNameLength), "description": {Type: "string"}, "actor": actor(), "target": target,
-		"action": action(), "mode": ruleMode(), "origin": text(),
+	exceptionTarget := *target.DeepCopy()
+	if role, ok := exceptionTarget.Properties["setRole"]; ok {
+		// Preserve the known effect through pruning so an invalid exception cannot
+		// silently become a broader actor-only exception.
+		exceptionTarget.Properties["setRole"] = forbidden(role)
+	}
+	actorSchema := actor()
+	exception := object(map[string]schema{"actor": actorSchema, "target": exceptionTarget})
+	exception.AnyOf = []schema{
+		{Required: []string{"actor"}, Properties: map[string]schema{"actor": predicatePresence(actorSchema)}},
+		{Required: []string{"target"}, Properties: map[string]schema{"target": predicatePresence(exceptionTarget)}},
+	}
+	exceptions := array(exception)
+	exceptions.MinItems = nil
+	result := object(map[string]schema{
+		"name": boundedText(sandbox.MaxRuleNameLength), "description": {Type: "string"}, "actor": actorSchema, "target": target,
+		"action": action(), "mode": ruleMode(), "origin": {Type: "string"}, "except": exceptions,
 	}, "name", "target", "action")
+	// Structural presence checks avoid CEL cost amplification through unbounded
+	// rule and exception lists. Even an explicitly empty except is deny-only.
+	result.AnyOf = []schema{
+		{Properties: map[string]schema{"action": {Enum: []apiextensions.JSON{{Raw: []byte(`"deny"`)}}}}},
+		{Not: &schema{Required: []string{"except"}}},
+	}
+	return result
 }
 func section(defaultSchema, target schema) schema {
-	return object(map[string]schema{"default": defaultSchema, "rules": listMap(rule(target), "name")}, "default")
+	return object(map[string]schema{"default": defaultSchema, "defaultMode": ruleMode(), "defaultOrigin": {Type: "string"}, "rules": listMap(rule(target), "name")}, "default")
+}
+func accessMetadata(value schema) schema {
+	fields := map[string]schema{}
+	for _, key := range []string{"read", "write", "create", "delete", "rename", "chmod", "execMap"} {
+		fields[key] = value
+	}
+	return object(fields)
 }
 func execSection() schema {
 	fields := pathFields()
@@ -100,8 +152,15 @@ func fileSection() schema {
 	fields := pathFields()
 	fields["access"] = array(enumeration("read", "write", "create", "delete", "rename", "chmod", "execMap"))
 	defaults := object(map[string]schema{"read": action(), "write": action(), "create": action(), "delete": action(), "rename": action(), "chmod": action(), "execMap": action()}, "read", "write", "create", "delete", "rename", "chmod", "execMap")
-	result := object(map[string]schema{"default": action(), "defaultByAccess": defaults, "rules": listMap(rule(object(fields)), "name")})
-	result.XValidations = apiextensions.ValidationRules{{Rule: "has(self.default) != has(self.defaultByAccess)", Message: "exactly one of default and defaultByAccess is required"}}
+	result := object(map[string]schema{"default": action(), "defaultByAccess": defaults,
+		"defaultMode": ruleMode(), "defaultOrigin": {Type: "string"},
+		"defaultModeByAccess": accessMetadata(ruleMode()), "defaultOriginByAccess": accessMetadata(schema{Type: "string"}),
+		"rules": listMap(rule(object(fields)), "name")})
+	result.XValidations = apiextensions.ValidationRules{
+		{Rule: "has(self.default) != has(self.defaultByAccess)", Message: "exactly one of default and defaultByAccess is required"},
+		{Rule: "has(self.default) || (!has(self.defaultMode) && !has(self.defaultOrigin))", Message: "scalar metadata requires scalar default"},
+		{Rule: "has(self.defaultByAccess) || (!has(self.defaultModeByAccess) && !has(self.defaultOriginByAccess))", Message: "per-access metadata requires defaultByAccess"},
+	}
 	return result
 }
 func networkSection() schema {
@@ -124,7 +183,10 @@ func networkSection() schema {
 	// CIDR format provides baseline admission on Kubernetes 1.28; consumers use
 	// netip for strict syntax (the format allows leading zeros). DNS/globs remain
 	// consumer checks.
-	return section(object(map[string]schema{"egress": action(), "listen": action()}, "egress", "listen"), target)
+	result := section(object(map[string]schema{"egress": action(), "listen": action()}, "egress", "listen"), target)
+	result.Properties["defaultMode"] = object(map[string]schema{"egress": ruleMode(), "listen": ruleMode()})
+	result.Properties["defaultOrigin"] = object(map[string]schema{"egress": {Type: "string"}, "listen": {Type: "string"}})
+	return result
 }
 
 // forbidden retains known removed predicates through pruning so admission rejects
@@ -142,7 +204,7 @@ func privilegeSection() schema {
 	// Presence-only oneOf avoids CEL cost amplification across unbounded rule lists
 	// on Kubernetes 1.28 while preserving the single-primitive contract.
 	target.OneOf = []schema{{Required: []string{"syscall"}}, {Required: []string{"capability"}}, {Required: []string{"mountFsType"}}, {Required: []string{"pathClass"}}}
-	target.XValidations = apiextensions.ValidationRules{{Rule: "!has(self.flags) || has(self.syscall)", Message: "flags require syscall"}}
+	target.AnyOf = []schema{{Not: &schema{Required: []string{"flags"}}}, {Required: []string{"syscall"}}}
 	return section(action(), target)
 }
 func identitySection() schema {
