@@ -23,8 +23,8 @@ const (
 	ModeOff     PolicyMode = "off"
 )
 
-// RuleMode optionally overrides an active policy's mode. Tripwire is a status
-// tier, not an authored mode. An omitted mode inherits the policy mode.
+// RuleMode optionally overrides an active policy's mode for a rule or default.
+// Tripwire is a status tier, not an authored mode. Omission inherits policy mode.
 type RuleMode string
 
 const (
@@ -160,23 +160,56 @@ type PathTarget struct {
 }
 type ExecRule struct {
 	Rule   `json:",inline"`
-	Target ExecTarget `json:"target"`
+	Target ExecTarget      `json:"target"`
+	Except []ExecException `json:"except,omitempty"`
 }
 type FileRule struct {
 	Rule   `json:",inline"`
-	Target FileTarget `json:"target"`
+	Target FileTarget      `json:"target"`
+	Except []FileException `json:"except,omitempty"`
 }
 type NetworkRule struct {
 	Rule   `json:",inline"`
-	Target NetworkTarget `json:"target"`
+	Target NetworkTarget      `json:"target"`
+	Except []NetworkException `json:"except,omitempty"`
 }
 type PrivilegeRule struct {
 	Rule   `json:",inline"`
-	Target PrivilegeTarget `json:"target"`
+	Target PrivilegeTarget      `json:"target"`
+	Except []PrivilegeException `json:"except,omitempty"`
 }
 type IdentityRule struct {
 	Rule   `json:",inline"`
-	Target IdentityTarget `json:"target"`
+	Target IdentityTarget      `json:"target"`
+	Except []IdentityException `json:"except,omitempty"`
+}
+
+// Exceptions lift only their containing deny. Predicates within an entry are
+// ANDed; entries are ORed. Empty entries and exceptions on allows are invalid.
+// ExecExceptionTarget deliberately excludes SetRole, which is an effect.
+type ExecExceptionTarget struct {
+	PathTarget `json:",inline"`
+	Argv       *ArgvPredicate `json:"argv,omitempty"`
+}
+type ExecException struct {
+	Actor  *Actor               `json:"actor,omitempty"`
+	Target *ExecExceptionTarget `json:"target,omitempty"`
+}
+type FileException struct {
+	Actor  *Actor      `json:"actor,omitempty"`
+	Target *FileTarget `json:"target,omitempty"`
+}
+type NetworkException struct {
+	Actor  *Actor         `json:"actor,omitempty"`
+	Target *NetworkTarget `json:"target,omitempty"`
+}
+type PrivilegeException struct {
+	Actor  *Actor           `json:"actor,omitempty"`
+	Target *PrivilegeTarget `json:"target,omitempty"`
+}
+type IdentityException struct {
+	Actor  *Actor          `json:"actor,omitempty"`
+	Target *IdentityTarget `json:"target,omitempty"`
 }
 type ExecTarget struct {
 	PathTarget `json:",inline"`
@@ -219,28 +252,71 @@ type IdentityTarget struct {
 	IMDS      *bool    `json:"imds,omitempty"`
 	EnvRead   *bool    `json:"envRead,omitempty"`
 }
+
+// Default modes inherit PolicySpec.Mode when omitted; policy off still wins.
+// Default origins are optional free-form labels. Pointers preserve explicit "".
 type ExecSection struct {
-	Default Action     `json:"default"`
-	Rules   []ExecRule `json:"rules,omitempty"`
+	Default       Action     `json:"default"`
+	DefaultMode   RuleMode   `json:"defaultMode,omitempty"`
+	DefaultOrigin *string    `json:"defaultOrigin,omitempty"`
+	Rules         []ExecRule `json:"rules,omitempty"`
 }
 
-// FileSection requires exactly one of Default and DefaultByAccess.
+// FileSection requires exactly one default representation and matching metadata.
 type FileSection struct {
-	Default         Action              `json:"default,omitempty"`
-	DefaultByAccess *FileAccessDefaults `json:"defaultByAccess,omitempty"`
-	Rules           []FileRule          `json:"rules,omitempty"`
+	Default               Action              `json:"default,omitempty"`
+	DefaultMode           RuleMode            `json:"defaultMode,omitempty"`
+	DefaultOrigin         *string             `json:"defaultOrigin,omitempty"`
+	DefaultByAccess       *FileAccessDefaults `json:"defaultByAccess,omitempty"`
+	DefaultModeByAccess   *FileAccessModes    `json:"defaultModeByAccess,omitempty"`
+	DefaultOriginByAccess *FileAccessOrigins  `json:"defaultOriginByAccess,omitempty"`
+	Rules                 []FileRule          `json:"rules,omitempty"`
 }
 type NetworkSection struct {
-	Default NetworkDefault `json:"default"`
-	Rules   []NetworkRule  `json:"rules,omitempty"`
+	Default       NetworkDefault         `json:"default"`
+	DefaultMode   *NetworkDefaultModes   `json:"defaultMode,omitempty"`
+	DefaultOrigin *NetworkDefaultOrigins `json:"defaultOrigin,omitempty"`
+	Rules         []NetworkRule          `json:"rules,omitempty"`
 }
 type PrivilegeSection struct {
-	Default Action          `json:"default"`
-	Rules   []PrivilegeRule `json:"rules,omitempty"`
+	Default       Action          `json:"default"`
+	DefaultMode   RuleMode        `json:"defaultMode,omitempty"`
+	DefaultOrigin *string         `json:"defaultOrigin,omitempty"`
+	Rules         []PrivilegeRule `json:"rules,omitempty"`
 }
 type IdentitySection struct {
-	Default Action         `json:"default"`
-	Rules   []IdentityRule `json:"rules,omitempty"`
+	Default       Action         `json:"default"`
+	DefaultMode   RuleMode       `json:"defaultMode,omitempty"`
+	DefaultOrigin *string        `json:"defaultOrigin,omitempty"`
+	Rules         []IdentityRule `json:"rules,omitempty"`
+}
+
+// FileAccessModes and FileAccessOrigins permit independently omitted access keys.
+type FileAccessModes struct {
+	Read    RuleMode `json:"read,omitempty"`
+	Write   RuleMode `json:"write,omitempty"`
+	Create  RuleMode `json:"create,omitempty"`
+	Delete  RuleMode `json:"delete,omitempty"`
+	Rename  RuleMode `json:"rename,omitempty"`
+	Chmod   RuleMode `json:"chmod,omitempty"`
+	ExecMap RuleMode `json:"execMap,omitempty"`
+}
+type FileAccessOrigins struct {
+	Read    *string `json:"read,omitempty"`
+	Write   *string `json:"write,omitempty"`
+	Create  *string `json:"create,omitempty"`
+	Delete  *string `json:"delete,omitempty"`
+	Rename  *string `json:"rename,omitempty"`
+	Chmod   *string `json:"chmod,omitempty"`
+	ExecMap *string `json:"execMap,omitempty"`
+}
+type NetworkDefaultModes struct {
+	Egress RuleMode `json:"egress,omitempty"`
+	Listen RuleMode `json:"listen,omitempty"`
+}
+type NetworkDefaultOrigins struct {
+	Egress *string `json:"egress,omitempty"`
+	Listen *string `json:"listen,omitempty"`
 }
 
 // FileAccessDefaults is complete: every access kind requires allow or deny.
