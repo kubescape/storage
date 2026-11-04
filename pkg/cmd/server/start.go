@@ -135,7 +135,8 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 	)
 	o.RecommendedOptions.Etcd = nil
 
-	// Disable authorization since we are publishing an internal endpoint (that only answers the API server)
+	// No authorization here: kube-apiserver checks RBAC before proxying, and
+	// Config() makes the authenticator refuse anything it did not forward.
 	o.RecommendedOptions.Authorization = nil
 
 	// Set TLS up and bind to secure port
@@ -303,6 +304,19 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, err
+	}
+
+	// Replace the delegating authenticator (anonymous, token review and client
+	// certificates) with one that only accepts kube-apiserver's front proxy.
+	// Authentication is nil only in unit tests that run off-cluster.
+	if o.StorageConfig.InsecureSkipFrontProxyVerification {
+		logger.L().Warning("insecureSkipFrontProxyVerification is set: storage serves requests that did not come through kube-apiserver, with no authorization; anything that reaches the Service can read and write all data")
+	} else if o.RecommendedOptions.Authentication != nil {
+		frontProxy, err := newFrontProxyOnly(serverConfig.Authentication.RequestHeaderConfig)
+		if err != nil {
+			return nil, err
+		}
+		serverConfig.Authentication.Authenticator = frontProxy
 	}
 
 	c := &apiserver.Config{

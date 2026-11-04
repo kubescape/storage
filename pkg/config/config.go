@@ -46,6 +46,15 @@ type Config struct {
 	TlsServerCertFile             string             `mapstructure:"tlsServerCertFile"`
 	TlsServerKeyFile              string             `mapstructure:"tlsServerKeyFile"`
 
+	// InsecureSkipFrontProxyVerification serves requests that did not come
+	// through kube-apiserver's front proxy: anonymous calls, bearer tokens and
+	// client certificates sent straight to the storage Service. With
+	// authorization off, anything that reaches the Service can then read and
+	// write every namespace's data. Only for testing, or clusters where the
+	// front-proxy CA is not available. Defaults to false (verify). See
+	// docs/features/front-proxy-only-authentication.md.
+	InsecureSkipFrontProxyVerification bool `mapstructure:"insecureSkipFrontProxyVerification"`
+
 	// SqlitePoolSize is the capacity of the SQLite connection pool. Defaults
 	// to file.DefaultPoolSize (10) when unset. This is a cheap, reversible
 	// tuning knob for Phase 0 of the storage-locking investigation (see
