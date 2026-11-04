@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	"fmt"
-	"net/netip"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -17,6 +16,9 @@ import (
 // prove that an allow is shadowed. Consumers must also respect admission schema
 // constraints when constructing typed objects without using the API server.
 func ValidatePolicySpec(spec PolicySpec) error {
+	if err := validateDefaultMetadata(spec); err != nil {
+		return err
+	}
 	if spec.Classes != nil {
 		if err := ValidatePolicyClasses(*spec.Classes); err != nil {
 			return err
@@ -44,6 +46,9 @@ func ValidatePolicySpec(spec PolicySpec) error {
 	}
 	if spec.Exec != nil {
 		for _, rule := range spec.Exec.Rules {
+			if err := validateExceptions(rule.Rule, rule.Except); err != nil {
+				return err
+			}
 			if err := check(rule.Rule); err != nil {
 				return err
 			}
@@ -54,6 +59,9 @@ func ValidatePolicySpec(spec PolicySpec) error {
 			return err
 		}
 		for _, rule := range spec.File.Rules {
+			if err := validateExceptions(rule.Rule, rule.Except); err != nil {
+				return err
+			}
 			if err := check(rule.Rule); err != nil {
 				return err
 			}
@@ -61,23 +69,22 @@ func ValidatePolicySpec(spec PolicySpec) error {
 	}
 	if spec.Network != nil {
 		for _, rule := range spec.Network.Rules {
+			if err := validateExceptions(rule.Rule, rule.Except); err != nil {
+				return err
+			}
 			if err := check(rule.Rule); err != nil {
 				return err
 			}
-			for _, cidr := range rule.Target.CIDR {
-				if _, err := netip.ParsePrefix(cidr); err != nil {
-					return fmt.Errorf("rule %q: invalid CIDR %q: %w", rule.Name, cidr, err)
-				}
-			}
-			for _, port := range rule.Target.Ports {
-				if err := validatePort(port); err != nil {
-					return fmt.Errorf("rule %q: %w", rule.Name, err)
-				}
+			if err := validateNetworkTarget(rule.Target); err != nil {
+				return fmt.Errorf("rule %q: %w", rule.Name, err)
 			}
 		}
 	}
 	if spec.Privilege != nil {
 		for _, rule := range spec.Privilege.Rules {
+			if err := validateExceptions(rule.Rule, rule.Except); err != nil {
+				return err
+			}
 			if err := check(rule.Rule); err != nil {
 				return err
 			}
@@ -88,6 +95,9 @@ func ValidatePolicySpec(spec PolicySpec) error {
 	}
 	if spec.Identity != nil {
 		for _, rule := range spec.Identity.Rules {
+			if err := validateExceptions(rule.Rule, rule.Except); err != nil {
+				return err
+			}
 			if err := check(rule.Rule); err != nil {
 				return err
 			}

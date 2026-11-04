@@ -7,6 +7,9 @@ func validAction(a Action) bool { return a == ActionAllow || a == ActionDeny }
 // ValidateDefaults rejects missing or ambiguous defaults without making JSON
 // decoding perform semantic validation (which could poison an entire list).
 func (s FileSection) ValidateDefaults() error {
+	if err := s.validateMetadata(); err != nil {
+		return err
+	}
 	if s.DefaultByAccess == nil {
 		if validAction(s.Default) {
 			return nil
