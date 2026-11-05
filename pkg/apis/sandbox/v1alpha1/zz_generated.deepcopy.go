@@ -1306,6 +1306,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		*out = new(Actor)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Origin != nil {
+		in, out := &in.Origin, &out.Origin
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

@@ -150,7 +150,8 @@ type Rule struct {
 	Actor       *Actor   `json:"actor,omitempty"`
 	Action      Action   `json:"action"`
 	Mode        RuleMode `json:"mode,omitempty"`
-	Origin      string   `json:"origin,omitempty"`
+	// Origin is optional; a present empty label is distinct from omission.
+	Origin *string `json:"origin,omitempty"`
 }
 type PathTarget struct {
 	Path      []string `json:"path,omitempty"`
