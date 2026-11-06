@@ -242,11 +242,14 @@ func TestConcurrentLimiterQueueComposition(t *testing.T) {
 				handler = apifilters.WithRequestInfo(composed, resolver)
 			}
 
-			srv := httptest.NewServer(handler)
-			defer srv.Close()
-
 			metricsEntered = make(chan struct{})
 			releaseMetrics = make(chan struct{})
+			var releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(releaseMetrics) }) }
+
+			srv := httptest.NewServer(handler)
+			defer srv.Close()
+			defer release()
 
 			// Start slow /metrics request
 			go func() {
@@ -270,7 +273,7 @@ func TestConcurrentLimiterQueueComposition(t *testing.T) {
 				resp.Body.Close()
 			}
 
-			close(releaseMetrics)
+			release()
 		})
 	}
 }

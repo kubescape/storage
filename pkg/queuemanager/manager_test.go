@@ -3,6 +3,7 @@ package queuemanager
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,6 +134,9 @@ func TestQueueHandler_NonResourceBypass(t *testing.T) {
 
 	metricsEntered := make(chan struct{})
 	releaseMetrics := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseMetrics) }) }
+	defer release()
 	handler := qm.QueueHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/metrics" {
 			close(metricsEntered)
@@ -173,6 +177,6 @@ func TestQueueHandler_NonResourceBypass(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code, "%s must bypass queue and return 200", path)
 	}
 
-	close(releaseMetrics)
+	release()
 }
 
