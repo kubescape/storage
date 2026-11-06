@@ -83,6 +83,9 @@ func (sc *StatsCollector) Handler(next http.Handler) http.Handler {
 func extractKindAndVerb(r *http.Request) (kind, verb string) {
 	reqInfo, ok := request.RequestInfoFrom(r.Context())
 	if ok {
+		if !reqInfo.IsResourceRequest || reqInfo.Resource == "" {
+			return "unknown", reqInfo.Verb
+		}
 		return reqInfo.Resource, reqInfo.Verb
 	}
 	// fallback:

@@ -16,12 +16,14 @@ type ConcurrentLimiter struct {
 	current                 int
 	mut                     sync.Mutex
 	longRunningRequestCheck apirequest.LongRunningRequestCheck
+	requestInfoResolver     apirequest.RequestInfoResolver
 }
 
-func NewConcurrentLimiter(limit int, longRunningRequestCheck apirequest.LongRunningRequestCheck) *ConcurrentLimiter {
+func NewConcurrentLimiter(limit int, longRunningRequestCheck apirequest.LongRunningRequestCheck, requestInfoResolver apirequest.RequestInfoResolver) *ConcurrentLimiter {
 	return &ConcurrentLimiter{
 		max:                     limit,
 		longRunningRequestCheck: longRunningRequestCheck,
+		requestInfoResolver:     requestInfoResolver,
 	}
 }
 
@@ -30,8 +32,17 @@ func (limiter *ConcurrentLimiter) LimitConcurrentRequests(lmt *limiter.Limiter,
 	middle := func(w http.ResponseWriter, r *http.Request) {
 		// Long-running requests still pass through Tollbooth, but must not hold
 		// a concurrency slot for the lifetime of a watch.
-		if requestInfo, ok := apirequest.RequestInfoFrom(r.Context()); ok &&
-			limiter.longRunningRequestCheck != nil && limiter.longRunningRequestCheck(r, requestInfo) {
+		// Resolve RequestInfo locally so downstream middleware contexts are not modified.
+		var reqInfo *apirequest.RequestInfo
+		if limiter.requestInfoResolver != nil {
+			if info, err := limiter.requestInfoResolver.NewRequestInfo(r); err == nil {
+				reqInfo = info
+			}
+		}
+		if reqInfo == nil {
+			reqInfo, _ = apirequest.RequestInfoFrom(r.Context())
+		}
+		if reqInfo != nil && limiter.longRunningRequestCheck != nil && limiter.longRunningRequestCheck(r, reqInfo) {
 			handler(w, r)
 			return
 		}

@@ -75,6 +75,9 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 func extractKindAndVerb(r *http.Request) (kind, verb string) {
 	reqInfo, ok := request.RequestInfoFrom(r.Context())
 	if ok {
+		if !reqInfo.IsResourceRequest || reqInfo.Resource == "" {
+			return "unknown", reqInfo.Verb
+		}
 		return reqInfo.Resource, reqInfo.Verb
 	}
 	// fallback:
@@ -132,7 +135,7 @@ func shouldSkipQueue(r *http.Request) bool {
 func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		kind, verb := extractKindAndVerb(r)
-		if kind == "unknown" ||
+		if kind == "" || kind == "unknown" ||
 			shouldSkipQueue(r) {
 			// These requests should not take up queue workers - they are not designed to be memory intensive (taking only metadata)
 			// Unknown cannot be assigned to a queue

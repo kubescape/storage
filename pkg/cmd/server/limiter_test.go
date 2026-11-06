@@ -10,6 +10,8 @@ import (
 
 	"github.com/didip/tollbooth/v7"
 	"github.com/kubescape/storage/pkg/apiserver"
+	"github.com/kubescape/storage/pkg/config"
+	"github.com/kubescape/storage/pkg/queuemanager"
 	"github.com/stretchr/testify/require"
 	apifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -41,9 +43,9 @@ func TestConcurrentLimiterLongRunningClassification(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := genericapiserver.NewConfig(apiserver.Codecs)
 			// No ordinary request can enter: only server-classified long-running requests may pass.
-			lmt := NewConcurrentLimiter(0, cfg.LongRunningFunc)
-			handler := apifilters.WithRequestInfo(lmt.LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
-				func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }), genericapiserver.NewRequestInfoResolver(cfg))
+			lmt := NewConcurrentLimiter(0, cfg.LongRunningFunc, genericapiserver.NewRequestInfoResolver(cfg))
+			handler := lmt.LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
+				func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(tc.method, tc.path, nil))
 			require.Equal(t, tc.want, response.Code)
@@ -53,13 +55,13 @@ func TestConcurrentLimiterLongRunningClassification(t *testing.T) {
 
 func TestConcurrentLimiterOpenWatches(t *testing.T) {
 	cfg := genericapiserver.NewConfig(apiserver.Codecs)
-	lmt := NewConcurrentLimiter(10, cfg.LongRunningFunc)
+	resolver := genericapiserver.NewRequestInfoResolver(cfg)
+	lmt := NewConcurrentLimiter(10, cfg.LongRunningFunc, resolver)
 	entered := make(chan struct{}, 10)
 	release := make(chan struct{})
-	handler := apifilters.WithRequestInfo(lmt.LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
+	handler := lmt.LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
 		func(w http.ResponseWriter, r *http.Request) {
-			info, _ := apirequest.RequestInfoFrom(r.Context())
-			if cfg.LongRunningFunc(r, info) {
+			if r.URL.Query().Get("watch") == "true" {
 				w.WriteHeader(http.StatusOK)
 				w.(http.Flusher).Flush()
 				<-r.Context().Done()
@@ -73,7 +75,7 @@ func TestConcurrentLimiterOpenWatches(t *testing.T) {
 				}
 			}
 			w.WriteHeader(http.StatusOK)
-		}), genericapiserver.NewRequestInfoResolver(cfg))
+		})
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -151,8 +153,8 @@ func TestConcurrentLimiterPreservesPerClientLimit(t *testing.T) {
 			ipLimiter := tollbooth.NewLimiter(0.001, nil).SetBurst(1)
 			ipLimiter.SetIPLookups([]string{"X-Forwarded-For"})
 			calls := 0
-			handler := apifilters.WithRequestInfo(NewConcurrentLimiter(10, cfg.LongRunningFunc).LimitConcurrentRequests(ipLimiter,
-				func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(http.StatusOK) }), genericapiserver.NewRequestInfoResolver(cfg))
+			handler := NewConcurrentLimiter(10, cfg.LongRunningFunc, genericapiserver.NewRequestInfoResolver(cfg)).LimitConcurrentRequests(ipLimiter,
+				func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(http.StatusOK) })
 			for _, want := range []int{http.StatusOK, http.StatusTooManyRequests} {
 				req := httptest.NewRequest(http.MethodGet, path, nil)
 				req.Header.Set("X-Forwarded-For", "192.0.2.1")
@@ -168,7 +170,7 @@ func TestConcurrentLimiterPreservesPerClientLimit(t *testing.T) {
 func TestConcurrentLimiterMissingClassification(t *testing.T) {
 	cfg := genericapiserver.NewConfig(apiserver.Codecs)
 	for _, check := range []apirequest.LongRunningRequestCheck{nil, cfg.LongRunningFunc} {
-		handler := NewConcurrentLimiter(0, check).LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
+		handler := NewConcurrentLimiter(0, check, nil).LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
 			func(w http.ResponseWriter, r *http.Request) { t.Error("request without classification bypassed limit") })
 		resp := httptest.NewRecorder()
 		handler.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, limiterResourcePath+"?watch=true", nil))
@@ -177,7 +179,7 @@ func TestConcurrentLimiterMissingClassification(t *testing.T) {
 }
 
 func TestConcurrentLimiterReleasesSlotOnPanic(t *testing.T) {
-	lmt := NewConcurrentLimiter(1, nil)
+	lmt := NewConcurrentLimiter(1, nil, nil)
 	handler := lmt.LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
 		func(w http.ResponseWriter, r *http.Request) { panic("handler panic") })
 	require.Panics(t, func() { handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil)) })
@@ -186,4 +188,89 @@ func TestConcurrentLimiterReleasesSlotOnPanic(t *testing.T) {
 	resp := httptest.NewRecorder()
 	handler.ServeHTTP(resp, httptest.NewRequest("GET", "/", nil))
 	require.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestConcurrentLimiterContextRemainsLocal(t *testing.T) {
+	cfg := genericapiserver.NewConfig(apiserver.Codecs)
+	resolver := genericapiserver.NewRequestInfoResolver(cfg)
+	lmt := NewConcurrentLimiter(10, cfg.LongRunningFunc, resolver)
+
+	var downstreamContextHasInfo bool
+	handler := lmt.LimitConcurrentRequests(tollbooth.NewLimiter(1000, nil),
+		func(w http.ResponseWriter, r *http.Request) {
+			_, downstreamContextHasInfo = apirequest.RequestInfoFrom(r.Context())
+			w.WriteHeader(http.StatusOK)
+		})
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, limiterResourcePath+"?watch=true", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.False(t, downstreamContextHasInfo, "limiter must not inject RequestInfo into the downstream request context")
+}
+
+func TestConcurrentLimiterQueueComposition(t *testing.T) {
+	cfg := genericapiserver.NewConfig(apiserver.Codecs)
+	resolver := genericapiserver.NewRequestInfoResolver(cfg)
+	globalLimiter := NewConcurrentLimiter(10, cfg.LongRunningFunc, resolver)
+	ipLimiter := tollbooth.NewLimiter(1000, nil)
+
+	// Queue configuration with 1 worker and queue length 1 to catch any improper queueing of nonresource requests
+	queueCfg := &config.Config{
+		DefaultWorkerCount: 1,
+		DefaultQueueLength: 1,
+	}
+	qm := queuemanager.NewQueueManager(queueCfg)
+
+	metricsEntered := make(chan struct{})
+	releaseMetrics := make(chan struct{})
+	downstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/metrics" {
+			close(metricsEntered)
+			<-releaseMetrics
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Compose limiter in front of QueueHandler, exactly as in start.go
+	composed := globalLimiter.LimitConcurrentRequests(ipLimiter, qm.QueueHandler(downstream).ServeHTTP)
+
+	// Run both without and with outer WithRequestInfo to guarantee neither reintroduces probe starvation
+	for _, wrapWithRequestInfo := range []bool{false, true} {
+		t.Run("wrapWithRequestInfo="+string(rune('0'+map[bool]int{false: 0, true: 1}[wrapWithRequestInfo])), func(t *testing.T) {
+			handler := composed
+			if wrapWithRequestInfo {
+				handler = apifilters.WithRequestInfo(composed, resolver)
+			}
+
+			srv := httptest.NewServer(handler)
+			defer srv.Close()
+
+			metricsEntered = make(chan struct{})
+			releaseMetrics = make(chan struct{})
+
+			// Start slow /metrics request
+			go func() {
+				resp, err := srv.Client().Get(srv.URL + "/metrics")
+				if err == nil {
+					resp.Body.Close()
+				}
+			}()
+
+			select {
+			case <-metricsEntered:
+			case <-time.After(2 * time.Second):
+				t.Fatal("metrics request did not enter downstream")
+			}
+
+			// Probes and discovery must bypass the queue and return 200 immediately
+			for _, path := range []string{"/readyz", "/livez", "/apis/spdx.softwarecomposition.kubescape.io/v1beta1"} {
+				resp, err := srv.Client().Get(srv.URL + path)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, resp.StatusCode, "endpoint %s must not be queued behind /metrics", path)
+				resp.Body.Close()
+			}
+
+			close(releaseMetrics)
+		})
+	}
 }
