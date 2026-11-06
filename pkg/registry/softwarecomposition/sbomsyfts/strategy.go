@@ -87,3 +87,26 @@ func (SbomSyftStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) f
 func (SbomSyftStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
 	return nil
 }
+
+// SbomSyftStatusStrategy implements behavior for Status subresource
+type SbomSyftStatusStrategy struct {
+	SbomSyftStrategy
+}
+
+// PrepareForUpdate clears fields that are not allowed to be set by end users on update of status
+func (SbomSyftStatusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+	newObj := obj.(*softwarecomposition.SBOMSyft)
+	oldObj := old.(*softwarecomposition.SBOMSyft)
+	// Update is only for status, keep spec unchanged
+	newObj.Spec = oldObj.Spec
+}
+
+// ValidateUpdate is the default update validation for an end user.
+func (SbomSyftStatusStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+	return field.ErrorList{}
+}
+
+// WarningsOnUpdate returns warnings for the given update.
+func (SbomSyftStatusStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+	return nil
+}
