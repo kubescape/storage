@@ -355,7 +355,7 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 		fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
 		ipLimiter := tollbooth.NewLimiter(rateLimitPerClient, nil)
 		ipLimiter.SetIPLookups([]string{"X-Forwarded-For"}) // api-server acts as a reverse proxy
-		globalLimiter := NewConcurrentLimiter(rateLimitTotal)
+		globalLimiter := NewConcurrentLimiter(rateLimitTotal, c.GenericConfig.LongRunningFunc, c.GenericConfig.RequestInfoResolver)
 		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
 	}
 

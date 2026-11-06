@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
 func TestExtractKindAndVerbFromPath(t *testing.T) {
@@ -69,4 +70,54 @@ func TestHandlerDoesNotRecordAnEmptyKind(t *testing.T) {
 	snapshot := sc.GetStats(false)
 	assert.NotContains(t, snapshot, "", "stats snapshot must not contain an empty kind")
 	assert.Contains(t, snapshot, "unknown", "an unresolvable path belongs under the unknown kind")
+}
+
+func TestExtractKindAndVerb_WithRequestInfo(t *testing.T) {
+	tests := []struct {
+		name     string
+		info     *request.RequestInfo
+		wantKind string
+		wantVerb string
+	}{
+		{
+			name: "Non-resource request returns unknown",
+			info: &request.RequestInfo{
+				IsResourceRequest: false,
+				Path:              "/readyz",
+				Verb:              "get",
+			},
+			wantKind: "unknown",
+			wantVerb: "get",
+		},
+		{
+			name: "Empty resource returns unknown",
+			info: &request.RequestInfo{
+				IsResourceRequest: true,
+				Resource:          "",
+				Verb:              "get",
+			},
+			wantKind: "unknown",
+			wantVerb: "get",
+		},
+		{
+			name: "Resource request returns resource and verb",
+			info: &request.RequestInfo{
+				IsResourceRequest: true,
+				Resource:          "containerprofiles",
+				Verb:              "list",
+			},
+			wantKind: "containerprofiles",
+			wantVerb: "list",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/whatever", nil)
+			req = req.WithContext(request.WithRequestInfo(req.Context(), tt.info))
+			kind, verb := extractKindAndVerb(req)
+			assert.Equal(t, tt.wantKind, kind)
+			assert.Equal(t, tt.wantVerb, verb)
+		})
+	}
 }
