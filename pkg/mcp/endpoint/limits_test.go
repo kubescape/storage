@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/kubescape/go-logger/helpers"
 
 	"github.com/kubescape/storage/pkg/mcp/tools"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -14,7 +17,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
@@ -129,4 +134,97 @@ func TestFailedAccessCheckIsNotLoggedAsADenial(t *testing.T) {
 	require.Len(t, rec.reads, 1)
 	assert.False(t, rec.reads[0].Allowed)
 	assert.Equal(t, context.DeadlineExceeded.Error(), rec.reads[0].Reason)
+}
+
+// countingLister counts reads from any goroutine, including a tool's goroutine
+// that outlives its call.
+type countingLister struct {
+	*fakeLister
+	reads atomic.Int32
+}
+
+func (c *countingLister) List(ctx context.Context, opts *metainternalversion.ListOptions) (runtime.Object, error) {
+	c.reads.Add(1)
+	return c.fakeLister.List(ctx, opts)
+}
+
+type auditLine struct {
+	msg    string
+	fields map[string]any
+}
+
+// captureAudit replaces auditLog for the test and returns its lines.
+func captureAudit(t *testing.T) <-chan auditLine {
+	t.Helper()
+	lines := make(chan auditLine, 10)
+	old := auditLog
+	auditLog = func(msg string, details ...helpers.IDetails) {
+		fields := map[string]any{}
+		for _, d := range details {
+			fields[d.Key()] = d.Value()
+		}
+		lines <- auditLine{msg, fields}
+	}
+	t.Cleanup(func() { auditLog = old })
+	return lines
+}
+
+func TestAccessCheckThatOutlivesTheDeadline(t *testing.T) {
+	lines := captureAudit(t)
+	release := make(chan struct{})
+	var lister *countingLister
+	te := newTestEndpoint(t, "kubescape", func(c *Config) {
+		c.CallTimeout = 50 * time.Millisecond
+		// kube-apiserver answers the SubjectAccessReview only after the
+		// deadline, and allows the read.
+		c.Authorizer = authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
+			<-release
+			return authorizer.DecisionAllow, "", nil
+		})
+		lister = &countingLister{fakeLister: c.VulnerabilityManifests.(*fakeLister)}
+		c.VulnerabilityManifests = lister
+	})
+	cert := te.frontCA.clientCert(t, frontProxyName)
+
+	text, isError := toolResult(t, te.call(t, "kagent", cert, agent, toolCall(`{"namespace":"kubescape"}`)))
+	require.True(t, isError)
+	assert.Contains(t, text, `"code":"TIMEOUT"`)
+
+	// The call's line names the check, still pending.
+	line := <-lines
+	assert.Equal(t, "mcp tool call", line.msg)
+	assert.Equal(t, "TIMEOUT", line.fields["result"])
+	assert.Equal(t, []read{{Verb: "list", Resource: "vulnerabilitymanifests", Namespace: "kubescape", Pending: true}}, line.fields["reads"])
+
+	// The decision arrives late: it is logged on its own line, and nothing is read.
+	close(release)
+	select {
+	case line = <-lines:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the late decision was not logged")
+	}
+	assert.Equal(t, "mcp tool call: access check finished after the call ended", line.msg)
+	assert.Equal(t, agent.Name, line.fields["user"])
+	assert.Equal(t, "list_vulnerability_manifests", line.fields["tool"])
+	assert.Equal(t, []read{{Verb: "list", Resource: "vulnerabilitymanifests", Namespace: "kubescape", Allowed: true,
+		Reason: "the call ended before the decision; nothing was read"}}, line.fields["reads"])
+	time.Sleep(50 * time.Millisecond)
+	assert.Zero(t, lister.reads.Load(), "no read after the call ended")
+	assert.Zero(t, lister.calls)
+}
+
+func TestAuditLineWithoutLateChecks(t *testing.T) {
+	lines := captureAudit(t)
+	te := newTestEndpoint(t, "kubescape")
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	_, isError := toolResult(t, te.call(t, "kagent", cert, agent, toolCall(`{"namespace":"kubescape"}`)))
+	require.False(t, isError)
+	line := <-lines
+	assert.Equal(t, "ok", line.fields["result"])
+	assert.Equal(t, []read{{Verb: "list", Resource: "vulnerabilitymanifests", Namespace: "kubescape", Allowed: true}}, line.fields["reads"])
+	select {
+	case extra := <-lines:
+		t.Fatalf("unexpected second line %q", extra.msg)
+	case <-time.After(50 * time.Millisecond):
+	}
 }

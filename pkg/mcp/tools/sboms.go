@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -180,27 +179,11 @@ func parseSBOMPackageListOptions(args map[string]any) (sbomPackageListOptions, *
 	}
 	opts.packageType = strings.TrimSpace(packageType)
 
-	limit, set, toolErr := intArg(args, "limit")
+	p, toolErr := parsePage(args, defaultSBOMPackageListLimit, maxSBOMPackageListLimit)
 	if toolErr != nil {
 		return opts, toolErr
 	}
-	if set {
-		if limit < 1 || limit > maxSBOMPackageListLimit {
-			return opts, toolError(ErrCodeInvalidArgument,
-				fmt.Sprintf("limit must be between 1 and %d", maxSBOMPackageListLimit),
-				map[string]any{"argument": "limit"})
-		}
-		opts.limit = limit
-	}
-
-	offset, _, toolErr := intArg(args, "offset")
-	if toolErr != nil {
-		return opts, toolErr
-	}
-	if offset < 0 {
-		return opts, toolError(ErrCodeInvalidArgument, "offset must not be negative", map[string]any{"argument": "offset"})
-	}
-	opts.offset = offset
+	opts.limit, opts.offset = p.limit, p.offset
 	return opts, nil
 }
 

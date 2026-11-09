@@ -15,6 +15,10 @@ import (
 const (
 	defaultVulnerabilityListLimit = 100
 	maxVulnerabilityListLimit     = 500
+	// A match is the whole grype record (details, CVSS, match details and
+	// the package's locations), a few KB each, so pages are smaller.
+	defaultCVEMatchLimit = 20
+	maxCVEMatchLimit     = 100
 )
 
 var listVulnerabilitiesInManifestTool = readOnlyTool(
@@ -46,7 +50,7 @@ var listVulnerabilitiesInManifestTool = readOnlyTool(
 
 var listVulnerabilityMatchesForCVETool = readOnlyTool(
 	"list_vulnerability_matches_for_cve",
-	mcp.WithDescription("List all vulnerability matches for a given CVE in a given manifest"),
+	mcp.WithDescription("List the vulnerability matches (full grype records) for a given CVE in a given manifest, one per affected package and vulnerability source. Returns a page of results (see limit/offset) with the total count."),
 	mcp.WithString("namespace",
 		mcp.Description("Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)"),
 	),
@@ -57,6 +61,12 @@ var listVulnerabilityMatchesForCVETool = readOnlyTool(
 	mcp.WithString("cve_id",
 		mcp.Required(),
 		mcp.Description("ID of the CVE to list matches for"),
+	),
+	mcp.WithNumber("limit",
+		mcp.Description("Maximum number of matches to return (optional, default 20, maximum 100)"),
+	),
+	mcp.WithNumber("offset",
+		mcp.Description("Number of matches to skip; pass the previous response's next_offset to get the next page (optional, default 0)"),
 	),
 )
 
@@ -90,18 +100,53 @@ func listVulnerabilityMatchesForCVE(r Reader) server.ToolHandlerFunc {
 		if toolErr != nil {
 			return toolErr, nil
 		}
+		p, toolErr := parsePage(args, defaultCVEMatchLimit, maxCVEMatchLimit)
+		if toolErr != nil {
+			return toolErr, nil
+		}
 		manifest, err := r.GetVulnerabilityManifest(ctx, namespace, name)
 		if err != nil {
 			return readError(err)
 		}
-		matches := []v1beta1.Match{}
-		for _, m := range manifest.Spec.Payload.Matches {
-			if m.Vulnerability.ID == cveID {
-				matches = append(matches, m)
+		return jsonResult(matchesForCVE(manifest.Spec.Payload.Matches, cveID, p))
+	}
+}
+
+type cveMatchListResponse struct {
+	CVEID string `json:"cve_id"`
+	pageInfo
+	Matches []v1beta1.Match `json:"matches"`
+}
+
+// matchesForCVE returns a page of the matches of cveID, ordered by package
+// (name, version, type, purl) and then by vulnerability namespace and data
+// source, so that paging with offset is stable.
+func matchesForCVE(all []v1beta1.Match, cveID string, p page) cveMatchListResponse {
+	matches := []v1beta1.Match{}
+	for _, m := range all {
+		if m.Vulnerability.ID == cveID {
+			matches = append(matches, m)
+		}
+	}
+	sort.SliceStable(matches, func(i, j int) bool {
+		a, b := matches[i], matches[j]
+		for _, k := range [][2]string{
+			{a.Artifact.Name, b.Artifact.Name},
+			{a.Artifact.Version, b.Artifact.Version},
+			{string(a.Artifact.Type), string(b.Artifact.Type)},
+			{a.Artifact.PURL, b.Artifact.PURL},
+			{a.Vulnerability.Namespace, b.Vulnerability.Namespace},
+			{a.Vulnerability.DataSource, b.Vulnerability.DataSource},
+		} {
+			if k[0] != k[1] {
+				return k[0] < k[1]
 			}
 		}
-		return jsonResult(matches)
-	}
+		return false
+	})
+	resp := cveMatchListResponse{CVEID: cveID}
+	resp.Matches, resp.pageInfo = paginate(matches, p)
+	return resp
 }
 
 // manifestArgs returns the namespace (the path namespace when not given) and
@@ -237,27 +282,11 @@ func parseVulnerabilityListOptions(args map[string]any) (vulnerabilityListOption
 		return opts, toolErr
 	}
 
-	limit, set, toolErr := intArg(args, "limit")
+	p, toolErr := parsePage(args, defaultVulnerabilityListLimit, maxVulnerabilityListLimit)
 	if toolErr != nil {
 		return opts, toolErr
 	}
-	if set {
-		if limit < 1 || limit > maxVulnerabilityListLimit {
-			return opts, toolError(ErrCodeInvalidArgument,
-				fmt.Sprintf("limit must be between 1 and %d", maxVulnerabilityListLimit),
-				map[string]any{"argument": "limit"})
-		}
-		opts.limit = limit
-	}
-
-	offset, _, toolErr := intArg(args, "offset")
-	if toolErr != nil {
-		return opts, toolErr
-	}
-	if offset < 0 {
-		return opts, toolError(ErrCodeInvalidArgument, "offset must not be negative", map[string]any{"argument": "offset"})
-	}
-	opts.offset = offset
+	opts.limit, opts.offset = p.limit, p.offset
 	return opts, nil
 }
 

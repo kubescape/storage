@@ -50,9 +50,10 @@ func limit(timeout time.Duration, maxBytes int) server.ToolHandlerMiddleware {
 			}
 			if a.err == nil {
 				if n := resultBytes(a.res); n > maxBytes {
+					hint := tools.SizeHint(req.Params.Name)
 					return tools.ErrorResult(tools.ErrCodeResponseTooLarge,
-						fmt.Sprintf("the result is %d bytes, more than the %d this endpoint returns; ask for less with the tool's paging (limit/offset, continue) or filters", n, maxBytes),
-						map[string]any{"bytes": n, "max_bytes": maxBytes}), nil
+						fmt.Sprintf("the result is %d bytes, more than the %d this endpoint returns; %s. A cluster admin can raise storage's mcp.maxResponseBytes", n, maxBytes, hint),
+						map[string]any{"bytes": n, "max_bytes": maxBytes, "hint": hint}), nil
 				}
 			}
 			return a.res, a.err

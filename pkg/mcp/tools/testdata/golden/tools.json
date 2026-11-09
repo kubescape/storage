@@ -40,15 +40,37 @@
       "idempotentHint": true,
       "openWorldHint": false
     },
-    "description": "Get details of a specific container profile",
+    "description": "Get details of a specific container profile. A busy container's profile can be large: set section to page through one of its lists (what it executed, opened, called, and its network traffic) instead of getting the whole profile.",
     "inputSchema": {
       "properties": {
+        "limit": {
+          "description": "With section: maximum number of entries to return (optional, default 100, maximum 500)",
+          "type": "number"
+        },
         "namespace": {
           "description": "Namespace of the profile, as returned by list_container_profiles (optional, defaults to the namespace in the endpoint's URL)",
           "type": "string"
         },
+        "offset": {
+          "description": "With section: number of entries to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
+        },
         "profile_name": {
           "description": "Name of the container profile to get details for (get this from the list_container_profiles tool)",
+          "type": "string"
+        },
+        "section": {
+          "description": "Return only this list of the profile, a page at a time (optional; by default the whole profile is returned)",
+          "enum": [
+            "execs",
+            "opens",
+            "syscalls",
+            "capabilities",
+            "endpoints",
+            "identifiedCallStacks",
+            "ingress",
+            "egress"
+          ],
           "type": "string"
         }
       },
@@ -259,12 +281,16 @@
       "idempotentHint": true,
       "openWorldHint": false
     },
-    "description": "List all vulnerability matches for a given CVE in a given manifest",
+    "description": "List the vulnerability matches (full grype records) for a given CVE in a given manifest, one per affected package and vulnerability source. Returns a page of results (see limit/offset) with the total count.",
     "inputSchema": {
       "properties": {
         "cve_id": {
           "description": "ID of the CVE to list matches for",
           "type": "string"
+        },
+        "limit": {
+          "description": "Maximum number of matches to return (optional, default 20, maximum 100)",
+          "type": "number"
         },
         "manifest_name": {
           "description": "Name of the manifest to list vulnerabilities from",
@@ -273,6 +299,10 @@
         "namespace": {
           "description": "Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)",
           "type": "string"
+        },
+        "offset": {
+          "description": "Number of matches to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
         }
       },
       "required": [
