@@ -385,6 +385,10 @@ func TestKubernetesNodeStatusBounds(t *testing.T) {
 		}},
 		{"missing-truncation", func(s map[string]any) { s["counts"].(map[string]any)["degraded"] = int64(200) }},
 		{"undercounted-details", func(s map[string]any) { s["counts"].(map[string]any)["degraded"] = int64(0) }},
+		{"applied-ahead-of-observed", func(s map[string]any) {
+			s["appliedGeneration"] = s["observedGeneration"].(int64) + 1
+		}},
+		{"negative-applied", func(s map[string]any) { s["appliedGeneration"] = int64(-1) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			object := nodeReportExample(t)
@@ -399,6 +403,17 @@ func TestKubernetesNodeStatusBounds(t *testing.T) {
 	object["status"].(map[string]any)["truncated"] = true
 	if errs := validate(t, Definitions()[3], object); len(errs) != 0 {
 		t.Fatal("honest truncation rejected:", errs.ToAggregate())
+	}
+	lagging := nodeReportExample(t)
+	status := lagging["status"].(map[string]any)
+	status["appliedGeneration"] = status["observedGeneration"].(int64) - 1
+	if errs := validate(t, Definitions()[3], lagging); len(errs) != 0 {
+		t.Fatal("last-good applied generation rejected:", errs.ToAggregate())
+	}
+	inactive := nodeReportExample(t)
+	inactive["status"].(map[string]any)["tier"] = "none"
+	if errs := validate(t, Definitions()[3], inactive); len(errs) != 0 {
+		t.Fatal("tier none rejected:", errs.ToAggregate())
 	}
 }
 

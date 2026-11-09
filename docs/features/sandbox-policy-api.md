@@ -185,8 +185,17 @@ A future **single aggregation controller** writes policy summaries, not each nod
 `total` counts eligible nodes; `reporting` counts canonical, fresh reports for live
 policy/node UIDs and the policy's current generation. Per-node `observedGeneration`
 refers to the **parent policy generation**, not the report object's generation,
-and records the latest processed attempt, including a failed compile. On failure,
-`stale` is true and `compiled`/`lastCompiled` retain last-good information. The
+and records the latest processed attempt, including a failed compile. `stale` is
+true when the node still enforces an older generation (for example after a failed
+compile) or cannot confirm protection; `compiled`/`lastCompiled` then retain
+last-good information. A failure that leaves the current generation enforced on
+the installed bindings sets Ready=False but not `stale`.
+`appliedGeneration` is the parent policy generation the node enforces now: it
+lags `observedGeneration` while a rejected revision leaves last-good bindings in
+place, is the oldest generation when bindings differ, and is absent when the node
+enforces no revision. Admission rejects an `appliedGeneration` above
+`observedGeneration`. `tier: none` means the node can neither enforce nor audit the
+policy (for example, BPF LSM is not active on the host). The
 required `lastReported` heartbeat timestamps the snapshot independently of
 `lastCompiled`; reports past the configured freshness deadline are not current. Nodes without a current report are
 not Ready. `ready` counts explicit `Ready=True`, non-stale reports; `degraded`

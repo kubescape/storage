@@ -284,13 +284,14 @@ func nodeStatus() schema {
 	hits.MaxProperties = int64ptr(sandbox.MaxStatusRuleDetails)
 	hits.XValidations = apiextensions.ValidationRules{{Rule: fmt.Sprintf("self.all(k, size(k) > 0 && size(k) <= %d)", sandbox.MaxRuleNameLength), Message: "rule names must be at most 256 characters"}}
 	s := object(map[string]schema{
-		"tier":               enumeration("bpf-lsm", "kprobe-override", "tripwire", "seccomp-only", "audit-only"),
-		"observedGeneration": nonnegative(), "lastReported": timestamp(), "conditions": conditions(),
+		"tier":               enumeration("bpf-lsm", "kprobe-override", "tripwire", "seccomp-only", "audit-only", "none"),
+		"observedGeneration": nonnegative(), "appliedGeneration": nonnegative(), "lastReported": timestamp(), "conditions": conditions(),
 		"compiled": object(map[string]schema{"rules": nonnegative(), "fromSources": nonnegative(), "classesResolved": nonnegative(), "classesUnresolved": nonnegative()}, "rules", "fromSources", "classesResolved", "classesUnresolved"),
 		"degraded": degraded, "appliesOnRestart": details, "shadowedAllows": details, "ruleHitCounts": hits,
 		"counts":    object(map[string]schema{"degraded": nonnegative(), "appliesOnRestart": nonnegative(), "shadowedAllows": nonnegative(), "ruleHitCounts": nonnegative()}, "degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"),
 		"truncated": boolean(), "stale": boolean(), "error": {Type: "string", MaxLength: int64ptr(sandbox.MaxStatusErrorLength)}, "lastCompiled": timestamp(),
 	}, "tier", "observedGeneration", "lastReported", "counts", "truncated", "stale")
+	s.XValidations = append(s.XValidations, apiextensions.ValidationRule{Rule: "!has(self.appliedGeneration) || self.appliedGeneration <= self.observedGeneration", Message: "appliedGeneration must not exceed observedGeneration"})
 	for _, name := range []string{"degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"} {
 		size := "(has(self." + name + ") ? size(self." + name + ") : 0)"
 		s.XValidations = append(s.XValidations,

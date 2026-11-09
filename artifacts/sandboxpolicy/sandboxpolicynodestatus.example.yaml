@@ -19,6 +19,7 @@ spec:
     uid: dc65b0d8-5c73-4595-a087-68c8e11b4ad5
 status:
   observedGeneration: 3
+  appliedGeneration: 3
   lastReported: "2026-09-24T09:12:03Z"
   tier: bpf-lsm
   compiled: {rules: 41, fromSources: 17, classesResolved: 6, classesUnresolved: 1}
