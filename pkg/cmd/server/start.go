@@ -33,6 +33,7 @@ import (
 	"github.com/kubescape/storage/pkg/config"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
+	"github.com/kubescape/storage/pkg/mcp/endpoint"
 	"github.com/kubescape/storage/pkg/queuemanager"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/statscollector"
@@ -347,17 +348,35 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 		return err
 	}
 
+	fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
+	handler := fullHandlerChain
 	rateLimitPerClient := c.ExtraConfig.StorageConfig.RateLimitPerClient
 	if rateLimitPerClient > 0 {
 		rateLimitTotal := c.ExtraConfig.StorageConfig.RateLimitTotal
 		logger.L().Info("rate limiting enabled", helpers.Interface("rateLimitPerClient", rateLimitPerClient), helpers.Int("rateLimitTotal", rateLimitTotal))
 		// modify fullHandlerChain to include the Tollbooth rate limiter
-		fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
 		ipLimiter := tollbooth.NewLimiter(rateLimitPerClient, nil)
 		ipLimiter.SetIPLookups([]string{"X-Forwarded-For"}) // api-server acts as a reverse proxy
 		globalLimiter := NewConcurrentLimiter(rateLimitTotal, c.GenericConfig.LongRunningFunc, c.GenericConfig.RequestInfoResolver)
-		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
+		handler = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
 	}
+	if mcp := c.ExtraConfig.StorageConfig.MCP; mcp.Enabled {
+		// The MCP admission limit is the outermost handler: MCP calls take its
+		// slots and skip the global limiter, so writes keep all of it.
+		logger.L().Info("MCP admission limit", helpers.Int("maxRunning", mcp.MaxRunning),
+			helpers.Int("maxWaiting", mcp.MaxWaiting), helpers.String("maxWait", mcp.MaxWait.String()))
+		handler, err = endpoint.NewAdmission(endpoint.AdmissionConfig{
+			RequestHeader:       c.GenericConfig.Authentication.RequestHeaderConfig,
+			RequestInfoResolver: c.GenericConfig.RequestInfoResolver,
+			MaxRunning:          mcp.MaxRunning,
+			MaxWaiting:          mcp.MaxWaiting,
+			MaxWait:             mcp.MaxWait,
+		}, fullHandlerChain, handler)
+		if err != nil {
+			return fmt.Errorf("unable to create the MCP admission limit: %w", err)
+		}
+	}
+	server.GenericAPIServer.Handler.FullHandlerChain = handler
 
 	if o.StorageConfig.QueueProcessingStatsPrint {
 		go func() {

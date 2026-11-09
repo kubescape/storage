@@ -504,6 +504,49 @@ var (
 	)
 )
 
+// MCP admission limit (pkg/mcp/endpoint): the slots MCP calls take in front of
+// storage's global limiter.
+var (
+	MCPAdmissionRunning = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "mcp_admission_running",
+			Help:           "MCP calls running inside the admission limit.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	MCPAdmissionWaiting = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Subsystem:      "storage",
+			Name:           "mcp_admission_waiting",
+			Help:           "MCP calls waiting for a slot of the admission limit.",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	MCPAdmissionWait = metrics.NewHistogram(
+		&metrics.HistogramOpts{
+			Subsystem: "storage",
+			Name:      "mcp_admission_wait_seconds",
+			Help:      "Time an MCP call waited for a slot of the admission limit, admitted or not.",
+			// Up to the default 30s wait.
+			Buckets:        append(append([]float64{}, waitBuckets...), 20, 30),
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	MCPAdmissionRejectedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      "storage",
+			Name:           "mcp_admission_rejected_total",
+			Help:           "MCP calls refused by the admission limit, by reason (not_front_proxy, queue_full, wait_timeout, caller_gone).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"reason"},
+	)
+)
+
 func init() {
 	legacyregistry.MustRegister(LockWaitDuration)
 	legacyregistry.MustRegister(PoolWaitDuration)
@@ -535,6 +578,10 @@ func init() {
 	legacyregistry.MustRegister(MCPToolCallsTotal)
 	legacyregistry.MustRegister(MCPToolCallDuration)
 	legacyregistry.MustRegister(MCPToolResponseBytes)
+	legacyregistry.MustRegister(MCPAdmissionRunning)
+	legacyregistry.MustRegister(MCPAdmissionWaiting)
+	legacyregistry.MustRegister(MCPAdmissionWait)
+	legacyregistry.MustRegister(MCPAdmissionRejectedTotal)
 }
 
 // ObserveMCPToolCall records one MCP tool call.
