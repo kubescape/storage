@@ -410,6 +410,11 @@ func TestKubernetesNodeStatusBounds(t *testing.T) {
 	if errs := validate(t, Definitions()[3], lagging); len(errs) != 0 {
 		t.Fatal("last-good applied generation rejected:", errs.ToAggregate())
 	}
+	inactive := nodeReportExample(t)
+	inactive["status"].(map[string]any)["tier"] = "none"
+	if errs := validate(t, Definitions()[3], inactive); len(errs) != 0 {
+		t.Fatal("tier none rejected:", errs.ToAggregate())
+	}
 }
 
 func TestNodeStatusMaximumSnapshotSize(t *testing.T) {

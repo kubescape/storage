@@ -191,7 +191,8 @@ and records the latest processed attempt, including a failed compile. On failure
 lags `observedGeneration` while a rejected revision leaves last-good bindings in
 place, is the oldest generation when bindings differ, and is absent when the node
 enforces no revision. Admission rejects an `appliedGeneration` above
-`observedGeneration`. The
+`observedGeneration`. `tier: none` means the node can neither enforce nor audit the
+policy (for example, BPF LSM is not active on the host). The
 required `lastReported` heartbeat timestamps the snapshot independently of
 `lastCompiled`; reports past the configured freshness deadline are not current. Nodes without a current report are
 not Ready. `ready` counts explicit `Ready=True`, non-stale reports; `degraded`

@@ -246,6 +246,7 @@ spec:
                 - tripwire
                 - seccomp-only
                 - audit-only
+                - none
                 minLength: 1
                 type: string
               truncated:

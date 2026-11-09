@@ -284,7 +284,7 @@ func nodeStatus() schema {
 	hits.MaxProperties = int64ptr(sandbox.MaxStatusRuleDetails)
 	hits.XValidations = apiextensions.ValidationRules{{Rule: fmt.Sprintf("self.all(k, size(k) > 0 && size(k) <= %d)", sandbox.MaxRuleNameLength), Message: "rule names must be at most 256 characters"}}
 	s := object(map[string]schema{
-		"tier":               enumeration("bpf-lsm", "kprobe-override", "tripwire", "seccomp-only", "audit-only"),
+		"tier":               enumeration("bpf-lsm", "kprobe-override", "tripwire", "seccomp-only", "audit-only", "none"),
 		"observedGeneration": nonnegative(), "appliedGeneration": nonnegative(), "lastReported": timestamp(), "conditions": conditions(),
 		"compiled": object(map[string]schema{"rules": nonnegative(), "fromSources": nonnegative(), "classesResolved": nonnegative(), "classesUnresolved": nonnegative()}, "rules", "fromSources", "classesResolved", "classesUnresolved"),
 		"degraded": degraded, "appliesOnRestart": details, "shadowedAllows": details, "ruleHitCounts": hits,
