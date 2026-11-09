@@ -403,6 +403,11 @@ type CompiledStatus struct {
 type NodeStatus struct {
 	Tier               string             `json:"tier"`
 	ObservedGeneration int64              `json:"observedGeneration"`
+	// AppliedGeneration is the parent policy generation the node enforces now.
+	// It lags ObservedGeneration while a newer revision is rejected and last-good
+	// bindings are retained; when bindings differ it is the oldest one. Absent
+	// (zero) when the node enforces no revision of the policy.
+	AppliedGeneration  int64              `json:"appliedGeneration,omitempty"`
 	LastReported       metav1.Time        `json:"lastReported"`
 	Compiled           *CompiledStatus    `json:"compiled,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`

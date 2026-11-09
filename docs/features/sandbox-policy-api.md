@@ -186,7 +186,12 @@ A future **single aggregation controller** writes policy summaries, not each nod
 policy/node UIDs and the policy's current generation. Per-node `observedGeneration`
 refers to the **parent policy generation**, not the report object's generation,
 and records the latest processed attempt, including a failed compile. On failure,
-`stale` is true and `compiled`/`lastCompiled` retain last-good information. The
+`stale` is true and `compiled`/`lastCompiled` retain last-good information.
+`appliedGeneration` is the parent policy generation the node enforces now: it
+lags `observedGeneration` while a rejected revision leaves last-good bindings in
+place, is the oldest generation when bindings differ, and is absent when the node
+enforces no revision. Admission rejects an `appliedGeneration` above
+`observedGeneration`. The
 required `lastReported` heartbeat timestamps the snapshot independently of
 `lastCompiled`; reports past the configured freshness deadline are not current. Nodes without a current report are
 not Ready. `ready` counts explicit `Ready=True`, non-stale reports; `degraded`
