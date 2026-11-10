@@ -124,17 +124,51 @@ URL.
 |---|---|---|
 | `list_vulnerability_manifests` | `namespace`, `level` (`image`, `workload` or `both`), `continue` | `vulnerabilitymanifests` |
 | `list_vulnerabilities_in_manifest` | **`manifest_name`**, `namespace`, `min_severity`, `fixable_only`, `include_details`, `limit`, `offset` | `vulnerabilitymanifests` |
-| `list_vulnerability_matches_for_cve` | **`manifest_name`**, **`cve_id`**, `namespace` | `vulnerabilitymanifests` |
+| `list_vulnerability_matches_for_cve` | **`manifest_name`**, **`cve_id`**, `namespace`, `limit`, `offset` | `vulnerabilitymanifests` |
 | `list_sboms` | `namespace`, `continue` | `sbomsyfts` |
 | `list_sbom_packages` | **`sbom_name`**, `namespace`, `name`, `package_type`, `limit`, `offset` | `sbomsyfts` |
 | `list_configuration_security_scan_manifests` | `namespace`, `continue` | `workloadconfigurationscans` |
 | `get_configuration_security_scan_manifest` | **`manifest_name`**, `namespace`, `status`, `min_severity` | `workloadconfigurationscans` |
 | `list_container_profiles` | `namespace`, `continue` | `containerprofiles` |
-| `get_container_profile` | **`profile_name`**, `namespace` | `containerprofiles` |
+| `get_container_profile` | **`profile_name`**, `namespace`, `section`, `limit`, `offset` | `containerprofiles` |
 
 `list_*` tools return one page; pass the returned `continue` (or
-`next_offset` as `offset`) to get the next one. The tool names are the ones
-`kubescape mcpserver` uses for the same data.
+`next_offset` as `offset`) to get the next one. `get_container_profile`
+returns the whole profile by default; with `section` (`execs`, `opens`,
+`syscalls`, `capabilities`, `endpoints`, `identifiedCallStacks`, `ingress` or
+`egress`) it returns one list of the profile, a page at a time. The tool names
+are the ones `kubescape mcpserver` uses for the same data.
+
+## Limits
+
+Every tool call is bounded, so one call cannot hold storage or flood the
+agent's context:
+
+| Setting in `config.json` | Default | What it bounds |
+|---|---|---|
+| `mcp.callTimeout` | `20s` | The work of one tool call |
+| `mcp.maxResponseBytes` | `262144` (256 KiB) | The text of one tool result |
+
+```json
+"mcp": {"enabled": true, "callTimeout": "30s", "maxResponseBytes": 524288}
+```
+
+The deadline is on the tool's work, not on the HTTP request, so the agent
+always gets an answer: a `TIMEOUT` tool error when the time is up. A result
+above the cap is replaced by a `RESPONSE_TOO_LARGE` tool error with its size
+and how to ask that tool for less. With `"maxResponseBytes": 65536`, asking
+for 100 vulnerabilities with their details gives:
+
+```json
+{"code":"RESPONSE_TOO_LARGE","message":"the result is 71294 bytes, more than the 65536 this endpoint returns; lower limit and page with offset, leave include_details off, or filter with min_severity or fixable_only. A cluster admin can raise storage's mcp.maxResponseBytes","details":{"bytes":71294,"hint":"lower limit and page with offset, leave include_details off, or filter with min_severity or fixable_only","max_bytes":65536}}
+```
+
+A call that times out is still in the audit log, with `"result":"TIMEOUT"`. An
+access check that was still running when the deadline passed is logged with
+`"pending":true`, and its decision is logged on its own line when it arrives;
+nothing is read after the deadline.
+
+Request bodies are limited to 64 KiB.
 
 ## Errors
 
@@ -147,6 +181,8 @@ URL.
 | A tool read the caller may not do | tool error `RBAC_DENIED`, with kube-apiserver's reason |
 | The object does not exist | tool error `RESOURCE_NOT_FOUND` |
 | A bad argument | tool error `INVALID_ARGUMENT` |
+| The call took longer than `mcp.callTimeout` | tool error `TIMEOUT` |
+| The result is above `mcp.maxResponseBytes` | tool error `RESPONSE_TOO_LARGE`, with a hint to page or filter |
 
 A tool error is a normal MCP result with `isError: true` and the code and
 message as JSON text, so the agent can read it and try again.
@@ -172,5 +208,7 @@ it cannot verify kube-apiserver's certificate yet.
 - `pkg/mcp/endpoint/endpoint_test.go`: calls not forwarded by kube-apiserver
   and anonymous calls refused, the access check of every read for each kind,
   and the request body limit.
+- `pkg/mcp/endpoint/limits_test.go`: the call deadline, the response cap, and
+  access checks cut by the deadline.
 - `pkg/mcp/tools/*_test.go`: each tool's arguments, paging, filters and errors;
   `golden_test.go` pins the tool list and each tool's output.
