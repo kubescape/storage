@@ -154,7 +154,7 @@ func loadDiffFixtures(t *testing.T) diffFixtures {
 	// #315 DeepEqual short-circuit and bump the RV — on either backend. Drop
 	// them so RV sequences are deterministic.
 	tpl.Spec.Endpoints = nil
-	return diffFixtures{tpl: tpl, baseNm: baseNm, ns: tpl.Namespace, baseKey: testCPPrefix + tpl.Namespace + "/" + baseNm, now: time.Now().Round(0)}
+	return diffFixtures{tpl: tpl, baseNm: baseNm, ns: tpl.Namespace, baseKey: testCPPrefix + tpl.Namespace + "/" + baseNm, now: time.Now().UTC().Round(0)}
 }
 
 func (f diffFixtures) ts(suffix string, n int, status, completion string) *softwarecomposition.ContainerProfile {
