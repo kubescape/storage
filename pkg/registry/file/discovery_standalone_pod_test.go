@@ -33,7 +33,7 @@ func TestKubernetesAPI_fetchDataFromPods_StandalonePodWlidWithoutTypeMeta(t *tes
 		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
-	require.NoError(t, kubernetesAPI.fetchDataFromPods("default", &resourceMaps))
+	require.NoError(t, kubernetesAPI.fetchDataFromPods(t.Context(), "default", &resourceMaps))
 
 	containers, found := resourceMaps.RunningWlidsToContainerNames.Load("namespace-default/pod-airbyte-worker")
 	require.True(t, found, "running standalone pod must be registered under its pod wlid, got keys: %v", resourceMaps.RunningWlidsToContainerNames.Keys())

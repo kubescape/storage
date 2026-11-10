@@ -14,7 +14,6 @@ import (
 	"time"
 
 	wlidPkg "github.com/armosec/utils-k8s-go/wlid"
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
@@ -289,6 +288,11 @@ func (h *ResourcesCleanupHandler) RunCleanupTask(ctx context.Context) {
 	}
 }
 
+// CleanupTask runs one cleanup tick. The records of each namespace that holds
+// records are judged against what runs in that namespace; the cluster level
+// records of defaultNamespace against the containers of every namespace. A
+// failed pod or workload list ends the tick before the namespace it was
+// listed for is cleaned.
 func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKindHandler map[string][]TypeCleanupHandlerFunc) error {
 	// Node discovery failure must not turn live hosts into orphaned resources.
 	var hosts *hostResources
@@ -312,9 +316,6 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %w", err)
 	}
-	// cluster level sets to aggregate data from all namespaces
-	clusterRunningContainerImageIds := mapset.NewSet[string]()
-	clusterRunningInstanceIds := mapset.NewSet[string]()
 	// cleanup each namespace, except defaultNamespace that is handled at the end
 	for _, ns := range namespaces {
 		if ns == h.defaultNamespace {
@@ -325,25 +326,27 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 			return fmt.Errorf("failed to fetch resources: %w", err)
 		}
 		resources.Hosts = hosts
-		clusterRunningContainerImageIds.Append(resources.RunningContainerImageIds.ToSlice()...)
-		clusterRunningInstanceIds.Append(resources.RunningInstanceIds.ToSlice()...)
 		err = h.cleanupNamespace(ctx, ns, resourceToKindHandler, conn, resources)
 		if err != nil {
 			return err
 		}
 	}
 	// cleanup cluster level resources inside defaultNamespace, together with the
-	// workloads that run there: their images and instances count as running for the
-	// cluster level records, and their own records are judged like any namespace's
+	// workloads that run there: their own records are judged like any namespace's.
+	// The cluster level records (SBOMs keyed by image ID, for example) describe
+	// containers that can run in any namespace, including namespaces where storage
+	// holds no records and the loop above never visits, so their running images
+	// and instances come from the pods of all namespaces. If that list fails, the
+	// tick ends here and deletes nothing in defaultNamespace.
 	resources, err := h.fetcher.FetchResources(h.defaultNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to fetch resources: %w", err)
 	}
 	resources.Hosts = hosts
-	clusterRunningContainerImageIds.Append(resources.RunningContainerImageIds.ToSlice()...)
-	clusterRunningInstanceIds.Append(resources.RunningInstanceIds.ToSlice()...)
-	resources.RunningContainerImageIds = clusterRunningContainerImageIds
-	resources.RunningInstanceIds = clusterRunningInstanceIds
+	resources.RunningContainerImageIds, resources.RunningInstanceIds, err = h.fetcher.FetchRunningContainers(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch running containers: %w", err)
+	}
 	if err := h.cleanupNamespace(ctx, h.defaultNamespace, resourceToKindHandler, conn, resources); err != nil {
 		return err
 	}

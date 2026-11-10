@@ -43,6 +43,17 @@ func (f *namespaceFetcher) FetchResources(ns string) (ResourceMaps, error) {
 	return f.staleWorkloadFetchMock.FetchResources(ns)
 }
 
+// FetchRunningContainers joins the images and instances of every namespace in
+// running, the mock's whole cluster. It is not recorded in calls.
+func (f *namespaceFetcher) FetchRunningContainers(context.Context) (mapset.Set[string], mapset.Set[string], error) {
+	imageIds, instanceIds := mapset.NewSet[string](), mapset.NewSet[string]()
+	for _, r := range f.running {
+		imageIds.Append(r.RunningContainerImageIds.ToSlice()...)
+		instanceIds.Append(r.RunningInstanceIds.ToSlice()...)
+	}
+	return imageIds, instanceIds, nil
+}
+
 // runningIn is what runs in ns: one image, one instance, and a deployment with one
 // container and its template hash.
 func runningIn(ns string) ResourceMaps {
