@@ -433,6 +433,8 @@ func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
 		SBOMSyfts:                  m["sbomsyfts"],
 		WorkloadConfigurationScans: m["workloadconfigurationscans"],
 		ContainerProfiles:          m["containerprofiles"],
+		CallTimeout:                c.ExtraConfig.StorageConfig.MCP.CallTimeout,
+		MaxResponseBytes:           c.ExtraConfig.StorageConfig.MCP.MaxResponseBytes,
 	})
 	if err != nil {
 		return err

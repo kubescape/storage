@@ -65,6 +65,7 @@ var goldenCalls = []struct {
 
 	{"list_vulnerability_matches_for_cve/two_packages", goldenCall{"list_vulnerability_matches_for_cve", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9", "cve_id": "CVE-2017-12424"}}},
 	{"list_vulnerability_matches_for_cve/no_match", goldenCall{"list_vulnerability_matches_for_cve", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9", "cve_id": "CVE-2021-44228"}}},
+	{"list_vulnerability_matches_for_cve/paged", goldenCall{"list_vulnerability_matches_for_cve", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9", "cve_id": "CVE-2017-12424", "limit": 1.0, "offset": 1.0}}},
 	{"list_vulnerability_matches_for_cve/no_cve", goldenCall{"list_vulnerability_matches_for_cve", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9"}}},
 
 	{"list_sboms/namespace", goldenCall{"list_sboms", map[string]any{"namespace": "kubescape"}}},
@@ -97,6 +98,9 @@ var goldenCalls = []struct {
 	{"list_container_profiles/forbidden", goldenCall{"list_container_profiles", map[string]any{"namespace": restrictedNamespace}}},
 
 	{"get_container_profile/default", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d"}}},
+	{"get_container_profile/section_egress_paged", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d", "section": "egress", "limit": 2.0, "offset": 2.0}}},
+	{"get_container_profile/section_egress", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d", "section": "egress"}}},
+	{"get_container_profile/unknown_section", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d", "section": "files"}}},
 	{"get_container_profile/not_found", goldenCall{"get_container_profile", map[string]any{"profile_name": "replicaset-operator-55df98fc6d"}}},
 	{"get_container_profile/forbidden", goldenCall{"get_container_profile", map[string]any{"namespace": restrictedNamespace, "profile_name": "replicaset-operator-55df98fc6d"}}},
 	{"get_container_profile/no_name", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape"}}},

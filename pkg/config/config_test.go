@@ -27,6 +27,7 @@ func TestLoadConfig(t *testing.T) {
 				HostType:                armotypes.HostTypeKubernetes,
 				ExcludeJsonPaths:        []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
 				MaxContainerProfileSize: 40000,
+				MCP:                     MCPConfig{CallTimeout: 20 * time.Second, MaxResponseBytes: 256 << 10},
 				RateLimitTotal:          10,
 				ServerBindAddress:       "::",
 				ServerBindPort:          8443,

@@ -39,6 +39,27 @@ func Register(s *server.MCPServer, r Reader) {
 	s.AddTool(getContainerProfileTool, getContainerProfile(r))
 }
 
+// sizeHints say how to ask each tool for less when its answer is above the
+// endpoint's size cap. Tools that only list names page with continue and are
+// not listed here.
+var sizeHints = map[string]string{
+	"list_vulnerability_manifests":             "narrow it with level (image or workload) or page with continue",
+	"list_vulnerabilities_in_manifest":         "lower limit and page with offset, leave include_details off, or filter with min_severity or fixable_only",
+	"list_vulnerability_matches_for_cve":       "lower limit and page with offset",
+	"list_sbom_packages":                       "lower limit and page with offset, or filter with name or package_type",
+	"get_configuration_security_scan_manifest": "filter with status (for example failed) or min_severity",
+	"get_container_profile":                    "set section to get one list of the profile, and page it with limit and offset",
+}
+
+// SizeHint says how to ask tool for less, for an answer above the endpoint's
+// size cap.
+func SizeHint(tool string) string {
+	if h, ok := sizeHints[tool]; ok {
+		return h
+	}
+	return "ask for less with the tool's paging or filters"
+}
+
 // readOnlyTool is mcp.NewTool with the hints of a tool that only reads
 // Kubescape's own data; mcp-go's defaults mark a tool destructive and not
 // read-only.

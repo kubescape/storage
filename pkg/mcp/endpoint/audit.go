@@ -3,6 +3,7 @@ package endpoint
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"sync"
 	"time"
 
@@ -22,6 +23,9 @@ type read struct {
 	Name      string `json:"name,omitempty"`
 	Allowed   bool   `json:"allowed"`
 	Reason    string `json:"reason,omitempty"`
+	// Pending is true while the check has not returned. A check still pending
+	// when the call's line is logged gets a line of its own when it returns.
+	Pending bool `json:"pending,omitempty"`
 }
 
 // String is how a read shows in the text log, e.g.
@@ -35,7 +39,10 @@ func (r read) String() string {
 		target = "all namespaces"
 	}
 	decision := "denied"
-	if r.Allowed {
+	switch {
+	case r.Pending:
+		decision = "pending"
+	case r.Allowed:
 		decision = "allowed"
 	}
 	if r.Reason != "" {
@@ -45,17 +52,45 @@ func (r read) String() string {
 }
 
 type auditRecord struct {
-	mu    sync.Mutex
-	reads []read
+	mu     sync.Mutex
+	reads  []read
+	logged bool // the call's line is out; later outcomes are logged on their own
+	user   string
+	tool   string
 }
 
 type auditKey struct{}
 
-func recordRead(ctx context.Context, r read) {
-	if rec, ok := ctx.Value(auditKey{}).(*auditRecord); ok {
+// auditLog writes an audit line. Tests replace it to read the lines.
+var auditLog = func(msg string, details ...helpers.IDetails) { logger.L().Info(msg, details...) }
+
+// startRead records an access check that has started, as pending, and returns
+// the function that records its outcome. The tool's goroutine can outlive the
+// call when the deadline fires (see limit), so the outcome can come after the
+// call's line was logged; it is then logged on its own line, so that every
+// check and its decision are in the log.
+func startRead(ctx context.Context, r read) func(read) {
+	rec, ok := ctx.Value(auditKey{}).(*auditRecord)
+	if !ok {
+		return func(read) {}
+	}
+	r.Pending = true
+	rec.mu.Lock()
+	i := len(rec.reads)
+	rec.reads = append(rec.reads, r)
+	rec.mu.Unlock()
+	return func(r read) {
+		r.Pending = false
 		rec.mu.Lock()
-		rec.reads = append(rec.reads, r)
+		rec.reads[i] = r
+		late := rec.logged
 		rec.mu.Unlock()
+		if late {
+			auditLog("mcp tool call: access check finished after the call ended",
+				helpers.String("user", rec.user),
+				helpers.String("tool", rec.tool),
+				helpers.Interface("reads", []read{r}))
+		}
 	}
 }
 
@@ -64,19 +99,20 @@ func recordRead(ctx context.Context, r read) {
 // the create mcpservers/mcp request itself; this line adds what the call read.
 func audit(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		rec := &auditRecord{}
-		start := time.Now()
-		res, err := next(context.WithValue(ctx, auditKey{}, rec), req)
-
 		var userName string
 		var groups []string
 		if u, ok := genericapirequest.UserFrom(ctx); ok {
 			userName, groups = u.GetName(), u.GetGroups()
 		}
+		rec := &auditRecord{user: userName, tool: req.Params.Name}
+		start := time.Now()
+		res, err := next(context.WithValue(ctx, auditKey{}, rec), req)
+
 		rec.mu.Lock()
-		reads := rec.reads
+		reads := slices.Clone(rec.reads)
+		rec.logged = true
 		rec.mu.Unlock()
-		logger.L().Info("mcp tool call",
+		auditLog("mcp tool call",
 			helpers.String("user", userName),
 			helpers.Interface("groups", groups),
 			helpers.String("tool", req.Params.Name),

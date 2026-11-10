@@ -22,3 +22,13 @@ func TestToolsAreMarkedReadOnly(t *testing.T) {
 		assert.False(t, *a.OpenWorldHint, name)
 	}
 }
+
+func TestSizeHintsNameRegisteredTools(t *testing.T) {
+	s := server.NewMCPServer("test", "0")
+	Register(s, &fakeReader{})
+	for name := range sizeHints {
+		assert.NotNil(t, s.GetTool(name), "size hint for unknown tool %s", name)
+		assert.Equal(t, sizeHints[name], SizeHint(name))
+	}
+	assert.Equal(t, "ask for less with the tool's paging or filters", SizeHint("list_sboms"))
+}

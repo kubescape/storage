@@ -216,17 +216,81 @@ func TestVulnerabilityTools_ManifestNotFound(t *testing.T) {
 	}
 }
 
-func TestListVulnerabilityMatchesForCVE(t *testing.T) {
-	res := callVulnTool(t, "list_vulnerability_matches_for_cve", map[string]any{"manifest_name": "nginx", "cve_id": "CVE-2026-0001"})
-	var matches []v1beta1.Match
-	require.NoError(t, json.Unmarshal([]byte(resultText(t, res)), &matches))
-	require.Len(t, matches, 2)
-	assert.Equal(t, "libssl1.1", matches[0].Artifact.Name)
-	assert.Equal(t, "openssl", matches[1].Artifact.Name)
-	assert.Equal(t, "description of CVE-2026-0001", matches[0].Vulnerability.Description, "matches are returned whole")
+func callCVEMatches(t *testing.T, args map[string]any) cveMatchListResponse {
+	t.Helper()
+	args["manifest_name"] = "nginx"
+	res := callVulnTool(t, "list_vulnerability_matches_for_cve", args)
+	require.False(t, res.IsError, resultText(t, res))
+	var resp cveMatchListResponse
+	require.NoError(t, json.Unmarshal([]byte(resultText(t, res)), &resp))
+	return resp
+}
 
-	res = callVulnTool(t, "list_vulnerability_matches_for_cve", map[string]any{"manifest_name": "nginx", "cve_id": "CVE-0000-0000"})
-	assert.Equal(t, "[]", resultText(t, res))
+func TestListVulnerabilityMatchesForCVE(t *testing.T) {
+	resp := callCVEMatches(t, map[string]any{"cve_id": "CVE-2026-0001"})
+	assert.Equal(t, "CVE-2026-0001", resp.CVEID)
+	assert.Equal(t, pageInfo{Total: 2, Returned: 2}, resp.pageInfo)
+	require.Len(t, resp.Matches, 2)
+	assert.Equal(t, "libssl1.1", resp.Matches[0].Artifact.Name)
+	assert.Equal(t, "openssl", resp.Matches[1].Artifact.Name)
+	assert.Equal(t, "description of CVE-2026-0001", resp.Matches[0].Vulnerability.Description, "matches are returned whole")
+
+	res := callVulnTool(t, "list_vulnerability_matches_for_cve", map[string]any{"manifest_name": "nginx", "cve_id": "CVE-0000-0000"})
+	assert.JSONEq(t, `{"cve_id":"CVE-0000-0000","total":0,"returned":0,"truncated":false,"matches":[]}`, resultText(t, res))
+}
+
+func TestListVulnerabilityMatchesForCVEPaging(t *testing.T) {
+	first := callCVEMatches(t, map[string]any{"cve_id": "CVE-2026-0001", "limit": 1.0})
+	require.Len(t, first.Matches, 1)
+	assert.Equal(t, "libssl1.1", first.Matches[0].Artifact.Name)
+	assert.True(t, first.Truncated)
+	require.NotNil(t, first.NextOffset)
+	assert.Equal(t, 1, *first.NextOffset)
+	assert.Equal(t, 2, first.Total)
+
+	second := callCVEMatches(t, map[string]any{"cve_id": "CVE-2026-0001", "limit": 1.0, "offset": float64(*first.NextOffset)})
+	require.Len(t, second.Matches, 1)
+	assert.Equal(t, "openssl", second.Matches[0].Artifact.Name)
+	assert.False(t, second.Truncated)
+	assert.Nil(t, second.NextOffset)
+
+	past := callCVEMatches(t, map[string]any{"cve_id": "CVE-2026-0001", "offset": 5.0})
+	assert.Empty(t, past.Matches)
+	assert.Equal(t, pageInfo{Total: 2}, past.pageInfo)
+}
+
+func TestMatchesForCVEOrder(t *testing.T) {
+	// The same package matched from two vulnerability sources, and another
+	// package, given out of order: the page order does not depend on the
+	// order in the manifest.
+	nvd := vulnMatchFrom("nvd:cpe", vulnMatch("CVE-2026-0002", "High", "zlib", "1.2", "not-fixed"))
+	debian := vulnMatchFrom("debian:distro:debian:12", vulnMatch("CVE-2026-0002", "High", "zlib", "1.2", "not-fixed"))
+	curl := vulnMatch("CVE-2026-0002", "High", "curl", "7.88", "not-fixed")
+	other := vulnMatch("CVE-2026-0003", "High", "curl", "7.88", "not-fixed")
+	for _, in := range [][]v1beta1.Match{{nvd, other, debian, curl}, {curl, debian, nvd}} {
+		resp := matchesForCVE(in, "CVE-2026-0002", page{limit: 10})
+		require.Len(t, resp.Matches, 3)
+		assert.Equal(t, "curl", resp.Matches[0].Artifact.Name)
+		assert.Equal(t, "debian:distro:debian:12", resp.Matches[1].Vulnerability.Namespace)
+		assert.Equal(t, "nvd:cpe", resp.Matches[2].Vulnerability.Namespace)
+	}
+}
+
+func TestListVulnerabilityMatchesForCVEInvalidPaging(t *testing.T) {
+	for _, tc := range []struct {
+		args map[string]any
+		want string
+	}{
+		{map[string]any{"limit": 0.0}, "limit must be between 1 and 100"},
+		{map[string]any{"limit": 101.0}, "limit must be between 1 and 100"},
+		{map[string]any{"limit": 1.5}, "limit must be an integer"},
+		{map[string]any{"offset": -1.0}, "offset must not be negative"},
+	} {
+		tc.args["manifest_name"], tc.args["cve_id"] = "nginx", "CVE-2026-0001"
+		te := toolErrorOf(t, callVulnTool(t, "list_vulnerability_matches_for_cve", tc.args))
+		assert.Equal(t, ErrCodeInvalidArgument, te.Code, tc.want)
+		assert.Contains(t, te.Message, tc.want)
+	}
 }
 
 func TestListVulnerabilities_SamePackageNameWithDifferentTypesStaysSeparate(t *testing.T) {

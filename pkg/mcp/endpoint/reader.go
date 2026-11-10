@@ -197,9 +197,24 @@ func (r *reader) authorize(ctx context.Context, verb, resource, namespace, name 
 		Name:            name,
 		ResourceRequest: true,
 	}
+	finish := startRead(ctx, read{Verb: verb, Resource: resource, Namespace: namespace, Name: name})
 	decision, reason, err := r.authorizer.Authorize(ctx, attrs)
 	allowed := decision == authorizer.DecisionAllow
-	recordRead(ctx, read{Verb: verb, Resource: resource, Namespace: namespace, Name: name, Allowed: allowed, Reason: reason})
+	if err != nil && reason == "" {
+		// A check that failed, for example cut by the call's deadline, is not
+		// a denial; the audit line says why.
+		reason = err.Error()
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		// The call already got its answer (TIMEOUT, or the caller went away):
+		// whatever the decision, nothing is read after that.
+		if err == nil {
+			reason = joinReason(reason, "the call ended before the decision; nothing was read")
+		}
+		finish(read{Verb: verb, Resource: resource, Namespace: namespace, Name: name, Allowed: allowed, Reason: reason})
+		return ctxErr
+	}
+	finish(read{Verb: verb, Resource: resource, Namespace: namespace, Name: name, Allowed: allowed, Reason: reason})
 	switch {
 	case allowed:
 		return nil
@@ -208,4 +223,11 @@ func (r *reader) authorize(ctx context.Context, verb, resource, namespace, name 
 	default:
 		return responsewriters.ForbiddenStatusError(attrs, reason)
 	}
+}
+
+func joinReason(reason, note string) string {
+	if reason == "" {
+		return note
+	}
+	return reason + "; " + note
 }
