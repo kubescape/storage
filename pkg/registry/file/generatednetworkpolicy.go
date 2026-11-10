@@ -277,9 +277,14 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 	knownServers := softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items)
 
 	// Group the per-container profiles by workload, preserving first-seen order so
-	// the emitted list is deterministic.
-	groups := map[string][]*softwarecomposition.ContainerProfile{}
-	var order []string
+	// the emitted list is deterministic. A list across all namespaces sees
+	// workloads of the same kind and name in several namespaces; they are
+	// different workloads, so the namespace is part of the group key.
+	type workloadKey struct {
+		namespace, name string
+	}
+	groups := map[workloadKey][]*softwarecomposition.ContainerProfile{}
+	var order []workloadKey
 	for i := range items {
 		cp := &items[i]
 		if !networkpolicy.IsAvailable(cp) {
@@ -289,16 +294,17 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		if !ok {
 			continue
 		}
-		if _, seen := groups[name]; !seen {
-			order = append(order, name)
+		wk := workloadKey{namespace: cp.Namespace, name: name}
+		if _, seen := groups[wk]; !seen {
+			order = append(order, wk)
 		}
-		groups[name] = append(groups[name], cp)
+		groups[wk] = append(groups[wk], cp)
 	}
 
-	for _, name := range order {
-		generatedNetworkPolicy, err := aggregateWorkloadPolicy(name, groups[name], knownServers, metav1.Now())
+	for _, wk := range order {
+		generatedNetworkPolicy, err := aggregateWorkloadPolicy(wk.name, groups[wk], knownServers, metav1.Now())
 		if err != nil {
-			logger.L().Ctx(ctx).Error("generate network policy failed", helpers.Error(err), helpers.String("workload", name))
+			logger.L().Ctx(ctx).Error("generate network policy failed", helpers.Error(err), helpers.String("namespace", wk.namespace), helpers.String("workload", wk.name))
 			continue
 		}
 		matched, err := predicate.Matches(&generatedNetworkPolicy)
