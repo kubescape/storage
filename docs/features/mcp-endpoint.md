@@ -36,8 +36,12 @@ Without the chart, set `"mcp": {"enabled": true}` in storage's `config.json`.
 
 An agent needs two kinds of permission:
 
-1. `create` on `mcpservers/mcp` in the namespace of the URL. kube-apiserver
-   checks this before it forwards the call.
+1. `create` and `get` on `mcpservers/mcp` in the namespace of the URL.
+   kube-apiserver checks these before it forwards the call. An MCP call is a
+   `POST` (`create`). Clients built on the MCP TypeScript SDK, such as Gemini
+   CLI, also open an optional `GET` stream after they connect: storage answers
+   it with 405, which they accept, but without `get` kube-apiserver answers 403
+   and the client disconnects before it lists the tools.
 2. `get` and `list` on the resources a tool reads, in each namespace it reads.
    Storage checks this for every read with a SubjectAccessReview.
 
@@ -45,7 +49,7 @@ The chart creates two ClusterRoles for this:
 
 | ClusterRole | Grants |
 |---|---|
-| `kubescape-mcp-reader` | `create` on `mcpservers/mcp`; `get`, `list` on `vulnerabilitymanifests` and `workloadconfigurationscans` |
+| `kubescape-mcp-reader` | `create`, `get` on `mcpservers/mcp`; `get`, `list` on `vulnerabilitymanifests` and `workloadconfigurationscans` |
 | `kubescape-mcp-runtime-reader` | `get`, `list` on `containerprofiles` and `sbomsyfts` (runtime behaviour and full package inventories, so bound separately) |
 
 Bind them with RoleBindings, one per namespace the agent may use. For an agent
@@ -137,6 +141,7 @@ URL.
 | What happened | What the caller gets |
 |---|---|
 | No `create` on `mcpservers/mcp` in the URL's namespace | HTTP 403 from kube-apiserver |
+| A `GET` (the optional stream) | HTTP 405 from storage, or 403 from kube-apiserver without `get` |
 | The call did not come through kube-apiserver, or is anonymous | HTTP 401 from storage |
 | Request body over 64 KiB | HTTP 413 |
 | A tool read the caller may not do | tool error `RBAC_DENIED`, with kube-apiserver's reason |
