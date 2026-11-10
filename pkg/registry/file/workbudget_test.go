@@ -270,7 +270,7 @@ func newBudgetEnv(t *testing.T, rec *budgetRecorder) *budgetEnv {
 		baseNm:    baseNm,
 		ns:        tpl.Namespace,
 		baseKey:   "/spdx.softwarecomposition.kubescape.io/containerprofiles/" + tpl.Namespace + "/" + baseNm,
-		now:       time.Now().Round(0),
+		now:       time.Now().UTC().Round(0),
 	}
 	// Warm the CollapseConfiguration cache (10 s TTL) so no scenario pays the
 	// CR lookup: production steady state, and independent of scenario order.

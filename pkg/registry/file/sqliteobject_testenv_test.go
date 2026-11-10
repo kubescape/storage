@@ -204,7 +204,7 @@ func newObjectStoreEnv(t *testing.T, opts ...envOption) *objectStoreEnv {
 		fixture: openFixtureConn(t, pool, dbPath, 5*time.Second),
 		tpl:     tpl, baseNm: baseNm, ns: tpl.Namespace,
 		baseKey: testCPPrefix + tpl.Namespace + "/" + baseNm,
-		now:     time.Now().Round(0),
+		now:     time.Now().UTC().Round(0),
 	}
 }
 
