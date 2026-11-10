@@ -1831,6 +1831,9 @@ func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts stora
 		logger.L().Ctx(ctx).Error("GetList - normalize selection predicate failed", helpers.Error(err))
 		return ctx, predicate, v, elem, 0, 0, "", false, err
 	}
+	if err := validateContinue(predicate.Continue); err != nil {
+		return ctx, predicate, v, elem, 0, 0, "", false, err
+	}
 	opts.Predicate = predicate
 
 	listPtr, err := meta.GetItemsPtr(listObj)
@@ -1855,6 +1858,23 @@ func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts stora
 	isFullSpec = opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
 
 	return ctx, predicate, v, elem, limit, batchSize, opts.Predicate.Continue, isFullSpec, nil
+}
+
+// validateContinue refuses a continue token storage did not hand out. A token
+// is the rowid of the last object of the previous page, and the list queries
+// compare it with rowid. SQLite compares any other text with an integer
+// without an error (text sorts after every number), so a token that is not a
+// number returned an empty page, as if the list had ended, and a negative one
+// started over from the first object. kube-apiserver's etcd store answers an
+// invalid token with 400 Bad Request; so does storage.
+func validateContinue(cont string) error {
+	if cont == "" {
+		return nil
+	}
+	if rowid, err := strconv.ParseInt(cont, 10, 64); err != nil || rowid < 0 {
+		return apierrors.NewBadRequest("invalid continue token: use the continue value of the previous page")
+	}
+	return nil
 }
 
 // listPageResult is the outcome of fetching one internal SQLite-level page.
