@@ -35,6 +35,7 @@ var (
 type ResourcesFetcher interface {
 	FetchNodes(ctx context.Context) ([]corev1.Node, error)
 	FetchResources(ns string) (ResourceMaps, error)
+	FetchRunningContainers(ctx context.Context) (imageIds, instanceIds mapset.Set[string], err error)
 	ListNamespaces(conn *sqlite.Conn) ([]string, error)
 }
 
@@ -92,7 +93,7 @@ func (h *KubernetesAPI) FetchResources(ns string) (ResourceMaps, error) {
 		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
 	}
 
-	if err := h.fetchDataFromPods(ns, &resourceMaps); err != nil {
+	if err := h.fetchDataFromPods(context.Background(), ns, &resourceMaps); err != nil {
 		return resourceMaps, fmt.Errorf("failed to fetch instance ids and image ids from running pods: %w", err)
 	}
 
@@ -101,6 +102,25 @@ func (h *KubernetesAPI) FetchResources(ns string) (ResourceMaps, error) {
 	}
 
 	return resourceMaps, nil
+}
+
+// FetchRunningContainers returns the image IDs and instance IDs of the
+// containers of every pod in the cluster, from one paged list over all
+// namespaces. Cleanup judges the cluster level records of the default
+// namespace against them: those records (SBOMs keyed by image ID, for
+// example) describe containers that can run in any namespace, including
+// namespaces where storage holds no records. A failed list returns no sets.
+func (h *KubernetesAPI) FetchRunningContainers(ctx context.Context) (mapset.Set[string], mapset.Set[string], error) {
+	resourceMaps := ResourceMaps{
+		RunningInstanceIds:           mapset.NewSet[string](),
+		RunningContainerImageIds:     mapset.NewSet[string](),
+		RunningTemplateHash:          mapset.NewSet[string](),
+		RunningWlidsToContainerNames: new(maps.SafeMap[string, mapset.Set[string]]),
+	}
+	if err := h.fetchDataFromPods(ctx, metav1.NamespaceAll, &resourceMaps); err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch image ids and instance ids from the pods of all namespaces: %w", err)
+	}
+	return resourceMaps.RunningContainerImageIds, resourceMaps.RunningInstanceIds, nil
 }
 
 func (h *KubernetesAPI) chooseLister(ns string, kind string, opts metav1.ListOptions) (runtime.Object, error) {
@@ -188,16 +208,17 @@ func convertEphemeralToContainers(e []corev1.EphemeralContainer) []corev1.Contai
 	return c
 }
 
-// fetchDataFromPods iterates over all running pods in the cluster.
+// fetchDataFromPods iterates over the pods of namespace ns (every namespace
+// for metav1.NamespaceAll), one page at a time.
 // For each pod, it extracts:
 // 1. Instance IDs, which uniquely identify a container instance.
 // 2. Template Hashes, used to group pods belonging to the same controller revision.
 // 3. Container Image IDs, which are the unique identifiers for the container images.
 // It populates the corresponding sets in the ResourceMaps struct.
-func (h *KubernetesAPI) fetchDataFromPods(ns string, resourceMaps *ResourceMaps) error {
+func (h *KubernetesAPI) fetchDataFromPods(ctx context.Context, ns string, resourceMaps *ResourceMaps) error {
 	if err := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-		return h.client.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
-	}).EachListItem(context.Background(), metav1.ListOptions{}, func(obj runtime.Object) error {
+		return h.client.CoreV1().Pods(ns).List(ctx, opts)
+	}).EachListItem(ctx, metav1.ListOptions{}, func(obj runtime.Object) error {
 		pod := obj.(*corev1.Pod)
 
 		instanceIds, err := instanceidhandler.GenerateInstanceIDFromRuntimeObj(pod, h.cfg.ExcludeJsonPaths)
