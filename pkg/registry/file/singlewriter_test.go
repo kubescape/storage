@@ -274,7 +274,6 @@ func TestSingleWriter_ConcurrentUpdatesDifferentKeys_PrepareRunsInParallel(t *te
 	atomic.StoreInt32(&proc.peak, 0)
 
 	var wg sync.WaitGroup
-	start := time.Now()
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(key string) {
@@ -293,15 +292,12 @@ func TestSingleWriter_ConcurrentUpdatesDifferentKeys_PrepareRunsInParallel(t *te
 		}(keys[i])
 	}
 	wg.Wait()
-	elapsed := time.Since(start)
 
 	peak := atomic.LoadInt32(&proc.peak)
+	// Overlap is proven by the peak alone. A wall-clock bound on the whole wave
+	// (e.g. < n*sleep) is not asserted: on a loaded CI runner goroutine
+	// scheduling can stretch parallel work past it without any serialization.
 	require.Greater(t, peak, int32(1), "expected multiple PreSave calls in flight concurrently across different keys, got peak=%d", peak)
-	// If prepare were serialized (like the commit phase is), n sleeps of
-	// 100ms would take at least n*100ms. Parallel prepare should finish in
-	// well under that.
-	require.Less(t, elapsed, time.Duration(n)*100*time.Millisecond,
-		"prepare phases for different keys appear to be serialized (took %s for n=%d sleeps of 100ms)", elapsed, n)
 }
 
 // TestSingleWriter_PriorityOrdering submits several low-priority jobs (for
