@@ -1485,6 +1485,57 @@ func TestStorageImpl_GetList_NegativeLimitReturnsEmpty(t *testing.T) {
 	assert.Empty(t, list.Continue)
 }
 
+// TestStorageImpl_GetList_InvalidContinue: a continue token is the rowid of
+// the last object of the previous page. Before the check, SQLite compared any
+// other text with rowid without an error, so "abc" returned an empty page (as
+// if the list had ended) and "-5" started over from the first object.
+func TestStorageImpl_GetList_InvalidContinue(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+
+	ctx := context.Background()
+	keyPrefix := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/default"
+	for i := range 3 {
+		name := fmt.Sprintf("sbom-%02d", i)
+		obj := &v1beta1.SBOMSyft{ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "default"}}
+		require.NoError(t, s.Create(ctx, keyPrefix+"/"+name, obj.DeepCopyObject(), nil, 0))
+	}
+	list := func(cont string, limit int64) (*v1beta1.SBOMSyftList, error) {
+		out := &v1beta1.SBOMSyftList{}
+		err := s.GetList(ctx, keyPrefix, storage.ListOptions{Predicate: storage.SelectionPredicate{
+			Label:    labels.Everything(),
+			Field:    fields.Everything(),
+			GetAttrs: storage.DefaultNamespaceScopedAttr,
+			Limit:    limit,
+			Continue: cont,
+		}}, out)
+		return out, err
+	}
+
+	for _, cont := range []string{"abc", "-5", "1.5", " 1", "0x1"} {
+		_, err := list(cont, 2)
+		assert.True(t, apierrors.IsBadRequest(err), "continue %q: got %v", cont, err)
+	}
+
+	// The tokens storage hands out still work, and "0" starts at the beginning.
+	first, err := list("", 2)
+	require.NoError(t, err)
+	require.Len(t, first.Items, 2)
+	require.NotEmpty(t, first.Continue)
+	rest, err := list(first.Continue, 2)
+	require.NoError(t, err)
+	require.Len(t, rest.Items, 1)
+	assert.Equal(t, "sbom-02", rest.Items[0].Name)
+	all, err := list("0", 0)
+	require.NoError(t, err)
+	assert.Len(t, all.Items, 3)
+}
+
 // TestStorageImpl_GetList_RespectsCancellationAcrossInternalPages proves a
 // follow-up fix flagged in code review of the unset-limit fix above: an
 // unlimited (or large-limit) GetList spanning many internal pages had

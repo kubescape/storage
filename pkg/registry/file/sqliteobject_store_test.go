@@ -436,6 +436,23 @@ func TestObjectStore_ListPagination(t *testing.T) {
 	assert.Equal(t, "1", empty.ResourceVersion)
 }
 
+// TestObjectStore_ListInvalidContinue: the SQLite-native store shares the
+// continue token check of the legacy store, for both list variants.
+func TestObjectStore_ListInvalidContinue(t *testing.T) {
+	e := newObjectStoreEnv(t)
+	for _, n := range []string{"a", "b"} {
+		e.create(e.plain("ic-" + n))
+	}
+	for _, rv := range []string{softwarecomposition.ResourceVersionMetadata, softwarecomposition.ResourceVersionFullSpec} {
+		for _, cont := range []string{"abc", "-1"} {
+			out := &softwarecomposition.ContainerProfileList{}
+			opts := storage.ListOptions{ResourceVersion: rv, Predicate: storage.SelectionPredicate{Limit: 1, Continue: cont}, Recursive: true}
+			err := e.store.GetList(e.ctx, testCPPrefix+e.ns, opts, out)
+			assert.True(t, apierrors.IsBadRequest(err), "%s, continue %q: got %v", rv, cont, err)
+		}
+	}
+}
+
 // TestObjectStore_ListExcludesUnconsolidatedTSRows: an un-consolidated TS
 // profile create writes a real metadata+payloads row (see the ObjectStore
 // file comment), one per report, alongside its time_series bookkeeping row.
