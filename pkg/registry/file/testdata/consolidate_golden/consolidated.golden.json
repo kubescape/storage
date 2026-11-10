@@ -38,6 +38,7 @@
     {
       "Path": "/etc/config",
       "Flags": [
+        "O_RDONLY",
         "O_WRONLY"
       ]
     },
