@@ -182,7 +182,9 @@ func mergeIngressRulesByPorts(rules []softwarecomposition.NetworkPolicyIngressRu
 			}
 		}
 
-		if hasSelector {
+		// A rule without ports allows every port, so it has no port to be
+		// merged under: keep it as it is rather than drop its peers.
+		if hasSelector || len(rule.Ports) == 0 {
 			nonMergedRules = append(nonMergedRules, rule)
 			continue
 		}
@@ -271,7 +273,8 @@ func mergeEgressRulesByPorts(rules []softwarecomposition.NetworkPolicyEgressRule
 			}
 		}
 
-		if hasSelector {
+		// See mergeIngressRulesByPorts: a rule without ports allows every port.
+		if hasSelector || len(rule.Ports) == 0 {
 			nonMergedRules = append(nonMergedRules, rule)
 			continue
 		}
