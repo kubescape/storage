@@ -103,3 +103,47 @@ func TestSameStoredContent_PreservesInputs(t *testing.T) {
 	incoming.ResourceVersion = "6"
 	assert.False(t, sameStoredContent(stored, incoming), "resource version must still participate in comparison")
 }
+
+// A profile with call stacks of several call IDs must survive an unchanged
+// reapply without a write: the deflate that runs on save has to give the same
+// call stack list for the same input.
+func TestGuaranteedUpdate_UnchangedReapplyWithCallStacks(t *testing.T) {
+	for _, mode := range []string{"legacy", "single-writer", "sqlite-native"} {
+		t.Run(mode, func(t *testing.T) {
+			old := singleWriterEnabled
+			singleWriterEnabled = mode != "legacy"
+			t.Cleanup(func() { singleWriterEnabled = old })
+			var b *backend
+			if mode == "sqlite-native" {
+				b = newObjectBackend(t, nil)
+			} else {
+				b = newLegacyBackend(t, nil)
+			}
+			defer b.watcher.Stop()
+			const key = testCPPrefix + "default/reapply-callstacks"
+			var stacks []softwarecomposition.IdentifiedCallStack
+			for _, id := range []softwarecomposition.CallID{"id-e", "id-b", "id-g", "id-a", "id-h", "id-c", "id-f", "id-d"} {
+				stacks = append(stacks, softwarecomposition.IdentifiedCallStack{CallID: id, CallStack: softwarecomposition.CallStack{Root: softwarecomposition.CallStackNode{
+					Children: []softwarecomposition.CallStackNode{{Frame: softwarecomposition.StackFrame{FileID: "1", Lineno: string(id)}}},
+				}}})
+			}
+			applied := &softwarecomposition.ContainerProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: "reapply-callstacks", Namespace: "default", UID: types.UID("reapply-uid")},
+				Spec:       softwarecomposition.ContainerProfileSpec{IdentifiedCallStacks: stacks},
+			}
+			require.NoError(t, b.store.Create(t.Context(), key, applied, nil, 0))
+			stored := &softwarecomposition.ContainerProfile{}
+			require.NoError(t, b.store.Get(t.Context(), key, storage.GetOptions{}, stored))
+			require.Len(t, b.drainEvents(t), 1)
+			for i := 0; i < 10; i++ {
+				out := &softwarecomposition.ContainerProfile{}
+				require.NoError(t, b.store.GuaranteedUpdate(t.Context(), key, out, false, nil,
+					func(in runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+						return in.(*softwarecomposition.ContainerProfile).DeepCopy(), nil, nil
+					}, nil))
+				assert.Equal(t, stored.ResourceVersion, out.ResourceVersion, "reapply %d wrote an unchanged profile", i+1)
+			}
+			assert.Empty(t, b.drainEvents(t), "an unchanged reapply must not emit a modified event")
+		})
+	}
+}
