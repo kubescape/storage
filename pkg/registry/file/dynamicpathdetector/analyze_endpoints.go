@@ -284,13 +284,13 @@ func buildEndpointKey(endpoint string, direction consts.NetworkDirection, intern
 }
 
 func mergeHeaders(existing, new *types.HTTPEndpoint) {
-	existingHeaders, err := existing.GetHeaders()
+	existingHeaders, err := endpointHeaders(existing)
 	if err != nil {
 		return
 	}
 
-	newHeaders, err := new.GetHeaders()
-	if err != nil {
+	newHeaders, err := endpointHeaders(new)
+	if err != nil || len(newHeaders) == 0 {
 		return
 	}
 
@@ -315,6 +315,24 @@ func mergeHeaders(existing, new *types.HTTPEndpoint) {
 	}
 
 	existing.Headers = rawJSON
+}
+
+// endpointHeaders returns the headers of an endpoint as a map that can be
+// added to. An endpoint without headers, or with JSON null as its headers,
+// has none: GetHeaders fails on the first and returns a nil map for the
+// second, which made the merge drop the other endpoint's headers or panic.
+func endpointHeaders(e *types.HTTPEndpoint) (map[string][]string, error) {
+	if len(e.Headers) == 0 {
+		return map[string][]string{}, nil
+	}
+	headers, err := e.GetHeaders()
+	if err != nil {
+		return nil, err
+	}
+	if headers == nil {
+		headers = map[string][]string{}
+	}
+	return headers, nil
 }
 
 func convertPointerToValueSlice(m []*types.HTTPEndpoint) []types.HTTPEndpoint {
