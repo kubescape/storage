@@ -94,15 +94,7 @@ func New(cfg Config) (*Endpoint, error) {
 		return nil, errors.New("the containerprofiles storage cannot list and get")
 	}
 
-	// k8s.io/apiserver's own front-proxy check: the wrapped authenticator runs
-	// only when the client certificate chains to the request-header CA and has
-	// an allowed common name.
-	accept := authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
-		return &authenticator.Response{}, true, nil
-	})
-	e := &Endpoint{
-		frontProxy: x509request.NewDynamicCAVerifier(cfg.RequestHeader.CAContentProvider.VerifyOptions, accept, cfg.RequestHeader.AllowedClientNames),
-	}
+	e := &Endpoint{frontProxy: frontProxyCheck(cfg.RequestHeader)}
 
 	s := server.NewMCPServer("kubescape-storage", "v1beta1", server.WithToolHandlerMiddleware(audit),
 		// After audit, so that the audit line records the limited answer.
@@ -128,6 +120,16 @@ func New(cfg Config) (*Endpoint, error) {
 		}),
 	)
 	return e, nil
+}
+
+// frontProxyCheck is k8s.io/apiserver's own front-proxy check: it accepts a
+// request only when its client certificate chains to the request-header CA and
+// has an allowed common name.
+func frontProxyCheck(rh *authenticatorfactory.RequestHeaderConfig) authenticator.Request {
+	accept := authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
+		return &authenticator.Response{}, true, nil
+	})
+	return x509request.NewDynamicCAVerifier(rh.CAContentProvider.VerifyOptions, accept, rh.AllowedClientNames)
 }
 
 // ServeHTTP refuses anonymous calls and calls that did not come through

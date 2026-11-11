@@ -27,7 +27,7 @@ func TestLoadConfig(t *testing.T) {
 				HostType:                armotypes.HostTypeKubernetes,
 				ExcludeJsonPaths:        []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
 				MaxContainerProfileSize: 40000,
-				MCP:                     MCPConfig{CallTimeout: 20 * time.Second, MaxResponseBytes: 256 << 10},
+				MCP:                     MCPConfig{CallTimeout: 20 * time.Second, MaxResponseBytes: 256 << 10, MaxRunning: 1, MaxWaiting: 10, MaxWait: 30 * time.Second},
 				RateLimitTotal:          10,
 				ServerBindAddress:       "::",
 				ServerBindPort:          8443,
@@ -46,6 +46,11 @@ func TestLoadConfig(t *testing.T) {
 						QueueLength:   50,
 						WorkerCount:   2,
 						MaxObjectSize: 10000000,
+					},
+					"mcpservers": {
+						QueueLength:   10,
+						WorkerCount:   1,
+						MaxObjectSize: 64 << 10,
 					},
 					"openvulnerabilityexchangecontainers": {
 						QueueLength:   50,
@@ -343,3 +348,28 @@ func TestSingleWriterEnabledConfig(t *testing.T) {
 	}
 }
 
+
+func TestMCPKindQueue(t *testing.T) {
+	dir := t.TempDir()
+	write := func(json string) Config {
+		t.Helper()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(json), 0o600))
+		cfg, err := LoadConfig(dir)
+		require.NoError(t, err)
+		return cfg
+	}
+	want := KindQueueConfig{QueueLength: 10, WorkerCount: 1, MaxObjectSize: 64 << 10}
+
+	// No kindQueues in the file: the default map, plus mcpservers.
+	cfg := write(`{}`)
+	assert.Equal(t, want, cfg.KindQueues[MCPKindQueue])
+	assert.Contains(t, cfg.KindQueues, "sbomsyfts")
+
+	// kindQueues without mcpservers, as in the operator chart: still added.
+	cfg = write(`{"kindQueues": {"sbomsyfts": {"queueLength": 5, "workerCount": 1, "maxObjectSize": 100}}}`)
+	assert.Equal(t, want, cfg.KindQueues[MCPKindQueue])
+
+	// Set in the file: kept as it is.
+	cfg = write(`{"kindQueues": {"mcpservers": {"queueLength": 3, "workerCount": 2, "maxObjectSize": 1000}}}`)
+	assert.Equal(t, KindQueueConfig{QueueLength: 3, WorkerCount: 2, MaxObjectSize: 1000}, cfg.KindQueues[MCPKindQueue])
+}

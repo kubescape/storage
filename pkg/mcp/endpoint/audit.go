@@ -10,6 +10,7 @@ import (
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/mcp/tools"
+	"github.com/kubescape/storage/pkg/metrics"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -112,15 +113,17 @@ func audit(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 		reads := slices.Clone(rec.reads)
 		rec.logged = true
 		rec.mu.Unlock()
+		duration, size, result := time.Since(start), resultBytes(res), resultCode(res, err)
+		metrics.ObserveMCPToolCall(req.Params.Name, result, duration, size)
 		auditLog("mcp tool call",
 			helpers.String("user", userName),
 			helpers.Interface("groups", groups),
 			helpers.String("tool", req.Params.Name),
 			helpers.String("namespace", genericapirequest.NamespaceValue(ctx)),
 			helpers.Interface("reads", reads),
-			helpers.String("duration", time.Since(start).String()),
-			helpers.Int("responseBytes", resultBytes(res)),
-			helpers.String("result", resultCode(res, err)))
+			helpers.String("duration", duration.String()),
+			helpers.Int("responseBytes", size),
+			helpers.String("result", result))
 		return res, err
 	}
 }

@@ -31,6 +31,12 @@ type MCPConfig struct {
 	CallTimeout time.Duration `mapstructure:"callTimeout"`
 	// MaxResponseBytes caps the text of one tool result.
 	MaxResponseBytes int `mapstructure:"maxResponseBytes"`
+	// MaxRunning, MaxWaiting and MaxWait are the admission limit in front of
+	// storage's global limiter: calls running at once, calls waiting for a
+	// slot, and how long one waits before it gets 429.
+	MaxRunning int           `mapstructure:"maxRunning"`
+	MaxWaiting int           `mapstructure:"maxWaiting"`
+	MaxWait    time.Duration `mapstructure:"maxWait"`
 }
 
 type Config struct {
@@ -202,6 +208,9 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("mcp.enabled", false)
 	v.SetDefault("mcp.callTimeout", 20*time.Second)
 	v.SetDefault("mcp.maxResponseBytes", 256<<10)
+	v.SetDefault("mcp.maxRunning", 1)
+	v.SetDefault("mcp.maxWaiting", 10)
+	v.SetDefault("mcp.maxWait", 30*time.Second)
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)
@@ -321,8 +330,22 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, err
 	}
 
+	// MCP calls get their own kind queue, sized like the admission limit so
+	// that it adds no second limit. It is added here and not as a default of
+	// kindQueues: a config file that sets kindQueues replaces that default
+	// map as a whole, and the operator chart's does.
+	if _, ok := config.KindQueues[MCPKindQueue]; !ok {
+		if config.KindQueues == nil {
+			config.KindQueues = map[string]KindQueueConfig{}
+		}
+		config.KindQueues[MCPKindQueue] = KindQueueConfig{QueueLength: 10, WorkerCount: 1, MaxObjectSize: 64 << 10}
+	}
+
 	return config, nil
 }
+
+// MCPKindQueue is the kind queue of MCP calls (mcpservers/mcp).
+const MCPKindQueue = "mcpservers"
 
 // applyCustomRestEnabledEnvVar overrides every Custom<Resource>RestEnabled
 // flag with the CUSTOM_REST_ENABLED env var's value, when set. Unset (empty)
