@@ -61,36 +61,22 @@ func getCallStackPaths(cs types.CallStack) [][]types.CallStackNode {
 	return paths
 }
 
-// parsePath converts a path string back to frame sequence
-func parsePath(path string) []types.StackFrame {
-	if path == "" {
-		return nil
-	}
-	parts := strings.Split(path, "/")
-	frames := make([]types.StackFrame, len(parts))
-	for i, part := range parts {
-		frameParts := strings.Split(part, ":")
-		if len(frameParts) == 2 {
-			frames[i] = types.StackFrame{
-				FileID: frameParts[0],
-				Lineno: frameParts[1],
-			}
-		}
-	}
-	return frames
-}
-
 // reconstructCallStack builds a CallStack from a trie
 func reconstructCallStack(t *trie.PathTrie) types.CallStack {
 	var allPaths [][]types.StackFrame
-	_ = t.Walk(func(key string, value interface{}) error {
-		if value == nil {
+	_ = t.Walk(func(_ string, value interface{}) error {
+		// Take the frames from the stored path, not from the key: the key
+		// only carries FileID and Lineno, and parsing it back dropped every
+		// other field of the frame (FrameType).
+		nodes, ok := value.([]types.CallStackNode)
+		if !ok || len(nodes) == 0 {
 			return nil
 		}
-		frames := parsePath(key)
-		if len(frames) > 0 {
-			allPaths = append(allPaths, frames)
+		frames := make([]types.StackFrame, len(nodes))
+		for i, node := range nodes {
+			frames[i] = node.Frame
 		}
+		allPaths = append(allPaths, frames)
 		return nil
 	})
 
