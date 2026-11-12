@@ -1481,6 +1481,46 @@ func TestUnifyCallStacksEdgeCases(t *testing.T) {
 	}
 }
 
+// FrameType is stored with every frame. Unifying the call stacks of a profile,
+// which runs on every save, must keep it rather than reset each frame to 0.
+func TestUnifyIdentifiedCallStacksKeepsFrameType(t *testing.T) {
+	leaf := func(frame types.StackFrame) types.CallStackNode {
+		return types.CallStackNode{Frame: frame}
+	}
+	stacks := []types.IdentifiedCallStack{
+		{CallID: "id1", CallStack: types.CallStack{Root: types.CallStackNode{Children: []types.CallStackNode{{
+			Frame:    types.StackFrame{FileID: "10", Lineno: "1", FrameType: 3},
+			Children: []types.CallStackNode{leaf(types.StackFrame{FileID: "20", Lineno: "2", FrameType: 4})},
+		}}}}},
+		{CallID: "id1", CallStack: types.CallStack{Root: types.CallStackNode{Children: []types.CallStackNode{{
+			Frame:    types.StackFrame{FileID: "10", Lineno: "1", FrameType: 3},
+			Children: []types.CallStackNode{leaf(types.StackFrame{FileID: "30", Lineno: "3", FrameType: 5})},
+		}}}}},
+	}
+
+	result := UnifyIdentifiedCallStacks(stacks)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 unified call stack, got %d", len(result))
+	}
+	var got []types.StackFrame
+	var walk func(node types.CallStackNode)
+	walk = func(node types.CallStackNode) {
+		for _, child := range node.Children {
+			got = append(got, child.Frame)
+			walk(child)
+		}
+	}
+	walk(result[0].CallStack.Root)
+	want := []types.StackFrame{
+		{FileID: "10", Lineno: "1", FrameType: 3},
+		{FileID: "20", Lineno: "2", FrameType: 4},
+		{FileID: "30", Lineno: "3", FrameType: 5},
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("frames after unification = %v, want %v", got, want)
+	}
+}
+
 // The unified call stacks are written into the stored profile, so the same
 // input must always give the same list. An order that follows map iteration
 // makes an unchanged profile look changed every time it is saved again.
