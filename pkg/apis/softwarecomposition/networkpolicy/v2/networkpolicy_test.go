@@ -3428,3 +3428,52 @@ func TestGenerateNetworkPolicy_MixedResolvableAndUnresolvedNeighbors(t *testing.
 	assert.Len(t, got.Spec.Spec.Ingress[0].Ports, 1)
 	assert.Equal(t, int32(80), *got.Spec.Spec.Ingress[0].Ports[0].Port)
 }
+
+// A neighbor reached by IP with no ports is allowed on every port: a
+// NetworkPolicy rule without ports matches all ports. Merging the IP rules by
+// port must not drop such a rule just because it has no port to merge under,
+// or the policy would deny all traffic to and from that peer.
+func TestGenerateNetworkPolicy_IPNeighborWithoutPortsAllowsAllPorts(t *testing.T) {
+	finder := softwarecomposition.NewKnownServersFinderImpl(nil)
+	tcp := v1.ProtocolTCP
+	cp := softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "deployment-web",
+			Namespace:   "default",
+			Annotations: map[string]string{helpersv1.StatusMetadataKey: helpersv1.Completed},
+			Labels: map[string]string{
+				helpersv1.RelatedKindMetadataKey: "Deployment",
+				helpersv1.RelatedNameMetadataKey: "web",
+			},
+		},
+		Spec: softwarecomposition.ContainerProfileSpec{
+			LabelSelector: metav1.LabelSelector{MatchLabels: map[string]string{"app": "web"}},
+			Egress: []softwarecomposition.NetworkNeighbor{
+				{Identifier: "any-port", Type: softwarecomposition.CommunicationTypeEgress, IPAddresses: []string{"10.0.0.5"}},
+				{Identifier: "https", Type: softwarecomposition.CommunicationTypeEgress, IPAddresses: []string{"10.0.0.6"},
+					Ports: []softwarecomposition.NetworkPort{{Name: "TCP-443", Protocol: softwarecomposition.ProtocolTCP, Port: ptrToInt32(443)}}},
+			},
+			Ingress: []softwarecomposition.NetworkNeighbor{
+				{Identifier: "any-port", Type: softwarecomposition.CommunicationTypeIngress, IPAddress: "10.0.1.5"},
+			},
+		},
+	}
+
+	got, err := GenerateNetworkPolicy(&cp, finder, metav1.Now())
+	require.NoError(t, err)
+
+	assert.Equal(t, []softwarecomposition.NetworkPolicyEgressRule{
+		{
+			Ports: []softwarecomposition.NetworkPolicyPort{{Protocol: &tcp, Port: ptrToInt32(443)}},
+			To:    []softwarecomposition.NetworkPolicyPeer{{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.0.0.6/32"}}},
+		},
+		{
+			To: []softwarecomposition.NetworkPolicyPeer{{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.0.0.5/32"}}},
+		},
+	}, got.Spec.Spec.Egress)
+	assert.Equal(t, []softwarecomposition.NetworkPolicyIngressRule{
+		{
+			From: []softwarecomposition.NetworkPolicyPeer{{IPBlock: &softwarecomposition.IPBlock{CIDR: "10.0.1.5/32"}}},
+		},
+	}, got.Spec.Spec.Ingress)
+}

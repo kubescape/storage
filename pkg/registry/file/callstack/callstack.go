@@ -161,5 +161,11 @@ func UnifyIdentifiedCallStacks(stacks []types.IdentifiedCallStack) []types.Ident
 		})
 	}
 
+	// The groups come out of a map, in a different order on every call. Order
+	// them by call ID so that saving the same profile again stores the same list.
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CallID < result[j].CallID
+	})
+
 	return result
 }
