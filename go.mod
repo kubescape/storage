@@ -2,7 +2,7 @@
 
 module github.com/kubescape/storage
 
-go 1.26.8
+go 1.26.11
 
 require (
 	github.com/SergJa/jsonhash v0.0.0-20210531165746-fc45f346aa74
