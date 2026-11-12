@@ -48,7 +48,7 @@ func TestLoadConfig(t *testing.T) {
 						MaxObjectSize: 10000000,
 					},
 					"mcpservers": {
-						QueueLength:   10,
+						QueueLength:   1,
 						WorkerCount:   1,
 						MaxObjectSize: 64 << 10,
 					},
@@ -358,7 +358,7 @@ func TestMCPKindQueue(t *testing.T) {
 		require.NoError(t, err)
 		return cfg
 	}
-	want := KindQueueConfig{QueueLength: 10, WorkerCount: 1, MaxObjectSize: 64 << 10}
+	want := KindQueueConfig{QueueLength: 1, WorkerCount: 1, MaxObjectSize: 64 << 10}
 
 	// No kindQueues in the file: the default map, plus mcpservers.
 	cfg := write(`{}`)
@@ -368,6 +368,10 @@ func TestMCPKindQueue(t *testing.T) {
 	// kindQueues without mcpservers, as in the operator chart: still added.
 	cfg = write(`{"kindQueues": {"sbomsyfts": {"queueLength": 5, "workerCount": 1, "maxObjectSize": 100}}}`)
 	assert.Equal(t, want, cfg.KindQueues[MCPKindQueue])
+
+	// mcp.maxRunning raised: the queue grows with it, so it adds no second limit.
+	cfg = write(`{"mcp": {"maxRunning": 4, "maxWaiting": 20}}`)
+	assert.Equal(t, KindQueueConfig{QueueLength: 4, WorkerCount: 4, MaxObjectSize: 64 << 10}, cfg.KindQueues[MCPKindQueue])
 
 	// Set in the file: kept as it is.
 	cfg = write(`{"kindQueues": {"mcpservers": {"queueLength": 3, "workerCount": 2, "maxObjectSize": 1000}}}`)
