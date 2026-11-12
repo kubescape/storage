@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strings"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -296,8 +296,7 @@ func mergeHeaders(existing, new *types.HTTPEndpoint) {
 
 	for k, v := range newHeaders {
 		if _, exists := existingHeaders[k]; exists {
-			set := mapset.NewSet[string](append(existingHeaders[k], v...)...)
-			existingHeaders[k] = set.ToSlice()
+			existingHeaders[k] = mergeHeaderValues(existingHeaders[k], v)
 		} else {
 			existingHeaders[k] = v
 		}
@@ -315,6 +314,16 @@ func mergeHeaders(existing, new *types.HTTPEndpoint) {
 	}
 
 	existing.Headers = rawJSON
+}
+
+// mergeHeaderValues returns the distinct values of both lists, sorted. The
+// merged headers are written into the stored profile, so their order must not
+// depend on map iteration: a set's slice would make the same merge serialize
+// differently every time, and an unchanged profile look changed on each save.
+func mergeHeaderValues(existing, added []string) []string {
+	merged := append(slices.Clone(existing), added...)
+	slices.Sort(merged)
+	return slices.Compact(merged)
 }
 
 // endpointHeaders returns the headers of an endpoint as a map that can be
