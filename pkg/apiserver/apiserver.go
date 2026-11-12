@@ -417,6 +417,9 @@ func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
 	// The timeout of k8s.io/apiserver's delegated authorization.
 	clientConfig := restclient.CopyConfig(c.ExtraConfig.ClientConfig)
 	clientConfig.Timeout = 10 * time.Second
+	// Counts the SubjectAccessReviews of each access check, so the MCP metrics
+	// can tell cache hits from misses.
+	clientConfig.Wrap(endpoint.CountReviews)
 	client, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		return err

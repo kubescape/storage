@@ -547,6 +547,19 @@ var (
 	)
 )
 
+// MCP access checks (pkg/mcp/endpoint): one per read a tool call makes, by
+// decision, and whether the authorizer's cache answered it (hit) or it sent a
+// SubjectAccessReview to kube-apiserver (miss, however many times it retried).
+var MCPAccessChecksTotal = metrics.NewCounterVec(
+	&metrics.CounterOpts{
+		Subsystem:      "storage",
+		Name:           "mcp_access_checks_total",
+		Help:           "Access checks of MCP tool reads, by decision (allowed, denied, error) and cache (hit, miss).",
+		StabilityLevel: metrics.ALPHA,
+	},
+	[]string{"decision", "cache"},
+)
+
 func init() {
 	legacyregistry.MustRegister(LockWaitDuration)
 	legacyregistry.MustRegister(PoolWaitDuration)
@@ -582,6 +595,7 @@ func init() {
 	legacyregistry.MustRegister(MCPAdmissionWaiting)
 	legacyregistry.MustRegister(MCPAdmissionWait)
 	legacyregistry.MustRegister(MCPAdmissionRejectedTotal)
+	legacyregistry.MustRegister(MCPAccessChecksTotal)
 }
 
 // ObserveMCPToolCall records one MCP tool call.

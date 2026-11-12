@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/mcp/tools"
+	"github.com/kubescape/storage/pkg/metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -37,6 +39,7 @@ import (
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/component-base/metrics/testutil"
 )
 
 const frontProxyName = "front-proxy-client"
@@ -640,4 +643,47 @@ func TestNewAuthorizerAsksKubeAPIServerAndCaches(t *testing.T) {
 	assert.Equal(t, agent.Groups, reviews[0].Spec.Groups)
 	assert.Equal(t, &authorizationv1.ResourceAttributes{Namespace: "kubescape", Verb: "list",
 		Group: softwarecomposition.GroupName, Version: "v1beta1", Resource: "vulnerabilitymanifests"}, reviews[0].Spec.ResourceAttributes)
+}
+
+func TestAccessChecksCountCacheHitsAndMisses(t *testing.T) {
+	// A kube-apiserver that allows everything, but fails the first two
+	// SubjectAccessReviews for namespace "flaky" so that the authorizer retries.
+	var flakyFailures atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var sar authorizationv1.SubjectAccessReview
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&sar))
+		if sar.Spec.ResourceAttributes.Namespace == "flaky" && flakyFailures.Add(1) <= 2 {
+			http.Error(w, "try again", http.StatusInternalServerError)
+			return
+		}
+		sar.Status.Allowed = true
+		w.Header().Set("Content-Type", "application/json")
+		assert.NoError(t, json.NewEncoder(w).Encode(sar))
+	}))
+	defer srv.Close()
+	cfg := &restclient.Config{Host: srv.URL}
+	cfg.Wrap(CountReviews)
+	client, err := kubernetes.NewForConfig(cfg)
+	require.NoError(t, err)
+	authz, err := apiauth.NewAuthorizer(client.AuthorizationV1())
+	require.NoError(t, err)
+	r := &reader{authorizer: authz}
+	ctx := genericapirequest.WithUser(context.Background(), agent)
+
+	count := func(cache string) float64 {
+		t.Helper()
+		v, err := testutil.GetCounterMetricValue(metrics.MCPAccessChecksTotal.WithLabelValues("allowed", cache))
+		require.NoError(t, err)
+		return v
+	}
+	hits, misses := count("hit"), count("miss")
+
+	require.NoError(t, r.authorize(ctx, "list", "vulnerabilitymanifests", "kubescape", ""))
+	require.NoError(t, r.authorize(ctx, "list", "vulnerabilitymanifests", "kubescape", ""))
+	// Three requests for one check (two failures, then the answer): one miss.
+	require.NoError(t, r.authorize(ctx, "list", "vulnerabilitymanifests", "flaky", ""))
+
+	assert.Equal(t, int32(3), flakyFailures.Load())
+	assert.Equal(t, misses+2, count("miss"))
+	assert.Equal(t, hits+1, count("hit"))
 }
