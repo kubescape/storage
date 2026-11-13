@@ -57,6 +57,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -170,6 +171,13 @@ type commitJob struct {
 	// currently be at exactly baseRV).
 	create bool
 	baseRV uint64
+
+	// realignMetadata lets an update commit go ahead when the metadata row's
+	// resourceVersion differs from baseRV, provided the payload on disk is
+	// still at baseRV (checked under the key lock): the row is stale, not the
+	// caller. Set only after a conflict that left the payload unchanged; see
+	// guaranteedUpdateSingleWriter.
+	realignMetadata bool
 
 	// newObj is the fully-prepared candidate object (post PreSave, post
 	// resourceVersion bump/ManagedFields zeroing/checksum -- everything
@@ -536,7 +544,7 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 			return commitResult{err: storage.NewKeyExistsError(job.key, 0)}
 		}
 	} else if job.baseRV != 0 {
-		if !exists || currentRV != job.baseRV {
+		if !exists || (currentRV != job.baseRV && !s.staleMetadataRow(job, currentRV)) {
 			_ = s.appFs.Remove(job.tmpPayloadPath)
 			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
 			return commitResult{err: errWriteConflict}
@@ -641,6 +649,11 @@ func (w *singleWriter) commitGated(job *commitJob) commitResult {
 		renamePayload = s.appFs.Rename
 	}
 
+	// The payload check decodes gob, which a gated fn must not do (INV-1'),
+	// so it runs here, under the key lock that every payload rename also
+	// holds: the payload cannot move before the gated CAS below.
+	payloadAtBase := job.realignMetadata && !job.create && job.baseRV != 0 && s.payloadAtResourceVersion(job)
+
 	err := s.write(job.ctx, nil, job.priority, holdPathLegacyCommit, kind, true, func(_ context.Context, conn *sqlite.Conn) error {
 		currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
 		if err != nil {
@@ -651,7 +664,10 @@ func (w *singleWriter) commitGated(job *commitJob) commitResult {
 				return storage.NewKeyExistsError(job.key, 0)
 			}
 		} else if job.baseRV != 0 && (!exists || currentRV != job.baseRV) {
-			return errWriteConflict
+			if !exists || !payloadAtBase {
+				return errWriteConflict
+			}
+			logStaleMetadataRealigned(job, currentRV)
 		}
 		if werr := writeMeta(conn, job.key, metadata); werr != nil {
 			return fmt.Errorf("write metadata: %w", werr)
@@ -792,6 +808,43 @@ func newObjFactoryFor(obj runtime.Object) func() runtime.Object {
 	return func() runtime.Object {
 		return reflect.New(t).Interface().(runtime.Object)
 	}
+}
+
+// staleMetadataRow reports whether an update commit whose CAS failed only
+// because the metadata row is at currentRV may still go ahead: the caller
+// asked to realign (job.realignMetadata) and the payload on disk is still at
+// job.baseRV. The caller holds the key lock.
+func (s *StorageImpl) staleMetadataRow(job *commitJob, currentRV uint64) bool {
+	if !job.realignMetadata || !s.payloadAtResourceVersion(job) {
+		return false
+	}
+	logStaleMetadataRealigned(job, currentRV)
+	return true
+}
+
+// payloadAtResourceVersion decodes the committed payload of job.key and
+// reports whether its resourceVersion is job.baseRV. Any read or decode
+// failure reports false, which keeps the commit a conflict. The caller holds
+// the key lock, so no commit can rename a new payload into place meanwhile.
+func (s *StorageImpl) payloadAtResourceVersion(job *commitJob) bool {
+	f, err := s.openPayloadFileWithFallback(job.finalPayloadPath, os.O_RDONLY, 0)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+	obj := job.newObjFactory()
+	if err := decodeGobPayload(gob.NewDecoder(NewDirectIOReader(f)), obj); err != nil {
+		return false
+	}
+	rv, err := s.versioner.ObjectResourceVersion(obj)
+	return err == nil && rv == job.baseRV
+}
+
+func logStaleMetadataRealigned(job *commitJob, metadataRV uint64) {
+	logger.L().Warning("GuaranteedUpdate - metadata row was out of sync with the payload; realigning it",
+		helpers.String("key", job.key),
+		helpers.String("metadataResourceVersion", strconv.FormatUint(metadataRV, 10)),
+		helpers.String("payloadResourceVersion", strconv.FormatUint(job.baseRV, 10)))
 }
 
 // ensureWriter lazily creates s.writer on first use.
@@ -1086,6 +1139,9 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 
 	writer := s.ensureWriter()
 	var conflictAttempts int
+	// realignMetadata is set after a conflict that left the payload at baseRV
+	// (see the errWriteConflict branch below).
+	var realignMetadata bool
 
 	for {
 		// run preconditions
@@ -1206,6 +1262,7 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			tmpPayloadPath:   tmpPath,
 			finalPayloadPath: finalPath,
 			resultCh:         make(chan commitResult, 1),
+			realignMetadata:  realignMetadata,
 		}
 		res, err := writer.submit(ctx, job, priority)
 		if err != nil {
@@ -1236,6 +1293,7 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 				// still acceptable (bounded by the caller's own ctx deadline,
 				// same as today) even though this adds pacing between
 				// attempts.
+				baseRev := origState.rev
 				conflictAttempts++
 				metrics.IncSingleWriterConflictRetry(resourceFromKey(key))
 				if backoffErr := singleWriterConflictBackoff(ctx, conflictAttempts); backoffErr != nil {
@@ -1247,6 +1305,26 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 					return err
 				}
 				origStateIsCurrent = true
+				if origState.rev != baseRev {
+					realignMetadata = false
+					continue
+				}
+				// The commit conflicted although the payload is still at
+				// baseRV. No other writer won (every commit renames a new
+				// payload into place under the key lock), so the metadata row
+				// disagrees with the payload -- storage before v0.0.306 could
+				// leave that behind when a payload rename failed after the row
+				// was written. The same CAS would conflict on every retry and
+				// spin silently until the caller's deadline, so retry once
+				// with realignMetadata (the commit re-checks the payload under
+				// the key lock and rewrites the row), and if even that
+				// conflicts, fail fast with a regular conflict.
+				if realignMetadata {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - metadata row disagrees with the payload and could not be realigned",
+						helpers.String("key", key), helpers.String("payloadResourceVersion", strconv.FormatInt(baseRev, 10)))
+					return storage.NewResourceVersionConflictsError(key, 0)
+				}
+				realignMetadata = true
 				continue
 			}
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(res.err), helpers.String("key", key))
