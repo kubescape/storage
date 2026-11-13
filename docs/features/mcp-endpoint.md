@@ -223,6 +223,32 @@ why it was allowed or denied, the duration, the response size and the result:
 {"level":"info","msg":"mcp tool call","user":"system:serviceaccount:demo:agent","tool":"list_vulnerabilities_in_manifest","namespace":"demo","reads":[{"verb":"get","resource":"vulnerabilitymanifests","namespace":"kubescape","name":"nginx-32fdf9","allowed":true,"reason":"RBAC: allowed by RoleBinding \"demo-agent-kubescape-mcp-reader/kubescape\" of ClusterRole \"kubescape-mcp-reader\" to ServiceAccount \"agent/demo\""}],"duration":"26.623595ms","responseBytes":592,"result":"ok"}
 ```
 
+## Metrics
+
+On storage's `/metrics`:
+
+| Metric | Type | Labels | What it counts |
+|---|---|---|---|
+| `storage_mcp_tool_calls_total` | counter | `tool`, `result` | Tool calls; `result` is `ok`, the tool error code (for example `RBAC_DENIED` or `TIMEOUT`), or `error` |
+| `storage_mcp_tool_call_duration_seconds` | histogram | `tool` | How long tool calls take |
+| `storage_mcp_tool_response_bytes` | histogram | `tool` | Size of the tool results' text |
+| `storage_mcp_access_checks_total` | counter | `decision`, `cache` | Access checks of the reads tool calls make: `allowed`, `denied` or `error`; `hit` when the cache answered, `miss` when a SubjectAccessReview was sent |
+| `storage_mcp_admission_running` | gauge | | Calls running inside the admission limit |
+| `storage_mcp_admission_waiting` | gauge | | Calls waiting for a slot |
+| `storage_mcp_admission_wait_seconds` | histogram | | How long calls waited for a slot, admitted or not |
+| `storage_mcp_admission_rejected_total` | counter | `reason` | Calls refused before the endpoint: `not_front_proxy` (401), `queue_full`, `wait_timeout` (429), `caller_gone` |
+
+Access checks are cached for 10 seconds, allowed or denied. A `miss` is one
+check that sent a SubjectAccessReview to kube-apiserver, however many times it
+was retried; k8s.io/apiserver's `apiserver_delegated_authz_request_total` counts
+every attempt and `apiserver_delegated_authz_request_duration_seconds` their
+latency.
+
+A cached answer is for one caller with one token: a ServiceAccount token's
+credential ID is part of the review. An agent that reuses its token gets cache
+hits; one that requests a new token for every call sends a review for every
+read.
+
 ## Kagent
 
 Kagent's `RemoteMCPServer` can point at the URL above. As of Kagent v1.0.0 its
@@ -240,5 +266,6 @@ it cannot verify kube-apiserver's certificate yet.
   places, wait timeout and 429.
 - `pkg/config/config_test.go` (`TestMCPKindQueue`): the `mcpservers` kind queue
   follows `mcp.maxRunning`.
+- `pkg/mcp/endpoint/metrics_test.go`: tool calls and access checks are counted.
 - `pkg/mcp/tools/*_test.go`: each tool's arguments, paging, filters and errors;
   `golden_test.go` pins the tool list and each tool's output.

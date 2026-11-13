@@ -6,6 +6,7 @@ import (
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/metrics"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -198,8 +199,14 @@ func (r *reader) authorize(ctx context.Context, verb, resource, namespace, name 
 		ResourceRequest: true,
 	}
 	finish := startRead(ctx, read{Verb: verb, Resource: resource, Namespace: namespace, Name: name})
-	decision, reason, err := r.authorizer.Authorize(ctx, attrs)
+	checkCtx, reviews := withReviewCount(ctx)
+	decision, reason, err := r.authorizer.Authorize(checkCtx, attrs)
 	allowed := decision == authorizer.DecisionAllow
+	cache := "hit"
+	if reviews.Load() > 0 {
+		cache = "miss"
+	}
+	metrics.MCPAccessChecksTotal.WithLabelValues(checkDecision(allowed, err), cache).Inc()
 	if err != nil && reason == "" {
 		// A check that failed, for example cut by the call's deadline, is not
 		// a denial; the audit line says why.
@@ -222,6 +229,18 @@ func (r *reader) authorize(ctx context.Context, verb, resource, namespace, name 
 		return apierrors.NewInternalError(fmt.Errorf("checking access: %w", err))
 	default:
 		return responsewriters.ForbiddenStatusError(attrs, reason)
+	}
+}
+
+// checkDecision is the decision label of storage_mcp_access_checks_total.
+func checkDecision(allowed bool, err error) string {
+	switch {
+	case allowed:
+		return "allowed"
+	case err != nil:
+		return "error"
+	default:
+		return "denied"
 	}
 }
 

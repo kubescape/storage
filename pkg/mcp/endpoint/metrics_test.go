@@ -39,3 +39,23 @@ func TestToolCallsAreCounted(t *testing.T) {
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, size, uint64(2))
 }
+
+func TestAccessChecksAreCounted(t *testing.T) {
+	count := func(decision string) float64 {
+		t.Helper()
+		v, err := testutil.GetCounterMetricValue(metrics.MCPAccessChecksTotal.WithLabelValues(decision, "hit"))
+		require.NoError(t, err)
+		return v
+	}
+	allowed, denied := count("allowed"), count("denied")
+
+	te := newTestEndpoint(t, "kubescape")
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	_, isError := toolResult(t, te.call(t, "kagent", cert, agent, toolCall(`{"namespace":"kubescape"}`)))
+	require.False(t, isError)
+	_, isError = toolResult(t, te.call(t, "kagent", cert, agent, toolCall(`{"namespace":"team-a"}`)))
+	require.True(t, isError)
+
+	assert.Equal(t, allowed+1, count("allowed"))
+	assert.Equal(t, denied+1, count("denied"))
+}
