@@ -27,16 +27,85 @@ type Reader interface {
 }
 
 // Register adds every tool to s.
-func Register(s *server.MCPServer, r Reader) {
-	s.AddTool(listVulnerabilityManifestsTool, listVulnerabilityManifests(r))
-	s.AddTool(listVulnerabilitiesInManifestTool, listVulnerabilitiesInManifest(r))
-	s.AddTool(listVulnerabilityMatchesForCVETool, listVulnerabilityMatchesForCVE(r))
-	s.AddTool(listSBOMsTool, listSBOMs(r))
-	s.AddTool(listSBOMPackagesTool, listSBOMPackages(r))
-	s.AddTool(listConfigurationScansTool, listConfigurationScans(r))
-	s.AddTool(getConfigurationScanTool, getConfigurationScan(r))
-	s.AddTool(listContainerProfilesTool, listContainerProfiles(r))
-	s.AddTool(getContainerProfileTool, getContainerProfile(r))
+func Register(s *server.MCPServer, r Reader, opts ...Option) {
+	s.AddTools(Tools(r, opts...)...)
+}
+
+// Tools returns every tool with its handler, for a server that adds them
+// itself, for example to wrap the handlers.
+func Tools(r Reader, opts ...Option) []server.ServerTool {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	tools := []server.ServerTool{
+		{Tool: listVulnerabilityManifestsTool, Handler: listVulnerabilityManifests(r, o)},
+		{Tool: listVulnerabilitiesInManifestTool, Handler: listVulnerabilitiesInManifest(r)},
+		{Tool: listVulnerabilityMatchesForCVETool, Handler: listVulnerabilityMatchesForCVE(r)},
+		{Tool: listSBOMsTool, Handler: listSBOMs(r)},
+		{Tool: listSBOMPackagesTool, Handler: listSBOMPackages(r)},
+		{Tool: listConfigurationScansTool, Handler: listConfigurationScans(r, o)},
+		{Tool: getConfigurationScanTool, Handler: getConfigurationScan(r)},
+		{Tool: listContainerProfilesTool, Handler: listContainerProfiles(r, o)},
+		{Tool: getContainerProfileTool, Handler: getContainerProfile(r)},
+	}
+	for i := range tools {
+		if d, ok := o.namespaceDescriptions[tools[i].Tool.Name]; ok {
+			tools[i].Tool = withNamespaceDescription(tools[i].Tool, d)
+		}
+	}
+	return tools
+}
+
+// Option changes the tools for a server other than storage's endpoint, such as
+// kubescape mcpserver.
+type Option func(*options)
+
+type options struct {
+	resourceLinks         bool
+	namespaceDescriptions map[string]string
+}
+
+// WithResourceLinks adds kubescape:// resource links to the answers of
+// list_vulnerability_manifests, list_configuration_security_scan_manifests and
+// list_container_profiles: a resource_uri for each item and the
+// available_templates. Only for a server that serves those resource templates;
+// storage's endpoint does not.
+func WithResourceLinks() Option {
+	return func(o *options) { o.resourceLinks = true }
+}
+
+// WithNamespaceDescription replaces the description of tool's namespace
+// argument, for a server whose default namespace is not the one in the
+// endpoint's URL.
+func WithNamespaceDescription(tool, description string) Option {
+	return func(o *options) {
+		if o.namespaceDescriptions == nil {
+			o.namespaceDescriptions = map[string]string{}
+		}
+		o.namespaceDescriptions[tool] = description
+	}
+}
+
+// withNamespaceDescription returns a copy of tool with description on its
+// namespace argument. The shared tool definition is left as it is.
+func withNamespaceDescription(tool mcp.Tool, description string) mcp.Tool {
+	ns, ok := tool.InputSchema.Properties["namespace"].(map[string]any)
+	if !ok {
+		return tool
+	}
+	props := make(map[string]any, len(tool.InputSchema.Properties))
+	for k, v := range tool.InputSchema.Properties {
+		props[k] = v
+	}
+	nsCopy := make(map[string]any, len(ns))
+	for k, v := range ns {
+		nsCopy[k] = v
+	}
+	nsCopy["description"] = description
+	props["namespace"] = nsCopy
+	tool.InputSchema.Properties = props
+	return tool
 }
 
 // sizeHints say how to ask each tool for less when its answer is above the

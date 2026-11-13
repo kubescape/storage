@@ -8,7 +8,6 @@ import (
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,14 +36,10 @@ func profileReader() *memReader {
 // callProfileTool calls tool on r with the path namespace kubescape.
 func callProfileTool(t *testing.T, r Reader, tool string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
-	handlers := map[string]func(Reader) server.ToolHandlerFunc{
-		"list_container_profiles": listContainerProfiles,
-		"get_container_profile":   getContainerProfile,
-	}
 	req := mcp.CallToolRequest{}
 	req.Params.Name = tool
 	req.Params.Arguments = args
-	res, err := handlers[tool](r)(WithDefaultNamespace(context.Background(), "kubescape"), req)
+	res, err := toolHandler(t, r, tool)(WithDefaultNamespace(context.Background(), "kubescape"), req)
 	require.NoError(t, err)
 	return res
 }
