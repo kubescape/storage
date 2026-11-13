@@ -330,15 +330,18 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, err
 	}
 
-	// MCP calls get their own kind queue, sized like the admission limit so
-	// that it adds no second limit. It is added here and not as a default of
-	// kindQueues: a config file that sets kindQueues replaces that default
-	// map as a whole, and the operator chart's does.
+	// MCP calls get their own kind queue. The admission limit already lets at
+	// most mcp.maxRunning calls through at once, so the queue has as many
+	// workers and places, and adds no second limit when mcp.maxRunning is
+	// raised. It is added here and not as a default of kindQueues: a config
+	// file that sets kindQueues replaces that default map as a whole, and the
+	// operator chart's does.
 	if _, ok := config.KindQueues[MCPKindQueue]; !ok {
 		if config.KindQueues == nil {
 			config.KindQueues = map[string]KindQueueConfig{}
 		}
-		config.KindQueues[MCPKindQueue] = KindQueueConfig{QueueLength: 10, WorkerCount: 1, MaxObjectSize: 64 << 10}
+		running := max(config.MCP.MaxRunning, 1)
+		config.KindQueues[MCPKindQueue] = KindQueueConfig{QueueLength: running, WorkerCount: running, MaxObjectSize: 64 << 10}
 	}
 
 	return config, nil

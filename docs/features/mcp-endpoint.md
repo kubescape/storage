@@ -170,6 +170,31 @@ nothing is read after the deadline.
 
 Request bodies are limited to 64 KiB.
 
+## Admission limit
+
+MCP calls have their own slots in front of storage, so agents cannot use up
+the capacity node-agent and kubevuln need for writes:
+
+| Setting in `config.json` | Default | What it bounds |
+|---|---|---|
+| `mcp.maxRunning` | `1` | MCP calls running at once |
+| `mcp.maxWaiting` | `10` | More calls waiting for a free slot |
+| `mcp.maxWait` | `30s` | How long a call waits for a slot |
+
+```json
+"mcp": {"enabled": true, "maxRunning": 4, "maxWaiting": 20, "maxWait": "10s"}
+```
+
+A call that finds every slot and waiting place taken, or that waits longer
+than `mcp.maxWait`, gets HTTP 429 with `Retry-After: 1`. MCP calls never hold a
+slot of storage's global limiter (`rateLimitTotal`), and every other request
+goes to that limiter as before.
+
+MCP calls also go through the `mcpservers` kind queue when the queue manager is
+on (the operator chart turns it on). Storage sizes that queue from
+`mcp.maxRunning`, so raising `mcp.maxRunning` is enough; set
+`kindQueues.mcpservers` only to override it.
+
 ## Errors
 
 | What happened | What the caller gets |
@@ -178,6 +203,7 @@ Request bodies are limited to 64 KiB.
 | A `GET` (the optional stream) | HTTP 405 from storage, or 403 from kube-apiserver without `get` |
 | The call did not come through kube-apiserver, or is anonymous | HTTP 401 from storage |
 | Request body over 64 KiB | HTTP 413 |
+| No free slot within the admission limit | HTTP 429 with `Retry-After: 1` |
 | A tool read the caller may not do | tool error `RBAC_DENIED`, with kube-apiserver's reason |
 | The object does not exist | tool error `RESOURCE_NOT_FOUND` |
 | A bad argument | tool error `INVALID_ARGUMENT` |
@@ -210,5 +236,9 @@ it cannot verify kube-apiserver's certificate yet.
   and the request body limit.
 - `pkg/mcp/endpoint/limits_test.go`: the call deadline, the response cap, and
   access checks cut by the deadline.
+- `pkg/mcp/endpoint/admission_test.go`: the admission limit's slots, waiting
+  places, wait timeout and 429.
+- `pkg/config/config_test.go` (`TestMCPKindQueue`): the `mcpservers` kind queue
+  follows `mcp.maxRunning`.
 - `pkg/mcp/tools/*_test.go`: each tool's arguments, paging, filters and errors;
   `golden_test.go` pins the tool list and each tool's output.
