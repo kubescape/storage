@@ -1266,12 +1266,15 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			return nil
 		}
 
-		if realignMetadata && metadataRV > uint64(origState.rev) {
-			// prepareSingleWriterPayload bumps from ret's resourceVersion;
-			// start the repair from the row's higher one so the new version
-			// is above both and never moves backwards for watchers or for
-			// clients that read the row.
-			if err := s.versioner.UpdateObject(ret, metadataRV); err != nil {
+		if realignMetadata {
+			// prepareSingleWriterPayload bumps from ret's own resourceVersion,
+			// which tryUpdate controls: a callback may return a separately
+			// prepared object (SaveContainerProfile does) whose version is
+			// unrelated to the stored one, or one an earlier attempt already
+			// bumped. Seed the repair from max(payload, row) so the new
+			// version is above both and never moves backwards for watchers or
+			// for clients that read the row.
+			if err := s.versioner.UpdateObject(ret, max(uint64(origState.rev), metadataRV)); err != nil {
 				return fmt.Errorf("set resourceVersion for metadata realignment: %w", err)
 			}
 		}

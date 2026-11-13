@@ -58,9 +58,15 @@ func TestSingleWriter_GuaranteedUpdate_MetadataRVMismatch(t *testing.T) {
 		payloadRVs int // updates applied before desync, so payload RV = 1+payloadRVs
 		rowRV      string
 		wantRV     string
+		// detached makes tryUpdate return one separately prepared object,
+		// reused across attempts and starting at resourceVersion 1, the
+		// shape SaveContainerProfile uses, instead of a copy of its input.
+		detached bool
 	}{
 		{name: "row ahead", payloadRVs: 0, rowRV: "7", wantRV: "8"},
 		{name: "row behind", payloadRVs: 4, rowRV: "2", wantRV: "6"},
+		{name: "row ahead detached object", payloadRVs: 0, rowRV: "7", wantRV: "8", detached: true},
+		{name: "row behind detached object", payloadRVs: 4, rowRV: "2", wantRV: "6", detached: true},
 	}
 	for _, tc := range cases {
 		for _, gated := range []bool{false, true} {
@@ -104,7 +110,16 @@ func TestSingleWriter_GuaranteedUpdate_MetadataRVMismatch(t *testing.T) {
 
 				start := time.Now()
 				out := &softwarecomposition.VulnerabilityManifestSummary{}
-				err := si.GuaranteedUpdate(ctx, key, out, false, nil, setLabel("1"), nil)
+				update := setLabel("1")
+				if tc.detached {
+					prepared := got.DeepCopy()
+					prepared.ResourceVersion = "1"
+					prepared.Labels["n"] = "1"
+					update = func(runtime.Object, storage.ResponseMeta) (runtime.Object, *uint64, error) {
+						return prepared, nil, nil
+					}
+				}
+				err := si.GuaranteedUpdate(ctx, key, out, false, nil, update, nil)
 				elapsed := time.Since(start)
 				t.Logf("GuaranteedUpdate returned after %s: err=%v", elapsed.Round(time.Millisecond), err)
 				require.Less(t, elapsed, deadline/2, "GuaranteedUpdate ran out the caller's deadline (err=%v)", err)
