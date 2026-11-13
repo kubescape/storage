@@ -92,10 +92,13 @@ the single-writer path is ever enabled.
   caller's deadline (kubevuln saw `Timeout: request did not complete within requested timeout`
   on every summary update for those keys). A conflict whose fresh read leaves the payload at the
   same `baseRV` cannot have been caused by another writer, since every commit renames a new
-  payload into place under the key lock. So the next attempt is submitted with
-  `realignMetadata`: under the key lock, the commit decodes the payload, and if it is still at
-  `baseRV` it writes the row anyway, logging `metadata row was out of sync with the payload;
-  realigning it`. In `commitGated` that payload check runs before the gate, since a gated fn must
+  payload into place under the key lock. So the loop reads the row's resourceVersion and submits
+  the next attempt with `realignMetadata`, prepared at `max(payload, row) + 1` so the repair never
+  lowers the resourceVersion: a lower one would be dropped by an initial-events watch holding the
+  row's version, and a stale client still carrying it could pass an exact-match version check.
+  Under the key lock, the commit checks that the row is still at the version the loop read and
+  that the decoded payload is still at `baseRV`, then writes the row anyway, logging `metadata row
+  was out of sync with the payload; realigning it`. In `commitGated` that payload check runs before the gate, since a gated fn must
   not decode gob. If the realigning attempt also conflicts with the payload unchanged, the update
   returns a regular resourceVersion conflict instead of spinning. A missing metadata row is never
   realigned, so a delete is not undone. Test:

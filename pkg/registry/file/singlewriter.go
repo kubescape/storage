@@ -173,11 +173,14 @@ type commitJob struct {
 	baseRV uint64
 
 	// realignMetadata lets an update commit go ahead when the metadata row's
-	// resourceVersion differs from baseRV, provided the payload on disk is
-	// still at baseRV (checked under the key lock): the row is stale, not the
-	// caller. Set only after a conflict that left the payload unchanged; see
-	// guaranteedUpdateSingleWriter.
+	// resourceVersion differs from baseRV, provided the row is still at
+	// metadataRV and the payload on disk is still at baseRV (both checked
+	// under the key lock): the row is stale, not the caller. Set only after a
+	// conflict that left the payload unchanged; see
+	// guaranteedUpdateSingleWriter, which also prepares newObj above both
+	// versions so the repair never lowers the resourceVersion.
 	realignMetadata bool
+	metadataRV      uint64
 
 	// newObj is the fully-prepared candidate object (post PreSave, post
 	// resourceVersion bump/ManagedFields zeroing/checksum -- everything
@@ -664,7 +667,7 @@ func (w *singleWriter) commitGated(job *commitJob) commitResult {
 				return storage.NewKeyExistsError(job.key, 0)
 			}
 		} else if job.baseRV != 0 && (!exists || currentRV != job.baseRV) {
-			if !exists || !payloadAtBase {
+			if !exists || !payloadAtBase || currentRV != job.metadataRV {
 				return errWriteConflict
 			}
 			logStaleMetadataRealigned(job, currentRV)
@@ -812,10 +815,11 @@ func newObjFactoryFor(obj runtime.Object) func() runtime.Object {
 
 // staleMetadataRow reports whether an update commit whose CAS failed only
 // because the metadata row is at currentRV may still go ahead: the caller
-// asked to realign (job.realignMetadata) and the payload on disk is still at
+// asked to realign (job.realignMetadata), the row is still at the
+// job.metadataRV the caller observed, and the payload on disk is still at
 // job.baseRV. The caller holds the key lock.
 func (s *StorageImpl) staleMetadataRow(job *commitJob, currentRV uint64) bool {
-	if !job.realignMetadata || !s.payloadAtResourceVersion(job) {
+	if !job.realignMetadata || currentRV != job.metadataRV || !s.payloadAtResourceVersion(job) {
 		return false
 	}
 	logStaleMetadataRealigned(job, currentRV)
@@ -838,6 +842,19 @@ func (s *StorageImpl) payloadAtResourceVersion(job *commitJob) bool {
 	}
 	rv, err := s.versioner.ObjectResourceVersion(obj)
 	return err == nil && rv == job.baseRV
+}
+
+// readMetadataResourceVersion reads key's metadata row resourceVersion on a
+// pool connection; like is any object of key's type.
+func (s *StorageImpl) readMetadataResourceVersion(key string, like runtime.Object) (uint64, bool, error) {
+	poolCtx, poolCancel := poolContext()
+	defer poolCancel()
+	conn, err := s.pool.Take(poolCtx)
+	if err != nil {
+		return 0, false, newContentionTimeoutError("update", key, err)
+	}
+	defer s.pool.Put(conn)
+	return readCurrentResourceVersion(conn, key, newObjFactoryFor(like), s.versioner)
 }
 
 func logStaleMetadataRealigned(job *commitJob, metadataRV uint64) {
@@ -1140,8 +1157,10 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 	writer := s.ensureWriter()
 	var conflictAttempts int
 	// realignMetadata is set after a conflict that left the payload at baseRV
-	// (see the errWriteConflict branch below).
+	// (see the errWriteConflict branch below); metadataRV is the row's
+	// resourceVersion observed at that point.
 	var realignMetadata bool
+	var metadataRV uint64
 
 	for {
 		// run preconditions
@@ -1247,6 +1266,16 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			return nil
 		}
 
+		if realignMetadata && metadataRV > uint64(origState.rev) {
+			// prepareSingleWriterPayload bumps from ret's resourceVersion;
+			// start the repair from the row's higher one so the new version
+			// is above both and never moves backwards for watchers or for
+			// clients that read the row.
+			if err := s.versioner.UpdateObject(ret, metadataRV); err != nil {
+				return fmt.Errorf("set resourceVersion for metadata realignment: %w", err)
+			}
+		}
+
 		candidate, tmpPath, finalPath, err := s.prepareSingleWriterPayload(key, ret, checksum)
 		if err != nil {
 			return err
@@ -1263,6 +1292,7 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			finalPayloadPath: finalPath,
 			resultCh:         make(chan commitResult, 1),
 			realignMetadata:  realignMetadata,
+			metadataRV:       metadataRV,
 		}
 		res, err := writer.submit(ctx, job, priority)
 		if err != nil {
@@ -1306,7 +1336,7 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 				}
 				origStateIsCurrent = true
 				if origState.rev != baseRev {
-					realignMetadata = false
+					realignMetadata, metadataRV = false, 0
 					continue
 				}
 				// The commit conflicted although the payload is still at
@@ -1324,7 +1354,16 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 						helpers.String("key", key), helpers.String("payloadResourceVersion", strconv.FormatInt(baseRev, 10)))
 					return storage.NewResourceVersionConflictsError(key, 0)
 				}
-				realignMetadata = true
+				rowRV, rowExists, err := s.readMetadataResourceVersion(key, origState.obj)
+				if err != nil {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - read metadata row failed after conflict", helpers.Error(err), helpers.String("key", key))
+					return err
+				}
+				if !rowExists {
+					// A missing row is never realigned: that could undo a delete.
+					return storage.NewResourceVersionConflictsError(key, 0)
+				}
+				realignMetadata, metadataRV = true, rowRV
 				continue
 			}
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(res.err), helpers.String("key", key))
