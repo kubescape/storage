@@ -3,7 +3,9 @@ package dynamicpathdetector
 import (
 	"testing"
 
+	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestAnalyzeURL_IPv6Hosts pins AnalyzeURL's handling of scheme-less input
@@ -85,5 +87,23 @@ func TestSplitEndpointPortAndPath_DefensiveContract(t *testing.T) {
 				"splitEndpointPortAndPath(%q) path = %q, want %q",
 				tt.input, gotPath, tt.wantPath)
 		})
+	}
+}
+
+// Merged headers are written into the stored profile. Merging the same two
+// endpoints must always give the same bytes, or an unchanged profile looks
+// changed every time it is saved again.
+func TestMergeHeaders_StableOrder(t *testing.T) {
+	merge := func() string {
+		existing := &types.HTTPEndpoint{Headers: []byte(`{"Accept":["text/html","application/json","text/plain"],"Host":["a"]}`)}
+		added := &types.HTTPEndpoint{Headers: []byte(`{"Accept":["image/png","*/*","application/json"],"Host":["b"]}`)}
+		mergeHeaders(existing, added)
+		return string(existing.Headers)
+	}
+
+	first := merge()
+	assert.JSONEq(t, `{"Accept":["*/*","application/json","image/png","text/html","text/plain"],"Host":["a","b"]}`, first)
+	for i := 0; i < 50; i++ {
+		require.Equal(t, first, merge(), "run %d merged the headers in a different order", i+1)
 	}
 }
