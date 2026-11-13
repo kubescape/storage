@@ -8,7 +8,6 @@ import (
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,14 +56,10 @@ func configScanReader() *memReader {
 // callConfigScanTool calls tool on r with the path namespace kubescape.
 func callConfigScanTool(t *testing.T, r Reader, tool string, args map[string]any) *mcp.CallToolResult {
 	t.Helper()
-	handlers := map[string]func(Reader) server.ToolHandlerFunc{
-		"list_configuration_security_scan_manifests": listConfigurationScans,
-		"get_configuration_security_scan_manifest":   getConfigurationScan,
-	}
 	req := mcp.CallToolRequest{}
 	req.Params.Name = tool
 	req.Params.Arguments = args
-	res, err := handlers[tool](r)(WithDefaultNamespace(context.Background(), "kubescape"), req)
+	res, err := toolHandler(t, r, tool)(WithDefaultNamespace(context.Background(), "kubescape"), req)
 	require.NoError(t, err)
 	return res
 }

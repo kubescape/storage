@@ -59,21 +59,23 @@ var getContainerProfileTool = readOnlyTool(
 	),
 )
 
-// The response keeps the field names of kubescape mcpserver's tool. It leaves
-// out the kubescape:// resource links, which this endpoint does not serve.
+// The response keeps the field names of kubescape mcpserver's tool. The
+// kubescape:// resource links are only added WithResourceLinks.
 type containerProfileEntry struct {
 	Namespace   string `json:"namespace"`
 	ProfileName string `json:"profile_name"`
+	ResourceURI string `json:"resource_uri,omitempty"`
 }
 
 type listContainerProfilesResult struct {
 	ContainerProfiles struct {
 		Profiles []containerProfileEntry `json:"profiles"`
 	} `json:"container_profiles"`
-	Continue string `json:"continue,omitempty"`
+	Continue           string            `json:"continue,omitempty"`
+	AvailableTemplates map[string]string `json:"available_templates,omitempty"`
 }
 
-func listContainerProfiles(r Reader) server.ToolHandlerFunc {
+func listContainerProfiles(r Reader, o options) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		namespace, toolErr := stringArg(args, "namespace")
@@ -96,8 +98,16 @@ func listContainerProfiles(r Reader) server.ToolHandlerFunc {
 		result.Continue = list.Continue
 		result.ContainerProfiles.Profiles = make([]containerProfileEntry, 0, len(list.Items))
 		for _, p := range list.Items {
-			result.ContainerProfiles.Profiles = append(result.ContainerProfiles.Profiles,
-				containerProfileEntry{Namespace: p.Namespace, ProfileName: p.Name})
+			entry := containerProfileEntry{Namespace: p.Namespace, ProfileName: p.Name}
+			if o.resourceLinks {
+				entry.ResourceURI = fmt.Sprintf("kubescape://container-profiles/%s/%s", p.Namespace, p.Name)
+			}
+			result.ContainerProfiles.Profiles = append(result.ContainerProfiles.Profiles, entry)
+		}
+		if o.resourceLinks {
+			result.AvailableTemplates = map[string]string{
+				"container_profile_details": "kubescape://container-profiles/{namespace}/{profile_name}",
+			}
 		}
 		return jsonResult(result)
 	}

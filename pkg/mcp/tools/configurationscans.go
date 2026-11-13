@@ -49,21 +49,23 @@ var getConfigurationScanTool = readOnlyTool(
 	),
 )
 
-// The response keeps the field names of kubescape mcpserver's tool. It leaves
-// out the kubescape:// resource links, which this endpoint does not serve.
+// The response keeps the field names of kubescape mcpserver's tool. The
+// kubescape:// resource links are only added WithResourceLinks.
 type configurationScanEntry struct {
 	Namespace    string `json:"namespace"`
 	ManifestName string `json:"manifest_name"`
+	ResourceURI  string `json:"resource_uri,omitempty"`
 }
 
 type listConfigurationScansResult struct {
 	ConfigurationManifests struct {
 		Manifests []configurationScanEntry `json:"manifests"`
 	} `json:"configuration_manifests"`
-	Continue string `json:"continue,omitempty"`
+	Continue           string            `json:"continue,omitempty"`
+	AvailableTemplates map[string]string `json:"available_templates,omitempty"`
 }
 
-func listConfigurationScans(r Reader) server.ToolHandlerFunc {
+func listConfigurationScans(r Reader, o options) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		namespace, toolErr := stringArg(args, "namespace")
@@ -86,8 +88,16 @@ func listConfigurationScans(r Reader) server.ToolHandlerFunc {
 		result.Continue = list.Continue
 		result.ConfigurationManifests.Manifests = make([]configurationScanEntry, 0, len(list.Items))
 		for _, s := range list.Items {
-			result.ConfigurationManifests.Manifests = append(result.ConfigurationManifests.Manifests,
-				configurationScanEntry{Namespace: s.Namespace, ManifestName: s.Name})
+			entry := configurationScanEntry{Namespace: s.Namespace, ManifestName: s.Name}
+			if o.resourceLinks {
+				entry.ResourceURI = fmt.Sprintf("kubescape://configuration-manifests/%s/%s", s.Namespace, s.Name)
+			}
+			result.ConfigurationManifests.Manifests = append(result.ConfigurationManifests.Manifests, entry)
+		}
+		if o.resourceLinks {
+			result.AvailableTemplates = map[string]string{
+				"configuration_manifest_details": "kubescape://configuration-manifests/{namespace}/{manifest_name}",
+			}
 		}
 		return jsonResult(result)
 	}

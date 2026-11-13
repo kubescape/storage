@@ -106,7 +106,7 @@ var goldenCalls = []struct {
 	{"get_container_profile/no_name", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape"}}},
 }
 
-func goldenServer(t *testing.T) *server.MCPServer {
+func goldenServer(t *testing.T, opts ...Option) *server.MCPServer {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("testdata", "vulnerabilitymanifests.json"))
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func goldenServer(t *testing.T) *server.MCPServer {
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(b, &r.profiles))
 	s := server.NewMCPServer("kubescape-storage", "v1beta1")
-	Register(s, r)
+	Register(s, r, opts...)
 	return s
 }
 
