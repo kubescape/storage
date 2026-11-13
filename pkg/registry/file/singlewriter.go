@@ -533,6 +533,13 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 		return commitResult{}
 	}
 
+	// The realignment's payload check runs before the row read, as in
+	// commitGated: a cleanup that removes the key in between removes the row
+	// first, so the read below sees it gone and the commit conflicts. The
+	// repair then leaves no wider window between the row read and the write
+	// than any other ungated commit has.
+	payloadAtBase := job.realignMetadata && !job.create && job.baseRV != 0 && s.payloadAtResourceVersion(job)
+
 	currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
 	if err != nil {
 		_ = s.appFs.Remove(job.tmpPayloadPath)
@@ -547,7 +554,7 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 			return commitResult{err: storage.NewKeyExistsError(job.key, 0)}
 		}
 	} else if job.baseRV != 0 {
-		if !exists || (currentRV != job.baseRV && !s.staleMetadataRow(job, currentRV)) {
+		if !exists || (currentRV != job.baseRV && !staleMetadataRow(job, currentRV, payloadAtBase)) {
 			_ = s.appFs.Remove(job.tmpPayloadPath)
 			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
 			return commitResult{err: errWriteConflict}
@@ -816,10 +823,10 @@ func newObjFactoryFor(obj runtime.Object) func() runtime.Object {
 // staleMetadataRow reports whether an update commit whose CAS failed only
 // because the metadata row is at currentRV may still go ahead: the caller
 // asked to realign (job.realignMetadata), the row is still at the
-// job.metadataRV the caller observed, and the payload on disk is still at
-// job.baseRV. The caller holds the key lock.
-func (s *StorageImpl) staleMetadataRow(job *commitJob, currentRV uint64) bool {
-	if !job.realignMetadata || currentRV != job.metadataRV || !s.payloadAtResourceVersion(job) {
+// job.metadataRV the caller observed, and the payload on disk was at
+// job.baseRV (payloadAtBase, checked under the key lock before the row read).
+func staleMetadataRow(job *commitJob, currentRV uint64, payloadAtBase bool) bool {
+	if !job.realignMetadata || currentRV != job.metadataRV || !payloadAtBase {
 		return false
 	}
 	logStaleMetadataRealigned(job, currentRV)
