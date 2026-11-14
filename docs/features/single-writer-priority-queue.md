@@ -85,6 +85,24 @@ the single-writer path is ever enabled.
   the stack, and takes the next job. Counters in `docs/features/storage-lock-pool-metrics.md`;
   tests in `singlewriter_lane0_test.go` (each crashes the test binary on pre-L0-B code, so
   fail-on-today evidence is recorded one test per process).
+- Stale metadata rows. The update's `baseRV` comes from the payload (the full read), but the
+  commit's compare-and-commit reads the metadata row. Storage before v0.0.306 could leave the two
+  out of sync (a payload rename that failed after the row was written was not rolled back), and
+  such a key then conflicted on every commit while the retry loop spun silently until the
+  caller's deadline (kubevuln saw `Timeout: request did not complete within requested timeout`
+  on every summary update for those keys). A conflict whose fresh read leaves the payload at the
+  same `baseRV` cannot have been caused by another writer, since every commit renames a new
+  payload into place under the key lock. So the loop reads the row's resourceVersion and submits
+  the next attempt with `realignMetadata`, prepared at `max(payload, row) + 1` so the repair never
+  lowers the resourceVersion: a lower one would be dropped by an initial-events watch holding the
+  row's version, and a stale client still carrying it could pass an exact-match version check.
+  Under the key lock, the commit checks that the row is still at the version the loop read and
+  that the decoded payload is still at `baseRV`, then writes the row anyway, logging `metadata row
+  was out of sync with the payload; realigning it`. In `commitGated` that payload check runs before the gate, since a gated fn must
+  not decode gob. If the realigning attempt also conflicts with the payload unchanged, the update
+  returns a regular resourceVersion conflict instead of spinning. A missing metadata row is never
+  realigned, so a delete is not undone. Test:
+  `TestSingleWriter_GuaranteedUpdate_MetadataRVMismatch` (gated and ungated).
 - `pkg/metrics/metrics.go`: Phase 0's `storage_lock_wait_duration_seconds`/
   `storage_pool_wait_duration_seconds` histograms (labeled by resource kind and outcome), plus the
   single-writer-specific `storage_single_writer_queue_wait_duration_seconds`,
