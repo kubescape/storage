@@ -687,3 +687,42 @@ func TestAccessChecksCountCacheHitsAndMisses(t *testing.T) {
 	assert.Equal(t, misses+2, count("miss"))
 	assert.Equal(t, hits+1, count("hit"))
 }
+
+// A check that fails before any SubjectAccessReview is sent, here because the
+// caller is already gone, was not answered by the cache: the cache only holds
+// review results.
+func TestAFailedAccessCheckIsNotACacheHit(t *testing.T) {
+	var sent atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent.Add(1)
+		var sar authorizationv1.SubjectAccessReview
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&sar))
+		sar.Status.Allowed = true
+		w.Header().Set("Content-Type", "application/json")
+		assert.NoError(t, json.NewEncoder(w).Encode(sar))
+	}))
+	defer srv.Close()
+	cfg := &restclient.Config{Host: srv.URL}
+	cfg.Wrap(CountReviews)
+	client, err := kubernetes.NewForConfig(cfg)
+	require.NoError(t, err)
+	authz, err := apiauth.NewAuthorizer(client.AuthorizationV1())
+	require.NoError(t, err)
+	r := &reader{authorizer: authz}
+
+	count := func(cache string) float64 {
+		t.Helper()
+		v, err := testutil.GetCounterMetricValue(metrics.MCPAccessChecksTotal.WithLabelValues("error", cache))
+		require.NoError(t, err)
+		return v
+	}
+	hits, misses := count("hit"), count("miss")
+
+	ctx, cancel := context.WithCancel(genericapirequest.WithUser(context.Background(), agent))
+	cancel()
+	require.Error(t, r.authorize(ctx, "list", "vulnerabilitymanifests", "never-checked", ""))
+
+	assert.Zero(t, sent.Load(), "no review was sent")
+	assert.Equal(t, hits, count("hit"), "the cache did not answer")
+	assert.Equal(t, misses+1, count("miss"))
+}

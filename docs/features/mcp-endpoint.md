@@ -232,7 +232,7 @@ On storage's `/metrics`:
 | `storage_mcp_tool_calls_total` | counter | `tool`, `result` | Tool calls; `result` is `ok`, the tool error code (for example `RBAC_DENIED` or `TIMEOUT`), or `error` |
 | `storage_mcp_tool_call_duration_seconds` | histogram | `tool` | How long tool calls take |
 | `storage_mcp_tool_response_bytes` | histogram | `tool` | Size of the tool results' text |
-| `storage_mcp_access_checks_total` | counter | `decision`, `cache` | Access checks of the reads tool calls make: `allowed`, `denied` or `error`; `hit` when the cache answered, `miss` when a SubjectAccessReview was sent |
+| `storage_mcp_access_checks_total` | counter | `decision`, `cache` | Access checks of the reads tool calls make: `allowed`, `denied` or `error`; `hit` when the cache answered, `miss` when it did not: a SubjectAccessReview was sent, or the check failed before one could be |
 | `storage_mcp_admission_running` | gauge | | Calls running inside the admission limit |
 | `storage_mcp_admission_waiting` | gauge | | Calls waiting for a slot |
 | `storage_mcp_admission_wait_seconds` | histogram | | How long calls waited for a slot, admitted or not |
