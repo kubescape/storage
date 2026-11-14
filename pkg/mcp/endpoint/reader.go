@@ -202,8 +202,11 @@ func (r *reader) authorize(ctx context.Context, verb, resource, namespace, name 
 	checkCtx, reviews := withReviewCount(ctx)
 	decision, reason, err := r.authorizer.Authorize(checkCtx, attrs)
 	allowed := decision == authorizer.DecisionAllow
+	// The cache only holds review results, so a check that failed was not
+	// answered by it, even when it failed before any review was sent (the
+	// call's context already done, or the client's rate limiter refusing).
 	cache := "hit"
-	if reviews.Load() > 0 {
+	if reviews.Load() > 0 || err != nil {
 		cache = "miss"
 	}
 	metrics.MCPAccessChecksTotal.WithLabelValues(checkDecision(allowed, err), cache).Inc()
