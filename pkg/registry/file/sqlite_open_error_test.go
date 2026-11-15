@@ -51,9 +51,16 @@ func TestNewPoolReportsOpenError(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.DeadlineExceeded), "Take error: %v", err)
 
+	// The open runs in the pool's own goroutine; do not assume it reported
+	// before Take gave up.
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(reported) > 0
+	}, 5*time.Second, 10*time.Millisecond, "the open error was not reported")
+
 	mu.Lock()
 	defer mu.Unlock()
-	require.NotEmpty(t, reported, "the open error was not reported")
 	assert.Error(t, reported[0])
 	t.Logf("reported open error: %v", reported[0])
 }
