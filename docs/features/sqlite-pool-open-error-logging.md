@@ -6,8 +6,14 @@ When the SQLite metadata database (`/data/metadata.sq3`) cannot be opened, stora
 now logs the reason at Error level:
 
 ```
-sqlite pool - error while opening the database. error: sqlite: open "/data/metadata.sq3": sqlite: prepare: file is not a database; path: /data/metadata.sq3; suppressedSinceLastLog: 0
+sqlite pool - error while initializing the database. error: sqlite: open "/data/metadata.sq3": sqlite: prepare: file is not a database; path: /data/metadata.sq3; suppressedSinceLastLog: 0
 ```
+
+The same line reports the other errors the pool passes to the callback while it
+initializes: a failed connection preparation or schema migration, and a failed close
+after one. The message names initialization because the open is only the first of
+those steps; the error says which step failed (`sqlite: open ...`, `get sqlite
+connection: ...`, `migrate database: ...`, `close after failed migration: ...`).
 
 Before this change the reason was never logged, at any log level.
 
@@ -43,15 +49,16 @@ is logged at once, then at most one line per 30 seconds
 failed attempts since the previous line.
 
 `PoolOptions.OnOpenError` replaces the default callback. Tests use it to capture the
-error.
+errors.
 
 ## What does not change
 
 - The pool still retries forever. A database that becomes openable later (for example
   a lock held by another process is released) is picked up without a restart.
 - No readiness or liveness behaviour changes.
-- A failure of the schema migration (as opposed to the open) was already returned to
-  callers by `Take` and is not affected.
+- A failure of the connection preparation or schema migration (as opposed to the open)
+  is still returned to callers by `Take`. The pool also passes it to the callback once,
+  so it is logged with the line above, under the same throttle.
 
 ## How to reproduce
 
@@ -66,5 +73,8 @@ an intact WAL still serves every page and the database opens.
 - `TestNewPoolReportsOpenError`: the open error of an unreadable database reaches
   `OnOpenError`, and `Take` fails on its context.
 - `TestNewPoolDefaultOpenErrorReporter`: the same with the default callback.
+- `TestNewPoolDefaultReporterNamesInitialization`: with the default callback, both an
+  unreadable database and a failed connection preparation are logged as an
+  initialization error with their cause.
 - `TestOpenErrorThrottle`: first error reported, later ones suppressed inside the
   interval and counted.

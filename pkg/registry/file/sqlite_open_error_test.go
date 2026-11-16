@@ -5,13 +5,16 @@ import (
 	"crypto/rand"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/kubescape/go-logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"zombiezen.com/go/sqlite"
 )
 
 // writeGarbageDatabase makes path, its WAL and its shm unreadable as SQLite.
@@ -79,6 +82,58 @@ func TestNewPoolDefaultOpenErrorReporter(t *testing.T) {
 	_, err := pool.Take(ctx)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.DeadlineExceeded), "Take error: %v", err)
+}
+
+// The default reporter also gets the errors the pool hits after the file
+// opened, such as a failed connection preparation, so its line must name
+// initialization, not the open. Each scenario runs in a child process that
+// pins the pretty logger, so the test reads the line it writes to stderr
+// whatever logger the environment selects.
+func TestNewPoolDefaultReporterNamesInitialization(t *testing.T) {
+	if scenario := os.Getenv("STORAGE_TEST_SQLITE_INIT_ERROR"); scenario != "" {
+		logger.InitLogger("pretty")
+		path := filepath.Join(t.TempDir(), "metadata.sq3")
+		var opts PoolOptions
+		switch scenario {
+		case "open":
+			writeGarbageDatabase(t, path)
+		case "prepare":
+			opts.PrepareConn = func(*sqlite.Conn) error {
+				return errors.New("connection preparation failed on purpose")
+			}
+		default:
+			t.Fatalf("unknown scenario %q", scenario)
+		}
+		pool := NewPoolWithOptions(path, opts)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		_, err := pool.Take(ctx)
+		require.Error(t, err)
+		if scenario == "prepare" {
+			assert.ErrorContains(t, err, "connection preparation failed on purpose")
+		}
+		// Close waits for the pool's goroutine, so its first report is out.
+		_ = pool.Close()
+		return
+	}
+
+	for _, tc := range []struct {
+		scenario string
+		cause    string
+	}{
+		{scenario: "open", cause: "metadata.sq3"},
+		{scenario: "prepare", cause: "connection preparation failed on purpose"},
+	} {
+		t.Run(tc.scenario, func(t *testing.T) {
+			command := exec.Command(os.Args[0], "-test.run=^TestNewPoolDefaultReporterNamesInitialization$")
+			command.Env = append(os.Environ(), "STORAGE_TEST_SQLITE_INIT_ERROR="+tc.scenario)
+			output, err := command.CombinedOutput()
+			require.NoError(t, err, "%s", output)
+			assert.Contains(t, string(output), "sqlite pool - error while initializing the database")
+			assert.Contains(t, string(output), tc.cause)
+			assert.NotContains(t, string(output), "error while opening the database")
+		})
+	}
 }
 
 func TestOpenErrorThrottle(t *testing.T) {
