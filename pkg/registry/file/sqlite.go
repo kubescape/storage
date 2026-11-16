@@ -7,10 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -112,6 +115,66 @@ type PoolOptions struct {
 	// statement recorders through it). SetAuthorizer replaces rather than
 	// chains, so this is the one way to add a second authorizer.
 	Authorizer func(conn *sqlite.Conn) sqlite.Authorizer
+	// OnOpenError, when set, replaces the default reporting of a failed
+	// attempt to open the database (tests capture the error through it).
+	// The default logs it at Error level, throttled.
+	OnOpenError func(err error)
+}
+
+// openErrorLogInterval bounds how often a failing database open is logged.
+// The pool retries the open on every Take, so an unthrottled log would grow
+// at request rate.
+const openErrorLogInterval = 30 * time.Second
+
+// openErrorThrottle lets the first error through and then one per interval,
+// counting the ones in between.
+type openErrorThrottle struct {
+	mu         sync.Mutex
+	interval   time.Duration
+	now        func() time.Time
+	last       time.Time
+	reported   bool
+	suppressed int
+}
+
+func newOpenErrorThrottle(interval time.Duration, now func() time.Time) *openErrorThrottle {
+	return &openErrorThrottle{interval: interval, now: now}
+}
+
+// allow reports whether the caller should log now, and how many errors were
+// suppressed since the last one that was logged.
+func (t *openErrorThrottle) allow() (suppressed int, ok bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	now := t.now()
+	if t.reported && now.Sub(t.last) < t.interval {
+		t.suppressed++
+		return 0, false
+	}
+	suppressed = t.suppressed
+	t.suppressed = 0
+	t.last = now
+	t.reported = true
+	return suppressed, true
+}
+
+// logOpenError is the default PoolOptions.OnOpenError. Without it a database
+// that cannot be opened is silent: the pool keeps retrying, never becomes
+// ready, and every Take only reports that its context ended. The pool also
+// reports here a failed close after a failed connection preparation or schema
+// migration.
+func logOpenError(path string) func(err error) {
+	throttle := newOpenErrorThrottle(openErrorLogInterval, time.Now)
+	return func(err error) {
+		suppressed, ok := throttle.allow()
+		if !ok {
+			return
+		}
+		logger.L().Error("sqlite pool - error while opening the database",
+			helpers.Error(err),
+			helpers.String("path", path),
+			helpers.Int("suppressedSinceLastLog", suppressed))
+	}
 }
 
 // poolRef hands the pool pointer to authorizers created before NewPool
@@ -169,11 +232,16 @@ func NewPoolWithOptions(path string, opts PoolOptions) *sqlitemigration.Pool {
 	if busyTimeout <= 0 {
 		busyTimeout = DefaultBusyTimeout
 	}
+	onOpenError := opts.OnOpenError
+	if onOpenError == nil {
+		onOpenError = logOpenError(path)
+	}
 	ref := &poolRef{}
 	pool := sqlitemigration.NewPool(path,
 		sqlitemigration.Schema{Migrations: SchemaMigrations()},
 		sqlitemigration.Options{
 			PoolSize: size,
+			OnError:  onOpenError,
 			// Under write bursts (per-container profile churn plus the
 			// RogueArtifact class) a writer can hold the lock beyond the
 			// driver's 10s default busy timeout on slow disks, surfacing raw
