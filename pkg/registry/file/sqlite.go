@@ -115,9 +115,12 @@ type PoolOptions struct {
 	// statement recorders through it). SetAuthorizer replaces rather than
 	// chains, so this is the one way to add a second authorizer.
 	Authorizer func(conn *sqlite.Conn) sqlite.Authorizer
-	// OnOpenError, when set, replaces the default reporting of a failed
-	// attempt to open the database (tests capture the error through it).
-	// The default logs it at Error level, throttled.
+	// OnOpenError, when set, replaces the default reporting of the errors the
+	// pool hits while it initializes the database (tests capture them through
+	// it): a failed attempt to open the file, which the pool retries, a failed
+	// connection preparation or schema migration, which ends the pool's
+	// initialization and is also returned by Take, and a failed close after
+	// either of those. The default logs them at Error level, throttled.
 	OnOpenError func(err error)
 }
 
@@ -161,8 +164,9 @@ func (t *openErrorThrottle) allow() (suppressed int, ok bool) {
 // logOpenError is the default PoolOptions.OnOpenError. Without it a database
 // that cannot be opened is silent: the pool keeps retrying, never becomes
 // ready, and every Take only reports that its context ended. The pool also
-// reports here a failed close after a failed connection preparation or schema
-// migration.
+// reports here a failed connection preparation or schema migration and a
+// failed close after one, so the message names initialization rather than
+// the open; the error itself says which step failed.
 func logOpenError(path string) func(err error) {
 	throttle := newOpenErrorThrottle(openErrorLogInterval, time.Now)
 	return func(err error) {
@@ -170,7 +174,7 @@ func logOpenError(path string) func(err error) {
 		if !ok {
 			return
 		}
-		logger.L().Error("sqlite pool - error while opening the database",
+		logger.L().Error("sqlite pool - error while initializing the database",
 			helpers.Error(err),
 			helpers.String("path", path),
 			helpers.Int("suppressedSinceLastLog", suppressed))
