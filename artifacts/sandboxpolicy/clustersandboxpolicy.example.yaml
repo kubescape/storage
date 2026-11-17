@@ -1,0 +1,21 @@
+apiVersion: kubescape.io/v1alpha1
+kind: ClusterSandboxPolicy
+metadata: {name: cluster-agent-baseline}
+spec:
+  selector:
+    namespaceSelector: {matchLabels: {sandbox-enabled: "true"}}
+    podSelector: {matchLabels: {app: agent-runner}}
+  containers: ["*"]
+  mode: audit
+  file:
+    default: allow
+    rules:
+      - name: no-image-tamper
+        target: {fromImage: true, access: [write, delete, rename, chmod]}
+        action: deny
+  network:
+    default: {egress: deny, listen: deny}
+    rules:
+      - name: own-identity
+        target: {destClass: [workloadCredentialEndpoint]}
+        action: allow
