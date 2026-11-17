@@ -98,6 +98,30 @@ the single-writer path is ever enabled.
   `SqlitePoolSize`/`SqliteBusyTimeout` config knobs; `PoolTimeout` similarly became
   operator-tunable via `SetPoolTimeout` instead of a hardcoded constant.
 
+### Updates on a key whose metadata row and payload disagree
+
+A full `Get` returns the resourceVersion stored in the payload file. The commit's
+compare-and-commit reads the resourceVersion in the SQLite metadata row. Objects written by old
+releases can hold two different values. On such a key every `GuaranteedUpdate` commit used to be
+rejected with `errWriteConflict`, the re-read returned the same payload version, and the loop
+retried until the request deadline (the client saw a request timeout, not a 409).
+
+`guaranteedUpdateSingleWriter` now notices when a re-read after a conflict returns the version that
+just conflicted, which ordinary contention never does. The next attempt sets
+`commitJob.verifyPayloadRV`. For such a job the commit decodes the payload under the per-key lock
+(before the gate, when there is one) and, if the payload is still at `baseRV`, commits. The commit
+writes the row and the payload together, so the key is realigned and later updates take the
+ordinary path. A first attempt never decodes the payload, so real contention is not slowed down.
+
+The new resourceVersion follows the payload (`payload + 1`), because that is the version every full
+read returned. If the row was ahead of the payload, the row's version therefore moves backwards
+once.
+
+A state the commit cannot repair (for example a readable payload with no metadata row) is
+answered with a resourceVersion conflict after `maxSameRevConflicts` such retries, instead of
+spinning until the deadline. Covered by `singlewriter_stalerow_test.go` on both the gated and the
+ungated commit path.
+
 ## Verification
 
 Full test suite passes under `-race` (excluding the pre-existing, unrelated

@@ -140,6 +140,12 @@ var errWriteConflict = errors.New("single-writer: resourceVersion conflict at co
 // effects before the panic landed is unknown to the caller.
 var errCommitPanic = errors.New("single-writer: panic in commit")
 
+// maxSameRevConflicts bounds how many times in a row GuaranteedUpdate retries
+// a commit conflict whose re-read returned the unchanged resourceVersion. The
+// first such retry carries verifyPayloadRV and normally commits; the bound is
+// for the states that retry cannot fix.
+const maxSameRevConflicts = 3
+
 // singleWriterConflictBackoff waits a small, capped, jittered delay before a
 // GuaranteedUpdate conflict-retry, so many goroutines contending on the same
 // key don't all redo their prepare phase in lockstep (see the call site's
@@ -170,6 +176,13 @@ type commitJob struct {
 	// currently be at exactly baseRV).
 	create bool
 	baseRV uint64
+	// verifyPayloadRV is set by GuaranteedUpdate once a commit conflicted and
+	// the re-read returned the very resourceVersion that conflicted: the
+	// metadata row disagrees with the payload the read came from. The commit
+	// then settles the conflict against the payload instead of the row (see
+	// payloadAtBaseRV). Never set on a first attempt, so ordinary contention
+	// does not pay for a payload decode.
+	verifyPayloadRV bool
 
 	// newObj is the fully-prepared candidate object (post PreSave, post
 	// resourceVersion bump/ManagedFields zeroing/checksum -- everything
@@ -536,7 +549,7 @@ func (w *singleWriter) commit(job *commitJob) commitResult {
 			return commitResult{err: storage.NewKeyExistsError(job.key, 0)}
 		}
 	} else if job.baseRV != 0 {
-		if !exists || currentRV != job.baseRV {
+		if !exists || (currentRV != job.baseRV && !w.payloadAtBaseRV(job, currentRV)) {
 			_ = s.appFs.Remove(job.tmpPayloadPath)
 			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
 			return commitResult{err: errWriteConflict}
@@ -641,6 +654,11 @@ func (w *singleWriter) commitGated(job *commitJob) commitResult {
 		renamePayload = s.appFs.Rename
 	}
 
+	// Decoded here, under Lock(key) and before the gate: nothing gob runs
+	// inside a gated transaction (INV-1'), and no payload writer for this key
+	// can run while the lock is held.
+	payloadRV, payloadRVKnown := w.payloadRVForVerify(job)
+
 	err := s.write(job.ctx, nil, job.priority, holdPathLegacyCommit, kind, true, func(_ context.Context, conn *sqlite.Conn) error {
 		currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
 		if err != nil {
@@ -651,7 +669,10 @@ func (w *singleWriter) commitGated(job *commitJob) commitResult {
 				return storage.NewKeyExistsError(job.key, 0)
 			}
 		} else if job.baseRV != 0 && (!exists || currentRV != job.baseRV) {
-			return errWriteConflict
+			if !exists || !payloadRVKnown || payloadRV != job.baseRV {
+				return errWriteConflict
+			}
+			logStaleMetadataRow(job, currentRV)
 		}
 		if werr := writeMeta(conn, job.key, metadata); werr != nil {
 			return fmt.Errorf("write metadata: %w", werr)
@@ -759,6 +780,59 @@ func callGuarded(name string, conn *sqlite.Conn, fn func(*sqlite.Conn) error) (e
 		}
 	}()
 	return fn(conn)
+}
+
+// payloadRVForVerify returns the resourceVersion stored in job.key's payload
+// file, for a job that asked for it (job.verifyPayloadRV). ok is false when
+// the job did not ask or the payload cannot be read; both keep the commit's
+// ordinary row-based verdict. The caller must hold the per-key lock.
+//
+// A plain open and decode, deliberately not StorageImpl.get: get repairs and
+// migrates, which are writes, and this runs inside a commit.
+func (w *singleWriter) payloadRVForVerify(job *commitJob) (rv uint64, ok bool) {
+	if !job.verifyPayloadRV || job.create || job.baseRV == 0 {
+		return 0, false
+	}
+	s := w.s
+	f, err := s.openPayloadFileWithFallback(makePayloadPath(filepath.Join(s.root, job.key)), os.O_RDONLY, 0)
+	if err != nil {
+		return 0, false
+	}
+	defer func() { _ = f.Close() }()
+	obj := job.newObjFactory()
+	if err := decodeGobPayload(gob.NewDecoder(NewDirectIOReader(f)), obj); err != nil {
+		return 0, false
+	}
+	rv, err = s.versioner.ObjectResourceVersion(obj)
+	if err != nil {
+		return 0, false
+	}
+	return rv, true
+}
+
+// payloadAtBaseRV reports whether a commit whose baseRV differs from the
+// metadata row may go ahead anyway: the job asked for the payload check and
+// the payload is still at baseRV. Full reads return the payload's
+// resourceVersion, and every payload write for the key holds the per-key lock
+// the commit holds now, so an unchanged payload means nobody committed since
+// the caller's read and the row is the stale side. Committing rewrites the
+// row together with the payload, which realigns them. Objects written by
+// releases that could leave the two out of step otherwise conflict on every
+// update, forever.
+func (w *singleWriter) payloadAtBaseRV(job *commitJob, rowRV uint64) bool {
+	payloadRV, ok := w.payloadRVForVerify(job)
+	if !ok || payloadRV != job.baseRV {
+		return false
+	}
+	logStaleMetadataRow(job, rowRV)
+	return true
+}
+
+func logStaleMetadataRow(job *commitJob, rowRV uint64) {
+	logger.L().Warning("single-writer: metadata row resourceVersion differs from the payload, realigning on this commit",
+		helpers.String("key", job.key),
+		helpers.String("rowResourceVersion", fmt.Sprint(rowRV)),
+		helpers.String("payloadResourceVersion", fmt.Sprint(job.baseRV)))
 }
 
 // readCurrentResourceVersion reads the resourceVersion currently committed in
@@ -1086,6 +1160,11 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 
 	writer := s.ensureWriter()
 	var conflictAttempts int
+	// sameRevConflicts counts consecutive commit conflicts after which the
+	// re-read returned the resourceVersion that had just conflicted. Real
+	// contention never does that (a conflict means a newer version was
+	// committed), so it marks a key whose metadata row and payload disagree.
+	var sameRevConflicts int
 
 	for {
 		// run preconditions
@@ -1201,6 +1280,7 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 			key:              key,
 			create:           false,
 			baseRV:           uint64(origState.rev),
+			verifyPayloadRV:  sameRevConflicts > 0,
 			newObj:           candidate,
 			newObjFactory:    newObjFactoryFor(candidate),
 			tmpPayloadPath:   tmpPath,
@@ -1241,12 +1321,29 @@ func (s *StorageImpl) guaranteedUpdateSingleWriter(
 				if backoffErr := singleWriterConflictBackoff(ctx, conflictAttempts); backoffErr != nil {
 					return newContentionTimeoutError("update", key, backoffErr)
 				}
+				conflictedRev := origState.rev
 				origState, err = getCurrentState()
 				if err != nil {
 					logger.L().Ctx(ctx).Error("GuaranteedUpdate - get state failed after conflict", helpers.Error(err), helpers.String("key", key))
 					return err
 				}
 				origStateIsCurrent = true
+				if origState.rev != conflictedRev {
+					sameRevConflicts = 0
+					continue
+				}
+				// The read still returns the version that conflicted: the
+				// metadata row and the payload disagree. The next attempt asks
+				// the commit to settle it against the payload. If that cannot
+				// help either (e.g. the row is missing), re-reading will never
+				// change the outcome, so answer with a conflict now instead of
+				// retrying until the request deadline.
+				sameRevConflicts++
+				if sameRevConflicts >= maxSameRevConflicts {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - commit keeps conflicting on an unchanged resourceVersion, metadata row and payload are out of step",
+						helpers.String("key", key), helpers.Int("resourceVersion", int(origState.rev)))
+					return storage.NewResourceVersionConflictsError(key, origState.rev)
+				}
 				continue
 			}
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(res.err), helpers.String("key", key))
