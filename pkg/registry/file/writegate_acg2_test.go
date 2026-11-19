@@ -519,6 +519,12 @@ func runACG2Matrix(t *testing.T, topo acg2Topology, readers []acg2Reader) {
 					for _, action := range e.rec.since(mark) {
 						wrote = wrote || isWriteOp(action.op)
 					}
+					// Without a gate the cleanup tick's delete opens BEGIN IMMEDIATE,
+					// which waits for the held writer and gives up before any write
+					// statement is prepared: its busy error is the write attempt.
+					if !topo.on && r.class == acg2CleanupReader && sqlite.ErrCode(err).ToPrimary() == sqlite.ResultBusy {
+						wrote = true
+					}
 					assert.Equal(t, repair, wrote, "repair cells must attempt writes; pure reads must not")
 				}
 				if topo.on && repair && (st.name == "orphan" || st.name == "corrupt" || st.name == "wrongtype-toolfails" || st.name == "present-unreferenced") {

@@ -34,6 +34,26 @@ rewrites and the cleanup tick's row delete and sidecar migration.
 - **One helper at nine sites.** `gatedWrite` (`storage.go`) is the only place
   the flag-off/flag-on branch is chosen: bare statements or today's savepoint
   on the caller's connection without a gate; `gate.run` with one.
+  - One exception: without a gate, the cleanup walk's recheck-and-delete
+    (`ResourcesCleanupHandler.writeTxn`) runs in `BEGIN IMMEDIATE`, not a
+    savepoint. A savepoint opened in autocommit mode is a *deferred*
+    transaction, and one that reads before it writes fails at once with
+    `SQLITE_BUSY_SNAPSHOT` ("sqlite: step: database is locked") when another
+    connection commits between the read and the delete. SQLite cannot upgrade
+    a stale read snapshot, so the busy timeout does not apply. On a cluster
+    with steady writes (many short-lived Jobs, for example) this failed
+    almost every cleanup run from v0.0.382 on, and finished workloads'
+    records piled up. `BEGIN IMMEDIATE` takes the write lock first, waiting
+    up to the busy timeout, so no other connection commits while the
+    transaction runs. `saveObject` keeps its savepoint: it writes first, so
+    it never upgrades a read snapshot.
+  - A failed delete no longer ends the cleanup run. The walk logs
+    `cleanup - failed to delete, keeping it for the next run` with the kind
+    and path and moves on; a namespace that could not be finished logs
+    `cleanup - namespace not finished, moving on`. The run cleans every
+    namespace, then returns the first failure, so `cleanup task error` still
+    reports it. The object is decided again on the next run. A closed gate
+    (shutdown) or a cancelled context still ends the run at once.
   - W1 `singleWriter.commitGated`: the shard holds **no pool connection**
     while queued; the CAS read joins the gated transaction.
   - W2 `saveObject(ctx, conn, …, priority, path)`: the row + rename.

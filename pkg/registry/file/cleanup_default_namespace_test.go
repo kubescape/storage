@@ -202,3 +202,43 @@ func TestCleanupTaskReportsAFailureInTheDefaultNamespace(t *testing.T) {
 	require.NotNil(t, conn, "the stale summary's row delete was attempted")
 	require.ErrorContains(t, err, "failed to delete metadata")
 }
+
+// A delete that fails ends neither the walk nor the run: the rest of its namespace and
+// every later namespace are still cleaned, and the run then reports the failure. Before,
+// the first failure ended the run, and on a busy cluster the next run failed the same way,
+// so finished workloads' records piled up.
+func TestCleanupTaskFinishesTheRunAfterAFailedDelete(t *testing.T) {
+	records := append(namespaceRecords("kubescape", true), namespaceRecords("a", true)...)
+	records = append(records, namespaceRecords("b", true)...)
+	fetcher := &namespaceFetcher{namespaces: []string{"kubescape", "a", "b"}, running: map[string]ResourceMaps{"kubescape": runningIn("kubescape"), "a": runningIn("a"), "b": runningIn("b")}}
+	h, fs, pool := newNamespaceCleanup(t, fetcher, records)
+
+	// The walk reads this row as ObjectMeta and decides to delete it; the delete then
+	// fails decoding it into its kind and rolls back.
+	var broken cleanupRecord
+	for _, r := range records {
+		if r.ns == "a" && r.stale {
+			broken = r
+		}
+	}
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, WriteJSON(conn, payloadPathToKey(broken.path()), []byte(`{"name":"deployment-gone","namespace":"a","annotations":{"`+helpersv1.WlidMetadataKey+`":"wlid://cluster-test/namespace-a/deployment-gone"},"spec":"broken"}`)))
+	pool.Put(conn)
+
+	err = h.CleanupTask(context.Background(), h.resourceToKindHandler)
+	require.ErrorContains(t, err, "failed to delete metadata", "the run reports the failed delete")
+
+	for key, exists := range remainingRecords(t, fs, pool, records) {
+		for _, r := range records {
+			if r.ns+"/"+r.kind+"/"+r.name != key {
+				continue
+			}
+			if r.path() == broken.path() {
+				assert.True(t, exists, "the record whose delete failed is kept for the next run")
+				continue
+			}
+			assert.Equal(t, !r.stale, exists, key)
+		}
+	}
+}
