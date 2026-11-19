@@ -188,9 +188,25 @@ func (h *ResourcesCleanupHandler) write(ctx context.Context, conn *sqlite.Conn, 
 
 // writeTxn is write with one transaction around fn when there is no gate: the gate runs
 // fn in its own transaction, and without it the statements would each commit on their
-// own, so a read fn relies on could be stale by the time its write runs. In a savepoint
-// the write fails instead when another connection committed in between.
+// own, so a read fn relies on could be stale by the time its write runs.
+//
+// Without a gate the transaction is BEGIN IMMEDIATE, not a savepoint. A savepoint opened
+// in autocommit mode is a deferred transaction: fn's read takes a snapshot, and its first
+// write fails at once with SQLITE_BUSY_SNAPSHOT ("database is locked") when another
+// connection committed after that read. SQLite cannot upgrade a stale snapshot, so the
+// busy timeout does not apply, and on a cluster with steady writes nearly every cleanup
+// delete failed. BEGIN IMMEDIATE takes the write lock first, waiting up to the busy
+// timeout, and no other connection can commit until fn is done.
 func (h *ResourcesCleanupHandler) writeTxn(ctx context.Context, conn *sqlite.Conn, path, kind string, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
+	if h.gate == nil && conn.AutocommitEnabled() {
+		end, err := sqlitex.ImmediateTransaction(conn)
+		if err != nil {
+			return fmt.Errorf("begin cleanup transaction: %w", err)
+		}
+		err = fn(ctx, conn)
+		end(&err)
+		return err
+	}
 	return gatedWrite(h.gate, ctx, conn, priorityLow, path, kind, true, fn)
 }
 
@@ -316,6 +332,7 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %w", err)
 	}
+	var runErr error
 	// cleanup each namespace, except defaultNamespace that is handled at the end
 	for _, ns := range namespaces {
 		if ns == h.defaultNamespace {
@@ -328,7 +345,15 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 		resources.Hosts = hosts
 		err = h.cleanupNamespace(ctx, ns, resourceToKindHandler, conn, resources)
 		if err != nil {
-			return err
+			// A namespace that could not be finished must not keep the
+			// others from being cleaned; the run reports it at the end.
+			if cleanupMustStop(ctx, err) {
+				return err
+			}
+			logger.L().Ctx(ctx).Error("cleanup - namespace not finished, moving on", helpers.Error(err), helpers.String("namespace", ns))
+			if runErr == nil {
+				runErr = err
+			}
 		}
 	}
 	// cleanup cluster level resources inside defaultNamespace, together with the
@@ -348,13 +373,21 @@ func (h *ResourcesCleanupHandler) CleanupTask(ctx context.Context, resourceToKin
 		return fmt.Errorf("failed to fetch running containers: %w", err)
 	}
 	if err := h.cleanupNamespace(ctx, h.defaultNamespace, resourceToKindHandler, conn, resources); err != nil {
-		return err
+		if cleanupMustStop(ctx, err) {
+			return err
+		}
+		if runErr == nil {
+			runErr = err
+		}
 	}
 	// Metadata rows are the usual source of namespaces. A failed payload
 	// removal can leave a file behind after the last row in its namespace was
 	// deleted, so revisit those on-disk namespaces after normal cleanup. An
 	// orphan removal failure must not starve ordinary cleanup on later ticks.
-	return h.cleanupOrphansInUnlistedNamespaces(ctx, conn, resourceToKindHandler, namespaces)
+	if err := h.cleanupOrphansInUnlistedNamespaces(ctx, conn, resourceToKindHandler, namespaces); err != nil && runErr == nil {
+		runErr = err
+	}
+	return runErr
 }
 
 // cleanupOrphansInUnlistedNamespaces recovers payloads that normal cleanup
@@ -630,7 +663,11 @@ func (h *ResourcesCleanupHandler) quarantineOrphanPayload(ctx context.Context, c
 	return "", nil
 }
 
+// cleanupNamespace walks ns and deletes what the handlers decide. A delete that fails is
+// logged and the walk moves on; the first such failure is returned once the walk is done,
+// so the run still reports it.
 func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns string, resourceToKindHandler map[string][]TypeCleanupHandlerFunc, conn *sqlite.Conn, resources ResourceMaps) error {
+	var deleteErr error
 	for resourceKind, handlers := range resourceToKindHandler {
 		if h.cpStore != nil && IsContainerProfileKind(resourceKind) {
 			if err := h.cleanupContainerProfileRows(ctx, ns, resourceKind, handlers, conn, resources); err != nil {
@@ -695,7 +732,21 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 				}
 				metaOut, deleted, err := h.deleteUnlessChanged(ctx, conn, resourceKind, path, decidedJSON, newObjectFunc)
 				if err != nil {
-					return fmt.Errorf("failed to delete metadata: %w", err)
+					err = fmt.Errorf("failed to delete metadata: %w", err)
+					// Shutdown ends the walk: nothing after this object can be
+					// deleted either.
+					if cleanupMustStop(ctx, err) {
+						return err
+					}
+					// One object that cannot be deleted now (a busy database, a
+					// failed rename) must not stop the run: the walk would end
+					// here and everything after it would wait for the next tick.
+					// The object is decided again on the next run.
+					logger.L().Ctx(ctx).Error("cleanup - failed to delete, keeping it for the next run", helpers.Error(err), helpers.String("kind", resourceKind), helpers.String("path", path))
+					if deleteErr == nil {
+						deleteErr = err
+					}
+					return nil
 				}
 				// Only dispatch to watchers when metaOut is a scheme-registered
 				// type (see resourceKindToObjectFunc) -- deprecated kinds have
@@ -711,7 +762,15 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 			return fmt.Errorf("failed to walk %s: %w", v1beta1ApiVersionPath, err)
 		}
 	}
-	return nil
+	return deleteErr
+}
+
+// cleanupMustStop says whether a cleanup failure ends the run instead of being reported
+// at its end: shutdown (a closed gate or a cancelled context) or an interrupted connection
+// stops every later delete too.
+func cleanupMustStop(ctx context.Context, err error) bool {
+	// An interrupted connection fails every later statement on it too.
+	return errors.Is(err, errGateClosed) || ctx.Err() != nil || sqlite.ErrCode(err).ToPrimary() == sqlite.ResultInterrupt
 }
 
 // cleanupContainerProfileRows is the ContainerProfile arm under the flag:

@@ -7,12 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"zombiezen.com/go/sqlite"
 )
 
 // A writer that updates or re-creates an object between the walk's decision and the
@@ -137,9 +139,9 @@ func TestCleanupSettlesAReservedPayloadLeftByACrash(t *testing.T) {
 	assert.Empty(t, listDeleting(t, memFs, dir))
 }
 
-// Without a gate, a writer on another connection replaces the row and the payload after
-// the walk's recheck: the delete, in the same transaction as the recheck, fails on the
-// stale snapshot and the replacement stays whole.
+// Without a gate, cleanup's recheck and delete run in one BEGIN IMMEDIATE transaction: a
+// writer on another connection that replaces the row and the payload after the recheck
+// waits for the delete to commit, then lands whole on top of it.
 func TestCleanupLeavesAReplacementThatLandsAfterTheRecheck(t *testing.T) {
 	const kind = "applicationprofiles"
 	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns", "app"+GobExt)
@@ -158,13 +160,28 @@ func TestCleanupLeavesAReplacementThatLandsAfterTheRecheck(t *testing.T) {
 	defer pool.Put(writer)
 	require.NoError(t, WriteJSON(conn, key, meta("1")))
 	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	replaced := make(chan error, 1)
 	h.afterRecheck = func(k string) {
-		if k == key {
-			require.NoError(t, afero.WriteFile(memFs, path, []byte("new payload"), 0644))
-			require.NoError(t, WriteJSON(writer, key, meta("2")))
+		if k != key {
+			return
+		}
+		go func() {
+			// saveObject's order: the row, then the payload
+			if err := WriteJSON(writer, key, meta("2")); err != nil {
+				replaced <- err
+				return
+			}
+			replaced <- afero.WriteFile(memFs, path, []byte("new payload"), 0644)
+		}()
+		select {
+		case err := <-replaced:
+			replaced <- err // for the receive after cleanup
+			t.Errorf("the replacement committed inside cleanup's transaction (err=%v)", err)
+		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	_ = h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{})
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{}))
+	require.NoError(t, <-replaced)
 
 	content, err := afero.ReadFile(memFs, path)
 	require.NoError(t, err, "the replacement payload was removed")
@@ -173,6 +190,66 @@ func TestCleanupLeavesAReplacementThatLandsAfterTheRecheck(t *testing.T) {
 	require.NoError(t, err, "the replacement row was removed")
 	assert.Equal(t, string(meta("2")), string(row))
 	assert.Empty(t, listDeleting(t, memFs, filepath.Dir(path)))
+}
+
+// Without a gate, a write to another object committing between cleanup's recheck and its
+// delete must not fail the delete. In a deferred transaction it did, at once and without
+// waiting for the busy timeout: SQLite cannot upgrade a stale read snapshot to a write
+// (SQLITE_BUSY_SNAPSHOT, "database is locked"), and the walk then gave up on the whole run.
+// Busy clusters hit it on almost every run, and finished objects piled up.
+func TestCleanupDeleteSurvivesAnotherWriterAfterTheRecheck(t *testing.T) {
+	const kind = "applicationprofiles"
+	dir := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns")
+	payload := func(name string) string { return filepath.Join(dir, name+GobExt) }
+	meta := func(name string) []byte {
+		return []byte(fmt.Sprintf(`{"name":%q,"namespace":"ns","uid":"u-%s","resourceVersion":"1"}`, name, name))
+	}
+	memFs := afero.NewMemMapFs()
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	for _, name := range []string{"a", "b"} {
+		require.NoError(t, afero.WriteFile(memFs, payload(name), []byte("payload"), 0644))
+		require.NoError(t, WriteJSON(conn, payloadPathToKey(payload(name)), meta(name)))
+	}
+	otherKey := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/unrelated"
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	var writes []chan error
+	h.afterRecheck = func(string) {
+		done := make(chan error, 1)
+		writes = append(writes, done)
+		row := meta(fmt.Sprintf("w%d", len(writes)))
+		// its own connection: the previous write may still be waiting on cleanup's lock
+		go func() {
+			writer, err := pool.Take(context.Background())
+			if err != nil {
+				done <- err
+				return
+			}
+			defer pool.Put(writer)
+			done <- WriteJSON(writer, otherKey, row)
+		}()
+		// Give the write the chance to commit before the delete, as it would with a
+		// deferred transaction; with BEGIN IMMEDIATE it waits for cleanup instead.
+		select {
+		case err := <-done:
+			done <- err
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{}))
+	require.Len(t, writes, 2, "both objects reached the delete")
+	for _, done := range writes {
+		require.NoError(t, <-done, "the other writer")
+	}
+	for _, name := range []string{"a", "b"} {
+		_, err := ReadMetadata(conn, payloadPathToKey(payload(name)))
+		assert.ErrorIs(t, err, ErrMetadataNotFound, "%s was not deleted", name)
+		exists, _ := afero.Exists(memFs, payload(name))
+		assert.False(t, exists, "%s's payload was not removed", name)
+	}
+	assert.Empty(t, listDeleting(t, memFs, dir))
 }
 
 // A replacement that lands at the path between the walk's sighting of a reserved file and
@@ -229,4 +306,30 @@ func TestRenameUnlessPresent(t *testing.T) {
 			assert.Equal(t, "live", string(got), "a present target is never replaced")
 		})
 	}
+}
+
+// A row that cannot be read (here an interrupted connection) is not a missing row: the
+// walk must not take the no-metadata path, which removes the payload.
+func TestCleanupReadMetadataKeepsThePayloadWhenTheRowCannotBeRead(t *testing.T) {
+	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, "sbomsyfts", "ns", "app"+GobExt)
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, path, []byte("payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	require.NoError(t, WriteJSON(conn, payloadPathToKey(path), []byte(`{"name":"app","namespace":"ns"}`)))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+
+	interrupted := make(chan struct{})
+	close(interrupted)
+	conn.SetInterrupt(interrupted)
+	_, _, err = h.readMetadata(context.Background(), conn, path)
+	conn.SetInterrupt(nil)
+	require.Error(t, err)
+	assert.Equal(t, sqlite.ResultInterrupt, sqlite.ErrCode(err).ToPrimary())
+	exists, _ := afero.Exists(memFs, path)
+	assert.True(t, exists, "a payload whose row could not be read was removed")
+	_, err = ReadMetadata(conn, payloadPathToKey(path))
+	assert.NoError(t, err, "the row is still there")
 }

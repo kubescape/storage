@@ -177,6 +177,11 @@ func (h *ResourcesCleanupHandler) readMetadata(ctx context.Context, conn *sqlite
 		if err == nil {
 			return metadata, metadataJSON, nil
 		}
+	} else if !errors.Is(err, ErrMetadataNotFound) {
+		// The row could not be read (a busy or interrupted connection), which says
+		// nothing about whether it exists: never treat that as a missing row, which
+		// would remove a live payload below.
+		return nil, nil, fmt.Errorf("read metadata: %w", err)
 	}
 	// end of happy path - migration starts here
 	// try to find old metadata file
