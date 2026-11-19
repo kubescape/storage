@@ -203,13 +203,15 @@ func TestCleanupTaskReportsAFailureInTheDefaultNamespace(t *testing.T) {
 	require.ErrorContains(t, err, "failed to delete metadata")
 }
 
-// A delete that fails ends neither the walk nor the run: the rest of its namespace and
-// every later namespace are still cleaned, and the run then reports the failure. Before,
+// A delete that fails ends neither the walk nor the run: the rest of its namespace (a
+// stale record walked after the failed one) and every later namespace are still cleaned, and the run then reports the failure. Before,
 // the first failure ended the run, and on a busy cluster the next run failed the same way,
 // so finished workloads' records piled up.
 func TestCleanupTaskFinishesTheRunAfterAFailedDelete(t *testing.T) {
 	records := append(namespaceRecords("kubescape", true), namespaceRecords("a", true)...)
 	records = append(records, namespaceRecords("b", true)...)
+	// a second stale record next to the broken one, walked after it (the walk is lexical)
+	records = append(records, cleanupRecord{kind: "workloadconfigurationscansummaries", ns: "a", name: "deployment-zgone", annotations: map[string]string{helpersv1.WlidMetadataKey: "wlid://cluster-test/namespace-a/deployment-zgone"}, stale: true})
 	fetcher := &namespaceFetcher{namespaces: []string{"kubescape", "a", "b"}, running: map[string]ResourceMaps{"kubescape": runningIn("kubescape"), "a": runningIn("a"), "b": runningIn("b")}}
 	h, fs, pool := newNamespaceCleanup(t, fetcher, records)
 
@@ -217,7 +219,7 @@ func TestCleanupTaskFinishesTheRunAfterAFailedDelete(t *testing.T) {
 	// fails decoding it into its kind and rolls back.
 	var broken cleanupRecord
 	for _, r := range records {
-		if r.ns == "a" && r.stale {
+		if r.ns == "a" && r.name == "deployment-gone" {
 			broken = r
 		}
 	}
