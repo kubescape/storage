@@ -1,0 +1,18 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "control_id": "C-9999",
+      "manifest_name": "deployment-web",
+      "namespace": "default"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "control \"C-9999\" is not in configuration scan default/deployment-web",
+    "details": {
+      "argument": "control_id"
+    }
+  }
+}

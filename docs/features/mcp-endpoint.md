@@ -122,22 +122,38 @@ URL.
 
 | Tool | Arguments (required in bold) | Reads |
 |---|---|---|
-| `list_vulnerability_manifests` | `namespace`, `level` (`image`, `workload` or `both`), `continue` | `vulnerabilitymanifests` |
+| `list_vulnerability_manifests` | `namespace`, `level` (`image`, `workload` or `both`), `limit`, `continue` | `vulnerabilitymanifests` |
 | `list_vulnerabilities_in_manifest` | **`manifest_name`**, `namespace`, `min_severity`, `fixable_only`, `include_details`, `limit`, `offset` | `vulnerabilitymanifests` |
 | `list_vulnerability_matches_for_cve` | **`manifest_name`**, **`cve_id`**, `namespace`, `limit`, `offset` | `vulnerabilitymanifests` |
-| `list_sboms` | `namespace`, `continue` | `sbomsyfts` |
+| `list_sboms` | `namespace`, `limit`, `continue` | `sbomsyfts` |
 | `list_sbom_packages` | **`sbom_name`**, `namespace`, `name`, `package_type`, `limit`, `offset` | `sbomsyfts` |
-| `list_configuration_security_scan_manifests` | `namespace`, `continue` | `workloadconfigurationscans` |
-| `get_configuration_security_scan_manifest` | **`manifest_name`**, `namespace`, `status`, `min_severity` | `workloadconfigurationscans` |
-| `list_container_profiles` | `namespace`, `continue` | `containerprofiles` |
-| `get_container_profile` | **`profile_name`**, `namespace`, `section`, `limit`, `offset` | `containerprofiles` |
+| `list_configuration_security_scan_manifests` | `namespace`, `limit`, `continue` | `workloadconfigurationscans` |
+| `get_configuration_security_scan_manifest` | **`manifest_name`**, `namespace`, `status`, `min_severity`, `summary`, `control_id`, `limit`, `offset` | `workloadconfigurationscans` |
+| `list_container_profiles` | `namespace`, `limit`, `continue` | `containerprofiles` |
+| `get_container_profile` | **`profile_name`**, `namespace`, `section`, `container`, `limit`, `offset` | `containerprofiles` |
 
 `list_*` tools return one page; pass the returned `continue` (or
-`next_offset` as `offset`) to get the next one. `get_container_profile`
+`next_offset` as `offset`) to get the next one. The tools that page with
+`continue` return up to 100 objects; a lower `limit` gives smaller pages.
+`get_configuration_security_scan_manifest` returns the whole scan by default;
+with `summary` it returns only each control's ID, name, severity and status, a
+page at a time, and with `control_id` one control and a page of its paths (what failed and how
+to fix it). `get_container_profile`
 returns the whole profile by default; with `section` (`execs`, `opens`,
 `syscalls`, `capabilities`, `endpoints`, `identifiedCallStacks`, `ingress` or
-`egress`) it returns one list of the profile, a page at a time. The tool names
+`egress`) it returns one list of the profile, a page at a time. A profile
+written by a user can describe several containers (`containers`,
+`initContainers`, `ephemeralContainers`); the section answer lists them, and
+`container` (a name, or `group/name`) reads one of them. The tool names
 are the ones `kubescape mcpserver` uses for the same data.
+
+The tools that page through one object with `offset` return its
+`object_version` (its UID and resourceVersion). Pass it back with the next
+`offset`: if the object changed in between, for example because Kubescape
+rescanned the image, the call fails with `OBJECT_CHANGED` instead of returning
+a page of the new version, and the caller starts again from offset 0. With
+`include_details`, a vulnerability whose fix comes from another record than its
+severity also names that record's `fix_data_source`.
 
 ## Limits
 
@@ -156,7 +172,8 @@ agent's context:
 The deadline is on the tool's work, not on the HTTP request, so the agent
 always gets an answer: a `TIMEOUT` tool error when the time is up. A result
 above the cap is replaced by a `RESPONSE_TOO_LARGE` tool error with its size
-and how to ask that tool for less. With `"maxResponseBytes": 65536`, asking
+and how to ask that tool for less; every tool has a way to a smaller answer,
+including for its first page. With `"maxResponseBytes": 65536`, asking
 for 100 vulnerabilities with their details gives:
 
 ```json
@@ -209,6 +226,7 @@ on (the operator chart turns it on). Storage sizes that queue from
 | A bad argument | tool error `INVALID_ARGUMENT` |
 | The call took longer than `mcp.callTimeout` | tool error `TIMEOUT` |
 | The result is above `mcp.maxResponseBytes` | tool error `RESPONSE_TOO_LARGE`, with a hint to page or filter |
+| The object changed since the `object_version` the call gave | tool error `OBJECT_CHANGED`, with the new `object_version` |
 
 A tool error is a normal MCP result with `isError: true` and the code and
 message as JSON text, so the agent can read it and try again.

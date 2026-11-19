@@ -1,0 +1,20 @@
+{
+  "call": {
+    "name": "list_container_profiles",
+    "arguments": {
+      "limit": 1,
+      "namespace": "kubescape"
+    }
+  },
+  "isError": false,
+  "response": {
+    "container_profiles": {
+      "profiles": [
+        {
+          "namespace": "kubescape",
+          "profile_name": "replicaset-operator-55df98fc6d"
+        }
+      ]
+    }
+  }
+}

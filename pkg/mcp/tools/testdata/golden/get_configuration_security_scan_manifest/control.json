@@ -1,0 +1,44 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "control_id": "C-0016",
+      "manifest_name": "deployment-web",
+      "namespace": "default"
+    }
+  },
+  "isError": false,
+  "response": {
+    "namespace": "default",
+    "manifest_name": "deployment-web",
+    "control_id": "C-0016",
+    "name": "Allow privilege escalation",
+    "severity": "Medium",
+    "status": "failed",
+    "rules": [
+      {
+        "name": "rule-allow-privilege-escalation",
+        "status": "failed"
+      }
+    ],
+    "total": 2,
+    "returned": 2,
+    "truncated": false,
+    "paths": [
+      {
+        "rule": "rule-allow-privilege-escalation",
+        "failedPath": "",
+        "fixPath": "spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation",
+        "fixPathValue": "false",
+        "fixCommand": ""
+      },
+      {
+        "rule": "rule-allow-privilege-escalation",
+        "failedPath": "",
+        "fixPath": "spec.template.spec.containers[0].securityContext.privileged",
+        "fixPathValue": "false",
+        "fixCommand": ""
+      }
+    ]
+  }
+}

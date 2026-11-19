@@ -20,6 +20,10 @@ const (
 	// ErrCodeResponseTooLarge is the answer to a call whose result is above
 	// the endpoint's size cap.
 	ErrCodeResponseTooLarge ErrorCode = "RESPONSE_TOO_LARGE"
+	// ErrCodeObjectChanged is the answer to a call for a next page of an
+	// object that changed since the previous page, for example after a
+	// rescan: its pages would mix two versions.
+	ErrCodeObjectChanged ErrorCode = "OBJECT_CHANGED"
 )
 
 // ToolError is the JSON text of a tool error result.

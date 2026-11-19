@@ -53,6 +53,8 @@ var goldenCalls = []struct {
 	{"list_vulnerability_manifests/path_namespace", goldenCall{"list_vulnerability_manifests", map[string]any{}}},
 	{"list_vulnerability_manifests/forbidden", goldenCall{"list_vulnerability_manifests", map[string]any{"namespace": restrictedNamespace}}},
 	{"list_vulnerability_manifests/invalid_level", goldenCall{"list_vulnerability_manifests", map[string]any{"namespace": "kubescape", "level": "all"}}},
+	{"list_vulnerability_manifests/limit", goldenCall{"list_vulnerability_manifests", map[string]any{"namespace": "kubescape", "limit": 1.0}}},
+	{"list_vulnerability_manifests/invalid_limit", goldenCall{"list_vulnerability_manifests", map[string]any{"namespace": "kubescape", "limit": 101.0}}},
 
 	{"list_vulnerabilities_in_manifest/default", goldenCall{"list_vulnerabilities_in_manifest", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9"}}},
 	{"list_vulnerabilities_in_manifest/high_fixable", goldenCall{"list_vulnerabilities_in_manifest", map[string]any{"namespace": "kubescape", "manifest_name": "nginx-32fdf9", "min_severity": "High", "fixable_only": true}}},
@@ -71,6 +73,8 @@ var goldenCalls = []struct {
 	{"list_sboms/namespace", goldenCall{"list_sboms", map[string]any{"namespace": "kubescape"}}},
 	{"list_sboms/path_namespace", goldenCall{"list_sboms", map[string]any{}}},
 	{"list_sboms/forbidden", goldenCall{"list_sboms", map[string]any{"namespace": restrictedNamespace}}},
+	{"list_sboms/limit", goldenCall{"list_sboms", map[string]any{"namespace": "kubescape", "limit": 1.0}}},
+	{"list_sboms/limit_next_page", goldenCall{"list_sboms", map[string]any{"namespace": "kubescape", "limit": 1.0, "continue": "1"}}},
 
 	{"list_sbom_packages/default", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9"}}},
 	{"list_sbom_packages/name", goldenCall{"list_sbom_packages", map[string]any{"namespace": "kubescape", "sbom_name": "nginx-32fdf9", "name": "NGINX"}}},
@@ -84,6 +88,7 @@ var goldenCalls = []struct {
 	{"list_configuration_security_scan_manifests/namespace", goldenCall{"list_configuration_security_scan_manifests", map[string]any{"namespace": "default"}}},
 	{"list_configuration_security_scan_manifests/path_namespace", goldenCall{"list_configuration_security_scan_manifests", map[string]any{}}},
 	{"list_configuration_security_scan_manifests/forbidden", goldenCall{"list_configuration_security_scan_manifests", map[string]any{"namespace": restrictedNamespace}}},
+	{"list_configuration_security_scan_manifests/limit", goldenCall{"list_configuration_security_scan_manifests", map[string]any{"namespace": "default", "limit": 1.0}}},
 
 	{"get_configuration_security_scan_manifest/default", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web"}}},
 	{"get_configuration_security_scan_manifest/failed", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "status": "failed"}}},
@@ -92,10 +97,19 @@ var goldenCalls = []struct {
 	{"get_configuration_security_scan_manifest/forbidden", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": restrictedNamespace, "manifest_name": "serviceaccount-default"}}},
 	{"get_configuration_security_scan_manifest/invalid_status", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "status": "failed,excepted"}}},
 	{"get_configuration_security_scan_manifest/invalid_severity", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "min_severity": "Negligible"}}},
+	{"get_configuration_security_scan_manifest/summary", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "summary": true}}},
+	{"get_configuration_security_scan_manifest/summary_failed_high", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "summary": true, "status": "failed", "min_severity": "High"}}},
+	{"get_configuration_security_scan_manifest/summary_paged", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "summary": true, "limit": 2.0, "offset": 2.0}}},
+	{"get_configuration_security_scan_manifest/control", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "control_id": "C-0016"}}},
+	{"get_configuration_security_scan_manifest/control_paged", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "control_id": "c-0016", "limit": 1.0, "offset": 1.0}}},
+	{"get_configuration_security_scan_manifest/control_not_found", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "control_id": "C-9999"}}},
+	{"get_configuration_security_scan_manifest/control_with_status", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "control_id": "C-0016", "status": "failed"}}},
+	{"get_configuration_security_scan_manifest/limit_without_control", goldenCall{"get_configuration_security_scan_manifest", map[string]any{"namespace": "default", "manifest_name": "deployment-web", "limit": 1.0}}},
 
 	{"list_container_profiles/namespace", goldenCall{"list_container_profiles", map[string]any{"namespace": "kubescape"}}},
 	{"list_container_profiles/path_namespace", goldenCall{"list_container_profiles", map[string]any{}}},
 	{"list_container_profiles/forbidden", goldenCall{"list_container_profiles", map[string]any{"namespace": restrictedNamespace}}},
+	{"list_container_profiles/limit", goldenCall{"list_container_profiles", map[string]any{"namespace": "kubescape", "limit": 1.0}}},
 
 	{"get_container_profile/default", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d"}}},
 	{"get_container_profile/section_egress_paged", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d", "section": "egress", "limit": 2.0, "offset": 2.0}}},
@@ -104,6 +118,8 @@ var goldenCalls = []struct {
 	{"get_container_profile/not_found", goldenCall{"get_container_profile", map[string]any{"profile_name": "replicaset-operator-55df98fc6d"}}},
 	{"get_container_profile/forbidden", goldenCall{"get_container_profile", map[string]any{"namespace": restrictedNamespace, "profile_name": "replicaset-operator-55df98fc6d"}}},
 	{"get_container_profile/no_name", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape"}}},
+	{"get_container_profile/container_without_section", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d", "container": "operator"}}},
+	{"get_container_profile/container_of_learned_profile", goldenCall{"get_container_profile", map[string]any{"namespace": "kubescape", "profile_name": "replicaset-operator-55df98fc6d", "section": "execs", "container": "operator"}}},
 }
 
 func goldenServer(t *testing.T, opts ...Option) *server.MCPServer {

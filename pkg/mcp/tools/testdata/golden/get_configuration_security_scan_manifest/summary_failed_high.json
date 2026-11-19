@@ -1,0 +1,34 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web",
+      "min_severity": "High",
+      "namespace": "default",
+      "status": "failed",
+      "summary": true
+    }
+  },
+  "isError": false,
+  "response": {
+    "namespace": "default",
+    "manifest_name": "deployment-web",
+    "total": 2,
+    "returned": 2,
+    "truncated": false,
+    "controls": [
+      {
+        "control_id": "C-0270",
+        "name": "Ensure CPU limits are set",
+        "severity": "High",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0271",
+        "name": "Ensure memory limits are set",
+        "severity": "High",
+        "status": "failed"
+      }
+    ]
+  }
+}

@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -149,10 +150,26 @@ func (f *fakeSBOMs) New() runtime.Object     { return &softwarecomposition.SBOMS
 func (f *fakeSBOMs) Destroy()                {}
 func (f *fakeSBOMs) NewList() runtime.Object { return &softwarecomposition.SBOMSyftList{} }
 
-func (f *fakeSBOMs) List(ctx context.Context, _ *metainternalversion.ListOptions) (runtime.Object, error) {
+// List honours limit and continue as storage does; the continue token is the
+// index of the next item.
+func (f *fakeSBOMs) List(ctx context.Context, opts *metainternalversion.ListOptions) (runtime.Object, error) {
 	f.calls++
 	f.info, _ = genericapirequest.RequestInfoFrom(ctx)
-	return &softwarecomposition.SBOMSyftList{Items: f.items}, nil
+	start, end := 0, len(f.items)
+	if opts != nil && opts.Continue != "" {
+		var err error
+		if start, err = strconv.Atoi(opts.Continue); err != nil || start < 0 || start > len(f.items) {
+			return nil, apierrors.NewBadRequest("invalid continue token")
+		}
+	}
+	if opts != nil && opts.Limit > 0 && start+int(opts.Limit) < end {
+		end = start + int(opts.Limit)
+	}
+	list := &softwarecomposition.SBOMSyftList{Items: f.items[start:end]}
+	if end < len(f.items) {
+		list.Continue = strconv.Itoa(end)
+	}
+	return list, nil
 }
 
 // fakeScans stands in for the workloadconfigurationscans REST storage.

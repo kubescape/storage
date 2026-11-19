@@ -6,9 +6,17 @@
       "idempotentHint": true,
       "openWorldHint": false
     },
-    "description": "Get details of a specific security configuration scan result. Most controls in a result usually passed; set status to \"failed\" to get only the controls that need fixing.",
+    "description": "Get details of a specific security configuration scan result. Most controls in a result usually passed; set status to \"failed\" to get only the controls that need fixing. If the answer is too large, set summary to list the controls without their rules, then set control_id to page through one control's failed paths.",
     "inputSchema": {
       "properties": {
+        "control_id": {
+          "description": "Return one control, for example C-0017, and a page of its paths (what failed and how to fix it) instead of the whole result (optional; not with status, min_severity or summary)",
+          "type": "string"
+        },
+        "limit": {
+          "description": "With summary: maximum number of controls to return; with control_id: maximum number of paths (optional, default 100, maximum 500)",
+          "type": "number"
+        },
         "manifest_name": {
           "description": "Name of the configuration manifest to get details for (get this from the list_configuration_security_scan_manifests tool)",
           "type": "string"
@@ -21,9 +29,21 @@
           "description": "Namespace of the manifest, as returned by list_configuration_security_scan_manifests (optional, defaults to the namespace in the endpoint's URL)",
           "type": "string"
         },
+        "object_version": {
+          "description": "The object_version of the previous page (optional): if the scan changed since, for example after a rescan, the call fails with OBJECT_CHANGED instead of returning a page of the new version; then start again from offset 0",
+          "type": "string"
+        },
+        "offset": {
+          "description": "With summary or control_id: number of controls or paths to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
+        },
         "status": {
           "description": "Only return controls with these statuses, comma-separated: failed, passed, skipped (optional; by default every control is returned)",
           "type": "string"
+        },
+        "summary": {
+          "description": "Return only each control's ID, name, severity and status, without its rules and paths, a page at a time (optional, default false); works with status and min_severity",
+          "type": "boolean"
         }
       },
       "required": [
@@ -40,15 +60,23 @@
       "idempotentHint": true,
       "openWorldHint": false
     },
-    "description": "Get details of a specific container profile. A busy container's profile can be large: set section to page through one of its lists (what it executed, opened, called, and its network traffic) instead of getting the whole profile.",
+    "description": "Get details of a specific container profile. A busy container's profile can be large: set section to page through one of its lists (what it executed, opened, called, and its network traffic) instead of getting the whole profile. A profile written by a user can describe several containers: the section answer lists them in containers, and container selects one.",
     "inputSchema": {
       "properties": {
+        "container": {
+          "description": "With section, for a profile that describes several containers: the container to read, by name, or as group/name (containers, initContainers or ephemeralContainers) when a name is in two groups (optional)",
+          "type": "string"
+        },
         "limit": {
           "description": "With section: maximum number of entries to return (optional, default 100, maximum 500)",
           "type": "number"
         },
         "namespace": {
           "description": "Namespace of the profile, as returned by list_container_profiles (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "object_version": {
+          "description": "The object_version of the previous page (optional): if the profile changed since, for example after a rescan, the call fails with OBJECT_CHANGED instead of returning a page of the new version; then start again from offset 0",
           "type": "string"
         },
         "offset": {
@@ -95,6 +123,10 @@
           "description": "Optional Kubernetes continuation token for pagination",
           "type": "string"
         },
+        "limit": {
+          "description": "Maximum number of manifests per page (optional, default and maximum 100); lower it if a page is too large, then page with continue",
+          "type": "number"
+        },
         "namespace": {
           "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL). A workload's scan is stored in the workload's namespace; scans of cluster-scoped resources are in Kubescape's own namespace (usually kubescape)",
           "type": "string"
@@ -118,6 +150,10 @@
         "continue": {
           "description": "Optional Kubernetes continuation token for pagination",
           "type": "string"
+        },
+        "limit": {
+          "description": "Maximum number of profiles per page (optional, default and maximum 100); lower it if a page is too large, then page with continue",
+          "type": "number"
         },
         "namespace": {
           "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL). A container's profile is stored in its workload's namespace",
@@ -149,6 +185,10 @@
         },
         "namespace": {
           "description": "Namespace of the SBOM (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "object_version": {
+          "description": "The object_version of the previous page (optional): if the SBOM changed since, for example after a rescan, the call fails with OBJECT_CHANGED instead of returning a page of the new version; then start again from offset 0",
           "type": "string"
         },
         "offset": {
@@ -185,6 +225,10 @@
           "description": "Optional Kubernetes continuation token for pagination",
           "type": "string"
         },
+        "limit": {
+          "description": "Maximum number of SBOMs per page (optional, default and maximum 100); lower it if a page is too large, then page with continue",
+          "type": "number"
+        },
         "namespace": {
           "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL)",
           "type": "string"
@@ -210,7 +254,7 @@
           "type": "boolean"
         },
         "include_details": {
-          "description": "Include description, CVSS, URLs, advisories and data source for each entry (optional, default false; makes the response much larger)",
+          "description": "Include description, CVSS, URLs, advisories and data source for each entry, and fix_data_source when the fixed version comes from another source (optional, default false; makes the response much larger)",
           "type": "boolean"
         },
         "limit": {
@@ -227,6 +271,10 @@
         },
         "namespace": {
           "description": "Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "object_version": {
+          "description": "The object_version of the previous page (optional): if the manifest changed since, for example after a rescan, the call fails with OBJECT_CHANGED instead of returning a page of the new version; then start again from offset 0",
           "type": "string"
         },
         "offset": {
@@ -264,6 +312,10 @@
           ],
           "type": "string"
         },
+        "limit": {
+          "description": "Maximum number of manifests per page (optional, default and maximum 100); lower it if a page is too large, then page with continue",
+          "type": "number"
+        },
         "namespace": {
           "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL)",
           "type": "string"
@@ -298,6 +350,10 @@
         },
         "namespace": {
           "description": "Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "object_version": {
+          "description": "The object_version of the previous page (optional): if the manifest changed since, for example after a rescan, the call fails with OBJECT_CHANGED instead of returning a page of the new version; then start again from offset 0",
           "type": "string"
         },
         "offset": {

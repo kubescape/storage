@@ -1,0 +1,20 @@
+{
+  "call": {
+    "name": "list_sboms",
+    "arguments": {
+      "continue": "1",
+      "limit": 1,
+      "namespace": "kubescape"
+    }
+  },
+  "isError": false,
+  "response": {
+    "sboms": [
+      {
+        "namespace": "kubescape",
+        "sbom_name": "redis-a1c3e5",
+        "status": "too-large"
+      }
+    ]
+  }
+}

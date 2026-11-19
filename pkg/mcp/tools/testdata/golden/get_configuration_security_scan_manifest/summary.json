@@ -1,0 +1,110 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web",
+      "namespace": "default",
+      "summary": true
+    }
+  },
+  "isError": false,
+  "response": {
+    "namespace": "default",
+    "manifest_name": "deployment-web",
+    "total": 15,
+    "returned": 15,
+    "truncated": false,
+    "controls": [
+      {
+        "control_id": "C-0012",
+        "name": "Applications credentials in configuration files",
+        "severity": "High",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0038",
+        "name": "Host PID/IPC privileges",
+        "severity": "High",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0041",
+        "name": "HostNetwork access",
+        "severity": "High",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0046",
+        "name": "Insecure capabilities",
+        "severity": "High",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0057",
+        "name": "Privileged container",
+        "severity": "High",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0270",
+        "name": "Ensure CPU limits are set",
+        "severity": "High",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0271",
+        "name": "Ensure memory limits are set",
+        "severity": "High",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0013",
+        "name": "Non-root containers",
+        "severity": "Medium",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0016",
+        "name": "Allow privilege escalation",
+        "severity": "Medium",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0030",
+        "name": "Ingress and Egress blocked",
+        "severity": "Medium",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0034",
+        "name": "Automatic mapping of service account",
+        "severity": "Medium",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0044",
+        "name": "Container hostPort",
+        "severity": "Medium",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0055",
+        "name": "Linux hardening",
+        "severity": "Medium",
+        "status": "failed"
+      },
+      {
+        "control_id": "C-0292",
+        "name": "Nginx Ingress Controller End of Life",
+        "severity": "Medium",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0017",
+        "name": "Immutable container filesystem",
+        "severity": "Low",
+        "status": "failed"
+      }
+    ]
+  }
+}

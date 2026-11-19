@@ -32,7 +32,12 @@ func TestSizeHintsNameRegisteredTools(t *testing.T) {
 		assert.NotNil(t, s.GetTool(name), "size hint for unknown tool %s", name)
 		assert.Equal(t, sizeHints[name], SizeHint(name))
 	}
-	assert.Equal(t, "ask for less with the tool's paging or filters", SizeHint("list_sboms"))
+	assert.Equal(t, "ask for less with the tool's paging or filters", SizeHint("not_a_tool"))
+	// Every tool has its own way to a smaller answer, so a caller is never
+	// told something it can't do.
+	for _, tool := range Tools(newMemReader()) {
+		assert.Contains(t, sizeHints, tool.Tool.Name, "no size hint for %s", tool.Tool.Name)
+	}
 }
 
 func TestToolsWithResourceLinks(t *testing.T) {

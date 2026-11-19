@@ -193,3 +193,73 @@ func TestListContainerProfilesContinue(t *testing.T) {
 	assert.Equal(t, metav1.ListOptions{Limit: 100, Continue: "this-page"}, r.opts)
 	assert.JSONEq(t, `{"container_profiles":{"profiles":[{"namespace":"default","profile_name":"replicaset-shop-9a8b7c-shop"}]},"continue":"next-page"}`, resultText(t, res))
 }
+
+// A user-authored profile can describe several containers in its containers,
+// initContainers and ephemeralContainers groups, and then its top-level lists
+// are empty (storage#451: section syscalls gave total 0). The section answer
+// names the containers, and container selects one.
+func TestContainerProfileSectionOfAMultiContainerProfile(t *testing.T) {
+	authored := v1beta1.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kubescape", Name: "authored"},
+		Spec: v1beta1.ContainerProfileSpec{
+			Containers: []v1beta1.ContainerProfileContainer{
+				{Name: "app", Syscalls: []string{"read", "write"}},
+				{Name: "debug", Syscalls: []string{"ptrace"}},
+			},
+			InitContainers:      []v1beta1.ContainerProfileContainer{{Name: "setup", Syscalls: []string{"mount"}}},
+			EphemeralContainers: []v1beta1.ContainerProfileContainer{{Name: "debug", Syscalls: []string{"kill"}}},
+		},
+	}
+	r := &memReader{profiles: []v1beta1.ContainerProfile{authored, profileFixture()}}
+	call := func(args map[string]any) *mcp.CallToolResult {
+		t.Helper()
+		args["namespace"] = "kubescape"
+		return callProfileTool(t, r, "get_container_profile", args)
+	}
+	section := func(args map[string]any) containerProfileSectionResponse {
+		t.Helper()
+		res := call(args)
+		require.False(t, res.IsError, resultText(t, res))
+		var resp containerProfileSectionResponse
+		require.NoError(t, json.Unmarshal([]byte(resultText(t, res)), &resp))
+		return resp
+	}
+	entries := func(resp containerProfileSectionResponse) []string {
+		var out []string
+		for _, e := range resp.Entries.([]any) {
+			out = append(out, e.(string))
+		}
+		return out
+	}
+
+	// Without container: the profile's own (empty) list, and its containers.
+	resp := section(map[string]any{"profile_name": "authored", "section": "syscalls"})
+	assert.Equal(t, 0, resp.Total)
+	assert.Equal(t, []profileContainerRef{
+		{Name: "app", Group: "containers"}, {Name: "debug", Group: "containers"},
+		{Name: "setup", Group: "initContainers"}, {Name: "debug", Group: "ephemeralContainers"},
+	}, resp.Containers)
+
+	// Every container's syscalls can be read: 5 in all.
+	assert.Equal(t, []string{"read", "write"}, entries(section(map[string]any{"profile_name": "authored", "section": "syscalls", "container": "app"})))
+	assert.Equal(t, []string{"mount"}, entries(section(map[string]any{"profile_name": "authored", "section": "syscalls", "container": "setup"})))
+	assert.Equal(t, []string{"ptrace"}, entries(section(map[string]any{"profile_name": "authored", "section": "syscalls", "container": "containers/debug"})))
+	resp = section(map[string]any{"profile_name": "authored", "section": "syscalls", "container": "ephemeralContainers/debug", "limit": float64(1)})
+	assert.Equal(t, []string{"kill"}, entries(resp))
+	assert.Equal(t, "ephemeralContainers/debug", resp.Container)
+
+	// A name in two groups needs its group; an unknown one lists what works.
+	for _, c := range []string{"debug", "sidecar", "initContainers/app", "pods/app"} {
+		te := toolErrorOf(t, call(map[string]any{"profile_name": "authored", "section": "syscalls", "container": c}))
+		assert.Equal(t, ErrCodeInvalidArgument, te.Code, c)
+		assert.Equal(t, []any{"containers/app", "containers/debug", "initContainers/setup", "ephemeralContainers/debug"}, te.Details["supported_values"], c)
+	}
+
+	// container needs a section, and a learned profile has no containers.
+	assert.Equal(t, ErrCodeInvalidArgument, toolErrorOf(t, call(map[string]any{"profile_name": "authored", "container": "app"})).Code)
+	learned := profileFixture()
+	te := toolErrorOf(t, call(map[string]any{"profile_name": learned.Name, "section": "syscalls", "container": "app"}))
+	assert.Equal(t, ErrCodeInvalidArgument, te.Code)
+	assert.Contains(t, te.Message, "describes one container")
+	assert.Empty(t, section(map[string]any{"profile_name": learned.Name, "section": "syscalls"}).Containers)
+}
