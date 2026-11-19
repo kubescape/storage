@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"zombiezen.com/go/sqlite"
 )
 
 // A writer that updates or re-creates an object between the walk's decision and the
@@ -174,6 +175,7 @@ func TestCleanupLeavesAReplacementThatLandsAfterTheRecheck(t *testing.T) {
 		}()
 		select {
 		case err := <-replaced:
+			replaced <- err // for the receive after cleanup
 			t.Errorf("the replacement committed inside cleanup's transaction (err=%v)", err)
 		case <-time.After(100 * time.Millisecond):
 		}
@@ -304,4 +306,30 @@ func TestRenameUnlessPresent(t *testing.T) {
 			assert.Equal(t, "live", string(got), "a present target is never replaced")
 		})
 	}
+}
+
+// A row that cannot be read (here an interrupted connection) is not a missing row: the
+// walk must not take the no-metadata path, which removes the payload.
+func TestCleanupReadMetadataKeepsThePayloadWhenTheRowCannotBeRead(t *testing.T) {
+	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, "sbomsyfts", "ns", "app"+GobExt)
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, path, []byte("payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	require.NoError(t, WriteJSON(conn, payloadPathToKey(path), []byte(`{"name":"app","namespace":"ns"}`)))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+
+	interrupted := make(chan struct{})
+	close(interrupted)
+	conn.SetInterrupt(interrupted)
+	_, _, err = h.readMetadata(context.Background(), conn, path)
+	conn.SetInterrupt(nil)
+	require.Error(t, err)
+	assert.Equal(t, sqlite.ResultInterrupt, sqlite.ErrCode(err).ToPrimary())
+	exists, _ := afero.Exists(memFs, path)
+	assert.True(t, exists, "a payload whose row could not be read was removed")
+	_, err = ReadMetadata(conn, payloadPathToKey(path))
+	assert.NoError(t, err, "the row is still there")
 }

@@ -53,7 +53,12 @@ rewrites and the cleanup tick's row delete and sidecar migration.
     `cleanup - namespace not finished, moving on`. The run cleans every
     namespace, then returns the first failure, so `cleanup task error` still
     reports it. The object is decided again on the next run. A closed gate
-    (shutdown) or a cancelled context still ends the run at once.
+    (shutdown), a cancelled context or an interrupted connection still ends
+    the run at once.
+  - The walk removes a payload as an orphan only when its row is missing (or
+    unreadable as JSON) and it has no legacy sidecar. A row that cannot be
+    read at all (a busy or interrupted connection) is skipped and logged,
+    never treated as missing.
   - W1 `singleWriter.commitGated`: the shard holds **no pool connection**
     while queued; the CAS read joins the gated transaction.
   - W2 `saveObject(ctx, conn, …, priority, path)`: the row + rename.

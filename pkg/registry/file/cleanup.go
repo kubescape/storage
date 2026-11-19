@@ -766,9 +766,11 @@ func (h *ResourcesCleanupHandler) cleanupNamespace(ctx context.Context, ns strin
 }
 
 // cleanupMustStop says whether a cleanup failure ends the run instead of being reported
-// at its end: shutdown (a closed gate or a cancelled context) stops every later delete too.
+// at its end: shutdown (a closed gate or a cancelled context) or an interrupted connection
+// stops every later delete too.
 func cleanupMustStop(ctx context.Context, err error) bool {
-	return errors.Is(err, errGateClosed) || ctx.Err() != nil
+	// An interrupted connection fails every later statement on it too.
+	return errors.Is(err, errGateClosed) || ctx.Err() != nil || sqlite.ErrCode(err).ToPrimary() == sqlite.ResultInterrupt
 }
 
 // cleanupContainerProfileRows is the ContainerProfile arm under the flag:
