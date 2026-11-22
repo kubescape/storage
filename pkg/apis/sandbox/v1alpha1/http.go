@@ -26,8 +26,9 @@ const (
 
 // HTTPSection holds the rules a gateway evaluates on decrypted requests. A deny
 // outside its own except list wins, then an allow, then the default; an allow
-// never cancels a deny. Rule names are unique within this section only, so a
-// rule here may share its name with a rule of a kernel section.
+// never cancels a deny. Rule names are unique across every section of a policy,
+// this one included, so a compiler that derives an http rule from the same policy
+// rule as a kernel rule gives it a distinct name (for example an "http-" part).
 type HTTPSection struct {
 	Default       HTTPDefault     `json:"default"`
 	OnUnavailable HTTPUnavailable `json:"onUnavailable,omitempty"`
@@ -56,7 +57,7 @@ type HTTPDecrypt struct {
 // name at least one predicate: a rule that matches every request is written
 // with one, for example destClass.
 type HTTPRule struct {
-	// Name is unique within the http section.
+	// Name is unique across every section in a policy.
 	Name   string          `json:"name"`
 	Target HTTPTarget      `json:"target"`
 	Action Action          `json:"action"`

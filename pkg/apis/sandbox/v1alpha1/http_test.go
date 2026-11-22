@@ -132,19 +132,30 @@ func TestHTTPValidation(t *testing.T) {
 	}
 }
 
-// The compiled object gives the network half and the http half of one policy
-// rule the same name, so http names are unique among http rules only.
-func TestHTTPRuleNameMayRepeatKernelRuleName(t *testing.T) {
-	const name = "approvedModelProviders/confine"
-	s := validHTTP()
-	s.Rules[0].Name = name
-	spec := PolicySpec{
-		Network: &NetworkSection{Default: NetworkDefault{Egress: ActionDeny, Listen: ActionAllow},
-			Rules: []NetworkRule{{Rule: Rule{Name: name, Action: ActionDeny}, Target: NetworkTarget{DestClass: []string{"modelProvider"}}}}},
-		HTTP: s,
+// A rule name is unique across every section of a policy, the http section
+// included. The compiled network half of a policy rule is named
+// approvedModelProviders/confine, so the http half starts with "http-".
+func TestHTTPRuleNameMustBeUniqueAcrossPolicy(t *testing.T) {
+	network := func(name string) *NetworkSection {
+		return &NetworkSection{Default: NetworkDefault{Egress: ActionDeny, Listen: ActionAllow},
+			Rules: []NetworkRule{{Rule: Rule{Name: name, Action: ActionDeny}, Target: NetworkTarget{DestClass: []string{"modelProvider"}}}}}
 	}
-	if err := ValidatePolicySpec(spec); err != nil {
-		t.Fatal(err)
+	httpWith := func(name string) *HTTPSection {
+		s := validHTTP()
+		s.Rules[0].Name = name
+		return s
+	}
+	err := ValidatePolicySpec(PolicySpec{Network: network("approvedModelProviders/confine"), HTTP: httpWith("approvedModelProviders/confine")})
+	if err == nil || !strings.Contains(err.Error(), "must be unique across the policy") {
+		t.Fatalf("same name in network and http accepted or wrong error: %v", err)
+	}
+	// Also across the other kernel sections.
+	exec := &ExecSection{Default: ActionDeny, Rules: []ExecRule{{Rule: Rule{Name: "shared", Action: ActionAllow}}}}
+	if err = ValidatePolicySpec(PolicySpec{Exec: exec, HTTP: httpWith("shared")}); err == nil || !strings.Contains(err.Error(), "must be unique across the policy") {
+		t.Fatalf("same name in exec and http accepted or wrong error: %v", err)
+	}
+	if err = ValidatePolicySpec(PolicySpec{Network: network("approvedModelProviders/confine"), HTTP: httpWith("approvedModelProviders/http-confine")}); err != nil {
+		t.Fatalf("http- name rejected: %v", err)
 	}
 }
 

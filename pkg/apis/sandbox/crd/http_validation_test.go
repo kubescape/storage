@@ -132,15 +132,6 @@ func TestKubernetesPolicyWithoutHTTPUnchanged(t *testing.T) {
 	}
 }
 
-func TestKubernetesHTTPRuleNameMayRepeatKernelRuleName(t *testing.T) {
-	object := decode(t, httpBase+`  network: {default: {egress: deny, listen: allow}, rules: [{name: approvedModelProviders/confine, target: {destClass: [modelProvider]}, action: deny}]}
-  http: {default: {llm: deny, mcp: deny, other: audit}, rules: [{name: approvedModelProviders/confine, target: {destClass: [modelProvider]}, action: deny}]}
-`)
-	if errs := validate(t, Definitions()[0], object); len(errs) != 0 {
-		t.Fatal(errs.ToAggregate())
-	}
-}
-
 func TestKubernetesNodeStatusHTTP(t *testing.T) {
 	definition := Definitions()[3]
 	data := readExample(t, "sandboxpolicynodestatus.example.yaml")

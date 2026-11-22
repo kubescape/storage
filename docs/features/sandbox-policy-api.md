@@ -125,11 +125,16 @@ is valid only on a deny rule, and every exception needs at least one target
 predicate, because an empty one would lift the whole deny. `mode` is per rule
 and falls back to `spec.mode`; `spec.mode: "off"` turns the section off too.
 
-Three things differ from the kernel sections:
+Rule names are unique across the whole policy, the `http` section included,
+like every other section. `ValidatePolicySpec` checks it; the schema can only
+check within one section, so an object that repeats a name across sections is
+accepted by admission and refused by typed callers. When one policy rule has a
+kernel half and an `http` half, give the `http` half a distinct name, for
+example `approvedModelProviders/confine` for `network` and
+`approvedModelProviders/http-confine` for `http`.
 
-- Rule names are unique within `http` only. An `http` rule may share its name
-  with a rule in `network`, which is how the two halves of one policy rule are
-  written.
+Two things differ from the kernel sections:
+
 - Rules have no `actor` and no `description`. `actor`, `target.method` and
   `target.mcp` are known to the schema as forbidden fields, so the API server
   rejects them. Pruning them would silently widen the rule.

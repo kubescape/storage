@@ -107,10 +107,14 @@ func ValidatePolicySpec(spec PolicySpec) error {
 		}
 	}
 	if spec.HTTP != nil {
-		// http rule names are not added to names: they are unique within
-		// their own section only.
 		if err := spec.HTTP.Validate(); err != nil {
 			return err
+		}
+		// http rules share the policy-wide name set with the kernel sections.
+		for _, rule := range spec.HTTP.Rules {
+			if err := check(Rule{Name: rule.Name, Action: rule.Action}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

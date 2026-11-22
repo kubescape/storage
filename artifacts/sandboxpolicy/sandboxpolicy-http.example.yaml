@@ -20,19 +20,19 @@ spec:
         - "*.openai.azure.com"
       passthrough: []
     rules:
-      - name: approvedModelProviders/confine
+      - name: approvedModelProviders/http-confine
         target: {destClass: [modelProvider]}
         action: deny
         except:
           - target: {llm: {provider: [anthropic, bedrock], region: [us-east-1], model: ["claude-*"]}}
         mode: audit
         origin: http/M1+M2
-      - name: approvedModelProviders/models
+      - name: approvedModelProviders/http-models
         target: {destClass: [modelProvider], llm: {provider: [anthropic, bedrock], region: [us-east-1], model: ["claude-*"]}}
         action: allow
         mode: audit
         origin: http/M1+M2
-      - name: approvedDestinations/names
+      - name: approvedDestinations/http-names
         target: {host: ["api.anthropic.com", "*.openai.azure.com"]}
         action: allow
         mode: audit
