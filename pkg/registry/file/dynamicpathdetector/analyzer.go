@@ -170,6 +170,14 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 		// do want p[:i] — updateNodeStats then collapses the current
 		// node's children to ⋯ when Count > threshold.
 		insertThreshold := ua.effectiveThreshold(p[:start])
+		// The empty segment before the leading "/" is the root anchor, not a
+		// child to collapse. A global threshold of 1 must wildcard what is
+		// under "/" and give "/*"; wildcarding the anchor itself would emit
+		// an unanchored "*" (and ":443*" for an endpoint, which does not
+		// parse on the next save, so the endpoint is dropped).
+		if start == 0 && segment == "" {
+			insertThreshold = 0
+		}
 		collapseThreshold := ua.effectiveThreshold(p[:i])
 		currentNode = ua.processSegment(currentNode, segment, insertThreshold)
 		ua.updateNodeStats(currentNode, collapseThreshold)
