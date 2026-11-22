@@ -235,15 +235,23 @@ func collapseAdjacentDynamic(buf []byte) []byte {
 }
 
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string, threshold int) *SegmentNode {
-	if segment == DynamicIdentifier {
-		return ua.handleDynamicSegment(node)
-	}
 	// Wildcard short-circuit: once a node has a * child, all paths through
 	// it go there. This is the glob-style "collapse everything below here"
 	// behaviour; set up either by threshold=1 (see below) or by a caller
 	// explicitly feeding a WildcardIdentifier segment.
+	//
+	// It has to come before the ⋯ handling. * matches any depth and ⋯ exactly
+	// one segment, so * is the wider of the two: resolving an incoming * to a
+	// ⋯ sibling would narrow an already collapsed profile each time it is
+	// analyzed again, and paths it covered would stop matching.
 	if wildcardChild, exists := node.Children[WildcardIdentifier]; exists {
 		return wildcardChild
+	}
+	if segment == WildcardIdentifier {
+		return ua.createWildcardNode(node)
+	}
+	if segment == DynamicIdentifier {
+		return ua.handleDynamicSegment(node)
 	}
 	if node.IsNextDynamic() {
 		if len(node.Children) > 1 {
