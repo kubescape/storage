@@ -20,6 +20,11 @@ const (
 	MaxReferenceNameLength      = 253
 	MaxReferenceUIDLength       = 128
 	MaxStatusPodNames           = 64
+	// A needRestart entry is "<namespace>/<pod>": a ClusterSandboxPolicy report
+	// covers pods of many namespaces, so a bare pod name would collide.
+	MaxNamespaceLength = 63
+	MaxPodNameLength   = 253
+	MaxPodRefLength    = MaxNamespaceLength + 1 + MaxPodNameLength
 )
 
 // HTTPGate is the effect of the node's gateway health gate on the pods a
@@ -34,7 +39,8 @@ const (
 )
 
 // HTTPNodeStatus reports how a policy's http section is applied on one node.
-// NeedRestart holds at most MaxStatusPodNames pod names; a writer that drops
+// NeedRestart holds at most MaxStatusPodNames entries of the form
+// "<namespace>/<pod>"; a writer that drops
 // names sets NodeStatus.Truncated.
 type HTTPNodeStatus struct {
 	BoundPods              int64    `json:"boundPods"`

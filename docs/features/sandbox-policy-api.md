@@ -112,7 +112,12 @@ optional, and a policy without it is unchanged.
 
 A rule's `target` takes `destClass`, `host` and `llm` (`provider`, `region`,
 `account`, `model`). Predicates are ANDed and the entries of a list are ORed.
-`llm.model` applies only to requests that carry a model.
+`llm.model` applies only to requests that carry a model. A target must name at
+least one predicate, and a list entry cannot be an empty string. A rule that
+should match every request names a broad predicate, such as a `destClass`. The
+reason is pruning: a client that does not validate fields strictly drops keys
+the schema does not know, and a target made only of such keys would become `{}`
+and allow every request, overriding a `deny` default.
 
 Rules resolve like the kernel sections: a deny outside its own `except` list
 wins, then an allow, then the default. An allow never cancels a deny. `except`
@@ -131,8 +136,9 @@ Three things differ from the kernel sections:
 - The schema sets no defaults and accepts empty `decrypt` lists, so an object
   reads back exactly as it was written.
 
-`ValidatePolicySpec` checks the same rules for typed callers. Host pattern
-width is not checked here; the consumers of the list apply their own limit.
+`ValidatePolicySpec` checks the same rules for typed callers, including the
+empty-string and empty-target checks. Host pattern width is not checked here;
+the consumers of the list apply their own limit.
 
 ## Composition and migration
 
@@ -206,10 +212,10 @@ its report:
 | Field | Meaning |
 |---|---|
 | `boundPods` | Number of selected pods on the node whose AI traffic goes through the gateway. |
-| `preAttachBypass` | Number of connections that were open before the pod was bound and still bypass the gateway. |
-| `needRestart` | Names of pods that must restart before they can be bound. At most 64 names, no duplicates; a writer that drops names sets `truncated`. |
+| `preAttachBypass` | Count of bound pods that still have connections opened before the bind, which bypass the gateway. A kernel older than 6.5 cannot close them. |
+| `needRestart` | Pods that must restart before they can be bound, each as `<namespace>/<pod>`. A report of a `ClusterSandboxPolicy` covers pods of many namespaces, so a bare pod name would collide. At most 64 entries, no duplicates. A writer that drops entries sets `truncated`; the dropped count is not recorded. |
 | `gate` | Effect of the node's health gate on these pods: `redirecting`, `failing_open`, `failing_closed` or `not_bound`. |
-| `nodeControllerDegraded` | The gateway's node controller did not answer its last health probe. |
+| `nodeControllerDegraded` | The node controller's certificate health probe failed, so the node-agent keeps the last value it read. A failed Envoy or processor probe opens the gate instead and shows in `gate`. |
 
 All fields except `needRestart` are required when the block is present, so a
 zero count or `false` is written out. A report without the block stays valid.
@@ -291,6 +297,13 @@ status:
   `rejectedPatterns` and `decryptValidUntil`. `false` and `0` are written out.
 - `processor.evaluator: unavailable` means the processor has no rule evaluator
   and passes every request.
+- Nothing deletes these objects once a node is gone, and the role that writes
+  them cannot. The writer sets an `ownerReference` to the `Node` when it creates
+  the object (without `blockOwnerDeletion`), so garbage collection removes the
+  object with its node. Readers must not treat the existence of an object as
+  proof that the gateway is installed or healthy: check `observedAt` against a
+  freshness bound of their own, and `decryptValidUntil` before relying on
+  decryption.
 - `rejectedPatterns` is a set of at most 64 patterns. Counts cannot be negative.
 - The schema cannot check that the name is a real node, or that a writer only
   touches its own node's object. RBAC decides who may write the kind at all.

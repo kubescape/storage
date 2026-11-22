@@ -402,27 +402,27 @@ type CompiledStatus struct {
 // bounded by the CRD schema; Counts records full collection sizes, and Truncated
 // indicates omitted entries or shortened diagnostic text. This is not an event log.
 type NodeStatus struct {
-	Tier               string             `json:"tier"`
-	ObservedGeneration int64              `json:"observedGeneration"`
+	Tier               string `json:"tier"`
+	ObservedGeneration int64  `json:"observedGeneration"`
 	// AppliedGeneration is the parent policy generation the node enforces now.
 	// It lags ObservedGeneration while a newer revision is rejected and last-good
 	// bindings are retained; when bindings differ it is the oldest one. Absent
 	// (zero) when the node enforces no revision of the policy.
-	AppliedGeneration  int64              `json:"appliedGeneration,omitempty"`
-	LastReported       metav1.Time        `json:"lastReported"`
-	Compiled           *CompiledStatus    `json:"compiled,omitempty"`
-	Conditions         []metav1.Condition `json:"conditions,omitempty"`
-	Degraded           []DegradedRule     `json:"degraded,omitempty"`
-	AppliesOnRestart   []string           `json:"appliesOnRestart,omitempty"`
-	ShadowedAllows     []string           `json:"shadowedAllows,omitempty"`
-	RuleHitCounts      map[string]int64   `json:"ruleHitCounts,omitempty"`
-	Counts             NodeStatusCounts   `json:"counts"`
-	Truncated          bool               `json:"truncated"`
-	Stale              bool               `json:"stale"`
-	Error              string             `json:"error,omitempty"`
-	LastCompiled       *metav1.Time       `json:"lastCompiled,omitempty"`
+	AppliedGeneration int64              `json:"appliedGeneration,omitempty"`
+	LastReported      metav1.Time        `json:"lastReported"`
+	Compiled          *CompiledStatus    `json:"compiled,omitempty"`
+	Conditions        []metav1.Condition `json:"conditions,omitempty"`
+	Degraded          []DegradedRule     `json:"degraded,omitempty"`
+	AppliesOnRestart  []string           `json:"appliesOnRestart,omitempty"`
+	ShadowedAllows    []string           `json:"shadowedAllows,omitempty"`
+	RuleHitCounts     map[string]int64   `json:"ruleHitCounts,omitempty"`
+	Counts            NodeStatusCounts   `json:"counts"`
+	Truncated         bool               `json:"truncated"`
+	Stale             bool               `json:"stale"`
+	Error             string             `json:"error,omitempty"`
+	LastCompiled      *metav1.Time       `json:"lastCompiled,omitempty"`
 	// HTTP is set only for a policy with an http section.
-	HTTP               *HTTPNodeStatus    `json:"http,omitempty"`
+	HTTP *HTTPNodeStatus `json:"http,omitempty"`
 }
 
 // NodeStatusCounts preserves cardinality even when bounded details are omitted.

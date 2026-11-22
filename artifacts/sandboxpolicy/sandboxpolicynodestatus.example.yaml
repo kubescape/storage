@@ -42,6 +42,6 @@ status:
   http:
     boundPods: 3
     preAttachBypass: 1
-    needRestart: [agent-7c9d-x2x]
+    needRestart: [agents/agent-7c9d-x2x]
     gate: redirecting
     nodeControllerDegraded: false

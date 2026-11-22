@@ -108,6 +108,13 @@ func TestHTTPValidation(t *testing.T) {
 		{"long name", func(s *HTTPSection) { s.Rules[1].Name = strings.Repeat("n", MaxRuleNameLength+1) }, "at most 256"},
 		{"action", func(s *HTTPSection) { s.Rules[1].Action = "audit" }, "action must be allow or deny"},
 		{"rule mode", func(s *HTTPSection) { s.Rules[1].Mode = "off" }, "mode must be audit or enforce"},
+		{"rule without target predicate", func(s *HTTPSection) { s.Rules[1].Target = HTTPTarget{} }, "rule target requires at least one predicate"},
+		{"rule with empty llm target", func(s *HTTPSection) { s.Rules[1].Target = HTTPTarget{LLM: &HTTPLLMTarget{}} }, "rule target requires at least one predicate"},
+		{"empty exact host", func(s *HTTPSection) { s.Decrypt = &HTTPDecrypt{ExactHosts: []string{"api.anthropic.com", ""}} }, "decrypt.exactHosts entries must not be empty"},
+		{"empty host pattern", func(s *HTTPSection) { s.Decrypt = &HTTPDecrypt{HostPatterns: []string{""}} }, "decrypt.hostPatterns entries must not be empty"},
+		{"empty passthrough host", func(s *HTTPSection) { s.Decrypt = &HTTPDecrypt{Passthrough: []string{""}} }, "decrypt.passthrough entries must not be empty"},
+		{"empty target host", func(s *HTTPSection) { s.Rules[1].Target.Host = []string{"api.anthropic.com", ""} }, "target host entries must not be empty"},
+		{"empty llm model", func(s *HTTPSection) { s.Rules[0].Except[0].Target.LLM.Model = []string{""} }, "llm model entries must not be empty"},
 		{"exception without target", func(s *HTTPSection) { s.Rules[0].Except = []HTTPException{{}} }, "exception requires at least one target predicate"},
 		{"exception with empty target", func(s *HTTPSection) { s.Rules[0].Except = []HTTPException{{Target: &HTTPTarget{}}} }, "exception requires at least one target predicate"},
 		{"exception with empty llm", func(s *HTTPSection) {

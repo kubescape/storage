@@ -57,26 +57,29 @@ func TestKubernetesHTTPExample(t *testing.T) {
 func TestKubernetesHTTPInvalid(t *testing.T) {
 	const d = "default: {llm: deny, mcp: deny, other: audit}"
 	for _, tc := range []struct{ name, http string }{
-		{"except-on-allow", "{" + d + ", rules: [{name: a, target: {}, action: allow, except: [{target: {host: [x]}}]}]}"},
-		{"empty-except-on-allow", "{" + d + ", rules: [{name: a, target: {}, action: allow, except: []}]}"},
+		{"except-on-allow", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: allow, except: [{target: {host: [x]}}]}]}"},
+		{"empty-except-on-allow", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: allow, except: []}]}"},
 		{"bad-on-unavailable", "{" + d + ", onUnavailable: maybe}"},
 		{"bad-default-value", "{default: {llm: block, mcp: deny, other: audit}}"},
 		{"default-missing-other", "{default: {llm: deny, mcp: deny}}"},
 		{"missing-default", "{onUnavailable: allow}"},
-		{"duplicate-rule-name", "{" + d + ", rules: [{name: a, target: {}, action: deny}, {name: a, target: {}, action: allow}]}"},
-		{"rule-without-name", "{" + d + ", rules: [{target: {}, action: deny}]}"},
-		{"empty-rule-name", "{" + d + ", rules: [{name: \"\", target: {}, action: deny}]}"},
+		{"duplicate-rule-name", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: deny}, {name: a, target: {host: [x]}, action: allow}]}"},
+		{"rule-without-name", "{" + d + ", rules: [{target: {host: [x]}, action: deny}]}"},
+		{"empty-rule-name", "{" + d + ", rules: [{name: \"\", target: {host: [x]}, action: deny}]}"},
 		{"rule-without-target", "{" + d + ", rules: [{name: a, action: deny}]}"},
-		{"bad-action", "{" + d + ", rules: [{name: a, target: {}, action: audit}]}"},
-		{"bad-rule-mode", "{" + d + ", rules: [{name: a, target: {}, action: deny, mode: \"off\"}]}"},
-		{"exception-with-empty-target", "{" + d + ", rules: [{name: a, target: {}, action: deny, except: [{target: {}}]}]}"},
-		{"exception-with-empty-llm", "{" + d + ", rules: [{name: a, target: {}, action: deny, except: [{target: {llm: {}}}]}]}"},
-		{"empty-exception", "{" + d + ", rules: [{name: a, target: {}, action: deny, except: [{}]}]}"},
+		{"bad-action", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: audit}]}"},
+		{"bad-rule-mode", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: deny, mode: \"off\"}]}"},
+		{"exception-with-empty-target", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: deny, except: [{target: {}}]}]}"},
+		{"exception-with-empty-llm", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: deny, except: [{target: {llm: {}}}]}]}"},
+		{"empty-exception", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: deny, except: [{}]}]}"},
 		{"unsupported-method", "{" + d + ", rules: [{name: a, target: {host: [api.github.com], method: [DELETE]}, action: deny}]}"},
 		{"unsupported-mcp", "{" + d + ", rules: [{name: a, target: {mcp: {server: [x]}}, action: deny}]}"},
-		{"unsupported-actor", "{" + d + ", rules: [{name: a, actor: {uid: [0]}, target: {}, action: deny}]}"},
-		{"unsupported-exception-actor", "{" + d + ", rules: [{name: a, target: {}, action: deny, except: [{actor: {uid: [0]}, target: {host: [x]}}]}]}"},
-		{"unsupported-exception-method", "{" + d + ", rules: [{name: a, target: {}, action: deny, except: [{target: {host: [x], method: [GET]}}]}]}"},
+		{"unsupported-actor", "{" + d + ", rules: [{name: a, actor: {uid: [0]}, target: {host: [x]}, action: deny}]}"},
+		{"unsupported-exception-actor", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: deny, except: [{actor: {uid: [0]}, target: {host: [x]}}]}]}"},
+		{"unsupported-exception-method", "{" + d + ", rules: [{name: a, target: {host: [x]}, action: deny, except: [{target: {host: [x], method: [GET]}}]}]}"},
+		{"rule-with-empty-target", "{" + d + ", rules: [{name: a, target: {}, action: allow}]}"},
+		{"rule-with-only-unknown-predicate", "{" + d + ", rules: [{name: a, target: {dnsName: [api.github.com]}, action: allow}]}"},
+		{"rule-with-empty-llm", "{" + d + ", rules: [{name: a, target: {llm: {}}, action: allow}]}"},
 		{"empty-host-entry", "{" + d + ", decrypt: {exactHosts: [\"\"]}}"},
 		{"empty-target-list", "{" + d + ", rules: [{name: a, target: {host: []}, action: deny}]}"},
 	} {
@@ -170,12 +173,24 @@ func TestKubernetesNodeStatusHTTP(t *testing.T) {
 	names := func(n int) []any {
 		list := make([]any, n)
 		for i := range list {
-			list[i] = fmt.Sprintf("pod-%d", i)
+			list[i] = fmt.Sprintf("agents/pod-%d", i)
 		}
 		return list
 	}
 	if errs := validate(t, definition, withHTTP(block(func(b map[string]any) { b["needRestart"] = names(64) }))); len(errs) != 0 {
 		t.Fatalf("64 pod names rejected: %v", errs.ToAggregate())
+	}
+	// A cluster policy's report spans namespaces: the same pod name in two of
+	// them must not collide, and the longest legal entry must fit.
+	sameName := block(func(b map[string]any) { b["needRestart"] = []any{"a/agent-0", "b/agent-0"} })
+	if errs := validate(t, definition, withHTTP(sameName)); len(errs) != 0 {
+		t.Fatalf("same pod name in two namespaces rejected: %v", errs.ToAggregate())
+	}
+	longest := block(func(b map[string]any) {
+		b["needRestart"] = []any{strings.Repeat("n", 63) + "/" + strings.Repeat("p", 253)}
+	})
+	if errs := validate(t, definition, withHTTP(longest)); len(errs) != 0 {
+		t.Fatalf("longest legal entry rejected: %v", errs.ToAggregate())
 	}
 	for name, mutate := range map[string]func(map[string]any){
 		"unknown gate":      func(b map[string]any) { b["gate"] = "open" },
@@ -185,9 +200,14 @@ func TestKubernetesNodeStatusHTTP(t *testing.T) {
 		"negative count":    func(b map[string]any) { b["boundPods"] = int64(-1) },
 		"negative bypass":   func(b map[string]any) { b["preAttachBypass"] = int64(-1) },
 		"too many names":    func(b map[string]any) { b["needRestart"] = names(65) },
-		"duplicate name":    func(b map[string]any) { b["needRestart"] = []any{"a", "a"} },
-		"long name":         func(b map[string]any) { b["needRestart"] = []any{strings.Repeat("p", 254)} },
+		"duplicate name":    func(b map[string]any) { b["needRestart"] = []any{"agents/a", "agents/a"} },
+		"long pod name":     func(b map[string]any) { b["needRestart"] = []any{"agents/" + strings.Repeat("p", 254)} },
+		"long namespace":    func(b map[string]any) { b["needRestart"] = []any{strings.Repeat("n", 64) + "/a"} },
 		"empty name":        func(b map[string]any) { b["needRestart"] = []any{""} },
+		"bare pod name":     func(b map[string]any) { b["needRestart"] = []any{"agent-0"} },
+		"empty namespace":   func(b map[string]any) { b["needRestart"] = []any{"/agent-0"} },
+		"empty pod":         func(b map[string]any) { b["needRestart"] = []any{"agents/"} },
+		"two slashes":       func(b map[string]any) { b["needRestart"] = []any{"a/b/c"} },
 	} {
 		t.Run(name, func(t *testing.T) {
 			if errs := validate(t, definition, withHTTP(block(mutate))); len(errs) == 0 {

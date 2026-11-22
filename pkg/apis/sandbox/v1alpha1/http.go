@@ -52,7 +52,9 @@ type HTTPDecrypt struct {
 }
 
 // HTTPRule has no actor: the gateway sees requests, not processes. Mode
-// inherits PolicySpec.Mode when omitted; policy off still wins.
+// inherits PolicySpec.Mode when omitted; policy off still wins. The target must
+// name at least one predicate: a rule that matches every request is written
+// with one, for example destClass.
 type HTTPRule struct {
 	// Name is unique within the http section.
 	Name   string          `json:"name"`
@@ -98,6 +100,39 @@ func (e HTTPException) Validate() error {
 	if !e.Target.hasPredicate() {
 		return fmt.Errorf("exception requires at least one target predicate")
 	}
+	return e.Target.validateEntries()
+}
+
+func noEmpty(label string, entries []string) error {
+	for _, entry := range entries {
+		if entry == "" {
+			return fmt.Errorf("%s entries must not be empty", label)
+		}
+	}
+	return nil
+}
+
+// validateEntries rejects empty strings, which the admission schema rejects too.
+func (t *HTTPTarget) validateEntries() error {
+	for _, list := range []struct {
+		label   string
+		entries []string
+	}{{"target destClass", t.DestClass}, {"target host", t.Host}} {
+		if err := noEmpty(list.label, list.entries); err != nil {
+			return err
+		}
+	}
+	if t.LLM == nil {
+		return nil
+	}
+	for _, list := range []struct {
+		label   string
+		entries []string
+	}{{"llm provider", t.LLM.Provider}, {"llm region", t.LLM.Region}, {"llm account", t.LLM.Account}, {"llm model", t.LLM.Model}} {
+		if err := noEmpty(list.label, list.entries); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -119,6 +154,16 @@ func (s HTTPSection) Validate() error {
 	if s.OnUnavailable != "" && s.OnUnavailable != HTTPUnavailableAllow && s.OnUnavailable != HTTPUnavailableDeny {
 		return fmt.Errorf("http: onUnavailable must be allow or deny when specified")
 	}
+	if s.Decrypt != nil {
+		for _, list := range []struct {
+			label   string
+			entries []string
+		}{{"decrypt.exactHosts", s.Decrypt.ExactHosts}, {"decrypt.hostPatterns", s.Decrypt.HostPatterns}, {"decrypt.passthrough", s.Decrypt.Passthrough}} {
+			if err := noEmpty(list.label, list.entries); err != nil {
+				return fmt.Errorf("http: %s", err)
+			}
+		}
+	}
 	names := map[string]bool{}
 	for _, rule := range s.Rules {
 		if rule.Name == "" {
@@ -136,6 +181,14 @@ func (s HTTPSection) Validate() error {
 		}
 		if rule.Mode != "" && rule.Mode != RuleAudit && rule.Mode != RuleEnforce {
 			return fmt.Errorf("http: rule %q: mode must be audit or enforce when specified", rule.Name)
+		}
+		// Pruning turns a target made only of unsupported keys into {}, which
+		// would match every request; an allow like that beats default.llm: deny.
+		if !rule.Target.hasPredicate() {
+			return fmt.Errorf("http: rule %q: rule target requires at least one predicate", rule.Name)
+		}
+		if err := rule.Target.validateEntries(); err != nil {
+			return fmt.Errorf("http: rule %q: %w", rule.Name, err)
 		}
 		if err := validateExceptions(Rule{Name: rule.Name, Action: rule.Action}, rule.Except); err != nil {
 			return fmt.Errorf("http: %w", err)

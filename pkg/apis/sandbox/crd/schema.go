@@ -234,8 +234,12 @@ func httpSection() schema {
 	exception := object(map[string]schema{"target": exceptionTarget, "actor": forbidden(object(nil))}, "target")
 	exceptions := array(exception)
 	exceptions.MinItems = nil
+	// A target must name a predicate. Pruning turns a target made only of
+	// unsupported keys into {}, which would match every request.
+	ruleTarget := *target.DeepCopy()
+	ruleTarget.AnyOf = predicatePresence(ruleTarget).AnyOf
 	rule := object(map[string]schema{
-		"name": boundedText(sandbox.MaxRuleNameLength), "target": target, "action": action(), "mode": ruleMode(),
+		"name": boundedText(sandbox.MaxRuleNameLength), "target": ruleTarget, "action": action(), "mode": ruleMode(),
 		"origin": {Type: "string"}, "except": exceptions, "actor": forbidden(object(nil)),
 	}, "name", "target", "action")
 	// Even an explicitly empty except is deny-only, as in the kernel sections.
@@ -308,7 +312,9 @@ func nodeStatusSpec() schema {
 	return spec
 }
 func httpNodeStatus() schema {
-	pods := array(boundedText(sandbox.MaxReferenceNameLength))
+	podRef := boundedText(sandbox.MaxPodRefLength)
+	podRef.Pattern = fmt.Sprintf(`^[^/]{1,%d}/[^/]{1,%d}$`, sandbox.MaxNamespaceLength, sandbox.MaxPodNameLength)
+	pods := array(podRef)
 	pods.MinItems = nil
 	pods.MaxItems = int64ptr(sandbox.MaxStatusPodNames)
 	pods.XListType = stringptr("set")

@@ -17,7 +17,7 @@ func TestNodeStatusHTTPBlockRoundTripAndDeepCopy(t *testing.T) {
 	if err = yaml.UnmarshalStrict(data, &report); err != nil {
 		t.Fatal(err)
 	}
-	want := HTTPNodeStatus{BoundPods: 3, PreAttachBypass: 1, NeedRestart: []string{"agent-7c9d-x2x"}, Gate: HTTPGateRedirecting}
+	want := HTTPNodeStatus{BoundPods: 3, PreAttachBypass: 1, NeedRestart: []string{"agents/agent-7c9d-x2x"}, Gate: HTTPGateRedirecting}
 	if report.Status == nil || report.Status.HTTP == nil || !reflect.DeepEqual(*report.Status.HTTP, want) {
 		t.Fatalf("http block = %+v", report.Status.HTTP)
 	}
