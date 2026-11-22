@@ -196,3 +196,90 @@ func TestKubernetesNodeStatusHTTP(t *testing.T) {
 		})
 	}
 }
+
+func TestSandboxGatewayNodeStatusDefinition(t *testing.T) {
+	definitions := Definitions()
+	if len(definitions) != 5 {
+		t.Fatalf("want 5 definitions, got %d", len(definitions))
+	}
+	d := definitions[4]
+	if d.Name != "sandboxgatewaynodestatuses.kubescape.io" || d.Spec.Names.Kind != "SandboxGatewayNodeStatus" || d.Spec.Names.Plural != "sandboxgatewaynodestatuses" ||
+		d.Spec.Names.Singular != "sandboxgatewaynodestatus" || d.Spec.Scope != "Cluster" || d.Spec.Versions[0].Subresources == nil || d.Spec.Versions[0].Subresources.Status == nil {
+		t.Fatalf("wrong identity: %+v", d.Spec.Names)
+	}
+	root := d.Spec.Versions[0].Schema.OpenAPIV3Schema
+	if _, ok := root.Properties["spec"]; ok || len(root.Required) != 0 {
+		t.Fatalf("the kind has no spec; required = %v", root.Required)
+	}
+	for i, kind := range []string{"SandboxPolicy", "ClusterSandboxPolicy", "SandboxPolicyClasses", "SandboxPolicyNodeStatus"} {
+		if definitions[i].Spec.Names.Kind != kind {
+			t.Fatalf("definition %d is %s, want %s", i, definitions[i].Spec.Names.Kind, kind)
+		}
+	}
+}
+
+func TestKubernetesGatewayNodeStatus(t *testing.T) {
+	definition := Definitions()[4]
+	data := readExample(t, "sandboxgatewaynodestatus.example.yaml")
+	object := decode(t, data)
+	if errs := validate(t, definition, object); len(errs) != 0 {
+		t.Fatal(errs.ToAggregate())
+	}
+	if !reflect.DeepEqual(object, decode(t, data)) {
+		t.Fatal("pruning changed the example")
+	}
+	status := func(mutate func(map[string]any)) map[string]any {
+		o := decode(t, data)
+		mutate(o["status"].(map[string]any))
+		return o
+	}
+	patterns := func(n int) []any {
+		list := make([]any, n)
+		for i := range list {
+			list[i] = fmt.Sprintf("*.p%d.example.com", i)
+		}
+		return list
+	}
+	for name, o := range map[string]map[string]any{
+		// The writer creates the object empty, then updates its status.
+		"metadata only":          decode(t, "apiVersion: kubescape.io/v1alpha1\nkind: SandboxGatewayNodeStatus\nmetadata: {name: node-1}\n"),
+		"evaluator unavailable":  status(func(s map[string]any) { s["processor"] = map[string]any{"up": false, "evaluator": "unavailable"} }),
+		"envoy down, no version": status(func(s map[string]any) { s["envoy"] = map[string]any{"up": false} }),
+		"no decryptValidUntil":   status(func(s map[string]any) { delete(s, "decryptValidUntil") }),
+		"64 rejected patterns":   status(func(s map[string]any) { s["rejectedPatterns"] = patterns(64) }),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if errs := validate(t, definition, o); len(errs) != 0 {
+				t.Fatal(errs.ToAggregate())
+			}
+		})
+	}
+	for name, mutate := range map[string]func(map[string]any){
+		"unknown evaluator":    func(s map[string]any) { s["processor"].(map[string]any)["evaluator"] = "maybe" },
+		"missing evaluator":    func(s map[string]any) { delete(s["processor"].(map[string]any), "evaluator") },
+		"missing envoy up":     func(s map[string]any) { delete(s["envoy"].(map[string]any), "up") },
+		"negative host count":  func(s map[string]any) { s["hosts"].(map[string]any)["exact"] = int64(-1) },
+		"missing host cap":     func(s map[string]any) { delete(s["hosts"].(map[string]any), "cap") },
+		"missing observedAt":   func(s map[string]any) { delete(s, "observedAt") },
+		"missing overloaded":   func(s map[string]any) { delete(s, "overloaded") },
+		"missing evictions":    func(s map[string]any) { delete(s, "evictions") },
+		"negative counter":     func(s map[string]any) { s["degradedDecisions"] = int64(-1) },
+		"65 rejected patterns": func(s map[string]any) { s["rejectedPatterns"] = patterns(65) },
+		"duplicate pattern":    func(s map[string]any) { s["rejectedPatterns"] = []any{"*.a.com", "*.a.com"} },
+		"bad timestamp":        func(s map[string]any) { s["decryptValidUntil"] = "tomorrow" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if errs := validate(t, definition, status(mutate)); len(errs) == 0 {
+				t.Fatal("invalid gateway status accepted")
+			}
+		})
+	}
+	withSpec := decode(t, data)
+	withSpec["spec"] = map[string]any{"x": int64(1)}
+	if errs := validate(t, definition, withSpec); len(errs) != 0 {
+		t.Fatal(errs.ToAggregate())
+	}
+	if _, ok := withSpec["spec"]; ok {
+		t.Fatal("an unknown spec must be pruned")
+	}
+}

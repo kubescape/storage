@@ -349,6 +349,21 @@ func nodeStatus() schema {
 	return s
 }
 
+func gatewayNodeStatus() schema {
+	patterns := array(boundedText(sandbox.MaxReferenceNameLength))
+	patterns.MinItems = nil
+	patterns.MaxItems = int64ptr(sandbox.MaxStatusRejectedPatterns)
+	patterns.XListType = stringptr("set")
+	return object(map[string]schema{
+		"envoy":            object(map[string]schema{"up": boolean(), "version": boundedText(64)}, "up"),
+		"processor":        object(map[string]schema{"up": boolean(), "evaluator": enumeration("available", "unavailable")}, "up", "evaluator"),
+		"overloaded":       boolean(),
+		"hosts":            object(map[string]schema{"exact": nonnegative(), "learned": nonnegative(), "cap": nonnegative()}, "exact", "learned", "cap"),
+		"rejectedPatterns": patterns, "passedThroughOverCap": nonnegative(), "evictions": nonnegative(), "degradedDecisions": nonnegative(),
+		"decryptValidUntil": timestamp(), "observedAt": timestamp(),
+	}, "envoy", "processor", "overloaded", "hosts", "passedThroughOverCap", "evictions", "degradedDecisions", "observedAt")
+}
+
 // Definitions returns fresh CRDs in a stable order. Policy status uses a
 // subresource; classes are configuration and have no agent-written status.
 func Definitions() []apiextensions.CustomResourceDefinition {
@@ -356,22 +371,31 @@ func Definitions() []apiextensions.CustomResourceDefinition {
 	for _, entry := range []struct {
 		kind, plural, singular string
 		scope                  apiextensions.ResourceScope
+		hasSpec                bool
 		spec                   schema
 		hasStatus              bool
 		statusSchema           schema
 	}{
-		{"SandboxPolicy", "sandboxpolicies", "sandboxpolicy", apiextensions.NamespaceScoped, policySpec(false), true, status()},
-		{"ClusterSandboxPolicy", "clustersandboxpolicies", "clustersandboxpolicy", apiextensions.ClusterScoped, policySpec(true), true, status()},
-		{"SandboxPolicyClasses", "sandboxpolicyclasses", "sandboxpolicyclasses", apiextensions.ClusterScoped, classes(), false, schema{}},
-		{"SandboxPolicyNodeStatus", "sandboxpolicynodestatuses", "sandboxpolicynodestatus", apiextensions.NamespaceScoped, nodeStatusSpec(), true, nodeStatus()},
+		{"SandboxPolicy", "sandboxpolicies", "sandboxpolicy", apiextensions.NamespaceScoped, true, policySpec(false), true, status()},
+		{"ClusterSandboxPolicy", "clustersandboxpolicies", "clustersandboxpolicy", apiextensions.ClusterScoped, true, policySpec(true), true, status()},
+		{"SandboxPolicyClasses", "sandboxpolicyclasses", "sandboxpolicyclasses", apiextensions.ClusterScoped, true, classes(), false, schema{}},
+		{"SandboxPolicyNodeStatus", "sandboxpolicynodestatuses", "sandboxpolicynodestatus", apiextensions.NamespaceScoped, true, nodeStatusSpec(), true, nodeStatus()},
+		// Appended last so the order of the kinds above does not move. It has
+		// no spec: everything it holds is written by one agent as status.
+		{"SandboxGatewayNodeStatus", "sandboxgatewaynodestatuses", "sandboxgatewaynodestatus", apiextensions.ClusterScoped, false, schema{}, true, gatewayNodeStatus()},
 	} {
-		props := map[string]schema{"apiVersion": {Type: "string"}, "kind": {Type: "string"}, "metadata": {Type: "object"}, "spec": entry.spec}
+		props := map[string]schema{"apiVersion": {Type: "string"}, "kind": {Type: "string"}, "metadata": {Type: "object"}}
+		var required []string
+		if entry.hasSpec {
+			props["spec"] = entry.spec
+			required = []string{"spec"}
+		}
 		version := apiextensions.CustomResourceDefinitionVersion{Name: sandbox.SchemeGroupVersion.Version, Served: true, Storage: true}
 		if entry.hasStatus {
 			props["status"] = entry.statusSchema
 			version.Subresources = &apiextensions.CustomResourceSubresources{Status: &apiextensions.CustomResourceSubresourceStatus{}}
 		}
-		version.Schema = &apiextensions.CustomResourceValidation{OpenAPIV3Schema: ptrSchema(object(props, "spec"))}
+		version.Schema = &apiextensions.CustomResourceValidation{OpenAPIV3Schema: ptrSchema(object(props, required...))}
 		definitions = append(definitions, apiextensions.CustomResourceDefinition{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "apiextensions.k8s.io/v1", Kind: "CustomResourceDefinition"},
 			ObjectMeta: metav1.ObjectMeta{Name: entry.plural + "." + sandbox.GroupName},

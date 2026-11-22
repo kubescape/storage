@@ -1,6 +1,6 @@
 # Sandbox policy API foundation
 
-`pkg/apis/sandbox/v1alpha1` defines four Kubernetes-served resources in
+`pkg/apis/sandbox/v1alpha1` defines five Kubernetes-served resources in
 `kubescape.io/v1alpha1`:
 
 | Kind | Scope | Status subresource |
@@ -9,6 +9,7 @@
 | `ClusterSandboxPolicy` | Cluster | Yes |
 | `SandboxPolicyClasses` | Cluster | No |
 | `SandboxPolicyNodeStatus` | Namespaced | Yes |
+| `SandboxGatewayNodeStatus` | Cluster | Yes |
 
 These are real CRDs, **not** resources of storage's aggregated
 `spdx.softwarecomposition.kubescape.io` API. Import the package and call
@@ -263,6 +264,40 @@ removed node or missing report must never leave an old Ready count treated as
 current. Aggregation, cleanup, freshness expiry and status writes are deliberately
 not implemented by this API-only PR.
 
+## Gateway node status
+
+`SandboxGatewayNodeStatus` holds what is true of a node, not of a policy: the
+state of the sandbox gateway that runs there. It is cluster-scoped, there is one
+object per node, and `metadata.name` is the node name. It has no `spec`.
+
+```yaml
+status:
+  envoy: {up: true, version: "1.40.2"}
+  processor: {up: true, evaluator: available}   # available | unavailable
+  overloaded: false
+  hosts: {exact: 12, learned: 3, cap: 256}
+  rejectedPatterns: ["*.amazonaws.com"]
+  passedThroughOverCap: 0
+  evictions: 0
+  degradedDecisions: 0
+  decryptValidUntil: "2026-11-22T10:12:03Z"
+  observedAt: "2026-11-22T09:12:03Z"
+```
+
+- The object has one writer, the gateway's node controller. It creates the
+  object with no status, then writes `status` through the status subresource.
+  A create request cannot set status, so an object with only metadata is valid.
+- Once `status` is present, every field is required except `envoy.version`,
+  `rejectedPatterns` and `decryptValidUntil`. `false` and `0` are written out.
+- `processor.evaluator: unavailable` means the processor has no rule evaluator
+  and passes every request.
+- `rejectedPatterns` is a set of at most 64 patterns. Counts cannot be negative.
+- The schema cannot check that the name is a real node, or that a writer only
+  touches its own node's object. RBAC decides who may write the kind at all.
+
+Per-policy facts (bound pods, the gate's effect) stay in
+`SandboxPolicyNodeStatus`, under `status.http`.
+
 ## Generation and validation
 
 From the storage repository:
@@ -270,14 +305,19 @@ From the storage repository:
 ```sh
 hack/update-sandbox-codegen.sh
 # Also synchronize the installation chart, when working in both repositories:
-hack/update-sandbox-codegen.sh --chart-crds-dir ../helm-charts/charts/kubescape-operator/crds
+hack/update-sandbox-codegen.sh --chart-crds-dir /tmp/sandbox-crds
 go test ./pkg/apis/sandbox/... ./hack/sandbox-crds
 hack/verify-sandbox-crds.sh -count=1
 ```
 
 `artifacts/sandboxpolicy/*.crd.yaml` are canonical generated manifests. The chart
-copies live under `charts/kubescape-operator/crds/` in `kubescape/helm-charts`.
-Four `*.example.yaml` files exercise the API; they are not installed by the chart.
+copies live under `charts/kubescape-operator/templates/sandbox-policy-crds/` in
+`kubescape/helm-charts`. Each chart file keeps its own Helm metadata header and
+takes only `spec` from the generated manifest, so generate into a scratch
+directory and copy the `spec` blocks across.
+`hack/update-sandbox-codegen.sh` needs the `vendor/` tree; run `go mod vendor` first.
+Six `*.example.yaml` files exercise the API, one per kind plus a `SandboxPolicy`
+with an `http` section; they are not installed by the chart.
 The general `hack/verify-codegen.sh` compares generated manifests in temporary
 output against committed artifacts without modifying them; regression tests
 cover clean, stale, missing, obsolete and failed-generation cases.
