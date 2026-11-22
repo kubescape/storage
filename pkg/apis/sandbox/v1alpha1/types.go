@@ -421,8 +421,7 @@ type NodeStatus struct {
 	Stale             bool               `json:"stale"`
 	Error             string             `json:"error,omitempty"`
 	LastCompiled      *metav1.Time       `json:"lastCompiled,omitempty"`
-	// HTTP is set only for a policy with an http section.
-	HTTP *HTTPNodeStatus `json:"http,omitempty"`
+	HTTP              *HTTPNodeStatus    `json:"http,omitempty"`
 }
 
 // NodeStatusCounts preserves cardinality even when bounded details are omitted.
