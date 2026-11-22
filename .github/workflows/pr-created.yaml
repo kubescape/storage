@@ -19,7 +19,7 @@ jobs:
       actions: read
       pull-requests: write
       security-events: write
-    uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@f94c44f89a4233438f8d25880efb53c861168655 # go-licenses v2
+    uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@c98b2f80e76918129ecaf501d779a9a10c4964d5 # go-licenses v2
     with:
       CGO_ENABLED: 0
       GO_VERSION: "1.26.11"
