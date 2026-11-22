@@ -197,6 +197,22 @@ creates independent report objects, not a larger shared policy object.
   policy references and same-namespace owner/garbage-collection semantics would
   need a separately designed API migration.
 
+### Gateway state per policy and node
+
+For a policy with an `http` section, the node agent adds an `http` block to
+its report:
+
+| Field | Meaning |
+|---|---|
+| `boundPods` | Number of selected pods on the node whose AI traffic goes through the gateway. |
+| `preAttachBypass` | Number of connections that were open before the pod was bound and still bypass the gateway. |
+| `needRestart` | Names of pods that must restart before they can be bound. At most 64 names, no duplicates; a writer that drops names sets `truncated`. |
+| `gate` | Effect of the node's health gate on these pods: `redirecting`, `failing_open`, `failing_closed` or `not_bound`. |
+| `nodeControllerDegraded` | The gateway's node controller did not answer its last health probe. |
+
+All fields except `needRestart` are required when the block is present, so a
+zero count or `false` is written out. A report without the block stays valid.
+
 ### Bounded snapshots and honest truncation
 
 Per report, schema limits are 64 entries **per** rule-detail collection

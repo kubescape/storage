@@ -39,3 +39,9 @@ status:
   stale: true
   error: last compile failed
   lastCompiled: "2026-09-24T09:12:03Z"
+  http:
+    boundPods: 3
+    preAttachBypass: 1
+    needRestart: [agent-7c9d-x2x]
+    gate: redirecting
+    nodeControllerDegraded: false

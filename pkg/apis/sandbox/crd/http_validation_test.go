@@ -3,6 +3,7 @@
 package crd
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -134,5 +135,64 @@ func TestKubernetesHTTPRuleNameMayRepeatKernelRuleName(t *testing.T) {
 `)
 	if errs := validate(t, Definitions()[0], object); len(errs) != 0 {
 		t.Fatal(errs.ToAggregate())
+	}
+}
+
+func TestKubernetesNodeStatusHTTP(t *testing.T) {
+	definition := Definitions()[3]
+	data := readExample(t, "sandboxpolicynodestatus.example.yaml")
+	if errs := validate(t, definition, decode(t, data)); len(errs) != 0 {
+		t.Fatal(errs.ToAggregate())
+	}
+	withHTTP := func(http any) map[string]any {
+		object := decode(t, data)
+		status := object["status"].(map[string]any)
+		if http == nil {
+			delete(status, "http")
+		} else {
+			status["http"] = http
+		}
+		return object
+	}
+	block := func(mutate func(map[string]any)) map[string]any {
+		b := map[string]any{"boundPods": int64(1), "preAttachBypass": int64(0), "gate": "redirecting", "nodeControllerDegraded": false}
+		mutate(b)
+		return b
+	}
+	if errs := validate(t, definition, withHTTP(nil)); len(errs) != 0 {
+		t.Fatalf("report without http rejected: %v", errs.ToAggregate())
+	}
+	for _, gate := range []string{"redirecting", "failing_open", "failing_closed", "not_bound"} {
+		if errs := validate(t, definition, withHTTP(block(func(b map[string]any) { b["gate"] = gate }))); len(errs) != 0 {
+			t.Fatalf("gate %s rejected: %v", gate, errs.ToAggregate())
+		}
+	}
+	names := func(n int) []any {
+		list := make([]any, n)
+		for i := range list {
+			list[i] = fmt.Sprintf("pod-%d", i)
+		}
+		return list
+	}
+	if errs := validate(t, definition, withHTTP(block(func(b map[string]any) { b["needRestart"] = names(64) }))); len(errs) != 0 {
+		t.Fatalf("64 pod names rejected: %v", errs.ToAggregate())
+	}
+	for name, mutate := range map[string]func(map[string]any){
+		"unknown gate":      func(b map[string]any) { b["gate"] = "open" },
+		"missing gate":      func(b map[string]any) { delete(b, "gate") },
+		"missing boundPods": func(b map[string]any) { delete(b, "boundPods") },
+		"missing degraded":  func(b map[string]any) { delete(b, "nodeControllerDegraded") },
+		"negative count":    func(b map[string]any) { b["boundPods"] = int64(-1) },
+		"negative bypass":   func(b map[string]any) { b["preAttachBypass"] = int64(-1) },
+		"too many names":    func(b map[string]any) { b["needRestart"] = names(65) },
+		"duplicate name":    func(b map[string]any) { b["needRestart"] = []any{"a", "a"} },
+		"long name":         func(b map[string]any) { b["needRestart"] = []any{strings.Repeat("p", 254)} },
+		"empty name":        func(b map[string]any) { b["needRestart"] = []any{""} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if errs := validate(t, definition, withHTTP(block(mutate))); len(errs) == 0 {
+				t.Fatal("invalid http status accepted")
+			}
+		})
 	}
 }

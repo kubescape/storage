@@ -307,6 +307,16 @@ func nodeStatusSpec() schema {
 	spec.XValidations = apiextensions.ValidationRules{{Rule: "self == oldSelf", Message: "policy/node report identity is immutable"}}
 	return spec
 }
+func httpNodeStatus() schema {
+	pods := array(boundedText(sandbox.MaxReferenceNameLength))
+	pods.MinItems = nil
+	pods.MaxItems = int64ptr(sandbox.MaxStatusPodNames)
+	pods.XListType = stringptr("set")
+	return object(map[string]schema{
+		"boundPods": nonnegative(), "preAttachBypass": nonnegative(), "needRestart": pods,
+		"gate": enumeration("redirecting", "failing_open", "failing_closed", "not_bound"), "nodeControllerDegraded": boolean(),
+	}, "boundPods", "preAttachBypass", "gate", "nodeControllerDegraded")
+}
 func nodeStatus() schema {
 	details := array(boundedText(sandbox.MaxRuleNameLength))
 	details.MinItems = nil
@@ -326,6 +336,7 @@ func nodeStatus() schema {
 		"degraded": degraded, "appliesOnRestart": details, "shadowedAllows": details, "ruleHitCounts": hits,
 		"counts":    object(map[string]schema{"degraded": nonnegative(), "appliesOnRestart": nonnegative(), "shadowedAllows": nonnegative(), "ruleHitCounts": nonnegative()}, "degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"),
 		"truncated": boolean(), "stale": boolean(), "error": {Type: "string", MaxLength: int64ptr(sandbox.MaxStatusErrorLength)}, "lastCompiled": timestamp(),
+		"http": httpNodeStatus(),
 	}, "tier", "observedGeneration", "lastReported", "counts", "truncated", "stale")
 	s.XValidations = append(s.XValidations, apiextensions.ValidationRule{Rule: "!has(self.appliedGeneration) || self.appliedGeneration <= self.observedGeneration", Message: "appliedGeneration must not exceed observedGeneration"})
 	for _, name := range []string{"degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"} {
