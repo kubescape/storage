@@ -95,6 +95,44 @@ supports them yet.
   stale/error information, shadowed allows and hit counts live in separate
   `SandboxPolicyNodeStatus` resources. Status types do not implement writers.
 
+### The `http` section
+
+`spec.http` holds the rules a gateway evaluates on decrypted requests. It is
+optional, and a policy without it is unchanged.
+
+| Field | Meaning |
+|---|---|
+| `default` | Required. One value each for `llm`, `mcp` and `other`: `allow`, `deny` or `audit`. `audit` lets the request through and records it. |
+| `onUnavailable` | `allow` or `deny`: what happens to covered traffic while the gateway cannot decide. Omitted means `allow`. |
+| `decrypt.exactHosts` | Hosts decrypted as written. |
+| `decrypt.hostPatterns` | Patterns decrypted once a matching name is seen on the node. |
+| `decrypt.passthrough` | Hosts never decrypted for the selected pods. |
+| `rules` | `name`, `target`, `action`, and optionally `except`, `mode`, `origin`. |
+
+A rule's `target` takes `destClass`, `host` and `llm` (`provider`, `region`,
+`account`, `model`). Predicates are ANDed and the entries of a list are ORed.
+`llm.model` applies only to requests that carry a model.
+
+Rules resolve like the kernel sections: a deny outside its own `except` list
+wins, then an allow, then the default. An allow never cancels a deny. `except`
+is valid only on a deny rule, and every exception needs at least one target
+predicate, because an empty one would lift the whole deny. `mode` is per rule
+and falls back to `spec.mode`; `spec.mode: "off"` turns the section off too.
+
+Three things differ from the kernel sections:
+
+- Rule names are unique within `http` only. An `http` rule may share its name
+  with a rule in `network`, which is how the two halves of one policy rule are
+  written.
+- Rules have no `actor` and no `description`. `actor`, `target.method` and
+  `target.mcp` are known to the schema as forbidden fields, so the API server
+  rejects them. Pruning them would silently widen the rule.
+- The schema sets no defaults and accepts empty `decrypt` lists, so an object
+  reads back exactly as it was written.
+
+`ValidatePolicySpec` checks the same rules for typed callers. Host pattern
+width is not checked here; the consumers of the list apply their own limit.
+
 ## Composition and migration
 
 Matching policies contribute a union of rules: matching deny wins, then matching

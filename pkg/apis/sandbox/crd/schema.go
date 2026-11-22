@@ -98,7 +98,7 @@ func predicatePresence(s schema) schema {
 	result := schema{}
 	for _, key := range keys {
 		branch := schema{Required: []string{key}}
-		if key == "argv" {
+		if key == "argv" || key == "llm" {
 			branch.Properties = map[string]schema{key: predicatePresence(s.Properties[key])}
 		}
 		result.AnyOf = append(result.AnyOf, branch)
@@ -216,6 +216,42 @@ func identitySection() schema {
 	}
 	return section(action(), target)
 }
+
+// httpSection has no defaults: read-back compares what was sent with what is
+// stored. Predicates the section does not support yet (method, mcp, actor)
+// are kept as forbidden properties so admission rejects them; pruning them
+// would silently widen the rule.
+func httpSection() schema {
+	hosts := stringList()
+	hosts.MinItems = nil
+	llm := object(map[string]schema{"provider": stringList(), "region": stringList(), "account": stringList(), "model": stringList()})
+	target := object(map[string]schema{
+		"destClass": stringList(), "host": stringList(), "llm": llm,
+		"method": forbidden(stringList()), "mcp": forbidden(object(nil)),
+	})
+	exceptionTarget := *target.DeepCopy()
+	exceptionTarget.AnyOf = predicatePresence(exceptionTarget).AnyOf
+	exception := object(map[string]schema{"target": exceptionTarget, "actor": forbidden(object(nil))}, "target")
+	exceptions := array(exception)
+	exceptions.MinItems = nil
+	rule := object(map[string]schema{
+		"name": boundedText(sandbox.MaxRuleNameLength), "target": target, "action": action(), "mode": ruleMode(),
+		"origin": {Type: "string"}, "except": exceptions, "actor": forbidden(object(nil)),
+	}, "name", "target", "action")
+	// Even an explicitly empty except is deny-only, as in the kernel sections.
+	rule.AnyOf = []schema{
+		{Properties: map[string]schema{"action": {Enum: []apiextensions.JSON{{Raw: []byte(`"deny"`)}}}}},
+		{Not: &schema{Required: []string{"except"}}},
+	}
+	defaultAction := enumeration("allow", "deny", "audit")
+	return object(map[string]schema{
+		"default":       object(map[string]schema{"llm": defaultAction, "mcp": defaultAction, "other": defaultAction}, "llm", "mcp", "other"),
+		"onUnavailable": enumeration("allow", "deny"),
+		"decrypt":       object(map[string]schema{"exactHosts": hosts, "hostPatterns": hosts, "passthrough": hosts}),
+		// The list map makes rule names unique within this section only.
+		"rules": listMap(rule, "name"),
+	}, "default")
+}
 func policySpec(cluster bool) schema {
 	selectors := map[string]schema{"podSelector": labelSelector()}
 	requiredSelectors := []string{"podSelector"}
@@ -238,7 +274,7 @@ func policySpec(cluster bool) schema {
 		"selector": object(selectors, requiredSelectors...), "containers": stringList(), "mode": enumeration("audit", "enforce", "off"),
 		"rootRole": text(), "sources": array(source), "classes": classes(),
 		"exec": execSection(), "file": fileSection(), "network": networkSection(),
-		"privilege": privilegeSection(), "identity": identitySection(),
+		"privilege": privilegeSection(), "identity": identitySection(), "http": httpSection(),
 	}, "selector", "containers", "mode")
 }
 func boundedText(limit int64) schema {

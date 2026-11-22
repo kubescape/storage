@@ -110,6 +110,7 @@ type PolicySpec struct {
 	Network    *NetworkSection   `json:"network,omitempty"`
 	Privilege  *PrivilegeSection `json:"privilege,omitempty"`
 	Identity   *IdentitySection  `json:"identity,omitempty"`
+	HTTP       *HTTPSection      `json:"http,omitempty"`
 }
 type PolicySource struct {
 	// ContainerProfile is a read-only import in the selected pod's namespace.

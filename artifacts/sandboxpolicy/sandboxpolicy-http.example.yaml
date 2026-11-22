@@ -1,0 +1,39 @@
+apiVersion: kubescape.io/v1alpha1
+kind: SandboxPolicy
+metadata:
+  name: agent-http
+  namespace: agents
+spec:
+  selector:
+    podSelector:
+      matchLabels: {app: agent}
+  containers: ["*"]
+  mode: audit
+  http:
+    default: {llm: deny, mcp: deny, other: audit}
+    onUnavailable: allow
+    decrypt:
+      exactHosts:
+        - api.anthropic.com
+        - bedrock-runtime.us-east-1.amazonaws.com
+      hostPatterns:
+        - "*.openai.azure.com"
+      passthrough: []
+    rules:
+      - name: approvedModelProviders/confine
+        target: {destClass: [modelProvider]}
+        action: deny
+        except:
+          - target: {llm: {provider: [anthropic, bedrock], region: [us-east-1], model: ["claude-*"]}}
+        mode: audit
+        origin: http/M1+M2
+      - name: approvedModelProviders/models
+        target: {destClass: [modelProvider], llm: {provider: [anthropic, bedrock], region: [us-east-1], model: ["claude-*"]}}
+        action: allow
+        mode: audit
+        origin: http/M1+M2
+      - name: approvedDestinations/names
+        target: {host: ["api.anthropic.com", "*.openai.azure.com"]}
+        action: allow
+        mode: audit
+        origin: http/X1

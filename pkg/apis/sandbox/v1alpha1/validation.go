@@ -106,6 +106,13 @@ func ValidatePolicySpec(spec PolicySpec) error {
 			}
 		}
 	}
+	if spec.HTTP != nil {
+		// http rule names are not added to names: they are unique within
+		// their own section only.
+		if err := spec.HTTP.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func validatePort(port intstr.IntOrString) error {
