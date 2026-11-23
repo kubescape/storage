@@ -122,6 +122,16 @@ func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 		return "", nil
 	}
 	p = path.Clean(p)
+	// A * with more segments after it is already a pattern: one an earlier
+	// pass wrote (collapseAdjacentDynamic turns /a/⋯/⋯/b into /a/*/b, and a
+	// profile is analyzed again on every save) or one a user wrote in a
+	// profile. The trie only has a * that takes everything below it, so
+	// walking /a/*/b would emit /a/* and widen it to every path under /a.
+	// Keep it as written; the literals it covers are folded into it after
+	// analysis.
+	if hasInnerWildcard(p) {
+		return p, nil
+	}
 	node, exists := ua.RootNodes[identifier]
 	if !exists {
 		node = &SegmentNode{
@@ -132,6 +142,13 @@ func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 		ua.RootNodes[identifier] = node
 	}
 	return ua.processSegments(node, p), nil
+}
+
+// hasInnerWildcard reports whether p has a * segment that is not its last
+// segment, as in /a/*/b.
+func hasInnerWildcard(p string) bool {
+	return strings.HasPrefix(p, WildcardIdentifier+"/") ||
+		strings.Contains(p, "/"+WildcardIdentifier+"/")
 }
 
 func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
