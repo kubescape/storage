@@ -569,19 +569,6 @@ func fillOut(metaOut, candidate runtime.Object) {
 	val.Set(reflect.ValueOf(candidate).Elem())
 }
 
-// applyTooLarge is the shared ObjectTooLargeError handling of Create and
-// GuaranteedUpdate: clear the spec and mark the object, then save it anyway.
-func applyTooLarge(obj runtime.Object) {
-	clearSpec(obj)
-	metadata := obj.(metav1.Object)
-	annotations := metadata.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
-	metadata.SetAnnotations(annotations)
-}
-
 // ---- the three transactions (§3.4), as statement lists ----
 
 // statusPath / completionPath are json_extract paths into the metadata JSON.
@@ -623,7 +610,7 @@ func (s *ObjectStore) execCreate(conn *sqlite.Conn, pw *preparedWrite, hook func
 		if found {
 			switch {
 			case status == helpersv1.TooLarge:
-				return ObjectTooLargeError
+				return baseProfileTooLargeError{}
 			case status == helpersv1.Completed && (completion == helpersv1.Full || pw.tsCompletion == helpersv1.Partial):
 				return ObjectCompletedError
 			}
@@ -808,16 +795,11 @@ func (s *ObjectStore) Create(ctx context.Context, key string, obj, metaOut runti
 	}
 	h := &readHandle{store: s, conn: conn}
 	presaveCtx := withReadHandle(ctx, h)
-	if err := s.processor.PreSave(presaveCtx, obj); err != nil {
-		if errors.Is(err, ObjectTooLargeError) {
-			applyTooLarge(obj)
-			logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
-		} else {
-			s.pool.Put(conn)
-			return err
-		}
-	}
+	err = preSaveForCreate(presaveCtx, s.processor, key, obj)
 	s.pool.Put(conn)
+	if err != nil {
+		return err
+	}
 
 	pw, err := s.stampAndEncode(key, obj, "")
 	if err != nil {

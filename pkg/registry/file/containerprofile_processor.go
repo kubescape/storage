@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,22 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 )
+
+// A report for an already-too-large base conflicts with the base's state.
+// Keep the sentinel message on the wire so node-agent can end learning.
+type baseProfileTooLargeError struct{}
+
+func (baseProfileTooLargeError) Error() string { return ObjectTooLargeError.Error() }
+func (baseProfileTooLargeError) Unwrap() error { return ObjectTooLargeError }
+
+func (e baseProfileTooLargeError) Status() metav1.Status {
+	return metav1.Status{
+		Status:  metav1.StatusFailure,
+		Code:    http.StatusConflict,
+		Reason:  metav1.StatusReasonConflict,
+		Message: e.Error(),
+	}
+}
 
 // ConsolidatedSlugData contains the slug (name) and namespace of a consolidated profile
 type ConsolidatedSlugData struct {
@@ -232,7 +249,7 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		existingStatus := existingProfile.Annotations[helpers.StatusMetadataKey]
 		if existingStatus == helpers.TooLarge {
 			// reject TS profile if the existing profile is too large
-			return ObjectTooLargeError
+			return baseProfileTooLargeError{}
 		} else if existingStatus == helpers.Completed {
 			// reject TS profile if the existing profile is already completed and full
 			// if the existing profile is completed and partial, we let complete TS profile amend it until it is full
