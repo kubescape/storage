@@ -53,6 +53,7 @@ import (
 	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes"
+	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	restclient "k8s.io/client-go/rest"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
@@ -101,8 +102,7 @@ type ExtraConfig struct {
 	// by the ObjectStore, the legacy StorageImpl and the cleanup handler; nil
 	// with the flag off.
 	WriteGate *file.WriteGate
-	// ClientConfig reaches kube-apiserver. The MCP endpoint sends its
-	// SubjectAccessReviews with it.
+	// ClientConfig reaches kube-apiserver for SubjectAccessReviews.
 	ClientConfig *restclient.Config
 }
 
@@ -202,6 +202,23 @@ func (c completedConfig) New() (*WardleServer, error) {
 	} else {
 		containerProfileStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
 	}
+	profileRESTStorage := containerProfileStorageImpl
+	// kube-apiserver authorized creation of the report. The additional update
+	// of the consolidated object needs its own named-resource authorization.
+	if c.ExtraConfig.ClientConfig != nil {
+		cfg := restclient.CopyConfig(c.ExtraConfig.ClientConfig)
+		cfg.Timeout = 10 * time.Second
+		client, err := authorizationclient.NewForConfig(cfg)
+		if err != nil {
+			return nil, err
+		}
+		auth, err := apiauth.NewAuthorizer(client)
+		if err != nil {
+			return nil, err
+		}
+		profileRESTStorage = file.WithProfileImageRefresh(containerProfileStorageImpl, auth)
+	}
+
 	// Only after every branch above has finished wiring the processor's
 	// storage (including, under the SQLite backend, the cleanup handler's
 	// SetContainerProfileStore call): starting maintenance any earlier lets
@@ -241,7 +258,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
 		"collapseconfigurations":              ep(collapseconfiguration.NewREST),
 		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
-		"containerprofiles":                   ep(containerprofile.NewREST, containerProfileStorageImpl),
+		"containerprofiles":                   ep(containerprofile.NewREST, profileRESTStorage),
 		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
 		"knownservers":                        ep(knownserver.NewREST),
 		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
@@ -301,7 +318,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// wired storage.Interface) NewREST itself uses above -- not the plain
 	// storageImpl the first two Phase 4 resources use.
 	if c.ExtraConfig.StorageConfig.CustomContainerProfileRestEnabled {
-		customContainerProfileRest, err := containerprofile.NewCustomREST(Scheme, containerProfileStorageImpl, c.GenericConfig.RESTOptionsGetter)
+		customContainerProfileRest, err := containerprofile.NewCustomREST(Scheme, profileRESTStorage, c.GenericConfig.RESTOptionsGetter)
 		if err != nil {
 			panic(fmt.Errorf("unable to create custom REST storage for containerprofiles due to %v, will die", err))
 		}

@@ -1,6 +1,6 @@
 # Sandbox policy API foundation
 
-`pkg/apis/sandbox/v1alpha1` defines four Kubernetes-served resources in
+`pkg/apis/sandbox/v1alpha1` defines five Kubernetes-served resources in
 `kubescape.io/v1alpha1`:
 
 | Kind | Scope | Status subresource |
@@ -9,6 +9,7 @@
 | `ClusterSandboxPolicy` | Cluster | Yes |
 | `SandboxPolicyClasses` | Cluster | No |
 | `SandboxPolicyNodeStatus` | Namespaced | Yes |
+| `SandboxGatewayNodeStatus` | Cluster | Yes |
 
 These are real CRDs, **not** resources of storage's aggregated
 `spdx.softwarecomposition.kubescape.io` API. Import the package and call
@@ -95,6 +96,55 @@ supports them yet.
   stale/error information, shadowed allows and hit counts live in separate
   `SandboxPolicyNodeStatus` resources. Status types do not implement writers.
 
+### The `http` section
+
+`spec.http` holds the rules a gateway evaluates on decrypted requests. It is
+optional, and a policy without it is unchanged.
+
+| Field | Meaning |
+|---|---|
+| `default` | Required. One value each for `llm`, `mcp` and `other`: `allow`, `deny` or `audit`. `audit` lets the request through and records it. |
+| `onUnavailable` | `allow` or `deny`: what happens to covered traffic while the gateway cannot decide. Omitted means `allow`. |
+| `decrypt.exactHosts` | Hosts decrypted as written. |
+| `decrypt.hostPatterns` | Patterns decrypted once a matching name is seen on the node. |
+| `decrypt.passthrough` | Hosts never decrypted for the selected pods. |
+| `rules` | `name`, `target`, `action`, and optionally `except`, `mode`, `origin`. |
+
+A rule's `target` takes `destClass`, `host` and `llm` (`provider`, `region`,
+`account`, `model`). Predicates are ANDed and the entries of a list are ORed.
+`llm.model` applies only to requests that carry a model. A target must name at
+least one predicate, and a list entry cannot be an empty string. A rule that
+should match every request names a broad predicate, such as a `destClass`. The
+reason is pruning: a client that does not validate fields strictly drops keys
+the schema does not know, and a target made only of such keys would become `{}`
+and allow every request, overriding a `deny` default.
+
+Rules resolve like the kernel sections: a deny outside its own `except` list
+wins, then an allow, then the default. An allow never cancels a deny. `except`
+is valid only on a deny rule, and every exception needs at least one target
+predicate, because an empty one would lift the whole deny. `mode` is per rule
+and falls back to `spec.mode`; `spec.mode: "off"` turns the section off too.
+
+Rule names are unique across the whole policy, the `http` section included,
+like every other section. `ValidatePolicySpec` checks it; the schema can only
+check within one section, so an object that repeats a name across sections is
+accepted by admission and refused by typed callers. When one policy rule has a
+kernel half and an `http` half, give the `http` half a distinct name, for
+example `approvedModelProviders/confine` for `network` and
+`approvedModelProviders/http-confine` for `http`.
+
+Two things differ from the kernel sections:
+
+- Rules have no `actor` and no `description`. `actor`, `target.method` and
+  `target.mcp` are known to the schema as forbidden fields, so the API server
+  rejects them. Pruning them would silently widen the rule.
+- The schema sets no defaults and accepts empty `decrypt` lists, so an object
+  reads back exactly as it was written.
+
+`ValidatePolicySpec` checks the same rules for typed callers, including the
+empty-string and empty-target checks. Host pattern width is not checked here;
+the consumers of the list apply their own limit.
+
 ## Composition and migration
 
 Matching policies contribute a union of rules: matching deny wins, then matching
@@ -159,6 +209,22 @@ creates independent report objects, not a larger shared policy object.
   policy references and same-namespace owner/garbage-collection semantics would
   need a separately designed API migration.
 
+### Gateway state per policy and node
+
+For a policy with an `http` section, the node agent adds an `http` block to
+its report:
+
+| Field | Meaning |
+|---|---|
+| `boundPods` | Number of selected pods on the node whose AI traffic goes through the gateway. |
+| `preAttachBypass` | Count of bound pods that still have connections opened before the bind, which bypass the gateway. A kernel older than 6.5 cannot close them. |
+| `needRestart` | Pods that must restart before they can be bound, each as `<namespace>/<pod>`. A report of a `ClusterSandboxPolicy` covers pods of many namespaces, so a bare pod name would collide. At most 64 entries, no duplicates. A writer that drops entries sets `truncated`; the dropped count is not recorded. |
+| `gate` | Effect of the node's health gate on these pods: `redirecting`, `failing_open`, `failing_closed` or `not_bound`. |
+| `nodeControllerDegraded` | The node controller's certificate health probe failed, so the node-agent keeps the last value it read. A failed Envoy or processor probe opens the gate instead and shows in `gate`. |
+
+All fields except `needRestart` are required when the block is present, so a
+zero count or `false` is written out. A report without the block stays valid.
+
 ### Bounded snapshots and honest truncation
 
 Per report, schema limits are 64 entries **per** rule-detail collection
@@ -209,6 +275,47 @@ removed node or missing report must never leave an old Ready count treated as
 current. Aggregation, cleanup, freshness expiry and status writes are deliberately
 not implemented by this API-only PR.
 
+## Gateway node status
+
+`SandboxGatewayNodeStatus` holds what is true of a node, not of a policy: the
+state of the sandbox gateway that runs there. It is cluster-scoped, there is one
+object per node, and `metadata.name` is the node name. It has no `spec`.
+
+```yaml
+status:
+  envoy: {up: true, version: "1.40.2"}
+  processor: {up: true, evaluator: available}   # available | unavailable
+  overloaded: false
+  hosts: {exact: 12, learned: 3, cap: 256}
+  rejectedPatterns: ["*.amazonaws.com"]
+  passedThroughOverCap: 0
+  evictions: 0
+  degradedDecisions: 0
+  decryptValidUntil: "2026-11-22T10:12:03Z"
+  observedAt: "2026-11-22T09:12:03Z"
+```
+
+- The object has one writer, the gateway's node controller. It creates the
+  object with no status, then writes `status` through the status subresource.
+  A create request cannot set status, so an object with only metadata is valid.
+- Once `status` is present, every field is required except `envoy.version`,
+  `rejectedPatterns` and `decryptValidUntil`. `false` and `0` are written out.
+- `processor.evaluator: unavailable` means the processor has no rule evaluator
+  and passes every request.
+- Nothing deletes these objects once a node is gone, and the role that writes
+  them cannot. The writer sets an `ownerReference` to the `Node` when it creates
+  the object (without `blockOwnerDeletion`), so garbage collection removes the
+  object with its node. Readers must not treat the existence of an object as
+  proof that the gateway is installed or healthy: check `observedAt` against a
+  freshness bound of their own, and `decryptValidUntil` before relying on
+  decryption.
+- `rejectedPatterns` is a set of at most 64 patterns. Counts cannot be negative.
+- The schema cannot check that the name is a real node, or that a writer only
+  touches its own node's object. RBAC decides who may write the kind at all.
+
+Per-policy facts (bound pods, the gate's effect) stay in
+`SandboxPolicyNodeStatus`, under `status.http`.
+
 ## Generation and validation
 
 From the storage repository:
@@ -216,14 +323,19 @@ From the storage repository:
 ```sh
 hack/update-sandbox-codegen.sh
 # Also synchronize the installation chart, when working in both repositories:
-hack/update-sandbox-codegen.sh --chart-crds-dir ../helm-charts/charts/kubescape-operator/crds
+hack/update-sandbox-codegen.sh --chart-crds-dir /tmp/sandbox-crds
 go test ./pkg/apis/sandbox/... ./hack/sandbox-crds
 hack/verify-sandbox-crds.sh -count=1
 ```
 
 `artifacts/sandboxpolicy/*.crd.yaml` are canonical generated manifests. The chart
-copies live under `charts/kubescape-operator/crds/` in `kubescape/helm-charts`.
-Four `*.example.yaml` files exercise the API; they are not installed by the chart.
+copies live under `charts/kubescape-operator/templates/sandbox-policy-crds/` in
+`kubescape/helm-charts`. Each chart file keeps its own Helm metadata header and
+takes only `spec` from the generated manifest, so generate into a scratch
+directory and copy the `spec` blocks across.
+`hack/update-sandbox-codegen.sh` needs the `vendor/` tree; run `go mod vendor` first.
+Six `*.example.yaml` files exercise the API, one per kind plus a `SandboxPolicy`
+with an `http` section; they are not installed by the chart.
 The general `hack/verify-codegen.sh` compares generated manifests in temporary
 output against committed artifacts without modifying them; regression tests
 cover clean, stale, missing, obsolete and failed-generation cases.

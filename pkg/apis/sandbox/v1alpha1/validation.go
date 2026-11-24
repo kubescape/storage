@@ -106,6 +106,17 @@ func ValidatePolicySpec(spec PolicySpec) error {
 			}
 		}
 	}
+	if spec.HTTP != nil {
+		if err := spec.HTTP.Validate(); err != nil {
+			return err
+		}
+		// http rules share the policy-wide name set with the kernel sections.
+		for _, rule := range spec.HTTP.Rules {
+			if err := check(Rule{Name: rule.Name, Action: rule.Action}); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 func validatePort(port intstr.IntOrString) error {

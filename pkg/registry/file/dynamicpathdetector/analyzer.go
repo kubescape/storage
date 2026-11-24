@@ -122,6 +122,16 @@ func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 		return "", nil
 	}
 	p = path.Clean(p)
+	// A * with more segments after it is already a pattern: one an earlier
+	// pass wrote (collapseAdjacentDynamic turns /a/⋯/⋯/b into /a/*/b, and a
+	// profile is analyzed again on every save) or one a user wrote in a
+	// profile. The trie only has a * that takes everything below it, so
+	// walking /a/*/b would emit /a/* and widen it to every path under /a.
+	// Keep it as written; the literals it covers are folded into it after
+	// analysis.
+	if hasInnerWildcard(p) {
+		return p, nil
+	}
 	node, exists := ua.RootNodes[identifier]
 	if !exists {
 		node = &SegmentNode{
@@ -132,6 +142,13 @@ func (ua *PathAnalyzer) AnalyzePath(p, identifier string) (string, error) {
 		ua.RootNodes[identifier] = node
 	}
 	return ua.processSegments(node, p), nil
+}
+
+// hasInnerWildcard reports whether p has a * segment that is not its last
+// segment, as in /a/*/b.
+func hasInnerWildcard(p string) bool {
+	return strings.HasPrefix(p, WildcardIdentifier+"/") ||
+		strings.Contains(p, "/"+WildcardIdentifier+"/")
 }
 
 func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
@@ -170,6 +187,14 @@ func (ua *PathAnalyzer) processSegments(node *SegmentNode, p string) string {
 		// do want p[:i] — updateNodeStats then collapses the current
 		// node's children to ⋯ when Count > threshold.
 		insertThreshold := ua.effectiveThreshold(p[:start])
+		// The empty segment before the leading "/" is the root anchor, not a
+		// child to collapse. A global threshold of 1 must wildcard what is
+		// under "/" and give "/*"; wildcarding the anchor itself would emit
+		// an unanchored "*" (and ":443*" for an endpoint, which does not
+		// parse on the next save, so the endpoint is dropped).
+		if start == 0 && segment == "" {
+			insertThreshold = 0
+		}
 		collapseThreshold := ua.effectiveThreshold(p[:i])
 		currentNode = ua.processSegment(currentNode, segment, insertThreshold)
 		ua.updateNodeStats(currentNode, collapseThreshold)
@@ -235,15 +260,23 @@ func collapseAdjacentDynamic(buf []byte) []byte {
 }
 
 func (ua *PathAnalyzer) processSegment(node *SegmentNode, segment string, threshold int) *SegmentNode {
-	if segment == DynamicIdentifier {
-		return ua.handleDynamicSegment(node)
-	}
 	// Wildcard short-circuit: once a node has a * child, all paths through
 	// it go there. This is the glob-style "collapse everything below here"
 	// behaviour; set up either by threshold=1 (see below) or by a caller
 	// explicitly feeding a WildcardIdentifier segment.
+	//
+	// It has to come before the ⋯ handling. * matches any depth and ⋯ exactly
+	// one segment, so * is the wider of the two: resolving an incoming * to a
+	// ⋯ sibling would narrow an already collapsed profile each time it is
+	// analyzed again, and paths it covered would stop matching.
 	if wildcardChild, exists := node.Children[WildcardIdentifier]; exists {
 		return wildcardChild
+	}
+	if segment == WildcardIdentifier {
+		return ua.createWildcardNode(node)
+	}
+	if segment == DynamicIdentifier {
+		return ua.handleDynamicSegment(node)
 	}
 	if node.IsNextDynamic() {
 		if len(node.Children) > 1 {

@@ -21,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/apiserver/pkg/server/options"
@@ -76,7 +78,8 @@ func newTestStorage(t *testing.T) (storage.Interface, *sqlitemigration.Pool) {
 	// suite exercises (REST-layer behavior), so disable it for the test
 	// harness rather than construct a real ResourcesFetcher/CleanupHandler.
 	processor.Interval = 0
-	return file.NewStorageImplWithCollector(fs, file.DefaultStorageRoot, pool, nil, newTestScheme(t), processor), pool
+	store := file.NewStorageImplWithCollector(fs, file.DefaultStorageRoot, pool, nil, newTestScheme(t), processor)
+	return file.WithProfileImageRefresh(store, authorizerfactory.NewAlwaysAllowAuthorizer()), pool
 }
 
 func newOptsGetter() *options.StorageFactoryRestOptionsFactory {
@@ -217,6 +220,47 @@ func TestDifferential_CreateExplicitName(t *testing.T) {
 	assert.True(t, apierrors.IsAlreadyExists(err), "new: %v", err)
 }
 
+func TestDifferential_CompletedProfileFollowsNewImage(t *testing.T) {
+	h := newHarness(t)
+	for name, r := range map[string]rest.StandardStorage{"generic": h.oldREST, "custom": h.newREST} {
+		t.Run(name, func(t *testing.T) {
+			ctx := genericapirequest.WithUser(testContext("ns1"), &user.DefaultInfo{Name: "node-agent"})
+			cp := profileNamed("replicaset-app-controller")
+			cp.Annotations = map[string]string{
+				helpersv1.StatusMetadataKey: helpersv1.Completed, helpersv1.CompletionMetadataKey: helpersv1.Full,
+				helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-ns1/kind-ReplicaSet/name-app/containerName-controller",
+			}
+			cp.Spec.ImageTag = "python:3.12"
+			cp.Spec.ImageID = "python@sha256:" + strings.Repeat("a", 64)
+			cp.Spec.Syscalls = []string{"read"}
+			mustCreate(t, ctx, r, cp)
+
+			report := cp.DeepCopy()
+			report.Name += "-newpod"
+			report.Spec.ImageID = "python@sha256:" + strings.Repeat("b", 64)
+			report.Spec.Syscalls = []string{"write"}
+			report.Annotations[helpersv1.ReportSeriesIdMetadataKey] = "newpod"
+			report.Annotations[helpersv1.ReportTimestampMetadataKey] = time.Now().Add(time.Second).String()
+			report.Annotations[helpersv1.StatusMetadataKey] = helpersv1.Learning
+			_, err := r.Create(ctx, report.DeepCopy(), rest.ValidateAllObjectFunc, &metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+			require.NoError(t, err)
+			get := func() *softwarecomposition.ContainerProfile {
+				t.Helper()
+				obj, err := r.Get(ctx, cp.Name, &metav1.GetOptions{})
+				require.NoError(t, err)
+				return obj.(*softwarecomposition.ContainerProfile)
+			}
+			require.Equal(t, cp.Spec.ImageID, get().Spec.ImageID)
+			_, err = r.Create(ctx, report, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
+			require.ErrorContains(t, err, file.ObjectCompletedError.Error())
+			got := get()
+			require.Equal(t, report.Spec.ImageID, got.Spec.ImageID)
+			require.Equal(t, cp.Spec.Syscalls, got.Spec.Syscalls)
+			require.Equal(t, helpersv1.Completed, got.Annotations[helpersv1.StatusMetadataKey])
+		})
+	}
+}
+
 func TestDifferential_CreateGenerateName(t *testing.T) {
 	h := newHarness(t)
 	ctx := testContext("ns1")
@@ -339,10 +383,10 @@ func TestDifferential_ConsolidationProcessorHooksFireIdentically(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cp-ts-1700000000",
 			Annotations: map[string]string{
-				helpersv1.ReportSeriesIdMetadataKey:   "series-1",
-				helpersv1.ReportTimestampMetadataKey:  "1700000000",
-				helpersv1.CompletionMetadataKey:       helpersv1.Partial,
-				helpersv1.StatusMetadataKey:           helpersv1.Learning,
+				helpersv1.ReportSeriesIdMetadataKey:  "series-1",
+				helpersv1.ReportTimestampMetadataKey: "1700000000",
+				helpersv1.CompletionMetadataKey:      helpersv1.Partial,
+				helpersv1.StatusMetadataKey:          helpersv1.Learning,
 			},
 		},
 	}
