@@ -31,9 +31,19 @@ immutability guard, `NetworkNeighbor` IP/DNS wildcard validation) already satisf
 `genericrest.Store`'s `Strategy` interface without modification, exactly like the previous two
 resources' no-op strategies did.
 
-`pkg/apiserver/apiserver.go`'s gated branch wires `NewCustomREST` with the same non-default
-`containerProfileStorageImpl` (the processor-wired `storage.Interface`) that the old `NewREST`
-uses today -- not the plain `storageImpl` the first two migrated resources use.
+Both REST implementations use the same image refresh path for completed/full
+learned profiles. When another container starts under the same workload
+instance and image tag, its first time-series report can update an existing
+`spec.imageID` to the newly observed digest. This lets the next vulnerability
+scan follow a mutable tag while preserving the recorded behavior. Storage
+checks the reporting user's update permission on the named profile and
+returns the usual completed response to node-agent.
+
+`kubescape.io/image-observed-at` records the observation time. During a
+rollout, replicas can briefly run different images. The newest eligible
+observation wins, including when a node delivers an older report late.
+Profiles without a stored image ID continue to use the scanner's existing
+image lookup.
 
 **The one genuine gotcha: the singular/plural qualified-resource inversion.**
 `containerprofile/etcd.go` sets `DefaultQualifiedResource: softwarecomposition.Resource("containerprofile")`

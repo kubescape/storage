@@ -201,6 +201,13 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 		return err
 	}
 
+	// The image-only update starts from the persisted, already deflated
+	// profile. Re-running deflation against a different image's SBOM could
+	// change learned paths while updating its scan identity.
+	if ctx.Value(imageRefreshContextKey{}) == true {
+		return nil
+	}
+
 	// detect TS profiles
 	if profile.Annotations[helpers.ReportSeriesIdMetadataKey] != "" {
 		// check size and completion for the corresponding container profile
@@ -1293,7 +1300,7 @@ func mergeContainerProfileTS(profile, tsProfile *softwarecomposition.ContainerPr
 	// merge annotations
 	profile.Annotations = utils.MergeMaps(profile.Annotations, tsProfile.Annotations,
 		helpers.CompletionMetadataKey, helpers.PreviousReportTimestampMetadataKey,
-		helpers.ReportSeriesIdMetadataKey, helpers.ReportTimestampMetadataKey, helpers.StatusMetadataKey)
+		helpers.ReportSeriesIdMetadataKey, helpers.ReportTimestampMetadataKey, helpers.StatusMetadataKey, imageObservedAt)
 	// merge labels
 	profile.Labels = utils.MergeMaps(profile.Labels, tsProfile.Labels)
 	// merge spec
@@ -1304,8 +1311,17 @@ func mergeContainerProfileTS(profile, tsProfile *softwarecomposition.ContainerPr
 	profile.Spec.Syscalls = append(profile.Spec.Syscalls, tsProfile.Spec.Syscalls...)
 	profile.Spec.SeccompProfile = tsProfile.Spec.SeccompProfile
 	profile.Spec.Endpoints = append(profile.Spec.Endpoints, tsProfile.Spec.Endpoints...)
-	profile.Spec.ImageID = tsProfile.Spec.ImageID
-	profile.Spec.ImageTag = tsProfile.Spec.ImageTag
+	// Different series can be merged out of order. Keep the scan identity
+	// and its observation time together when choosing the newest report.
+	observed, dated := parseReportTimestamp(tsProfile.Annotations[helpers.ReportTimestampMetadataKey])
+	last, known := parseReportTimestamp(profile.Annotations[imageObservedAt])
+	if !known || (dated && !observed.Before(last)) {
+		profile.Spec.ImageID = tsProfile.Spec.ImageID
+		profile.Spec.ImageTag = tsProfile.Spec.ImageTag
+		if dated {
+			profile.Annotations[imageObservedAt] = observed.UTC().Format(time.RFC3339Nano)
+		}
+	}
 	if profile.Spec.PolicyByRuleId == nil {
 		profile.Spec.PolicyByRuleId = make(map[string]softwarecomposition.RulePolicy)
 	}
