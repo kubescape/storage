@@ -15,6 +15,7 @@ require (
 	github.com/didip/tollbooth/v7 v7.0.2
 	github.com/emicklei/go-restful/v3 v3.13.0
 	github.com/go-logr/zapr v1.3.0
+	github.com/google/go-containerregistry v0.22.1
 	github.com/goradd/maps v1.0.0
 	github.com/grafana/pyroscope-go v1.2.2
 	github.com/kinbiko/jsonassert v1.2.0
@@ -24,6 +25,7 @@ require (
 	github.com/mark3labs/mcp-go v1.0.0
 	github.com/ncw/directio v1.0.5
 	github.com/olvrng/ujson v1.1.0
+	github.com/opencontainers/go-digest v1.0.0
 	github.com/prometheus/client_model v0.6.2
 	github.com/puzpuzpuz/xsync/v2 v2.4.1
 	github.com/spf13/afero v1.15.0
@@ -123,7 +125,6 @@ require (
 	github.com/google/cel-go v0.30.0 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/go-containerregistry v0.22.1 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/licensecheck v0.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -146,7 +147,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/oklog/ulid/v2 v2.1.2 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
