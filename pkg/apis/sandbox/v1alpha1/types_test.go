@@ -19,7 +19,7 @@ func TestSchemeAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	codec := serializer.NewCodecFactory(scheme).UniversalDeserializer()
-	for _, kind := range []string{"SandboxPolicy", "SandboxPolicyList", "ClusterSandboxPolicy", "ClusterSandboxPolicyList", "SandboxPolicyClasses", "SandboxPolicyClassesList", "SandboxPolicyNodeStatus", "SandboxPolicyNodeStatusList"} {
+	for _, kind := range []string{"SandboxPolicy", "SandboxPolicyList", "ClusterSandboxPolicy", "ClusterSandboxPolicyList", "SandboxPolicyClasses", "SandboxPolicyClassesList", "SandboxPolicyNodeStatus", "SandboxPolicyNodeStatusList", "SandboxGatewayNodeStatus", "SandboxGatewayNodeStatusList"} {
 		gvk := SchemeGroupVersion.WithKind(kind)
 		obj, err := scheme.New(gvk)
 		if err != nil {

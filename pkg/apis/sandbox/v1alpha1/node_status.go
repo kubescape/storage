@@ -19,7 +19,36 @@ const (
 	MaxStatusErrorLength        = 2048
 	MaxReferenceNameLength      = 253
 	MaxReferenceUIDLength       = 128
+	MaxStatusPodNames           = 64
+	// A needRestart entry is "<namespace>/<pod>": a ClusterSandboxPolicy report
+	// covers pods of many namespaces, so a bare pod name would collide.
+	MaxNamespaceLength = 63
+	MaxPodNameLength   = 253
+	MaxPodRefLength    = MaxNamespaceLength + 1 + MaxPodNameLength
 )
+
+// HTTPGate is the effect of the node's gateway health gate on the pods a
+// policy selects on this node.
+type HTTPGate string
+
+const (
+	HTTPGateRedirecting   HTTPGate = "redirecting"
+	HTTPGateFailingOpen   HTTPGate = "failing_open"
+	HTTPGateFailingClosed HTTPGate = "failing_closed"
+	HTTPGateNotBound      HTTPGate = "not_bound"
+)
+
+// HTTPNodeStatus reports how a policy's http section is applied on one node.
+// NeedRestart holds at most MaxStatusPodNames entries of the form
+// "<namespace>/<pod>"; a writer that drops
+// names sets NodeStatus.Truncated.
+type HTTPNodeStatus struct {
+	BoundPods              int64    `json:"boundPods"`
+	PreAttachBypass        int64    `json:"preAttachBypass"`
+	NeedRestart            []string `json:"needRestart,omitempty"`
+	Gate                   HTTPGate `json:"gate"`
+	NodeControllerDegraded bool     `json:"nodeControllerDegraded"`
+}
 
 // NodeStatusName returns the canonical DNS-safe report name for a policy/node
 // UID pair. Length-prefixing avoids ambiguous identity concatenation. Writers

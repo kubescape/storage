@@ -84,6 +84,7 @@ func TestExamplesRoundTrip(t *testing.T) {
 		{"clustersandboxpolicy.example.yaml", &sandbox.ClusterSandboxPolicy{}},
 		{"sandboxpolicyclasses.example.yaml", &sandbox.SandboxPolicyClasses{}},
 		{"sandboxpolicynodestatus.example.yaml", &sandbox.SandboxPolicyNodeStatus{}},
+		{"sandboxgatewaynodestatus.example.yaml", &sandbox.SandboxGatewayNodeStatus{}},
 	} {
 		t.Run(example.name, func(t *testing.T) {
 			data, err := os.ReadFile(filepath.Join("../../../../artifacts/sandboxpolicy", example.name))

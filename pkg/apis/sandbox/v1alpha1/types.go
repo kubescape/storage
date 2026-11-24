@@ -110,6 +110,7 @@ type PolicySpec struct {
 	Network    *NetworkSection   `json:"network,omitempty"`
 	Privilege  *PrivilegeSection `json:"privilege,omitempty"`
 	Identity   *IdentitySection  `json:"identity,omitempty"`
+	HTTP       *HTTPSection      `json:"http,omitempty"`
 }
 type PolicySource struct {
 	// ContainerProfile is a read-only import in the selected pod's namespace.
@@ -420,6 +421,7 @@ type NodeStatus struct {
 	Stale              bool               `json:"stale"`
 	Error              string             `json:"error,omitempty"`
 	LastCompiled       *metav1.Time       `json:"lastCompiled,omitempty"`
+	HTTP               *HTTPNodeStatus    `json:"http,omitempty"`
 }
 
 // NodeStatusCounts preserves cardinality even when bounded details are omitted.

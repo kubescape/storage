@@ -1,0 +1,16 @@
+apiVersion: kubescape.io/v1alpha1
+kind: SandboxGatewayNodeStatus
+metadata:
+  # One object per node, named after the node.
+  name: node-1
+status:
+  envoy: {up: true, version: "1.40.2"}
+  processor: {up: true, evaluator: available}
+  overloaded: false
+  hosts: {exact: 12, learned: 3, cap: 256}
+  rejectedPatterns: ["*.amazonaws.com"]
+  passedThroughOverCap: 0
+  evictions: 0
+  degradedDecisions: 0
+  decryptValidUntil: "2026-11-22T10:12:03Z"
+  observedAt: "2026-11-22T09:12:03Z"

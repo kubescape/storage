@@ -98,7 +98,7 @@ func predicatePresence(s schema) schema {
 	result := schema{}
 	for _, key := range keys {
 		branch := schema{Required: []string{key}}
-		if key == "argv" {
+		if key == "argv" || key == "llm" {
 			branch.Properties = map[string]schema{key: predicatePresence(s.Properties[key])}
 		}
 		result.AnyOf = append(result.AnyOf, branch)
@@ -216,6 +216,46 @@ func identitySection() schema {
 	}
 	return section(action(), target)
 }
+
+// httpSection has no defaults: read-back compares what was sent with what is
+// stored. Predicates the section does not support yet (method, mcp, actor)
+// are kept as forbidden properties so admission rejects them; pruning them
+// would silently widen the rule.
+func httpSection() schema {
+	hosts := stringList()
+	hosts.MinItems = nil
+	llm := object(map[string]schema{"provider": stringList(), "region": stringList(), "account": stringList(), "model": stringList()})
+	target := object(map[string]schema{
+		"destClass": stringList(), "host": stringList(), "llm": llm,
+		"method": forbidden(stringList()), "mcp": forbidden(object(nil)),
+	})
+	exceptionTarget := *target.DeepCopy()
+	exceptionTarget.AnyOf = predicatePresence(exceptionTarget).AnyOf
+	exception := object(map[string]schema{"target": exceptionTarget, "actor": forbidden(object(nil))}, "target")
+	exceptions := array(exception)
+	exceptions.MinItems = nil
+	// A target must name a predicate. Pruning turns a target made only of
+	// unsupported keys into {}, which would match every request.
+	ruleTarget := *target.DeepCopy()
+	ruleTarget.AnyOf = predicatePresence(ruleTarget).AnyOf
+	rule := object(map[string]schema{
+		"name": boundedText(sandbox.MaxRuleNameLength), "target": ruleTarget, "action": action(), "mode": ruleMode(),
+		"origin": {Type: "string"}, "except": exceptions, "actor": forbidden(object(nil)),
+	}, "name", "target", "action")
+	// Even an explicitly empty except is deny-only, as in the kernel sections.
+	rule.AnyOf = []schema{
+		{Properties: map[string]schema{"action": {Enum: []apiextensions.JSON{{Raw: []byte(`"deny"`)}}}}},
+		{Not: &schema{Required: []string{"except"}}},
+	}
+	defaultAction := enumeration("allow", "deny", "audit")
+	return object(map[string]schema{
+		"default":       object(map[string]schema{"llm": defaultAction, "mcp": defaultAction, "other": defaultAction}, "llm", "mcp", "other"),
+		"onUnavailable": enumeration("allow", "deny"),
+		"decrypt":       object(map[string]schema{"exactHosts": hosts, "hostPatterns": hosts, "passthrough": hosts}),
+		// The list map makes rule names unique within this section only.
+		"rules": listMap(rule, "name"),
+	}, "default")
+}
 func policySpec(cluster bool) schema {
 	selectors := map[string]schema{"podSelector": labelSelector()}
 	requiredSelectors := []string{"podSelector"}
@@ -238,7 +278,7 @@ func policySpec(cluster bool) schema {
 		"selector": object(selectors, requiredSelectors...), "containers": stringList(), "mode": enumeration("audit", "enforce", "off"),
 		"rootRole": text(), "sources": array(source), "classes": classes(),
 		"exec": execSection(), "file": fileSection(), "network": networkSection(),
-		"privilege": privilegeSection(), "identity": identitySection(),
+		"privilege": privilegeSection(), "identity": identitySection(), "http": httpSection(),
 	}, "selector", "containers", "mode")
 }
 func boundedText(limit int64) schema {
@@ -271,6 +311,18 @@ func nodeStatusSpec() schema {
 	spec.XValidations = apiextensions.ValidationRules{{Rule: "self == oldSelf", Message: "policy/node report identity is immutable"}}
 	return spec
 }
+func httpNodeStatus() schema {
+	podRef := boundedText(sandbox.MaxPodRefLength)
+	podRef.Pattern = fmt.Sprintf(`^[^/]{1,%d}/[^/]{1,%d}$`, sandbox.MaxNamespaceLength, sandbox.MaxPodNameLength)
+	pods := array(podRef)
+	pods.MinItems = nil
+	pods.MaxItems = int64ptr(sandbox.MaxStatusPodNames)
+	pods.XListType = stringptr("set")
+	return object(map[string]schema{
+		"boundPods": nonnegative(), "preAttachBypass": nonnegative(), "needRestart": pods,
+		"gate": enumeration("redirecting", "failing_open", "failing_closed", "not_bound"), "nodeControllerDegraded": boolean(),
+	}, "boundPods", "preAttachBypass", "gate", "nodeControllerDegraded")
+}
 func nodeStatus() schema {
 	details := array(boundedText(sandbox.MaxRuleNameLength))
 	details.MinItems = nil
@@ -290,6 +342,7 @@ func nodeStatus() schema {
 		"degraded": degraded, "appliesOnRestart": details, "shadowedAllows": details, "ruleHitCounts": hits,
 		"counts":    object(map[string]schema{"degraded": nonnegative(), "appliesOnRestart": nonnegative(), "shadowedAllows": nonnegative(), "ruleHitCounts": nonnegative()}, "degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"),
 		"truncated": boolean(), "stale": boolean(), "error": {Type: "string", MaxLength: int64ptr(sandbox.MaxStatusErrorLength)}, "lastCompiled": timestamp(),
+		"http": httpNodeStatus(),
 	}, "tier", "observedGeneration", "lastReported", "counts", "truncated", "stale")
 	s.XValidations = append(s.XValidations, apiextensions.ValidationRule{Rule: "!has(self.appliedGeneration) || self.appliedGeneration <= self.observedGeneration", Message: "appliedGeneration must not exceed observedGeneration"})
 	for _, name := range []string{"degraded", "appliesOnRestart", "shadowedAllows", "ruleHitCounts"} {
@@ -302,6 +355,21 @@ func nodeStatus() schema {
 	return s
 }
 
+func gatewayNodeStatus() schema {
+	patterns := array(boundedText(sandbox.MaxReferenceNameLength))
+	patterns.MinItems = nil
+	patterns.MaxItems = int64ptr(sandbox.MaxStatusRejectedPatterns)
+	patterns.XListType = stringptr("set")
+	return object(map[string]schema{
+		"envoy":            object(map[string]schema{"up": boolean(), "version": boundedText(64)}, "up"),
+		"processor":        object(map[string]schema{"up": boolean(), "evaluator": enumeration("available", "unavailable")}, "up", "evaluator"),
+		"overloaded":       boolean(),
+		"hosts":            object(map[string]schema{"exact": nonnegative(), "learned": nonnegative(), "cap": nonnegative()}, "exact", "learned", "cap"),
+		"rejectedPatterns": patterns, "passedThroughOverCap": nonnegative(), "evictions": nonnegative(), "degradedDecisions": nonnegative(),
+		"decryptValidUntil": timestamp(), "observedAt": timestamp(),
+	}, "envoy", "processor", "overloaded", "hosts", "passedThroughOverCap", "evictions", "degradedDecisions", "observedAt")
+}
+
 // Definitions returns fresh CRDs in a stable order. Policy status uses a
 // subresource; classes are configuration and have no agent-written status.
 func Definitions() []apiextensions.CustomResourceDefinition {
@@ -309,22 +377,31 @@ func Definitions() []apiextensions.CustomResourceDefinition {
 	for _, entry := range []struct {
 		kind, plural, singular string
 		scope                  apiextensions.ResourceScope
+		hasSpec                bool
 		spec                   schema
 		hasStatus              bool
 		statusSchema           schema
 	}{
-		{"SandboxPolicy", "sandboxpolicies", "sandboxpolicy", apiextensions.NamespaceScoped, policySpec(false), true, status()},
-		{"ClusterSandboxPolicy", "clustersandboxpolicies", "clustersandboxpolicy", apiextensions.ClusterScoped, policySpec(true), true, status()},
-		{"SandboxPolicyClasses", "sandboxpolicyclasses", "sandboxpolicyclasses", apiextensions.ClusterScoped, classes(), false, schema{}},
-		{"SandboxPolicyNodeStatus", "sandboxpolicynodestatuses", "sandboxpolicynodestatus", apiextensions.NamespaceScoped, nodeStatusSpec(), true, nodeStatus()},
+		{"SandboxPolicy", "sandboxpolicies", "sandboxpolicy", apiextensions.NamespaceScoped, true, policySpec(false), true, status()},
+		{"ClusterSandboxPolicy", "clustersandboxpolicies", "clustersandboxpolicy", apiextensions.ClusterScoped, true, policySpec(true), true, status()},
+		{"SandboxPolicyClasses", "sandboxpolicyclasses", "sandboxpolicyclasses", apiextensions.ClusterScoped, true, classes(), false, schema{}},
+		{"SandboxPolicyNodeStatus", "sandboxpolicynodestatuses", "sandboxpolicynodestatus", apiextensions.NamespaceScoped, true, nodeStatusSpec(), true, nodeStatus()},
+		// Appended last so the order of the kinds above does not move. It has
+		// no spec: everything it holds is written by one agent as status.
+		{"SandboxGatewayNodeStatus", "sandboxgatewaynodestatuses", "sandboxgatewaynodestatus", apiextensions.ClusterScoped, false, schema{}, true, gatewayNodeStatus()},
 	} {
-		props := map[string]schema{"apiVersion": {Type: "string"}, "kind": {Type: "string"}, "metadata": {Type: "object"}, "spec": entry.spec}
+		props := map[string]schema{"apiVersion": {Type: "string"}, "kind": {Type: "string"}, "metadata": {Type: "object"}}
+		var required []string
+		if entry.hasSpec {
+			props["spec"] = entry.spec
+			required = []string{"spec"}
+		}
 		version := apiextensions.CustomResourceDefinitionVersion{Name: sandbox.SchemeGroupVersion.Version, Served: true, Storage: true}
 		if entry.hasStatus {
 			props["status"] = entry.statusSchema
 			version.Subresources = &apiextensions.CustomResourceSubresources{Status: &apiextensions.CustomResourceSubresourceStatus{}}
 		}
-		version.Schema = &apiextensions.CustomResourceValidation{OpenAPIV3Schema: ptrSchema(object(props, "spec"))}
+		version.Schema = &apiextensions.CustomResourceValidation{OpenAPIV3Schema: ptrSchema(object(props, required...))}
 		definitions = append(definitions, apiextensions.CustomResourceDefinition{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "apiextensions.k8s.io/v1", Kind: "CustomResourceDefinition"},
 			ObjectMeta: metav1.ObjectMeta{Name: entry.plural + "." + sandbox.GroupName},
