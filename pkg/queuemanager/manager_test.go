@@ -3,6 +3,7 @@ package queuemanager
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -180,3 +181,14 @@ func TestQueueHandler_NonResourceBypass(t *testing.T) {
 	release()
 }
 
+func TestQueueHandler_ContainerProfileRequestTooLarge(t *testing.T) {
+	qm := NewQueueManager(&config.Config{DefaultWorkerCount: 1, DefaultQueueLength: 1, DefaultMaxObjectSize: 4})
+	handler := qm.QueueHandler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("oversized request reached storage")
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/apis/spdx.softwarecomposition.kubescape.io/v1beta1/namespaces/default/containerprofiles", strings.NewReader("12345"))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
+	require.Equal(t, "Request entity too large", strings.TrimSpace(rec.Body.String()))
+}

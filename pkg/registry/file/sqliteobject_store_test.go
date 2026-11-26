@@ -237,6 +237,9 @@ func TestObjectStore_TSAdmissionInsideTransaction(t *testing.T) {
 				assert.Equal(t, 1, base.tsRows, "the time_series row joins the create")
 			} else {
 				require.ErrorIs(t, err, tc.wantErr)
+				if tc.baseStatus == helpersv1.TooLarge {
+					assert.True(t, apierrors.IsConflict(err), "expected conflict from transaction admission, got %v", err)
+				}
 				assert.False(t, row.metaExists, "refused create must leave no metadata row")
 				assert.False(t, row.payloadExists, "refused create must leave no payload")
 				assert.Equal(t, 0, base.tsRows, "refused create must leave no time_series row")

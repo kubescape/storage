@@ -1032,24 +1032,11 @@ func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, m
 	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 
 	presaveCtx := context.WithValue(ctx, connKey, conn)
-	if err := s.processor.PreSave(presaveCtx, obj); err != nil {
-		if errors.Is(err, ObjectTooLargeError) {
-			clearSpec(obj)
-			metadata := obj.(metav1.Object)
-			annotations := metadata.GetAnnotations()
-			if annotations == nil {
-				annotations = make(map[string]string)
-			}
-			annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
-			metadata.SetAnnotations(annotations)
-			logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
-			// fall through: still need to save the object with updated annotations
-		} else {
-			s.pool.Put(conn)
-			return err
-		}
-	}
+	err = preSaveForCreate(presaveCtx, s.processor, key, obj)
 	s.pool.Put(conn)
+	if err != nil {
+		return err
+	}
 
 	candidate, tmpPath, finalPath, err := s.prepareSingleWriterPayload(key, obj, "")
 	if err != nil {

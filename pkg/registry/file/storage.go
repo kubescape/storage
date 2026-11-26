@@ -814,23 +814,8 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	// add conn to context
 	ctx = context.WithValue(ctx, connKey, conn)
 	// call processor on object to be saved
-	if err := s.processor.PreSave(ctx, obj); err != nil {
-		if errors.Is(err, ObjectTooLargeError) {
-			// clear spec to not bloat the storage
-			clearSpec(obj)
-			// update annotations with the new state
-			metadata := obj.(metav1.Object)
-			annotations := metadata.GetAnnotations()
-			if annotations == nil {
-				annotations = make(map[string]string)
-			}
-			annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
-			metadata.SetAnnotations(annotations)
-			logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
-			// we don't return here as we still need to save the object with updated annotations
-		} else {
-			return err
-		}
+	if err := preSaveForCreate(ctx, s.processor, key, obj); err != nil {
+		return err
 	}
 	// save object
 	metaEvent, err := s.saveObject(ctx, conn, key, obj, metaOut, "", priorityHigh, holdPathLegacyCommit)
@@ -2556,6 +2541,30 @@ func (immutableStorage) RequestWatchProgress(context.Context) error { return nil
 // Versioner Returns fixed versioner associated with this interface.
 func (immutableStorage) Versioner() storage.Versioner {
 	return storage.APIObjectVersioner{}
+}
+
+// preSaveForCreate distinguishes a rejected time-series report from an oversized
+// object whose metadata still needs to be persisted.
+func preSaveForCreate(ctx context.Context, processor Processor, key string, obj runtime.Object) error {
+	err := processor.PreSave(ctx, obj)
+	if !errors.Is(err, ObjectTooLargeError) || errors.Is(err, baseProfileTooLargeError{}) {
+		return err
+	}
+	applyTooLarge(obj)
+	logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
+	return nil
+}
+
+// applyTooLarge keeps the metadata of an oversized object and clears its spec.
+func applyTooLarge(obj runtime.Object) {
+	clearSpec(obj)
+	metadata := obj.(metav1.Object)
+	annotations := metadata.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
+	metadata.SetAnnotations(annotations)
 }
 
 func clearSpec(obj runtime.Object) {
