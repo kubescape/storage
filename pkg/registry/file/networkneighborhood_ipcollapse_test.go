@@ -530,3 +530,48 @@ func TestDeflateNetworkNeighbors_IdenticalServiceNeighborsStillMerge(t *testing.
 	assert.Equal(t, []string{"alertmanager.honey.svc.cluster.local."}, out[0].DNSNames)
 	require.Len(t, out[0].Ports, 1)
 }
+
+func TestDeflateNetworkNeighbors_EntriesSharingAnIdentifierKeepTheirPeers(t *testing.T) {
+	// Learned neighbors share an Identifier only when their Type, IPAddress,
+	// DNS and selectors match (the agent hashes those), but a hand-written
+	// profile can leave identifier empty or repeat it. Merging such entries on
+	// Identifier alone kept only the first one's addresses, DNS and selectors,
+	// so traffic the profile allows would alert.
+	dbPods := &metav1.LabelSelector{MatchLabels: map[string]string{"app": "db"}}
+	in := []softwarecomposition.NetworkNeighbor{
+		{Type: "external", IPAddresses: []string{"1.1.1.1"}},
+		{Type: "external", IPAddresses: []string{"140.82.112.0/20"}, DNSNames: []string{"github.com"}},
+		{Type: "external", DNS: "api.example.com"},
+		{Type: "internal", PodSelector: dbPods},
+	}
+
+	out := deflateNetworkNeighbors(in, testSettings())
+
+	var ips, dns []string
+	var selectors []*metav1.LabelSelector
+	for _, n := range out {
+		ips = append(ips, n.IPAddresses...)
+		dns = append(dns, n.DNS)
+		if n.PodSelector != nil {
+			selectors = append(selectors, n.PodSelector)
+		}
+	}
+	assert.ElementsMatch(t, []string{"1.1.1.1", "140.82.112.0/20"}, ips)
+	assert.Contains(t, dns, "api.example.com")
+	assert.Equal(t, []*metav1.LabelSelector{dbPods}, selectors)
+}
+
+func TestDeflateNetworkNeighbors_SameIdentifierAndPeerMergesAddresses(t *testing.T) {
+	// Entries that agree on everything but their address lists are one peer:
+	// they still merge into one entry, holding every address.
+	in := []softwarecomposition.NetworkNeighbor{
+		{Identifier: "gh", Type: "external", DNS: "github.com", IPAddresses: []string{"140.82.112.0/20"}},
+		{Identifier: "gh", Type: "external", DNS: "github.com", IPAddresses: []string{"192.30.252.0/22"}, DNSNames: []string{"github.com"}},
+	}
+
+	out := deflateNetworkNeighbors(in, testSettings())
+
+	require.Len(t, out, 1)
+	assert.Equal(t, []string{"140.82.112.0/20", "192.30.252.0/22"}, out[0].IPAddresses)
+	assert.Equal(t, []string{"github.com"}, out[0].DNSNames)
+}

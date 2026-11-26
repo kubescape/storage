@@ -33,6 +33,7 @@ func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor, settings 
 	for _, item := range in {
 		if index, ok := seen[neighborMergeKey(item)]; ok {
 			out[index].DNSNames = append(out[index].DNSNames, item.DNSNames...)
+			out[index].IPAddresses = append(out[index].IPAddresses, item.IPAddresses...)
 			out[index].Ports = append(out[index].Ports, item.Ports...)
 			toDeflate.Add(index)
 		} else {
@@ -42,6 +43,7 @@ func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor, settings 
 	}
 	for _, i := range mapset.Sorted(toDeflate) {
 		out[i].DNSNames = DeflateSortString(out[i].DNSNames)
+		out[i].IPAddresses = DeflateSortString(out[i].IPAddresses)
 		out[i].Ports = DeflateStringer(out[i].Ports)
 	}
 	return collapseIPGroups(out, settings)
@@ -373,12 +375,19 @@ func splitToFloor(p netip.Prefix, floorBits int) []string {
 // whose IP/DNS/selector hash inputs are all empty — collide on Identifier
 // alone; merging them would keep only the first entry's service fields and
 // silently graft the others' ports onto it.
+// neighborMergeKey says which neighbors are the same peer. The agent's
+// Identifier hashes Type, IPAddress, DNS and the selectors, so learned entries
+// with one Identifier agree on those anyway; a hand-written profile can leave
+// identifier empty or repeat it, so the key includes them too. Only DNSNames,
+// IPAddresses and Ports are merged.
 func neighborMergeKey(n softwarecomposition.NetworkNeighbor) string {
-	if n.ServiceRefNamespace == "" && n.ServiceRefName == "" && n.ServiceSelector == nil && n.Entity == "" {
-		return n.Identifier
-	}
 	return strings.Join([]string{
 		n.Identifier,
+		string(n.Type),
+		n.IPAddress,
+		n.DNS,
+		metav1.FormatLabelSelector(n.NamespaceSelector),
+		metav1.FormatLabelSelector(n.PodSelector),
 		n.ServiceRefNamespace,
 		n.ServiceRefName,
 		metav1.FormatLabelSelector(n.ServiceSelector),
