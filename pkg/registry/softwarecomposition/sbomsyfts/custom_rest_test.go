@@ -34,8 +34,8 @@ import (
 // pkg/registry/softwarecomposition/openvulnerabilityexchange/custom_rest_test.go:
 // SBOMSyft is namespaced, but (unlike OpenVulnerabilityExchangeContainer)
 // its Strategy is a no-op -- Validate/ValidateUpdate always return an empty
-// field.ErrorList (strategy.go) -- so this suite has no validation-rejection
-// cases.
+// field.ErrorList (strategy.go), so the differential tests exercise storage
+// behavior without object validation failures.
 
 // newTestScheme builds a scheme with both the internal softwarecomposition
 // types and the versioned v1beta1 types + conversions registered (mirroring
@@ -324,6 +324,22 @@ func TestDifferential_KeyDerivationMatches(t *testing.T) {
 	viaNewAfterUpdate, err := h.newREST.Get(ctx, "via-old", &metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, "tool1-updated", viaNewAfterUpdate.(*softwarecomposition.SBOMSyft).Spec.Metadata.Tool.Name)
+}
+
+func TestCustomRESTRejectsInvalidNamespace(t *testing.T) {
+	store, err := NewCustomREST(newTestScheme(t), newTestStorage(t), newOptsGetter())
+	require.NoError(t, err)
+	ctx := testContext("Invalid_Namespace")
+
+	_, err = store.KeyFunc(ctx, "sbom")
+	assert.True(t, apierrors.IsBadRequest(err), "KeyFunc returned %v", err)
+	_, err = store.List(ctx, nil)
+	assert.True(t, apierrors.IsBadRequest(err), "List returned %v", err)
+	w, err := store.Watch(ctx, nil)
+	if w != nil {
+		w.Stop()
+	}
+	assert.True(t, apierrors.IsBadRequest(err), "Watch returned %v", err)
 }
 
 // --- Update ---

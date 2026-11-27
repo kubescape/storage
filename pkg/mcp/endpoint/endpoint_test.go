@@ -396,6 +396,26 @@ func TestToolReadsAreCheckedForTheCaller(t *testing.T) {
 	assert.Equal(t, 1, te.lister.calls)
 }
 
+func TestReadToolsRejectInvalidNamespaceBeforeAuthorization(t *testing.T) {
+	te := newTestEndpoint(t, "kubescape")
+	cert := te.frontCA.clientCert(t, frontProxyName)
+	calls := map[string]string{
+		"list": toolCall(`{"namespace":"Invalid_Namespace"}`),
+		"get":  `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_vulnerabilities_in_manifest","arguments":{"namespace":"Invalid_Namespace","manifest_name":"nginx-1.21"}}}`,
+	}
+	for verb, call := range calls {
+		t.Run(verb, func(t *testing.T) {
+			result, isError := toolResult(t, te.call(t, "kagent", cert, agent, call))
+			require.True(t, isError, result)
+			var toolErr tools.ToolError
+			require.NoError(t, json.Unmarshal([]byte(result), &toolErr))
+			assert.Equal(t, tools.ErrCodeInvalidArgument, toolErr.Code)
+			assert.Empty(t, te.attrs, "invalid input must not reach the authorizer")
+			assert.Zero(t, te.lister.calls, "invalid input must not reach storage")
+		})
+	}
+}
+
 func TestGetIsCheckedForTheCallerWithTheName(t *testing.T) {
 	te := newTestEndpoint(t, "kubescape")
 	cert := te.frontCA.clientCert(t, frontProxyName)

@@ -1,12 +1,23 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/api/validation/path"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+// ValidateNamespaceName returns BadRequest for an invalid Kubernetes namespace name.
+func ValidateNamespaceName(namespace string) error {
+	if problems := validation.ValidateNamespaceName(namespace, false); len(problems) != 0 {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid namespace %q: %s", namespace, strings.Join(problems, ", ")))
+	}
+	return nil
+}
 
 // profileScopeAnnotations are the annotations whose values become segments of a
 // ContainerProfile's storage key and payload path, or of its time-series rows.

@@ -35,6 +35,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kubescape/storage/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/validation"
@@ -221,17 +222,25 @@ func NewStore(storageImpl storage.Interface, optsGetter generic.RESTOptionsGette
 	return &store, nil
 }
 
-// KeyFunc chooses between genericregistry.NamespaceKeyFunc and
-// genericregistry.NoNamespaceKeyFunc based on r.Strategy.NamespaceScoped(),
-// exactly the same conditional genericregistry.Store.CompleteWithOptions
-// uses to pick a KeyFunc (vendor store.go:1514-1586) -- reproduced by
-// calling the same exported vendor functions directly rather than
-// re-deriving their path.IsValidPathSegmentName guards.
+// KeyFunc validates the namespace before delegating to the matching
+// genericregistry key function for the resource's scope.
 func (r *Store) KeyFunc(ctx context.Context, name string) (string, error) {
+	if err := r.validateNamespace(ctx); err != nil {
+		return "", err
+	}
 	if r.Strategy.NamespaceScoped() {
 		return genericregistry.NamespaceKeyFunc(ctx, r.keyPrefix, name)
 	}
 	return genericregistry.NoNamespaceKeyFunc(ctx, r.keyPrefix, name)
+}
+
+func (r *Store) validateNamespace(ctx context.Context) error {
+	// An empty namespace is valid for an all-namespaces collection. The
+	// genericregistry key function requires a namespace for a single object.
+	if namespace := genericapirequest.NamespaceValue(ctx); namespace != "" && r.Strategy.NamespaceScoped() {
+		return utils.ValidateNamespaceName(namespace)
+	}
+	return nil
 }
 
 // KeyRootFunc mirrors genericregistry.Store's KeyRootFunc field the same
@@ -324,6 +333,9 @@ func narrowToSingleNamespace(ctx context.Context, p storage.SelectionPredicate) 
 // List propagates Limit/Continue/ResourceVersionMatch (checklist item 12),
 // mirroring genericregistry.Store.ListPredicate (vendor store.go:389-425).
 func (r *Store) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+	if err := r.validateNamespace(ctx); err != nil {
+		return nil, err
+	}
 	label := labels.Everything()
 	if options != nil && options.LabelSelector != nil {
 		label = options.LabelSelector
@@ -365,6 +377,9 @@ func (r *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 // honors these fields is unchanged by this migration either way -- both old
 // and new implementations pass through to the exact same StorageImpl.Watch.
 func (r *Store) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+	if err := r.validateNamespace(ctx); err != nil {
+		return nil, err
+	}
 	label := labels.Everything()
 	if options != nil && options.LabelSelector != nil {
 		label = options.LabelSelector
