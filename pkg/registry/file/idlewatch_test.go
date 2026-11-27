@@ -6,12 +6,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
 // assertStaysOpen asserts that w neither emits an event nor closes within chanWaitTimeout.
@@ -59,15 +64,45 @@ func TestIdleWatchStop(t *testing.T) {
 	assertClosed(t, w)
 }
 
-// TestStorageImplWatchNamespacedKeyIsIdle covers the namespaced-key path of
-// StorageImpl.Watch, which used to return a pre-closed watch.NewEmptyWatch() and send
-// reflectors into a "very short watch" tight retry loop (issue #318).
-func TestStorageImplWatchNamespacedKeyIsIdle(t *testing.T) {
-	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, nil, nil, nil)
-	ctx, cancel := context.WithCancel(context.TODO())
-	w, err := s.Watch(ctx, "/spdx.softwarecomposition.kubescape.io/sbomsyfts/kubescape", storage.ListOptions{})
+// TestStorageImplWatchNamespacedKeyDeliversRealEvents covers the namespaced-key path of
+// StorageImpl.Watch. It used to reject namespaced keys outright (first with an error, later
+// with a pre-closed watch.NewEmptyWatch() that sent reflectors into a "very short watch" tight
+// retry loop, issue #318) as a workaround for namespaces getting stuck in Terminating.
+// WatchDispatcher.Register/notify (watch.go) match purely on path-prefix strings and have
+// never treated a namespaced key any differently from a cluster-scoped one -- a namespace-root
+// watch key is itself one of the path-prefix ancestors extractKeysToNotify walks for any object
+// created under that namespace -- so namespace-scoped watches now deliver real events through
+// the exact same dispatch mechanism already proven correct for cluster-scoped resources.
+func TestStorageImplWatchNamespacedKeyDeliversRealEvents(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer func(pool *sqlitemigration.Pool) {
+		_ = pool.Close()
+	}(pool)
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	s := NewStorageImpl(afero.NewMemMapFs(), DefaultStorageRoot, pool, nil, sch)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	const nsRootKey = "/spdx.softwarecomposition.kubescape.io/openvulnerabilityexchangecontainers/kubescape"
+	w, err := s.Watch(ctx, nsRootKey, storage.ListOptions{})
 	require.NoError(t, err)
-	assertStaysOpen(t, w)
+	assertStaysOpen(t, w) // no event yet -- still a genuinely idle-looking watch, distinguishing "no events" from "broken watch"
+
+	obj := &v1beta1.OpenVulnerabilityExchangeContainer{ObjectMeta: v1.ObjectMeta{Name: "some-vex"}}
+	out := &v1beta1.OpenVulnerabilityExchangeContainer{}
+	require.NoError(t, s.Create(ctx, nsRootKey+"/some-vex", obj, out, 0))
+
+	select {
+	case ev, ok := <-w.ResultChan():
+		require.True(t, ok, "namespace-scoped watch must deliver a real event, not a closed channel")
+		assert.Equal(t, watch.Added, ev.Type)
+	case <-time.After(chanWaitTimeout):
+		t.Fatal("namespace-scoped watch did not deliver the Added event for an object created in its namespace")
+	}
+
 	cancel()
 	assertClosed(t, w)
 }

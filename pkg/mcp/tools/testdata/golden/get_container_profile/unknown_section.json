@@ -1,0 +1,28 @@
+{
+  "call": {
+    "name": "get_container_profile",
+    "arguments": {
+      "namespace": "kubescape",
+      "profile_name": "replicaset-operator-55df98fc6d",
+      "section": "files"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "section must be one of execs, opens, syscalls, capabilities, endpoints, identifiedCallStacks, ingress, egress (got \"files\")",
+    "details": {
+      "argument": "section",
+      "supported_values": [
+        "execs",
+        "opens",
+        "syscalls",
+        "capabilities",
+        "endpoints",
+        "identifiedCallStacks",
+        "ingress",
+        "egress"
+      ]
+    }
+  }
+}

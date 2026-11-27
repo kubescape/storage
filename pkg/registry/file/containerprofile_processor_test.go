@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
@@ -56,8 +58,8 @@ func TestDeflateContainerProfileSpec_NetworkNeighborsCollapse(t *testing.T) {
 	assert.Equal(t, []string{"10.0.0.0/26"}, result.Ingress[0].IPAddresses)
 	assert.Equal(t, []softwarecomposition.NetworkPort{{Name: "80"}}, result.Ingress[0].Ports)
 
-	// Confirm both call sites (NetworkNeighborhoodProcessor's deflateNetworkNeighbors
-	// and DeflateContainerProfileSpec's) collapse identically given the same settings.
+	// Confirm both call sites (the deflateNetworkNeighbors helper and
+	// DeflateContainerProfileSpec) collapse identically given the same settings.
 	directResult := deflateNetworkNeighbors(newIngress(), settings)
 	assert.Equal(t, directResult, result.Ingress)
 }
@@ -97,7 +99,7 @@ func TestConsolidateData(t *testing.T) {
 		var profile softwarecomposition.ContainerProfile
 		err = json.Unmarshal(content, &profile)
 		require.NoError(t, err)
-		err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0)
+		err = s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0)
 		require.NoError(t, err)
 	}
 
@@ -126,33 +128,41 @@ func TestConsolidateData(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Put(conn)
 
-	applicationProfile := softwarecomposition.ApplicationProfile{}
-	key := "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd"
-	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &applicationProfile)
-	assert.NoError(t, err)
-	delete(applicationProfile.Annotations, helpersv1.SyncChecksumMetadataKey) // checksum depends on creation time
-	assert.Equal(t, map[string]string{
-		helpersv1.CompletionMetadataKey: helpersv1.Full,
-		helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd",
-		helpersv1.StatusMetadataKey:     helpersv1.Completed,
-		helpersv1.WlidMetadataKey:       "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
-	}, applicationProfile.Annotations)
-	assert.Equal(t, map[string]string{
-		helpersv1.TemplateHashKey:             "d4b8dd5fd",
-		helpersv1.ApiGroupMetadataKey:         "apps",
-		helpersv1.ApiVersionMetadataKey:       "v1",
-		helpersv1.RelatedKindMetadataKey:      "Deployment",
-		helpersv1.RelatedNameMetadataKey:      "multiple-containers-deployment",
-		helpersv1.RelatedNamespaceMetadataKey: "node-agent-test-hjjz",
-		helpersv1.ResourceVersionMetadataKey:  "1448",
-	}, applicationProfile.Labels)
-
 	containerProfile := softwarecomposition.ContainerProfile{}
-	key = "/spdx.softwarecomposition.kubescape.io/containerprofile/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
+	key := "/spdx.softwarecomposition.kubescape.io/containerprofiles/kube-system/replicaset-coredns-5d78c9869d-coredns-185f-129c"
 	err = s.GetWithConn(ctx, conn, key, storage.GetOptions{}, &containerProfile)
 	assert.NoError(t, err)
 	assert.Equal(t, softwarecomposition.CallID("test-call-id"), containerProfile.Spec.IdentifiedCallStacks[0].CallID)
 
+}
+
+// TestLoadOrInitializeProfile_NewProfileGetsUID guards against
+// kubescape/storage#385: a ContainerProfile created for the first time by
+// consolidation (i.e. no prior object exists at that key) must get a
+// metadata.uid, exactly like a standard REST Create would via
+// rest.FillObjectMetaSystemFields. Without one, k8s.io/apiserver's generic
+// PATCH handler treats the object as nonexistent and any kubectl
+// annotate/label/edit against it 404s. Confirmed to fail against the pre-fix
+// code (profile.UID == "") before the fix and pass after.
+func TestLoadOrInitializeProfile_NewProfileGetsUID(t *testing.T) {
+	processor, _, cleanup := newConsolidationTestProcessor(t, time.Hour)
+	defer cleanup()
+	processor.HostType = armotypes.HostTypeKubernetes
+
+	ctx, cleanupConn, err := processor.ContainerProfileStorage.WithConnection(context.TODO())
+	require.NoError(t, err)
+	defer cleanupConn()
+
+	keyA := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofiles", "", "ns-a", "pod-a")
+	profileA, _, _, _, err := processor.loadOrInitializeProfile(ctx, keyA)
+	require.NoError(t, err)
+	assert.NotEmpty(t, profileA.UID, "a brand-new profile must get a UID or standard Kubernetes PATCH against it later 404s (kubescape/storage#385)")
+
+	keyB := K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofiles", "", "ns-a", "pod-b")
+	profileB, _, _, _, err := processor.loadOrInitializeProfile(ctx, keyB)
+	require.NoError(t, err)
+	assert.NotEmpty(t, profileB.UID)
+	assert.NotEqual(t, profileA.UID, profileB.UID, "independently initialized new profiles must not collide on UID")
 }
 
 // newConsolidationTestProcessor builds a ContainerProfileProcessor backed by an
@@ -194,9 +204,9 @@ func seedTimeSeriesRow(t *testing.T, pool *sqlitemigration.Pool, ns, name, serie
 	conn, err := pool.Take(context.TODO())
 	require.NoError(t, err)
 	defer pool.Put(conn)
-	err = WriteTimeSeriesEntry(conn, "containerprofile", ns, name, seriesID, tsSuffix, reportTimestamp, helpersv1.Learning, helpersv1.Partial, "", hasData)
+	err = WriteTimeSeriesEntry(conn, "containerprofiles", ns, name, seriesID, tsSuffix, reportTimestamp, helpersv1.Learning, helpersv1.Partial, "", hasData)
 	require.NoError(t, err)
-	return K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofile", "", ns, name)
+	return K8sKeysToPath("", "spdx.softwarecomposition.kubescape.io", "containerprofiles", "", ns, name)
 }
 
 // TestConsolidateTimeSeries_Concurrent_NoDeadlock drives the worker pool over
@@ -215,7 +225,7 @@ func TestConsolidateTimeSeries_Concurrent_NoDeadlock(t *testing.T) {
 		require.NoError(t, err)
 		var profile softwarecomposition.ContainerProfile
 		require.NoError(t, json.Unmarshal(content, &profile))
-		require.NoError(t, s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofile/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0))
+		require.NoError(t, s.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/"+profile.Namespace+"/"+profile.Name, &profile, nil, 0))
 	}
 	// consolidate runs a pass under a deadlock guard (Workers=4, so keys sharing
 	// the multiple-containers workload apKey are processed concurrently).
@@ -248,21 +258,6 @@ func TestConsolidateTimeSeries_Concurrent_NoDeadlock(t *testing.T) {
 	create("testdata/p12.json")
 	consolidate()
 
-	// The multiple-containers workload consolidated correctly into one application profile.
-	ap := softwarecomposition.ApplicationProfile{}
-	conn, err := pool.Take(ctx)
-	require.NoError(t, err)
-	err = s.GetWithConn(ctx, conn, "/spdx.softwarecomposition.kubescape.io/applicationprofiles/node-agent-test-hjjz/replicaset-multiple-containers-deployment-d4b8dd5fd", storage.GetOptions{}, &ap)
-	pool.Put(conn)
-	require.NoError(t, err)
-	delete(ap.Annotations, helpersv1.SyncChecksumMetadataKey)
-	assert.Equal(t, map[string]string{
-		helpersv1.CompletionMetadataKey: helpersv1.Full,
-		helpersv1.InstanceIDMetadataKey: "apiVersion-apps/v1/namespace-node-agent-test-hjjz/kind-ReplicaSet/name-multiple-containers-deployment-d4b8dd5fd",
-		helpersv1.StatusMetadataKey:     helpersv1.Completed,
-		helpersv1.WlidMetadataKey:       "wlid://cluster-kind-kind/namespace-node-agent-test-hjjz/deployment-multiple-containers-deployment",
-	}, ap.Annotations)
-
 	// No connection leak: every pool connection must be re-acquirable promptly.
 	acqCtx, acqCancel := context.WithTimeout(ctx, 3*time.Second)
 	defer acqCancel()
@@ -284,8 +279,8 @@ func TestConsolidateTimeSeries_Dedup(t *testing.T) {
 	processor, pool, cleanup := newConsolidationTestProcessor(t, time.Hour)
 	defer cleanup()
 
-	old := time.Now().Add(-2 * time.Hour).String()      // < now-1h threshold => expired
-	recent := time.Now().Add(-1 * time.Minute).String() // > threshold => not expired
+	old := time.Now().UTC().Add(-2 * time.Hour).String()      // < now-1h threshold => expired
+	recent := time.Now().UTC().Add(-1 * time.Minute).String() // > threshold => not expired
 
 	// keyA: two rows, both expired AND hasData => appears twice in each list and in both lists.
 	keyA := seedTimeSeriesRow(t, pool, "ns-a", "name-a", "series-a", "1", old, true)
@@ -326,7 +321,7 @@ func TestConsolidateTimeSeries_ErrorIsolation(t *testing.T) {
 	processor, pool, cleanup := newConsolidationTestProcessor(t, time.Hour)
 	defer cleanup()
 
-	recent := time.Now().Add(-1 * time.Minute).String()
+	recent := time.Now().UTC().Add(-1 * time.Minute).String()
 	var keys []string
 	for _, n := range []string{"k0", "k1", "k2", "k3"} {
 		keys = append(keys, seedTimeSeriesRow(t, pool, "ns", n, "series", "1", recent, true))
@@ -564,31 +559,19 @@ func TestUpdateProfileStatusExpired(t *testing.T) {
 		},
 	}
 
-	res, skip, err := processor.updateProfileStatus(context.TODO(), "key", "seriesID", profile, ts, true)
-	assert.NoError(t, err)
+	res, skip := processor.updateProfileStatus("key", "seriesID", profile, ts, true)
 	assert.False(t, skip)
 	assert.Len(t, res, 0) // should be cleared
 	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
 	assert.Equal(t, helpersv1.Partial, profile.Annotations[helpersv1.CompletionMetadataKey])
 }
 
-type mockContainerProfileStorage struct {
-	fakeStorage
-	deleteCalled bool
-	deleteKey    string
-}
-
-func (m *mockContainerProfileStorage) DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error {
-	m.deleteCalled = true
-	m.deleteKey = key
-	return nil
-}
-
+// TestUpdateProfileStatusExpiredFull: the terminal branch stamps the profile
+// and clears this series' entries. It executes no SQL (PC-TS-4): the caller's
+// list-scoped Replace is the only time_series delete on the consolidation
+// path, so no storage is wired here at all.
 func TestUpdateProfileStatusExpiredFull(t *testing.T) {
-	mockStorage := &mockContainerProfileStorage{}
-	processor := ContainerProfileProcessor{
-		ContainerProfileStorage: mockStorage,
-	}
+	processor := ContainerProfileProcessor{}
 
 	profile := &softwarecomposition.ContainerProfile{
 		ObjectMeta: metav1.ObjectMeta{
@@ -606,12 +589,135 @@ func TestUpdateProfileStatusExpiredFull(t *testing.T) {
 		},
 	}
 
-	res, skip, err := processor.updateProfileStatus(context.TODO(), "test-key", "seriesID", profile, ts, true)
-	assert.NoError(t, err)
+	res, skip := processor.updateProfileStatus("test-key", "seriesID", profile, ts, true)
 	assert.True(t, skip)
 	assert.Len(t, res, 0) // should be cleared
-	assert.True(t, mockStorage.deleteCalled)
-	assert.Equal(t, "test-key", mockStorage.deleteKey)
 	assert.Equal(t, helpersv1.Completed, profile.Annotations[helpersv1.StatusMetadataKey])
 	assert.Equal(t, helpersv1.Full, profile.Annotations[helpersv1.CompletionMetadataKey])
+}
+
+// TestDeleteArbitrated_StalledWatcherDoesNotFreezeShard pins L0-C: a
+// shard-routed delete must not dispatch its watch event from inside the shard
+// turn. A "/" watcher that has stopped reading blocks watchDispatcher's send
+// until its own ctx ends; if that send runs inside runOnShard's fn, the shard
+// goroutine (holding a pool connection and Lock(key)) is frozen for as long as
+// the remote client chooses, and every other job hashed to that shard -- the
+// REST lane included -- times out behind it.
+//
+// The test stalls a "/" watcher, deletes one TS key through the shard, waits
+// until the shard is observably inside the delete job, and then asserts that a
+// no-op priorityHigh runOnShard probe on a DIFFERENT key hashed to the SAME
+// shard completes within 2s. Before L0-C the probe times out; after it the
+// caller (not the shard) is the one parked in send, the shard is free, and the
+// Deleted event is still delivered once the watcher drains.
+func TestDeleteArbitrated_StalledWatcherDoesNotFreezeShard(t *testing.T) {
+	enableSingleWriter(t)
+	setSingleWriterShards(t, DefaultSingleWriterShards)
+	si, cleanup := newSingleWriterTestStorage(t)
+	// t.Cleanup, not defer: cleanups run LIFO, so the watcher's wcancel
+	// (registered below) runs first. On a failing run the shard is still parked
+	// in send holding its pool connection, and pool.Close would otherwise wait
+	// on it forever instead of the test failing at the probe's 2s deadline.
+	t.Cleanup(cleanup)
+	a := &ContainerProfileProcessor{
+		ContainerProfileStorage: NewContainerProfileStorageImpl(si, si.pool),
+	}
+	ctx := context.Background()
+
+	const victimName = "victim-20260908T120000"
+	keyA := testProfileKey(victimName)
+	var keyB string
+	for i := 0; ; i++ {
+		k := testProfileKey(fmt.Sprintf("probe-%d", i))
+		if shardIndexFor(k, singleWriterShards) == shardIndexFor(keyA, singleWriterShards) {
+			keyB = k
+			break
+		}
+	}
+
+	// Seed keyA before any watcher exists so Create's own Added event does not
+	// consume a slot in the watcher's buffer.
+	require.NoError(t, si.Create(ctx, keyA, &softwarecomposition.ContainerProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: victimName, Namespace: "ns1"},
+	}, &softwarecomposition.ContainerProfile{}, 0))
+	payloadPath := makePayloadPath(filepath.Join(si.root, keyA))
+	_, err := si.appFs.Stat(payloadPath)
+	require.NoError(t, err, "seeded payload must exist before the delete")
+
+	// A "/" watcher that is never read. Fill it to the brim: cap(outCh) events
+	// land in outCh and one more is parked in shipIt, so the NEXT send to this
+	// watcher blocks until wcancel. fillerKey must start with "/" or
+	// extractKeysToNotify returns nothing and the watcher never fills.
+	wctx, wcancel := context.WithCancel(ctx)
+	t.Cleanup(wcancel)
+	w := newWatcher(wctx, false)
+	si.watchDispatcher.Register("/", w)
+	fillerKey := testProfileKey("filler")
+	fillers := cap(w.outCh) + 1
+	for i := 0; i < fillers; i++ {
+		si.watchDispatcher.Deleted(fillerKey, &softwarecomposition.ContainerProfile{})
+	}
+	require.Equal(t, cap(w.outCh), len(w.outCh), "watcher buffer must be full before the delete")
+
+	done := make(chan error, 1)
+	go func() { done <- a.deleteContainerProfileArbitrated(ctx, keyA) }()
+
+	// Race gate: the payload Remove runs inside fn, so its absence proves the
+	// shard goroutine is committed to the delete job. Without this the probe
+	// below races the delete goroutine for the shard (high is served before
+	// low) and today's code would pass.
+	require.Eventually(t, func() bool {
+		_, err := si.appFs.Stat(payloadPath)
+		return errors.Is(err, os.ErrNotExist)
+	}, 5*time.Second, time.Millisecond)
+
+	// The discriminating assertion: a same-shard probe must not wait on the
+	// stalled watcher.
+	probeCtx, probeCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer probeCancel()
+	err = si.ensureWriter().runOnShard(probeCtx, keyB, priorityHigh, func(*sqlite.Conn) error { return nil })
+	require.NoError(t, err, "same-shard probe must complete while a watcher is stalled")
+
+	// The caller is legitimately parked in send until the watcher drains.
+	select {
+	case err := <-done:
+		t.Fatalf("delete returned %v while its watcher is stalled", err)
+	default:
+	}
+
+	// The event is not lost: after the fillers, the next event is the victim's
+	// Deleted, and only then does the delete call return.
+	recv := func() watch.Event {
+		t.Helper()
+		select {
+		case ev, ok := <-w.ResultChan():
+			require.True(t, ok, "watcher result channel closed early")
+			return ev
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for a watch event")
+			return watch.Event{}
+		}
+	}
+	for i := 0; i < fillers; i++ {
+		ev := recv()
+		require.Equal(t, watch.Deleted, ev.Type)
+	}
+	ev := recv()
+	require.Equal(t, watch.Deleted, ev.Type)
+	deleted, ok := ev.Object.(*softwarecomposition.ContainerProfile)
+	require.True(t, ok, "unexpected event object %T", ev.Object)
+	require.Equal(t, victimName, deleted.Name)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("delete did not return after its event was drained")
+	}
+	wcancel()
+
+	// The mutation happened.
+	got := &softwarecomposition.ContainerProfile{}
+	getErr := si.Get(ctx, keyA, storage.GetOptions{}, got)
+	require.Error(t, getErr)
+	require.True(t, storage.IsNotFound(getErr))
 }

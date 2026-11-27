@@ -83,6 +83,9 @@ func (sc *StatsCollector) Handler(next http.Handler) http.Handler {
 func extractKindAndVerb(r *http.Request) (kind, verb string) {
 	reqInfo, ok := request.RequestInfoFrom(r.Context())
 	if ok {
+		if !reqInfo.IsResourceRequest || reqInfo.Resource == "" {
+			return "unknown", reqInfo.Verb
+		}
 		return reqInfo.Resource, reqInfo.Verb
 	}
 	// fallback:
@@ -102,7 +105,7 @@ func extractKindAndVerbFromPath(r *http.Request) (kind, verb string) {
 			}
 		}
 		// If "namespaces" is not present, fallback to the current logic
-		if len(parts) >= 4 {
+		if len(parts) >= 4 && parts[3] != "" {
 			return parts[3], r.Method
 		}
 	}

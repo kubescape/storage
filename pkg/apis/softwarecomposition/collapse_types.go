@@ -66,6 +66,11 @@ type CollapseConfigurationSpec struct {
 	// breadth) a single aggregated block may have. Omitted or 0 means "use
 	// the compiled-in default".
 	NetworkCIDRFloorBits int32
+	// ExecDynamicThreshold is the fallback threshold for AnalyzeExecs when no
+	// per-prefix entry matches the exec path. Omitted or 0 means "use the
+	// compiled-in default" (a literal 0 would collapse every argument).
+	// CollapseConfigs entries apply to exec paths as well as opens.
+	ExecDynamicThreshold int32
 }
 
 // CollapseConfigEntry is one per-prefix threshold override.

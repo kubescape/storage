@@ -2,16 +2,15 @@ package file
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/armosec/armoapi-go/armotypes"
-	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"github.com/kubescape/go-logger"
+	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
-	"github.com/kubescape/storage/pkg/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/kubescape/storage/pkg/metrics"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
@@ -20,26 +19,12 @@ import (
 )
 
 // Storage kinds for container profile artifacts. ContainerProfileKind is the
-// canonical observed CP produced by time-series consolidation. MergedKind is
-// the derived "effective" CP — observed plus the user-managed ug- AP/NN
-// overlay — written under a parallel key so consumers can prefer it without
-// the consolidator ever reading it back. The split exists to preserve a
-// canonical observed CP that retracts cleanly when a user edits or deletes
-// a ug- CRD (kubescape/storage#315 review).
+// canonical observed CP produced by time-series consolidation.
 const (
-	ContainerProfileKind       = "containerprofile"
+	ContainerProfileKind       = "containerprofiles"
+	ContainerProfileKindLegacy = "containerprofile"
 	ContainerProfileKindPlural = "containerprofiles"
-	ContainerProfileMergedKind = "containerprofile-merged"
 )
-
-// MergedKeyFor returns the merged-CP storage key corresponding to an
-// observed-CP key. Replaces the kind segment "/containerprofile/" with
-// "/containerprofile-merged/". The path layout from K8sKeysToPath / ECSKeysToPath
-// / HostKeysToPath always places kind at the same segment, so a single replace
-// is correct for every host type.
-func MergedKeyFor(observedKey string) string {
-	return strings.Replace(observedKey, "/"+ContainerProfileKind+"/", "/"+ContainerProfileMergedKind+"/", 1)
-}
 
 // ContainerProfileStorageImpl implements ContainerProfileStorage using SQLite as the backend.
 type ContainerProfileStorageImpl struct {
@@ -60,10 +45,13 @@ var _ ContainerProfileStorage = (*ContainerProfileStorageImpl)(nil)
 // WithConnection acquires a connection from the pool and returns a new context
 // with the connection embedded, plus a cleanup function to return the connection to the pool.
 func (c *ContainerProfileStorageImpl) WithConnection(ctx context.Context) (context.Context, func(), error) {
+	beforePool := time.Now()
 	conn, err := c.pool.Take(ctx)
 	if err != nil {
+		metrics.ObservePoolWait(ContainerProfileKindPlural, metrics.OutcomeTimeout, time.Since(beforePool))
 		return nil, nil, fmt.Errorf("failed to take connection from pool: %w", err)
 	}
+	metrics.ObservePoolWait(ContainerProfileKindPlural, metrics.OutcomeAcquired, time.Since(beforePool))
 	var cleaned bool
 	cleanup := func() {
 		if !cleaned {
@@ -77,8 +65,31 @@ func (c *ContainerProfileStorageImpl) WithConnection(ctx context.Context) (conte
 // BeginTransaction starts a SQLite transaction (savepoint) and returns a function
 // to commit or rollback based on the error state.
 func (c *ContainerProfileStorageImpl) BeginTransaction(ctx context.Context) (func(*error), error) {
+	if err := c.refuseGated("BeginTransaction"); err != nil {
+		return nil, err
+	}
 	conn := ctx.Value(connKey).(*sqlite.Conn)
+	observeStmt("Transaction")
 	return sqlitex.Transaction(conn), nil
+}
+
+// errCPStorageGated: the legacy ContainerProfile storage opens long
+// transactions on a pool connection (the consolidation's BEGIN DEFERRED, the
+// heal's BEGIN IMMEDIATE) and calls saveObject inside them. Over a StorageImpl
+// that shares the write gate, saveObject would queue on the gate while this
+// connection already holds SQLite's write lock — the gate busy-waiting behind
+// its own caller, the class write-gate sharing exists to close. Under the
+// flag the ContainerProfile kind is served by the ObjectStore and this type
+// is never constructed; the refusal makes that structural (W11/W12 of
+// write-gate-sharing §3.2: never routed through a gate).
+var errCPStorageGated = errors.New("legacy ContainerProfile storage cannot run over a StorageImpl that shares the write gate")
+
+func (c *ContainerProfileStorageImpl) refuseGated(op string) error {
+	if c.storageImpl.gate == nil {
+		return nil
+	}
+	logger.L().Error("ContainerProfileStorageImpl refused: the wrapped StorageImpl shares the write gate", loggerhelpers.String("op", op))
+	return fmt.Errorf("%s: %w", op, errCPStorageGated)
 }
 
 func (c *ContainerProfileStorageImpl) DeleteContainerProfile(ctx context.Context, key string) error {
@@ -97,6 +108,20 @@ func (c *ContainerProfileStorageImpl) GetContainerProfileMetadata(ctx context.Co
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	profile := softwarecomposition.ContainerProfile{}
 	err := c.storageImpl.GetWithConn(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile)
+	return profile, err
+}
+
+// GetContainerProfileMetadataNoLock reads container profile metadata without
+// acquiring the per-key lock. GetContainerProfileMetadata takes a read lock via
+// GetWithConn; when PreSave runs from inside GuaranteedUpdate, the write lock for
+// the same key is already held, so a read lock there would self-deadlock. The
+// metadata branch of get() reads straight from SQLite and takes no lock of its
+// own, so hasWriteLock (caller already holds the lock) is passed to skip any
+// lock management.
+func (c *ContainerProfileStorageImpl) GetContainerProfileMetadataNoLock(ctx context.Context, key string) (softwarecomposition.ContainerProfile, error) {
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	profile := softwarecomposition.ContainerProfile{}
+	err := c.storageImpl.get(ctx, conn, key, storage.GetOptions{ResourceVersion: softwarecomposition.ResourceVersionMetadata}, &profile, hasWriteLock)
 	return profile, err
 }
 
@@ -119,9 +144,18 @@ func (c *ContainerProfileStorageImpl) GetTsContainerProfile(ctx context.Context,
 }
 
 func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, key string, profile *softwarecomposition.ContainerProfile) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-
+	// input is the persisted object, read under Lock(key) at write time. Every
+	// writer of a base key holds Lock(key) across both the payload rename and
+	// the row's commit, so a completer that finished before this lock was
+	// taken is fully visible here and one that has not finished is excluded.
+	// A Completed/Full persisted object is never overwritten with merged data:
+	// the pass's transaction rolls back and the next tick takes the frozen
+	// gate in updateProfile, whose predicate is exactly this one.
 	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		if cur, ok := input.(*softwarecomposition.ContainerProfile); ok && softwarecomposition.IsCompletedFull(cur.Annotations) {
+			metrics.IncConsolidationFrozenRefusals()
+			return nil, nil, ErrProfileFrozen
+		}
 		return profile, nil, nil
 	}
 
@@ -142,6 +176,23 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	// SyncChecksum) from loadOrInitializeProfile, so reading the real current
 	// state lets an unchanged consolidation compare equal and skip the write
 	// (kubescape/storage#315 review).
+	//
+	// singleWriterEnabled (spike/single-writer-priority-queue): route this
+	// consolidation write through the single writer's LOW priority lane
+	// instead of GuaranteedUpdateWithConn's caller-supplied-connection,
+	// per-key-lock path -- UNLESS the caller already holds an active connection
+	// / transaction in ctx (e.g. from WithConnection / BeginTransaction), in which
+	// case attempting to acquire another connection for writes deadlocks against
+	// the active transaction in SQLite.
+	if singleWriterEnabled && ctx.Value(connKey) == nil {
+		if err := c.storageImpl.guaranteedUpdateSingleWriter(cpCtx, key, &softwarecomposition.ContainerProfile{},
+			true, nil, tryUpdate, nil, "", priorityLow); err != nil {
+			return fmt.Errorf("failed to update container profile: %w", err)
+		}
+		return nil
+	}
+
+	conn := ctx.Value(connKey).(*sqlite.Conn)
 	err := c.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, key, &softwarecomposition.ContainerProfile{},
 		true, nil, tryUpdate, nil, "")
 	if err != nil {
@@ -151,192 +202,120 @@ func (c *ContainerProfileStorageImpl) SaveContainerProfile(ctx context.Context, 
 	return nil
 }
 
-func (c *ContainerProfileStorageImpl) SaveMergedContainerProfile(ctx context.Context, observedKey string, profile *softwarecomposition.ContainerProfile) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-	mergedKey := MergedKeyFor(observedKey)
+// healFailure names the step of HealDivergence that failed; the reason is a
+// metrics.HealFailed* label value.
+type healFailure struct {
+	reason string
+	err    error
+}
 
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		// The merged CP is rebuilt from observed.DeepCopy() every tick, so it
-		// carries the *observed* CP's identity (ResourceVersion, SyncChecksum,
-		// UID, creationTimestamp) rather than this merged key's own. Left as-is
-		// that mismatch makes GuaranteedUpdate's "same serialized contents"
-		// short-circuit miss every time, rewriting the merged CP — and firing a
-		// watch event to node-agent — on every consolidation tick even when the
-		// merged content is unchanged. Carry the persisted merged object's
-		// identity forward so an unchanged rebuild compares equal and the write
-		// is skipped (kubescape/storage#315 review).
-		out := profile.DeepCopy()
-		if existing, ok := input.(*softwarecomposition.ContainerProfile); ok && existing.ResourceVersion != "" {
-			out.ResourceVersion = existing.ResourceVersion
-			out.UID = existing.UID
-			out.CreationTimestamp = existing.CreationTimestamp
-			if cs, set := existing.Annotations[helpers.SyncChecksumMetadataKey]; set {
-				if out.Annotations == nil {
-					out.Annotations = map[string]string{}
-				}
-				// Align with the persisted checksum for the equality probe only.
-				// If content actually changed the probe fails and saveObject
-				// recomputes the real checksum, so this never persists a stale one.
-				out.Annotations[helpers.SyncChecksumMetadataKey] = cs
+func (e *healFailure) Error() string { return e.reason + ": " + e.err.Error() }
+func (e *healFailure) Unwrap() error { return e.err }
+
+func healFailureReason(err error) string {
+	var hf *healFailure
+	if errors.As(err, &hf) {
+		return hf.reason
+	}
+	return "unknown"
+}
+
+// HealDivergence re-persists a base ContainerProfile whose payload says
+// Completed/Full while its committed metadata row does not -- the shape a
+// process crash or a failed COMMIT leaves between saveObject's payload rename
+// and the row's commit. The payload WAS the completed profile; only its
+// durable announcement was lost, so the minimal write that restores agreement
+// is the payload's own content, as-is: RV+1, Spec, status and lifecycle
+// annotations preserved, checksum annotation and managedFields rewritten as on
+// every save, no merge, no new data, and the one Modified the crash lost,
+// dispatched after COMMIT.
+//
+// Lock order is Lock(key) then SQLite's write lock (REST's order). The
+// BEGIN IMMEDIATE takes the write lock FIRST, so any in-flight writer's COMMIT
+// or ROLLBACK has landed before the row is re-read: a completer that just
+// committed wins and nothing is written. That wait is bounded by the
+// connection's busy timeout (DefaultBusyTimeout, 60s), with Lock(key) held.
+// A row that is absent rather than divergent is left alone: the caller never
+// asks for a heal on one, and this function does not resurrect a deleted key.
+//
+// saveObject is called directly, not through SaveContainerProfile:
+// GuaranteedUpdateWithConn compares tryUpdate's result with the object it
+// read and writes nothing when they are equal, so an as-is re-save through it
+// is a no-op by construction (the legacy-format migration re-save has the
+// same need and does the same). This is therefore the one deliberate writer
+// of a Completed/Full base that the completed-immutability guards do not
+// consult; it writes the base's own content and is counted.
+//
+// Must run in autocommit, before the pass's transaction (it opens its own).
+func (c *ContainerProfileStorageImpl) HealDivergence(ctx context.Context, key string) error {
+	if err := c.refuseGated("HealDivergence"); err != nil {
+		return err
+	}
+	conn := ctx.Value(connKey).(*sqlite.Conn)
+	s := c.storageImpl
+	lockCtx, cancel := context.WithTimeout(ctx, lockTimeout)
+	defer cancel()
+	if err := s.locks.Lock(lockCtx, key); err != nil {
+		return &healFailure{reason: metrics.HealFailedLockTimeout, err: newContentionTimeoutError("heal", key, err)}
+	}
+	defer s.locks.Unlock(key)
+
+	var cur softwarecomposition.ContainerProfile
+	var metaEvent runtime.Object
+	err := func() (err error) {
+		endFn, terr := sqlitex.ImmediateTransaction(conn)
+		if terr != nil {
+			return &healFailure{reason: metrics.HealFailedBegin, err: terr}
+		}
+		defer func() {
+			endFn(&err)
+			// endFn replaces a nil err with the COMMIT's own error (a ROLLBACK
+			// failure panics), so any error that is not already a healFailure
+			// is a failed COMMIT: the payload was renamed, the row rolled back
+			// -- the shape this heal repairs, one version further ahead.
+			var hf *healFailure
+			if err != nil && !errors.As(err, &hf) {
+				err = &healFailure{reason: metrics.HealFailedCommit, err: err}
 			}
+		}()
+		raw, rerr := ReadMetadata(conn, key)
+		if errors.Is(rerr, ErrMetadataNotFound) {
+			// No row at all is not divergence but absence (a crash between
+			// the row's delete and the payload's remove): resurrecting the
+			// key from its payload is not this heal's business.
+			return nil
 		}
-		return out, nil, nil
+		if rerr != nil {
+			return &healFailure{reason: metrics.HealFailedRead, err: rerr}
+		}
+		var row softwarecomposition.ContainerProfile
+		if uerr := json.Unmarshal(raw, &row); uerr != nil {
+			return &healFailure{reason: metrics.HealFailedRead, err: uerr}
+		}
+		if softwarecomposition.IsCompletedFull(row.Annotations) {
+			// A concurrent completer won: nothing to heal.
+			return nil
+		}
+		if gerr := s.get(ctx, conn, key, storage.GetOptions{}, &cur, hasWriteLock); gerr != nil {
+			return &healFailure{reason: metrics.HealFailedRead, err: gerr}
+		}
+		if !softwarecomposition.IsCompletedFull(cur.Annotations) {
+			// The payload changed under us (a migration re-save, a REST reset): not our case.
+			return nil
+		}
+		metaEvent, err = s.saveObject(ctx, conn, key, &cur, &softwarecomposition.ContainerProfile{}, "", priorityLow, holdPathLegacyCommit)
+		if err != nil {
+			return &healFailure{reason: metrics.HealFailedSave, err: err}
+		}
+		return nil
+	}()
+	if err != nil || metaEvent == nil {
+		return err
 	}
-
-	cpCtx, cpCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cpCancel()
-
-	// cachedExistingObject is deliberately nil: a non-nil value (even an empty
-	// one) tells GuaranteedUpdate to treat it as the current state and skip the
-	// read-from-disk, which would make tryUpdate's `input` always empty and the
-	// no-op short-circuit never fire. We need the real persisted merged object
-	// here so an unchanged rebuild is recognised and the write is skipped.
-	if err := c.storageImpl.GuaranteedUpdateWithConn(cpCtx, conn, mergedKey, &softwarecomposition.ContainerProfile{},
-		true, nil, tryUpdate, nil, ""); err != nil {
-		return fmt.Errorf("failed to update merged container profile: %w", err)
-	}
-	return nil
-}
-
-func (c *ContainerProfileStorageImpl) GetMergedContainerProfile(ctx context.Context, observedKey string) (softwarecomposition.ContainerProfile, error) {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-	profile := softwarecomposition.ContainerProfile{}
-	err := c.storageImpl.GetWithConn(ctx, conn, MergedKeyFor(observedKey), storage.GetOptions{}, &profile)
-	return profile, err
-}
-
-func (c *ContainerProfileStorageImpl) DeleteMergedContainerProfile(ctx context.Context, observedKey string) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-	mergedKey := MergedKeyFor(observedKey)
-
-	// Lock-free existence probe (ReadMetadata takes no key lock) purely to stay
-	// quiet on the common no-merged case — every workload's early ticks before a
-	// ug- overlay exists. StorageImpl.delete logs at Error level for a missing
-	// key, so we only attempt the delete when the merged artifact actually
-	// exists; this removes the need for the caller's separate locked
-	// GetMergedContainerProfile probe (the "extra lock") without re-introducing
-	// the error-log spam.
-	if _, err := ReadMetadata(conn, mergedKey); err != nil {
-		if errors.Is(err, ErrMetadataNotFound) {
-			return nil // nothing to retract — idempotent
-		}
-		return fmt.Errorf("probe merged container profile for deletion: %w", err)
-	}
-
-	// The delete itself goes through DeleteWithConn so it stays synchronized
-	// (write-locked) with concurrent Get/Save on the same key, consistent with
-	// GetMergedContainerProfile/SaveMergedContainerProfile — an unsynchronized
-	// delete risks SQLite busy / lock contention (kubescape/storage#315 review).
-	return c.storageImpl.DeleteWithConn(ctx, conn, mergedKey, &softwarecomposition.ContainerProfile{}, nil, nil, nil, storage.DeleteOptions{})
-}
-
-func (c *ContainerProfileStorageImpl) UpdateApplicationProfile(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-
-	id.Name = slug
-	apKey := BuildContainerProfileKey(id, "applicationprofiles")
-	var apChecksum string
-
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		output := input.DeepCopyObject()
-		ap, ok := output.(*softwarecomposition.ApplicationProfile)
-		if !ok {
-			return nil, nil, fmt.Errorf("given object is not an ApplicationProfile")
-		}
-
-		ap.Name = slug
-		if id.HostType == armotypes.HostTypeKubernetes {
-			ap.Namespace = id.Namespace
-		}
-		if ap.CreationTimestamp.IsZero() {
-			ap.CreationTimestamp = creationTimestamp
-		}
-		ap.SchemaVersion = SchemaVersion
-		if ap.Parts == nil {
-			ap.Parts = map[string]string{}
-		}
-		ap.Parts[key] = "" // checksum will be updated by getAggregatedData
-
-		status, completion, checksum := ComputeAggregatedData(c, ctx, key, ap.Parts)
-		apChecksum = checksum
-
-		ap.Annotations = map[string]string{
-			helpers.CompletionMetadataKey: completion,
-			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
-			helpers.StatusMetadataKey:     status,
-			helpers.WlidMetadataKey:       wlid,
-		}
-		ap.Labels = map[string]string{}
-		utils.MergeMaps(ap.Labels, profile.Labels)
-		delete(ap.Labels, helpers.ContainerNameMetadataKey)
-
-		return output, nil, nil
-	}
-
-	apCtx, apCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer apCancel()
-
-	err := c.storageImpl.GuaranteedUpdateWithConn(apCtx, conn, apKey, &softwarecomposition.ApplicationProfile{},
-		true, nil, tryUpdate, nil, apChecksum)
-	if err != nil {
-		return fmt.Errorf("failed to update application profile: %w", err)
-	}
-
-	return nil
-}
-
-func (c *ContainerProfileStorageImpl) UpdateNetworkNeighborhood(ctx context.Context, key, prefix, root string, id armotypes.ProfileIdentifier, slug, wlid string, instanceID interface{ GetStringNoContainer() string }, profile *softwarecomposition.ContainerProfile, creationTimestamp metav1.Time) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-
-	id.Name = slug
-	nnKey := BuildContainerProfileKey(id, "networkneighborhoods")
-	var nnChecksum string
-
-	tryUpdate := func(input runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		output := input.DeepCopyObject()
-		nn, ok := output.(*softwarecomposition.NetworkNeighborhood)
-		if !ok {
-			return nil, nil, fmt.Errorf("given object is not an NetworkNeighborhood")
-		}
-
-		nn.Name = slug
-		if id.HostType == armotypes.HostTypeKubernetes {
-			nn.Namespace = id.Namespace
-		}
-		if nn.CreationTimestamp.IsZero() {
-			nn.CreationTimestamp = creationTimestamp
-		}
-		nn.SchemaVersion = SchemaVersion
-		if nn.Parts == nil {
-			nn.Parts = map[string]string{}
-		}
-		nn.Parts[key] = "" // checksum will be updated by getAggregatedData
-
-		status, completion, checksum := ComputeAggregatedData(c, ctx, key, nn.Parts)
-		nnChecksum = checksum
-
-		nn.Annotations = map[string]string{
-			helpers.CompletionMetadataKey: completion,
-			helpers.InstanceIDMetadataKey: instanceID.GetStringNoContainer(),
-			helpers.StatusMetadataKey:     status,
-			helpers.WlidMetadataKey:       wlid,
-		}
-		nn.Labels = map[string]string{}
-		utils.MergeMaps(nn.Labels, profile.Labels)
-		delete(nn.Labels, helpers.ContainerNameMetadataKey)
-
-		return output, nil, nil
-	}
-
-	nnCtx, nnCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer nnCancel()
-
-	err := c.storageImpl.GuaranteedUpdateWithConn(nnCtx, conn, nnKey, &softwarecomposition.NetworkNeighborhood{},
-		true, nil, tryUpdate, nil, nnChecksum)
-	if err != nil {
-		return fmt.Errorf("failed to update network neighborhood: %w", err)
-	}
-
+	metrics.IncConsolidationDivergence(metrics.DivergencePayloadAhead)
+	logger.L().Warning("HealDivergence - payload was Completed/Full but the metadata row was not; re-persisted the payload and dispatched the lost completion event",
+		loggerhelpers.String("key", key), loggerhelpers.String("resourceVersion", cur.ResourceVersion))
+	s.watchDispatcher.Modified(key, metaEvent, &cur)
 	return nil
 }
 
@@ -357,11 +336,6 @@ func (c *ContainerProfileStorageImpl) ListTimeSeriesContainers(ctx context.Conte
 	return ListTimeSeriesContainers(conn, key)
 }
 
-func (c *ContainerProfileStorageImpl) DeleteTimeSeriesContainerEntries(ctx context.Context, key string) error {
-	conn := ctx.Value(connKey).(*sqlite.Conn)
-	return DeleteTimeSeriesContainerEntries(conn, key)
-}
-
 func (c *ContainerProfileStorageImpl) ReplaceTimeSeriesContainerEntries(ctx context.Context, key, seriesID string, deleteTimeSeries []string, newTimeSeries []softwarecomposition.TimeSeriesContainers) error {
 	conn := ctx.Value(connKey).(*sqlite.Conn)
 	return ReplaceTimeSeriesContainerEntries(conn, key, seriesID, deleteTimeSeries, newTimeSeries)
@@ -373,11 +347,11 @@ func (c *ContainerProfileStorageImpl) WriteTimeSeriesEntry(ctx context.Context, 
 }
 
 func IsContainerProfileKind(kind string) bool {
-	return kind == ContainerProfileKind || kind == ContainerProfileKindPlural
+	return kind == ContainerProfileKind || kind == ContainerProfileKindLegacy
 }
 
 func NormalizeContainerProfileKind(kind string) string {
-	if kind == ContainerProfileKindPlural {
+	if kind == ContainerProfileKindLegacy {
 		return ContainerProfileKind
 	}
 	return kind

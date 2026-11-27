@@ -24,6 +24,16 @@ type IgnoreRuleApplyConfiguration struct {
 	Vulnerability *string                              `json:"vulnerability,omitempty"`
 	FixState      *string                              `json:"fix-state,omitempty"`
 	Package       *IgnoreRulePackageApplyConfiguration `json:"package,omitempty"`
+	// SourceKind, SourceName and SourceNamespace identify the object that
+	// caused this suppression (e.g. "SecurityException", its name, and
+	// namespace for a namespaced object).
+	SourceKind      *string `json:"sourceKind,omitempty"`
+	SourceName      *string `json:"sourceName,omitempty"`
+	SourceNamespace *string `json:"sourceNamespace,omitempty"`
+	// Justification and ImpactStatement carry the stated reason for the
+	// suppression, in VEX vocabulary.
+	Justification   *string `json:"justification,omitempty"`
+	ImpactStatement *string `json:"impactStatement,omitempty"`
 }
 
 // IgnoreRuleApplyConfiguration constructs a declarative configuration of the IgnoreRule type for use with
@@ -53,5 +63,45 @@ func (b *IgnoreRuleApplyConfiguration) WithFixState(value string) *IgnoreRuleApp
 // If called multiple times, the Package field is set to the value of the last call.
 func (b *IgnoreRuleApplyConfiguration) WithPackage(value *IgnoreRulePackageApplyConfiguration) *IgnoreRuleApplyConfiguration {
 	b.Package = value
+	return b
+}
+
+// WithSourceKind sets the SourceKind field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SourceKind field is set to the value of the last call.
+func (b *IgnoreRuleApplyConfiguration) WithSourceKind(value string) *IgnoreRuleApplyConfiguration {
+	b.SourceKind = &value
+	return b
+}
+
+// WithSourceName sets the SourceName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SourceName field is set to the value of the last call.
+func (b *IgnoreRuleApplyConfiguration) WithSourceName(value string) *IgnoreRuleApplyConfiguration {
+	b.SourceName = &value
+	return b
+}
+
+// WithSourceNamespace sets the SourceNamespace field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SourceNamespace field is set to the value of the last call.
+func (b *IgnoreRuleApplyConfiguration) WithSourceNamespace(value string) *IgnoreRuleApplyConfiguration {
+	b.SourceNamespace = &value
+	return b
+}
+
+// WithJustification sets the Justification field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Justification field is set to the value of the last call.
+func (b *IgnoreRuleApplyConfiguration) WithJustification(value string) *IgnoreRuleApplyConfiguration {
+	b.Justification = &value
+	return b
+}
+
+// WithImpactStatement sets the ImpactStatement field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ImpactStatement field is set to the value of the last call.
+func (b *IgnoreRuleApplyConfiguration) WithImpactStatement(value string) *IgnoreRuleApplyConfiguration {
+	b.ImpactStatement = &value
 	return b
 }

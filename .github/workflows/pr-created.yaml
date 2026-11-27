@@ -1,11 +1,12 @@
 name: pull_request_created
+permissions: read-all
+
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     paths-ignore:
       - '*.md'
       - '*.yaml'
-      - '.github/workflows/*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,8 +14,38 @@ concurrency:
 
 jobs:
   pr-created:
-    uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@main
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+    uses: kubescape/workflows/.github/workflows/incluster-comp-pr-created.yaml@33aa46c0214e9e1455e0fc069abc1a9dcdfceb0b # configurable test timeout
     with:
       CGO_ENABLED: 0
-      GO_VERSION: "1.25"
+      GO_VERSION: "1.26.11"
+      TEST_TIMEOUT_MINUTES: 30
     secrets: inherit
+
+  # pkg/apiauth is a nested Go module, so the reusable workflow's `go test ./...`
+  # at the repository root does not cover it.
+  apiauth-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.26.11"
+      - name: Test pkg/apiauth
+        working-directory: pkg/apiauth
+        run: go test ./...
+      # The root module consumes pkg/apiauth as a published version, the same way
+      # operator, node-agent, kubescape, kubevuln and synchronizer do. A local
+      # replace would build here but leave every downstream consumer unresolvable.
+      - name: Root module must not replace pkg/apiauth
+        run: |
+          if grep -Eq '^replace .*storage/pkg/apiauth' go.mod; then
+            echo "go.mod replaces pkg/apiauth with a local path; require a tagged version instead" >&2
+            exit 1
+          fi

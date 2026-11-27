@@ -94,6 +94,17 @@ type IgnoreRule struct {
 	Vulnerability string
 	FixState      string
 	Package       *IgnoreRulePackage
+
+	// SourceKind, SourceName and SourceNamespace identify the object that
+	// caused this suppression (e.g. "SecurityException", its name, and
+	// namespace for a namespaced object).
+	SourceKind      string
+	SourceName      string
+	SourceNamespace string
+	// Justification and ImpactStatement carry the stated reason for the
+	// suppression, in VEX vocabulary.
+	Justification   string
+	ImpactStatement string
 }
 
 type IgnoreRulePackage struct {

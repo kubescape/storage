@@ -68,11 +68,11 @@ func (VulnerabilityManifestSummaryStrategy) WarningsOnCreate(_ context.Context, 
 	return nil
 }
 
-func (VulnerabilityManifestSummaryStrategy) AllowCreateOnUpdate() bool {
+func (VulnerabilityManifestSummaryStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (VulnerabilityManifestSummaryStrategy) AllowUnconditionalUpdate() bool {
+func (VulnerabilityManifestSummaryStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

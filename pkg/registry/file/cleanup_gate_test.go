@@ -1,0 +1,335 @@
+package file
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"zombiezen.com/go/sqlite"
+)
+
+// A writer that updates or re-creates an object between the walk's decision and the
+// delete keeps it: the rows and the payload go only when, under the write gate, the row
+// is still the one the decision was made on.
+func TestCleanupKeepsAnObjectRewrittenAfterTheDecision(t *testing.T) {
+	const kind = "applicationprofiles" // deleteDeprecated: the walk always decides to delete
+	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns", "app"+GobExt)
+	key := payloadPathToKey(path)
+	meta := func(rv string) []byte {
+		return []byte(fmt.Sprintf(`{"name":"app","namespace":"ns","uid":"u1","resourceVersion":%q}`, rv))
+	}
+	run := func(t *testing.T, rewrite bool) (payloadLeft, rowLeft bool) {
+		memFs := afero.NewMemMapFs()
+		require.NoError(t, afero.WriteFile(memFs, path, []byte("payload"), 0644))
+		pool := NewTestPool(t.TempDir())
+		conn, err := pool.Take(context.Background())
+		require.NoError(t, err)
+		defer pool.Put(conn)
+		require.NoError(t, WriteJSON(conn, key, meta("1")))
+		h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+		if rewrite {
+			h.beforeGatedDelete = func(k string) {
+				if k == key {
+					require.NoError(t, WriteJSON(conn, key, meta("2")))
+				}
+			}
+		}
+		require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{}))
+		payloadLeft, _ = afero.Exists(memFs, path)
+		_, err = ReadMetadata(conn, key)
+		return payloadLeft, err == nil
+	}
+
+	payloadLeft, rowLeft := run(t, true)
+	assert.True(t, payloadLeft, "the rewritten object's payload was removed")
+	assert.True(t, rowLeft, "the rewritten object's row was removed")
+
+	payloadLeft, rowLeft = run(t, false)
+	assert.False(t, payloadLeft, "an unchanged object keeps its payload")
+	assert.False(t, rowLeft, "an unchanged object keeps its row")
+}
+
+// listDeleting returns the reserved payload files left in a directory.
+func listDeleting(t *testing.T, fs afero.Fs, dir string) []string {
+	t.Helper()
+	entries, err := afero.ReadDir(fs, dir)
+	require.NoError(t, err)
+	var out []string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), cleanupDeletingSuffix) {
+			out = append(out, e.Name())
+		}
+	}
+	return out
+}
+
+// Once the gate is released, a delete and a create by another writer can put a new
+// payload and a new row at the same path before the removal runs: the removal takes the
+// payload reserved under the gate, never the newcomer.
+func TestCleanupRemovesTheReservedPayloadNotAReplacement(t *testing.T) {
+	const kind = "applicationprofiles"
+	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns", "app"+GobExt)
+	key := payloadPathToKey(path)
+	meta := func(rv string) []byte {
+		return []byte(fmt.Sprintf(`{"name":"app","namespace":"ns","uid":"u%s","resourceVersion":%q}`, rv, rv))
+	}
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, path, []byte("old payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	require.NoError(t, WriteJSON(conn, key, meta("1")))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	h.beforeReservedRemoval = func(k string) {
+		if k == key {
+			require.NoError(t, afero.WriteFile(memFs, path, []byte("new payload"), 0644))
+			require.NoError(t, WriteJSON(conn, key, meta("2")))
+		}
+	}
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{}))
+
+	content, err := afero.ReadFile(memFs, path)
+	require.NoError(t, err, "the replacement payload was removed")
+	assert.Equal(t, "new payload", string(content))
+	row, err := ReadMetadata(conn, key)
+	require.NoError(t, err, "the replacement row was removed")
+	assert.Equal(t, string(meta("2")), string(row))
+	assert.Empty(t, listDeleting(t, memFs, filepath.Dir(path)), "the reserved payload is gone")
+}
+
+// A reserved payload a crash left behind is settled by the next walk: back in place when
+// its row is still there and nothing sits at its path, the rows were never deleted;
+// removed when the row is gone, the deletion went through.
+func TestCleanupSettlesAReservedPayloadLeftByACrash(t *testing.T) {
+	const kind = "applicationprofiles"
+	dir := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns")
+	payload := func(name string) string { return filepath.Join(dir, name+GobExt) }
+	reserved := func(name string) string { return payload(name) + ".0123456789abcdef" + cleanupDeletingSuffix }
+	memFs := afero.NewMemMapFs()
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+
+	// kept: the row exists and the payload path is empty
+	require.NoError(t, afero.WriteFile(memFs, reserved("kept"), []byte("payload"), 0644))
+	require.NoError(t, WriteJSON(conn, payloadPathToKey(payload("kept")), []byte(`{"name":"kept","namespace":"ns","annotations":{"kubescape.io/image-id":"live"}}`)))
+	// gone: no row
+	require.NoError(t, afero.WriteFile(memFs, reserved("gone"), []byte("payload"), 0644))
+
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	keep := func(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool { return false }
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {keep}}, conn, ResourceMaps{}))
+
+	restored, err := afero.ReadFile(memFs, payload("kept"))
+	require.NoError(t, err, "the payload with a live row was not put back")
+	assert.Equal(t, "payload", string(restored))
+	exists, _ := afero.Exists(memFs, payload("gone"))
+	assert.False(t, exists, "a payload without a row must not come back")
+	assert.Empty(t, listDeleting(t, memFs, dir))
+}
+
+// Without a gate, cleanup's recheck and delete run in one BEGIN IMMEDIATE transaction: a
+// writer on another connection that replaces the row and the payload after the recheck
+// waits for the delete to commit, then lands whole on top of it.
+func TestCleanupLeavesAReplacementThatLandsAfterTheRecheck(t *testing.T) {
+	const kind = "applicationprofiles"
+	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns", "app"+GobExt)
+	key := payloadPathToKey(path)
+	meta := func(rv string) []byte {
+		return []byte(fmt.Sprintf(`{"name":"app","namespace":"ns","uid":"u%s","resourceVersion":%q}`, rv, rv))
+	}
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, path, []byte("old payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	writer, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(writer)
+	require.NoError(t, WriteJSON(conn, key, meta("1")))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	replaced := make(chan error, 1)
+	h.afterRecheck = func(k string) {
+		if k != key {
+			return
+		}
+		go func() {
+			// saveObject's order: the row, then the payload
+			if err := WriteJSON(writer, key, meta("2")); err != nil {
+				replaced <- err
+				return
+			}
+			replaced <- afero.WriteFile(memFs, path, []byte("new payload"), 0644)
+		}()
+		select {
+		case err := <-replaced:
+			replaced <- err // for the receive after cleanup
+			t.Errorf("the replacement committed inside cleanup's transaction (err=%v)", err)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{}))
+	require.NoError(t, <-replaced)
+
+	content, err := afero.ReadFile(memFs, path)
+	require.NoError(t, err, "the replacement payload was removed")
+	assert.Equal(t, "new payload", string(content))
+	row, err := ReadMetadata(conn, key)
+	require.NoError(t, err, "the replacement row was removed")
+	assert.Equal(t, string(meta("2")), string(row))
+	assert.Empty(t, listDeleting(t, memFs, filepath.Dir(path)))
+}
+
+// Without a gate, a write to another object committing between cleanup's recheck and its
+// delete must not fail the delete. In a deferred transaction it did, at once and without
+// waiting for the busy timeout: SQLite cannot upgrade a stale read snapshot to a write
+// (SQLITE_BUSY_SNAPSHOT, "database is locked"), and the walk then gave up on the whole run.
+// Busy clusters hit it on almost every run, and finished objects piled up.
+func TestCleanupDeleteSurvivesAnotherWriterAfterTheRecheck(t *testing.T) {
+	const kind = "applicationprofiles"
+	dir := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns")
+	payload := func(name string) string { return filepath.Join(dir, name+GobExt) }
+	meta := func(name string) []byte {
+		return []byte(fmt.Sprintf(`{"name":%q,"namespace":"ns","uid":"u-%s","resourceVersion":"1"}`, name, name))
+	}
+	memFs := afero.NewMemMapFs()
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	for _, name := range []string{"a", "b"} {
+		require.NoError(t, afero.WriteFile(memFs, payload(name), []byte("payload"), 0644))
+		require.NoError(t, WriteJSON(conn, payloadPathToKey(payload(name)), meta(name)))
+	}
+	otherKey := "/spdx.softwarecomposition.kubescape.io/sbomsyfts/other/unrelated"
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	var writes []chan error
+	h.afterRecheck = func(string) {
+		done := make(chan error, 1)
+		writes = append(writes, done)
+		row := meta(fmt.Sprintf("w%d", len(writes)))
+		// its own connection: the previous write may still be waiting on cleanup's lock
+		go func() {
+			writer, err := pool.Take(context.Background())
+			if err != nil {
+				done <- err
+				return
+			}
+			defer pool.Put(writer)
+			done <- WriteJSON(writer, otherKey, row)
+		}()
+		// Give the write the chance to commit before the delete, as it would with a
+		// deferred transaction; with BEGIN IMMEDIATE it waits for cleanup instead.
+		select {
+		case err := <-done:
+			done <- err
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {deleteDeprecated}}, conn, ResourceMaps{}))
+	require.Len(t, writes, 2, "both objects reached the delete")
+	for _, done := range writes {
+		require.NoError(t, <-done, "the other writer")
+	}
+	for _, name := range []string{"a", "b"} {
+		_, err := ReadMetadata(conn, payloadPathToKey(payload(name)))
+		assert.ErrorIs(t, err, ErrMetadataNotFound, "%s was not deleted", name)
+		exists, _ := afero.Exists(memFs, payload(name))
+		assert.False(t, exists, "%s's payload was not removed", name)
+	}
+	assert.Empty(t, listDeleting(t, memFs, dir))
+}
+
+// A replacement that lands at the path between the walk's sighting of a reserved file and
+// its settlement is the live payload: the reserved copy goes and the replacement stays.
+func TestCleanupSettleLeavesAReplacementCreatedBeforeTheRestore(t *testing.T) {
+	const kind = "applicationprofiles"
+	dir := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, kind, "ns")
+	original := filepath.Join(dir, "app"+GobExt)
+	reserved := original + ".0123456789abcdef" + cleanupDeletingSuffix
+	key := payloadPathToKey(original)
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, reserved, []byte("stale payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	require.NoError(t, WriteJSON(conn, key, []byte(`{"name":"app","namespace":"ns","annotations":{"kubescape.io/image-id":"live"}}`)))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+	h.beforeRestore = func(k string) {
+		if k == key {
+			require.NoError(t, afero.WriteFile(memFs, original, []byte("new payload"), 0644))
+		}
+	}
+	keep := func(_, _ string, _ *metav1.ObjectMeta, _ ResourceMaps) bool { return false }
+	require.NoError(t, h.cleanupNamespace(context.Background(), "ns", map[string][]TypeCleanupHandlerFunc{kind: {keep}}, conn, ResourceMaps{}))
+
+	content, err := afero.ReadFile(memFs, original)
+	require.NoError(t, err)
+	assert.Equal(t, "new payload", string(content), "the replacement was clobbered by the stale payload")
+	assert.Empty(t, listDeleting(t, memFs, dir))
+}
+
+func TestRenameUnlessPresent(t *testing.T) {
+	for name, fs := range map[string]afero.Fs{"os": afero.NewOsFs(), "mem": afero.NewMemMapFs()} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if name == "mem" {
+				dir = "/d"
+			}
+			from, to := filepath.Join(dir, "from"), filepath.Join(dir, "to")
+			require.NoError(t, afero.WriteFile(fs, from, []byte("payload"), 0644))
+			require.NoError(t, renameUnlessPresent(fs, from, to))
+			got, err := afero.ReadFile(fs, to)
+			require.NoError(t, err)
+			assert.Equal(t, "payload", string(got))
+			exists, _ := afero.Exists(fs, from)
+			assert.False(t, exists)
+
+			require.NoError(t, afero.WriteFile(fs, from, []byte("stale"), 0644))
+			require.NoError(t, afero.WriteFile(fs, to, []byte("live"), 0644))
+			assert.ErrorIs(t, renameUnlessPresent(fs, from, to), os.ErrExist)
+			got, err = afero.ReadFile(fs, to)
+			require.NoError(t, err)
+			assert.Equal(t, "live", string(got), "a present target is never replaced")
+		})
+	}
+}
+
+// A row that cannot be read (here an interrupted connection) is not a missing row: the
+// walk must not take the no-metadata path, which removes the payload.
+func TestCleanupReadMetadataKeepsThePayloadWhenTheRowCannotBeRead(t *testing.T) {
+	path := filepath.Join(DefaultStorageRoot, softwarecomposition.GroupName, "sbomsyfts", "ns", "app"+GobExt)
+	memFs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(memFs, path, []byte("payload"), 0644))
+	pool := NewTestPool(t.TempDir())
+	conn, err := pool.Take(context.Background())
+	require.NoError(t, err)
+	defer pool.Put(conn)
+	require.NoError(t, WriteJSON(conn, payloadPathToKey(path), []byte(`{"name":"app","namespace":"ns"}`)))
+	h := &ResourcesCleanupHandler{appFs: memFs, pool: pool, root: DefaultStorageRoot, deleteFunc: deleteFile}
+
+	interrupted := make(chan struct{})
+	close(interrupted)
+	conn.SetInterrupt(interrupted)
+	_, _, err = h.readMetadata(context.Background(), conn, path)
+	conn.SetInterrupt(nil)
+	require.Error(t, err)
+	assert.Equal(t, sqlite.ResultInterrupt, sqlite.ErrCode(err).ToPrimary())
+	exists, _ := afero.Exists(memFs, path)
+	assert.True(t, exists, "a payload whose row could not be read was removed")
+	_, err = ReadMetadata(conn, payloadPathToKey(path))
+	assert.NoError(t, err, "the row is still there")
+}

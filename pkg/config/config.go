@@ -2,16 +2,41 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/spf13/viper"
 )
 
+// CustomRestEnabledEnvVar is the single env var that overrides every
+// Custom<Resource>RestEnabled flag at once, for deployments that want one
+// on/off switch for the Phase 4 rest.Storage migration instead of setting
+// 11 individual config.json fields. See LoadConfig.
+const CustomRestEnabledEnvVar = "CUSTOM_REST_ENABLED"
+
 type KindQueueConfig struct {
 	QueueLength   int `mapstructure:"queueLength"`
 	WorkerCount   int `mapstructure:"workerCount"`
 	MaxObjectSize int `mapstructure:"maxObjectSize"`
+}
+
+// MCPConfig configures the read-only MCP endpoint, the mcpservers/mcp connect
+// subresource (see pkg/mcp/endpoint).
+type MCPConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+	// CallTimeout bounds the work of one tool call. The agent gets a TIMEOUT
+	// tool error when it is reached, well before kube-apiserver's 60s cut.
+	CallTimeout time.Duration `mapstructure:"callTimeout"`
+	// MaxResponseBytes caps the text of one tool result.
+	MaxResponseBytes int `mapstructure:"maxResponseBytes"`
+	// MaxRunning, MaxWaiting and MaxWait are the admission limit in front of
+	// storage's global limiter: calls running at once, calls waiting for a
+	// slot, and how long one waits before it gets 429.
+	MaxRunning int           `mapstructure:"maxRunning"`
+	MaxWaiting int           `mapstructure:"maxWaiting"`
+	MaxWait    time.Duration `mapstructure:"maxWait"`
 }
 
 type Config struct {
@@ -21,8 +46,8 @@ type Config struct {
 	DisableVirtualCRDs            bool               `mapstructure:"disableVirtualCRDs"`
 	DisableSeccompProfileEndpoint bool               `mapstructure:"disableSeccompProfileEndpoint"`
 	ExcludeJsonPaths              []string           `mapstructure:"excludeJsonPaths"`
-	MaxApplicationProfileSize     int                `mapstructure:"maxApplicationProfileSize"`
-	MaxNetworkNeighborhoodSize    int                `mapstructure:"maxNetworkNeighborhoodSize"`
+	MCP                           MCPConfig          `mapstructure:"mcp"`
+	MaxContainerProfileSize       int                `mapstructure:"maxContainerProfileSize"`
 	MaxSniffingTime               time.Duration      `mapstructure:"maxSniffingTimePerContainer"`
 	RateLimitPerClient            float64            `mapstructure:"rateLimitPerClient"`
 	RateLimitTotal                int                `mapstructure:"rateLimitTotal"`
@@ -31,6 +56,131 @@ type Config struct {
 	TlsClientCaFile               string             `mapstructure:"tlsClientCaFile"`
 	TlsServerCertFile             string             `mapstructure:"tlsServerCertFile"`
 	TlsServerKeyFile              string             `mapstructure:"tlsServerKeyFile"`
+
+	// InsecureSkipFrontProxyVerification serves requests that did not come
+	// through kube-apiserver's front proxy: anonymous calls, bearer tokens and
+	// client certificates sent straight to the storage Service. With
+	// authorization off, anything that reaches the Service can then read and
+	// write every namespace's data. Only for testing, or clusters where the
+	// front-proxy CA is not available. Defaults to false (verify). See
+	// docs/features/front-proxy-only-authentication.md.
+	InsecureSkipFrontProxyVerification bool `mapstructure:"insecureSkipFrontProxyVerification"`
+
+	// SqlitePoolSize is the capacity of the SQLite connection pool. Defaults
+	// to file.DefaultPoolSize (10) when unset. This is a cheap, reversible
+	// tuning knob for Phase 0 of the storage-locking investigation (see
+	// docs/features/storage-lock-pool-metrics.md) — it does not change any
+	// lock/connection acquisition ordering.
+	SqlitePoolSize int `mapstructure:"sqlitePoolSize"`
+	// SqliteBusyTimeout is the busy-timeout applied to every pooled SQLite
+	// connection. Defaults to file.DefaultBusyTimeout (60s) when unset.
+	SqliteBusyTimeout time.Duration `mapstructure:"sqliteBusyTimeout"`
+	// PoolTimeout bounds how long a caller blocks in pool.Take() waiting for a free
+	// connection from the SQLite connection pool, before failing fast with a
+	// ServerTimeout+Retry-After signal. Defaults to file.DefaultPoolTimeout (15s) when
+	// unset. This is distinct from SqliteBusyTimeout, which governs SQLite's own
+	// internal busy-handler on a single already-acquired connection. See
+	// docs/features/storage-lock-pool-metrics.md.
+	PoolTimeout time.Duration `mapstructure:"poolTimeout"`
+
+	// SingleWriterEnabled gates the single-dedicated-writer + priority-queue
+	// write path (see pkg/registry/file/singlewriter.go). Defaults to true.
+	// When enabled, that path always shards its commit goroutines by key hash
+	// (file.DefaultSingleWriterShards, currently 8) so commits for different
+	// keys run in parallel while commits for the same key stay serialized —
+	// this isn't independently configurable; it's part of what
+	// SingleWriterEnabled turns on.
+	SingleWriterEnabled bool `mapstructure:"singleWriterEnabled"`
+
+	// CustomKnownServersRestEnabled gates the hand-written rest.Storage
+	// implementation for the knownservers resource (see
+	// pkg/registry/softwarecomposition/knownservers/custom_rest.go), built as
+	// Phase 4's first per-resource migration off genericregistry.Store (see
+	// docs/features/generic-rest-storage-phase4.md). Defaults to false: when
+	// unset, pkg/apiserver/apiserver.go registers knownservers via the OLD
+	// genericregistry.Store-based knownservers.NewREST, exactly as before
+	// this flag existed, even though live validation on armo-dev-stage
+	// (2026-08-31) found zero regressions across all 11 Phase 4 resources --
+	// that validation covers one cluster, not every deployment of this
+	// binary, so the code-level default stays conservative. The old
+	// implementation is kept alive as the reference implementation for
+	// differential testing regardless of this flag's value. See
+	// CustomRestEnabledEnvVar for a single env var that opts a deployment
+	// into all 11 flags at once (e.g. for a design-partner test environment)
+	// without changing this default for everyone else.
+	CustomKnownServersRestEnabled bool `mapstructure:"customKnownServersRestEnabled"`
+
+	// CustomOpenVulnerabilityExchangeRestEnabled gates the hand-written
+	// rest.Storage implementation for the openvulnerabilityexchangecontainers
+	// resource (see
+	// pkg/registry/softwarecomposition/openvulnerabilityexchange/custom_rest.go),
+	// built as Phase 4's second per-resource migration off
+	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
+	// Defaults to false, for the same reason as CustomKnownServersRestEnabled
+	// above: when unset, pkg/apiserver/apiserver.go registers
+	// openvulnerabilityexchangecontainers via the OLD genericregistry.Store-based
+	// openvulnerabilityexchange.NewREST. The old implementation is kept alive
+	// as the reference implementation for differential testing regardless of
+	// this flag's value.
+	CustomOpenVulnerabilityExchangeRestEnabled bool `mapstructure:"customOpenVulnerabilityExchangeRestEnabled"`
+
+	// CustomContainerProfileRestEnabled gates the hand-written rest.Storage
+	// implementation for the containerprofiles resource (see
+	// pkg/registry/softwarecomposition/containerprofile/custom_rest.go),
+	// built as Phase 4's third per-resource migration off
+	// genericregistry.Store (see docs/features/generic-rest-storage-phase4.md).
+	// Defaults to false, for the same reason as CustomKnownServersRestEnabled
+	// above: when unset, pkg/apiserver/apiserver.go registers containerprofiles
+	// via the OLD genericregistry.Store-based containerprofile.NewREST. The old
+	// implementation is kept alive as the reference implementation for
+	// differential testing regardless of this flag's value.
+	CustomContainerProfileRestEnabled bool `mapstructure:"customContainerProfileRestEnabled"`
+
+	// ContainerProfileSqliteBackend selects the SQLite-native, fully-ACID
+	// ContainerProfile backend (pkg/registry/file/sqliteobject_*.go: metadata
+	// row + payload BLOB + time_series row in one transaction, one write gate,
+	// background PASSIVE checkpointer) for the containerprofiles resource in
+	// place of the legacy row+gob-file StorageImpl. Defaults to false. When
+	// on, main.go reconciles the existing rows and gob files into the new
+	// schema at every start before serving (file.MigrateContainerProfiles;
+	// legacy files are left in place for rollback), and the legacy
+	// StorageImpl refuses every full-object operation on a containerprofile
+	// key (the kind-ownership guard). See
+	// .omc/plans/full-acid-storage-architecture.md and
+	// docs/features/containerprofile-sqlite-backend.md.
+	ContainerProfileSqliteBackend bool `mapstructure:"containerProfileSqliteBackend"`
+
+	// ContainerProfileMigrationDryRun runs the ContainerProfile data
+	// migration's reconcile at startup in count-only mode — nothing is
+	// written — and logs what a real run would do (§8.3: required before the
+	// backend flag is turned on anywhere). Refused together with
+	// ContainerProfileSqliteBackend: the backend cannot serve unmigrated
+	// rows. Defaults to false.
+	ContainerProfileMigrationDryRun bool `mapstructure:"containerProfileMigrationDryRun"`
+
+	// The following gate the remaining Phase 4 per-resource rest.Storage
+	// migrations off genericregistry.Store (see
+	// docs/features/generic-rest-storage-phase4.md), following the same pattern as
+	// CustomContainerProfileRestEnabled above: each defaults to false, and
+	// the OLD genericregistry.Store-based NewREST for that resource remains
+	// the default and the differential-testing reference regardless of the
+	// flag's value.
+	//
+	// All 11 of these flags can also be set at once via the CUSTOM_REST_ENABLED
+	// env var (see CustomRestEnabledEnvVar/LoadConfig), which -- when set --
+	// overrides every flag below regardless of what config.json says. This is
+	// the intended way to opt a specific deployment (e.g. a design-partner
+	// test environment) into the new REST path without changing the
+	// conservative code-level default for every other deployment of this
+	// binary.
+	CustomCollapseConfigurationRestEnabled            bool `mapstructure:"customCollapseConfigurationRestEnabled"`
+	CustomSBOMSyftFilteredRestEnabled                 bool `mapstructure:"customSBOMSyftFilteredRestEnabled"`
+	CustomSBOMSyftRestEnabled                         bool `mapstructure:"customSBOMSyftRestEnabled"`
+	CustomSeccompProfileRestEnabled                   bool `mapstructure:"customSeccompProfileRestEnabled"`
+	CustomVulnerabilityManifestRestEnabled            bool `mapstructure:"customVulnerabilityManifestRestEnabled"`
+	CustomVulnerabilityManifestSummaryRestEnabled     bool `mapstructure:"customVulnerabilityManifestSummaryRestEnabled"`
+	CustomWorkloadConfigurationScanRestEnabled        bool `mapstructure:"customWorkloadConfigurationScanRestEnabled"`
+	CustomWorkloadConfigurationScanSummaryRestEnabled bool `mapstructure:"customWorkloadConfigurationScanSummaryRestEnabled"`
 
 	// New fields for per-kind queue/worker/object size config
 	KindQueues           map[string]KindQueueConfig `mapstructure:"kindQueues"`
@@ -54,11 +204,38 @@ func LoadConfig(path string) (Config, error) {
 
 	v.SetDefault("cleanupInterval", 24*time.Hour)
 	v.SetDefault("defaultNamespace", "kubescape")
-	v.SetDefault("maxApplicationProfileSize", 40000)
-	v.SetDefault("maxNetworkNeighborhoodSize", 40000)
+	v.SetDefault("maxContainerProfileSize", 40000)
+	v.SetDefault("mcp.enabled", false)
+	v.SetDefault("mcp.callTimeout", 20*time.Second)
+	v.SetDefault("mcp.maxResponseBytes", 256<<10)
+	v.SetDefault("mcp.maxRunning", 1)
+	v.SetDefault("mcp.maxWaiting", 10)
+	v.SetDefault("mcp.maxWait", 30*time.Second)
 	v.SetDefault("rateLimitTotal", 10)
 	v.SetDefault("serverBindAddress", "::")
 	v.SetDefault("serverBindPort", 8443)
+	// The custom rest.Storage implementations are Phase 4 migrations off
+	// genericregistry.Store, live-validated against armo-dev-stage (2026-08-31,
+	// zero regressions across all 11 resources) but still default to false:
+	// that validation covers one cluster, not every deployment of this binary,
+	// so the OLD genericregistry.Store-based implementation stays the default
+	// everywhere until a broader soak justifies flipping it. Set any of these
+	// to true individually, or set CUSTOM_REST_ENABLED to opt a whole
+	// deployment into all 11 at once (see CustomRestEnabledEnvVar).
+	v.SetDefault("customKnownServersRestEnabled", false)
+	v.SetDefault("customOpenVulnerabilityExchangeRestEnabled", false)
+	v.SetDefault("customContainerProfileRestEnabled", false)
+	v.SetDefault("customCollapseConfigurationRestEnabled", false)
+	v.SetDefault("customSBOMSyftFilteredRestEnabled", false)
+	v.SetDefault("customSBOMSyftRestEnabled", false)
+	v.SetDefault("customSeccompProfileRestEnabled", false)
+	v.SetDefault("customVulnerabilityManifestRestEnabled", false)
+	v.SetDefault("customVulnerabilityManifestSummaryRestEnabled", false)
+	v.SetDefault("customWorkloadConfigurationScanRestEnabled", false)
+	v.SetDefault("customWorkloadConfigurationScanSummaryRestEnabled", false)
+	// Prototype backend; off until the migration and the soak say otherwise.
+	v.SetDefault("containerProfileSqliteBackend", false)
+	v.SetDefault("containerProfileMigrationDryRun", false)
 	v.SetDefault("defaultQueueLength", 100)
 	v.SetDefault("defaultWorkerCount", 2)
 	v.SetDefault("defaultMaxObjectSize", 400000)
@@ -66,21 +243,23 @@ func LoadConfig(path string) (Config, error) {
 	v.SetDefault("queueTimeoutPrint", false)
 	v.SetDefault("queueTimeout", 60)
 	v.SetDefault("queueProcessingStatsPrint", false)
+	// Keep in sync with file.DefaultPoolSize / file.DefaultBusyTimeout
+	// (pkg/registry/file/sqlite.go) — these are the values already hardcoded
+	// there today; making them config-driven must be a no-op by default.
+	v.SetDefault("sqlitePoolSize", 10)
+	v.SetDefault("sqliteBusyTimeout", 60*time.Second)
+	// Keep in sync with file.DefaultPoolTimeout (pkg/registry/file/storage.go) — this is
+	// the value already hardcoded there today; making it config-driven must be a no-op
+	// by default.
+	v.SetDefault("poolTimeout", 15*time.Second)
+	// Keep in sync with file.SetSingleWriterEnabled's default (true) — the
+	// single-writer/priority-queue write path is enabled by default.
+	v.SetDefault("singleWriterEnabled", true)
 	v.SetDefault("kindQueues", map[string]KindQueueConfig{
-		"applicationprofiles": {
-			QueueLength:   50,
-			WorkerCount:   1,
-			MaxObjectSize: 20000000,
-		},
 		"containerprofiles": {
 			QueueLength:   50,
 			WorkerCount:   1,
 			MaxObjectSize: 2500000,
-		},
-		"networkneighborhoods": {
-			QueueLength:   50,
-			WorkerCount:   1,
-			MaxObjectSize: 10000000,
 		},
 		"openvulnerabilityexchangecontainers": {
 			QueueLength:   50,
@@ -147,5 +326,56 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, fmt.Errorf("unsupported hostType: %s", config.HostType)
 	}
 
+	if err := applyCustomRestEnabledEnvVar(&config); err != nil {
+		return Config{}, err
+	}
+
+	// MCP calls get their own kind queue. The admission limit already lets at
+	// most mcp.maxRunning calls through at once, so the queue has as many
+	// workers and places, and adds no second limit when mcp.maxRunning is
+	// raised. It is added here and not as a default of kindQueues: a config
+	// file that sets kindQueues replaces that default map as a whole, and the
+	// operator chart's does.
+	if _, ok := config.KindQueues[MCPKindQueue]; !ok {
+		if config.KindQueues == nil {
+			config.KindQueues = map[string]KindQueueConfig{}
+		}
+		running := max(config.MCP.MaxRunning, 1)
+		config.KindQueues[MCPKindQueue] = KindQueueConfig{QueueLength: running, WorkerCount: running, MaxObjectSize: 64 << 10}
+	}
+
 	return config, nil
+}
+
+// MCPKindQueue is the kind queue of MCP calls (mcpservers/mcp).
+const MCPKindQueue = "mcpservers"
+
+// applyCustomRestEnabledEnvVar overrides every Custom<Resource>RestEnabled
+// flag with the CUSTOM_REST_ENABLED env var's value, when set. Unset (empty)
+// leaves every flag exactly as config.json/defaults computed it -- this is a
+// pure override, never a default, so it never masks a config.json parse
+// error and never changes behavior for a deployment that doesn't set it.
+func applyCustomRestEnabledEnvVar(config *Config) error {
+	raw, ok := os.LookupEnv(CustomRestEnabledEnvVar)
+	if !ok || raw == "" {
+		return nil
+	}
+
+	enabled, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fmt.Errorf("invalid %s value %q: %w", CustomRestEnabledEnvVar, raw, err)
+	}
+
+	config.CustomKnownServersRestEnabled = enabled
+	config.CustomOpenVulnerabilityExchangeRestEnabled = enabled
+	config.CustomContainerProfileRestEnabled = enabled
+	config.CustomCollapseConfigurationRestEnabled = enabled
+	config.CustomSBOMSyftFilteredRestEnabled = enabled
+	config.CustomSBOMSyftRestEnabled = enabled
+	config.CustomSeccompProfileRestEnabled = enabled
+	config.CustomVulnerabilityManifestRestEnabled = enabled
+	config.CustomVulnerabilityManifestSummaryRestEnabled = enabled
+	config.CustomWorkloadConfigurationScanRestEnabled = enabled
+	config.CustomWorkloadConfigurationScanSummaryRestEnabled = enabled
+	return nil
 }

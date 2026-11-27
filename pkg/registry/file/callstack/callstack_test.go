@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -1475,5 +1478,71 @@ func TestUnifyCallStacksEdgeCases(t *testing.T) {
 			result := UnifyIdentifiedCallStacks(tc.stacks)
 			tc.validate(t, result)
 		})
+	}
+}
+
+// FrameType is stored with every frame. Unifying the call stacks of a profile,
+// which runs on every save, must keep it rather than reset each frame to 0.
+func TestUnifyIdentifiedCallStacksKeepsFrameType(t *testing.T) {
+	leaf := func(frame types.StackFrame) types.CallStackNode {
+		return types.CallStackNode{Frame: frame}
+	}
+	stacks := []types.IdentifiedCallStack{
+		{CallID: "id1", CallStack: types.CallStack{Root: types.CallStackNode{Children: []types.CallStackNode{{
+			Frame:    types.StackFrame{FileID: "10", Lineno: "1", FrameType: 3},
+			Children: []types.CallStackNode{leaf(types.StackFrame{FileID: "20", Lineno: "2", FrameType: 4})},
+		}}}}},
+		{CallID: "id1", CallStack: types.CallStack{Root: types.CallStackNode{Children: []types.CallStackNode{{
+			Frame:    types.StackFrame{FileID: "10", Lineno: "1", FrameType: 3},
+			Children: []types.CallStackNode{leaf(types.StackFrame{FileID: "30", Lineno: "3", FrameType: 5})},
+		}}}}},
+	}
+
+	result := UnifyIdentifiedCallStacks(stacks)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 unified call stack, got %d", len(result))
+	}
+	var got []types.StackFrame
+	var walk func(node types.CallStackNode)
+	walk = func(node types.CallStackNode) {
+		for _, child := range node.Children {
+			got = append(got, child.Frame)
+			walk(child)
+		}
+	}
+	walk(result[0].CallStack.Root)
+	want := []types.StackFrame{
+		{FileID: "10", Lineno: "1", FrameType: 3},
+		{FileID: "20", Lineno: "2", FrameType: 4},
+		{FileID: "30", Lineno: "3", FrameType: 5},
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("frames after unification = %v, want %v", got, want)
+	}
+}
+
+// The unified call stacks are written into the stored profile, so the same
+// input must always give the same list. An order that follows map iteration
+// makes an unchanged profile look changed every time it is saved again.
+func TestUnifyIdentifiedCallStacksStableOrder(t *testing.T) {
+	var stacks []types.IdentifiedCallStack
+	for _, id := range []types.CallID{"id-e", "id-b", "id-g", "id-a", "id-h", "id-c", "id-f", "id-d"} {
+		stacks = append(stacks, buildCallStack(id, []framePath{{{FileID: "1", Lineno: "1"}, {FileID: "2", Lineno: string(id)}}}))
+	}
+
+	first := UnifyIdentifiedCallStacks(stacks)
+	if !slices.IsSortedFunc(first, func(a, b types.IdentifiedCallStack) int {
+		return strings.Compare(string(a.CallID), string(b.CallID))
+	}) {
+		ids := make([]types.CallID, 0, len(first))
+		for _, s := range first {
+			ids = append(ids, s.CallID)
+		}
+		t.Fatalf("call stacks are not ordered by call ID: %v", ids)
+	}
+	for i := 0; i < 20; i++ {
+		if got := UnifyIdentifiedCallStacks(stacks); !reflect.DeepEqual(first, got) {
+			t.Fatalf("run %d returned a different list than the first run", i+1)
+		}
 	}
 }

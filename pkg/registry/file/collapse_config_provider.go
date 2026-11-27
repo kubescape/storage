@@ -12,7 +12,6 @@ package file
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -71,19 +70,29 @@ func collapseConfigurationKey(name string) string {
 // consulted — applying a CollapseConfiguration manifest would be a
 // no-op (matthyx review on pkg/apiserver/apiserver.go:164, 2026-05-27).
 //
-// The closure serves cached settings for up to collapseSettingsTTL and
-// only then re-reads storage, so edits to the CR take effect within that
-// TTL window rather than on every call. Deflate's own tolerance for
-// eventual consistency (next-deflate correctness is not critical) covers
-// this bounded staleness; if a shorter propagation is ever required,
-// wrap with a watched cache instead.
+// The closure is stale-while-revalidate: the cache is primed synchronously
+// here, at wiring time, and every later call is a single atomic load. A call
+// that finds the cache older than collapseSettingsTTL serves the cached value
+// and starts one background refresh; the call after that sees the new value.
+// Edits to the CR therefore take effect within TTL plus one call, which
+// deflate's tolerance for eventual consistency (next-deflate correctness is
+// not critical) covers; if a shorter propagation is ever required, wrap with
+// a watched cache instead.
+//
+// The refresh must never run on the caller's goroutine. PreSave, the only
+// caller, runs from inside GuaranteedUpdateWithConn -- on the consolidation
+// path inside an open transaction whose connection already holds SQLite's
+// write lock. A refresh there takes a second pool connection, and any
+// statement on it that needs the write lock (get()'s orphan prune when the CR
+// is absent) waits on the lock the caller itself holds, for the whole busy
+// timeout, with every other writer queued behind it.
 func NewCRDCollapseSettingsProvider(s storage.Interface) dynamicpathdetector.CollapseSettingsProvider {
 	if s == nil {
 		return dynamicpathdetector.DefaultCollapseSettings
 	}
 	key := collapseConfigurationKey(DefaultCollapseConfigurationName)
 	var cache atomic.Pointer[cachedCollapseSettings]
-	var mu sync.Mutex // serializes refreshes only; reads are lock-free
+	var refreshing atomic.Bool // at most one background refresh in flight
 	load := func() dynamicpathdetector.CollapseSettings {
 		crd := &softwarecomposition.CollapseConfiguration{}
 		// IgnoreNotFound returns the zero-valued CR with nil error when
@@ -97,17 +106,21 @@ func NewCRDCollapseSettingsProvider(s storage.Interface) dynamicpathdetector.Col
 		}
 		return dynamicpathdetector.CollapseSettingsFromCRD(crd)
 	}
+	ttl := collapseSettingsTTL // captured once: the background refresh must not read the package var
+	refresh := func() {
+		cache.Store(&cachedCollapseSettings{settings: load(), expiresAt: time.Now().Add(ttl)})
+	}
+	// Priming here is safe: the wiring goroutine holds no SQLite transaction,
+	// so this read cannot wait on itself.
+	refresh()
 	return func() dynamicpathdetector.CollapseSettings {
-		if c := cache.Load(); c != nil && time.Now().Before(c.expiresAt) {
-			return c.settings
+		c := cache.Load()
+		if !time.Now().Before(c.expiresAt) && refreshing.CompareAndSwap(false, true) {
+			go func() {
+				defer refreshing.Store(false)
+				refresh()
+			}()
 		}
-		mu.Lock()
-		defer mu.Unlock()
-		if c := cache.Load(); c != nil && time.Now().Before(c.expiresAt) { // re-check under lock
-			return c.settings
-		}
-		settings := load()
-		cache.Store(&cachedCollapseSettings{settings: settings, expiresAt: time.Now().Add(collapseSettingsTTL)})
-		return settings
+		return c.settings
 	}
 }

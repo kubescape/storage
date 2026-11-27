@@ -1,0 +1,1394 @@
+package file
+
+// Sharded-writer + priority-queue write path (spike/single-writer-priority-queue).
+//
+// This file implements the design described in the spike task: split every
+// write into a "prepare" phase (PreSave, resourceVersion bump, checksum,
+// ManagedFields zeroing, gob-encode -- everything saveObject does before its
+// SQLite/rename commit) that runs fully in the caller's own goroutine with NO
+// per-key lock held, and a "commit" phase (re-read the current
+// resourceVersion, compare against what prepare computed against, and either
+// write or reject with a retryable conflict) that is submitted as a job to a
+// dedicated writer goroutine, arbitrated by a two-lane (high/low) priority
+// queue.
+//
+// Commit jobs are routed to one of singleWriterShards writer goroutines per
+// StorageImpl by hashing the job's key, so every commit for a given key always
+// lands on the same goroutine while commits for different keys can proceed in
+// parallel. The original design used exactly one writer goroutine for ALL
+// keys; that collapsed the write path from the legacy per-key-lock path's
+// ~SqlitePoolSize-way concurrency down to strictly 1-way, a measured
+// throughput regression (see docs/features/single-writer-priority-queue.md).
+// See singleWriter's doc comment for why sharding preserves every correctness
+// property the one-goroutine design relied on.
+//
+// It is gated end-to-end behind singleWriterEnabled (default true, see
+// SetSingleWriterEnabled / config.Config.SingleWriterEnabled): when disabled,
+// none of this file's code runs and Create/GuaranteedUpdate/SaveContainerProfile
+// behave exactly as they did before this file existed.
+//
+// Deliberately NOT touched by this file: Delete (stays on the existing
+// utils.MapMutex path), migrateObject/appendGobObjectFromFile (the RC3
+// migration-exec path), and Get/GetList (stay on their existing read path).
+// See the spike report (delivered alongside this branch) for the specific
+// correctness questions this design raises and how each is resolved or
+// flagged as an open risk -- in particular the Get/GetList torn-read question
+// and the Delete-vs-single-writer race, both discussed at commit's per-key
+// lock usage below.
+//
+// prepareSingleWriterPayload deliberately duplicates saveObject's pre-encode
+// mutation pipeline (storage.go's saveObject, lines ~271-330) rather than
+// refactoring saveObject to share it. This is a considered choice: sharing
+// code here would mean any change made for the new path's sake (e.g. the
+// unique temp-file name) risks altering saveObject's behavior for the
+// singleWriterEnabled=false path, which must stay byte-for-byte identical to
+// today. Duplication costs ~30 lines and one place where the two copies could
+// drift; that is judged cheaper than the risk of an accidental behavior
+// change to the extensively-tested existing path.
+
+import (
+	"context"
+	"encoding/gob"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"reflect"
+	"runtime/debug"
+	"strconv"
+	"sync/atomic"
+	"time"
+
+	"github.com/kubescape/go-logger"
+	"github.com/kubescape/go-logger/helpers"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
+	"github.com/kubescape/storage/pkg/metrics"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/storage"
+	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
+)
+
+// singleWriterEnabled gates the entire single-writer write path. On by
+// default. Package-level var (not const), for the same test-overridability
+// reason as lockTimeout/poolTimeout (see SetPoolTimeout's doc comment):
+// tests flip it directly (with a defer to restore), and SetSingleWriterEnabled
+// is the production entry point, called once at startup from
+// config.Config.SingleWriterEnabled (see main.go), mirroring SetPoolTimeout.
+var singleWriterEnabled = true
+
+// SetSingleWriterEnabled toggles the single-writer write path. Since the flag
+// is read at call time (not baked into a StorageImpl at construction), this
+// affects every StorageImpl immediately, including ones already constructed.
+func SetSingleWriterEnabled(enabled bool) {
+	singleWriterEnabled = enabled
+}
+
+// DefaultSingleWriterShards is the fixed shard count a singleWriter runs
+// whenever singleWriterEnabled is true. Not independently configurable: it's
+// part of what enabling the single-writer path means, not a separate knob —
+// see config.Config.SingleWriterEnabled.
+//
+// 8 is chosen to sit under DefaultPoolSize (10, see sqlite.go): each shard's
+// commit briefly holds one pool connection, so a shard count above the pool
+// size just moves the queue from the writer channels into pool.Take.
+const DefaultSingleWriterShards = 8
+
+// singleWriterShards is how many writer goroutines a singleWriter runs, each
+// owning the keys that hash to it. Package-level var (not const), purely for
+// test-overridability (tests flip it directly, with a defer to restore,
+// mirroring enableSingleWriter's pattern) — there is no production setter;
+// it is always DefaultSingleWriterShards outside tests.
+//
+// Unlike singleWriterEnabled, this is read once per StorageImpl, when its
+// singleWriter is constructed (see ensureWriter's sync.Once): the shard
+// goroutines and their channels are built at that point and never resized.
+var singleWriterShards = DefaultSingleWriterShards
+
+// writePriority selects a commitJob's lane in the single writer's two-lane
+// priority queue.
+type writePriority int
+
+const (
+	priorityLow writePriority = iota
+	priorityHigh
+)
+
+// label returns the metrics package's priority label value (metrics.PriorityHigh
+// / metrics.PriorityLow) for this writePriority, for use in the single-writer
+// queue-wait/commit/queue-depth metrics.
+func (p writePriority) label() string {
+	if p == priorityHigh {
+		return metrics.PriorityHigh
+	}
+	return metrics.PriorityLow
+}
+
+// errWriteConflict is returned by the single writer when the resourceVersion
+// re-read at commit time no longer matches the resourceVersion the prepare
+// phase computed its candidate against -- i.e. some other write committed to
+// this key in between. The caller must redo the full prepare phase against a
+// fresh read and resubmit; see guaranteedUpdateSingleWriter's retry loop.
+var errWriteConflict = errors.New("single-writer: resourceVersion conflict at commit")
+
+// errCommitPanic wraps a panic that escaped commit() and was recovered by the
+// shard goroutine (see process). The job did not commit; whether its side
+// effects before the panic landed is unknown to the caller.
+var errCommitPanic = errors.New("single-writer: panic in commit")
+
+// singleWriterConflictBackoff waits a small, capped, jittered delay before a
+// GuaranteedUpdate conflict-retry, so many goroutines contending on the same
+// key don't all redo their prepare phase in lockstep (see the call site's
+// comment). Capped exponential backoff, base 1ms, doubling per attempt up to
+// 64ms, plus up to 50% jitter. Returns ctx.Err() if ctx is done first.
+func singleWriterConflictBackoff(ctx context.Context, attempt int) error {
+	base := time.Duration(1<<uint(min(attempt, 6))) * time.Millisecond
+	d := base + time.Duration(rand.Int63n(int64(base)/2+1))
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// commitJob is one fully-prepared write (PreSave already run, resourceVersion
+// already bumped, payload already gob-encoded to a uniquely-named temp file)
+// waiting for the single writer goroutine to commit it.
+type commitJob struct {
+	ctx context.Context
+	key string
+
+	// create is true for Create semantics (the key must not already exist at
+	// commit time); false for GuaranteedUpdate semantics (the key must
+	// currently be at exactly baseRV).
+	create bool
+	baseRV uint64
+
+	// realignMetadata lets an update commit go ahead when the metadata row's
+	// resourceVersion differs from baseRV, provided the row is still at
+	// metadataRV and the payload on disk is still at baseRV (both checked
+	// under the key lock): the row is stale, not the caller. Set only after a
+	// conflict that left the payload unchanged; see
+	// guaranteedUpdateSingleWriter, which also prepares newObj above both
+	// versions so the repair never lowers the resourceVersion.
+	realignMetadata bool
+	metadataRV      uint64
+
+	// newObj is the fully-prepared candidate object (post PreSave, post
+	// resourceVersion bump/ManagedFields zeroing/checksum -- everything
+	// saveObject does before its own encode). newObjFactory returns a zero
+	// value of the same concrete type, for decoding the row currently in
+	// SQLite at commit time.
+	newObj        runtime.Object
+	newObjFactory func() runtime.Object
+
+	tmpPayloadPath   string
+	finalPayloadPath string
+
+	// resultCh is buffered (capacity 1) so the writer goroutine's send in
+	// process() never blocks, even if the submitting caller has already given
+	// up (ctx done) and nobody will ever receive it.
+	resultCh chan commitResult
+
+	// priority is the lane this job was submitted on (set by submit(), before
+	// the send into the channel), used by process()/commit() to label the
+	// queue-wait and commit-outcome metrics.
+	priority writePriority
+
+	// enqueuedAt is set by submit() immediately before the job is sent into
+	// its lane's channel, so process() can compute how long the job waited in
+	// queue once the writer goroutine picks it up.
+	enqueuedAt time.Time
+
+	// custom, if non-nil, means this job is not a Create/GuaranteedUpdate
+	// commit: commit() acquires the pool connection and per-key lock exactly
+	// as it always does, then calls custom(conn) instead of running the
+	// compare-and-commit logic, and skips the tmpPayloadPath cleanup that
+	// only applies to a prepared create/update payload. See runOnShard.
+	custom func(conn *sqlite.Conn) error
+}
+
+type commitResult struct {
+	err      error
+	metadata runtime.Object
+}
+
+// writerShard is one commit goroutine and the two priority lanes feeding it.
+// A shard owns every key that hashes to it (see shardIndexFor); no other
+// goroutine ever commits those keys.
+type writerShard struct {
+	high chan *commitJob
+	low  chan *commitJob
+}
+
+// singleWriter serializes every prepared Create/GuaranteedUpdate write for one
+// StorageImpl per key, by routing each commit job to one of len(shards) writer
+// goroutines by key hash. Each shard is arbitrated by its own two-lane
+// (high/low) priority queue: REST-originated writes (priorityHigh) are
+// preferred over consolidation/background writes (priorityLow), with a bounded
+// fairness override (highBurstLimit) so a sustained stream of high-priority
+// jobs cannot starve a queued low-priority job forever.
+//
+// Because shardIndexFor is a pure function of the key, every commit for a
+// given key runs on exactly one goroutine, in submission order. That is the
+// property the compare-and-commit relies on (re-read the current
+// resourceVersion, write only if it still matches baseRV): it needs no
+// additional locking to be race-free against other writers *on the same key*,
+// and there are no such other writers once singleWriterEnabled routes all
+// Create/GuaranteedUpdate/SaveContainerProfile traffic through here. Writers
+// on *different* keys were never something the compare-and-commit had to be
+// serialized against — they touch disjoint metadata rows and disjoint payload
+// files — so running them concurrently on different shards preserves
+// no-lost-updates, torn-read prevention, and delete-race conflict detection
+// exactly as the original one-goroutine-for-all-keys design did.
+//
+// What sharding does weaken, deliberately: highBurstLimit's fairness
+// arbitration is now per-shard rather than global. A high-priority job only
+// overtakes low-priority jobs that hash to its own shard. This is an accepted
+// trade — jobs in different shards do not compete for the same goroutine's
+// time in the first place, so there is nothing for a priority to arbitrate
+// between them; only same-shard cross-priority contention is affected, and
+// within a shard the guarantee is unchanged.
+//
+// commit still acquires the existing per-key utils.MapMutex (s.locks) around
+// the actual disk mutation, so that Get/GetList (unmodified, still
+// lock-based readers) and Delete (unmodified, still lock-based) cannot
+// observe a torn write or race the filesystem/SQLite mutation -- see commit's
+// doc comment for why this does not reintroduce RC1, and the spike report for
+// the residual gap this does NOT close (a Delete that lands after this job's
+// own prepare phase read its base state, but before commit acquires the
+// lock, is not detected as a conflict by a Create job, only by an Update
+// job -- see Q3 in the spike report).
+type singleWriter struct {
+	s      *StorageImpl
+	shards []*writerShard
+
+	tmpSeq uint64
+}
+
+// highBurstLimit bounds how many consecutive high-priority commits a shard
+// will service while at least one low-priority job is waiting on that shard,
+// before forcing a low-priority commit through instead. This is the concrete
+// answer to "can queued low-priority (consolidation) jobs be starved
+// indefinitely by a sustained stream of high-priority (REST) jobs": no --
+// bounded to at most highBurstLimit consecutive high-priority commits,
+// provided a low-priority job is actually queued on the same shard during that
+// window (see run's loop).
+const highBurstLimit = 32
+
+func newSingleWriter(s *StorageImpl) *singleWriter {
+	n := singleWriterShards
+	if n <= 0 {
+		n = DefaultSingleWriterShards
+	}
+	w := &singleWriter{
+		s:      s,
+		shards: make([]*writerShard, n),
+	}
+	for i := range w.shards {
+		shard := &writerShard{
+			high: make(chan *commitJob, 256),
+			low:  make(chan *commitJob, 256),
+		}
+		w.shards[i] = shard
+		go w.run(shard)
+	}
+	return w
+}
+
+// shardIndexFor maps a key to a shard index with FNV-1a, inlined over the
+// key's bytes so it neither allocates nor escapes the string. It must stay a
+// pure function of (key, shards): the whole per-key serialization guarantee
+// rests on the same key always resolving to the same shard for the lifetime of
+// the process.
+func shardIndexFor(key string, shards int) int {
+	const (
+		offset32 = uint32(2166136261)
+		prime32  = uint32(16777619)
+	)
+	h := offset32
+	for i := 0; i < len(key); i++ {
+		h ^= uint32(key[i])
+		h *= prime32
+	}
+	return int(h % uint32(shards))
+}
+
+func (w *singleWriter) shardFor(key string) *writerShard {
+	return w.shards[shardIndexFor(key, len(w.shards))]
+}
+
+// queueDepth totals one lane's queued jobs across every shard. The
+// storage_single_writer_queue_depth gauge is a single per-priority series, so
+// reporting a single shard's own len() would make it flap between shards;
+// the sum is what an operator actually wants to see (total work queued behind
+// the write path).
+func (w *singleWriter) queueDepth(priority writePriority) int {
+	total := 0
+	for _, shard := range w.shards {
+		if priority == priorityHigh {
+			total += len(shard.high)
+		} else {
+			total += len(shard.low)
+		}
+	}
+	return total
+}
+
+// nextTempPath returns a temp payload path that is unique across concurrent
+// prepare phases on any shard (tmpSeq lives on the router, shared by all of
+// them), including concurrent retries of the same key -- unlike
+// saveObject's deterministic temporary path (storage.go), which is only safe
+// because the per-key lock serializes same-key writers, a guarantee prepare
+// no longer has in this design.
+func (w *singleWriter) nextTempPath(finalPayloadPath string) string {
+	n := atomic.AddUint64(&w.tmpSeq, 1)
+	return makeTempPayloadPath(finalPayloadPath, fmt.Sprintf(".t.%d.%d", time.Now().UnixNano(), n))
+}
+
+// run is one shard's writer goroutine main loop. See highBurstLimit's doc
+// comment for the (per-shard) fairness guarantee this implements.
+func (w *singleWriter) run(shard *writerShard) {
+	var highStreak int
+	for {
+		if highStreak < highBurstLimit {
+			select {
+			case job := <-shard.high:
+				metrics.SetSingleWriterQueueDepth(metrics.PriorityHigh, w.queueDepth(priorityHigh))
+				w.process(job)
+				highStreak++
+				continue
+			default:
+			}
+		}
+		// Either the burst limit was hit, or high was empty: prefer a
+		// waiting low job if there is one, without blocking.
+		select {
+		case job := <-shard.low:
+			metrics.SetSingleWriterQueueDepth(metrics.PriorityLow, w.queueDepth(priorityLow))
+			w.process(job)
+			highStreak = 0
+			continue
+		default:
+		}
+		// Nothing ready non-blocking on either lane's preferred order: block
+		// on whichever arrives first.
+		select {
+		case job := <-shard.high:
+			metrics.SetSingleWriterQueueDepth(metrics.PriorityHigh, w.queueDepth(priorityHigh))
+			w.process(job)
+			highStreak++
+		case job := <-shard.low:
+			metrics.SetSingleWriterQueueDepth(metrics.PriorityLow, w.queueDepth(priorityLow))
+			w.process(job)
+			highStreak = 0
+		}
+	}
+}
+
+// process runs one job and delivers its result. A panic that escapes commit()
+// -- sqlitex.Save's release panics on a failed ROLLBACK TO/RELEASE, from
+// commit()'s own frame, outside callGuarded's reach -- is recovered here so
+// the shard goroutine (and with it the process) survives: the caller gets an
+// errCommitPanic result instead of waiting forever, the outcome is counted
+// under CommitOutcomePanic, and the stack is logged. The connection is not
+// touched here: putChecked already disposed of it one frame down, during the
+// unwind, and conn is out of scope.
+func (w *singleWriter) process(job *commitJob) {
+	metrics.ObserveSingleWriterQueueWait(resourceFromKey(job.key), job.priority.label(), time.Since(job.enqueuedAt))
+	var res commitResult
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				metrics.IncSingleWriterCommit(resourceFromKey(job.key), job.priority.label(), metrics.CommitOutcomePanic)
+				logger.L().Error("single-writer: panic in commit recovered, shard continues",
+					helpers.String("key", job.key),
+					helpers.String("panic", fmt.Sprint(r)),
+					helpers.String("stack", string(debug.Stack())))
+				res = commitResult{err: fmt.Errorf("%w: %v", errCommitPanic, r)}
+			}
+		}()
+		res = w.commit(job)
+	}()
+	select {
+	case job.resultCh <- res:
+	default:
+	}
+}
+
+// submit enqueues job on the requested lane of the shard owning job.key, and
+// blocks until that shard's writer
+// processes it or ctx is done. If ctx is done after the job was already
+// enqueued, the job is still processed eventually by the writer (it never
+// blocks trying to deliver a result nobody is waiting for); the result is
+// simply discarded here. This bounds submit's own wait by the caller's
+// context, consistent with how poolContext/lockTimeout bound every other
+// contention point in this package -- see the spike report's Q5 discussion.
+func (w *singleWriter) submit(ctx context.Context, job *commitJob, priority writePriority) (commitResult, error) {
+	shard := w.shardFor(job.key)
+	ch := shard.low
+	if priority == priorityHigh {
+		ch = shard.high
+	}
+	job.priority = priority
+	job.enqueuedAt = time.Now()
+	select {
+	case ch <- job:
+		metrics.SetSingleWriterQueueDepth(priority.label(), w.queueDepth(priority))
+	case <-ctx.Done():
+		return commitResult{}, ctx.Err()
+	}
+	select {
+	case res := <-job.resultCh:
+		return res, nil
+	case <-ctx.Done():
+		return commitResult{}, ctx.Err()
+	}
+}
+
+func commitOpName(job *commitJob) string {
+	if job.create {
+		return "create"
+	}
+	return "update"
+}
+
+// commit performs the actual disk mutation for one prepared job: acquire the
+// per-key lock, acquire a pool connection, re-read the current
+// resourceVersion, and either write (if it still matches what the prepare
+// phase computed against) or reject with errWriteConflict / KeyExistsError.
+//
+// Connection-then-lock ordering is used here: commits are structurally
+// bounded to at most one pool connection per shard (a shard goroutine never
+// runs concurrently with itself), i.e. at most len(w.shards) in total --
+// which is why the shard count should stay at or below the pool size, see
+// DefaultSingleWriterShards. Acquiring the connection first avoids holding
+// the per-key lock across pool.Take waits (which would block readers of that key
+// for up to poolTimeout) and prevents lock-order inversion deadlocks against
+// callers like WithConnection that hold a connection and request an RLock.
+func (w *singleWriter) commit(job *commitJob) commitResult {
+	s := w.s
+	if s.gate != nil {
+		return w.commitGated(job)
+	}
+	kind := resourceFromKey(job.key)
+	priority := job.priority.label()
+
+	// NOTE: poolCancel is deferred (not called immediately after Take) and so
+	// stays alive for as long as conn is in use. The zombiezen/modernc driver
+	// ties a checked-out connection's interrupt to the context it was taken
+	// with; cancelling that context right after Take (before actually using
+	// the connection) marks every subsequent statement on it "interrupted".
+	poolCtx, poolCancel := poolContext()
+	defer poolCancel()
+	beforePool := time.Now()
+	conn, err := s.pool.Take(poolCtx)
+	if err != nil {
+		metrics.ObservePoolWait(kind, metrics.OutcomeTimeout, time.Since(beforePool))
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, err)}
+	}
+	metrics.ObservePoolWait(kind, metrics.OutcomeAcquired, time.Since(beforePool))
+	// A closure, not `defer w.putChecked(conn, committed, job)`: the latter
+	// would evaluate committed at registration (always false) and remove the
+	// renamed payload after every successful commit.
+	committed := false
+	defer func() { w.putChecked(conn, committed, job) }()
+
+	lockCtx, lockCancel := context.WithTimeout(job.ctx, lockTimeout)
+	beforeLock := time.Now()
+	lockErr := s.locks.Lock(lockCtx, job.key)
+	lockCancel()
+	lockDuration := time.Since(beforeLock)
+	if lockErr != nil {
+		metrics.ObserveLockWait(kind, metrics.OutcomeTimeout, lockDuration)
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, lockErr)}
+	}
+	metrics.ObserveLockWait(kind, metrics.OutcomeAcquired, lockDuration)
+	defer s.locks.Unlock(job.key)
+
+	if job.custom != nil {
+		// Background work that doesn't fit the create/update compare-and-commit
+		// shape (see runOnShard): it already has its pool connection and
+		// per-key lock (both acquired above, same as any other job on this
+		// shard), so it cannot race a live commit for SQLite's lock.
+		// Everything past this point is create/update-specific and does not
+		// apply.
+		if err := callGuarded("custom", conn, job.custom); err != nil {
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+			return commitResult{err: err}
+		}
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
+		return commitResult{}
+	}
+
+	// The realignment's payload check runs before the row read, as in
+	// commitGated: a cleanup that removes the key in between removes the row
+	// first, so the read below sees it gone and the commit conflicts. The
+	// repair then leaves no wider window between the row read and the write
+	// than any other ungated commit has.
+	payloadAtBase := job.realignMetadata && !job.create && job.baseRV != 0 && s.payloadAtResourceVersion(job)
+
+	currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
+	if err != nil {
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+		return commitResult{err: fmt.Errorf("read current resourceVersion: %w", err)}
+	}
+
+	if job.create {
+		if exists {
+			_ = s.appFs.Remove(job.tmpPayloadPath)
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
+			return commitResult{err: storage.NewKeyExistsError(job.key, 0)}
+		}
+	} else if job.baseRV != 0 {
+		if !exists || (currentRV != job.baseRV && !staleMetadataRow(job, currentRV, payloadAtBase)) {
+			_ = s.appFs.Remove(job.tmpPayloadPath)
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeConflict)
+			return commitResult{err: errWriteConflict}
+		}
+	}
+	// job.baseRV == 0 and !job.create: origState was read with
+	// ignoreNotFound=true against a missing key (getCurrentState/s.get
+	// returns a zero object + nil error, not an error, in that case -- see
+	// StorageImpl.get), which is a supported upsert on the legacy saveObject
+	// path: it writes unconditionally, whether the key is still missing
+	// (this commit effectively creates it) or was created by someone else in
+	// the meantime (last write wins, matching the legacy path's behavior).
+	// Treating baseRV==0 as "must not exist" here would make every such
+	// call -- e.g. SaveContainerProfile's very first write for a key --
+	// conflict forever, since there is no resourceVersion it could ever
+	// match.
+
+	metadata := extractFields(job.newObj, []string{"ObjectMeta", "SchemaVersion"})
+
+	writeMeta := s.writeMetadataFn
+	if writeMeta == nil {
+		writeMeta = writeMetadata
+	}
+	renamePayload := s.renamePayloadFn
+	if renamePayload == nil {
+		renamePayload = s.appFs.Rename
+	}
+
+	observeStmt("Save:commit")
+	release := sqlitex.Save(conn)
+	err = func() error {
+		if werr := writeMeta(conn, job.key, metadata); werr != nil {
+			return fmt.Errorf("write metadata: %w", werr)
+		}
+		if rerr := renamePayload(job.tmpPayloadPath, job.finalPayloadPath); rerr != nil {
+			return fmt.Errorf("rename payload into place: %w", rerr)
+		}
+		return nil
+	}()
+	release(&err)
+	if err != nil {
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+		return commitResult{err: err}
+	}
+	committed = true
+
+	metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
+	return commitResult{metadata: metadata}
+}
+
+// commitGated is commit under the shared write gate (W1 of write-gate-sharing
+// §3.2): the shard takes no pool connection at all — Lock(key), then one gate
+// ticket on the submitter's ctx, then on the gate's connection the CAS read,
+// the INSERT OR REPLACE and the payload rename, inside one BEGIN IMMEDIATE …
+// COMMIT. The CAS is thereby atomic against every writer, not only the
+// Lock(key)-respecting ones (it closes the cleanup-vs-shard race of §1.2).
+// The gate's own accounting counts the commit outcome by kind and priority.
+//
+// Two shapes, deliberately: with no gate the CAS read stays an autocommit
+// SELECT before the savepoint (moving it inside a deferred SAVEPOINT would
+// turn the write into a read-to-write lock upgrade, SQLITE_BUSY_SNAPSHOT
+// territory, and change the statement golden); under BEGIN IMMEDIATE the
+// lock is already held, so the read joins the transaction.
+func (w *singleWriter) commitGated(job *commitJob) commitResult {
+	s := w.s
+	kind := resourceFromKey(job.key)
+	priority := job.priority.label()
+
+	lockCtx, lockCancel := context.WithTimeout(job.ctx, lockTimeout)
+	beforeLock := time.Now()
+	lockErr := s.locks.Lock(lockCtx, job.key)
+	lockCancel()
+	lockDuration := time.Since(beforeLock)
+	if lockErr != nil {
+		metrics.ObserveLockWait(kind, metrics.OutcomeTimeout, lockDuration)
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+		return commitResult{err: newContentionTimeoutError(commitOpName(job), job.key, lockErr)}
+	}
+	metrics.ObserveLockWait(kind, metrics.OutcomeAcquired, lockDuration)
+	defer s.locks.Unlock(job.key)
+
+	if job.custom != nil {
+		// Lane 0's runOnShard leaf (CP-only, unreachable under the flag): the
+		// leaf gates its own statements, so it runs with no connection.
+		if err := callGuarded("custom", nil, job.custom); err != nil {
+			metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeError)
+			return commitResult{err: err}
+		}
+		metrics.IncSingleWriterCommit(kind, priority, metrics.CommitOutcomeCommitted)
+		return commitResult{}
+	}
+
+	metadata := extractFields(job.newObj, []string{"ObjectMeta", "SchemaVersion"})
+	writeMeta := s.writeMetadataFn
+	if writeMeta == nil {
+		writeMeta = writeMetadata
+	}
+	renamePayload := s.renamePayloadFn
+	if renamePayload == nil {
+		renamePayload = s.appFs.Rename
+	}
+
+	// The payload check decodes gob, which a gated fn must not do (INV-1'),
+	// so it runs here, under the key lock that every payload rename also
+	// holds: the payload cannot move before the gated CAS below.
+	payloadAtBase := job.realignMetadata && !job.create && job.baseRV != 0 && s.payloadAtResourceVersion(job)
+
+	err := s.write(job.ctx, nil, job.priority, holdPathLegacyCommit, kind, true, func(_ context.Context, conn *sqlite.Conn) error {
+		currentRV, exists, err := readCurrentResourceVersion(conn, job.key, job.newObjFactory, s.versioner)
+		if err != nil {
+			return fmt.Errorf("read current resourceVersion: %w", err)
+		}
+		if job.create {
+			if exists {
+				return storage.NewKeyExistsError(job.key, 0)
+			}
+		} else if job.baseRV != 0 && (!exists || currentRV != job.baseRV) {
+			if !exists || !payloadAtBase || currentRV != job.metadataRV {
+				return errWriteConflict
+			}
+			logStaleMetadataRealigned(job, currentRV)
+		}
+		if werr := writeMeta(conn, job.key, metadata); werr != nil {
+			return fmt.Errorf("write metadata: %w", werr)
+		}
+		renameStart := time.Now()
+		if rerr := renamePayload(job.tmpPayloadPath, job.finalPayloadPath); rerr != nil {
+			return fmt.Errorf("rename payload into place: %w", rerr)
+		}
+		metrics.ObserveSqliteWriteHoldStep(holdPathLegacyCommit, "rename", time.Since(renameStart))
+		return nil
+	})
+	if err != nil {
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+		return commitResult{err: err}
+	}
+	return commitResult{metadata: metadata}
+}
+
+// putChecked returns the shard's pool connection, on every exit from commit()
+// including a panic unwind, and owns the whole decision of whether it can be
+// reused: it must run inside commit()'s frame, where conn is in scope, because
+// Go unwinds commit()'s defers before process()'s recover sees anything.
+//
+// release(&err) in commit() is deliberately called, not deferred, so a panic
+// in writeMeta/renamePayload skips it and leaves the SAVEPOINT open; Pool.Put
+// checks stepped statements only (CheckReset) and would hand that connection
+// to the next caller with a live transaction. The cleanliness test is
+// therefore AutocommitEnabled plus CheckReset. A dirty connection is rolled
+// back and reset before reuse; one that stays dirty is dropped (Put(nil) is a
+// documented no-op) rather than returned, so Put can never panic during an
+// unwind and replace the panic being reported.
+//
+// No recover() here: a deferred function of the panicking frame that calls
+// recover stops the panic, which process() must still observe and count.
+// connIsClean and tryRollback each contain their own.
+func (w *singleWriter) putChecked(conn *sqlite.Conn, committed bool, job *commitJob) {
+	s := w.s
+	if conn == nil {
+		return
+	}
+	if !committed && job.tmpPayloadPath != "" {
+		_ = s.appFs.Remove(job.tmpPayloadPath)
+	}
+	if !connIsClean(conn) {
+		metrics.IncSingleWriterDirtyConnection()
+		if !tryRollback(conn) {
+			metrics.IncSingleWriterDroppedConnection()
+			logger.L().Error("single-writer: dropping a pool connection that could not be rolled back; the pool is one connection smaller",
+				helpers.String("key", job.key),
+				helpers.String("activeStatement", conn.CheckReset()))
+			s.pool.Put(nil)
+			return
+		}
+		logger.L().Warning("single-writer: rolled back a dirty pool connection before reuse", helpers.String("key", job.key))
+	}
+	s.pool.Put(conn)
+}
+
+// connIsClean reports whether conn can go back to the pool: autocommit on (no
+// open transaction or savepoint) and no statement mid-step.
+func connIsClean(conn *sqlite.Conn) (clean bool) {
+	defer func() {
+		if recover() != nil {
+			clean = false
+		}
+	}()
+	return conn.AutocommitEnabled() && conn.CheckReset() == ""
+}
+
+// tryRollback ends any open transaction and resets any stepped cached
+// statement (Prepare on a cached query resets it), then reports whether conn
+// is clean. The interrupt is cleared first, as sqlitex's own release path
+// does, so an interrupted connection can still be rolled back.
+func tryRollback(conn *sqlite.Conn) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	oldDoneCh := conn.SetInterrupt(nil)
+	defer conn.SetInterrupt(oldDoneCh)
+	if !conn.AutocommitEnabled() {
+		if err := sqlitex.Execute(conn, "ROLLBACK;", nil); err != nil {
+			logger.L().Error("single-writer: ROLLBACK on a dirty pool connection failed", helpers.Error(err))
+		}
+	}
+	for query := conn.CheckReset(); query != ""; query = conn.CheckReset() {
+		if _, err := conn.Prepare(query); err != nil {
+			logger.L().Error("single-writer: resetting a stepped statement on a dirty pool connection failed", helpers.Error(err))
+			return false
+		}
+	}
+	return connIsClean(conn)
+}
+
+// callGuarded runs caller-supplied code on the shard's connection and turns a
+// panic in it into an error for that caller, so one bad closure fails its own
+// job instead of unwinding the shard goroutine. Only fn's own panics are
+// caught; the frame is gone by the time the error is returned, so the stack
+// is captured into the message.
+func callGuarded(name string, conn *sqlite.Conn, fn func(*sqlite.Conn) error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("single-writer: %s panicked: %v\n%s", name, r, debug.Stack())
+		}
+	}()
+	return fn(conn)
+}
+
+// readCurrentResourceVersion reads the resourceVersion currently committed in
+// SQLite for key, or exists=false if there is no metadata row. factory
+// produces a zero value of the object's concrete type to decode into
+// (metadata rows hold ObjectMeta+SchemaVersion only -- the same shape
+// extractFields produces).
+func readCurrentResourceVersion(conn *sqlite.Conn, key string, factory func() runtime.Object, versioner storage.Versioner) (rv uint64, exists bool, err error) {
+	data, err := ReadMetadata(conn, key)
+	if err != nil {
+		if errors.Is(err, ErrMetadataNotFound) {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+	obj := factory()
+	if err := json.Unmarshal(data, obj); err != nil {
+		return 0, false, err
+	}
+	rv, err = versioner.ObjectResourceVersion(obj)
+	if err != nil {
+		return 0, false, err
+	}
+	return rv, true, nil
+}
+
+// newObjFactoryFor returns a factory producing zero values of obj's concrete
+// (pointer) type.
+func newObjFactoryFor(obj runtime.Object) func() runtime.Object {
+	t := reflect.TypeOf(obj).Elem()
+	return func() runtime.Object {
+		return reflect.New(t).Interface().(runtime.Object)
+	}
+}
+
+// staleMetadataRow reports whether an update commit whose CAS failed only
+// because the metadata row is at currentRV may still go ahead: the caller
+// asked to realign (job.realignMetadata), the row is still at the
+// job.metadataRV the caller observed, and the payload on disk was at
+// job.baseRV (payloadAtBase, checked under the key lock before the row read).
+func staleMetadataRow(job *commitJob, currentRV uint64, payloadAtBase bool) bool {
+	if !job.realignMetadata || currentRV != job.metadataRV || !payloadAtBase {
+		return false
+	}
+	logStaleMetadataRealigned(job, currentRV)
+	return true
+}
+
+// payloadAtResourceVersion decodes the committed payload of job.key and
+// reports whether its resourceVersion is job.baseRV. Any read or decode
+// failure reports false, which keeps the commit a conflict. The caller holds
+// the key lock, so no commit can rename a new payload into place meanwhile.
+func (s *StorageImpl) payloadAtResourceVersion(job *commitJob) bool {
+	f, err := s.openPayloadFileWithFallback(job.finalPayloadPath, os.O_RDONLY, 0)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+	obj := job.newObjFactory()
+	if err := decodeGobPayload(gob.NewDecoder(NewDirectIOReader(f)), obj); err != nil {
+		return false
+	}
+	rv, err := s.versioner.ObjectResourceVersion(obj)
+	return err == nil && rv == job.baseRV
+}
+
+// readMetadataResourceVersion reads key's metadata row resourceVersion on a
+// pool connection; like is any object of key's type.
+func (s *StorageImpl) readMetadataResourceVersion(key string, like runtime.Object) (uint64, bool, error) {
+	poolCtx, poolCancel := poolContext()
+	defer poolCancel()
+	conn, err := s.pool.Take(poolCtx)
+	if err != nil {
+		return 0, false, newContentionTimeoutError("update", key, err)
+	}
+	defer s.pool.Put(conn)
+	return readCurrentResourceVersion(conn, key, newObjFactoryFor(like), s.versioner)
+}
+
+func logStaleMetadataRealigned(job *commitJob, metadataRV uint64) {
+	logger.L().Warning("GuaranteedUpdate - metadata row was out of sync with the payload; realigning it",
+		helpers.String("key", job.key),
+		helpers.String("metadataResourceVersion", strconv.FormatUint(metadataRV, 10)),
+		helpers.String("payloadResourceVersion", strconv.FormatUint(job.baseRV, 10)))
+}
+
+// ensureWriter lazily creates s.writer on first use.
+func (s *StorageImpl) ensureWriter() *singleWriter {
+	s.writerOnce.Do(func() {
+		s.writer = newSingleWriter(s)
+	})
+	return s.writer
+}
+
+// runOnShard serializes fn against every Create/GuaranteedUpdate commit (and
+// every other runOnShard call) hashed to key's shard: fn runs from inside
+// that shard's own writer goroutine, holding the same pool connection and
+// per-key lock a commit would, so it cannot independently race a live commit
+// for SQLite's own lock the way a caller-held raw pool connection does.
+//
+// A genuine collision between two such uncoordinated writers blocks the
+// loser on SQLite's own busy-timeout (seconds in tests, up to
+// DefaultBusyTimeout/60s in production) instead of the microsecond
+// in-process channel wait this shard's own jobs already enjoy. Routing
+// eligible background work through runOnShard turns that collision into
+// ordinary (fast) queueing on this shard's channel instead.
+//
+// fn must be a leaf AND non-blocking:
+//
+//   - Leaf: fn must not itself call anything that submits a job to this SAME
+//     StorageImpl's writer (directly or via Create/GuaranteedUpdate/
+//     SaveContainerProfile) for a key hashing to the SAME shard: that would
+//     deadlock, since this shard's one goroutine is fn's caller and cannot
+//     also service fn's own submission until fn returns.
+//   - Non-blocking: fn must not block on anything outside conn (SQLite's
+//     busy-timeout and the filesystem are the only waits it may incur). In
+//     particular fn must NOT call watchDispatcher.* -- a watch client that
+//     has stopped reading blocks send until its own ctx ends, and inside fn
+//     that would freeze this shard, its pool connection and Lock(key) for
+//     as long as that remote client chooses. Dispatch watch events on the
+//     caller after runOnShard returns, as createSingleWriter and
+//     guaranteedUpdateSingleWriter do.
+//
+// See deleteContainerProfileArbitrated for the motivating case: it routes
+// storageImpl.deleteLocked (not delete, which dispatches) and emits the
+// Deleted event itself afterwards.
+//
+// Callers should use priorityLow (matching the existing convention for
+// non-REST-originated writes, see SaveContainerProfile) so REST traffic
+// keeps preferential -- though never starved, see highBurstLimit --
+// treatment on the same shard.
+func (w *singleWriter) runOnShard(ctx context.Context, key string, priority writePriority, fn func(conn *sqlite.Conn) error) error {
+	job := &commitJob{
+		ctx:      ctx,
+		key:      key,
+		custom:   fn,
+		resultCh: make(chan commitResult, 1),
+	}
+	res, err := w.submit(ctx, job, priority)
+	if err != nil {
+		return err
+	}
+	return res.err
+}
+
+// prepareSingleWriterPayload mirrors saveObject's pre-encode mutation
+// pipeline (resourceVersion bump, ManagedFields zeroing, checksum -- see
+// storage.go's saveObject) and gob-encodes the result to a uniquely-named
+// temp file. See this file's package doc comment for why this is a
+// deliberate copy rather than a shared refactor of saveObject.
+func (s *StorageImpl) prepareSingleWriterPayload(key string, obj runtime.Object, checksum string) (runtime.Object, string, string, error) {
+	// increment resourceVersion
+	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
+		if err := s.versioner.UpdateObject(obj, version+1); err != nil {
+			return nil, "", "", fmt.Errorf("set resourceVersion: %w", err)
+		}
+	}
+	// remove managed fields
+	managedFields := reflect.ValueOf(obj).Elem().FieldByName("ObjectMeta").FieldByName("ManagedFields")
+	if managedFields.IsValid() {
+		managedFields.Set(reflect.Zero(managedFields.Type()))
+	}
+	// calculate checksum
+	if checksum == "" {
+		var err error
+		checksum, err = s.CalculateChecksum(obj)
+		if err != nil {
+			return nil, "", "", fmt.Errorf("calculate checksum: %w", err)
+		}
+	}
+	// add checksum to annotations
+	if anno := obj.(metav1.Object).GetAnnotations(); anno == nil {
+		obj.(metav1.Object).SetAnnotations(map[string]string{helpersv1.SyncChecksumMetadataKey: checksum})
+	} else {
+		anno[helpersv1.SyncChecksumMetadataKey] = checksum
+	}
+
+	p := filepath.Join(s.root, key)
+	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		return nil, "", "", fmt.Errorf("mkdir: %w", err)
+	}
+	finalPayloadPath := makePayloadPath(p)
+	tmpPayloadPath := s.ensureWriter().nextTempPath(finalPayloadPath)
+
+	payloadFile, err := s.openPayloadFileWithFallback(tmpPayloadPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("open payload file: %w", err)
+	}
+	directIOWriter := NewDirectIOWriter(payloadFile)
+
+	stampPortZero(obj)
+	defer restorePortZero(obj)
+	payloadEncoder := gob.NewEncoder(directIOWriter)
+	if err := payloadEncoder.Encode(obj); err != nil {
+		_ = directIOWriter.Close()
+		_ = payloadFile.Close()
+		return nil, "", "", fmt.Errorf("encode payload: %w", err)
+	}
+	if err := directIOWriter.Close(); err != nil {
+		_ = payloadFile.Close()
+		return nil, "", "", fmt.Errorf("close directIOWriter: %w", err)
+	}
+	if err := payloadFile.Close(); err != nil {
+		return nil, "", "", fmt.Errorf("close payload file: %w", err)
+	}
+
+	return obj, tmpPayloadPath, finalPayloadPath, nil
+}
+
+// createSingleWriter implements Create's semantics via the prepare/commit
+// split. PreSave and the payload gob-encode happen here, in the caller's own
+// goroutine, against a connection taken and released just for that (no
+// per-key lock involved at all); the actual SQLite upsert + payload rename
+// happens once, later, in the writer goroutine owning this key's shard,
+// serialized against every other write on the SAME key via that shard's
+// priority queue.
+func (s *StorageImpl) createSingleWriter(ctx context.Context, key string, obj, metaOut runtime.Object, priority writePriority) error {
+	if err := s.refuseForeign("create", key); err != nil {
+		return err
+	}
+	// Cheap existence pre-check (mirrors CreateWithConn's early Stat check).
+	// This is an optimization only -- the authoritative check happens at
+	// commit time against SQLite, inside the single writer.
+	if _, err := s.appFs.Stat(makePayloadPath(filepath.Join(s.root, key))); err == nil {
+		return storage.NewKeyExistsError(key, 0)
+	}
+	// resourceVersion should not be set on create
+	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil && version != 0 {
+		msg := "resourceVersion should not be set on objects to be created"
+		logger.L().Ctx(ctx).Error(msg)
+		return errors.New(msg)
+	}
+
+	// poolCancel is deferred, not called right after Take -- see commit's
+	// matching comment for why an immediate cancel would interrupt the
+	// connection before PreSave gets to use it.
+	poolCtx, poolCancel := poolContext()
+	defer poolCancel()
+	beforePool := time.Now()
+	conn, err := s.pool.Take(poolCtx)
+	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
+		return newContentionTimeoutError("create", key, err)
+	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
+
+	presaveCtx := context.WithValue(ctx, connKey, conn)
+	if err := s.processor.PreSave(presaveCtx, obj); err != nil {
+		if errors.Is(err, ObjectTooLargeError) {
+			clearSpec(obj)
+			metadata := obj.(metav1.Object)
+			annotations := metadata.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
+			metadata.SetAnnotations(annotations)
+			logger.L().Debug("Create - too large object, saving metadata only", helpers.String("key", key))
+			// fall through: still need to save the object with updated annotations
+		} else {
+			s.pool.Put(conn)
+			return err
+		}
+	}
+	s.pool.Put(conn)
+
+	candidate, tmpPath, finalPath, err := s.prepareSingleWriterPayload(key, obj, "")
+	if err != nil {
+		return err
+	}
+
+	writer := s.ensureWriter()
+	job := &commitJob{
+		ctx:              ctx,
+		key:              key,
+		create:           true,
+		newObj:           candidate,
+		newObjFactory:    newObjFactoryFor(candidate),
+		tmpPayloadPath:   tmpPath,
+		finalPayloadPath: finalPath,
+		resultCh:         make(chan commitResult, 1),
+	}
+	res, err := writer.submit(ctx, job, priority)
+	if err != nil {
+		_ = s.appFs.Remove(tmpPath)
+		return err
+	}
+	if res.err != nil {
+		logger.L().Ctx(ctx).Error("Create - save object failed", helpers.Error(res.err), helpers.String("key", key))
+		return res.err
+	}
+
+	// AfterCreate needs its own live connection; the prepare connection above
+	// was already released before commit.
+	poolCtx2, poolCancel2 := poolContext()
+	defer poolCancel2()
+	beforePool2 := time.Now()
+	conn2, err := s.pool.Take(poolCtx2)
+	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool2))
+		return newContentionTimeoutError("create", key, err)
+	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool2))
+	defer s.pool.Put(conn2)
+	afterCtx := context.WithValue(ctx, connKey, conn2)
+	if err := s.processor.AfterCreate(afterCtx, candidate); err != nil {
+		return fmt.Errorf("processor.AfterCreate: %w", err)
+	}
+
+	if metaOut != nil {
+		val := reflect.ValueOf(metaOut)
+		if val.Kind() == reflect.Ptr {
+			val = val.Elem()
+		}
+		val.Set(reflect.ValueOf(candidate).Elem())
+	}
+	s.watchDispatcher.Added(key, res.metadata, candidate)
+	return nil
+}
+
+// guaranteedUpdateSingleWriter implements GuaranteedUpdate's semantics via
+// the prepare/commit split, reusing the exact retry-loop structure of
+// GuaranteedUpdateWithConn (storage.go) -- preconditions check, tryUpdate
+// invocation, the "same serialized contents" short-circuit -- but replacing
+// the per-key-lock-held read-modify-write with: read fresh (via the ordinary,
+// still lock-based Get path -- WAL snapshot isolation is what makes this
+// fresh read meaningful without a lock), run tryUpdate/PreSave/prepare with
+// no lock held, then submit a commit job. A commit rejected with
+// errWriteConflict means someone else committed since our read; the loop
+// redoes the full prepare phase against a fresh read, exactly analogous to
+// the original loop's "it's possible we were working with stale data" retry
+// branches.
+func (s *StorageImpl) guaranteedUpdateSingleWriter(
+	ctx context.Context, key string, metaOut runtime.Object, ignoreNotFound bool,
+	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object,
+	checksum string, priority writePriority) error {
+
+	if err := s.refuseForeign("update", key); err != nil {
+		return err
+	}
+	v, err := conversion.EnforcePtr(metaOut)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GuaranteedUpdate - unable to convert output object to pointer", helpers.Error(err), helpers.String("key", key))
+		return fmt.Errorf("unable to convert output object to pointer: %v", err)
+	}
+
+	getCurrentState := func() (*objState, error) {
+		objPtr := reflect.New(v.Type()).Interface().(runtime.Object)
+		if err := s.Get(ctx, key, storage.GetOptions{IgnoreNotFound: ignoreNotFound}, objPtr); err != nil {
+			logger.L().Ctx(ctx).Error("GuaranteedUpdate - get failed", helpers.Error(err), helpers.String("key", key))
+			return nil, err
+		}
+		return s.getStateFromObject(ctx, objPtr)
+	}
+
+	var origState *objState
+	var origStateIsCurrent bool
+	if cachedExistingObject != nil {
+		origState, err = s.getStateFromObject(ctx, cachedExistingObject)
+	} else {
+		origState, err = getCurrentState()
+		origStateIsCurrent = true
+	}
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GuaranteedUpdate - get original state failed", helpers.Error(err), helpers.String("key", key))
+		return err
+	}
+
+	// check object size
+	annotations := origState.obj.(metav1.Object).GetAnnotations()
+	if annotations != nil && annotations[helpersv1.StatusMetadataKey] == helpersv1.TooLarge {
+		logger.L().Debug("GuaranteedUpdate - already too large object, skipping update", helpers.String("key", key))
+		v.Set(reflect.ValueOf(origState.obj).Elem())
+		return nil
+	}
+
+	writer := s.ensureWriter()
+	var conflictAttempts int
+	// realignMetadata is set after a conflict that left the payload at baseRV
+	// (see the errWriteConflict branch below); metadataRV is the row's
+	// resourceVersion observed at that point.
+	var realignMetadata bool
+	var metadataRV uint64
+
+	for {
+		// run preconditions
+		if err := preconditions.Check(key, origState.obj); err != nil {
+			if origStateIsCurrent {
+				logger.L().Ctx(ctx).Error("GuaranteedUpdate - preconditions check failed", helpers.Error(err), helpers.String("key", key))
+				return err
+			}
+			origState, err = getCurrentState()
+			if err != nil {
+				logger.L().Ctx(ctx).Error("GuaranteedUpdate - get state failed", helpers.Error(err), helpers.String("key", key))
+				return err
+			}
+			origStateIsCurrent = true
+			continue
+		}
+
+		// Snapshot the "before" state now, before tryUpdate runs. tryUpdate may
+		// mutate origState.obj in place and return that same reference (this is
+		// exactly what genericregistry.Store's own finalizer-delete tryUpdate
+		// does, via markAsDeleting) -- capturing this snapshot after tryUpdate
+		// ran would observe the already-mutated state, making the no-op-update
+		// check below spuriously always-equal and silently dropping the write.
+		// See GuaranteedUpdateWithConn (storage.go) for the same fix applied
+		// to the legacy path.
+		orig := origState.obj.DeepCopyObject() // FIXME this is expensive (same as GuaranteedUpdateWithConn)
+
+		// run tryUpdate
+		ret, _, err := tryUpdate(origState.obj, storage.ResponseMeta{})
+		if err != nil {
+			if origStateIsCurrent {
+				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				}
+				logger.L().Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				return err
+			}
+			cachedRev := origState.rev
+			cachedUpdateErr := err
+			origState, err = getCurrentState()
+			if err != nil {
+				logger.L().Ctx(ctx).Error("GuaranteedUpdate - get state failed", helpers.Error(err), helpers.String("key", key))
+				return err
+			}
+			origStateIsCurrent = true
+			if cachedRev == origState.rev {
+				if !apierrors.IsNotFound(err) && !apierrors.IsInvalid(err) {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				}
+				logger.L().Debug("GuaranteedUpdate - tryUpdate func failed", helpers.Error(err), helpers.String("key", key))
+				return cachedUpdateErr
+			}
+			continue
+		}
+
+		// poolCancel is called only after both PreSave invocations below are
+		// done with conn (not right after Take) -- an immediate cancel would
+		// interrupt the connection before it's used. This is inside a loop,
+		// so unlike the non-looping call sites in this file, poolCancel is
+		// called explicitly on every exit path rather than deferred, to avoid
+		// piling up live timers across retries.
+		poolCtx, poolCancel := poolContext()
+		beforePool := time.Now()
+		conn, err := s.pool.Take(poolCtx)
+		if err != nil {
+			poolCancel()
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
+			return newContentionTimeoutError("update", key, err)
+		}
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
+		presaveCtx := context.WithValue(ctx, connKey, conn)
+
+		// call processor on object to be saved
+		if err := s.processor.PreSave(presaveCtx, ret); err != nil {
+			if errors.Is(err, ObjectTooLargeError) {
+				clearSpec(ret)
+				metadata := ret.(metav1.Object)
+				anns := metadata.GetAnnotations()
+				if anns == nil {
+					anns = make(map[string]string)
+				}
+				anns[helpersv1.StatusMetadataKey] = helpersv1.TooLarge
+				metadata.SetAnnotations(anns)
+				logger.L().Debug("GuaranteedUpdate - too large object, skipping update", helpers.String("key", key))
+				// fall through: still need to save the object with updated annotations
+			} else {
+				s.pool.Put(conn)
+				poolCancel()
+				logger.L().Debug("GuaranteedUpdate - processor.PreSave failed", helpers.Error(err), helpers.String("key", key))
+				return err
+			}
+		}
+
+		// check if the object is the same as the original (orig was snapshotted
+		// above, before tryUpdate ran)
+		_ = s.processor.PreSave(presaveCtx, orig)
+		s.pool.Put(conn)
+		poolCancel()
+
+		if sameStoredContent(orig, ret) {
+			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
+			v.Set(reflect.ValueOf(origState.obj).Elem())
+			return nil
+		}
+
+		if realignMetadata {
+			// prepareSingleWriterPayload bumps from ret's own resourceVersion,
+			// which tryUpdate controls: a callback may return a separately
+			// prepared object (SaveContainerProfile does) whose version is
+			// unrelated to the stored one, or one an earlier attempt already
+			// bumped. Seed the repair from max(payload, row) so the new
+			// version is above both and never moves backwards for watchers or
+			// for clients that read the row.
+			if err := s.versioner.UpdateObject(ret, max(uint64(origState.rev), metadataRV)); err != nil {
+				return fmt.Errorf("set resourceVersion for metadata realignment: %w", err)
+			}
+		}
+
+		candidate, tmpPath, finalPath, err := s.prepareSingleWriterPayload(key, ret, checksum)
+		if err != nil {
+			return err
+		}
+
+		job := &commitJob{
+			ctx:              ctx,
+			key:              key,
+			create:           false,
+			baseRV:           uint64(origState.rev),
+			newObj:           candidate,
+			newObjFactory:    newObjFactoryFor(candidate),
+			tmpPayloadPath:   tmpPath,
+			finalPayloadPath: finalPath,
+			resultCh:         make(chan commitResult, 1),
+			realignMetadata:  realignMetadata,
+			metadataRV:       metadataRV,
+		}
+		res, err := writer.submit(ctx, job, priority)
+		if err != nil {
+			_ = s.appFs.Remove(tmpPath)
+			return err
+		}
+		if res.err != nil {
+			if errors.Is(res.err, errWriteConflict) {
+				// Someone else committed a newer resourceVersion for this key
+				// since we read origState. Redo the full prepare phase against
+				// a fresh read and resubmit -- the single-writer analogue of
+				// the "it's possible we were working with stale data" retry
+				// branches above.
+				//
+				// conflictAttempts backoff: without this, many goroutines
+				// hammering the SAME key with no backoff at all produce a
+				// thundering-herd retry storm -- every successful commit
+				// invalidates every other in-flight attempt's baseRV
+				// simultaneously, so all of them redo getCurrentState/PreSave
+				// at once, mostly to conflict again immediately. The old
+				// MapMutex-based path never had this failure mode: contending
+				// callers simply queued on the lock (O(n) total work for n
+				// callers), whereas naive optimistic retry here is O(n^2) in
+				// the worst case. This capped, jittered backoff (found
+				// empirically necessary while writing this spike's
+				// same-key-concurrency test) is the mitigation; see the spike
+				// report's Q5 discussion for why an unbounded retry COUNT is
+				// still acceptable (bounded by the caller's own ctx deadline,
+				// same as today) even though this adds pacing between
+				// attempts.
+				baseRev := origState.rev
+				conflictAttempts++
+				metrics.IncSingleWriterConflictRetry(resourceFromKey(key))
+				if backoffErr := singleWriterConflictBackoff(ctx, conflictAttempts); backoffErr != nil {
+					return newContentionTimeoutError("update", key, backoffErr)
+				}
+				origState, err = getCurrentState()
+				if err != nil {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - get state failed after conflict", helpers.Error(err), helpers.String("key", key))
+					return err
+				}
+				origStateIsCurrent = true
+				if origState.rev != baseRev {
+					realignMetadata, metadataRV = false, 0
+					continue
+				}
+				// The commit conflicted although the payload is still at
+				// baseRV. No other writer won (every commit renames a new
+				// payload into place under the key lock), so the metadata row
+				// disagrees with the payload -- storage before v0.0.306 could
+				// leave that behind when a payload rename failed after the row
+				// was written. The same CAS would conflict on every retry and
+				// spin silently until the caller's deadline, so retry once
+				// with realignMetadata (the commit re-checks the payload under
+				// the key lock and rewrites the row), and if even that
+				// conflicts, fail fast with a regular conflict.
+				if realignMetadata {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - metadata row disagrees with the payload and could not be realigned",
+						helpers.String("key", key), helpers.String("payloadResourceVersion", strconv.FormatInt(baseRev, 10)))
+					return storage.NewResourceVersionConflictsError(key, 0)
+				}
+				rowRV, rowExists, err := s.readMetadataResourceVersion(key, origState.obj)
+				if err != nil {
+					logger.L().Ctx(ctx).Error("GuaranteedUpdate - read metadata row failed after conflict", helpers.Error(err), helpers.String("key", key))
+					return err
+				}
+				if !rowExists {
+					// A missing row is never realigned: that could undo a delete.
+					return storage.NewResourceVersionConflictsError(key, 0)
+				}
+				realignMetadata, metadataRV = true, rowRV
+				continue
+			}
+			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(res.err), helpers.String("key", key))
+			return res.err
+		}
+
+		if metaOut != nil {
+			val := reflect.ValueOf(metaOut)
+			if val.Kind() == reflect.Ptr {
+				val = val.Elem()
+			}
+			val.Set(reflect.ValueOf(candidate).Elem())
+		}
+		// Only successful updates should produce modification events
+		s.watchDispatcher.Modified(key, res.metadata, candidate)
+		return nil
+	}
+}

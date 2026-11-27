@@ -7,6 +7,7 @@ import (
 
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/generated/clientset/versioned/scheme"
+	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	"github.com/stretchr/testify/require"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -37,12 +40,14 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			args: args{
 				key: "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
 			},
-			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", 0),
+			expectedError: storage.NewKeyNotFoundError("/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", 0),
 		},
 		{
+			// A single-container workload is requested by its WORKLOAD-level name
+			// <lower(kind)>-<workload-name> (not the per-container profile name).
 			name: "existing object is returned",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
+				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/deployment-totowl",
 				objPtr: &softwarecomposition.GeneratedNetworkPolicy{},
 			},
 			expectedError: nil,
@@ -53,7 +58,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:              "toto",
+					Name:              "deployment-totowl",
 					Namespace:         "kubescape",
 					CreationTimestamp: v1.Time{},
 					Labels: map[string]string{
@@ -88,9 +93,11 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			},
 		},
 		{
+			// Without a workload-name label the workload name falls back to the
+			// profile name, so the workload-level key is <lower(kind)>-<profile-name>.
 			name: "missing workload name label",
 			args: args{
-				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/toto",
+				key:    "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/kubescape/deployment-toto",
 				objPtr: &softwarecomposition.GeneratedNetworkPolicy{},
 			},
 			expectedError:  nil,
@@ -102,7 +109,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 					APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:              "toto",
+					Name:              "deployment-toto",
 					Namespace:         "kubescape",
 					CreationTimestamp: v1.Time{},
 					Labels: map[string]string{
@@ -150,9 +157,13 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 			defer cancel()
 			if tt.create {
-				wlObj := &softwarecomposition.NetworkNeighborhood{
+				// The GeneratedNetworkPolicy is now generated from the
+				// ContainerProfile with the matching key (projected in-process
+				// into the network-neighborhood-shaped intermediate the
+				// generator consumes).
+				wlObj := &softwarecomposition.ContainerProfile{
 					TypeMeta: v1.TypeMeta{
-						Kind:       "NetworkNeighborhood",
+						Kind:       "ContainerProfile",
 						APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
 					},
 					ObjectMeta: v1.ObjectMeta{
@@ -170,7 +181,7 @@ func TestGeneratedNetworkPolicyStorage_Get(t *testing.T) {
 				if tt.noWorkloadName {
 					delete(wlObj.ObjectMeta.Labels, helpersv1.RelatedNameMetadataKey)
 				}
-				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/networkneighborhoods/kubescape/toto", wlObj, nil, 0)
+				err := realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/kubescape/toto", wlObj, nil, 0)
 				require.NoError(t, err)
 			}
 
@@ -227,4 +238,52 @@ func TestGeneratedNetworkPolicyStorage_GuaranteedUpdate(t *testing.T) {
 	expectedError := storage.NewInvalidObjError("", operationNotSupportedMsg)
 
 	assert.EqualError(t, err, expectedError.Error())
+}
+
+func TestGeneratedNetworkPolicyStorage_GetList_SelectorAppliedAfterGeneration(t *testing.T) {
+	pool := NewTestPool(t.TempDir())
+	require.NotNil(t, pool)
+	defer pool.Close()
+
+	sch := scheme.Scheme
+	require.NoError(t, softwarecomposition.AddToScheme(sch))
+	realStorage := NewStorageImpl(afero.NewMemMapFs(), "/", pool, nil, sch)
+
+	ctx := context.Background()
+	for _, workloadName := range []string{"foo", "bar"} {
+		source := &softwarecomposition.ContainerProfile{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      workloadName,
+				Namespace: "default",
+				Annotations: map[string]string{
+					helpersv1.StatusMetadataKey: helpersv1.Learning,
+				},
+				Labels: map[string]string{
+					helpersv1.RelatedKindMetadataKey: "Deployment",
+					helpersv1.RelatedNameMetadataKey: workloadName,
+				},
+			},
+		}
+
+		require.NoError(t, realStorage.Create(ctx, "/spdx.softwarecomposition.kubescape.io/containerprofiles/default/"+workloadName, source, nil, 0))
+	}
+
+	s := NewGeneratedNetworkPolicyStorage(realStorage, realStorage)
+	list := &softwarecomposition.GeneratedNetworkPolicyList{}
+	opts := storage.ListOptions{
+		Predicate: generatednetworkpolicy.MatchGeneratedNetworkPolicy(
+			labels.Everything(),
+			fields.OneTermEqualSelector("metadata.name", "deployment-foo"),
+		),
+	}
+	err := s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/default", opts, list)
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "deployment-foo", list.Items[0].Name)
+	assert.NotEmpty(t, list.ResourceVersion)
+
+	emptyList := &softwarecomposition.GeneratedNetworkPolicyList{}
+	require.NoError(t, s.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/generatednetworkpolicies/empty-ns", storage.ListOptions{}, emptyList))
+	assert.Empty(t, emptyList.Items)
+	assert.Equal(t, "1", emptyList.ResourceVersion)
 }

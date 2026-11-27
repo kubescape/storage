@@ -1,0 +1,380 @@
+{
+  "Architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "Capabilities": [
+    "NET_BIND_SERVICE",
+    "SYS_ADMIN"
+  ],
+  "Execs": [
+    {
+      "Path": "/bin/sh",
+      "Args": [
+        "-c",
+        "echo hi"
+      ],
+      "Envs": null,
+      "ArgsRequired": false
+    },
+    {
+      "Path": "/usr/bin/curl",
+      "Args": [
+        "https://example.com"
+      ],
+      "Envs": null,
+      "ArgsRequired": false
+    },
+    {
+      "Path": "/usr/bin/wget",
+      "Args": [
+        "https://example.org"
+      ],
+      "Envs": null,
+      "ArgsRequired": false
+    }
+  ],
+  "Opens": [
+    {
+      "Path": "/etc/config",
+      "Flags": [
+        "O_RDONLY",
+        "O_WRONLY"
+      ]
+    },
+    {
+      "Path": "/var/log/pods/⋯/app.log",
+      "Flags": [
+        "O_CLOEXEC",
+        "O_RDONLY"
+      ]
+    }
+  ],
+  "Syscalls": [
+    "close",
+    "epoll_wait",
+    "futex",
+    "openat",
+    "read",
+    "write"
+  ],
+  "SeccompProfile": {
+    "Name": "",
+    "Path": "",
+    "Spec": {
+      "Disabled": false,
+      "BaseProfileName": "",
+      "DefaultAction": "",
+      "Architectures": null,
+      "ListenerPath": "",
+      "ListenerMetadata": "",
+      "Syscalls": null,
+      "Flags": null
+    }
+  },
+  "Endpoints": [
+    {
+      "Endpoint": ":8080/api/v1/users",
+      "Methods": [
+        "GET",
+        "POST"
+      ],
+      "Internal": false,
+      "Direction": "inbound",
+      "Headers": {
+        "Accept": [
+          "application/json"
+        ],
+        "Content-Type": [
+          "application/json"
+        ]
+      }
+    },
+    {
+      "Endpoint": ":8080/api/v1/health",
+      "Methods": [
+        "GET"
+      ],
+      "Internal": false,
+      "Direction": "inbound",
+      "Headers": {}
+    }
+  ],
+  "ImageID": "",
+  "ImageTag": "",
+  "PolicyByRuleId": {
+    "R100": {
+      "AllowedProcesses": [
+        "/bin/sh",
+        "/usr/bin/curl"
+      ],
+      "AllowedContainer": true
+    },
+    "R200": {
+      "AllowedProcesses": [
+        "/usr/bin/wget"
+      ],
+      "AllowedContainer": false
+    }
+  },
+  "IdentifiedCallStacks": [
+    {
+      "CallID": "cs-1",
+      "CallStack": {
+        "Root": {
+          "Children": [
+            {
+              "Children": [],
+              "Frame": {
+                "FileID": "10",
+                "Lineno": "1",
+                "FrameType": 0
+              }
+            }
+          ],
+          "Frame": {
+            "FileID": "",
+            "Lineno": "",
+            "FrameType": 0
+          }
+        }
+      }
+    }
+  ],
+  "Ingress": [
+    {
+      "Identifier": "a7d8ef4c9cdf3635da32d1c6ecc0b49c1dc61dacfc05efaca4585d9eaf8d810f",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-8080",
+          "Protocol": "TCP",
+          "Port": 8080
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": [
+        "10.244.1.0/24"
+      ],
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "db3315e15091361a7c33b1de7d7c0027d042e4d5535c2574b60ed4423b446366",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-8080",
+          "Protocol": "TCP",
+          "Port": 8080
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": [
+        "10.250.0.0/24"
+      ],
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    }
+  ],
+  "Egress": [
+    {
+      "Identifier": "dns-kube-dns",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": [
+        "kube-dns.kube-system.svc.cluster.local."
+      ],
+      "Ports": [
+        {
+          "Name": "UDP-53",
+          "Protocol": "UDP",
+          "Port": 53
+        },
+        {
+          "Name": "TCP-53",
+          "Protocol": "TCP",
+          "Port": 53
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "10.96.0.10",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "apiserver",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": [
+        "kubernetes.default.svc.cluster.local."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "10.96.0.1",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "github-1",
+      "Type": "external",
+      "DNS": "",
+      "DNSNames": [
+        "github.com."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "140.82.121.3",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "github-2",
+      "Type": "external",
+      "DNS": "",
+      "DNSNames": [
+        "github.com."
+      ],
+      "Ports": [
+        {
+          "Name": "TCP-443",
+          "Protocol": "TCP",
+          "Port": 443
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "140.82.121.4",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-9093",
+          "Protocol": "TCP",
+          "Port": 9093
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "honey",
+      "ServiceRefName": "alertmanager",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": null,
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": null,
+      "Entity": "host"
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-5432",
+          "Protocol": "TCP",
+          "Port": 5432
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": null,
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "db",
+      "ServiceRefName": "postgres",
+      "ServiceSelector": null,
+      "Entity": ""
+    },
+    {
+      "Identifier": "collide",
+      "Type": "internal",
+      "DNS": "",
+      "DNSNames": null,
+      "Ports": [
+        {
+          "Name": "TCP-80",
+          "Protocol": "TCP",
+          "Port": 80
+        }
+      ],
+      "PodSelector": null,
+      "NamespaceSelector": {
+        "matchLabels": {
+          "kubernetes.io/metadata.name": "default"
+        }
+      },
+      "IPAddress": "",
+      "IPAddresses": null,
+      "ServiceRefNamespace": "",
+      "ServiceRefName": "",
+      "ServiceSelector": {
+        "matchLabels": {
+          "role": "helm-repo"
+        }
+      },
+      "Entity": ""
+    }
+  ],
+  "Containers": null,
+  "InitContainers": null,
+  "EphemeralContainers": null
+}

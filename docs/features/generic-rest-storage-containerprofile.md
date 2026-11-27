@@ -1,0 +1,72 @@
+# Phase 4, third resource: containerprofiles generic rest.Storage
+
+## Summary
+
+`containerprofiles` now has an optional, gated, hand-written `rest.Storage` implementation
+built on `pkg/registry/genericrest.Store` (see `docs/features/generic-rest-storage-phase4.md`),
+as a parallel alternative to the `genericregistry.Store`-based implementation in `etcd.go`. This
+is Phase 4's third migrated resource and by far its most complex: a consolidation processor
+(time-series writes, size limits, completed-profile immutability), real Strategy validation
+(NetworkNeighbor wildcard grammar), and a singular/plural qualified-resource inversion that
+determines the on-disk key prefix.
+
+Gated behind `config.Config.CustomContainerProfileRestEnabled` (default `false`; live validation
+against armo-dev-stage on 2026-08-31 found zero regressions, but that covers one cluster, not
+every deployment of this binary, so the default stays conservative). The old
+`genericregistry.Store`-based implementation remains the default and the differential-testing
+reference; set the flag to `true` (or set `CUSTOM_REST_ENABLED`, see
+`docs/features/custom-rest-enabled-env-var.md`) to opt into the new implementation. Live validation
+also surfaced a pre-existing PATCH/UID bug ([issue #385](https://github.com/kubescape/storage/issues/385))
+confirmed identical on both implementations -- not a regression introduced by this migration.
+
+## Why it matters / how it works
+
+**None of `containerprofiles`' real complexity required any change to `genericrest.Store`
+itself.** The consolidation processor's hooks (`PreSave`/`AfterCreate`, which redirect
+time-series reports from node-agent into raw SQL writes via `WriteTimeSeriesEntry`, and enforce
+size/completion limits) live inside `StorageImpl.Create`/`GuaranteedUpdate` themselves, not in
+either REST layer -- any `storage.Interface` caller inherits them identically. Likewise,
+`ContainerProfileStrategy`'s real `PrepareForUpdate`/`Validate` logic (the completed-profile
+immutability guard, `NetworkNeighbor` IP/DNS wildcard validation) already satisfies
+`genericrest.Store`'s `Strategy` interface without modification, exactly like the previous two
+resources' no-op strategies did.
+
+Both REST implementations use the same image refresh path for completed/full
+learned profiles. When another container starts under the same workload
+instance and image tag, its first time-series report can update an existing
+`spec.imageID` to the newly observed digest. This lets the next vulnerability
+scan follow a mutable tag while preserving the recorded behavior. Storage
+checks the reporting user's update permission on the named profile and
+returns the usual completed response to node-agent.
+
+`kubescape.io/image-observed-at` records the observation time. During a
+rollout, replicas can briefly run different images. The newest eligible
+observation wins, including when a node delivers an older report late.
+Profiles without a stored image ID continue to use the scanner's existing
+image lookup.
+
+**The one genuine gotcha: the singular/plural qualified-resource inversion.**
+`containerprofile/etcd.go` sets `DefaultQualifiedResource: softwarecomposition.Resource("containerprofile")`
+(singular) and `SingularQualifiedResource: softwarecomposition.Resource("containerprofiles")`
+(plural) -- backwards relative to normal convention. This is not cosmetic:
+`DefaultQualifiedResource` feeds directly into the on-disk/SQLite key prefix (via
+`optsGetter.GetRESTOptions` -> `SimpleStorageFactory.ResourcePrefix`, `resource.Group + "/" +
+resource.Resource`), so every ContainerProfile is actually stored under a **singular** key
+prefix. `custom_rest.go`'s `NewCustomREST` copies both values verbatim rather than "correcting"
+them -- swapping them would silently change the key prefix and make every existing
+ContainerProfile invisible until a data migration renamed on-disk keys. See
+[#376](https://github.com/kubescape/storage/issues/376) for tracking a proper fix (a genuine
+data migration, out of scope for this REST-layer migration), which also affects `sbomsyfts`,
+`sbomsyftfiltereds`, and `seccompprofiles`.
+
+## Verification
+
+Full test suite passes under `-race` (excluding the pre-existing, unrelated
+`TestFileSystemStorageWatchReturnsDistinctWatchers`); a from-scratch differential suite (21
+tests) covers standard CRUD/dry-run/finalizer-delete/pagination/watch/protobuf behavior plus
+three cases unique to this resource: the completed-profile immutability guard, NetworkNeighbor
+validation rejection, and proof that the consolidation processor's time-series-write hook fires
+identically for both implementations (`TestDifferential_ConsolidationProcessorHooksFireIdentically`,
+verified via `ListTimeSeriesWithData` on the underlying pool). `TestDifferential_KeyDerivationMatches`
+confirms both implementations address identical on-disk keys despite the inversion. Re-run 3x
+with zero flakiness.

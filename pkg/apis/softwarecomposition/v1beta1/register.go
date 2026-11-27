@@ -61,12 +61,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ConfigurationScanSummaryList{},
 		&VulnerabilitySummary{},
 		&VulnerabilitySummaryList{},
-		&ApplicationProfile{},
-		&ApplicationProfileList{},
 		&ContainerProfile{},
 		&ContainerProfileList{},
-		&NetworkNeighborhood{},
-		&NetworkNeighborhoodList{},
 		&OpenVulnerabilityExchangeContainer{},
 		&OpenVulnerabilityExchangeContainerList{},
 		&GeneratedNetworkPolicyList{},
@@ -81,6 +77,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SeccompProfileList{},
 		&CollapseConfiguration{},
 		&CollapseConfigurationList{},
+		&MCPServer{},
+		&MCPServerList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

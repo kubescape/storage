@@ -1,5 +1,7 @@
 name: build-image
 
+permissions: read-all
+
 on:
     workflow_dispatch:
       inputs:
@@ -22,7 +24,6 @@ jobs:
   publish-image:
     permissions:
       id-token: write
-      packages: write
       contents: read
     uses: ./.github/workflows/publish-image.yaml
     with:

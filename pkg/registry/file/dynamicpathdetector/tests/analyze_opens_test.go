@@ -968,3 +968,29 @@ func TestFindConfigForPath_DefensiveCopy(t *testing.T) {
 	assert.NotEqual(t, "/poisoned-default", secondDefault.Prefix,
 		"mutating the default config Prefix must not leak into a future call")
 }
+
+// TestAnalyzeOpensKeepsFlagsOfRepeatedPath covers a path that appears more
+// than once with different flags, as it does when consolidation appends a
+// later report's opens to the stored profile's. No flag may be lost: the
+// entries end up as one entry for the path with every flag, as they do when
+// paths collapse into a dynamic segment. SBOM-listed paths keep their flags
+// the same way.
+func TestAnalyzeOpensKeepsFlagsOfRepeatedPath(t *testing.T) {
+	input := []types.OpenCalls{
+		{Path: "/etc/passwd", Flags: []string{"O_RDONLY"}},
+		{Path: "/usr/lib/libc.so.6", Flags: []string{"O_RDONLY"}},
+		{Path: "/etc/passwd", Flags: []string{"O_WRONLY"}},
+		{Path: "/usr/lib/libc.so.6", Flags: []string{"O_CLOEXEC"}},
+	}
+	sbomSet := mapset.NewSet("/usr/lib/libc.so.6")
+
+	analyzer := dynamicpathdetector.NewPathAnalyzerWithConfigs(dynamicpathdetector.OpenDynamicThreshold, nil)
+	result, err := dynamicpathdetector.AnalyzeOpens(input, analyzer, sbomSet)
+	assert.NoError(t, err)
+
+	expected := []types.OpenCalls{
+		{Path: "/etc/passwd", Flags: []string{"O_RDONLY", "O_WRONLY"}},
+		{Path: "/usr/lib/libc.so.6", Flags: []string{"O_CLOEXEC", "O_RDONLY"}},
+	}
+	assert.Equal(t, expected, result)
+}

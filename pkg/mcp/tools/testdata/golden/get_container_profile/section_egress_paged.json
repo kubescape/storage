@@ -1,0 +1,65 @@
+{
+  "call": {
+    "name": "get_container_profile",
+    "arguments": {
+      "limit": 2,
+      "namespace": "kubescape",
+      "offset": 2,
+      "profile_name": "replicaset-operator-55df98fc6d",
+      "section": "egress"
+    }
+  },
+  "isError": false,
+  "response": {
+    "namespace": "kubescape",
+    "profile_name": "replicaset-operator-55df98fc6d",
+    "status": "completed",
+    "section": "egress",
+    "total": 10,
+    "returned": 2,
+    "truncated": true,
+    "next_offset": 4,
+    "entries": [
+      {
+        "identifier": "ed8a3fa8750dd7045e9abb755f5dbd1a2025f5ed49c1ed67b7d8e1c534899bbb",
+        "type": "internal",
+        "dns": "",
+        "dnsNames": null,
+        "ports": [
+          {
+            "name": "TCP-8080",
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ],
+        "podSelector": {
+          "matchLabels": {
+            "app": "kubescape"
+          }
+        },
+        "namespaceSelector": null,
+        "ipAddress": ""
+      },
+      {
+        "identifier": "e6d07dcea08c02c35494f7aed68e7cff6d51843c5fbb36032a905f11ba833c13",
+        "type": "internal",
+        "dns": "",
+        "dnsNames": null,
+        "ports": [
+          {
+            "name": "TCP-8001",
+            "protocol": "TCP",
+            "port": 8001
+          }
+        ],
+        "podSelector": {
+          "matchLabels": {
+            "app": "gateway"
+          }
+        },
+        "namespaceSelector": null,
+        "ipAddress": ""
+      }
+    ]
+  }
+}

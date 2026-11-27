@@ -34,11 +34,6 @@ import (
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
 		v1beta1.Advisory{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref),
-		v1beta1.ApplicationProfile{}.OpenAPIModelName():                         schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref),
-		v1beta1.ApplicationProfileContainer{}.OpenAPIModelName():                schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref),
-		v1beta1.ApplicationProfileList{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref),
-		v1beta1.ApplicationProfileSpec{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref),
-		v1beta1.ApplicationProfileStatus{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref),
 		v1beta1.Arg{}.OpenAPIModelName():                                        schema_pkg_apis_softwarecomposition_v1beta1_Arg(ref),
 		v1beta1.CPE{}.OpenAPIModelName():                                        schema_pkg_apis_softwarecomposition_v1beta1_CPE(ref),
 		v1beta1.CallStack{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_CallStack(ref),
@@ -54,6 +49,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1beta1.ConfigurationScanSummaryList{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(ref),
 		v1beta1.ConfigurationScanSummarySpec{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(ref),
 		v1beta1.ContainerProfile{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfile(ref),
+		v1beta1.ContainerProfileContainer{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileContainer(ref),
 		v1beta1.ContainerProfileList{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref),
 		v1beta1.ContainerProfileSpec{}.OpenAPIModelName():                       schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref),
 		v1beta1.ContainerProfileStatus{}.OpenAPIModelName():                     schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileStatus(ref),
@@ -107,14 +103,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1beta1.Location{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Location(ref),
 		v1beta1.LocationData{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref),
 		v1beta1.LocationMetadata{}.OpenAPIModelName():                           schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref),
+		v1beta1.MCPServer{}.OpenAPIModelName():                                  schema_pkg_apis_softwarecomposition_v1beta1_MCPServer(ref),
+		v1beta1.MCPServerList{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_MCPServerList(ref),
 		v1beta1.Match{}.OpenAPIModelName():                                      schema_pkg_apis_softwarecomposition_v1beta1_Match(ref),
 		v1beta1.MatchDetails{}.OpenAPIModelName():                               schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref),
 		v1beta1.Metadata{}.OpenAPIModelName():                                   schema_pkg_apis_softwarecomposition_v1beta1_Metadata(ref),
 		v1beta1.NetworkNeighbor{}.OpenAPIModelName():                            schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref),
-		v1beta1.NetworkNeighborhood{}.OpenAPIModelName():                        schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhood(ref),
-		v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName():               schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(ref),
-		v1beta1.NetworkNeighborhoodList{}.OpenAPIModelName():                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodList(ref),
-		v1beta1.NetworkNeighborhoodSpec{}.OpenAPIModelName():                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref),
 		v1beta1.NetworkPolicy{}.OpenAPIModelName():                              schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicy(ref),
 		v1beta1.NetworkPolicyEgressRule{}.OpenAPIModelName():                    schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref),
 		v1beta1.NetworkPolicyIngressRule{}.OpenAPIModelName():                   schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref),
@@ -196,6 +190,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1beta1.VulnerabilitySummaryStatus{}.OpenAPIModelName():                 schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryStatus(ref),
 		v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName():                  schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScan(ref),
 		v1beta1.WorkloadConfigurationScanList{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(ref),
+		v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanMeta(ref),
 		v1beta1.WorkloadConfigurationScanSeveritiesSummary{}.OpenAPIModelName(): schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSeveritiesSummary(ref),
 		v1beta1.WorkloadConfigurationScanSpec{}.OpenAPIModelName():              schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(ref),
 		v1beta1.WorkloadConfigurationScanSummary{}.OpenAPIModelName():           schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummary(ref),
@@ -240,6 +235,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.Preconditions{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_Preconditions(ref),
 		v1.RootPaths{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_RootPaths(ref),
 		v1.ServerAddressByClientCIDR{}.OpenAPIModelName():                       schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		v1.ShardInfo{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_ShardInfo(ref),
 		v1.Status{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_Status(ref),
 		v1.StatusCause{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_StatusCause(ref),
 		v1.StatusDetails{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_StatusDetails(ref),
@@ -282,355 +278,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Advisory(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"id", "link"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.ApplicationProfileSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.ApplicationProfileStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.ApplicationProfileSpec{}.OpenAPIModelName(), v1beta1.ApplicationProfileStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"capabilities": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"execs": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "path",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ExecCalls{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"opens": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "path",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.OpenCalls{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"syscalls": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"seccompProfile": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
-						},
-					},
-					"endpoints": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "endpoint",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.HTTPEndpoint{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"imageID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"imageTag": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"rulePolicies": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "ruleId",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.RulePolicy{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"identifiedCallStacks": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IdentifiedCallStack{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"capabilities", "execs", "opens", "syscalls", "endpoints", "imageID", "imageTag", "rulePolicies", "identifiedCallStacks"},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ApplicationProfile{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.ApplicationProfile{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"architectures": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"containers": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "name",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"initContainers": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "name",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"ephemeralContainers": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "name",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"architectures"},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.ApplicationProfileContainer{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_ApplicationProfileStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
 			},
 		},
 	}
@@ -739,8 +386,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CallStackNode(ref common.Refere
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.CallStackNode{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.CallStackNode{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -866,8 +512,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationList(ref c
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.CollapseConfiguration{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.CollapseConfiguration{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -918,8 +563,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationSpec(ref c
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.CollapseConfigEntry{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.CollapseConfigEntry{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -935,6 +579,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_CollapseConfigurationSpec(ref c
 					"networkCIDRFloorBits": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NetworkCIDRFloorBits is the minimum CIDR prefix length (maximum breadth) a single aggregated block may have. Optional with the same omitted/0-means-compiled-default semantics as NetworkIPGroupThreshold.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"execDynamicThreshold": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExecDynamicThreshold is the fallback threshold for AnalyzeExecs when no per-prefix entry matches the exec path. CollapseConfigs entries apply to exec paths as well as opens. Optional with the same omitted/0-means-compiled-default semantics as OpenDynamicThreshold.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -968,9 +619,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Component(ref common.ReferenceC
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -984,9 +634,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Component(ref common.ReferenceC
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1070,8 +719,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConditionedStatus(ref common.Re
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1160,8 +808,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummaryList(re
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ConfigurationScanSummary{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.ConfigurationScanSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1194,8 +841,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ConfigurationScanSummarySpec(re
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.WorkloadConfigurationScanSummaryIdentifier{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.WorkloadConfigurationScanSummaryIdentifier{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1256,6 +902,181 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfile(ref common.Ref
 	}
 }
 
+func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ContainerProfileContainer is one container's profile inside a user-authored multi-container ContainerProfile document: the union of the legacy ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"execs": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.ExecCalls{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"opens": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.OpenCalls{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"syscalls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"seccompProfile": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
+						},
+					},
+					"endpoints": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "endpoint",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.HTTPEndpoint{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"imageID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"imageTag": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"rulePolicies": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "ruleId",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.RulePolicy{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"identifiedCallStacks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.IdentifiedCallStack{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"ingress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WARNING report the network fields here, increment proto IDs by 100",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"egress": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName()},
+	}
+}
+
 func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1288,8 +1109,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileList(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ContainerProfile{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.ContainerProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1312,14 +1132,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 				Properties: map[string]spec.Schema{
 					"architectures": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WARNING report fields from ApplicationProfileContainer here",
+							Description: "WARNING report the execution/profile fields here",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1331,9 +1150,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1342,8 +1160,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 					"execs": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "path",
-								"x-kubernetes-patch-strategy":  "merge",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -1351,8 +1168,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ExecCalls{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.ExecCalls{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1361,8 +1177,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 					"opens": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "path",
-								"x-kubernetes-patch-strategy":  "merge",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -1370,8 +1185,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.OpenCalls{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.OpenCalls{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1383,9 +1197,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1409,8 +1222,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.HTTPEndpoint{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.HTTPEndpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1443,8 +1255,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.RulePolicy{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.RulePolicy{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1456,8 +1267,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IdentifiedCallStack{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IdentifiedCallStack{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1471,9 +1281,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1491,8 +1300,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.LabelSelectorRequirement{}.OpenAPIModelName()),
+										Ref: ref(v1.LabelSelectorRequirement{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1504,8 +1312,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1517,8 +1324,62 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"containers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Container subtype groups for user-authored multi-container documents. One authored ContainerProfile per pod can describe every container, keyed by name within its subtype group - the same contract the legacy ApplicationProfile/NetworkNeighborhood specs expressed. Learned (agent-written) profiles stay one object per container and leave these empty.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.ContainerProfileContainer{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"initContainers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.ContainerProfileContainer{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"ephemeralContainers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.ContainerProfileContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1529,7 +1390,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ContainerProfileSpec(ref common
 			},
 		},
 		Dependencies: []string{
-			v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
+			v1beta1.ContainerProfileContainer{}.OpenAPIModelName(), v1beta1.ExecCalls{}.OpenAPIModelName(), v1beta1.HTTPEndpoint{}.OpenAPIModelName(), v1beta1.IdentifiedCallStack{}.OpenAPIModelName(), v1beta1.NetworkNeighbor{}.OpenAPIModelName(), v1beta1.OpenCalls{}.OpenAPIModelName(), v1beta1.RulePolicy{}.OpenAPIModelName(), v1beta1.SingleSeccompProfile{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
 	}
 }
 
@@ -1625,9 +1486,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Cvss(ref common.ReferenceCallba
 						},
 					},
 					"vendorMetadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -1692,15 +1554,17 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Descriptor(ref common.Reference
 						},
 					},
 					"configuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 					"db": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -1763,9 +1627,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Distribution(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1871,9 +1734,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1885,9 +1747,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ExecCalls(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1940,9 +1801,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Executable(ref common.Reference
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -2110,9 +1970,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Fix(ref common.ReferenceCallbac
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -2171,8 +2030,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicy(ref comm
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.PolicyRef{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.PolicyRef{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2220,8 +2078,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GeneratedNetworkPolicyList(ref 
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.GeneratedNetworkPolicy{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.GeneratedNetworkPolicy{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2249,8 +2106,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref common.Refere
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Match{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Match{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2262,8 +2118,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypeDocument(ref common.Refere
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IgnoredMatch{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IgnoredMatch{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2328,8 +2183,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SyftCoordinates{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SyftCoordinates{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2348,9 +2202,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -2362,9 +2215,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -2383,8 +2235,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.UpstreamPackage{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.UpstreamPackage{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2397,9 +2248,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_GrypePackage(ref common.Referen
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -2429,9 +2281,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -2451,9 +2302,13 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPEndpoint(ref common.Referen
 						},
 					},
 					"headers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
+						},
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Type: []string{"object"},
 						},
 					},
 				},
@@ -2519,8 +2374,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_HTTPIngressRuleValue(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.HTTPIngressPath{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.HTTPIngressPath{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2556,9 +2410,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IPBlock(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -2620,6 +2473,38 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoreRule(ref common.Reference
 					"package": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref(v1beta1.IgnoreRulePackage{}.OpenAPIModelName()),
+						},
+					},
+					"sourceKind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceKind, SourceName and SourceNamespace identify the object that caused this suppression (e.g. \"SecurityException\", its name, and namespace for a namespaced object).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sourceName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"justification": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Justification and ImpactStatement carry the stated reason for the suppression, in VEX vocabulary.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"impactStatement": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -2686,10 +2571,40 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref common.Referen
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Match": {
+					"vulnerability": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.Match{}.OpenAPIModelName()),
+							Ref:     ref(v1beta1.Vulnerability{}.OpenAPIModelName()),
+						},
+					},
+					"relatedVulnerabilities": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"matchDetails": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.MatchDetails{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"artifact": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.GrypePackage{}.OpenAPIModelName()),
 						},
 					},
 					"appliedIgnoreRules": {
@@ -2698,19 +2613,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IgnoredMatch(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IgnoreRule{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IgnoreRule{}.OpenAPIModelName()),
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"Match", "appliedIgnoreRules"},
+				Required: []string{"vulnerability", "relatedVulnerabilities", "matchDetails", "artifact", "appliedIgnoreRules"},
 			},
 		},
 		Dependencies: []string{
-			v1beta1.IgnoreRule{}.OpenAPIModelName(), v1beta1.Match{}.OpenAPIModelName()},
+			v1beta1.GrypePackage{}.OpenAPIModelName(), v1beta1.IgnoreRule{}.OpenAPIModelName(), v1beta1.MatchDetails{}.OpenAPIModelName(), v1beta1.Vulnerability{}.OpenAPIModelName(), v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()},
 	}
 }
 
@@ -2861,8 +2775,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressClassList(ref common.Ref
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IngressClass{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IngressClass{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2986,8 +2899,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressList(ref common.Referenc
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Ingress{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Ingress{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3027,8 +2939,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerIngress(ref 
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IngressPortStatus{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IngressPortStatus{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3055,8 +2966,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressLoadBalancerStatus(ref c
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IngressLoadBalancerIngress{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IngressLoadBalancerIngress{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3207,8 +3117,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref common.Referenc
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IngressTLS{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IngressTLS{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3220,8 +3129,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressSpec(ref common.Referenc
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.IngressRule{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.IngressRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3269,9 +3177,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_IngressTLS(ref common.Reference
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -3322,8 +3229,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServer(ref common.Referenc
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.KnownServerEntry{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.KnownServerEntry{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3405,8 +3311,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_KnownServerList(ref common.Refe
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.KnownServer{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.KnownServer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3454,9 +3359,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_License(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -3468,8 +3372,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_License(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Location{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Location{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3514,9 +3417,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LinuxRelease(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -3619,24 +3521,46 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Location(ref common.ReferenceCa
 				Description: "Location represents a path relative to a particular filesystem resolved to a specific file.Reference. This struct is used as a key in content fetching to uniquely identify a file relative to a request (the VirtualPath).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"LocationData": {
+					"path": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.LocationData{}.OpenAPIModelName()),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
-					"LocationMetadata": {
+					"layerID": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.LocationMetadata{}.OpenAPIModelName()),
+							Description: "The path where all path ancestors have no hardlinks / symlinks",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"accessPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "note: it is IMPORTANT to ignore anything but the coordinates for a Location when considering the ID (hash value) since the coordinates are the minimally correct ID for a location (symlinks should not come into play)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
-				Required: []string{"LocationData", "LocationMetadata"},
+				Required: []string{"path", "accessPath"},
 			},
 		},
-		Dependencies: []string{
-			v1beta1.LocationData{}.OpenAPIModelName(), v1beta1.LocationMetadata{}.OpenAPIModelName()},
 	}
 }
 
@@ -3646,10 +3570,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref common.Referen
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Coordinates": {
+					"path": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.Coordinates{}.OpenAPIModelName()),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"layerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The path where all path ancestors have no hardlinks / symlinks",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"accessPath": {
@@ -3661,11 +3593,9 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationData(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"Coordinates", "accessPath"},
+				Required: []string{"path", "accessPath"},
 			},
 		},
-		Dependencies: []string{
-			v1beta1.Coordinates{}.OpenAPIModelName()},
 	}
 }
 
@@ -3682,9 +3612,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref common.Ref
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -3693,6 +3622,89 @@ func schema_pkg_apis_softwarecomposition_v1beta1_LocationMetadata(ref common.Ref
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_MCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServer is the parent resource of the mcp connect subresource, which serves the read-only MCP endpoint (designs-and-proposals storage-mcp-endpoint.md). It has no fields beyond metadata and is never stored.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_MCPServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerList is a list of MCPServer.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.MCPServer{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.MCPServer{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3714,8 +3726,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallb
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3727,8 +3738,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Match(ref common.ReferenceCallb
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.MatchDetails{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.MatchDetails{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3770,15 +3780,17 @@ func schema_pkg_apis_softwarecomposition_v1beta1_MatchDetails(ref common.Referen
 						},
 					},
 					"searchedBy": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 					"found": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -3905,9 +3917,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -3925,8 +3936,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPort{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPort{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3956,12 +3966,37 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
+						},
+					},
+					"serviceRefNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceRefNamespace and ServiceRefName reference a single Service; the resolver expands it to that Service's ClusterIP(s) and backing endpoint IPs. Portable (a name, resolved per-cluster) and narrow, unlike a serviceCIDR ipAddresses entry. See k8sstormcenter/node-agent#92.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceRefName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serviceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceSelector selects Services by label, resolved like ServiceRef.",
+							Ref:         ref(v1.LabelSelector{}.OpenAPIModelName()),
+						},
+					},
+					"entity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Entity is a reserved peer identity not backed by a Service object. Supported value: \"host\" (node InternalIP + CNI gateway) — kubelet/health probes and node-sourced traffic.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -3970,234 +4005,6 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighbor(ref common.Refe
 		},
 		Dependencies: []string{
 			v1beta1.NetworkPort{}.OpenAPIModelName(), v1.LabelSelector{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhood(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "NetworkNeighborhood represents a list of network communications for a specific workload.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.NetworkNeighborhoodSpec{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"spec"},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.NetworkNeighborhoodSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodContainer(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"ingress": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"egress": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighbor{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"name", "ingress", "egress"},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.NetworkNeighbor{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "NetworkNeighborhoodList is a list of NetworkNeighborhoods.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighborhood{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.NetworkNeighborhood{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_pkg_apis_softwarecomposition_v1beta1_NetworkNeighborhoodSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"matchLabels": {
-						SchemaProps: spec.SchemaProps{
-							Description: "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"matchExpressions": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.LabelSelectorRequirement{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"containers": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"initContainers": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"ephemeralContainers": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"containers", "initContainers", "ephemeralContainers"},
-			},
-		},
-		Dependencies: []string{
-			v1beta1.NetworkNeighborhoodContainer{}.OpenAPIModelName(), v1.LabelSelectorRequirement{}.OpenAPIModelName()},
 	}
 }
 
@@ -4252,8 +4059,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref com
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPolicyPort{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPolicyPort{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4265,8 +4071,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyEgressRule(ref com
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPolicyPeer{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPolicyPeer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4293,8 +4098,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPolicyPort{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPolicyPort{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4306,8 +4110,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyIngressRule(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPolicyPeer{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPolicyPeer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4355,8 +4158,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyList(ref common.Re
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPolicy{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPolicy{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4452,8 +4254,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref common.Re
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPolicyIngressRule{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPolicyIngressRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4465,8 +4266,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref common.Re
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.NetworkPolicyEgressRule{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.NetworkPolicyEgressRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4478,9 +4278,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicySpec(ref common.Re
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -4518,8 +4317,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_NetworkPolicyStatus(ref common.
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.Condition{}.OpenAPIModelName()),
+										Ref: ref(v1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4586,9 +4384,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenCalls(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -4673,8 +4470,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_OpenVulnerabilityExchangeContai
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.OpenVulnerabilityExchangeContainer{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.OpenVulnerabilityExchangeContainer{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4737,8 +4533,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Location{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Location{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4750,8 +4545,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.License{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.License{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4770,8 +4564,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicData(ref common.Ref
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.CPE{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.CPE{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4841,8 +4634,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref comm
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Location{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Location{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4854,8 +4646,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref comm
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.License{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.License{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4874,9 +4665,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageBasicDataV01011(ref comm
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -4912,9 +4702,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_PackageCustomData(ref common.Re
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -4977,10 +4768,48 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Product(ref common.ReferenceCal
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Component": {
+					"@id": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.Component{}.OpenAPIModelName()),
+							Description: "ID is an IRI identifying the component. It is optional as the component can also be identified using hashes or software identifiers.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hashes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hashes is a map of hashes to identify the component using cryptographic hashes.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"identifiers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Identifiers is a list of software identifiers that describe the component.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"supplier": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Supplier is an optional machine-readable identifier for the supplier of the component. Valid examples include email address or IRIs.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"subcomponents": {
@@ -4989,19 +4818,17 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Product(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Subcomponent{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Subcomponent{}.OpenAPIModelName()),
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"Component"},
 			},
 		},
 		Dependencies: []string{
-			v1beta1.Component{}.OpenAPIModelName(), v1beta1.Subcomponent{}.OpenAPIModelName()},
+			v1beta1.Subcomponent{}.OpenAPIModelName()},
 	}
 }
 
@@ -5085,9 +4912,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_RulePolicy(ref common.Reference
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -5259,8 +5085,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftFilteredList(ref common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SBOMSyftFiltered{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SBOMSyftFiltered{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5308,8 +5133,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SBOMSyftList(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SBOMSyft{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SBOMSyft{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5449,8 +5273,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControl(ref common.Refer
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ScannedControlRule{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.ScannedControlRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5504,8 +5327,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref common.R
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.RulePath{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.RulePath{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5517,9 +5339,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref common.R
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -5531,9 +5352,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_ScannedControlRule(ref common.R
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -5721,8 +5541,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileList(ref common.R
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SeccompProfile{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5749,8 +5568,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.R
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5762,8 +5580,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.R
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5775,8 +5592,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileSpec(ref common.R
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SingleSeccompProfile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5803,8 +5619,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SeccompProfileStatus(ref common
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SingleSeccompProfileStatus{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SingleSeccompProfileStatus{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5960,9 +5775,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -6002,9 +5816,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileSpec(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -6032,8 +5845,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref 
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6057,9 +5869,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SingleSeccompProfileStatus(ref 
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -6094,9 +5905,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Source(ref common.ReferenceCall
 						},
 					},
 					"target": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -6199,8 +6011,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Statement(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Product{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Product{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6270,8 +6081,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_StatusBase(ref common.Reference
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6297,18 +6107,53 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Subcomponent(ref common.Referen
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Component": {
+					"@id": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.Component{}.OpenAPIModelName()),
+							Description: "ID is an IRI identifying the component. It is optional as the component can also be identified using hashes or software identifiers.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hashes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hashes is a map of hashes to identify the component using cryptographic hashes.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"identifiers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Identifiers is a list of software identifiers that describe the component.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"supplier": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Supplier is an optional machine-readable identifier for the supplier of the component. Valid examples include email address or IRIs.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
-				Required: []string{"Component"},
 			},
 		},
-		Dependencies: []string{
-			v1beta1.Component{}.OpenAPIModelName()},
 	}
 }
 
@@ -6360,9 +6205,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDescriptor(ref common.Refer
 						},
 					},
 					"configuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -6398,8 +6244,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SyftRelationship{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SyftRelationship{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6411,8 +6256,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftDocument(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.SyftFile{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.SyftFile{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6490,8 +6334,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Digest{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Digest{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6503,8 +6346,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftFile(ref common.ReferenceCa
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.FileLicense{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.FileLicense{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -6531,24 +6373,110 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftPackage(ref common.Referenc
 				Description: "SyftPackage represents a pkg.SyftPackage object specialized for JSON marshaling and unmarshalling.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"PackageBasicData": {
+					"id": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.PackageBasicData{}.OpenAPIModelName()),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
-					"PackageCustomData": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.PackageCustomData{}.OpenAPIModelName()),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"foundBy": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"locations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.Location{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"licenses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.License{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"language": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"cpes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.CPE{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"purl": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"metadataType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"metadata": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
-				Required: []string{"PackageBasicData", "PackageCustomData"},
+				Required: []string{"id", "name", "version", "type", "foundBy", "locations", "licenses", "language", "cpes", "purl"},
 			},
 		},
 		Dependencies: []string{
-			v1beta1.PackageBasicData{}.OpenAPIModelName(), v1beta1.PackageCustomData{}.OpenAPIModelName()},
+			v1beta1.CPE{}.OpenAPIModelName(), v1beta1.License{}.OpenAPIModelName(), v1beta1.Location{}.OpenAPIModelName()},
 	}
 }
 
@@ -6580,9 +6508,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftRelationship(ref common.Ref
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -6628,9 +6557,10 @@ func schema_pkg_apis_softwarecomposition_v1beta1_SyftSource(ref common.Reference
 						},
 					},
 					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-preserve-unknown-fields": true,
+							},
 						},
 					},
 				},
@@ -6654,9 +6584,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Syscall(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -6759,10 +6688,72 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Metadata": {
+					"@context": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.Metadata{}.OpenAPIModelName()),
+							Description: "Context is the URL pointing to the jsonld context definition",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"@id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the identifying string for the VEX document. This should be unique per document.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"author": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Author is the identifier for the author of the VEX statement, ideally a common name, may be a URI. [author] is an individual or organization. [author] identity SHOULD be cryptographically associated with the signature of the VEX statement or document or transport.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorRole describes the role of the document Author.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"timestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timestamp defines the time at which the document was issued.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"last_updated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastUpdated marks the time when the document had its last update. When the document changes both version and this field should be updated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version is the document version. It must be incremented when any content within the VEX document changes, including any VEX statements included within the VEX document.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"tooling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tooling expresses how the VEX document and contained VEX statements were generated. It's optional. It may specify tools or automated processes used in the document or statement generation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"supplier": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Supplier is an optional field.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"statements": {
@@ -6771,19 +6762,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VEX(ref common.ReferenceCallbac
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Statement{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Statement{}.OpenAPIModelName()),
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"Metadata", "statements"},
+				Required: []string{"@context", "@id", "author", "timestamp", "version", "statements"},
 			},
 		},
 		Dependencies: []string{
-			v1beta1.Metadata{}.OpenAPIModelName(), v1beta1.Statement{}.OpenAPIModelName()},
+			v1beta1.Statement{}.OpenAPIModelName()},
 	}
 }
 
@@ -6821,9 +6811,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VexVulnerability(ref common.Ref
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -6902,10 +6891,61 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref common.Refere
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"VulnerabilityMetadata": {
+					"id": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"dataSource": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"severity": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"urls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cvss": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1beta1.Cvss{}.OpenAPIModelName()),
+									},
+								},
+							},
 						},
 					},
 					"fix": {
@@ -6920,19 +6960,18 @@ func schema_pkg_apis_softwarecomposition_v1beta1_Vulnerability(ref common.Refere
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Advisory{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Advisory{}.OpenAPIModelName()),
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"VulnerabilityMetadata", "fix", "advisories"},
+				Required: []string{"id", "dataSource", "urls", "cvss", "fix", "advisories"},
 			},
 		},
 		Dependencies: []string{
-			v1beta1.Advisory{}.OpenAPIModelName(), v1beta1.Fix{}.OpenAPIModelName(), v1beta1.VulnerabilityMetadata{}.OpenAPIModelName()},
+			v1beta1.Advisory{}.OpenAPIModelName(), v1beta1.Cvss{}.OpenAPIModelName(), v1beta1.Fix{}.OpenAPIModelName()},
 	}
 }
 
@@ -7043,8 +7082,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestList(ref c
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.VulnerabilityManifest{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.VulnerabilityManifest{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7231,8 +7269,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityManifestSummaryLis
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.VulnerabilityManifestSummary{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.VulnerabilityManifestSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7347,9 +7384,8 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref commo
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -7367,8 +7403,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilityMetadata(ref commo
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Cvss{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.Cvss{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7463,8 +7498,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummaryList(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.VulnerabilitySummary{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.VulnerabilitySummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7497,8 +7531,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_VulnerabilitySummarySpec(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.VulnerabilitiesObjScope{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7598,8 +7631,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(r
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7611,6 +7643,28 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanList(r
 		},
 		Dependencies: []string{
 			v1beta1.WorkloadConfigurationScan{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkloadConfigurationScanMeta contains producer-supplied metadata about a workload configuration scan report.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"report": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.ReportMeta{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"report"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.ReportMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -7675,8 +7729,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(r
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ScannedControl{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.ScannedControl{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7688,11 +7741,16 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(r
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()),
 									},
 								},
 							},
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Metadata contains producer-supplied metadata about this scan report. Field 4 preserves the existing wire layout: fields 2 and 3 are stable, while field 1 was unused when protobuf support was introduced.",
+							Ref:         ref(v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -7700,7 +7758,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSpec(r
 			},
 		},
 		Dependencies: []string{
-			v1beta1.ScannedControl{}.OpenAPIModelName(), v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()},
+			v1beta1.ScannedControl{}.OpenAPIModelName(), v1beta1.WorkloadConfigurationScanMeta{}.OpenAPIModelName(), v1beta1.WorkloadScanRelatedObject{}.OpenAPIModelName()},
 	}
 }
 
@@ -7814,8 +7872,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.WorkloadConfigurationScanSummary{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.WorkloadConfigurationScanSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -7849,8 +7906,7 @@ func schema_pkg_apis_softwarecomposition_v1beta1_WorkloadConfigurationScanSummar
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.ScannedControlSummary{}.OpenAPIModelName()),
+										Ref: ref(v1beta1.ScannedControlSummary{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -8082,8 +8138,7 @@ func schema_pkg_apis_meta_v1_APIGroup(ref common.ReferenceCallback) common.OpenA
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.GroupVersionForDiscovery{}.OpenAPIModelName()),
+										Ref: ref(v1.GroupVersionForDiscovery{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -8108,8 +8163,7 @@ func schema_pkg_apis_meta_v1_APIGroup(ref common.ReferenceCallback) common.OpenA
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.ServerAddressByClientCIDR{}.OpenAPIModelName()),
+										Ref: ref(v1.ServerAddressByClientCIDR{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -8157,8 +8211,7 @@ func schema_pkg_apis_meta_v1_APIGroupList(ref common.ReferenceCallback) common.O
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.APIGroup{}.OpenAPIModelName()),
+										Ref: ref(v1.APIGroup{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -8233,9 +8286,8 @@ func schema_pkg_apis_meta_v1_APIResource(ref common.ReferenceCallback) common.Op
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -8253,9 +8305,8 @@ func schema_pkg_apis_meta_v1_APIResource(ref common.ReferenceCallback) common.Op
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -8273,9 +8324,8 @@ func schema_pkg_apis_meta_v1_APIResource(ref common.ReferenceCallback) common.Op
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -8336,8 +8386,7 @@ func schema_pkg_apis_meta_v1_APIResourceList(ref common.ReferenceCallback) commo
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.APIResource{}.OpenAPIModelName()),
+										Ref: ref(v1.APIResource{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -8385,9 +8434,8 @@ func schema_pkg_apis_meta_v1_APIVersions(ref common.ReferenceCallback) common.Op
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -8405,8 +8453,7 @@ func schema_pkg_apis_meta_v1_APIVersions(ref common.ReferenceCallback) common.Op
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.ServerAddressByClientCIDR{}.OpenAPIModelName()),
+										Ref: ref(v1.ServerAddressByClientCIDR{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -8454,9 +8501,8 @@ func schema_pkg_apis_meta_v1_ApplyOptions(ref common.ReferenceCallback) common.O
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -8579,9 +8625,8 @@ func schema_pkg_apis_meta_v1_CreateOptions(ref common.ReferenceCallback) common.
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -8667,9 +8712,8 @@ func schema_pkg_apis_meta_v1_DeleteOptions(ref common.ReferenceCallback) common.
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -8737,9 +8781,8 @@ func schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9022,9 +9065,8 @@ func schema_pkg_apis_meta_v1_LabelSelector(ref common.ReferenceCallback) common.
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9042,8 +9084,7 @@ func schema_pkg_apis_meta_v1_LabelSelector(ref common.ReferenceCallback) common.
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.LabelSelectorRequirement{}.OpenAPIModelName()),
+										Ref: ref(v1.LabelSelectorRequirement{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -9097,9 +9138,8 @@ func schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9197,9 +9237,17 @@ func schema_pkg_apis_meta_v1_ListMeta(ref common.ReferenceCallback) common.OpenA
 							Format:      "int64",
 						},
 					},
+					"shardInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shardInfo is set when the list is a filtered subset of the full collection, as selected by a shard selector on the request. It echoes back the selector so clients can verify which shard they received and merge sharded responses. Clients should not cache sharded list responses as a full representation of the collection.\n\nThis is an alpha field and requires enabling the ShardedListAndWatch feature gate.",
+							Ref:         ref(v1.ShardInfo{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			v1.ShardInfo{}.OpenAPIModelName()},
 	}
 }
 
@@ -9291,6 +9339,13 @@ func schema_pkg_apis_meta_v1_ListOptions(ref common.ReferenceCallback) common.Op
 						SchemaProps: spec.SchemaProps{
 							Description: "`sendInitialEvents=true` may be set together with `watch=true`. In that case, the watch stream will begin with synthetic events to produce the current state of objects in the collection. Once all such events have been sent, a synthetic \"Bookmark\" event  will be sent. The bookmark will report the ResourceVersion (RV) corresponding to the set of objects, and be marked with `\"k8s.io/initial-events-end\": \"true\"` annotation. Afterwards, the watch stream will proceed as usual, sending watch events corresponding to changes (subsequent to the RV) to objects watched.\n\nWhen `sendInitialEvents` option is set, we require `resourceVersionMatch` option to also be set. The semantic of the watch request is as following: - `resourceVersionMatch` = NotOlderThan\n  is interpreted as \"data at least as new as the provided `resourceVersion`\"\n  and the bookmark event is send when the state is synced\n  to a `resourceVersion` at least as fresh as the one provided by the ListOptions.\n  If `resourceVersion` is unset, this is interpreted as \"consistent read\" and the\n  bookmark event is send when the state is synced at least to the moment\n  when request started being processed.\n- `resourceVersionMatch` set to any other value or unset\n  Invalid error is returned.\n\nDefaults to true if `resourceVersion=\"\"` or `resourceVersion=\"0\"` (for backward compatibility reasons) and to false otherwise.",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"shardSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shardSelector restricts the list of returned objects using a CEL-based shard selector expression. The format uses the shardRange() function combined with || (logical OR) to specify one or more hash ranges:\n\n  shardRange(object.metadata.uid, '0x0', '0x8000000000000000')\n  shardRange(object.metadata.uid, '0x0', '0x8000000000000000') || shardRange(object.metadata.uid, '0x8000000000000000', '0x10000000000000000')\n\nField paths use CEL-style object-rooted syntax (e.g. \"object.metadata.uid\"), NOT the fieldSelector format (\"metadata.uid\"). Currently supported paths:\n  - object.metadata.uid\n  - object.metadata.namespace\n\nhexStart and hexEnd are single-quoted CEL string literals with a '0x' prefix, defining the inclusive lower and exclusive upper bounds over the 64-bit FNV-1a hash space. The full range is [0x0, 0x10000000000000000), where the exclusive upper bound equals 2^64.\n\nExamples:\n  2-shard split:\n    shard 0: shardRange(object.metadata.uid, '0x0000000000000000', '0x8000000000000000')\n    shard 1: shardRange(object.metadata.uid, '0x8000000000000000', '0x10000000000000000')\n  4-shard split:\n    shard 0: shardRange(object.metadata.uid, '0x0000000000000000', '0x4000000000000000')\n    shard 1: shardRange(object.metadata.uid, '0x4000000000000000', '0x8000000000000000')\n    shard 2: shardRange(object.metadata.uid, '0x8000000000000000', '0xc000000000000000')\n    shard 3: shardRange(object.metadata.uid, '0xc000000000000000', '0x10000000000000000')\n\nThis is an alpha field and requires enabling the ShardedListAndWatch feature gate.",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
@@ -9457,9 +9512,8 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9473,9 +9527,8 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9498,8 +9551,7 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.OwnerReference{}.OpenAPIModelName()),
+										Ref: ref(v1.OwnerReference{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -9518,9 +9570,8 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9538,8 +9589,7 @@ func schema_pkg_apis_meta_v1_ObjectMeta(ref common.ReferenceCallback) common.Ope
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.ManagedFieldsEntry{}.OpenAPIModelName()),
+										Ref: ref(v1.ManagedFieldsEntry{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -9689,8 +9739,7 @@ func schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref common.ReferenceCallb
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.PartialObjectMetadata{}.OpenAPIModelName()),
+										Ref: ref(v1.PartialObjectMetadata{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -9749,9 +9798,8 @@ func schema_pkg_apis_meta_v1_PatchOptions(ref common.ReferenceCallback) common.O
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9830,9 +9878,8 @@ func schema_pkg_apis_meta_v1_RootPaths(ref common.ReferenceCallback) common.Open
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -9870,6 +9917,28 @@ func schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref common.ReferenceCallb
 					},
 				},
 				Required: []string{"clientCIDR", "serverAddress"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_meta_v1_ShardInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ShardInfo describes the shard selector that was applied to produce a list response. Its presence on a list response indicates the list is a filtered subset.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selector is the shard selector string from the request, echoed back so clients can verify which shard they received and merge responses from multiple shards.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"selector"},
 			},
 		},
 	}
@@ -10026,8 +10095,7 @@ func schema_pkg_apis_meta_v1_StatusDetails(ref common.ReferenceCallback) common.
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.StatusCause{}.OpenAPIModelName()),
+										Ref: ref(v1.StatusCause{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -10088,8 +10156,7 @@ func schema_pkg_apis_meta_v1_Table(ref common.ReferenceCallback) common.OpenAPID
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.TableColumnDefinition{}.OpenAPIModelName()),
+										Ref: ref(v1.TableColumnDefinition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -10107,8 +10174,7 @@ func schema_pkg_apis_meta_v1_Table(ref common.ReferenceCallback) common.OpenAPID
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.TableRow{}.OpenAPIModelName()),
+										Ref: ref(v1.TableRow{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -10249,8 +10315,7 @@ func schema_pkg_apis_meta_v1_TableRow(ref common.ReferenceCallback) common.OpenA
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1.TableRowCondition{}.OpenAPIModelName()),
+										Ref: ref(v1.TableRowCondition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -10417,9 +10482,8 @@ func schema_pkg_apis_meta_v1_UpdateOptions(ref common.ReferenceCallback) common.
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -10478,7 +10542,7 @@ func schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "RawExtension is used to hold extensions in external versions.\n\nTo use this, make a field which has RawExtension as its type in your external, versioned struct, and Object in your internal struct. You also need to register your various plugin types.\n\n// Internal package:\n\n\ttype MyAPIObject struct {\n\t\truntime.TypeMeta `json:\",inline\"`\n\t\tMyPlugin runtime.Object `json:\"myPlugin\"`\n\t}\n\n\ttype PluginA struct {\n\t\tAOption string `json:\"aOption\"`\n\t}\n\n// External package:\n\n\ttype MyAPIObject struct {\n\t\truntime.TypeMeta `json:\",inline\"`\n\t\tMyPlugin runtime.RawExtension `json:\"myPlugin\"`\n\t}\n\n\ttype PluginA struct {\n\t\tAOption string `json:\"aOption\"`\n\t}\n\n// On the wire, the JSON will look something like this:\n\n\t{\n\t\t\"kind\":\"MyAPIObject\",\n\t\t\"apiVersion\":\"v1\",\n\t\t\"myPlugin\": {\n\t\t\t\"kind\":\"PluginA\",\n\t\t\t\"aOption\":\"foo\",\n\t\t},\n\t}\n\nSo what happens? Decode first uses json or yaml to unmarshal the serialized data into your external MyAPIObject. That causes the raw JSON to be stored, but not unpacked. The next step is to copy (using pkg/conversion) into the internal struct. The runtime package's DefaultScheme has conversion functions installed which will unpack the JSON stored in RawExtension, turning it into the correct object type, and storing it in the Object. (TODO: In the case where the object is of an unknown type, a runtime.Unknown object will be created and stored.)",
+				Description: "RawExtension is used to hold extensions in external versions.\n\nTo use this, make a field which has RawExtension as its type in your external, versioned struct, and Object in your internal struct. You also need to register your various plugin types.\n\n// Internal package:\n\n\ttype MyAPIObject struct {\n\t\truntime.TypeMeta `json:\"\"`\n\t\tMyPlugin runtime.Object `json:\"myPlugin\"`\n\t}\n\n\ttype PluginA struct {\n\t\tAOption string `json:\"aOption\"`\n\t}\n\n// External package:\n\n\ttype MyAPIObject struct {\n\t\truntime.TypeMeta `json:\"\"`\n\t\tMyPlugin runtime.RawExtension `json:\"myPlugin\"`\n\t}\n\n\ttype PluginA struct {\n\t\tAOption string `json:\"aOption\"`\n\t}\n\n// On the wire, the JSON will look something like this:\n\n\t{\n\t\t\"kind\":\"MyAPIObject\",\n\t\t\"apiVersion\":\"v1\",\n\t\t\"myPlugin\": {\n\t\t\t\"kind\":\"PluginA\",\n\t\t\t\"aOption\":\"foo\",\n\t\t},\n\t}\n\nSo what happens? Decode first uses json or yaml to unmarshal the serialized data into your external MyAPIObject. That causes the raw JSON to be stored, but not unpacked. The next step is to copy (using pkg/conversion) into the internal struct. The runtime package's DefaultScheme has conversion functions installed which will unpack the JSON stored in RawExtension, turning it into the correct object type, and storing it in the Object. (TODO: In the case where the object is of an unknown type, a runtime.Unknown object will be created and stored.)",
 				Type:        []string{"object"},
 			},
 		},
@@ -10489,7 +10553,7 @@ func schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "TypeMeta is shared by all top level objects. The proper way to use it is to inline it in your type, like this:\n\n\ttype MyAwesomeAPIObject struct {\n\t     runtime.TypeMeta    `json:\",inline\"`\n\t     ... // other fields\n\t}\n\nfunc (obj *MyAwesomeAPIObject) SetGroupVersionKind(gvk *metav1.GroupVersionKind) { metav1.UpdateTypeMeta(obj,gvk) }; GroupVersionKind() *GroupVersionKind\n\nTypeMeta is provided here for convenience. You may use it directly from this package or define your own with the same fields.",
+				Description: "TypeMeta is shared by all top level objects. The proper way to use it is to inline it in your type, like this:\n\n\ttype MyAwesomeAPIObject struct {\n\t     runtime.TypeMeta    `json:\"\"`\n\t     ... // other fields\n\t}\n\nfunc (obj *MyAwesomeAPIObject) SetGroupVersionKind(gvk *metav1.GroupVersionKind) { metav1.UpdateTypeMeta(obj,gvk) }; GroupVersionKind() *GroupVersionKind\n\nTypeMeta is provided here for convenience. You may use it directly from this package or define your own with the same fields.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"apiVersion": {

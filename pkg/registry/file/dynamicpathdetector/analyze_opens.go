@@ -19,6 +19,16 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer, sbomSet mapse
 	}
 
 	dynamicOpens := make(map[string]types.OpenCalls)
+	// add records the open under path, merging its flags into an entry
+	// already recorded there, so a path seen more than once keeps them all.
+	add := func(path string, flags []string) {
+		if existing, ok := dynamicOpens[path]; ok {
+			existing.Flags = mapset.Sorted(mapset.NewThreadUnsafeSet(slices.Concat(existing.Flags, flags)...))
+			dynamicOpens[path] = existing
+			return
+		}
+		dynamicOpens[path] = types.OpenCalls{Path: path, Flags: flags}
+	}
 	for _, open := range opens {
 		_, _ = AnalyzeOpen(open.Path, analyzer)
 	}
@@ -26,7 +36,7 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer, sbomSet mapse
 	for i := range opens {
 		// sbomSet files have to be always present in the dynamicOpens
 		if sbomSet.ContainsOne(opens[i].Path) {
-			dynamicOpens[opens[i].Path] = opens[i]
+			add(opens[i].Path, opens[i].Flags)
 			continue
 		}
 
@@ -35,17 +45,7 @@ func AnalyzeOpens(opens []types.OpenCalls, analyzer *PathAnalyzer, sbomSet mapse
 			continue
 		}
 
-		if result != opens[i].Path {
-			if existing, ok := dynamicOpens[result]; ok {
-				existing.Flags = mapset.Sorted(mapset.NewThreadUnsafeSet(slices.Concat(existing.Flags, opens[i].Flags)...))
-				dynamicOpens[result] = existing
-			} else {
-				dynamicOpen := types.OpenCalls{Path: result, Flags: opens[i].Flags}
-				dynamicOpens[result] = dynamicOpen
-			}
-		} else {
-			dynamicOpens[opens[i].Path] = opens[i]
-		}
+		add(result, opens[i].Flags)
 	}
 
 	result := slices.SortedFunc(maps.Values(dynamicOpens), func(a, b types.OpenCalls) int {

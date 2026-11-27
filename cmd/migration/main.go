@@ -1,8 +1,8 @@
 package main
 
 // migration is a standalone utility to decode legacy Gob data into JSON.
-// It is used to handle breaking changes in the Gob format (e.g., transitioning 
-// fields from uint64 to int64) that cannot be handled by the main service 
+// It is used to handle breaking changes in the Gob format (e.g., transitioning
+// fields from uint64 to int64) that cannot be handled by the main service
 // due to Go's global Gob type registration constraints.
 
 import (
@@ -42,38 +42,6 @@ type LegacyOpenCalls struct {
 	Flags []string `json:"Flags"`
 }
 
-type LegacyApplicationProfileContainer struct {
-	Name                 string                                    `json:"Name"`
-	Capabilities         []string                                  `json:"Capabilities"`
-	Execs                []LegacyExecCalls                         `json:"Execs"`
-	Opens                []LegacyOpenCalls                         `json:"Opens"`
-	Syscalls             []string                                  `json:"Syscalls"`
-	SeccompProfile       LegacySingleSeccompProfile                `json:"SeccompProfile"`
-	Endpoints            []softwarecomposition.HTTPEndpoint        `json:"Endpoints"`
-	ImageID              string                                    `json:"ImageID"`
-	ImageTag             string                                    `json:"ImageTag"`
-	PolicyByRuleId       map[string]softwarecomposition.RulePolicy `json:"PolicyByRuleId"`
-	IdentifiedCallStacks []softwarecomposition.IdentifiedCallStack  `json:"IdentifiedCallStacks"`
-}
-
-type LegacyApplicationProfileSpec struct {
-	Architectures       []string                            `json:"Architectures,omitempty"`
-	Containers          []LegacyApplicationProfileContainer `json:"Containers,omitempty"`
-	InitContainers      []LegacyApplicationProfileContainer `json:"InitContainers,omitempty"`
-	EphemeralContainers []LegacyApplicationProfileContainer `json:"EphemeralContainers,omitempty"`
-}
-
-type LegacyApplicationProfile struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:",inline"`
-
-	// +k8s:conversion-gen=false
-	Parts map[string]string `json:"Parts,omitempty"`
-	// +k8s:conversion-gen=false
-	SchemaVersion int64                        `json:"SchemaVersion,omitempty"`
-	Spec          LegacyApplicationProfileSpec `json:"Spec,omitempty"`
-}
-
 type LegacySingleSeccompProfile struct {
 	Name string `json:"Name"`
 	Path string `json:"Path"`
@@ -100,34 +68,39 @@ type LegacyContainerProfileSpec struct {
 	ImageID              string                                    `json:"ImageID"`
 	ImageTag             string                                    `json:"ImageTag"`
 	PolicyByRuleId       map[string]softwarecomposition.RulePolicy `json:"PolicyByRuleId"`
-	IdentifiedCallStacks []softwarecomposition.IdentifiedCallStack  `json:"IdentifiedCallStacks"`
-	metav1.LabelSelector `json:"LabelSelector"`
-	Ingress              []LegacyNetworkNeighbor                   `json:"Ingress"`
-	Egress               []LegacyNetworkNeighbor                   `json:"Egress"`
+	IdentifiedCallStacks []softwarecomposition.IdentifiedCallStack `json:"IdentifiedCallStacks"`
+	// Embedded WITHOUT a json tag, exactly like the destination
+	// softwarecomposition.ContainerProfileSpec: encoding/json then promotes
+	// MatchLabels/MatchExpressions to the Spec level, which is the shape the
+	// storage Get path unmarshals (a nested "LabelSelector" key would be
+	// silently dropped there, emptying the workload selector on rewrite).
+	metav1.LabelSelector
+	Ingress []LegacyNetworkNeighbor `json:"Ingress"`
+	Egress  []LegacyNetworkNeighbor `json:"Egress"`
 }
 
 type LegacyContainerProfile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:",inline"`
-	Spec              LegacyContainerProfileSpec `json:"Spec,omitempty"`
+	Spec              LegacyContainerProfileSpec                 `json:"Spec,omitempty"`
 	Status            softwarecomposition.ContainerProfileStatus `json:"Status,omitempty"`
 }
 
 type LegacyNetworkPort struct {
 	Name     string `json:"Name"`
 	Protocol string `json:"Protocol"`
-	Port     *int32  `json:"Port"`
+	Port     *int32 `json:"Port"`
 }
 
 type LegacyNetworkNeighbor struct {
-	Identifier        string                      `json:"Identifier"`
-	Type              string                      `json:"Type"`
-	DNS               string                      `json:"DNS"`
-	DNSNames          []string                    `json:"DNSNames"`
-	Ports             []LegacyNetworkPort         `json:"Ports"`
-	PodSelector       *metav1.LabelSelector       `json:"PodSelector"`
-	NamespaceSelector *metav1.LabelSelector       `json:"NamespaceSelector"`
-	IPAddress         string                      `json:"IPAddress"`
+	Identifier        string                `json:"Identifier"`
+	Type              string                `json:"Type"`
+	DNS               string                `json:"DNS"`
+	DNSNames          []string              `json:"DNSNames"`
+	Ports             []LegacyNetworkPort   `json:"Ports"`
+	PodSelector       *metav1.LabelSelector `json:"PodSelector"`
+	NamespaceSelector *metav1.LabelSelector `json:"NamespaceSelector"`
+	IPAddress         string                `json:"IPAddress"`
 }
 
 type LegacySeccompProfileSpec struct {
@@ -139,17 +112,17 @@ type LegacySeccompProfileSpec struct {
 type LegacySeccompProfile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:",inline"`
-	Spec              LegacySeccompProfileSpec            `json:"Spec,omitempty"`
+	Spec              LegacySeccompProfileSpec                 `json:"Spec,omitempty"`
 	Status            softwarecomposition.SeccompProfileStatus `json:"Status,omitempty"`
 }
 
 func main() {
 	filePath := flag.String("file", "", "Path to the gob file to decode")
-	typeName := flag.String("type", "ApplicationProfile", "Type to decode (ApplicationProfile, ContainerProfile, or SeccompProfile)")
+	typeName := flag.String("type", "ContainerProfile", "Type to decode (ContainerProfile or SeccompProfile)")
 	flag.Parse()
 
 	if *filePath == "" {
-		fmt.Fprintf(os.Stderr, "Usage: migration -file <path> [-type <ApplicationProfile|ContainerProfile|SeccompProfile>]\n")
+		fmt.Fprintf(os.Stderr, "Usage: migration -file <path> [-type <ContainerProfile|SeccompProfile>]\n")
 		os.Exit(1)
 	}
 
@@ -162,8 +135,6 @@ func main() {
 
 	var result interface{}
 	switch *typeName {
-	case "ApplicationProfile":
-		result = &LegacyApplicationProfile{}
 	case "ContainerProfile":
 		result = &LegacyContainerProfile{}
 	case "SeccompProfile":
@@ -176,7 +147,7 @@ func main() {
 	// Important: We need to register types that might be in the gob stream
 	// but are defined locally in this 'main' package to avoid name mismatches
 	// although gob name matching is usually package-scoped.
-	// Since this is a separate binary, its 'main.LegacyApplicationProfile'
+	// Since this is a separate binary, its 'main.LegacyContainerProfile'
 	// registration is isolated from the storage binary's registration.
 
 	// Register common types that might be inside interface{} fields or nested structs

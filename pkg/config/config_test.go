@@ -8,6 +8,7 @@ import (
 
 	"github.com/armosec/armoapi-go/armotypes"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -21,15 +22,15 @@ func TestLoadConfig(t *testing.T) {
 			name: "TestLoadConfig",
 			path: "../../configuration",
 			want: Config{
-				CleanupInterval:            24 * time.Hour,
-				DefaultNamespace:           "kubescape",
-				HostType:                   armotypes.HostTypeKubernetes,
-				ExcludeJsonPaths:           []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
-				MaxApplicationProfileSize:  40000,
-				MaxNetworkNeighborhoodSize: 40000,
-				RateLimitTotal:             10,
-				ServerBindAddress:          "::",
-				ServerBindPort:             8443,
+				CleanupInterval:         24 * time.Hour,
+				DefaultNamespace:        "kubescape",
+				HostType:                armotypes.HostTypeKubernetes,
+				ExcludeJsonPaths:        []string{".containers[*].env[?(@.name==\"KUBECONFIG\")]"},
+				MaxContainerProfileSize: 40000,
+				MCP:                     MCPConfig{CallTimeout: 20 * time.Second, MaxResponseBytes: 256 << 10, MaxRunning: 1, MaxWaiting: 10, MaxWait: 30 * time.Second},
+				RateLimitTotal:          10,
+				ServerBindAddress:       "::",
+				ServerBindPort:          8443,
 				KindQueues: map[string]KindQueueConfig{
 					"applicationprofiles": {
 						QueueLength:   50,
@@ -45,6 +46,11 @@ func TestLoadConfig(t *testing.T) {
 						QueueLength:   50,
 						WorkerCount:   2,
 						MaxObjectSize: 10000000,
+					},
+					"mcpservers": {
+						QueueLength:   1,
+						WorkerCount:   1,
+						MaxObjectSize: 64 << 10,
 					},
 					"openvulnerabilityexchangecontainers": {
 						QueueLength:   50,
@@ -72,6 +78,10 @@ func TestLoadConfig(t *testing.T) {
 				DefaultMaxObjectSize: 400000,
 				QueueManagerEnabled:  true,
 				QueueTimeout:         60,
+				SqlitePoolSize:       10,
+				SqliteBusyTimeout:    60 * time.Second,
+				PoolTimeout:          15 * time.Second,
+				SingleWriterEnabled:  true,
 			},
 			wantErr: false,
 		},
@@ -152,4 +162,218 @@ func TestHostTypeValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCustomRestEnabledEnvVar guards the single-knob override: setting
+// CUSTOM_REST_ENABLED must override every Custom<Resource>RestEnabled flag at
+// once, regardless of what config.json says for the individual flags, while
+// leaving it unset must leave config.json's per-resource values untouched.
+func TestCustomRestEnabledEnvVar(t *testing.T) {
+	allFlags := func(c Config) []bool {
+		return []bool{
+			c.CustomKnownServersRestEnabled,
+			c.CustomOpenVulnerabilityExchangeRestEnabled,
+			c.CustomContainerProfileRestEnabled,
+			c.CustomCollapseConfigurationRestEnabled,
+			c.CustomSBOMSyftFilteredRestEnabled,
+			c.CustomSBOMSyftRestEnabled,
+			c.CustomSeccompProfileRestEnabled,
+			c.CustomVulnerabilityManifestRestEnabled,
+			c.CustomVulnerabilityManifestSummaryRestEnabled,
+			c.CustomWorkloadConfigurationScanRestEnabled,
+			c.CustomWorkloadConfigurationScanSummaryRestEnabled,
+		}
+	}
+
+	tempDir := t.TempDir()
+	dir := filepath.Join(tempDir, "mixed-flags")
+	require.NoError(t, os.MkdirAll(dir, 0755))
+	// A deliberately mixed config: some resources opted out individually.
+	// The env var, when set, must win over every one of these regardless.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{
+		"customKnownServersRestEnabled": false,
+		"customContainerProfileRestEnabled": true,
+		"customSBOMSyftRestEnabled": false
+	}`), 0644))
+
+	t.Run("unset leaves config.json's per-resource values untouched", func(t *testing.T) {
+		got, err := LoadConfig(dir)
+		require.NoError(t, err)
+		assert.False(t, got.CustomKnownServersRestEnabled)
+		assert.True(t, got.CustomContainerProfileRestEnabled)
+		assert.False(t, got.CustomSBOMSyftRestEnabled)
+		// Untouched-in-config.json flags still fall back to the false default.
+		assert.False(t, got.CustomCollapseConfigurationRestEnabled)
+	})
+
+	t.Run("true overrides every flag to true", func(t *testing.T) {
+		t.Setenv(CustomRestEnabledEnvVar, "true")
+		got, err := LoadConfig(dir)
+		require.NoError(t, err)
+		for _, v := range allFlags(got) {
+			assert.True(t, v)
+		}
+	})
+
+	t.Run("false overrides every flag to false", func(t *testing.T) {
+		t.Setenv(CustomRestEnabledEnvVar, "false")
+		got, err := LoadConfig(dir)
+		require.NoError(t, err)
+		for _, v := range allFlags(got) {
+			assert.False(t, v)
+		}
+	})
+
+	t.Run("invalid value is a loud error, not silently ignored", func(t *testing.T) {
+		t.Setenv(CustomRestEnabledEnvVar, "not-a-bool")
+		_, err := LoadConfig(dir)
+		assert.Error(t, err)
+	})
+}
+
+// TestSqlitePoolConfig verifies the new SqlitePoolSize/SqliteBusyTimeout knobs
+// default to today's previously-hardcoded values (10 / 60s) when unset, and
+// are read correctly from config.json when set. This is a Phase 0
+// (docs/features/storage-lock-pool-metrics.md) config-only change: the
+// defaults must reproduce current behavior exactly.
+func TestSqlitePoolConfig(t *testing.T) {
+	tempDir := t.TempDir()
+
+	tests := []struct {
+		name            string
+		configJSON      string
+		wantPoolSize    int
+		wantBusyTimeout time.Duration
+	}{
+		{
+			name:            "unset defaults to today's hardcoded values",
+			configJSON:      `{}`,
+			wantPoolSize:    10,
+			wantBusyTimeout: 60 * time.Second,
+		},
+		{
+			name:            "explicit override",
+			configJSON:      `{"sqlitePoolSize": 30, "sqliteBusyTimeout": "10s"}`,
+			wantPoolSize:    30,
+			wantBusyTimeout: 10 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(tempDir, tt.name)
+			require.NoError(t, os.MkdirAll(dir, 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(tt.configJSON), 0644))
+
+			got, err := LoadConfig(dir)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPoolSize, got.SqlitePoolSize)
+			assert.Equal(t, tt.wantBusyTimeout, got.SqliteBusyTimeout)
+		})
+	}
+}
+
+// TestPoolTimeoutConfig verifies the new PoolTimeout knob defaults to today's
+// previously-hardcoded value (5s) when unset, and is read correctly from
+// config.json when set. PoolTimeout governs how long a caller blocks in
+// pool.Take() waiting for a free connection from the SQLite connection pool
+// (see docs/features/storage-lock-pool-metrics.md) and is distinct from
+// SqliteBusyTimeout, which governs SQLite's own busy-handler on a single
+// already-acquired connection.
+func TestPoolTimeoutConfig(t *testing.T) {
+	tempDir := t.TempDir()
+
+	tests := []struct {
+		name            string
+		configJSON      string
+		wantPoolTimeout time.Duration
+	}{
+		{
+			name:            "unset defaults to today's hardcoded value",
+			configJSON:      `{}`,
+			wantPoolTimeout: 15 * time.Second,
+		},
+		{
+			name:            "explicit override",
+			configJSON:      `{"poolTimeout": "250ms"}`,
+			wantPoolTimeout: 250 * time.Millisecond,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(tempDir, tt.name)
+			require.NoError(t, os.MkdirAll(dir, 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(tt.configJSON), 0644))
+
+			got, err := LoadConfig(dir)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPoolTimeout, got.PoolTimeout)
+		})
+	}
+}
+
+// TestSingleWriterEnabledConfig verifies the SingleWriterEnabled knob defaults to true
+// when unset, and is read correctly from config.json when set.
+func TestSingleWriterEnabledConfig(t *testing.T) {
+	tempDir := t.TempDir()
+
+	tests := []struct {
+		name             string
+		configJSON       string
+		wantSingleWriter bool
+	}{
+		{
+			name:             "unset defaults to true",
+			configJSON:       `{}`,
+			wantSingleWriter: true,
+		},
+		{
+			name:             "explicit override false",
+			configJSON:       `{"singleWriterEnabled": false}`,
+			wantSingleWriter: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(tempDir, tt.name)
+			require.NoError(t, os.MkdirAll(dir, 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(tt.configJSON), 0644))
+
+			got, err := LoadConfig(dir)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSingleWriter, got.SingleWriterEnabled)
+		})
+	}
+}
+
+
+func TestMCPKindQueue(t *testing.T) {
+	dir := t.TempDir()
+	write := func(json string) Config {
+		t.Helper()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.json"), []byte(json), 0o600))
+		cfg, err := LoadConfig(dir)
+		require.NoError(t, err)
+		return cfg
+	}
+	want := KindQueueConfig{QueueLength: 1, WorkerCount: 1, MaxObjectSize: 64 << 10}
+
+	// No kindQueues in the file: the default map, plus mcpservers.
+	cfg := write(`{}`)
+	assert.Equal(t, want, cfg.KindQueues[MCPKindQueue])
+	assert.Contains(t, cfg.KindQueues, "sbomsyfts")
+
+	// kindQueues without mcpservers, as in the operator chart: still added.
+	cfg = write(`{"kindQueues": {"sbomsyfts": {"queueLength": 5, "workerCount": 1, "maxObjectSize": 100}}}`)
+	assert.Equal(t, want, cfg.KindQueues[MCPKindQueue])
+
+	// mcp.maxRunning raised: the queue grows with it, so it adds no second limit.
+	cfg = write(`{"mcp": {"maxRunning": 4, "maxWaiting": 20}}`)
+	assert.Equal(t, KindQueueConfig{QueueLength: 4, WorkerCount: 4, MaxObjectSize: 64 << 10}, cfg.KindQueues[MCPKindQueue])
+
+	// Set in the file: kept as it is.
+	cfg = write(`{"kindQueues": {"mcpservers": {"queueLength": 3, "workerCount": 2, "maxObjectSize": 1000}}}`)
+	assert.Equal(t, KindQueueConfig{QueueLength: 3, WorkerCount: 2, MaxObjectSize: 1000}, cfg.KindQueues[MCPKindQueue])
 }

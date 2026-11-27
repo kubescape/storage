@@ -17,19 +17,22 @@ limitations under the License.
 package apiserver
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/kubescape/storage/pkg/apiauth"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/install"
 	"github.com/kubescape/storage/pkg/config"
+	"github.com/kubescape/storage/pkg/mcp/endpoint"
 	"github.com/kubescape/storage/pkg/registry"
 	sbomregistry "github.com/kubescape/storage/pkg/registry"
 	"github.com/kubescape/storage/pkg/registry/file"
-	"github.com/kubescape/storage/pkg/registry/softwarecomposition/applicationprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/collapseconfiguration"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/configurationscansummary"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/containerprofile"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/generatednetworkpolicy"
 	knownserver "github.com/kubescape/storage/pkg/registry/softwarecomposition/knownservers"
-	"github.com/kubescape/storage/pkg/registry/softwarecomposition/networkneighborhood"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/openvulnerabilityexchange"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyftfiltereds"
 	"github.com/kubescape/storage/pkg/registry/softwarecomposition/sbomsyfts"
@@ -49,6 +52,9 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/kubernetes"
+	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	restclient "k8s.io/client-go/rest"
 	"zombiezen.com/go/sqlite/sqlitemigration"
 )
 
@@ -83,11 +89,21 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CleanupHandler  *file.ResourcesCleanupHandler
-	OsFs            afero.Fs
-	Pool            *sqlitemigration.Pool
+	CleanupHandler *file.ResourcesCleanupHandler
+	OsFs           afero.Fs
+	Pool           *sqlitemigration.Pool
+	// SqlitePath is the database file behind Pool; the ContainerProfile
+	// SQLite backend's checkpointer watches its -wal sibling.
+	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
+	// WriteGate is the process's one write gate, built by main.go beside the
+	// pool when StorageConfig.ContainerProfileSqliteBackend is on and shared
+	// by the ObjectStore, the legacy StorageImpl and the cleanup handler; nil
+	// with the flag off.
+	WriteGate *file.WriteGate
+	// ClientConfig reaches kube-apiserver for SubjectAccessReviews.
+	ClientConfig *restclient.Config
 }
 
 // Config defines the config for the apiserver
@@ -144,20 +160,78 @@ func (c completedConfig) New() (*WardleServer, error) {
 	// CRD provider into them AFTER the application/container storage
 	// backends are built — chicken-and-egg: the provider needs storage to
 	// read the CR, processors are baked into the storage backend.
-	applicationProfileProcessor := file.NewApplicationProfileProcessor(c.ExtraConfig.StorageConfig)
 	containerProfileProcessor := file.NewContainerProfileProcessor(c.ExtraConfig.StorageConfig, c.ExtraConfig.CleanupHandler)
-	networkNeighborhoodProcessor := file.NewNetworkNeighborhoodProcessor(c.ExtraConfig.StorageConfig)
+
+	storageImpl := file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
+
+	// ContainerProfileSqliteBackend (see
+	// .omc/plans/full-acid-storage-architecture.md §3): the containerprofiles
+	// resource is served by the SQLite-native ObjectStore instead of the
+	// row+gob-file StorageImpl, and the legacy default instance carries the
+	// kind-ownership guard so that any path still handing it a containerprofile
+	// key fails loudly instead of touching a row the ObjectStore owns. Every
+	// CP consumer is wired to containerProfileStorageImpl below
+	// (GeneratedNetworkPolicyStorage's full-spec list, the cleanup handler's
+	// CP arm); main.go ran the data migration before this point.
+	var containerProfileStorageImpl storage.Interface
+	if c.ExtraConfig.StorageConfig.ContainerProfileSqliteBackend {
+		storageImpl.(*file.StorageImpl).SetForeignKinds(file.IsContainerProfileKind)
+		gate := c.ExtraConfig.WriteGate
+		if gate == nil {
+			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: no write gate (main.go builds it beside the pool when the flag is on)")
+		}
+		storageImpl.(*file.StorageImpl).SetWriteGate(gate)
+		objectStore, err := file.NewObjectStore(c.ExtraConfig.Pool, c.ExtraConfig.SqlitePath, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor, storageImpl, gate, file.ObjectStoreOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to create the ContainerProfile SQLite backend: %w", err)
+		}
+		// The pre-shutdown hook stops the store's checkpointer only. It must
+		// NOT close the shared gate: pre-shutdown hooks run before in-flight
+		// requests drain, and a closed gate fails every in-flight write of
+		// every gated kind with errGateClosed. main.go closes the gate once
+		// cli.Run has returned and no request can arrive.
+		if err := s.GenericAPIServer.AddPreShutdownHook("containerprofile-sqlite-backend", objectStore.Close); err != nil {
+			return nil, err
+		}
+		// The cleanup handler's CP arm enumerates rows and deletes through the
+		// ObjectStore under the flag; it never walks CP files (§5.6 row 10).
+		if c.ExtraConfig.CleanupHandler != nil {
+			c.ExtraConfig.CleanupHandler.SetContainerProfileStore(objectStore)
+		}
+		containerProfileStorageImpl = objectStore
+	} else {
+		containerProfileStorageImpl = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor)
+	}
+	profileRESTStorage := containerProfileStorageImpl
+	// kube-apiserver authorized creation of the report. The additional update
+	// of the consolidated object needs its own named-resource authorization.
+	if c.ExtraConfig.ClientConfig != nil {
+		cfg := restclient.CopyConfig(c.ExtraConfig.ClientConfig)
+		cfg.Timeout = 10 * time.Second
+		client, err := authorizationclient.NewForConfig(cfg)
+		if err != nil {
+			return nil, err
+		}
+		auth, err := apiauth.NewAuthorizer(client)
+		if err != nil {
+			return nil, err
+		}
+		profileRESTStorage = file.WithProfileImageRefresh(containerProfileStorageImpl, auth)
+	}
+
+	// Only after every branch above has finished wiring the processor's
+	// storage (including, under the SQLite backend, the cleanup handler's
+	// SetContainerProfileStore call): starting maintenance any earlier lets
+	// its first cleanup tick run cleanup's ContainerProfile arm with cpStore
+	// still nil, taking the legacy file-walk path against rows the
+	// ObjectStore now owns, and races unsynchronized on cpStore with the Set
+	// call above.
+	containerProfileProcessor.StartMaintenance()
 
 	var (
-		storageImpl = file.NewStorageImpl(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme)
-
-		applicationProfileStorageBackend = file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, applicationProfileProcessor)
-		applicationProfileStorageImpl    = file.NewApplicationProfileStorage(applicationProfileStorageBackend)
-		containerProfileStorageImpl      = file.NewContainerProfileRESTStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, containerProfileProcessor))
-		networkNeighborhoodStorageImpl   = file.NewNetworkNeighborhoodStorage(file.NewStorageImplWithCollector(c.ExtraConfig.OsFs, file.DefaultStorageRoot, c.ExtraConfig.Pool, c.ExtraConfig.WatchDispatcher, Scheme, networkNeighborhoodProcessor))
-		configScanStorageImpl            = file.NewConfigurationScanSummaryStorage(storageImpl)
-		vulnerabilitySummaryStorage      = file.NewVulnerabilitySummaryStorage(storageImpl)
-		generatedNetworkPolicyStorage    = file.NewGeneratedNetworkPolicyStorage(storageImpl, networkNeighborhoodStorageImpl)
+		configScanStorageImpl         = file.NewConfigurationScanSummaryStorage(storageImpl)
+		vulnerabilitySummaryStorage   = file.NewVulnerabilitySummaryStorage(storageImpl)
+		generatedNetworkPolicyStorage = file.NewGeneratedNetworkPolicyStorage(storageImpl, containerProfileStorageImpl)
 
 		// REST endpoint registration, defaults to storageImpl.
 		ep = func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.REST, error), s ...storage.Interface) *registry.REST {
@@ -169,6 +243,14 @@ func (c completedConfig) New() (*WardleServer, error) {
 		}
 	)
 
+	statusEndpoint := func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.StatusREST, error)) rest.Storage {
+		endpoint, err := f(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create status REST storage: %w", err))
+		}
+		return endpoint
+	}
+
 	// Wire the CollapseConfiguration CRD into the live deflate path: both
 	// processors read effective thresholds from CollapseConfiguration/default
 	// (cluster-scoped) on every compaction, falling back to compiled-in
@@ -179,23 +261,19 @@ func (c completedConfig) New() (*WardleServer, error) {
 	//
 	// One shared provider closure is wired into both processors so a single
 	// CR update affects both compaction paths consistently.
-	collapseSettingsFromCRD := file.NewCRDCollapseSettingsProvider(applicationProfileStorageBackend)
-	applicationProfileProcessor.SetCollapseSettings(collapseSettingsFromCRD)
+	collapseSettingsFromCRD := file.NewCRDCollapseSettingsProvider(storageImpl)
 	containerProfileProcessor.CollapseSettings = collapseSettingsFromCRD
-	networkNeighborhoodProcessor.SetCollapseSettings(collapseSettingsFromCRD)
 	apiGroupInfo.VersionedResourcesStorageMap["v1beta1"] = map[string]rest.Storage{
-		"applicationprofiles":                 ep(applicationprofile.NewREST, applicationProfileStorageImpl),
 		"collapseconfigurations":              ep(collapseconfiguration.NewREST),
 		"configurationscansummaries":          ep(configurationscansummary.NewREST, configScanStorageImpl),
-		"containerprofiles":                   ep(containerprofile.NewREST, containerProfileStorageImpl),
+		"containerprofiles":                   ep(containerprofile.NewREST, profileRESTStorage),
 		"generatednetworkpolicies":            ep(generatednetworkpolicy.NewREST, generatedNetworkPolicyStorage),
 		"knownservers":                        ep(knownserver.NewREST),
-		"networkneighborhoods":                ep(networkneighborhood.NewREST, networkNeighborhoodStorageImpl),
 		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
 		"sbomsyftfiltereds":                   ep(sbomsyftfiltereds.NewREST),
-		"sbomsyftfiltereds/status":            ep(sbomsyftfiltereds.NewStatusREST),
+		"sbomsyftfiltereds/status":            statusEndpoint(sbomsyftfiltereds.NewStatusREST),
 		"sbomsyfts":                           ep(sbomsyfts.NewREST),
-		"sbomsyfts/status":                    ep(sbomsyfts.NewStatusREST),
+		"sbomsyfts/status":                    statusEndpoint(sbomsyfts.NewStatusREST),
 		"seccompprofiles":                     ep(seccompprofiles.NewREST),
 		"vulnerabilitymanifests":              ep(vmstorage.NewREST),
 		"vulnerabilitymanifestsummaries":      ep(vmsumstorage.NewREST),
@@ -203,6 +281,137 @@ func (c completedConfig) New() (*WardleServer, error) {
 		"workloadconfigurationscans":          ep(wcsstorage.NewREST),
 		"workloadconfigurationscansummaries":  ep(wcssumstorage.NewREST),
 	}
+	// Phase 4 (per-resource rest.Storage migration, see
+	// docs/features/generic-rest-storage-phase4.md): gated, no-op-by-default swap of
+	// knownservers' REST implementation for the hand-written CustomREST. The
+	// OLD genericregistry.Store-based knownserver.NewREST above stays the
+	// default and remains the reference implementation for differential
+	// testing regardless of this flag.
+	if c.ExtraConfig.StorageConfig.CustomKnownServersRestEnabled {
+		customKnownServersRest, err := knownserver.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for knownservers due to %v, will die", err))
+		}
+		// Destroy() is a no-op today (the shared storageImpl is injected
+		// directly into the OLD genericregistry.Store, so CompleteWithOptions
+		// never sets a DestroyFunc), but call it anyway rather than silently
+		// discarding the displaced rest.Storage, so this stays correct if
+		// that wiring ever changes.
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["knownservers"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["knownservers"] = customKnownServersRest
+	}
+
+	// Phase 4 (per-resource rest.Storage migration, see
+	// docs/features/generic-rest-storage-phase4.md): gated, no-op-by-default swap of
+	// openvulnerabilityexchangecontainers' REST implementation for the
+	// hand-written CustomREST. The OLD genericregistry.Store-based
+	// openvulnerabilityexchange.NewREST above stays the default and remains
+	// the reference implementation for differential testing regardless of
+	// this flag.
+	if c.ExtraConfig.StorageConfig.CustomOpenVulnerabilityExchangeRestEnabled {
+		customOpenVulnerabilityExchangeRest, err := openvulnerabilityexchange.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for openvulnerabilityexchangecontainers due to %v, will die", err))
+		}
+		// See the matching Destroy() call above for knownservers.
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["openvulnerabilityexchangecontainers"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["openvulnerabilityexchangecontainers"] = customOpenVulnerabilityExchangeRest
+	}
+
+	// Phase 4 (per-resource rest.Storage migration, see
+	// docs/features/generic-rest-storage-phase4.md): gated, no-op-by-default swap of
+	// containerprofiles' REST implementation for the hand-written CustomREST.
+	// The OLD genericregistry.Store-based containerprofile.NewREST above
+	// stays the default and remains the reference implementation for
+	// differential testing regardless of this flag. Wired with the same
+	// non-default containerProfileStorageImpl (the consolidation-processor
+	// wired storage.Interface) NewREST itself uses above -- not the plain
+	// storageImpl the first two Phase 4 resources use.
+	if c.ExtraConfig.StorageConfig.CustomContainerProfileRestEnabled {
+		customContainerProfileRest, err := containerprofile.NewCustomREST(Scheme, profileRESTStorage, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for containerprofiles due to %v, will die", err))
+		}
+		// See the matching Destroy() call above for knownservers.
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["containerprofiles"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["containerprofiles"] = customContainerProfileRest
+	}
+
+	// The following gate the remaining Phase 4 per-resource rest.Storage
+	// migrations (see docs/features/generic-rest-storage-phase4.md), following the
+	// same pattern as containerprofiles above: gated, no-op-by-default swap
+	// of that resource's REST implementation for the hand-written
+	// CustomREST, with the OLD genericregistry.Store-based NewREST staying
+	// the default and the differential-testing reference regardless of the
+	// flag's value. All eight use the default storageImpl (none have a
+	// non-default storage.Interface like containerProfileStorageImpl). Each
+	// calls Destroy() on the displaced OLD rest.Storage before replacing it
+	// -- see the matching Destroy() call for knownservers above.
+	if c.ExtraConfig.StorageConfig.CustomCollapseConfigurationRestEnabled {
+		customRest, err := collapseconfiguration.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for collapseconfigurations due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["collapseconfigurations"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["collapseconfigurations"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomSBOMSyftFilteredRestEnabled {
+		customRest, err := sbomsyftfiltereds.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for sbomsyftfiltereds due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyftfiltereds"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyftfiltereds"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomSBOMSyftRestEnabled {
+		customRest, err := sbomsyfts.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for sbomsyfts due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyfts"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["sbomsyfts"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomSeccompProfileRestEnabled {
+		customRest, err := seccompprofiles.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for seccompprofiles due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["seccompprofiles"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["seccompprofiles"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomVulnerabilityManifestRestEnabled {
+		customRest, err := vmstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for vulnerabilitymanifests due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifests"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifests"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomVulnerabilityManifestSummaryRestEnabled {
+		customRest, err := vmsumstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for vulnerabilitymanifestsummaries due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifestsummaries"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["vulnerabilitymanifestsummaries"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomWorkloadConfigurationScanRestEnabled {
+		customRest, err := wcsstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for workloadconfigurationscans due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscans"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscans"] = customRest
+	}
+	if c.ExtraConfig.StorageConfig.CustomWorkloadConfigurationScanSummaryRestEnabled {
+		customRest, err := wcssumstorage.NewCustomREST(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create custom REST storage for workloadconfigurationscansummaries due to %v, will die", err))
+		}
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscansummaries"].Destroy()
+		apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]["workloadconfigurationscansummaries"] = customRest
+	}
+
 	if c.ExtraConfig.StorageConfig.DisableVirtualCRDs {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "configurationscansummaries")
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "generatednetworkpolicies")
@@ -212,9 +421,54 @@ func (c completedConfig) New() (*WardleServer, error) {
 		delete(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"], "seccompprofiles")
 	}
 
+	if c.ExtraConfig.StorageConfig.MCP.Enabled {
+		if err := addMCPEndpoint(c, apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]); err != nil {
+			return nil, fmt.Errorf("unable to create the MCP endpoint: %w", err)
+		}
+	}
+
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err
 	}
 
 	return s, nil
+}
+
+// addMCPEndpoint adds mcpservers and its mcp connect subresource. It reads
+// through the storage already in m, so it runs after the custom REST storage
+// above has replaced the default one.
+func addMCPEndpoint(c completedConfig, m map[string]rest.Storage) error {
+	if c.ExtraConfig.ClientConfig == nil {
+		return fmt.Errorf("no kube-apiserver client config")
+	}
+	// The timeout of k8s.io/apiserver's delegated authorization.
+	clientConfig := restclient.CopyConfig(c.ExtraConfig.ClientConfig)
+	clientConfig.Timeout = 10 * time.Second
+	// Counts the SubjectAccessReviews of each access check, so the MCP metrics
+	// can tell cache hits from misses.
+	clientConfig.Wrap(endpoint.CountReviews)
+	client, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return err
+	}
+	authz, err := apiauth.NewAuthorizer(client.AuthorizationV1())
+	if err != nil {
+		return err
+	}
+	e, err := endpoint.New(endpoint.Config{
+		RequestHeader:              c.GenericConfig.Authentication.RequestHeaderConfig,
+		Authorizer:                 authz,
+		Scheme:                     Scheme,
+		VulnerabilityManifests:     m["vulnerabilitymanifests"],
+		SBOMSyfts:                  m["sbomsyfts"],
+		WorkloadConfigurationScans: m["workloadconfigurationscans"],
+		ContainerProfiles:          m["containerprofiles"],
+		CallTimeout:                c.ExtraConfig.StorageConfig.MCP.CallTimeout,
+		MaxResponseBytes:           c.ExtraConfig.StorageConfig.MCP.MaxResponseBytes,
+	})
+	if err != nil {
+		return err
+	}
+	m["mcpservers"], m["mcpservers/mcp"] = e.Storage()
+	return nil
 }

@@ -23,16 +23,6 @@ package v1beta1
 
 func (*Advisory) ProtoMessage() {}
 
-func (*ApplicationProfile) ProtoMessage() {}
-
-func (*ApplicationProfileContainer) ProtoMessage() {}
-
-func (*ApplicationProfileList) ProtoMessage() {}
-
-func (*ApplicationProfileSpec) ProtoMessage() {}
-
-func (*ApplicationProfileStatus) ProtoMessage() {}
-
 func (*Arg) ProtoMessage() {}
 
 func (*CPE) ProtoMessage() {}
@@ -62,6 +52,8 @@ func (*ConfigurationScanSummaryList) ProtoMessage() {}
 func (*ConfigurationScanSummarySpec) ProtoMessage() {}
 
 func (*ContainerProfile) ProtoMessage() {}
+
+func (*ContainerProfileContainer) ProtoMessage() {}
 
 func (*ContainerProfileList) ProtoMessage() {}
 
@@ -176,14 +168,6 @@ func (*MatchDetails) ProtoMessage() {}
 func (*Metadata) ProtoMessage() {}
 
 func (*NetworkNeighbor) ProtoMessage() {}
-
-func (*NetworkNeighborhood) ProtoMessage() {}
-
-func (*NetworkNeighborhoodContainer) ProtoMessage() {}
-
-func (*NetworkNeighborhoodList) ProtoMessage() {}
-
-func (*NetworkNeighborhoodSpec) ProtoMessage() {}
 
 func (*NetworkPolicy) ProtoMessage() {}
 

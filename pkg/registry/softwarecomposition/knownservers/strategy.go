@@ -65,11 +65,11 @@ func (KnownServerStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object)
 	return nil
 }
 
-func (KnownServerStrategy) AllowCreateOnUpdate() bool {
+func (KnownServerStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (KnownServerStrategy) AllowUnconditionalUpdate() bool {
+func (KnownServerStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

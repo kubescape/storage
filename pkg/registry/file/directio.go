@@ -69,12 +69,14 @@ func NewDirectIOWriter(wr afero.File) *DirectIOWriter {
 	}
 }
 
+// Close flushes the last, partial block and cuts the file back to the bytes written:
+// fileSize already counts the bytes still in the buffer, so the file ends at fileSize.
 func (d *DirectIOWriter) Close() error {
 	_, err := d.wr.Write(d.buf)
 	if err != nil {
 		return err
 	}
-	return d.wr.Truncate(d.fileSize + int64(d.off))
+	return d.wr.Truncate(d.fileSize)
 }
 
 func (d *DirectIOWriter) Write(p []byte) (int, error) {

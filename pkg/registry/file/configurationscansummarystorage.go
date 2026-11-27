@@ -12,6 +12,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -95,6 +97,10 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
 
+	predicate, err := normalizeSelectionPredicate(opts.Predicate)
+	if err != nil {
+		return err
+	}
 	workloadScanSummaryListObjPtr := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
 
 	// ask for all workloadconfigurationscansummaries in the cluster.
@@ -102,7 +108,11 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 	// continuation token, so we must page through every token to make sure the
 	// aggregation covers all objects and not just the first page (issue #337).
 	listOpts := opts
+	listOpts.Predicate = predicate
 	listOpts.Predicate.Continue = ""
+	// Selectors for the aggregated resource cannot be applied to its source objects.
+	listOpts.Predicate.Label = labels.Everything()
+	listOpts.Predicate.Field = fields.Everything()
 	for {
 		page := &softwarecomposition.WorkloadConfigurationScanSummaryList{}
 		if err := s.realStore.GetList(ctx, "/spdx.softwarecomposition.kubescape.io/"+workloadConfigurationScanSummariesResource, listOpts, page); err != nil {
@@ -120,6 +130,17 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 
 	// generate a single configurationScanSummary for the cluster, with a configuration scan summary for each namespace
 	nsSummaries := buildConfigurationScanSummaryForCluster(*workloadScanSummaryListObjPtr)
+	filteredItems := nsSummaries.Items[:0]
+	for i := range nsSummaries.Items {
+		matched, err := predicate.Matches(&nsSummaries.Items[i])
+		if err != nil {
+			return fmt.Errorf("match selection predicate: %w", err)
+		}
+		if matched {
+			filteredItems = append(filteredItems, nsSummaries.Items[i])
+		}
+	}
+	nsSummaries.Items = filteredItems
 
 	data, err := json.Marshal(nsSummaries)
 	if err != nil {
@@ -132,7 +153,7 @@ func (s *ConfigurationScanSummaryStorage) GetList(ctx context.Context, key strin
 		return err
 	}
 
-	return nil
+	return setListMeta(listObj, "")
 }
 
 // buildConfigurationScanSummaryForCluster generates a configuration scan summary list for the cluster, where each item is a configuration scan summary for a namespace

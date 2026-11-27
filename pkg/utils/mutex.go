@@ -4,9 +4,49 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 )
 
 var ContextNilError = errors.New("context is nil")
+
+// Lock observer labels: the mode of a MapMutex acquisition and its outcome.
+const (
+	LockModeWrite       = "lock"
+	LockModeRead        = "rlock"
+	LockOutcomeAcquired = "acquired"
+	LockOutcomeTimeout  = "timeout"
+)
+
+// lockObserver is a nil-in-production hook reporting every Lock/RLock
+// attempt's mode and outcome. It exists for the storage work-budget test
+// (pkg/registry/file, TestWorkBudget), which needs a read/write axis the
+// storage_lock_wait_duration_seconds histogram does not have; production
+// pays one atomic load and a nil check per acquisition and allocates nothing.
+var lockObserver atomic.Pointer[func(mode, outcome string)]
+
+// SetLockObserver installs f as the process-wide lock observer; nil uninstalls
+// it. The observer is called after the MapMutex's internal mutex is released,
+// never under it, and may be called from any goroutine.
+func SetLockObserver(f func(mode, outcome string)) {
+	if f == nil {
+		lockObserver.Store(nil)
+		return
+	}
+	lockObserver.Store(&f)
+}
+
+func observeLock(mode, outcome string) {
+	if f := lockObserver.Load(); f != nil {
+		(*f)(mode, outcome)
+	}
+}
+
+func lockOutcome(err error) string {
+	if err != nil {
+		return LockOutcomeTimeout
+	}
+	return LockOutcomeAcquired
+}
 
 type keyState struct {
 	cond           *sync.Cond
@@ -98,17 +138,28 @@ func (m *MapMutex[T]) Lock(ctx context.Context, key T) error {
 	}
 	m.mu.Lock()
 	s := m.getOrCreate(key)
-	if !s.writer && s.readers == 0 {
+	// The pendingWriters check (mirroring RLock's own fast-path check below)
+	// ensures a freshly-retrying Lock call cannot barge ahead of a writer
+	// already queued in lockSlow: without it, a writer that released the
+	// mutex just as another goroutine's Lock call arrived would let that
+	// fresh caller take the fast path immediately, potentially starving an
+	// already-waiting writer indefinitely under sustained contention (the
+	// waiting writer is only woken by Broadcast, not guaranteed to win the
+	// race to re-check canProceed against a stream of fresh fast-path callers).
+	if !s.writer && s.readers == 0 && s.pendingWriters == 0 {
 		s.writer = true
 		m.mu.Unlock()
+		observeLock(LockModeWrite, LockOutcomeAcquired)
 		return nil
 	}
 	s.pendingWriters++
-	return m.lockSlow(ctx, key, s,
+	err := m.lockSlow(ctx, key, s,
 		func() bool { return !s.writer && s.readers == 0 },
 		func() { s.pendingWriters--; s.writer = true },
 		func() { s.pendingWriters-- },
 	)
+	observeLock(LockModeWrite, lockOutcome(err))
+	return err
 }
 
 func (m *MapMutex[T]) RLock(ctx context.Context, key T) error {
@@ -120,13 +171,16 @@ func (m *MapMutex[T]) RLock(ctx context.Context, key T) error {
 	if !s.writer && s.pendingWriters == 0 {
 		s.readers++
 		m.mu.Unlock()
+		observeLock(LockModeRead, LockOutcomeAcquired)
 		return nil
 	}
-	return m.lockSlow(ctx, key, s,
+	err := m.lockSlow(ctx, key, s,
 		func() bool { return !s.writer && s.pendingWriters == 0 },
 		func() { s.readers++ },
 		nil,
 	)
+	observeLock(LockModeRead, lockOutcome(err))
+	return err
 }
 
 func (m *MapMutex[T]) Unlock(key T) {

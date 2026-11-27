@@ -1,0 +1,316 @@
+[
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Get details of a specific security configuration scan result. Most controls in a result usually passed; set status to \"failed\" to get only the controls that need fixing.",
+    "inputSchema": {
+      "properties": {
+        "manifest_name": {
+          "description": "Name of the configuration manifest to get details for (get this from the list_configuration_security_scan_manifests tool)",
+          "type": "string"
+        },
+        "min_severity": {
+          "description": "Only return controls at or above this severity: Critical, High, Medium or Low (optional)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the manifest, as returned by list_configuration_security_scan_manifests (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "status": {
+          "description": "Only return controls with these statuses, comma-separated: failed, passed, skipped (optional; by default every control is returned)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manifest_name"
+      ],
+      "type": "object"
+    },
+    "name": "get_configuration_security_scan_manifest"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Get details of a specific container profile. A busy container's profile can be large: set section to page through one of its lists (what it executed, opened, called, and its network traffic) instead of getting the whole profile.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "description": "With section: maximum number of entries to return (optional, default 100, maximum 500)",
+          "type": "number"
+        },
+        "namespace": {
+          "description": "Namespace of the profile, as returned by list_container_profiles (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "offset": {
+          "description": "With section: number of entries to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
+        },
+        "profile_name": {
+          "description": "Name of the container profile to get details for (get this from the list_container_profiles tool)",
+          "type": "string"
+        },
+        "section": {
+          "description": "Return only this list of the profile, a page at a time (optional; by default the whole profile is returned)",
+          "enum": [
+            "execs",
+            "opens",
+            "syscalls",
+            "capabilities",
+            "endpoints",
+            "identifiedCallStacks",
+            "ingress",
+            "egress"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_name"
+      ],
+      "type": "object"
+    },
+    "name": "get_container_profile"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Discover available security configuration scan results at workload level (this returns a list of manifests, not the scan results themselves, to get the scan results, use the get_configuration_security_scan_manifest tool)",
+    "inputSchema": {
+      "properties": {
+        "continue": {
+          "description": "Optional Kubernetes continuation token for pagination",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL). A workload's scan is stored in the workload's namespace; scans of cluster-scoped resources are in Kubescape's own namespace (usually kubescape)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_configuration_security_scan_manifests"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Discover available container profiles at workload level (this returns a list of profiles, not the profile results themselves, to get the profile results, use the get_container_profile tool)",
+    "inputSchema": {
+      "properties": {
+        "continue": {
+          "description": "Optional Kubernetes continuation token for pagination",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL). A container's profile is stored in its workload's namespace",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_container_profiles"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "List the packages in an image SBOM (name, version, type, purl, licenses), sorted by name. Returns a page of results (see limit/offset) with the total count. Use name or package_type to look for specific packages.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "description": "Maximum number of packages to return (optional, default 100, maximum 500)",
+          "type": "number"
+        },
+        "name": {
+          "description": "Only packages whose name contains this text, case-insensitive (optional)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the SBOM (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Number of packages to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
+        },
+        "package_type": {
+          "description": "Only packages of this type, for example deb, rpm, apk, npm, python, go-module, java-archive (optional)",
+          "type": "string"
+        },
+        "sbom_name": {
+          "description": "Name of the SBOM, as returned by list_sboms",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sbom_name"
+      ],
+      "type": "object"
+    },
+    "name": "list_sbom_packages"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Discover the image SBOMs stored in the cluster, without their content. Use list_sbom_packages to read the packages of one. Kubescape stores them in its own namespace (usually kubescape).",
+    "inputSchema": {
+      "properties": {
+        "continue": {
+          "description": "Optional Kubernetes continuation token for pagination",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_sboms"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "List the vulnerabilities in a given manifest, one entry per CVE and affected package, most severe first. Returns a page of results (see limit/offset) with the total count; long text fields are left out unless include_details is true.",
+    "inputSchema": {
+      "properties": {
+        "fixable_only": {
+          "description": "Only return vulnerabilities that have a fixed version (optional, default false)",
+          "type": "boolean"
+        },
+        "include_details": {
+          "description": "Include description, CVSS, URLs, advisories and data source for each entry (optional, default false; makes the response much larger)",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Maximum number of entries to return (optional, default 100, maximum 500)",
+          "type": "number"
+        },
+        "manifest_name": {
+          "description": "Name of the manifest to list vulnerabilities from",
+          "type": "string"
+        },
+        "min_severity": {
+          "description": "Minimum severity to include: Critical, High, Medium, Low, Negligible (optional; by default every severity, including unclassified ones, is returned)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Number of entries to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "manifest_name"
+      ],
+      "type": "object"
+    },
+    "name": "list_vulnerabilities_in_manifest"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "Discover available vulnerability manifests at image and workload levels. Kubescape stores them in its own namespace (usually kubescape).",
+    "inputSchema": {
+      "properties": {
+        "continue": {
+          "description": "Optional Kubernetes continuation token for pagination",
+          "type": "string"
+        },
+        "level": {
+          "description": "Type of vulnerability manifests to list",
+          "enum": [
+            "image",
+            "workload",
+            "both"
+          ],
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace to list (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_vulnerability_manifests"
+  },
+  {
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "description": "List the vulnerability matches (full grype records) for a given CVE in a given manifest, one per affected package and vulnerability source. Returns a page of results (see limit/offset) with the total count.",
+    "inputSchema": {
+      "properties": {
+        "cve_id": {
+          "description": "ID of the CVE to list matches for",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Maximum number of matches to return (optional, default 20, maximum 100)",
+          "type": "number"
+        },
+        "manifest_name": {
+          "description": "Name of the manifest to list vulnerabilities from",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the manifest (optional, defaults to the namespace in the endpoint's URL)",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Number of matches to skip; pass the previous response's next_offset to get the next page (optional, default 0)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "manifest_name",
+        "cve_id"
+      ],
+      "type": "object"
+    },
+    "name": "list_vulnerability_matches_for_cve"
+  }
+]

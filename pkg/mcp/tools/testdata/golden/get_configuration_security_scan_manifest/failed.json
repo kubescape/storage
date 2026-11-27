@@ -1,0 +1,307 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web",
+      "namespace": "default",
+      "status": "failed"
+    }
+  },
+  "isError": false,
+  "response": {
+    "metadata": {
+      "name": "deployment-web",
+      "namespace": "default",
+      "labels": {
+        "kubescape.io/workload-api-group": "apps",
+        "kubescape.io/workload-api-version": "v1",
+        "kubescape.io/workload-kind": "Deployment",
+        "kubescape.io/workload-name": "web",
+        "kubescape.io/workload-namespace": "default"
+      },
+      "annotations": {
+        "kubescape.io/report-created-at": "2026-10-23T13:48:29.717251387Z",
+        "kubescape.io/wlid": "wlid://cluster-ks-dev/namespace-default/deployment-web"
+      }
+    },
+    "spec": {
+      "controls": {
+        "C-0013": {
+          "controlID": "C-0013",
+          "name": "Non-root containers",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "non-root-containers",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.runAsNonRoot",
+                  "fixPathValue": "true",
+                  "fixCommand": ""
+                },
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.runAsGroup",
+                  "fixPathValue": "1000",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0016": {
+          "controlID": "C-0016",
+          "name": "Allow privilege escalation",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "rule-allow-privilege-escalation",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation",
+                  "fixPathValue": "false",
+                  "fixCommand": ""
+                },
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.privileged",
+                  "fixPathValue": "false",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0017": {
+          "controlID": "C-0017",
+          "name": "Immutable container filesystem",
+          "severity": {
+            "severity": "Low",
+            "scoreFactor": 3
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "immutable-container-filesystem",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem",
+                  "fixPathValue": "true",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0030": {
+          "controlID": "C-0030",
+          "name": "Ingress and Egress blocked",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "ingress-and-egress-blocked",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0034": {
+          "controlID": "C-0034",
+          "name": "Automatic mapping of service account",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "automount-service-account",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.automountServiceAccountToken",
+                  "fixPathValue": "false",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0055": {
+          "controlID": "C-0055",
+          "name": "Linux hardening",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 4
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "linux-hardening",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.seccompProfile",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0270": {
+          "controlID": "C-0270",
+          "name": "Ensure CPU limits are set",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "resources-cpu-limits",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.cpu",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0271": {
+          "controlID": "C-0271",
+          "name": "Ensure memory limits are set",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "resources-memory-limits",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.memory",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        }
+      },
+      "relatedObjects": null,
+      "metadata": {
+        "report": {
+          "createdAt": "2026-10-23T13:48:29Z"
+        }
+      }
+    }
+  }
+}

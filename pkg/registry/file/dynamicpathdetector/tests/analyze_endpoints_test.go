@@ -568,3 +568,25 @@ func TestMergeDuplicateEndpoints_InternalFieldMatching_StillFolds(t *testing.T) 
 	assert.True(t, result[0].Internal, "merged endpoint must preserve Internal=true")
 	assert.ElementsMatch(t, []string{"GET", "POST"}, result[0].Methods)
 }
+
+// Merging a duplicate into an endpoint that has no headers, or whose headers
+// are JSON null, must keep the duplicate's headers. Without headers the merge
+// used to drop them; with null headers it panicked writing to a nil map.
+func TestMergeDuplicateEndpoints_FirstEndpointWithoutHeaders(t *testing.T) {
+	for name, headers := range map[string]json.RawMessage{"absent": nil, "null": json.RawMessage("null")} {
+		t.Run(name, func(t *testing.T) {
+			first := &types.HTTPEndpoint{Endpoint: ":80/api", Methods: []string{"GET"}, Direction: "inbound", Headers: headers}
+			second := &types.HTTPEndpoint{Endpoint: ":80/api", Methods: []string{"POST"}, Direction: "inbound", Headers: json.RawMessage(`{"Host":["web"]}`)}
+
+			var result []*types.HTTPEndpoint
+			require.NotPanics(t, func() {
+				result = dynamicpathdetector.MergeDuplicateEndpoints([]*types.HTTPEndpoint{first, second})
+			})
+			require.Len(t, result, 1)
+			assert.Equal(t, []string{"GET", "POST"}, result[0].Methods)
+			got, err := result[0].GetHeaders()
+			require.NoError(t, err)
+			assert.Equal(t, map[string][]string{"Host": {"web"}}, got)
+		})
+	}
+}

@@ -33,8 +33,8 @@ import (
 // /etc thresholds shouldn't appear out of nowhere.
 func TestContainerProfileProcessor_CollapseSettings_NilProviderFallsBack(t *testing.T) {
 	c := NewContainerProfileProcessor(config.Config{
-		DefaultNamespace:          "kubescape",
-		MaxApplicationProfileSize: 40000,
+		DefaultNamespace:        "kubescape",
+		MaxContainerProfileSize: 40000,
 	}, nil)
 	// Force the field nil to simulate an external caller that bypassed the
 	// constructor's defaulting.
@@ -68,8 +68,8 @@ func TestContainerProfileProcessor_CollapseSettings_NilProviderFallsBack(t *test
 // flagged.
 func TestContainerProfileProcessor_CustomCollapseSettings_ReachDeflate(t *testing.T) {
 	c := NewContainerProfileProcessor(config.Config{
-		DefaultNamespace:          "kubescape",
-		MaxApplicationProfileSize: 40000,
+		DefaultNamespace:        "kubescape",
+		MaxContainerProfileSize: 40000,
 	}, nil)
 
 	spec := softwarecomposition.ContainerProfileSpec{}
@@ -111,8 +111,8 @@ func TestContainerProfileProcessor_CustomCollapseSettings_ReachDeflate(t *testin
 // non-nil CollapseSettings provider that returns the compiled defaults.
 func TestContainerProfileProcessor_DefaultConstructorWiresProvider(t *testing.T) {
 	c := NewContainerProfileProcessor(config.Config{
-		DefaultNamespace:          "kubescape",
-		MaxApplicationProfileSize: 40000,
+		DefaultNamespace:        "kubescape",
+		MaxContainerProfileSize: 40000,
 	}, nil)
 	assert.NotNil(t, c.CollapseSettings, "constructor must wire a default provider")
 	got := c.CollapseSettings()

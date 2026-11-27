@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestScaleDeploymentPartialCompletion() {
@@ -35,7 +34,7 @@ profiles transition from partial to complete after the learning period.`
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "scale-partial-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "3m",
+						MaxSniffingTimeLabel: "3m",
 					},
 				},
 				Spec: corev1.PodSpec{

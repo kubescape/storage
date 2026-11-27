@@ -1,0 +1,13 @@
+{
+  "call": {
+    "name": "list_configuration_security_scan_manifests",
+    "arguments": {
+      "namespace": "restricted"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RBAC_DENIED",
+    "message": "workloadconfigurationscans.spdx.softwarecomposition.kubescape.io is forbidden: User \"system:serviceaccount:kagent:agent\" cannot list resource \"workloadconfigurationscans\" in API group \"spdx.softwarecomposition.kubescape.io\" in the namespace \"restricted\""
+  }
+}

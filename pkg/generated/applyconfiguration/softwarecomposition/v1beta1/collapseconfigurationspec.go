@@ -54,6 +54,11 @@ type CollapseConfigurationSpecApplyConfiguration struct {
 	// breadth) a single aggregated block may have. Optional with the same
 	// omitted/0-means-compiled-default semantics as NetworkIPGroupThreshold.
 	NetworkCIDRFloorBits *int32 `json:"networkCIDRFloorBits,omitempty"`
+	// ExecDynamicThreshold is the fallback threshold for AnalyzeExecs when no
+	// per-prefix entry matches the exec path. CollapseConfigs entries apply
+	// to exec paths as well as opens. Optional with the same
+	// omitted/0-means-compiled-default semantics as OpenDynamicThreshold.
+	ExecDynamicThreshold *int32 `json:"execDynamicThreshold,omitempty"`
 }
 
 // CollapseConfigurationSpecApplyConfiguration constructs a declarative configuration of the CollapseConfigurationSpec type for use with
@@ -104,5 +109,13 @@ func (b *CollapseConfigurationSpecApplyConfiguration) WithNetworkIPGroupThreshol
 // If called multiple times, the NetworkCIDRFloorBits field is set to the value of the last call.
 func (b *CollapseConfigurationSpecApplyConfiguration) WithNetworkCIDRFloorBits(value int32) *CollapseConfigurationSpecApplyConfiguration {
 	b.NetworkCIDRFloorBits = &value
+	return b
+}
+
+// WithExecDynamicThreshold sets the ExecDynamicThreshold field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ExecDynamicThreshold field is set to the value of the last call.
+func (b *CollapseConfigurationSpecApplyConfiguration) WithExecDynamicThreshold(value int32) *CollapseConfigurationSpecApplyConfiguration {
+	b.ExecDynamicThreshold = &value
 	return b
 }

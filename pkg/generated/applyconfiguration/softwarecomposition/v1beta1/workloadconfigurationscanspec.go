@@ -23,6 +23,10 @@ package v1beta1
 type WorkloadConfigurationScanSpecApplyConfiguration struct {
 	Controls       map[string]ScannedControlApplyConfiguration   `json:"controls,omitempty"`
 	RelatedObjects []WorkloadScanRelatedObjectApplyConfiguration `json:"relatedObjects,omitempty"`
+	// Metadata contains producer-supplied metadata about this scan report.
+	// Field 4 preserves the existing wire layout: fields 2 and 3 are stable,
+	// while field 1 was unused when protobuf support was introduced.
+	Metadata *WorkloadConfigurationScanMetaApplyConfiguration `json:"metadata,omitempty"`
 }
 
 // WorkloadConfigurationScanSpecApplyConfiguration constructs a declarative configuration of the WorkloadConfigurationScanSpec type for use with
@@ -55,5 +59,13 @@ func (b *WorkloadConfigurationScanSpecApplyConfiguration) WithRelatedObjects(val
 		}
 		b.RelatedObjects = append(b.RelatedObjects, *values[i])
 	}
+	return b
+}
+
+// WithMetadata sets the Metadata field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Metadata field is set to the value of the last call.
+func (b *WorkloadConfigurationScanSpecApplyConfiguration) WithMetadata(value *WorkloadConfigurationScanMetaApplyConfiguration) *WorkloadConfigurationScanSpecApplyConfiguration {
+	b.Metadata = value
 	return b
 }

@@ -30,6 +30,16 @@ type WorkloadConfigurationScan struct {
 type WorkloadConfigurationScanSpec struct {
 	Controls       map[string]ScannedControl
 	RelatedObjects []WorkloadScanRelatedObject
+
+	// Metadata contains producer-supplied metadata about this scan report.
+	// +optional
+	Metadata *WorkloadConfigurationScanMeta
+}
+
+// WorkloadConfigurationScanMeta contains producer-supplied metadata about a
+// workload configuration scan report.
+type WorkloadConfigurationScanMeta struct {
+	Report ReportMeta
 }
 
 type ScannedControl struct {

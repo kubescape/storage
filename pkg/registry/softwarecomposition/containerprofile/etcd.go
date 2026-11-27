@@ -30,14 +30,14 @@ import (
 func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter generic.RESTOptionsGetter) (*registry.REST, error) {
 	strategy := NewStrategy(scheme)
 
-	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: nil, Storage: storageImpl}
+	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: registry.NewCodec(scheme), Storage: storageImpl}
 
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.ContainerProfile{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.ContainerProfileList{} },
-		PredicateFunc:             MatchWorkloadConfigurationScan,
-		DefaultQualifiedResource:  softwarecomposition.Resource("containerprofile"),
-		SingularQualifiedResource: softwarecomposition.Resource("containerprofiles"),
+		PredicateFunc:             MatchContainerProfile,
+		DefaultQualifiedResource:  softwarecomposition.Resource("containerprofiles"),
+		SingularQualifiedResource: softwarecomposition.Resource("containerprofile"),
 
 		Storage: dryRunnableStorage,
 

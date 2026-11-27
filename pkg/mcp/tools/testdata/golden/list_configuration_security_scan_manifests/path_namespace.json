@@ -1,0 +1,12 @@
+{
+  "call": {
+    "name": "list_configuration_security_scan_manifests",
+    "arguments": {}
+  },
+  "isError": false,
+  "response": {
+    "configuration_manifests": {
+      "manifests": []
+    }
+  }
+}

@@ -1,0 +1,627 @@
+[
+  {
+    "metadata": {
+      "annotations": {
+        "kubescape.io/report-created-at": "2026-10-23T13:48:29.717251387Z",
+        "kubescape.io/wlid": "wlid://cluster-ks-dev/namespace-default/deployment-web"
+      },
+      "labels": {
+        "kubescape.io/workload-api-group": "apps",
+        "kubescape.io/workload-api-version": "v1",
+        "kubescape.io/workload-kind": "Deployment",
+        "kubescape.io/workload-name": "web",
+        "kubescape.io/workload-namespace": "default"
+      },
+      "name": "deployment-web",
+      "namespace": "default"
+    },
+    "spec": {
+      "controls": {
+        "C-0012": {
+          "controlID": "C-0012",
+          "name": "Applications credentials in configuration files",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": {
+                "sensitiveKeyNames": [
+                  "aws_secret_access_key",
+                  "azure_batchai_storage_key",
+                  "azure_batch_key",
+                  "secret",
+                  "key",
+                  "password",
+                  "pwd",
+                  "token",
+                  "jwt",
+                  "bearer",
+                  "credential"
+                ],
+                "sensitiveKeyNamesAllowed": [],
+                "sensitiveValues": [
+                  "BEGIN \\w+ PRIVATE KEY",
+                  "PRIVATE KEY",
+                  "eyJhbGciO",
+                  "JWT",
+                  "Bearer",
+                  "_key_",
+                  "_secret_"
+                ],
+                "sensitiveValuesAllowed": []
+              },
+              "name": "rule-credentials-in-env-var",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 8,
+            "severity": "High"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        },
+        "C-0013": {
+          "controlID": "C-0013",
+          "name": "Non-root containers",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "non-root-containers",
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.runAsNonRoot",
+                  "fixPathValue": "true"
+                },
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.runAsGroup",
+                  "fixPathValue": "1000"
+                }
+              ],
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 6,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0016": {
+          "controlID": "C-0016",
+          "name": "Allow privilege escalation",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "rule-allow-privilege-escalation",
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation",
+                  "fixPathValue": "false"
+                },
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.privileged",
+                  "fixPathValue": "false"
+                }
+              ],
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 6,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0017": {
+          "controlID": "C-0017",
+          "name": "Immutable container filesystem",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "immutable-container-filesystem",
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem",
+                  "fixPathValue": "true"
+                }
+              ],
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 3,
+            "severity": "Low"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0030": {
+          "controlID": "C-0030",
+          "name": "Ingress and Egress blocked",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "ingress-and-egress-blocked",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 6,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0034": {
+          "controlID": "C-0034",
+          "name": "Automatic mapping of service account",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "automount-service-account",
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.automountServiceAccountToken",
+                  "fixPathValue": "false"
+                }
+              ],
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 6,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0038": {
+          "controlID": "C-0038",
+          "name": "Host PID/IPC privileges",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "host-pid-ipc-privileges",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 7,
+            "severity": "High"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        },
+        "C-0041": {
+          "controlID": "C-0041",
+          "name": "HostNetwork access",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "host-network-access",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 7,
+            "severity": "High"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        },
+        "C-0044": {
+          "controlID": "C-0044",
+          "name": "Container hostPort",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "container-hostPort",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 4,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        },
+        "C-0046": {
+          "controlID": "C-0046",
+          "name": "Insecure capabilities",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": {
+                "insecureCapabilities": [
+                  "SETPCAP",
+                  "NET_ADMIN",
+                  "NET_RAW",
+                  "SYS_MODULE",
+                  "SYS_RAWIO",
+                  "SYS_PTRACE",
+                  "SYS_ADMIN",
+                  "SYS_BOOT",
+                  "MAC_OVERRIDE",
+                  "MAC_ADMIN",
+                  "PERFMON",
+                  "ALL",
+                  "BPF"
+                ]
+              },
+              "name": "insecure-capabilities",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 7,
+            "severity": "High"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        },
+        "C-0055": {
+          "controlID": "C-0055",
+          "name": "Linux hardening",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "linux-hardening",
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.seccompProfile",
+                  "fixPathValue": "YOUR_VALUE"
+                }
+              ],
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 4,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0057": {
+          "controlID": "C-0057",
+          "name": "Privileged container",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "rule-privilege-escalation",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 8,
+            "severity": "High"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        },
+        "C-0270": {
+          "controlID": "C-0270",
+          "name": "Ensure CPU limits are set",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "resources-cpu-limits",
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.cpu",
+                  "fixPathValue": "YOUR_VALUE"
+                }
+              ],
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 8,
+            "severity": "High"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0271": {
+          "controlID": "C-0271",
+          "name": "Ensure memory limits are set",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "resources-memory-limits",
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixCommand": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.memory",
+                  "fixPathValue": "YOUR_VALUE"
+                }
+              ],
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 8,
+            "severity": "High"
+          },
+          "status": {
+            "info": "",
+            "status": "failed",
+            "subStatus": ""
+          }
+        },
+        "C-0292": {
+          "controlID": "C-0292",
+          "name": "Nginx Ingress Controller End of Life",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "detect-nginx-ingress-controller-eol",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 6,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        }
+      },
+      "metadata": {
+        "report": {
+          "createdAt": "2026-10-23T13:48:29Z"
+        }
+      },
+      "relatedObjects": null
+    }
+  },
+  {
+    "metadata": {
+      "annotations": {
+        "kubescape.io/report-created-at": "2026-10-23T13:48:29.717251387Z",
+        "kubescape.io/wlid": "wlid://cluster-ks-dev/namespace-default/serviceaccount-default"
+      },
+      "labels": {
+        "kubescape.io/workload-api-group": "",
+        "kubescape.io/workload-api-version": "v1",
+        "kubescape.io/workload-kind": "ServiceAccount",
+        "kubescape.io/workload-name": "default",
+        "kubescape.io/workload-namespace": "default"
+      },
+      "name": "serviceaccount-default",
+      "namespace": "default"
+    },
+    "spec": {
+      "controls": {
+        "C-0034": {
+          "controlID": "C-0034",
+          "name": "Automatic mapping of service account",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "automount-service-account",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 6,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        }
+      },
+      "metadata": {
+        "report": {
+          "createdAt": "2026-10-23T13:48:29Z"
+        }
+      },
+      "relatedObjects": null
+    }
+  },
+  {
+    "metadata": {
+      "annotations": {
+        "kubescape.io/report-created-at": "2026-10-23T13:48:29.717251387Z",
+        "kubescape.io/wlid": "wlid://cluster-ks-dev/namespace-default/serviceaccount-default"
+      },
+      "labels": {
+        "kubescape.io/workload-api-group": "",
+        "kubescape.io/workload-api-version": "v1",
+        "kubescape.io/workload-kind": "ServiceAccount",
+        "kubescape.io/workload-name": "default",
+        "kubescape.io/workload-namespace": "default"
+      },
+      "name": "serviceaccount-default",
+      "namespace": "restricted"
+    },
+    "spec": {
+      "controls": {
+        "C-0034": {
+          "controlID": "C-0034",
+          "name": "Automatic mapping of service account",
+          "rules": [
+            {
+              "appliedIgnoreRules": null,
+              "controlConfigurations": null,
+              "name": "automount-service-account",
+              "paths": null,
+              "relatedResourcesIDs": null,
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              }
+            }
+          ],
+          "severity": {
+            "scoreFactor": 6,
+            "severity": "Medium"
+          },
+          "status": {
+            "info": "",
+            "status": "passed",
+            "subStatus": ""
+          }
+        }
+      },
+      "metadata": {
+        "report": {
+          "createdAt": "2026-10-23T13:48:29Z"
+        }
+      },
+      "relatedObjects": null
+    }
+  }
+]

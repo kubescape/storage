@@ -1,0 +1,24 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web",
+      "min_severity": "Negligible",
+      "namespace": "default"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "min_severity must be one of Critical, High, Medium, Low (got \"Negligible\")",
+    "details": {
+      "argument": "min_severity",
+      "supported_values": [
+        "Critical",
+        "High",
+        "Medium",
+        "Low"
+      ]
+    }
+  }
+}

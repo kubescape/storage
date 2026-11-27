@@ -2,6 +2,8 @@ package file
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -47,17 +49,47 @@ func NewKubernetesClient() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(clusterConfig)
 }
 
-func (h *ResourcesCleanupHandler) deleteMetadata(conn *sqlite.Conn, path string) (runtime.Object, error) {
+// deleteMetadata deletes the row (and the time_series rows of a
+// containerprofile) behind a reclaimed payload file (W9a of
+// write-gate-sharing §3.2): today's autocommit statements on the walk's
+// connection with no gate; one gated transaction with the row's JSON decoded
+// after release with one.
+func (h *ResourcesCleanupHandler) deleteMetadata(ctx context.Context, conn *sqlite.Conn, path string, newObjectFunc func() runtime.Object) (runtime.Object, error) {
 	key := payloadPathToKey(path)
-	metaOut := &PartialObjectMetadata{}
-	err := DeleteMetadata(conn, key, metaOut)
+	metaOut := newObjectFunc()
+	_, _, kind, _, _, _ := K8sPathToKeys(key)
+	if h.gate == nil {
+		err := DeleteMetadata(conn, key, metaOut)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete metadata: %w", err)
+		}
+		if IsContainerProfileKind(kind) {
+			if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
+				return nil, fmt.Errorf("failed to delete time series entries: %w", err)
+			}
+		}
+		return metaOut, nil
+	}
+	var raw []byte
+	err := h.write(ctx, conn, holdPathCleanup, resourceFromKey(key), func(_ context.Context, conn *sqlite.Conn) error {
+		var derr error
+		raw, derr = deleteMetadataRaw(conn, key)
+		if derr != nil {
+			return derr
+		}
+		if IsContainerProfileKind(kind) {
+			if terr := DeleteTimeSeriesContainerEntries(conn, key); terr != nil {
+				return fmt.Errorf("failed to delete time series entries: %w", terr)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete metadata: %w", err)
 	}
-	_, _, kind, _, _, _ := K8sPathToKeys(key)
-	if IsContainerProfileKind(kind) {
-		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
-			return nil, fmt.Errorf("failed to delete time series entries: %w", err)
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, metaOut); err != nil {
+			return nil, fmt.Errorf("failed to delete metadata: %w", err)
 		}
 	}
 	return metaOut, nil
@@ -135,14 +167,21 @@ func payloadPathToKey(path string) string {
 	return path[len(DefaultStorageRoot) : len(path)-len(GobExt)]
 }
 
-func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePath string) (*metav1.ObjectMeta, error) {
+// readMetadata loads a payload's metadata from its row, migrating a legacy sidecar file
+// into the row on the way, and returns the JSON the row holds next to the parsed form.
+func (h *ResourcesCleanupHandler) readMetadata(ctx context.Context, conn *sqlite.Conn, payloadFilePath string) (*metav1.ObjectMeta, []byte, error) {
 	key := payloadPathToKey(payloadFilePath)
 	metadataJSON, err := ReadMetadata(conn, key)
 	if err == nil {
 		metadata, err := loadMetadata(metadataJSON)
 		if err == nil {
-			return metadata, nil
+			return metadata, metadataJSON, nil
 		}
+	} else if !errors.Is(err, ErrMetadataNotFound) {
+		// The row could not be read (a busy or interrupted connection), which says
+		// nothing about whether it exists: never treat that as a missing row, which
+		// would remove a live payload below.
+		return nil, nil, fmt.Errorf("read metadata: %w", err)
 	}
 	// end of happy path - migration starts here
 	// try to find old metadata file
@@ -151,17 +190,23 @@ func (h *ResourcesCleanupHandler) readMetadata(conn *sqlite.Conn, payloadFilePat
 	if err != nil {
 		// no metadata in SQLite nor on disk, delete payload file
 		h.deleteFunc(h.appFs, payloadFilePath)
-		return nil, fmt.Errorf("failed to read metadata file: %w", err)
+		return nil, nil, fmt.Errorf("failed to read metadata file: %w", err)
 	}
-	// write to SQLite
-	err = WriteJSON(conn, key, metadataJSON)
+	// write to SQLite (W9b: through the gate when there is one)
+	err = h.write(ctx, conn, holdPathCleanupMigrate, resourceFromKey(key), func(_ context.Context, conn *sqlite.Conn) error {
+		return WriteJSON(conn, key, metadataJSON)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to migrate metadata to SQLite: %w", err)
+		return nil, nil, fmt.Errorf("failed to migrate metadata to SQLite: %w", err)
 	}
 	// delete old metadata file
 	h.deleteFunc(h.appFs, metadataFilePath)
 	// load metadata
-	return loadMetadata(metadataJSON)
+	metadata, err := loadMetadata(metadataJSON)
+	if err != nil {
+		return nil, nil, err
+	}
+	return metadata, metadataJSON, nil
 }
 
 func wlidWithoutClusterName(wlid string) string {

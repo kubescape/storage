@@ -1,0 +1,39 @@
+{
+  "call": {
+    "name": "list_vulnerabilities_in_manifest",
+    "arguments": {
+      "include_details": true,
+      "limit": 1,
+      "manifest_name": "nginx-32fdf9",
+      "namespace": "kubescape"
+    }
+  },
+  "isError": false,
+  "response": {
+    "total": 8,
+    "returned": 1,
+    "truncated": true,
+    "next_offset": 1,
+    "vulnerabilities": [
+      {
+        "id": "CVE-2017-12424",
+        "severity": "Critical",
+        "package": "login",
+        "version": "1:4.4-4.1",
+        "package_type": "deb",
+        "purl": "pkg:deb/debian/login@1:4.4-4.1?arch=amd64\u0026upstream=shadow\u0026distro=debian-9",
+        "fix": {
+          "versions": [
+            "1:4.4-4.1+deb9u1"
+          ],
+          "state": "fixed"
+        },
+        "description": "In shadow before 4.5, the newusers tool could be made to manipulate internal data structures in ways unintended by the authors. Malformed input may lead to crashes (with a buffer overflow or other memory corruption) or other unspecified behaviors. This crosses a privilege boundary in, for example, certain web-hosting environments in which a Control Panel allows an unprivileged user account to create subaccounts.",
+        "urls": [
+          "https://security-tracker.debian.org/tracker/CVE-2017-12424"
+        ],
+        "data_source": "https://security-tracker.debian.org/tracker/CVE-2017-12424"
+      }
+    ]
+  }
+}

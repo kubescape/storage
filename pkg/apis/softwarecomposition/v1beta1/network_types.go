@@ -16,40 +16,6 @@ const (
 	CommunicationTypeEgress  CommunicationType = "external"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
-type NetworkNeighborhoodList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Items []NetworkNeighborhood `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhood represents a list of network communications for a specific workload.
-type NetworkNeighborhood struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	Spec NetworkNeighborhoodSpec `json:"spec" protobuf:"bytes,2,req,name=spec"`
-}
-
-type NetworkNeighborhoodSpec struct {
-	metav1.LabelSelector `json:",inline" protobuf:"bytes,3,opt,name=labelSelector"`
-	Containers           []NetworkNeighborhoodContainer `json:"containers" protobuf:"bytes,4,rep,name=containers"`
-	InitContainers       []NetworkNeighborhoodContainer `json:"initContainers" protobuf:"bytes,5,rep,name=initContainers"`
-	EphemeralContainers  []NetworkNeighborhoodContainer `json:"ephemeralContainers" protobuf:"bytes,6,rep,name=ephemeralContainers"`
-}
-
-type NetworkNeighborhoodContainer struct {
-	Name    string            `json:"name" protobuf:"bytes,1,req,name=name"`
-	Ingress []NetworkNeighbor `json:"ingress" protobuf:"bytes,2,rep,name=ingress"`
-	Egress  []NetworkNeighbor `json:"egress" protobuf:"bytes,3,rep,name=egress"`
-}
-
 // NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighbor struct {
 	Identifier string            `json:"identifier" protobuf:"bytes,1,req,name=identifier"` // A unique identifier for this entry
@@ -66,6 +32,18 @@ type NetworkNeighbor struct {
 	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
 	// See pkg/registry/file/networkmatch for matcher semantics.
 	IPAddresses []string `json:"ipAddresses,omitempty" protobuf:"bytes,9,rep,name=ipAddresses"`
+	// ServiceRefNamespace and ServiceRefName reference a single Service; the
+	// resolver expands it to that Service's ClusterIP(s) and backing endpoint
+	// IPs. Portable (a name, resolved per-cluster) and narrow, unlike a
+	// serviceCIDR ipAddresses entry. See k8sstormcenter/node-agent#92.
+	ServiceRefNamespace string `json:"serviceRefNamespace,omitempty" protobuf:"bytes,10,opt,name=serviceRefNamespace"`
+	ServiceRefName      string `json:"serviceRefName,omitempty" protobuf:"bytes,11,opt,name=serviceRefName"`
+	// ServiceSelector selects Services by label, resolved like ServiceRef.
+	ServiceSelector *metav1.LabelSelector `json:"serviceSelector,omitempty" protobuf:"bytes,12,opt,name=serviceSelector"`
+	// Entity is a reserved peer identity not backed by a Service object.
+	// Supported value: "host" (node InternalIP + CNI gateway) — kubelet/health
+	// probes and node-sourced traffic.
+	Entity string `json:"entity,omitempty" protobuf:"bytes,13,opt,name=entity"`
 }
 
 type NetworkPort struct {

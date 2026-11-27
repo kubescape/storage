@@ -204,7 +204,11 @@ func TestNewCRDCollapseSettingsProvider_LiveUpdate(t *testing.T) {
 
 	time.Sleep(2 * collapseSettingsTTL)
 
-	assert.Equal(t, 200, provider().OpenDynamicThreshold, "after TTL expiry the next call reflects the CR edit")
+	// Stale-while-revalidate: the call that notices expiry serves the cached
+	// value and refreshes in the background; the edit is visible within one
+	// refresh latency after that.
+	assert.Eventually(t, func() bool { return provider().OpenDynamicThreshold == 200 },
+		time.Second, time.Millisecond, "after TTL expiry the CR edit is reflected within one refresh")
 }
 
 // TestNewCRDCollapseSettingsProvider_CachesWithinTTL pins AC2: repeated
@@ -258,6 +262,7 @@ func TestNewCRDCollapseSettingsProvider_RefreshesAfterTTLExpiry(t *testing.T) {
 
 	time.Sleep(2 * collapseSettingsTTL)
 
-	assert.Equal(t, 1, provider().OpenDynamicThreshold)
-	assert.EqualValues(t, 2, s.getCalls.Load(), "a call after TTL expiry must trigger a fresh Get")
+	assert.Equal(t, 1, provider().OpenDynamicThreshold, "the call that notices expiry still serves the cached value")
+	assert.Eventually(t, func() bool { return s.getCalls.Load() == 2 },
+		time.Second, time.Millisecond, "a call after TTL expiry must trigger a fresh (background) Get")
 }

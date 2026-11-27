@@ -33,6 +33,7 @@ import (
 	"github.com/kubescape/storage/pkg/config"
 	informers "github.com/kubescape/storage/pkg/generated/informers/externalversions"
 	sampleopenapi "github.com/kubescape/storage/pkg/generated/openapi"
+	"github.com/kubescape/storage/pkg/mcp/endpoint"
 	"github.com/kubescape/storage/pkg/queuemanager"
 	"github.com/kubescape/storage/pkg/registry/file"
 	"github.com/kubescape/storage/pkg/statscollector"
@@ -72,11 +73,16 @@ type WardleServerOptions struct {
 
 	AlternateDNS []string
 
-	CleanupHandler  *file.ResourcesCleanupHandler
-	OsFs            afero.Fs
-	Pool            *sqlitemigration.Pool
+	CleanupHandler *file.ResourcesCleanupHandler
+	OsFs           afero.Fs
+	Pool           *sqlitemigration.Pool
+	// SqlitePath is the database file behind Pool (see apiserver.ExtraConfig).
+	SqlitePath      string
 	StorageConfig   config.Config
 	WatchDispatcher *file.WatchDispatcher
+	// WriteGate is the process's write gate (see apiserver.ExtraConfig); nil
+	// with ContainerProfileSqliteBackend off.
+	WriteGate *file.WriteGate
 }
 
 func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
@@ -111,10 +117,27 @@ func NewWardleServerOptions(out, errOut io.Writer, osFs afero.Fs, pool *sqlitemi
 		StorageConfig:   cfg,
 		WatchDispatcher: watchDispatcher,
 	}
-	o.RecommendedOptions.Admission = nil
+	// Admission: lifecycle-only. Upstream f9a16e2e ("upgrade sample api-server")
+	// set Admission = nil, which silently disabled the ENTIRE admission chain —
+	// NamespaceLifecycle included — so writes into non-existent namespaces
+	// persisted (issue #43). Restore admission but narrow the plugin order to
+	// NamespaceLifecycle: the webhook/policy plugins stay off the profile write
+	// hot path. CoreAPI is already enabled, so the kube client + namespace
+	// informer this plugin needs are built by RecommendedOptions.ApplyTo.
+	// NOTE: the storage ServiceAccount needs namespaces get/list/watch or the
+	// plugin's ready-gate rejects every request.
+	// Keep the default RecommendedPluginOrder (options.Validate REQUIRES every
+	// registered plugin to be listed there) and turn the webhook/policy plugins
+	// off instead — NamespaceLifecycle is the only one left enabled.
+	o.RecommendedOptions.Admission = genericoptions.NewAdmissionOptions()
+	o.RecommendedOptions.Admission.DefaultOffPlugins.Insert(
+		"MutatingAdmissionPolicy", "MutatingAdmissionWebhook",
+		"ValidatingAdmissionPolicy", "ValidatingAdmissionWebhook",
+	)
 	o.RecommendedOptions.Etcd = nil
 
-	// Disable authorization since we are publishing an internal endpoint (that only answers the API server)
+	// No authorization here: kube-apiserver checks RBAC before proxying, and
+	// Config() makes the authenticator refuse anything it did not forward.
 	o.RecommendedOptions.Authorization = nil
 
 	// Set TLS up and bind to secure port
@@ -142,13 +165,6 @@ func NewCommandStartWardleServer(ctx context.Context, defaults *WardleServerOpti
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			if skipDefaultComponentGlobalsRegistrySet {
 				return nil
-			}
-			flags := cmd.Flags()
-			// WatchList not yet implemented in the file-based storage backend, see https://github.com/kubescape/storage/issues/320
-			// Note: ServerSideApply is GA/non-gated in Kubernetes 1.35 and cannot be disabled via feature-gates;
-			// the previous "ServerSideApply=false" token was always inert and would now fail gate validation.
-			if err := flags.Set("feature-gates", "WatchList=false"); err != nil {
-				return err
 			}
 			// ComponentGlobalsRegistry.Set is the only bridge propagating the parsed feature-gates
 			// flag into the actual feature gates, so it must run after the flag value is populated.
@@ -291,14 +307,30 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 		return nil, err
 	}
 
+	// Replace the delegating authenticator (anonymous, token review and client
+	// certificates) with one that only accepts kube-apiserver's front proxy.
+	// Authentication is nil only in unit tests that run off-cluster.
+	if o.StorageConfig.InsecureSkipFrontProxyVerification {
+		logger.L().Warning("insecureSkipFrontProxyVerification is set: storage serves requests that did not come through kube-apiserver, with no authorization; anything that reaches the Service can read and write all data")
+	} else if o.RecommendedOptions.Authentication != nil {
+		frontProxy, err := newFrontProxyOnly(serverConfig.Authentication.RequestHeaderConfig)
+		if err != nil {
+			return nil, err
+		}
+		serverConfig.Authentication.Authenticator = frontProxy
+	}
+
 	c := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
 			CleanupHandler:  o.CleanupHandler,
 			OsFs:            o.OsFs,
 			Pool:            o.Pool,
+			SqlitePath:      o.SqlitePath,
 			StorageConfig:   o.StorageConfig,
 			WatchDispatcher: o.WatchDispatcher,
+			WriteGate:       o.WriteGate,
+			ClientConfig:    serverConfig.ClientConfig,
 		},
 	}
 	return c, nil
@@ -316,17 +348,35 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 		return err
 	}
 
+	fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
+	handler := fullHandlerChain
 	rateLimitPerClient := c.ExtraConfig.StorageConfig.RateLimitPerClient
 	if rateLimitPerClient > 0 {
 		rateLimitTotal := c.ExtraConfig.StorageConfig.RateLimitTotal
 		logger.L().Info("rate limiting enabled", helpers.Interface("rateLimitPerClient", rateLimitPerClient), helpers.Int("rateLimitTotal", rateLimitTotal))
 		// modify fullHandlerChain to include the Tollbooth rate limiter
-		fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
 		ipLimiter := tollbooth.NewLimiter(rateLimitPerClient, nil)
 		ipLimiter.SetIPLookups([]string{"X-Forwarded-For"}) // api-server acts as a reverse proxy
-		globalLimiter := NewConcurrentLimiter(rateLimitTotal)
-		server.GenericAPIServer.Handler.FullHandlerChain = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
+		globalLimiter := NewConcurrentLimiter(rateLimitTotal, c.GenericConfig.LongRunningFunc, c.GenericConfig.RequestInfoResolver)
+		handler = globalLimiter.LimitConcurrentRequests(ipLimiter, fullHandlerChain.ServeHTTP)
 	}
+	if mcp := c.ExtraConfig.StorageConfig.MCP; mcp.Enabled {
+		// The MCP admission limit is the outermost handler: MCP calls take its
+		// slots and skip the global limiter, so writes keep all of it.
+		logger.L().Info("MCP admission limit", helpers.Int("maxRunning", mcp.MaxRunning),
+			helpers.Int("maxWaiting", mcp.MaxWaiting), helpers.String("maxWait", mcp.MaxWait.String()))
+		handler, err = endpoint.NewAdmission(endpoint.AdmissionConfig{
+			RequestHeader:       c.GenericConfig.Authentication.RequestHeaderConfig,
+			RequestInfoResolver: c.GenericConfig.RequestInfoResolver,
+			MaxRunning:          mcp.MaxRunning,
+			MaxWaiting:          mcp.MaxWaiting,
+			MaxWait:             mcp.MaxWait,
+		}, fullHandlerChain, handler)
+		if err != nil {
+			return fmt.Errorf("unable to create the MCP admission limit: %w", err)
+		}
+	}
+	server.GenericAPIServer.Handler.FullHandlerChain = handler
 
 	if o.StorageConfig.QueueProcessingStatsPrint {
 		go func() {

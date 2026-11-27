@@ -12,7 +12,9 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/utils"
 )
 
 // NewStrategy creates and returns a sbomSyftStrategy instance
@@ -53,10 +55,12 @@ func (SbomSyftStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (SbomSyftStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
+func (SbomSyftStrategy) PrepareForCreate(_ context.Context, obj runtime.Object) {
+	obj.(*softwarecomposition.SBOMSyftFiltered).Status = softwarecomposition.SBOMSyftStatus{}
 }
 
-func (SbomSyftStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
+func (SbomSyftStrategy) PrepareForUpdate(_ context.Context, obj, old runtime.Object) {
+	obj.(*softwarecomposition.SBOMSyftFiltered).Status = old.(*softwarecomposition.SBOMSyftFiltered).Status
 }
 
 func (SbomSyftStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
@@ -68,11 +72,11 @@ func (SbomSyftStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []
 	return nil
 }
 
-func (SbomSyftStrategy) AllowCreateOnUpdate() bool {
+func (SbomSyftStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (SbomSyftStrategy) AllowUnconditionalUpdate() bool {
+func (SbomSyftStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 
@@ -103,7 +107,15 @@ func (SbomSyftFilteredStatusStrategy) PrepareForUpdate(ctx context.Context, obj,
 
 // ValidateUpdate is the default update validation for an end user.
 func (SbomSyftFilteredStatusStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+	value := obj.(*softwarecomposition.SBOMSyftFiltered).Status.Status
+	if value == "" {
+		return nil
+	}
+	if err := utils.ValidateStatusAnnotation(map[string]string{helpers.StatusMetadataKey: value}); err != nil {
+		err.Field = field.NewPath("status", "status").String()
+		return field.ErrorList{err}
+	}
+	return nil
 }
 
 // WarningsOnUpdate returns warnings for the given update.

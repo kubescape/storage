@@ -1,0 +1,142 @@
+{
+  "call": {
+    "name": "list_sbom_packages",
+    "arguments": {
+      "namespace": "kubescape",
+      "sbom_name": "nginx-32fdf9"
+    }
+  },
+  "isError": false,
+  "response": {
+    "sbom_name": "nginx-32fdf9",
+    "distro": "debian 9",
+    "total": 12,
+    "returned": 12,
+    "truncated": false,
+    "packages": [
+      {
+        "name": "adduser",
+        "version": "3.115",
+        "type": "deb",
+        "purl": "pkg:deb/debian/adduser@3.115?arch=all\u0026distro=debian-9",
+        "licenses": [
+          "GPL-2.0-only"
+        ]
+      },
+      {
+        "name": "apt",
+        "version": "1.4.8",
+        "type": "deb",
+        "purl": "pkg:deb/debian/apt@1.4.8?arch=amd64\u0026distro=debian-9",
+        "licenses": [
+          "GPL-2.0-only",
+          "GPLv2+"
+        ]
+      },
+      {
+        "name": "libc6",
+        "version": "2.24-11+deb9u3",
+        "type": "deb",
+        "purl": "pkg:deb/debian/libc6@2.24-11%2Bdeb9u3?arch=amd64\u0026upstream=glibc\u0026distro=debian-9",
+        "licenses": [
+          "GPL-2.0-only",
+          "LGPL-2.1-only"
+        ]
+      },
+      {
+        "name": "libintl",
+        "version": "",
+        "type": "java-archive",
+        "language": "java",
+        "purl": "pkg:maven/libintl/libintl",
+        "licenses": []
+      },
+      {
+        "name": "libssl1.1",
+        "version": "1.1.0f-3+deb9u2",
+        "type": "deb",
+        "purl": "pkg:deb/debian/libssl1.1@1.1.0f-3%2Bdeb9u2?arch=amd64\u0026upstream=openssl\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "login",
+        "version": "1:4.4-4.1",
+        "type": "deb",
+        "purl": "pkg:deb/debian/login@1:4.4-4.1?arch=amd64\u0026upstream=shadow\u0026distro=debian-9",
+        "licenses": [
+          "GPL-2.0-only"
+        ]
+      },
+      {
+        "name": "nginx",
+        "version": "1.14.1-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx@1.14.1-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "nginx-module-geoip",
+        "version": "1.14.1-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx-module-geoip@1.14.1-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "nginx-module-njs",
+        "version": "1.14.1.0.2.5-1~stretch",
+        "type": "deb",
+        "purl": "pkg:deb/debian/nginx-module-njs@1.14.1.0.2.5-1~stretch?arch=amd64\u0026distro=debian-9",
+        "licenses": []
+      },
+      {
+        "name": "passwd",
+        "version": "1:4.4-4.1",
+        "type": "deb",
+        "purl": "pkg:deb/debian/passwd@1:4.4-4.1?arch=amd64\u0026upstream=shadow\u0026distro=debian-9",
+        "licenses": [
+          "GPL-2.0-only"
+        ]
+      },
+      {
+        "name": "perl-base",
+        "version": "5.24.1-3+deb9u4",
+        "type": "deb",
+        "purl": "pkg:deb/debian/perl-base@5.24.1-3%2Bdeb9u4?arch=amd64\u0026upstream=perl\u0026distro=debian-9",
+        "licenses": [
+          "Artistic",
+          "Artistic-2.0",
+          "BSD-3-Clause",
+          "BSD-3-clause-GENERIC",
+          "BSD-3-clause-with-weird-numbering",
+          "BSD-4-clause-POWERDOG",
+          "BZIP",
+          "DONT-CHANGE-THE-GPL",
+          "Expat",
+          "GPL-1.0-only",
+          "GPL-1.0-or-later",
+          "GPL-2.0-only",
+          "GPL-2.0-or-later",
+          "GPL-3+-WITH-BISON-EXCEPTION",
+          "HSIEH-BSD",
+          "HSIEH-DERIVATIVE",
+          "LGPL-2.1-only",
+          "REGCOMP",
+          "REGCOMP,",
+          "RRA-KEEP-THIS-NOTICE",
+          "S2P",
+          "SDBM-PUBLIC-DOMAIN",
+          "TEXT-TABS",
+          "Unicode",
+          "Zlib"
+        ]
+      },
+      {
+        "name": "zlib1g",
+        "version": "1:1.2.8.dfsg-5",
+        "type": "deb",
+        "purl": "pkg:deb/debian/zlib1g@1:1.2.8.dfsg-5?arch=amd64\u0026upstream=zlib\u0026distro=debian-9",
+        "licenses": []
+      }
+    ]
+  }
+}

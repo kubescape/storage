@@ -1,0 +1,23 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web",
+      "namespace": "default",
+      "status": "failed,excepted"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "status must be a comma-separated list of failed, passed, skipped (got \"failed,excepted\")",
+    "details": {
+      "argument": "status",
+      "supported_values": [
+        "failed",
+        "passed",
+        "skipped"
+      ]
+    }
+  }
+}

@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestLongStorageFailover() {
@@ -33,7 +32,7 @@ Goal: Ensure that the system can recover from a long storage failover and still 
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "long-storage-failover-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "15m",
+						MaxSniffingTimeLabel: "15m",
 					},
 				},
 				Spec: corev1.PodSpec{

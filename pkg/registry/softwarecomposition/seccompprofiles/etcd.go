@@ -30,14 +30,14 @@ import (
 func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter generic.RESTOptionsGetter) (*registry.REST, error) {
 	strategy := NewStrategy(scheme)
 
-	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: nil, Storage: storageImpl}
+	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: registry.NewCodec(scheme), Storage: storageImpl}
 
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.SeccompProfile{} },
 		NewListFunc:               func() runtime.Object { return &softwarecomposition.SeccompProfileList{} },
 		PredicateFunc:             MatchWorkloadConfigurationScan,
-		DefaultQualifiedResource:  softwarecomposition.Resource("seccompprofile"),
-		SingularQualifiedResource: softwarecomposition.Resource("seccompprofiles"),
+		DefaultQualifiedResource:  softwarecomposition.Resource("seccompprofiles"),
+		SingularQualifiedResource: softwarecomposition.Resource("seccompprofile"),
 
 		Storage: dryRunnableStorage,
 

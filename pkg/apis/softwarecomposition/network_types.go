@@ -18,44 +18,6 @@ const (
 	CommunicationTypeEgress  CommunicationType = "external"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
-type NetworkNeighborhoodList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-
-	Items []NetworkNeighborhood
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NetworkNeighborhood represents a list of network communications for a specific workload.
-type NetworkNeighborhood struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-
-	// +k8s:conversion-gen=false
-	Parts map[string]string
-	// +k8s:conversion-gen=false
-	SchemaVersion int64
-	Spec          NetworkNeighborhoodSpec
-}
-
-type NetworkNeighborhoodSpec struct {
-	metav1.LabelSelector // The labels which are inside spec.selector in the parent workload.
-	Containers           []NetworkNeighborhoodContainer
-	InitContainers       []NetworkNeighborhoodContainer
-	EphemeralContainers  []NetworkNeighborhoodContainer
-}
-
-type NetworkNeighborhoodContainer struct {
-	Name    string
-	Ingress []NetworkNeighbor
-	Egress  []NetworkNeighbor
-}
-
 // NetworkNeighbor represents a single network communication made by this resource.
 type NetworkNeighbor struct {
 	Identifier        string
@@ -70,6 +32,14 @@ type NetworkNeighbor struct {
 	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
 	// See pkg/registry/file/networkmatch for matcher semantics.
 	IPAddresses []string
+	// ServiceRefNamespace/ServiceRefName reference a single Service; the
+	// resolver expands it to that Service's ClusterIP(s) + endpoint IPs.
+	ServiceRefNamespace string
+	ServiceRefName      string
+	// ServiceSelector selects Services by label, resolved like ServiceRef.
+	ServiceSelector *metav1.LabelSelector
+	// Entity is a reserved peer identity not backed by a Service ("host").
+	Entity string
 }
 
 type NetworkPort struct {
@@ -80,6 +50,12 @@ type NetworkPort struct {
 	Name     string // protocol-port
 	Protocol Protocol
 	Port     *int32
+	// PortZero marks an explicit Port==0 across the gob payload round-trip:
+	// gob flattens the pointer and omits zero values, so *0 decodes as nil
+	// (losing the distinction between an explicit zero and an absent port).
+	// Internal-only; stamped on save, consumed on read, never converted out.
+	// json:"-": gob carries it (gob ignores json tags); JSON views must not.
+	PortZero bool `json:"-"`
 }
 
 func (p NetworkPort) String() string {

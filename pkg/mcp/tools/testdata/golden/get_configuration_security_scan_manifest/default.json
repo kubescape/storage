@@ -1,0 +1,529 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web",
+      "namespace": "default"
+    }
+  },
+  "isError": false,
+  "response": {
+    "metadata": {
+      "name": "deployment-web",
+      "namespace": "default",
+      "labels": {
+        "kubescape.io/workload-api-group": "apps",
+        "kubescape.io/workload-api-version": "v1",
+        "kubescape.io/workload-kind": "Deployment",
+        "kubescape.io/workload-name": "web",
+        "kubescape.io/workload-namespace": "default"
+      },
+      "annotations": {
+        "kubescape.io/report-created-at": "2026-10-23T13:48:29.717251387Z",
+        "kubescape.io/wlid": "wlid://cluster-ks-dev/namespace-default/deployment-web"
+      }
+    },
+    "spec": {
+      "controls": {
+        "C-0012": {
+          "controlID": "C-0012",
+          "name": "Applications credentials in configuration files",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "passed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "rule-credentials-in-env-var",
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              },
+              "controlConfigurations": {
+                "sensitiveKeyNames": [
+                  "aws_secret_access_key",
+                  "azure_batchai_storage_key",
+                  "azure_batch_key",
+                  "secret",
+                  "key",
+                  "password",
+                  "pwd",
+                  "token",
+                  "jwt",
+                  "bearer",
+                  "credential"
+                ],
+                "sensitiveKeyNamesAllowed": [],
+                "sensitiveValues": [
+                  "BEGIN \\w+ PRIVATE KEY",
+                  "PRIVATE KEY",
+                  "eyJhbGciO",
+                  "JWT",
+                  "Bearer",
+                  "_key_",
+                  "_secret_"
+                ],
+                "sensitiveValuesAllowed": []
+              },
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0013": {
+          "controlID": "C-0013",
+          "name": "Non-root containers",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "non-root-containers",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.runAsNonRoot",
+                  "fixPathValue": "true",
+                  "fixCommand": ""
+                },
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.runAsGroup",
+                  "fixPathValue": "1000",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0016": {
+          "controlID": "C-0016",
+          "name": "Allow privilege escalation",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "rule-allow-privilege-escalation",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation",
+                  "fixPathValue": "false",
+                  "fixCommand": ""
+                },
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.privileged",
+                  "fixPathValue": "false",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0017": {
+          "controlID": "C-0017",
+          "name": "Immutable container filesystem",
+          "severity": {
+            "severity": "Low",
+            "scoreFactor": 3
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "immutable-container-filesystem",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem",
+                  "fixPathValue": "true",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0030": {
+          "controlID": "C-0030",
+          "name": "Ingress and Egress blocked",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "ingress-and-egress-blocked",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0034": {
+          "controlID": "C-0034",
+          "name": "Automatic mapping of service account",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "automount-service-account",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.automountServiceAccountToken",
+                  "fixPathValue": "false",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0038": {
+          "controlID": "C-0038",
+          "name": "Host PID/IPC privileges",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 7
+          },
+          "status": {
+            "status": "passed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "host-pid-ipc-privileges",
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0041": {
+          "controlID": "C-0041",
+          "name": "HostNetwork access",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 7
+          },
+          "status": {
+            "status": "passed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "host-network-access",
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0044": {
+          "controlID": "C-0044",
+          "name": "Container hostPort",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 4
+          },
+          "status": {
+            "status": "passed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "container-hostPort",
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0046": {
+          "controlID": "C-0046",
+          "name": "Insecure capabilities",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 7
+          },
+          "status": {
+            "status": "passed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "insecure-capabilities",
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              },
+              "controlConfigurations": {
+                "insecureCapabilities": [
+                  "SETPCAP",
+                  "NET_ADMIN",
+                  "NET_RAW",
+                  "SYS_MODULE",
+                  "SYS_RAWIO",
+                  "SYS_PTRACE",
+                  "SYS_ADMIN",
+                  "SYS_BOOT",
+                  "MAC_OVERRIDE",
+                  "MAC_ADMIN",
+                  "PERFMON",
+                  "ALL",
+                  "BPF"
+                ]
+              },
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0055": {
+          "controlID": "C-0055",
+          "name": "Linux hardening",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 4
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "linux-hardening",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].securityContext.seccompProfile",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0057": {
+          "controlID": "C-0057",
+          "name": "Privileged container",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "passed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "rule-privilege-escalation",
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0270": {
+          "controlID": "C-0270",
+          "name": "Ensure CPU limits are set",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "resources-cpu-limits",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.cpu",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0271": {
+          "controlID": "C-0271",
+          "name": "Ensure memory limits are set",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "resources-memory-limits",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.memory",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0292": {
+          "controlID": "C-0292",
+          "name": "Nginx Ingress Controller End of Life",
+          "severity": {
+            "severity": "Medium",
+            "scoreFactor": 6
+          },
+          "status": {
+            "status": "passed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "detect-nginx-ingress-controller-eol",
+              "status": {
+                "status": "passed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": null,
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        }
+      },
+      "relatedObjects": null,
+      "metadata": {
+        "report": {
+          "createdAt": "2026-10-23T13:48:29Z"
+        }
+      }
+    }
+  }
+}

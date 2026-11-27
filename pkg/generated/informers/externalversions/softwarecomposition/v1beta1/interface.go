@@ -24,8 +24,6 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ApplicationProfiles returns a ApplicationProfileInformer.
-	ApplicationProfiles() ApplicationProfileInformer
 	// CollapseConfigurations returns a CollapseConfigurationInformer.
 	CollapseConfigurations() CollapseConfigurationInformer
 	// ConfigurationScanSummaries returns a ConfigurationScanSummaryInformer.
@@ -36,8 +34,6 @@ type Interface interface {
 	GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer
 	// KnownServers returns a KnownServerInformer.
 	KnownServers() KnownServerInformer
-	// NetworkNeighborhoods returns a NetworkNeighborhoodInformer.
-	NetworkNeighborhoods() NetworkNeighborhoodInformer
 	// OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.
 	OpenVulnerabilityExchangeContainers() OpenVulnerabilityExchangeContainerInformer
 	// SBOMSyfts returns a SBOMSyftInformer.
@@ -69,11 +65,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ApplicationProfiles returns a ApplicationProfileInformer.
-func (v *version) ApplicationProfiles() ApplicationProfileInformer {
-	return &applicationProfileInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
 // CollapseConfigurations returns a CollapseConfigurationInformer.
 func (v *version) CollapseConfigurations() CollapseConfigurationInformer {
 	return &collapseConfigurationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -97,11 +88,6 @@ func (v *version) GeneratedNetworkPolicies() GeneratedNetworkPolicyInformer {
 // KnownServers returns a KnownServerInformer.
 func (v *version) KnownServers() KnownServerInformer {
 	return &knownServerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// NetworkNeighborhoods returns a NetworkNeighborhoodInformer.
-func (v *version) NetworkNeighborhoods() NetworkNeighborhoodInformer {
-	return &networkNeighborhoodInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // OpenVulnerabilityExchangeContainers returns a OpenVulnerabilityExchangeContainerInformer.

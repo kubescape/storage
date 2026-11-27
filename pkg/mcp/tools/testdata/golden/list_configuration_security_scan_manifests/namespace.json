@@ -1,0 +1,23 @@
+{
+  "call": {
+    "name": "list_configuration_security_scan_manifests",
+    "arguments": {
+      "namespace": "default"
+    }
+  },
+  "isError": false,
+  "response": {
+    "configuration_manifests": {
+      "manifests": [
+        {
+          "namespace": "default",
+          "manifest_name": "deployment-web"
+        },
+        {
+          "namespace": "default",
+          "manifest_name": "serviceaccount-default"
+        }
+      ]
+    }
+  }
+}

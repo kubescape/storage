@@ -155,7 +155,7 @@ func TestValidate_EntryRules(t *testing.T) {
 func TestValidate_RejectsNonCC(t *testing.T) {
 	s := NewStrategy(newScheme())
 	// Pass a different type to confirm the type assertion fails cleanly.
-	notACC := &softwarecomposition.ApplicationProfile{}
+	notACC := &softwarecomposition.ContainerProfile{}
 	errs := s.Validate(context.Background(), notACC)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 internal error for type mismatch, got: %v", errs)
@@ -198,9 +198,28 @@ func TestSelectableFieldsAndAttrs(t *testing.T) {
 }
 
 func TestGetAttrs_RejectsNonCC(t *testing.T) {
-	notACC := &softwarecomposition.ApplicationProfile{}
+	notACC := &softwarecomposition.ContainerProfile{}
 	_, _, err := GetAttrs(notACC)
 	if err == nil {
 		t.Fatalf("GetAttrs should reject non-CollapseConfiguration objects")
+	}
+}
+
+func TestValidate_ExecDynamicThreshold(t *testing.T) {
+	s := NewStrategy(newScheme())
+	for _, tc := range []struct {
+		value   int32
+		wantErr bool
+	}{{-1, true}, {0, false}, {1, false}, {500, false}} {
+		cc := &softwarecomposition.CollapseConfiguration{
+			Spec: softwarecomposition.CollapseConfigurationSpec{ExecDynamicThreshold: tc.value},
+		}
+		errs := s.Validate(context.Background(), cc)
+		if tc.wantErr && len(errs) != 1 {
+			t.Fatalf("expected 1 error for ExecDynamicThreshold=%d, got %d: %v", tc.value, len(errs), errs)
+		}
+		if !tc.wantErr && len(errs) != 0 {
+			t.Fatalf("expected no error for ExecDynamicThreshold=%d, got: %v", tc.value, errs)
+		}
 	}
 }

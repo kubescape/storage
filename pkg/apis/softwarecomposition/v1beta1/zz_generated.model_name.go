@@ -27,31 +27,6 @@ func (in Advisory) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ApplicationProfile) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ApplicationProfile"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ApplicationProfileContainer) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ApplicationProfileContainer"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ApplicationProfileList) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ApplicationProfileList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ApplicationProfileSpec) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ApplicationProfileSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ApplicationProfileStatus) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ApplicationProfileStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Arg) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.Arg"
 }
@@ -124,6 +99,11 @@ func (in ConfigurationScanSummarySpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ContainerProfile) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ContainerProfile"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ContainerProfileContainer) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.ContainerProfileContainer"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -392,6 +372,16 @@ func (in LocationMetadata) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServer) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.MCPServer"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerList) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.MCPServerList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Match) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.Match"
 }
@@ -409,26 +399,6 @@ func (in Metadata) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NetworkNeighbor) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.NetworkNeighbor"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NetworkNeighborhood) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.NetworkNeighborhood"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NetworkNeighborhoodContainer) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.NetworkNeighborhoodContainer"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NetworkNeighborhoodList) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.NetworkNeighborhoodList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NetworkNeighborhoodSpec) OpenAPIModelName() string {
-	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.NetworkNeighborhoodSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -834,6 +804,11 @@ func (in WorkloadConfigurationScan) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkloadConfigurationScanList) OpenAPIModelName() string {
 	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.WorkloadConfigurationScanList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in WorkloadConfigurationScanMeta) OpenAPIModelName() string {
+	return "com.github.kubescape.storage.pkg.apis.softwarecomposition.v1beta1.WorkloadConfigurationScanMeta"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

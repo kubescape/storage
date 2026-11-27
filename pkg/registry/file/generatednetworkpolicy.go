@@ -4,28 +4,43 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/kubescape/go-logger"
 	"github.com/kubescape/go-logger/helpers"
+	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/networkpolicy/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 )
 
 const (
-	networkNeighborhoodResource = "networkneighborhoods"
-	knownServersResource        = "knownservers"
+	// Use the canonical storage prefix shared with the ContainerProfile backend.
+	containerProfileResource = ContainerProfileKind
+	knownServersResource     = "knownservers"
+	// containerProfileListLimit bounds the internal namespace listing used to
+	// resolve a single workload-level Get; a namespace's container-profile count
+	// is comfortably below this.
+	containerProfileListLimit = 10000
 )
 
 // GeneratedNetworkPolicyStorage offers a storage solution for GeneratedNetworkPolicy objects, implementing custom business logic for these objects and using the underlying default storage implementation.
 type GeneratedNetworkPolicyStorage struct {
 	immutableStorage
 	realStore StorageQuerier
-	nnStore   storage.Interface
+	// containerProfileStore serves the full-spec ContainerProfile list. It is
+	// the instance wired for the containerprofiles resource (the ObjectStore
+	// under config.ContainerProfileSqliteBackend), never the default
+	// StorageImpl: the default instance's get() deletes the shared metadata
+	// row of any CP key whose payload file is absent, which under the flag is
+	// every row the ObjectStore owns (§5.6 row 9).
+	containerProfileStore storage.Interface
 }
 
 func (s *GeneratedNetworkPolicyStorage) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
@@ -44,10 +59,13 @@ func (s *GeneratedNetworkPolicyStorage) CompactRevision() int64 {
 
 var _ storage.Interface = (*GeneratedNetworkPolicyStorage)(nil)
 
-func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier, nnStore storage.Interface) storage.Interface {
+// NewGeneratedNetworkPolicyStorage builds the aggregate over realStore (the
+// default instance, for knownservers) and containerProfileStore (the
+// containerprofiles resource's own storage.Interface, for the CP list).
+func NewGeneratedNetworkPolicyStorage(realStore StorageQuerier, containerProfileStore storage.Interface) storage.Interface {
 	return &GeneratedNetworkPolicyStorage{
-		nnStore:   nnStore,
-		realStore: realStore,
+		realStore:             realStore,
+		containerProfileStore: containerProfileStore,
 	}
 }
 
@@ -55,7 +73,117 @@ func (s *GeneratedNetworkPolicyStorage) GetCurrentResourceVersion(_ context.Cont
 	return 0, nil
 }
 
-// Get generates and returns a single GeneratedNetworkPolicy object
+// workloadPolicyName derives the workload-level GeneratedNetworkPolicy name for a
+// ContainerProfile: <lower(kind)>-<workload-name>. ContainerProfiles are stored
+// per-container (slug-named <lower(kind)>-<workload-name>-<container>-<hash>-<hash>),
+// but a NetworkPolicy is workload-level — all containers of a pod share the pod's
+// network namespace — so every container profile of a workload maps to the SAME
+// name and their neighbors are unioned into one policy. This mirrors the name
+// GenerateNetworkPolicy derives from the same labels, so the request name, the
+// group key, and the generated policy name all agree.
+func workloadPolicyName(cp *softwarecomposition.ContainerProfile) (string, bool) {
+	kind, ok := cp.Labels[helpersv1.RelatedKindMetadataKey]
+	if !ok {
+		return "", false
+	}
+	name, ok := cp.Labels[helpersv1.RelatedNameMetadataKey]
+	if !ok {
+		name = cp.Name
+	}
+	return fmt.Sprintf("%s-%s", strings.ToLower(kind), name), true
+}
+
+// mergeWorkloadContainerProfiles unions the ingress/egress neighbors of a
+// workload's per-container ContainerProfiles into a single profile, so one
+// workload-level policy can be generated from it. The pod selector and workload
+// labels are shared across a workload's containers, so they are taken from the
+// first profile; the per-container name/hash labels are dropped. The result is a
+// fresh object — the stored profiles are never mutated.
+func mergeWorkloadContainerProfiles(group []*softwarecomposition.ContainerProfile) *softwarecomposition.ContainerProfile {
+	base := group[0]
+
+	// GenerateNetworkPolicy derives the policy name as <lower(kind)>-<name> where
+	// name is the workload-name label, falling back to the object name. Set the
+	// merged object's name to that fallback (the name PART only) so a profile
+	// missing the workload-name label still yields <kind>-<name> and never a
+	// doubled prefix.
+	name, ok := base.Labels[helpersv1.RelatedNameMetadataKey]
+	if !ok {
+		name = base.Name
+	}
+
+	merged := &softwarecomposition.ContainerProfile{
+		TypeMeta: base.TypeMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: base.Namespace,
+			Labels:    map[string]string{},
+			Annotations: map[string]string{
+				helpersv1.StatusMetadataKey: helpersv1.Completed,
+			},
+		},
+	}
+	for k, v := range base.Labels {
+		if k == helpersv1.ContainerNameMetadataKey || k == helpersv1.TemplateHashKey {
+			continue
+		}
+		merged.Labels[k] = v
+	}
+	// The pod selector is a property of the workload, identical across its
+	// containers.
+	merged.Spec.LabelSelector = base.Spec.LabelSelector
+	for _, cp := range group {
+		merged.Spec.Ingress = append(merged.Spec.Ingress, cp.Spec.Ingress...)
+		merged.Spec.Egress = append(merged.Spec.Egress, cp.Spec.Egress...)
+	}
+	return merged
+}
+
+// aggregateWorkloadPolicy generates one workload-level GeneratedNetworkPolicy
+// from a group of a workload's per-container ContainerProfiles and stamps it with
+// the workload-level name.
+func aggregateWorkloadPolicy(name string, group []*softwarecomposition.ContainerProfile, knownServers softwarecomposition.IKnownServersFinder, now metav1.Time) (softwarecomposition.GeneratedNetworkPolicy, error) {
+	gnp, err := networkpolicy.GenerateNetworkPolicy(mergeWorkloadContainerProfiles(group), knownServers, now)
+	if err != nil {
+		return softwarecomposition.GeneratedNetworkPolicy{}, err
+	}
+	gnp.Name = name
+	return gnp, nil
+}
+
+// listNamespaceContainerProfiles returns every ContainerProfile under the given
+// container-profiles list key (a namespace-scoped prefix). It forces a full-spec
+// listing: the default list path returns metadata only, but policy generation
+// needs each profile's Spec (ingress/egress neighbors, pod selector).
+func (s *GeneratedNetworkPolicyStorage) listNamespaceContainerProfiles(ctx context.Context, listKey string, opts storage.ListOptions) ([]softwarecomposition.ContainerProfile, error) {
+	opts.ResourceVersion = softwarecomposition.ResourceVersionFullSpec
+	// Page through the whole namespace: GetList caps a single response at the
+	// predicate Limit and returns a Continue token when more remain. A single
+	// fixed-limit read would silently drop every profile past the limit, so a
+	// workload whose containers sort beyond it would be missed and the policy
+	// returned NotFound. Follow the continuation until it is exhausted.
+	var items []softwarecomposition.ContainerProfile
+	for {
+		cpList := &softwarecomposition.ContainerProfileList{}
+		if err := s.containerProfileStore.GetList(ctx, listKey, opts, cpList); err != nil {
+			return nil, err
+		}
+		items = append(items, cpList.Items...)
+		if cpList.Continue == "" {
+			break
+		}
+		opts.Predicate.Continue = cpList.Continue
+	}
+	return items, nil
+}
+
+// Get generates and returns a single workload-level GeneratedNetworkPolicy.
+//
+// The requested key carries the workload-level name (<lower(kind)>-<workload-name>,
+// matching the pre-migration NetworkNeighborhood naming). Because ContainerProfiles
+// are per-container, we cannot look one up by the workload name directly: we list
+// the namespace's profiles, select the ones belonging to the requested workload,
+// union their neighbors, and generate one policy.
 func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "GeneratedNetworkPolicyStorage.Get")
 	span.SetAttributes(attribute.String("key", key))
@@ -63,22 +191,36 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 
 	logger.L().Debug("GeneratedNetworkPolicyStorage.Get", helpers.String("key", key))
 
-	// retrieve network neighbor with the same name
-	networkNeighborhoodObjPtr := &softwarecomposition.NetworkNeighborhood{}
+	cpKey := replaceKeyForKind(key, containerProfileResource)
+	keyParts := strings.Split(cpKey, "/")
+	requestedName := keyParts[len(keyParts)-1]
+	listKey := strings.Join(keyParts[:len(keyParts)-1], "/")
 
-	key = replaceKeyForKind(key, networkNeighborhoodResource)
-
-	if err := s.nnStore.Get(ctx, key, opts, networkNeighborhoodObjPtr); err != nil {
+	items, err := s.listNamespaceContainerProfiles(ctx, listKey, storage.ListOptions{Predicate: storage.SelectionPredicate{Limit: containerProfileListLimit}})
+	if err != nil {
 		return err
 	}
 
-	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
+	var group []*softwarecomposition.ContainerProfile
+	for i := range items {
+		cp := &items[i]
+		if !networkpolicy.IsAvailable(cp) {
+			continue
+		}
+		if name, ok := workloadPolicyName(cp); ok && name == requestedName {
+			group = append(group, cp)
+		}
+	}
+	if len(group) == 0 {
+		return storage.NewKeyNotFoundError(cpKey, 0)
+	}
 
+	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
 	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
 		return err
 	}
 
-	generatedNetworkPolicy, err := networkpolicy.GenerateNetworkPolicy(networkNeighborhoodObjPtr, softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items), metav1.Now())
+	generatedNetworkPolicy, err := aggregateWorkloadPolicy(requestedName, group, softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items), metav1.Now())
 	if err != nil {
 		return fmt.Errorf("error generating network policy: %w", err)
 	}
@@ -97,37 +239,82 @@ func (s *GeneratedNetworkPolicyStorage) Get(ctx context.Context, key string, opt
 	return nil
 }
 
-// GetList generates and returns a list of GeneratedNetworkPolicy objects for the given namespace
+// GetList generates and returns one workload-level GeneratedNetworkPolicy per
+// workload in the given namespace. The namespace's per-container ContainerProfiles
+// are grouped by workload (<lower(kind)>-<workload-name>) and each group's
+// neighbors are unioned into a single policy — one policy per workload, not one
+// per container.
 func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	predicate, err := normalizeSelectionPredicate(opts.Predicate)
+	if err != nil {
+		return err
+	}
 	generatedNetworkPolicyList := &softwarecomposition.GeneratedNetworkPolicyList{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: StorageV1Beta1ApiVersion,
 		},
 	}
 
-	// get all network neighborhood on namespace
-	networkNeighborhoodObjListPtr := &softwarecomposition.NetworkNeighborhoodList{}
-	if err := s.realStore.GetList(ctx, replaceKeyForKind(key, networkNeighborhoodResource), opts, networkNeighborhoodObjListPtr); err != nil {
+	// ask for all workloadconfigurationscansummaries in the cluster.
+	// The underlying store caps each page at a default limit and returns a
+	// continuation token, so we must page through every token to make sure the
+	// aggregation covers all objects and not just the first page (issue #337).
+	listOpts := opts
+	listOpts.Predicate = predicate
+	listOpts.Predicate.Continue = ""
+	// Selectors for the aggregated resource cannot be applied to its source objects.
+	listOpts.Predicate.Label = labels.Everything()
+	listOpts.Predicate.Field = fields.Everything()
+	items, err := s.listNamespaceContainerProfiles(ctx, replaceKeyForKind(key, containerProfileResource), listOpts)
+	if err != nil {
 		return err
 	}
 
-	for _, nn := range networkNeighborhoodObjListPtr.Items {
-		if !networkpolicy.IsAvailable(&nn) {
+	knownServersListObjPtr := &softwarecomposition.KnownServerList{}
+	if err := s.realStore.GetByCluster(ctx, softwarecomposition.GroupName, knownServersResource, knownServersListObjPtr); err != nil {
+		return err
+	}
+	knownServers := softwarecomposition.NewKnownServersFinderImpl(knownServersListObjPtr.Items)
+
+	// Group the per-container profiles by workload, preserving first-seen order so
+	// the emitted list is deterministic. A list across all namespaces sees
+	// workloads of the same kind and name in several namespaces; they are
+	// different workloads, so the namespace is part of the group key.
+	type workloadKey struct {
+		namespace, name string
+	}
+	groups := map[workloadKey][]*softwarecomposition.ContainerProfile{}
+	var order []workloadKey
+	for i := range items {
+		cp := &items[i]
+		if !networkpolicy.IsAvailable(cp) {
 			continue
 		}
-		generatedNetworkPolicyList.Items = append(generatedNetworkPolicyList.Items, softwarecomposition.GeneratedNetworkPolicy{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "GeneratedNetworkPolicy",
-				APIVersion: "spdx.softwarecomposition.kubescape.io/v1beta1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              nn.Name,
-				Namespace:         nn.Namespace,
-				Labels:            nn.Labels,
-				CreationTimestamp: metav1.Now(),
-			},
-			PoliciesRef: []softwarecomposition.PolicyRef{},
-		})
+		name, ok := workloadPolicyName(cp)
+		if !ok {
+			continue
+		}
+		wk := workloadKey{namespace: cp.Namespace, name: name}
+		if _, seen := groups[wk]; !seen {
+			order = append(order, wk)
+		}
+		groups[wk] = append(groups[wk], cp)
+	}
+
+	for _, wk := range order {
+		generatedNetworkPolicy, err := aggregateWorkloadPolicy(wk.name, groups[wk], knownServers, metav1.Now())
+		if err != nil {
+			logger.L().Ctx(ctx).Error("generate network policy failed", helpers.Error(err), helpers.String("namespace", wk.namespace), helpers.String("workload", wk.name))
+			continue
+		}
+		matched, err := predicate.Matches(&generatedNetworkPolicy)
+		if err != nil {
+			return fmt.Errorf("match selection predicate: %w", err)
+		}
+		if !matched {
+			continue
+		}
+		generatedNetworkPolicyList.Items = append(generatedNetworkPolicyList.Items, generatedNetworkPolicy)
 	}
 
 	data, err := json.Marshal(generatedNetworkPolicyList)
@@ -141,5 +328,5 @@ func (s *GeneratedNetworkPolicyStorage) GetList(ctx context.Context, key string,
 		return err
 	}
 
-	return nil
+	return setListMeta(listObj, "")
 }

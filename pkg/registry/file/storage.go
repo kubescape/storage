@@ -3,6 +3,7 @@ package file
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -12,7 +13,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kubescape/go-logger"
@@ -20,20 +23,24 @@ import (
 	helpersv1 "github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
+	"github.com/kubescape/storage/pkg/metrics"
 	"github.com/kubescape/storage/pkg/utils"
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitemigration"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 const (
@@ -49,7 +56,50 @@ const (
 var (
 	ObjectCompletedError = errors.New("object is completed")
 	ObjectTooLargeError  = errors.New("object is too large")
+	// ErrProfileFrozen is returned by consolidation's save when the persisted
+	// base ContainerProfile is already Completed/Full: nothing updates such a
+	// profile (softwarecomposition.IsCompletedFull).
+	ErrProfileFrozen = errors.New("profile is completed/full and cannot be updated")
+	// ErrGateRequiresSingleWriter is returned by Create/GuaranteedUpdate on a
+	// StorageImpl that shares the write gate while singleWriterEnabled is
+	// false: that combination would route every REST write through
+	// CreateWithConn/GuaranteedUpdateWithConn holding a pool connection while
+	// queued on the gate (write-gate-sharing §3.3). main.go refuses the
+	// configuration at startup; this catches a test flipping the package
+	// variable directly.
+	ErrGateRequiresSingleWriter = errors.New("storage: the shared write gate requires the single-writer path (singleWriterEnabled=false is refused)")
 )
+
+// gatedWrite is the one helper every legacy write site runs its SQL through
+// (write-gate-sharing §3.1). With no gate it is today's code, byte for byte:
+// bare autocommit statements (txn=false, W3–W9) or the savepoint the site
+// has today (txn=true, W1/W2) on the caller's connection. With a gate, both
+// are BEGIN IMMEDIATE … COMMIT on the gate's connection and conn is ignored;
+// fn receives the gate-marked ctx and must thread it into anything it calls
+// (INV-1′: no lock, no pool take, no processor, no dispatch, no gob, no exec;
+// one same-directory rename of an already-written file is the one exemption).
+func gatedWrite(gate *writeGate, ctx context.Context, conn *sqlite.Conn, priority writePriority, path, kind string, txn bool, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
+	if gate == nil {
+		if !txn {
+			return fn(ctx, conn)
+		}
+		release := sqlitex.Save(conn)
+		err := fn(ctx, conn)
+		release(&err)
+		return err
+	}
+	return gate.run(ctx, priority, path, kind, fn)
+}
+
+// SetWriteGate hands the StorageImpl the process's shared write gate (nil =
+// legacy behaviour, no gate). Called once at wiring time, before traffic.
+func (s *StorageImpl) SetWriteGate(gate *WriteGate) {
+	s.gate = gate
+}
+
+func (s *StorageImpl) write(ctx context.Context, conn *sqlite.Conn, priority writePriority, path, kind string, txn bool, fn func(ctx context.Context, conn *sqlite.Conn) error) error {
+	return gatedWrite(s.gate, ctx, conn, priority, path, kind, txn, fn)
+}
 
 // lockTimeout is the hardcoded backstop for lock acquisition. It sits well under the
 // ~60s outer apiserver request deadline so a contended request fails fast with a
@@ -60,7 +110,12 @@ var (
 // mutated at runtime; only tests override it (and restore it via defer).
 var lockTimeout = 5 * time.Second
 
-// poolTimeout is the hardcoded backstop for acquiring a *sqlite.Conn from the pool. It used
+// DefaultPoolTimeout is the value poolTimeout takes when SetPoolTimeout is never called
+// (or is called with a non-positive duration). It is also the default value of the
+// config.Config.PoolTimeout knob when unset — see pkg/config.
+const DefaultPoolTimeout = 15 * time.Second
+
+// poolTimeout is the backstop for acquiring a *sqlite.Conn from the pool. It used
 // to be a full minute (long enough that a pool-exhaustion stall would blow past the k8s
 // apiserver's own outer non-long-running-request timeout, typically ~34s, before this
 // package's own error ever had a chance to fire) and is now bounded the same way lockTimeout
@@ -68,7 +123,20 @@ var lockTimeout = 5 * time.Second
 // ServerTimeout+Retry-After signal on expiry instead of an opaque "take connection" error.
 //
 // NOTE: package-level var, not const, for the same test-overridability reason as lockTimeout.
-var poolTimeout = 5 * time.Second
+// Operators tune it via config.Config.PoolTimeout (see docs/features/storage-lock-pool-metrics.md),
+// applied at startup through SetPoolTimeout; tests may still reassign it directly.
+var poolTimeout = DefaultPoolTimeout
+
+// SetPoolTimeout configures the pool-acquisition backstop applied by poolContext. A
+// non-positive timeout resets it to DefaultPoolTimeout. It is intended to be called once,
+// at startup, before the storage backend starts serving requests (see main.go, mirroring
+// how SqlitePoolSize/SqliteBusyTimeout are threaded into NewPool).
+func SetPoolTimeout(timeout time.Duration) {
+	if timeout <= 0 {
+		timeout = DefaultPoolTimeout
+	}
+	poolTimeout = timeout
+}
 
 // newContentionTimeoutError returns a ServerTimeout (HTTP 500, Reason=ServerTimeout) carrying
 // a positive RetryAfterSeconds so the apiserver emits a Retry-After header that client-go's
@@ -99,6 +167,195 @@ func newContentionTimeoutError(op, key string, err error) *apierrors.StatusError
 		op, 1)
 }
 
+// connAttemptTimeout bounds a single pool.Take attempt inside
+// acquireLockedConn's lock-then-connection retry loop. It must stay well
+// under lockTimeout so a lock can be released and retried several times
+// within the overall poolTimeout budget, rather than pinning the lock while
+// blocking indefinitely on pool.Take -- see .omc/plans/storage-locking-rewrite.md,
+// Phase 1 step 1 (RC1: connection-before-lock ordering).
+//
+// NOTE: package-level var, not const, for the same test-overridability reason
+// as lockTimeout/poolTimeout.
+var connAttemptTimeout = 250 * time.Millisecond
+
+// lockReleaseYield is how long acquireLockedConn stays off the key lock after
+// releasing it to retry a connection. MapMutex lets a writer barge past a
+// waiting reader, so a release followed immediately by re-acquisition would
+// never be observable to the reader that holds the last pool connection and
+// needs RLock(key) to finish; this window lets it in. Package-level var for the
+// same test-overridability reason as connAttemptTimeout.
+var lockReleaseYield = 5 * time.Millisecond
+
+// acquireLockedConn implements RC1's corrected lock-then-connection ordering
+// for the single-key, connection-less REST entry points (Get, Delete): it
+// acquires the per-key lock via acquire first, then attempts a pool
+// connection within a short, bounded sub-window (connAttemptTimeout). If no
+// connection is available in that window, it releases the lock (via
+// release) and retries from lock acquisition -- it never blocks
+// indefinitely on a connection while holding the lock, which is what let a
+// stalled lock wait pin an idle pool connection before this fix (previously,
+// these wrappers took a connection first and only acquired the lock inside
+// the *WithConn core, so the connection sat idle for the whole lock wait).
+//
+// ctx is the caller's real request context, used for two independent
+// purposes with different lifetimes:
+//   - It parents the "waiting for lock" trace span (so it nests under the
+//     caller's own request span rather than showing up as an orphaned root)
+//     and, via the internal budgetCtx below, lets a caller's own
+//     cancellation (client disconnect) abort a stalled lock/connection wait
+//     early instead of always running the full poolTimeout budget.
+//   - It is the interrupt source rebound onto the returned connection (see
+//     below), so the connection stays valid for as long as the caller
+//     actually holds it -- which can outlast the bounded acquisition budget
+//     itself (e.g. a slow decode after a long lock wait).
+//
+// The overall lock+connection retry budget is internally bounded to
+// poolTimeout via budgetCtx (context.WithTimeout(ctx, poolTimeout)), not tied
+// to ctx's own (possibly absent, possibly much longer) deadline. This is
+// required, not optional: TestStorageImpl_PoolContentionReturnsServerTimeout
+// calls with context.Background() (no deadline); context.WithTimeout always
+// adds its own deadline regardless of the parent's, so the shrunk poolTimeout
+// still applies and that test still times out rather than hanging forever.
+// Each lock-acquisition attempt is separately bounded by lockTimeout (nested
+// under budgetCtx, so it can only ever be shorter, never longer, than the
+// remaining overall budget) -- this keeps
+// TestStorageImpl_LockContentionReturnsServerTimeout's shrunk lockTimeout
+// still failing fast on a genuinely contended key lock.
+//
+// A retrying goroutine re-enters lock acquisition through acquire's normal
+// path on every attempt; it relies on pkg/utils/mutex.go's MapMutex.Lock
+// fast-path fix (checking pendingWriters, mirroring RLock's own check) so
+// that a rapid stream of retries here cannot barge ahead of another,
+// already-queued writer indefinitely (e.g. the consolidation path, which
+// holds a connection while blocked on the same key's write lock).
+//
+// On success, the caller owns both the lock (must call release(key)) and
+// the connection (must call s.pool.Put(conn)).
+func (s *StorageImpl) acquireLockedConn(ctx context.Context, op, key string, acquire func(context.Context, string) error, release func(string)) (*sqlite.Conn, error) {
+	budgetCtx, budgetCancel := context.WithTimeout(ctx, poolTimeout)
+	defer budgetCancel()
+	for {
+		_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+		beforeLock := time.Now()
+		lockCtx, lockCancel := context.WithTimeout(budgetCtx, lockTimeout)
+		lockErr := acquire(lockCtx, key)
+		lockCancel()
+		spanLock.End()
+		lockDuration := time.Since(beforeLock)
+		if lockErr != nil {
+			metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
+			return nil, newContentionTimeoutError(op, key, lockErr)
+		}
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
+		if lockDuration > time.Second {
+			logger.L().Debug(op, helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+		}
+
+		beforePool := time.Now()
+		connCtx, connCancel := context.WithTimeout(budgetCtx, connAttemptTimeout)
+		conn, connErr := s.pool.Take(connCtx)
+		if connErr == nil {
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
+			// Pool.Take binds the returned conn's interrupt source to
+			// connCtx (see sqlitex.Pool.Take/sqlite.Conn.SetInterrupt) --
+			// cancelling connCtx immediately below would otherwise mark
+			// conn permanently interrupted for its entire subsequent use.
+			// Rebind to the caller's real, full-lifetime ctx (alive for as
+			// long as the caller holds the connection -- unlike budgetCtx,
+			// which expires at poolTimeout regardless of whether the caller
+			// is still legitimately using the connection) before releasing
+			// connCtx.
+			conn.SetInterrupt(ctx.Done())
+			connCancel()
+			return conn, nil
+		}
+		connCancel()
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
+
+		release(key)
+		if budgetCtx.Err() != nil {
+			return nil, newContentionTimeoutError(op, key, connErr)
+		}
+		yield := time.NewTimer(lockReleaseYield)
+		select {
+		case <-yield.C:
+		case <-budgetCtx.Done():
+			yield.Stop()
+			return nil, newContentionTimeoutError(op, key, budgetCtx.Err())
+		}
+		// Overall budget not yet exhausted: loop back to lock acquisition.
+		// connAttemptTimeout's own wait (pool.Take blocks up to its context
+		// deadline when the pool is genuinely exhausted, per
+		// sqlitemigration.Pool.Take) provides natural pacing between
+		// retries, so no additional backoff is added here.
+	}
+}
+
+// acquireConnThenLock is the write-side counterpart of acquireLockedConn for a
+// gated delete that must read the stored object. It awaits the pool connection
+// FIRST, holding no key lock, and only then queues for the key's write lock.
+//
+// Invariant: a goroutine is in (or repeatedly re-enters) the key's writer queue
+// only while it already owns a pool connection. MapMutex.RLock refuses new
+// readers while a writer is pending, so a writer that queued while the pool was
+// exhausted would block a reader holding the last connection, which is the only
+// goroutine that can free one. Here, pool exhaustion is waited out outside the
+// key lock, so no writer can be pending on behalf of a connection it lacks and
+// no yield or ordering between competing deleters can starve that reader.
+//
+// The lock wait is bounded by connAttemptTimeout per attempt: a holder of the
+// key lock may itself be waiting for a connection this call holds, so on a
+// short miss the connection is returned and the whole acquisition retried. The
+// accumulated lock wait is capped at lockTimeout and the whole call at
+// poolTimeout, and ctx cancellation aborts both.
+//
+// On success the caller owns the key write lock (s.locks.Unlock) and the
+// connection (s.pool.Put).
+//
+// deleteConnWaitHook, when set by a test, is called just before each
+// pool.Take so the test can tell a deleter has reached the connection wait.
+var deleteConnWaitHook func()
+
+func (s *StorageImpl) acquireConnThenLock(ctx context.Context, op, key string) (*sqlite.Conn, error) {
+	budgetCtx, budgetCancel := context.WithTimeout(ctx, poolTimeout)
+	defer budgetCancel()
+	var lockWaited time.Duration
+	for {
+		if deleteConnWaitHook != nil {
+			deleteConnWaitHook()
+		}
+		beforePool := time.Now()
+		conn, err := s.pool.Take(budgetCtx)
+		if err != nil {
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
+			return nil, newContentionTimeoutError(op, key, err)
+		}
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
+
+		_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+		beforeLock := time.Now()
+		attempt := min(connAttemptTimeout, lockTimeout-lockWaited)
+		lockCtx, lockCancel := context.WithTimeout(budgetCtx, attempt)
+		lockErr := s.locks.Lock(lockCtx, key)
+		lockCancel()
+		spanLock.End()
+		waited := time.Since(beforeLock)
+		lockWaited += waited
+		if lockErr == nil {
+			metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, waited)
+			// Pool.Take bound conn's interrupt to budgetCtx, which ends when
+			// this call returns; rebind to the caller's ctx for its real use.
+			conn.SetInterrupt(ctx.Done())
+			return conn, nil
+		}
+		s.pool.Put(conn)
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, waited)
+		if budgetCtx.Err() != nil || lockWaited >= lockTimeout {
+			return nil, newContentionTimeoutError(op, key, lockErr)
+		}
+	}
+}
+
 // resourceFromKey extracts an approximate plural resource name from a storage key for use
 // in the error's informational Details/message; correctness rides on RetryAfterSeconds, so
 // an approximate resource string is acceptable.
@@ -124,14 +381,77 @@ type objState struct {
 // StorageImpl offers a common interface for object marshaling/unmarshaling operations and
 // hides all the storage-related operations behind it.
 type StorageImpl struct {
-	appFs           afero.Fs
-	pool            *sqlitemigration.Pool
-	locks           utils.MapMutex[string]
-	processor       Processor
+	appFs     afero.Fs
+	pool      *sqlitemigration.Pool
+	locks     utils.MapMutex[string]
+	processor Processor
+	// writeMetadataFn is the metadata persistence step of saveObject; a field so
+	// tests can inject failures to pin the atomic write order (issue #44).
+	writeMetadataFn func(conn *sqlite.Conn, path string, metadata runtime.Object) error
+	// renamePayloadFn is the payload visibility step of saveObject; a field so
+	// tests can inject rename failures and pin the rollback contract.
+	renamePayloadFn func(oldpath, newpath string) error
 	root            string
 	scheme          *runtime.Scheme
 	versioner       storage.Versioner
 	watchDispatcher *WatchDispatcher
+
+	// writer is the single dedicated writer goroutine for the
+	// singleWriterEnabled write path (see singlewriter.go). Lazily created on
+	// first use via ensureWriter, so a StorageImpl built without a pool (e.g.
+	// tests exercising unrelated paths) never spins up an unused goroutine.
+	writer     *singleWriter
+	writerOnce sync.Once
+
+	// foreignKinds is the kind-ownership guard (design §5.6, INV-4): when set,
+	// every full-object operation on a key whose kind segment it reports as
+	// foreign is REFUSED with an InternalError instead of touching the shared
+	// metadata row, the payload file or the time_series table. Set from
+	// config.ContainerProfileSqliteBackend to IsContainerProfileKind, so a
+	// mis-wired legacy path is a loud failure, never a silent self-repair
+	// delete of a row the ObjectStore owns. Metadata-only reads (the shared
+	// row both backends agree on) are not refused. nil = no guard.
+	foreignKinds func(kind string) bool
+
+	// gate is the process's shared write gate (write-gate-sharing §3): when
+	// set, every write statement of this instance runs on the gate's
+	// connection through write(); nil = today's code on pool connections.
+	gate *writeGate
+}
+
+// SetForeignKinds installs the kind-ownership guard; nil removes it.
+func (s *StorageImpl) SetForeignKinds(f func(kind string) bool) {
+	s.foreignKinds = f
+}
+
+// kindOfKey returns the kind segment of a storage key ("/prefix/root/kind/…")
+// or of getListWithSpec's relative "apiVersion/kind/…" path.
+func kindOfKey(key string) string {
+	if strings.HasPrefix(key, "/") {
+		_, _, kind, _, _, _ := K8sPathToKeys(key)
+		return kind
+	}
+	parts := strings.Split(key, "/")
+	if len(parts) >= 2 {
+		return parts[1]
+	}
+	return ""
+}
+
+// refuseForeign returns the guard's InternalError when key's kind is foreign
+// to this instance, counting and logging the refusal.
+func (s *StorageImpl) refuseForeign(op, key string) error {
+	if s.foreignKinds == nil {
+		return nil
+	}
+	kind := kindOfKey(key)
+	if !s.foreignKinds(kind) {
+		return nil
+	}
+	metrics.IncCPOwnershipRefusal(op)
+	logger.L().Error("legacy StorageImpl refused an operation on a kind owned by another backend",
+		helpers.String("op", op), helpers.String("kind", kind), helpers.String("key", key))
+	return apierrors.NewInternalError(fmt.Errorf("storage: key %q has kind %q, which is owned by the ContainerProfile SQLite backend; the legacy file store refuses %s", key, kind, op))
 }
 
 func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) error {
@@ -142,11 +462,7 @@ func (s *StorageImpl) EnableResourceSizeEstimation(keysFunc storage.KeysFunc) er
 // and transparently retries without it when the filesystem returns an
 // "unsupported" error (e.g. EINVAL on tmpfs/overlayfs).
 func (s *StorageImpl) openPayloadFileWithFallback(path string, flag int, perm os.FileMode) (afero.File, error) {
-	f, err := s.appFs.OpenFile(path, openFlagDirect|flag, perm)
-	if err != nil && isDirectIOUnsupported(err) {
-		f, err = s.appFs.OpenFile(path, flag, perm)
-	}
-	return f, err
+	return openPayloadFileWithFallbackFs(s.appFs, path, flag, perm)
 }
 
 func (s *StorageImpl) Stats(_ context.Context) (storage.Stats, error) {
@@ -188,6 +504,7 @@ func NewStorageImplWithCollector(appFs afero.Fs, root string, conn *sqlitemigrat
 		pool:            conn,
 		locks:           utils.NewMapMutex[string](),
 		processor:       processor,
+		writeMetadataFn: writeMetadata,
 		root:            root,
 		scheme:          scheme,
 		versioner:       storage.APIObjectVersioner{},
@@ -227,9 +544,39 @@ func makePayloadPath(path string) string {
 	return path + GobExt
 }
 
+// makeTempPayloadPath hashes every temporary basename: mixing hashed and
+// ordinary names would let a long name collide with an object named after its
+// digest. The digest bounds filenames for the supported staging suffixes while
+// leaving permanent names intact. Retain .g for migration staging recognition
+// and the same directory for atomic rename into the final path.
+func makeTempPayloadPath(finalPayloadPath, suffix string) string {
+	base := filepath.Base(finalPayloadPath)
+	digest := sha256.Sum256([]byte(base))
+	return filepath.Join(filepath.Dir(finalPayloadPath), fmt.Sprintf("%x%s%s", digest, GobExt, suffix))
+}
+
 // IsPayloadFile returns true if a given file at `path` is an object payload file, else false
 func IsPayloadFile(path string) bool {
 	return strings.HasSuffix(path, GobExt)
+}
+
+// keyFromPayloadPath recovers the storage key a payload file's path was
+// written to by makePayloadPath(root, key) (i.e. filepath.Join(root, key) +
+// GobExt), given only the file's actual on-disk path and the root it was
+// walked under. Reverses via filepath.Rel rather than slicing path at
+// len(root): root's exact textual form (whether "/data", "/data/", ".", or
+// "/") does not survive into path, which afero.Walk always reports as the
+// filepath.Join'd, cleaned form -- slicing by byte length silently
+// mis-derives the key whenever root's length doesn't match what Join
+// actually consumed (a trailing slash overcounts by one; root "/" or "."
+// each have their own off-by-one). Rel is exact for every root shape.
+func keyFromPayloadPath(root, path string) (string, error) {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return "", fmt.Errorf("relativize %s under %s: %w", path, root, err)
+	}
+	rel = strings.TrimSuffix(rel, GobExt)
+	return "/" + filepath.ToSlash(rel), nil
 }
 
 func poolContext() (context.Context, context.CancelFunc) {
@@ -241,11 +588,27 @@ func (s *StorageImpl) keyFromPath(path string) string {
 	return strings.TrimPrefix(strings.TrimSuffix(path, extension), s.root)
 }
 
-func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string) error {
+// saveObject persists obj (payload + SQLite metadata row) and, on success,
+// fills metaOut with the full post-mutation obj (resourceVersion bumped,
+// managedFields cleared, checksum annotation set) -- metaOut is the REST
+// layer's "out" parameter (e.g. the object returned from Create/Update), so
+// it must carry the same Spec/etc. that was actually persisted, not just the
+// metadata subset written to SQLite.
+//
+// It also returns a metadata-only copy (ObjectMeta/SchemaVersion, no Spec)
+// for callers to use as the lightweight watch-event object: watchers created
+// without ResourceVersionFullSpec receive this reduced object instead of the
+// full one, to avoid bloating watch traffic with large Spec payloads.
+//
+// The metadata row and the payload rename commit together through write()
+// (W2 of write-gate-sharing §3.2): today's savepoint on conn with no gate,
+// the gate's transaction with one. priority and path label the hold —
+// legacy_commit from the REST paths, migrate from the gob-migration rewrites.
+func (s *StorageImpl) saveObject(ctx context.Context, conn *sqlite.Conn, key string, obj runtime.Object, metaOut runtime.Object, checksum string, priority writePriority, path string) (runtime.Object, error) {
 	// increment resourceVersion
 	if version, err := s.versioner.ObjectResourceVersion(obj); err == nil {
 		if err := s.versioner.UpdateObject(obj, version+1); err != nil {
-			return fmt.Errorf("set resourceVersion: %w", err)
+			return nil, fmt.Errorf("set resourceVersion: %w", err)
 		}
 	}
 	// remove managed fields
@@ -258,7 +621,7 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 		var err error
 		checksum, err = s.CalculateChecksum(obj)
 		if err != nil {
-			return fmt.Errorf("calculate checksum: %w", err)
+			return nil, fmt.Errorf("calculate checksum: %w", err)
 		}
 	}
 	// add checksum to annotations
@@ -270,65 +633,143 @@ func (s *StorageImpl) saveObject(conn *sqlite.Conn, key string, obj runtime.Obje
 	// prepare path
 	p := filepath.Join(s.root, key)
 	if err := s.appFs.MkdirAll(filepath.Dir(p), 0755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
+		return nil, fmt.Errorf("mkdir: %w", err)
 	}
-	// prepare payload file
-	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	// Atomic write order (issue #44): stage the payload in a temp file, commit
+	// the metadata, and only then rename the payload into place. A failing
+	// metadata step must leave the served payload untouched — the old code
+	// truncated the real payload first, so a lock/interrupt during the metadata
+	// insert left GET (new payload) and LIST/RV (old metadata) permanently
+	// divergent.
+	finalPayloadPath := makePayloadPath(p)
+	tmpPayloadPath := makeTempPayloadPath(finalPayloadPath, ".t")
+	payloadFile, err := s.openPayloadFileWithFallback(tmpPayloadPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("open payload file: %w", err)
+		return nil, fmt.Errorf("open payload file: %w", err)
 	}
 	directIOWriter := NewDirectIOWriter(payloadFile)
 
 	// write payload
+	stampPortZero(obj)
+	defer restorePortZero(obj)
 	payloadEncoder := gob.NewEncoder(directIOWriter)
 	if err := payloadEncoder.Encode(obj); err != nil {
 		_ = directIOWriter.Close()
 		_ = payloadFile.Close()
-		return fmt.Errorf("encode payload: %w", err)
+		return nil, fmt.Errorf("encode payload: %w", err)
 	}
 	if err := directIOWriter.Close(); err != nil {
 		_ = payloadFile.Close()
-		return fmt.Errorf("close directIOWriter: %w", err)
+		return nil, fmt.Errorf("close directIOWriter: %w", err)
 	}
 	if err := payloadFile.Close(); err != nil {
-		return fmt.Errorf("close payload file: %w", err)
+		return nil, fmt.Errorf("close payload file: %w", err)
 	}
 
-	// extract metadata
+	// extract metadata (for the SQLite row and as the lightweight watch-event object)
 	metadata := extractFields(obj, []string{"ObjectMeta", "SchemaVersion"})
-	// store metadata in SQLite
-	err = writeMetadata(conn, key, metadata)
-	if err != nil {
-		return fmt.Errorf("write metadata: %w", err)
+	// Metadata and payload visibility commit together: the metadata write runs
+	// in a savepoint that is rolled back if the payload rename fails, so
+	// neither side can outlive the other. The staged file is removed on any
+	// failure.
+	writeMeta := s.writeMetadataFn
+	if writeMeta == nil {
+		writeMeta = writeMetadata
 	}
-	// eventually fill metaOut
+	renamePayload := s.renamePayloadFn
+	if renamePayload == nil {
+		renamePayload = s.appFs.Rename
+	}
+	observeStmt("Save:saveObject")
+	err = s.write(ctx, conn, priority, path, resourceFromKey(key), true, func(_ context.Context, conn *sqlite.Conn) error {
+		if werr := writeMeta(conn, key, metadata); werr != nil {
+			return fmt.Errorf("write metadata: %w", werr)
+		}
+		renameStart := time.Now()
+		if rerr := renamePayload(tmpPayloadPath, finalPayloadPath); rerr != nil {
+			return fmt.Errorf("rename payload into place: %w", rerr)
+		}
+		metrics.ObserveSqliteWriteHoldStep(path, "rename", time.Since(renameStart))
+		return nil
+	})
+	if err != nil {
+		_ = s.appFs.Remove(tmpPayloadPath)
+		return nil, err
+	}
+	// eventually fill metaOut with the full persisted object (Spec included) --
+	// see the doc comment above for why this must NOT be the metadata-only copy.
+	//
+	// This is a shallow struct copy: metaOut and obj end up sharing any
+	// reference-typed data reachable from Spec (slices, maps, pointers), not
+	// just ObjectMeta as before. That's harmless as long as nothing mutates
+	// either in place afterward expecting the other to stay untouched -- every
+	// current caller either doesn't touch obj again after this point, or only
+	// reads it (see saveObject's callers and WatchDispatcher.notify, which
+	// fans the same obj/metaOut references out to multiple watchers without
+	// copying). If a future caller ever needs to mutate one post-save, it
+	// must deep-copy first.
 	if metaOut != nil {
 		val := reflect.ValueOf(metaOut)
 		if val.Kind() == reflect.Ptr {
 			// Dereference the pointer
 			val = val.Elem()
 		}
-		// metadata obj into metaOut
-		val.Set(reflect.ValueOf(metadata).Elem())
+		val.Set(reflect.ValueOf(obj).Elem())
 	}
-	return nil
+	return metadata, nil
+}
+
+// sameStoredContent ignores request bookkeeping when deciding whether an update
+// needs a write. All write paths discard managedFields. TypeMeta describes the
+// request representation, not a content change (the native backend may persist
+// it). Kubernetes semantic equality also treats nil and empty collections alike.
+func sameStoredContent(stored, incoming runtime.Object) bool {
+	// Storage objects are pointers to structs with embedded ObjectMeta/TypeMeta.
+	// Shallow copies let us replace those fields without mutating the caller's
+	// objects or copying their potentially large, read-only specs.
+	copies := [2]runtime.Object{}
+	for i, obj := range []runtime.Object{stored, incoming} {
+		copy := reflect.New(reflect.TypeOf(obj).Elem())
+		copy.Elem().Set(reflect.ValueOf(obj).Elem())
+		copies[i] = copy.Interface().(runtime.Object)
+		if m, ok := copies[i].(metav1.Object); ok {
+			m.SetManagedFields(nil)
+		}
+	}
+	copies[0].GetObjectKind().SetGroupVersionKind(copies[1].GetObjectKind().GroupVersionKind())
+	return equality.Semantic.DeepEqual(copies[0], copies[1])
 }
 
 // Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
 // in seconds (and is ignored). If no error is returned and out is not nil, out will be
 // set to the read value from database.
 func (s *StorageImpl) Create(ctx context.Context, key string, obj, metaOut runtime.Object, _ uint64) error {
+	if singleWriterEnabled {
+		return s.createSingleWriter(ctx, key, obj, metaOut, priorityHigh)
+	}
+	if s.gate != nil {
+		if err := s.refuseForeign("create", key); err != nil {
+			return err
+		}
+		return ErrGateRequiresSingleWriter
+	}
 	poolCtx, cancel := poolContext()
 	defer cancel()
+	beforePool := time.Now()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 		return newContentionTimeoutError("create", key, err)
 	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 	defer s.pool.Put(conn)
 	return s.CreateWithConn(ctx, conn, key, obj, metaOut, 0)
 }
 
 func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key string, obj, metaOut runtime.Object, _ uint64) error {
+	if err := s.refuseForeign("create", key); err != nil {
+		return err
+	}
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Create")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -338,16 +779,30 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		return newContentionTimeoutError("create", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Create", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
 	// check if object already exists
 	if _, err := s.appFs.Stat(makePayloadPath(filepath.Join(s.root, key))); err == nil {
+		return storage.NewKeyExistsError(key, 0)
+	}
+	// Flag-off objects can exist solely in SQLite. Check under the key lock
+	// before a legacy write can replace their metadata; the single-writer
+	// Create path performs its own commit-time database check.
+	visible, err := isFallbackVisible(conn, key)
+	if err != nil {
+		// Fail closed: never overwrite a key we could not check.
+		logger.L().Ctx(ctx).Error("Create - fallback existence check failed", helpers.Error(err), helpers.String("key", key))
+		return fmt.Errorf("create existence check: %w", err)
+	}
+	if visible {
 		return storage.NewKeyExistsError(key, 0)
 	}
 	// resourceVersion should not be set on create
@@ -378,7 +833,8 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		}
 	}
 	// save object
-	if err := s.saveObject(conn, key, obj, metaOut, ""); err != nil {
+	metaEvent, err := s.saveObject(ctx, conn, key, obj, metaOut, "", priorityHigh, holdPathLegacyCommit)
+	if err != nil {
 		logger.L().Ctx(ctx).Error("Create - save object failed", helpers.Error(err), helpers.String("key", key))
 		return err
 	}
@@ -387,7 +843,7 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 		return fmt.Errorf("processor.AfterCreate: %w", err)
 	}
 	// publish event to watchers
-	s.watchDispatcher.Added(key, metaOut, obj)
+	s.watchDispatcher.Added(key, metaEvent, obj)
 	return nil
 }
 
@@ -396,18 +852,91 @@ func (s *StorageImpl) CreateWithConn(ctx context.Context, conn *sqlite.Conn, key
 // If 'cachedExistingObject' is non-nil, it can be used as a suggestion about the
 // current version of the object to avoid read operation from storage to get it.
 // However, the implementations have to retry in case suggestion is stale.
-func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+// Delete implements RC1's lock-then-connection ordering directly (see
+// acquireLockedConn): it does not call DeleteWithConn, which keeps its own,
+// unchanged connection-then-lock internal acquisition for its direct
+// callers (none currently, but its signature/behavior is preserved as
+// documented Phase 1 scope).
+func (s *StorageImpl) Delete(ctx context.Context, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	if s.gate != nil {
+		return s.deleteGated(ctx, key, metaOut, preconditions, validateDeletion)
+	}
+	conn, err := s.acquireLockedConn(ctx, "delete", key, s.locks.Lock, s.locks.Unlock)
 	if err != nil {
-		return newContentionTimeoutError("delete", key, err)
+		return err
 	}
 	defer s.pool.Put(conn)
-	return s.DeleteWithConn(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+	defer s.locks.Unlock(key)
+
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+	return s.delete(ctx, conn, key, metaOut, preconditions, validateDeletion, nil, storage.DeleteOptions{})
 }
 
-func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+// deleteGated is Delete under the shared gate. The statements run on the
+// gate's connection, so a plain delete holds the per-key lock only. A delete
+// with preconditions or validation must first read the stored object: it takes
+// the lock and a read connection through acquireConnThenLock (connection
+// first, then lock), so it never queues for the key lock while blocked on an
+// exhausted pool -- which would stall a list holding the last connection while
+// waiting for the same key, however many deleters contend.
+// The read connection is returned before the gated delete is queued; the key
+// lock is kept throughout, so the object checked is the object deleted.
+func (s *StorageImpl) deleteGated(ctx context.Context, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc) error {
+	if err := s.refuseForeign("delete", key); err != nil {
+		return err
+	}
+	if preconditions == nil && validateDeletion == nil {
+		if err := s.lockKey(ctx, "delete", key, s.locks.Lock); err != nil {
+			return err
+		}
+	} else {
+		conn, err := s.acquireConnThenLock(ctx, "delete", key)
+		if err != nil {
+			return err
+		}
+		checkErr := s.checkDeletable(ctx, conn, key, metaOut, preconditions, validateDeletion)
+		s.pool.Put(conn)
+		if checkErr != nil {
+			s.locks.Unlock(key)
+			return checkErr
+		}
+	}
+	defer s.locks.Unlock(key)
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+	if err := s.deleteLocked(ctx, nil, key, metaOut); err != nil {
+		return err
+	}
+	s.watchDispatcher.Deleted(key, metaOut)
+	return nil
+}
+
+// lockKey is acquireLockedConn's lock step alone, for the gated paths that
+// need no pool connection: acquire under lockTimeout with the same metrics
+// and the same fail-fast error.
+func (s *StorageImpl) lockKey(ctx context.Context, op, key string, acquire func(context.Context, string) error) error {
+	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
+	beforeLock := time.Now()
+	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
+	err := acquire(lockCtx, key)
+	lockCancel()
+	spanLock.End()
+	lockDuration := time.Since(beforeLock)
+	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
+		return newContentionTimeoutError(op, key, err)
+	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
+	if lockDuration > time.Second {
+		logger.L().Debug(op, helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
+	}
+	return nil
+}
+
+func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Delete")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -417,38 +946,142 @@ func (s *StorageImpl) DeleteWithConn(ctx context.Context, conn *sqlite.Conn, key
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		return newContentionTimeoutError("delete", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Delete", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
-	return s.delete(ctx, conn, key, metaOut, nil, nil, nil, storage.DeleteOptions{})
+	return s.delete(ctx, conn, key, metaOut, preconditions, validateDeletion, nil, storage.DeleteOptions{})
 }
 
-func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, _ *storage.Preconditions, _ storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+// deleteLocked is the SQLite and filesystem half of delete. It takes no lock,
+// submits nothing, and blocks on nothing but conn -- a true runOnShard leaf.
+// It does NOT dispatch the watch event: callers do that themselves, after
+// releasing whatever they hold (shard turn, connection, per-key lock).
+func (s *StorageImpl) deleteLocked(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object) error {
 	p := filepath.Join(s.root, key)
-	// delete metadata in SQLite
-	err := DeleteMetadata(conn, key, metaOut)
+	if s.gate != nil {
+		return s.deleteLockedGated(ctx, key, metaOut, p)
+	}
+	// The rows go in one savepoint and the payload file last: a row delete that fails
+	// rolls the others back and returns with the object whole, so the caller can retry
+	// the complete deletion and no watcher is told of a delete that did not happen.
+	_, _, kind, _, _, _ := K8sPathToKeys(key)
+	release := sqlitex.Save(conn)
+	err := func() error {
+		if err := DeletePayloads(conn, key); err != nil {
+			return fmt.Errorf("delete payloads: %w", err)
+		}
+		if err := DeleteMetadata(conn, key, metaOut); err != nil {
+			return fmt.Errorf("delete metadata: %w", err)
+		}
+		if IsContainerProfileKind(kind) {
+			if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
+				return fmt.Errorf("delete time series entries: %w", err)
+			}
+		}
+		return nil
+	}()
+	release(&err)
 	if err != nil {
-		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
+		logger.L().Ctx(ctx).Error("Delete - delete rows failed", helpers.Error(err), helpers.String("key", key))
+		return err
 	}
 	// delete payload file
 	if err := s.appFs.Remove(makePayloadPath(p)); err != nil {
 		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(err), helpers.String("key", key))
 	}
-	// delete time series entries if this is a containerprofile
+	return nil
+}
+
+// deleteLockedGated is deleteLocked under the shared gate (W3): the row
+// delete (and the time_series delete for a containerprofile) in one gated
+// transaction with the deleted row's JSON captured raw; the payload Remove
+// and the decode into metaOut after release (INV-1′). conn is not used: the
+// caller may hold none (Delete) or one it keeps for reads (DeleteWithConn).
+func (s *StorageImpl) deleteLockedGated(ctx context.Context, key string, metaOut runtime.Object, p string) error {
 	_, _, kind, _, _, _ := K8sPathToKeys(key)
-	if IsContainerProfileKind(kind) {
-		if err := DeleteTimeSeriesContainerEntries(conn, key); err != nil {
-			logger.L().Ctx(ctx).Error("Delete - delete time series entries failed", helpers.Error(err), helpers.String("key", key))
-			return fmt.Errorf("delete time series entries: %w", err)
+	var raw []byte
+	err := s.write(ctx, nil, priorityHigh, holdPathLegacyDelete, resourceFromKey(key), false, func(_ context.Context, conn *sqlite.Conn) error {
+		var derr error
+		raw, derr = deleteMetadataRaw(conn, key)
+		if derr != nil {
+			return derr
 		}
+		if IsContainerProfileKind(kind) {
+			if terr := DeleteTimeSeriesContainerEntries(conn, key); terr != nil {
+				return fmt.Errorf("delete time series entries: %w", terr)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		logger.L().Ctx(ctx).Error("Delete - delete metadata failed", helpers.Error(err), helpers.String("key", key))
+		return err
+	}
+	if rerr := s.appFs.Remove(makePayloadPath(p)); rerr != nil {
+		logger.L().Ctx(ctx).Error("Delete - remove json file failed", helpers.Error(rerr), helpers.String("key", key))
+	}
+	if metaOut != nil && len(raw) > 0 {
+		if uerr := json.Unmarshal(raw, metaOut); uerr != nil {
+			return fmt.Errorf("delete metadata: %w", uerr)
+		}
+	}
+	return nil
+}
+
+// delete runs with the per-key write lock held, so the object checked by
+// checkDeletable cannot change before deleteLocked removes it.
+func (s *StorageImpl) delete(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc, _ runtime.Object, _ storage.DeleteOptions) error {
+	if err := s.refuseForeign("delete", key); err != nil {
+		return err
+	}
+	if err := s.checkDeletable(ctx, conn, key, metaOut, preconditions, validateDeletion); err != nil {
+		return err
+	}
+	if err := s.deleteLocked(ctx, conn, key, metaOut); err != nil {
+		return err
 	}
 	// publish event to watchers
 	s.watchDispatcher.Deleted(key, metaOut)
+	return nil
+}
+
+// checkDeletable reads the stored object and applies the delete preconditions
+// and validation to it, as etcd3's Delete does. It is a no-op when neither is
+// supplied. The caller holds the per-key write lock, which every writer takes
+// to commit, so the object cannot change before the caller deletes it. The
+// gated Delete path holds no connection, so one is taken here (lock, then
+// connection -- the order acquireLockedConn uses) for the read only.
+func (s *StorageImpl) checkDeletable(ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc) error {
+	if preconditions == nil && validateDeletion == nil {
+		return nil
+	}
+	v, err := conversion.EnforcePtr(metaOut)
+	if err != nil {
+		return fmt.Errorf("unable to convert output object to pointer: %v", err)
+	}
+	existing := reflect.New(v.Type()).Interface().(runtime.Object)
+	if err := s.get(ctx, conn, key, storage.GetOptions{}, existing, hasWriteLock); err != nil {
+		return err
+	}
+	return checkDeleteObject(ctx, key, existing, preconditions, validateDeletion)
+}
+
+// checkDeleteObject applies the delete preconditions, then the validation, to
+// the stored object. Shared by every file-backed Delete implementation.
+func checkDeleteObject(ctx context.Context, key string, existing runtime.Object, preconditions *storage.Preconditions, validateDeletion storage.ValidateObjectFunc) error {
+	if err := preconditions.Check(key, existing); err != nil {
+		return err
+	}
+	if validateDeletion != nil {
+		return validateDeletion(ctx, existing)
+	}
 	return nil
 }
 
@@ -463,17 +1096,30 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 	_, span := otel.Tracer("").Start(ctx, "StorageImpl.Watch")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
-	_, _, _, _, namespace, _ := K8sPathToKeys(key)
-	if namespace != "" {
-		// FIXME find an alternative to fix NS deletion
-		logger.L().Debug("rejecting Watch called with namespace", helpers.String("key", key), helpers.String("namespace", namespace))
-		// Return an idle (open, event-free) watch instead of a pre-closed one:
-		// a pre-closed channel sends reflectors into a "very short watch" tight retry loop.
-		return newIdleWatch(ctx), nil
-	}
+	// Namespace-scoped watches used to be rejected here (returning an idle,
+	// event-free watch instead) to work around namespaces getting stuck in
+	// Terminating -- but WatchDispatcher.Register/notify (watch.go) match
+	// purely on path-prefix strings and have never treated a namespaced key
+	// any differently from a cluster-scoped one, so a namespaced watch is
+	// dispatched through the exact same code already proven correct for
+	// cluster-scoped resources. See docs/features/namespace-watch-enabled.md.
 	// TODO(ttimonen) Should we do ctx.WithoutCancel; or does the parent ctx lifetime match with expectations?
-	nw := newWatcher(ctx, opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec)
+	sendFullObject := opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
+	if !wantsInitialEvents(opts) {
+		nw := newWatcher(ctx, sendFullObject)
+		s.watchDispatcher.Register(key, nw)
+		return nw, nil
+	}
+	// Register before listing so a write landing while the list runs is buffered by the
+	// watcher rather than missed; the replay drops what the list already contains.
+	nw := newWatcherWithInitialEvents(ctx, sendFullObject, true)
 	s.watchDispatcher.Register(key, nw)
+	initial, err := buildInitialEvents(ctx, s, s.scheme, key, opts)
+	if err != nil {
+		nw.Stop()
+		return nil, err
+	}
+	nw.initialCh <- initial
 	return nw, nil
 }
 
@@ -482,15 +1128,24 @@ func (s *StorageImpl) Watch(ctx context.Context, key string, opts storage.ListOp
 // Treats empty responses and nil response nodes exactly like a not found error.
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
+// Get implements RC1's lock-then-connection ordering directly (see
+// acquireLockedConn): it does not call GetWithConn, which keeps its own,
+// unchanged connection-then-lock internal acquisition for its direct
+// callers (the consolidation path in containerprofile_storage.go, which
+// already holds a connection before calling it -- see that fix's
+// documented exception).
 func (s *StorageImpl) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	conn, err := s.acquireLockedConn(ctx, "get", key, s.locks.RLock, s.locks.RUnlock)
 	if err != nil {
-		return newContentionTimeoutError("get", key, err)
+		return err
 	}
 	defer s.pool.Put(conn)
-	return s.GetWithConn(ctx, conn, key, opts, objPtr)
+	defer s.locks.RUnlock(key)
+
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.Get")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+	return s.get(ctx, conn, key, opts, objPtr, hasReadLock)
 }
 
 func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.GetOptions, objPtr runtime.Object) error {
@@ -503,11 +1158,13 @@ func (s *StorageImpl) GetWithConn(ctx context.Context, conn *sqlite.Conn, key st
 	defer lockCancel()
 	err := s.locks.RLock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		return newContentionTimeoutError("get", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.RUnlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("Get", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
@@ -544,6 +1201,13 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 		return json.Unmarshal(metadata, objPtr)
 	}
 
+	// The metadata-only branch above reads the shared row both backends agree
+	// on; everything below touches the payload file and the self-repair
+	// deletes, which a foreign kind's owner must never see (INV-4).
+	if err := s.refuseForeign("get", key); err != nil {
+		return err
+	}
+
 	// noLock callers perform unsynchronized file I/O by default.  Acquire a
 	// temporary read lock so that a concurrent saveObject cannot truncate or
 	// overwrite the file while we are decoding it.  The lock is released via
@@ -567,8 +1231,28 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
-			// file not found, delete corresponding metadata
-			_ = DeleteMetadata(conn, key, nil)
+			// Prune the orphaned metadata row only if there is one. A DELETE
+			// that matches no row still opens a write transaction and waits on
+			// SQLite's write lock for the busy timeout, so a read of an absent
+			// key must not issue it.
+			if _, rerr := ReadMetadata(conn, key); rerr == nil {
+				outcome, inspectionErr := s.inspectPayloadsFallback(conn, key, objPtr)
+				if inspectionErr != nil {
+					// An unreadable object is not absent. In particular,
+					// IgnoreNotFound must not turn this into an empty object.
+					return fmt.Errorf("get payloads fallback: %w", inspectionErr)
+				}
+				switch outcome {
+				case fallbackServed:
+					return nil
+				case fallbackPrunable:
+					_ = s.repairDeleteWithPayloads(ctx, conn, key)
+				case fallbackIneligible:
+					_ = s.repairDelete(ctx, conn, key)
+				}
+			} else if !errors.Is(rerr, ErrMetadataNotFound) {
+				return fmt.Errorf("get fallback metadata: %w", rerr)
+			}
 			if opts.IgnoreNotFound {
 				return runtime.SetZeroValue(objPtr)
 			} else {
@@ -584,7 +1268,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 
 	// Try normal decode first
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
-	err = decoder.Decode(objPtr)
+	err = decodeGobPayload(decoder, objPtr)
 	if err == nil {
 		return nil
 	}
@@ -606,19 +1290,12 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 			s.locks.RUnlock(key)
 			if lockErr := s.locks.Lock(ctx, key); lockErr != nil {
 				logger.L().Ctx(ctx).Error("Get - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("key", key))
-				// Best-effort: restore the read lock so the caller's deferred
-				// RUnlock is not left unmatched.
-				if rlockErr := s.locks.RLock(ctx, key); rlockErr != nil {
-					logger.L().Ctx(ctx).Error("Get - failed to restore read lock after write lock failure", helpers.Error(rlockErr), helpers.String("key", key))
-				}
+				s.restoreReadLock(ctx, key)
 				return fmt.Errorf("failed to acquire write lock for migration: %w", lockErr)
 			}
-			migErr = s.migrateObject(ctx, conn, p, key, opts, objPtr)
+			migErr = s.migrateObjectUnlocked(ctx, conn, p, key, opts, objPtr)
 			s.locks.Unlock(key)
-			if rlockErr := s.locks.RLock(ctx, key); rlockErr != nil {
-				logger.L().Ctx(ctx).Error("Get - failed to restore read lock after migration", helpers.Error(rlockErr), helpers.String("key", key))
-				return fmt.Errorf("failed to restore read lock after migration: %w", rlockErr)
-			}
+			s.restoreReadLock(ctx, key)
 
 		case noLock:
 			// We hold a temporary read lock (ownedRLock=true); release it and
@@ -630,7 +1307,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 				logger.L().Ctx(ctx).Error("Get - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("key", key))
 				return fmt.Errorf("failed to acquire write lock for migration: %w", lockErr)
 			}
-			migErr = s.migrateObject(ctx, conn, p, key, opts, objPtr)
+			migErr = s.migrateObjectUnlocked(ctx, conn, p, key, opts, objPtr)
 			s.locks.Unlock(key)
 
 		case hasWriteLock:
@@ -642,7 +1319,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 
 	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 		// irrecoverable error, delete corresponding data
-		_ = DeleteMetadata(conn, key, nil)
+		_ = s.repairDelete(ctx, conn, key)
 		_ = s.appFs.Remove(makePayloadPath(p))
 		logger.L().Ctx(ctx).Error("Get - gob error, treating as corrupted and removing files", helpers.Error(err), helpers.String("key", key))
 		if opts.IgnoreNotFound {
@@ -655,6 +1332,102 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 	return err
 }
 
+// fallbackOutcome distinguishes a served object from the two read-repair
+// cases. Inspection failures are returned separately and prohibit mutation.
+type fallbackOutcome int
+
+const (
+	fallbackIneligible fallbackOutcome = iota // Preserve any recoverable payload.
+	fallbackServed
+	fallbackPrunable // A non-time-series legacy write superseded the payload.
+)
+
+// inspectPayloadsFallback is called only when the legacy file is missing.
+// It serves a joined metadata/payloads row with non-NULL rv and no time-series
+// marker. Query, decode, and conversion failures leave both rows untouched.
+func (s *StorageImpl) inspectPayloadsFallback(conn *sqlite.Conn, key string, objPtr runtime.Object) (fallbackOutcome, error) {
+	candidate, err := readFallbackCandidate(conn, key)
+	if err != nil {
+		return fallbackIneligible, err
+	}
+	if candidate == nil || candidate.isTimeSeries {
+		return fallbackIneligible, nil
+	}
+	// Every legacy write clears rv. Its old SQL payload must not be served
+	// after a lost file rename, and can be pruned at this missing-file site.
+	if candidate.rvNull {
+		return fallbackPrunable, nil
+	}
+	if !candidate.payloadsFound {
+		return fallbackIneligible, nil
+	}
+	if s.scheme == nil {
+		return fallbackIneligible, fmt.Errorf("no scheme to decode payloads body")
+	}
+	if err := decodePayloadBody(s.scheme, candidate.encoding, candidate.body, objPtr); err != nil {
+		return fallbackIneligible, fmt.Errorf("decode payloads body: %w", err)
+	}
+	accessor, err := meta.Accessor(objPtr)
+	if err != nil {
+		return fallbackIneligible, fmt.Errorf("access payload metadata: %w", err)
+	}
+	// Use the authoritative columns, as cpexport does.
+	accessor.SetResourceVersion(strconv.FormatInt(candidate.rv, 10))
+	if candidate.uid != "" {
+		accessor.SetUID(types.UID(candidate.uid))
+	}
+	logger.L().Debug("Get - payload file missing, served from the payloads row", helpers.String("key", key))
+	return fallbackServed, nil
+}
+
+// isFallbackVisible checks the database fallback predicate without decoding.
+// Even an eligible payload this binary cannot decode must block Create.
+// Query errors are returned so callers cannot overwrite uninspected state.
+func isFallbackVisible(conn *sqlite.Conn, key string) (bool, error) {
+	candidate, err := readFallbackCandidate(conn, key)
+	if err != nil {
+		return false, err
+	}
+	if candidate == nil {
+		return false, nil
+	}
+	return !candidate.rvNull && !candidate.isTimeSeries && candidate.payloadsFound, nil
+}
+
+// repairDelete is get()'s self-repair DELETE of a metadata row whose payload
+// is missing, empty or unmigratable (W4/W5/W6a/W7a): a low-priority write on
+// the repair path. The caller holds the key's read (or write) lock and its
+// pool connection while queued — accepted for these cold paths
+// (write-gate-sharing §3.3). The error is the caller's to swallow, as today.
+//
+// It deletes the metadata row and NOTHING else. In particular it must never
+// touch the key's payloads row: this function is shared by all four of get()'s
+// self-repair sites, three of which fire on an undecodable .g FILE (gob EOF,
+// and the two migration-tool failures) where a perfectly valid native payload
+// may sit next to the corrupt file. Those three sites are explicitly out of
+// scope for the rollback-safety guard and must keep leaving a recoverable
+// orphan payload behind, exactly as they did before it
+// (docs/features/containerprofile-sqlite-backend.md). Only get()'s
+// missing-file site prunes payloads, and only in the narrow case
+// repairDeleteWithPayloads below documents.
+func (s *StorageImpl) repairDelete(ctx context.Context, conn *sqlite.Conn, key string) error {
+	return s.write(ctx, conn, priorityLow, holdPathRepair, resourceFromKey(key), false, func(_ context.Context, conn *sqlite.Conn) error {
+		return DeleteMetadata(conn, key, nil)
+	})
+}
+
+// repairDeleteWithPayloads prunes a superseded SQL payload before metadata.
+// Only the missing-file branch calls it, after establishing rv IS NULL and
+// no time-series marker. Corrupt-file repairs must preserve recovery bytes.
+func (s *StorageImpl) repairDeleteWithPayloads(ctx context.Context, conn *sqlite.Conn, key string) error {
+	return s.write(ctx, conn, priorityLow, holdPathRepair, resourceFromKey(key), false, func(_ context.Context, conn *sqlite.Conn) error {
+		if err := DeletePayloads(conn, key); err != nil {
+			return err
+		}
+		return DeleteMetadata(conn, key, nil)
+	})
+}
+
 // migrateObject runs the external migration tool and unmarshals the output into objPtr.
 // It is used by get() to migrate objects that need external migration.
 // The caller must hold the write lock for key before calling this.
@@ -664,7 +1437,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 	payloadFileRetry, err := s.openPayloadFileWithFallback(makePayloadPath(path), os.O_RDONLY, 0)
 	if err == nil {
 		decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
-		errRetry := decoderRetry.Decode(objPtr)
+		errRetry := decodeGobPayload(decoderRetry, objPtr)
 		_ = payloadFileRetry.Close()
 		if errRetry == nil {
 			logger.L().Ctx(ctx).Info("Get - migration already completed by another thread", helpers.String("key", key))
@@ -672,17 +1445,15 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 		}
 	}
 
-	typeName := "ApplicationProfile"
-	if _, ok := objPtr.(*softwarecomposition.ContainerProfile); ok {
-		typeName = "ContainerProfile"
-	} else if _, ok := objPtr.(*softwarecomposition.SeccompProfile); ok {
+	typeName := "ContainerProfile"
+	if _, ok := objPtr.(*softwarecomposition.SeccompProfile); ok {
 		typeName = "SeccompProfile"
 	}
 
 	migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer migrationCancel()
 
-	cmd := exec.CommandContext(migrationCtx, "/usr/bin/migration", "-file", makePayloadPath(path), "-type", typeName)
+	cmd := exec.CommandContext(migrationCtx, migrationBinaryPath, "-file", makePayloadPath(path), "-type", typeName)
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
@@ -694,7 +1465,7 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 		}
 		logger.L().Ctx(ctx).Error("Get - migration tool failed", helpers.Error(runErr), helpers.String("stderr", stderr.String()), helpers.String("key", key))
 		// If migration tool fails, treat as corrupted and delete
-		_ = DeleteMetadata(conn, key, nil)
+		_ = s.repairDelete(ctx, conn, key)
 		_ = s.appFs.Remove(makePayloadPath(path))
 		if opts.IgnoreNotFound {
 			return runtime.SetZeroValue(objPtr)
@@ -704,20 +1475,181 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 	}
 
 	// Migration tool outputted JSON, unmarshal it into objPtr
-	if unmarshalErr := json.Unmarshal(out.Bytes(), objPtr); unmarshalErr != nil {
+	fresh := reflect.New(reflect.TypeOf(objPtr).Elem()).Interface().(runtime.Object)
+	if unmarshalErr := json.Unmarshal(out.Bytes(), fresh); unmarshalErr != nil {
 		logger.L().Ctx(ctx).Error("Get - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("key", key))
 		return unmarshalErr
 	}
 
+	reflect.ValueOf(objPtr).Elem().Set(reflect.ValueOf(fresh).Elem())
 	logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
 
-	if saveErr := s.saveObject(conn, key, objPtr, nil, ""); saveErr != nil {
+	if _, saveErr := s.saveObject(ctx, conn, key, objPtr, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
 		logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
 	} else {
 		logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
 	}
 
 	return nil
+}
+
+// tryDecodePayload attempts to gob-decode the payload file at path into
+// objPtr. It returns (true, nil) on a successful decode, (false, nil) if the
+// file opened but is still undecodable, or (false, err) if the file could
+// not even be opened -- err wraps afero.ErrFileNotFound when the file is
+// simply gone (checkable via errors.Is), distinguishing "still needs
+// migration" from "a concurrent Delete already removed it".
+func (s *StorageImpl) tryDecodePayload(path string, objPtr runtime.Object) (bool, error) {
+	f, err := s.openPayloadFileWithFallback(makePayloadPath(path), os.O_RDONLY, 0)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = f.Close() }()
+	decoder := gob.NewDecoder(NewDirectIOReader(f))
+	if decodeErr := decodeGobPayload(decoder, objPtr); decodeErr != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+// migrationBinaryPath is the external migration tool invoked on every
+// gob-migration path: execMigrationTool (get()'s hasReadLock/noLock states),
+// migrateObject (hasWriteLock) and appendGobObjectFromFile (the list readers).
+// Package-level var, not const, so tests can point it at a fixture script
+// instead of the real /usr/bin/migration binary.
+var migrationBinaryPath = "/usr/bin/migration"
+
+// execMigrationTool runs the external migration binary against path and
+// returns its JSON output on success. A timeout is distinguished from any
+// other tool failure via errors.Is(err, context.DeadlineExceeded) on the
+// returned error, matching migrateObject's original error-handling shape.
+func execMigrationTool(ctx context.Context, path, typeName string) ([]byte, error) {
+	migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer migrationCancel()
+
+	cmd := exec.CommandContext(migrationCtx, migrationBinaryPath, "-file", makePayloadPath(path), "-type", typeName)
+	var out, stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	if runErr := cmd.Run(); runErr != nil {
+		if errors.Is(migrationCtx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("migration tool timed out: %w", migrationCtx.Err())
+		}
+		return nil, fmt.Errorf("migration tool failed (stderr=%q): %w", stderr.String(), runErr)
+	}
+	return out.Bytes(), nil
+}
+
+// migrateObjectUnlocked implements RC3's fix for get()'s hasReadLock/noLock
+// caller states (see .omc/plans/storage-locking-rewrite.md, Phase 1 step 3):
+// it releases the write lock around the migration tool's up-to-30s exec,
+// then re-acquires it and performs a three-way re-verify before committing,
+// rather than holding the write lock for the whole exec as migrateObject
+// does. This must NOT be used for the hasWriteLock caller state (reached
+// from inside GuaranteedUpdate's read-modify-write transaction): dropping a
+// lock that call didn't itself acquire would break that transaction's
+// exclusivity, since StorageImpl has no resourceVersion conflict check to
+// catch a concurrent write landing in the gap -- migrateObject stays
+// unchanged and fully locked for that path.
+//
+// The three-way re-verify (N11) distinguishes: (a) the payload now decodes
+// successfully -- a concurrent writer already handled it; objPtr holds that
+// current, valid object, and neither the save nor delete branch fires; (b)
+// the payload open fails specifically because the file no longer exists --
+// a concurrent Delete won, so this aborts without resurrecting it (neither
+// branch fires); (c) the file is present and still genuinely undecodable --
+// commit the precomputed exec outcome (save on success, delete on
+// migration-tool failure, plain error on timeout), exactly as migrateObject
+// does today.
+//
+// The caller must hold the write lock for key before calling this. It is
+// guaranteed to still hold the write lock when this returns, by any path --
+// the internal unlock/exec/relock is transparent to the caller. Re-acquiring
+// the lock after the exec uses a context detached from ctx's cancellation
+// (context.WithoutCancel) so a caller-context cancellation during the
+// (bounded, 30s) exec cannot leave this function returning without the lock
+// its caller's own unlock logic expects -- this mirrors an already-accepted
+// residual elsewhere in this file (get()'s own migration-upgrade lock
+// acquisitions use the caller's context with no lockTimeout child either).
+func (s *StorageImpl) migrateObjectUnlocked(ctx context.Context, conn *sqlite.Conn, path, key string, opts storage.GetOptions, objPtr runtime.Object) error {
+	// Fast path, still locked: another goroutine may have already migrated
+	// the object while we were waiting for the write lock.
+	if decoded, decodeErr := s.tryDecodePayload(path, objPtr); decodeErr == nil && decoded {
+		logger.L().Ctx(ctx).Info("Get - migration already completed by another thread", helpers.String("key", key))
+		return nil
+	}
+
+	typeName := "ContainerProfile"
+	if _, ok := objPtr.(*softwarecomposition.SeccompProfile); ok {
+		typeName = "SeccompProfile"
+	}
+
+	s.locks.Unlock(key)
+	migratedJSON, execErr := execMigrationTool(ctx, path, typeName)
+	// Re-acquire no matter what: this function is guaranteed to still hold
+	// the write lock on return (see the doc comment above), and callers
+	// unlock unconditionally right after it returns without checking for an
+	// error -- MapMutex.Unlock doesn't verify ownership, so returning here
+	// without the lock would have the caller release a lock it never
+	// reacquired, corrupting lock state for this key (or, if another
+	// goroutine has since legitimately acquired it, releasing *their* lock).
+	// relockCtx (context.WithoutCancel) already implies "keep trying rather
+	// than give up": today Lock genuinely cannot fail for it (its only error
+	// paths require either a nil ctx, which this never is, or the ctx's own
+	// cancellation, which a detached context never observes), but loop
+	// instead of relying on that, so the guarantee holds even if Lock's
+	// error semantics change later.
+	relockCtx := context.WithoutCancel(ctx)
+	for {
+		if lockErr := s.locks.Lock(relockCtx, key); lockErr == nil {
+			break
+		} else {
+			logger.L().Ctx(ctx).Error("Get - failed to re-acquire write lock after migration exec, retrying", helpers.Error(lockErr), helpers.String("key", key))
+		}
+	}
+
+	reDecoded, reErr := s.tryDecodePayload(path, objPtr)
+	switch {
+	case reErr == nil && reDecoded:
+		// (a) a concurrent writer already fixed it; objPtr now holds the
+		// current, valid object.
+		return nil
+	case errors.Is(reErr, afero.ErrFileNotFound):
+		// (b) a concurrent Delete won while we were unlocked; abort without
+		// resurrecting it.
+		if opts.IgnoreNotFound {
+			return runtime.SetZeroValue(objPtr)
+		}
+		return storage.NewKeyNotFoundError(key, 0)
+	default:
+		// (c) still genuinely undecodable; commit the precomputed outcome.
+		if execErr != nil {
+			if errors.Is(execErr, context.DeadlineExceeded) {
+				logger.L().Ctx(ctx).Error("Get - migration tool timed out", helpers.String("key", key))
+				return execErr
+			}
+			logger.L().Ctx(ctx).Error("Get - migration tool failed", helpers.Error(execErr), helpers.String("key", key))
+			_ = s.repairDelete(ctx, conn, key)
+			_ = s.appFs.Remove(makePayloadPath(path))
+			if opts.IgnoreNotFound {
+				return runtime.SetZeroValue(objPtr)
+			}
+			return storage.NewKeyNotFoundError(key, 0)
+		}
+		fresh := reflect.New(reflect.TypeOf(objPtr).Elem()).Interface().(runtime.Object)
+		if unmarshalErr := json.Unmarshal(migratedJSON, fresh); unmarshalErr != nil {
+			logger.L().Ctx(ctx).Error("Get - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("key", key))
+			return unmarshalErr
+		}
+		reflect.ValueOf(objPtr).Elem().Set(reflect.ValueOf(fresh).Elem())
+		logger.L().Ctx(ctx).Info("Get - external migration successful", helpers.String("key", key))
+		if _, saveErr := s.saveObject(ctx, conn, key, objPtr, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
+			logger.L().Ctx(ctx).Error("Get - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("key", key))
+		} else {
+			logger.L().Ctx(ctx).Info("Get - successfully migrated object to modern format", helpers.String("key", key))
+		}
+		return nil
+	}
 }
 
 // GetList unmarshalls objects found at key into a *List api object (an object
@@ -727,90 +1659,330 @@ func (s *StorageImpl) migrateObject(ctx context.Context, conn *sqlite.Conn, path
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 // GetList only returns metadata for the objects, not the objects themselves.
+//
+// GetList acquires and releases a pool connection separately for each internal
+// SQLite-level page of results, rather than holding one connection for the whole
+// call: the ResourceVersionFullSpec branch takes a per-key read lock per object,
+// and a connection held idle while stalled on one of those locks would otherwise
+// stay pinned through every subsequent page too. Callers that already hold their
+// own connection and want the whole list in one call should use GetListWithConn
+// instead, which keeps that single connection for its entire duration.
 func (s *StorageImpl) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
-	poolCtx, cancel := poolContext()
-	defer cancel()
-	conn, err := s.pool.Take(poolCtx)
+	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
+	span.SetAttributes(attribute.String("key", key))
+	defer span.End()
+
+	ctx, predicate, v, elem, limit, batchSize, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
 	if err != nil {
-		return newContentionTimeoutError("list", key, err)
+		return err
 	}
-	defer s.pool.Put(conn)
-	return s.GetListWithConn(ctx, conn, key, opts, listObj)
+
+	pageLast := ""
+	for limit == 0 || int64(v.Len()) < limit {
+		// Mirrors genericrest.Store.DeleteCollection's own between-pages
+		// ctx.Done() check: without this, an unlimited (or large-limit) list
+		// spanning many internal pages has nothing but poolContext()'s own
+		// fixed timeout (derived from context.Background(), not the caller's
+		// ctx) to bound it -- a cancelled caller ctx would otherwise go
+		// unnoticed until the whole result is assembled.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
+
+		beforePool := time.Now()
+		poolCtx, cancel := poolContext()
+		conn, err := s.pool.Take(poolCtx)
+		if err != nil {
+			cancel()
+			metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
+			return newContentionTimeoutError("list", key, err)
+		}
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
+		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
+		s.pool.Put(conn)
+		cancel()
+		if err != nil {
+			return err
+		}
+		pageLast = fetched.pageLast
+
+		if int64(fetched.count) < remaining {
+			pageLast = ""
+			break
+		}
+		cursor = pageLast
+	}
+
+	return setListContinue(listObj, pageLast)
 }
 
+// GetListWithConn is the same as GetList, but reuses a single, caller-supplied
+// connection for the entire (possibly multi-page) call, instead of acquiring and
+// releasing a connection separately per internal page. Use this only when the
+// caller already holds its own connection for other reasons; it pins that
+// connection across any per-key lock waits that occur along the way.
 func (s *StorageImpl) GetListWithConn(ctx context.Context, conn *sqlite.Conn, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GetList")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+
+	ctx, predicate, v, elem, limit, batchSize, cursor, isFullSpec, err := s.prepareGetList(ctx, key, opts, listObj)
+	if err != nil {
+		return err
+	}
+
+	pageLast := ""
+	for limit == 0 || int64(v.Len()) < limit {
+		// See the matching check in GetList.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		remaining := nextPageSize(limit, batchSize, int64(v.Len()))
+
+		fetched, err := s.fetchListPage(ctx, conn, key, cursor, remaining, isFullSpec, predicate, v, elem)
+		if err != nil {
+			return err
+		}
+		pageLast = fetched.pageLast
+
+		if int64(fetched.count) < remaining {
+			pageLast = ""
+			break
+		}
+		cursor = pageLast
+	}
+
+	return setListContinue(listObj, pageLast)
+}
+
+// defaultListBatchSize bounds how many entries GetList/GetListWithConn fetch
+// from SQLite per internal round trip. It is an internal chunking detail only
+// -- it does not cap how many items a List call can return. A caller that
+// doesn't set Predicate.Limit (limit == 0, "no pagination requested") gets
+// every matching item, fetched in batches of this size and reassembled across
+// as many internal pages as needed; a caller that does set Limit gets exactly
+// that many (or fewer, with a continue token), matching Kubernetes List API
+// conventions: Limit == 0 means "no limit," not "default to some limit."
+//
+// A negative Limit is not a valid "no limit" request -- it is preserved as an
+// invalid/degenerate input and, like the pre-fix code, results in an empty
+// list (the loop's `limit == 0 || v.Len() < limit` guard is false for both
+// v.Len()==0 and any negative limit, so the loop body never runs), rather
+// than being silently reinterpreted as "unlimited."
+const defaultListBatchSize = 500
+
+// nextPageSize returns how many entries the next internal SQLite page should
+// request. For an unlimited list (limit == 0) this is always batchSize. For a
+// limited list it's however many more items are needed to reach limit,
+// clamped to batchSize so a single client-requested large limit still fetches
+// (and releases its pool connection) in bounded chunks. A negative limit
+// returns 0 directly -- GetList/GetListWithConn's own loop guard already
+// never enters the loop body for one, but this makes the "negative limit
+// asks for nothing" contract hold on its own terms rather than depending on
+// how that loop condition happens to be phrased.
+//
+// Accepted minor inefficiency: for an unlimited list whose total item count
+// is an exact multiple of batchSize, the loop always takes one extra,
+// zero-row internal round trip (pool acquire/fetch/release) before it can
+// tell the data is exhausted -- always requesting a full batchSize means
+// there's no cheaper way to distinguish "exactly batchSize items left" from
+// "more than batchSize items left" without a second signal (e.g. requesting
+// batchSize+1 and trimming). Harmless for correctness, and not worth the
+// added complexity for a boundary-only case.
+func nextPageSize(limit, batchSize, fetched int64) int64 {
+	if limit < 0 {
+		return 0
+	}
+	if limit == 0 {
+		return batchSize
+	}
+	remaining := limit - fetched
+	if remaining > batchSize {
+		return batchSize
+	}
+	return remaining
+}
+
+// prepareGetList performs the (connection-independent) setup shared by GetList
+// and GetListWithConn: predicate normalization and pulling the destination slice,
+// element type, page limit, starting cursor and full-spec flag out of listObj/opts.
+// It returns the normalized predicate for the caller to reuse across pages -- opts
+// is passed by value, so mutating opts.Predicate here does not propagate back to
+// the caller's own copy.
+//
+// limit is the caller's requested total item count: exactly 0 means the
+// caller did not request pagination, so GetList/GetListWithConn must return
+// every matching item rather than silently truncating. A negative limit is
+// left as-is (not normalized to 0 or treated as unlimited) so the loop guard
+// in GetList/GetListWithConn preserves the pre-fix behavior of returning an
+// empty list for that degenerate input. batchSize is purely the internal
+// per-round-trip fetch size (see defaultListBatchSize) and never caps the
+// total result on its own.
+func (s *StorageImpl) prepareGetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) (_ context.Context, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type, limit int64, batchSize int64, cursor string, isFullSpec bool, err error) {
+	predicate, err = normalizeSelectionPredicate(opts.Predicate)
+	if err != nil {
+		logger.L().Ctx(ctx).Error("GetList - normalize selection predicate failed", helpers.Error(err))
+		return ctx, predicate, v, elem, 0, 0, "", false, err
+	}
+	if err := validateContinue(predicate.Continue); err != nil {
+		return ctx, predicate, v, elem, 0, 0, "", false, err
+	}
+	opts.Predicate = predicate
+
 	listPtr, err := meta.GetItemsPtr(listObj)
 	if err != nil {
 		logger.L().Ctx(ctx).Error("GetList - get items ptr failed", helpers.Error(err), helpers.String("key", key))
-		return err
+		return ctx, predicate, v, elem, 0, 0, "", false, err
 	}
-	v, err := conversion.EnforcePtr(listPtr)
+	v, err = conversion.EnforcePtr(listPtr)
 	if err != nil || v.Kind() != reflect.Slice {
 		logger.L().Ctx(ctx).Error("GetList - need ptr to slice", helpers.Error(err), helpers.String("key", key))
-		return fmt.Errorf("need ptr to slice: %v", err)
+		return ctx, predicate, v, elem, 0, 0, "", false, fmt.Errorf("need ptr to slice: %v", err)
 	}
-	// set default limit
-	if opts.Predicate.Limit == 0 {
-		opts.Predicate.Limit = 500
+	// limit == 0 means the caller did not request pagination -- do not
+	// substitute a default that would silently truncate the result. Only the
+	// internal per-round-trip batch size defaults to a fixed value. A
+	// negative limit is passed through unchanged (see the doc comment above).
+	limit = opts.Predicate.Limit
+	batchSize = defaultListBatchSize
+	// populate list object
+	elem = v.Type().Elem()
+	v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+	isFullSpec = opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec
+
+	return ctx, predicate, v, elem, limit, batchSize, opts.Predicate.Continue, isFullSpec, nil
+}
+
+// validateContinue refuses a continue token storage did not hand out. A token
+// is the rowid of the last object of the previous page, and the list queries
+// compare it with rowid. SQLite compares any other text with an integer
+// without an error (text sorts after every number), so a token that is not a
+// number returned an empty page, as if the list had ended, and a negative one
+// started over from the first object. kube-apiserver's etcd store answers an
+// invalid token with 400 Bad Request; so does storage.
+func validateContinue(cont string) error {
+	if cont == "" {
+		return nil
 	}
-	// prepare SQLite connection
-	var list []string
-	var last string
-	if opts.ResourceVersion == softwarecomposition.ResourceVersionFullSpec {
-		// get names from SQLite
-		list, last, err = listMetadataKeys(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
-		if err != nil {
-			logger.L().Ctx(ctx).Error("GetList - list keys failed", helpers.Error(err), helpers.String("key", key))
-		}
-		// populate list object
-		elem := v.Type().Elem()
-		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
-		for _, k := range list {
-			obj := reflect.New(elem).Interface().(runtime.Object)
-			if err := s.get(ctx, conn, k, storage.GetOptions{}, obj, noLock); err != nil {
-				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", k))
-			}
-			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
-		}
-	} else {
-		// get metadata from SQLite
-		list, last, err = listMetadata(conn, key, opts.Predicate.Continue, opts.Predicate.Limit)
-		if err != nil {
-			logger.L().Ctx(ctx).Error("GetList - list metadata failed", helpers.Error(err), helpers.String("key", key))
-		}
-		// populate list object
-		elem := v.Type().Elem()
-		v.Set(reflect.MakeSlice(v.Type(), 0, len(list)))
-		for _, metadataJSON := range list {
-			obj := reflect.New(elem).Interface().(runtime.Object)
-			if err := json.Unmarshal([]byte(metadataJSON), obj); err != nil {
-				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
-			}
-			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
-		}
-	}
-	// eventually set list accessor fields
-	if len(list) == int(opts.Predicate.Limit) {
-		listAccessor, err := meta.ListAccessor(listObj)
-		if err != nil {
-			return fmt.Errorf("list accessor: %w", err)
-		}
-		listAccessor.SetContinue(last)
-		//if rsp.RemainingItemCount > 0 {
-		//listAccessor.SetRemainingItemCount(&rsp.RemainingItemCount)
-		//}
-		//if rsp.ResourceVersion > 0 {
-		//listAccessor.SetResourceVersion(strconv.FormatInt(rsp.ResourceVersion, 10))
-		//}
+	if rowid, err := strconv.ParseInt(cont, 10, 64); err != nil || rowid < 0 {
+		return apierrors.NewBadRequest("invalid continue token: use the continue value of the previous page")
 	}
 	return nil
 }
 
+// listPageResult is the outcome of fetching one internal SQLite-level page.
+type listPageResult struct {
+	pageLast string
+	count    int // raw entries fetched from SQLite, before predicate filtering
+}
+
+// fetchListPage fetches one internal page (up to `remaining` entries from SQLite
+// starting at cursor) and appends predicate-matching objects to v. The returned
+// count is how many raw entries were fetched (as opposed to how many matched and
+// were appended) -- the caller uses it to decide whether more entries might still
+// exist upstream.
+func (s *StorageImpl) fetchListPage(ctx context.Context, conn *sqlite.Conn, key string, cursor string, remaining int64, isFullSpec bool, predicate storage.SelectionPredicate, v reflect.Value, elem reflect.Type) (listPageResult, error) {
+	var entries []string
+	var pageLast string
+	var err error
+	if isFullSpec {
+		if err := s.refuseForeign("list", key); err != nil {
+			return listPageResult{}, err
+		}
+		// get names from SQLite
+		entries, pageLast, err = listMetadataKeys(conn, key, cursor, remaining)
+	} else {
+		// get metadata from SQLite
+		entries, pageLast, err = listMetadata(conn, key, cursor, remaining)
+	}
+	if err != nil {
+		return listPageResult{}, fmt.Errorf("list objects for %q: %w", key, err)
+	}
+
+	v.Grow(len(entries))
+
+	for _, entry := range entries {
+		obj := reflect.New(elem).Interface().(runtime.Object)
+		if isFullSpec {
+			if err := s.get(ctx, conn, entry, storage.GetOptions{}, obj, noLock); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - get object failed", helpers.Error(err), helpers.String("key", entry))
+				continue
+			}
+		} else {
+			if err := json.Unmarshal([]byte(entry), obj); err != nil {
+				logger.L().Ctx(ctx).Error("GetList - unmarshal metadata failed", helpers.Error(err), helpers.String("key", key))
+				continue
+			}
+		}
+
+		matched, err := predicate.Matches(obj)
+		if err != nil {
+			return listPageResult{}, fmt.Errorf("match selection predicate: %w", err)
+		}
+		if matched {
+			v.Set(reflect.Append(v, reflect.ValueOf(obj).Elem()))
+		}
+	}
+
+	return listPageResult{pageLast: pageLast, count: len(entries)}, nil
+}
+
+// setListMeta sets listObj's continue token and ensures listObj has a non-empty
+// resourceVersion, satisfying client-go's RetryWatcher (issue #419).
+func setListMeta(listObj runtime.Object, pageLast string) error {
+	listAccessor, err := meta.ListAccessor(listObj)
+	if err != nil {
+		return fmt.Errorf("list accessor: %w", err)
+	}
+	if pageLast != "" {
+		listAccessor.SetContinue(pageLast)
+	}
+	listAccessor.SetResourceVersion(computeListResourceVersion(listObj))
+	return nil
+}
+
+// setListContinue sets listObj's continue token and resourceVersion.
+func setListContinue(listObj runtime.Object, pageLast string) error {
+	return setListMeta(listObj, pageLast)
+}
+
+// computeListResourceVersion returns the maximum resourceVersion among the
+// items in listObj, or "1" if the list is empty or has no numeric resourceVersion.
+// This guarantees list responses return a valid non-empty, non-zero resourceVersion
+// required by client-go RetryWatcher (issue #419).
+func computeListResourceVersion(listObj runtime.Object) string {
+	items, err := meta.ExtractList(listObj)
+	if err != nil || len(items) == 0 {
+		return "1"
+	}
+	var maxRV uint64
+	for _, item := range items {
+		if acc, err := meta.Accessor(item); err == nil {
+			if rvStr := acc.GetResourceVersion(); rvStr != "" {
+				if rv, err := strconv.ParseUint(rvStr, 10, 64); err == nil && rv > maxRV {
+					maxRV = rv
+				}
+			}
+		}
+	}
+	if maxRV > 0 {
+		return strconv.FormatUint(maxRV, 10)
+	}
+	return "1"
+}
+
 // getListWithSpec is the same as GetList, but it returns the full objects instead of just the metadata.
 func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage.ListOptions, listObj runtime.Object) error {
+	if err := s.refuseForeign("list", key); err != nil {
+		return err
+	}
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.getListWithSpec")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
@@ -848,7 +2020,7 @@ func (s *StorageImpl) getListWithSpec(ctx context.Context, key string, _ storage
 			logger.L().Ctx(ctx).Error("getListWithSpec - appending Gob object from file failed", helpers.Error(err), helpers.String("path", payloadFile))
 		}
 	}
-	return nil
+	return setListMeta(listObj, "")
 }
 
 func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object) (*objState, error) {
@@ -913,12 +2085,24 @@ func (s *StorageImpl) getStateFromObject(ctx context.Context, obj runtime.Object
 func (s *StorageImpl) GuaranteedUpdate(
 	ctx context.Context, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object) error {
+	if singleWriterEnabled {
+		return s.guaranteedUpdateSingleWriter(ctx, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "", priorityHigh)
+	}
+	if s.gate != nil {
+		if err := s.refuseForeign("update", key); err != nil {
+			return err
+		}
+		return ErrGateRequiresSingleWriter
+	}
 	poolCtx, cancel := poolContext()
 	defer cancel()
+	beforePool := time.Now()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 		return newContentionTimeoutError("update", key, err)
 	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 	defer s.pool.Put(conn)
 	return s.GuaranteedUpdateWithConn(ctx, conn, key, metaOut, ignoreNotFound, preconditions, tryUpdate, cachedExistingObject, "")
 }
@@ -926,21 +2110,32 @@ func (s *StorageImpl) GuaranteedUpdate(
 func (s *StorageImpl) GuaranteedUpdateWithConn(
 	ctx context.Context, conn *sqlite.Conn, key string, metaOut runtime.Object, ignoreNotFound bool,
 	preconditions *storage.Preconditions, tryUpdate storage.UpdateFunc, cachedExistingObject runtime.Object, checksum string) error {
+	if err := s.refuseForeign("update", key); err != nil {
+		return err
+	}
 	ctx, span := otel.Tracer("").Start(ctx, "StorageImpl.GuaranteedUpdate")
 	span.SetAttributes(attribute.String("key", key))
 	defer span.End()
+	// add conn to context now (rather than only once tryUpdate has succeeded,
+	// as before): the "before" snapshot's PreSave call (below, taken ahead of
+	// tryUpdate) needs the same conn-bearing context that the "after" (ret)
+	// PreSave call gets, or a processor that reads the connection out of ctx
+	// (e.g. ContainerProfileProcessor.PreSave) panics on the orig snapshot.
+	ctx = context.WithValue(ctx, connKey, conn)
 	_, spanLock := otel.Tracer("").Start(ctx, "waiting for lock")
 	beforeLock := time.Now()
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 	defer lockCancel()
 	err := s.locks.Lock(lockCtx, key)
 	spanLock.End()
+	lockDuration := time.Since(beforeLock)
 	if err != nil {
+		metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeTimeout, lockDuration)
 		logger.L().Debug("GuaranteedUpdate - lock failed", helpers.Error(err), helpers.String("key", key))
 		return newContentionTimeoutError("update", key, err)
 	}
+	metrics.ObserveLockWait(resourceFromKey(key), metrics.OutcomeAcquired, lockDuration)
 	defer s.locks.Unlock(key)
-	lockDuration := time.Since(beforeLock)
 	if lockDuration > time.Second {
 		logger.L().Debug("GuaranteedUpdate/", helpers.String("key", key), helpers.String("lockDuration", lockDuration.String()))
 	}
@@ -1007,6 +2202,15 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			continue
 		}
 
+		// Snapshot the "before" state now, before tryUpdate runs. tryUpdate may
+		// mutate origState.obj in place and return that same reference (this is
+		// exactly what genericregistry.Store's own finalizer-delete tryUpdate
+		// does, via markAsDeleting) -- capturing this snapshot after tryUpdate
+		// ran would observe the already-mutated state, making the no-op-update
+		// check below spuriously always-equal and silently dropping the write.
+		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
+		_ = s.processor.PreSave(ctx, orig)
+
 		// run tryUpdate
 		ret, _, err := tryUpdate(origState.obj, storage.ResponseMeta{})
 		if err != nil {
@@ -1045,9 +2249,6 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 			continue
 		}
 
-		// add conn to context
-		ctx = context.WithValue(ctx, connKey, conn)
-
 		// call processor on object to be saved
 		if err := s.processor.PreSave(ctx, ret); err != nil {
 			if errors.Is(err, ObjectTooLargeError) {
@@ -1070,9 +2271,7 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// check if the object is the same as the original
-		orig := origState.obj.DeepCopyObject() // FIXME this is expensive
-		_ = s.processor.PreSave(ctx, orig)
-		if reflect.DeepEqual(orig, ret) {
+		if sameStoredContent(orig, ret) {
 			logger.L().Debug("GuaranteedUpdate - tryUpdate returned the same object, no update needed", helpers.String("key", key))
 			// no change, return the original object
 			v.Set(reflect.ValueOf(origState.obj).Elem())
@@ -1080,12 +2279,13 @@ func (s *StorageImpl) GuaranteedUpdateWithConn(
 		}
 
 		// save to disk and fill into metaOut
-		if err := s.saveObject(conn, key, ret, metaOut, checksum); err != nil {
+		metaEvent, err := s.saveObject(ctx, conn, key, ret, metaOut, checksum, priorityHigh, holdPathLegacyCommit)
+		if err != nil {
 			logger.L().Ctx(ctx).Error("GuaranteedUpdate - save object failed", helpers.Error(err), helpers.String("key", key))
 			return err
 		}
 		// Only successful updates should produce modification events
-		s.watchDispatcher.Modified(key, metaOut, ret)
+		s.watchDispatcher.Modified(key, metaEvent, ret)
 		return nil
 	}
 }
@@ -1095,10 +2295,13 @@ func (s *StorageImpl) Count(key string) (int64, error) {
 	logger.L().Debug("Custom storage count", helpers.String("key", key))
 	poolCtx, cancel := poolContext()
 	defer cancel()
+	beforePool := time.Now()
 	conn, err := s.pool.Take(poolCtx)
 	if err != nil {
+		metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 		return 0, newContentionTimeoutError("count", key, err)
 	}
+	metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 	defer s.pool.Put(conn)
 	return countMetadata(conn, key)
 }
@@ -1132,8 +2335,23 @@ func (s *StorageImpl) GetByCluster(ctx context.Context, apiVersion, kind string,
 }
 
 // appendGobObjectFromFile unmarshalls a Gob file into a runtime.Object and appends it to the underlying list object.
+// restoreReadLock re-takes the read lock a migration dropped. The caller's deferred RUnlock
+// runs whatever happens, so this acquire must not fail on a request context that is already
+// done: an RUnlock without its acquire leaves the key's reader count at -1, which no later
+// Lock can pass, or dereferences a state that was evicted in between. The cancellation is
+// removed the way GuaranteedUpdate's relockCtx removes it, and the wait stays bounded by
+// the writer that holds the key.
+func (s *StorageImpl) restoreReadLock(ctx context.Context, key string) {
+	if err := s.locks.RLock(context.WithoutCancel(ctx), key); err != nil {
+		logger.L().Ctx(ctx).Error("failed to restore read lock", helpers.Error(err), helpers.String("key", key))
+	}
+}
+
 func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, v reflect.Value) error {
 	key := s.keyFromPath(path)
+	if err := s.refuseForeign("list", key); err != nil {
+		return err
+	}
 	lockCtx, lockCancel := context.WithTimeout(ctx, lockTimeout)
 	defer lockCancel()
 	err := s.locks.RLock(lockCtx, key)
@@ -1154,7 +2372,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 
 	// Try normal decode first
 	decoder := gob.NewDecoder(NewDirectIOReader(payloadFile))
-	err = decoder.Decode(obj)
+	err = decodeGobPayload(decoder, obj)
 	if err != nil {
 		// If it fails with type error, try legacy decoding via external tool
 		if strings.Contains(err.Error(), "gob: wrong type") || strings.Contains(err.Error(), "extra fields") {
@@ -1164,7 +2382,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			// We upgrade to a write lock BEFORE running the migration tool to prevent concurrent migration attempts
 			s.locks.RUnlock(key)
 			// re-acquire read lock if anything fails or when we are done
-			defer s.locks.RLock(ctx, key)
+			defer s.restoreReadLock(ctx, key)
 
 			if lockErr := s.locks.Lock(ctx, key); lockErr != nil {
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to acquire write lock for migration", helpers.Error(lockErr), helpers.String("path", path))
@@ -1177,7 +2395,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			payloadFileRetry, err := s.openPayloadFileWithFallback(path, os.O_RDONLY, 0)
 			if err == nil {
 				decoderRetry := gob.NewDecoder(NewDirectIOReader(payloadFileRetry))
-				errRetry := decoderRetry.Decode(obj)
+				errRetry := decodeGobPayload(decoderRetry, obj)
 				_ = payloadFileRetry.Close()
 				if errRetry == nil {
 					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - migration already completed by another thread", helpers.String("path", path))
@@ -1186,10 +2404,8 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 				}
 			}
 
-			typeName := "ApplicationProfile"
-			if _, ok := obj.(*softwarecomposition.ContainerProfile); ok {
-				typeName = "ContainerProfile"
-			} else if _, ok := obj.(*softwarecomposition.SeccompProfile); ok {
+			typeName := "ContainerProfile"
+			if _, ok := obj.(*softwarecomposition.SeccompProfile); ok {
 				typeName = "SeccompProfile"
 			}
 
@@ -1197,7 +2413,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			migrationCtx, migrationCancel := context.WithTimeout(ctx, 30*time.Second)
 			defer migrationCancel()
 
-			cmd := exec.CommandContext(migrationCtx, "/usr/bin/migration", "-file", path, "-type", typeName)
+			cmd := exec.CommandContext(migrationCtx, migrationBinaryPath, "-file", path, "-type", typeName)
 			var out bytes.Buffer
 			var stderr bytes.Buffer
 			cmd.Stdout = &out
@@ -1213,6 +2429,7 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			}
 
 			// Migration tool outputted JSON, unmarshal it into obj
+			obj = reflect.New(v.Type().Elem()).Interface().(runtime.Object)
 			if unmarshalErr := json.Unmarshal(out.Bytes(), obj); unmarshalErr != nil {
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - unmarshal migrated JSON failed", helpers.Error(unmarshalErr), helpers.String("path", path))
 				return unmarshalErr
@@ -1223,12 +2440,15 @@ func (s *StorageImpl) appendGobObjectFromFile(ctx context.Context, path string, 
 			// Write modern format back to disk to finish migration
 			poolCtx, cancel := poolContext()
 			defer cancel()
+			beforePool := time.Now()
 			conn, err := s.pool.Take(poolCtx)
 			if err != nil {
+				metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeTimeout, time.Since(beforePool))
 				logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to take connection for migration save", helpers.Error(err), helpers.String("path", path))
 			} else {
+				metrics.ObservePoolWait(resourceFromKey(key), metrics.OutcomeAcquired, time.Since(beforePool))
 				defer s.pool.Put(conn)
-				if saveErr := s.saveObject(conn, key, obj, nil, ""); saveErr != nil {
+				if _, saveErr := s.saveObject(ctx, conn, key, obj, nil, "", priorityLow, holdPathMigrate); saveErr != nil {
 					logger.L().Ctx(ctx).Error("appendGobObjectFromFile - failed to rewrite migrated object", helpers.Error(saveErr), helpers.String("path", path))
 				} else {
 					logger.L().Ctx(ctx).Info("appendGobObjectFromFile - successfully migrated object to modern format", helpers.String("path", path))
@@ -1304,7 +2524,13 @@ func (immutableStorage) Delete(_ context.Context, key string, _ runtime.Object, 
 // Watch is not supported for immutable objects. Objects are generated on the fly and not stored.
 // It returns an idle, event-free watch that closes on client disconnect or Stop:
 // a pre-closed channel would send reflectors into a "very short watch" tight retry loop.
-func (immutableStorage) Watch(ctx context.Context, _ string, _ storage.ListOptions) (watch.Interface, error) {
+// A watch list has nothing to replay here, so it is refused with a non-retriable error
+// that makes client-go fall back to list and watch.
+func (immutableStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	if wantsInitialEvents(opts) {
+		_, group, resource, _, _, _ := K8sPathToKeys(key)
+		return nil, apierrors.NewMethodNotSupported(schema.GroupResource{Group: group, Resource: resource}, "watch with sendInitialEvents")
+	}
 	return newIdleWatch(ctx), nil
 }
 

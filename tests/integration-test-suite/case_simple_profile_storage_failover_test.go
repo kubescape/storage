@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	containerwatcher "github.com/kubescape/node-agent/pkg/containerwatcher/v1"
 )
 
 func (s *IntegrationTestSuite) TestSimpleProfileStorageFailover() {
@@ -33,7 +32,7 @@ Goal: Ensure that the system can recover from a storage pod failover and still p
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app":                                 "failover-test-deployment",
-						containerwatcher.MaxSniffingTimeLabel: "4m",
+						MaxSniffingTimeLabel: "4m",
 					},
 				},
 				Spec: corev1.PodSpec{

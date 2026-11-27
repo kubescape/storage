@@ -35,71 +35,6 @@ message Advisory {
   optional string link = 2;
 }
 
-message ApplicationProfile {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
-
-  optional ApplicationProfileSpec spec = 2;
-
-  optional ApplicationProfileStatus status = 3;
-}
-
-message ApplicationProfileContainer {
-  optional string name = 1;
-
-  repeated string capabilities = 2;
-
-  // +patchMergeKey=path
-  // +patchStrategy=merge
-  repeated ExecCalls execs = 3;
-
-  // +patchMergeKey=path
-  // +patchStrategy=merge
-  repeated OpenCalls opens = 4;
-
-  repeated string syscalls = 5;
-
-  optional SingleSeccompProfile seccompProfile = 6;
-
-  // +patchStrategy=merge
-  // +patchMergeKey=endpoint
-  repeated HTTPEndpoint endpoints = 7;
-
-  optional string imageID = 8;
-
-  optional string imageTag = 9;
-
-  // +patchStrategy=merge
-  // +patchMergeKey=ruleId
-  map<string, RulePolicy> rulePolicies = 10;
-
-  repeated IdentifiedCallStack identifiedCallStacks = 11;
-}
-
-message ApplicationProfileList {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
-
-  repeated ApplicationProfile items = 2;
-}
-
-message ApplicationProfileSpec {
-  repeated string architectures = 1;
-
-  // +patchMergeKey=name
-  // +patchStrategy=merge
-  repeated ApplicationProfileContainer containers = 2;
-
-  // +patchMergeKey=name
-  // +patchStrategy=merge
-  repeated ApplicationProfileContainer initContainers = 3;
-
-  // +patchMergeKey=name
-  // +patchStrategy=merge
-  repeated ApplicationProfileContainer ephemeralContainers = 4;
-}
-
-message ApplicationProfileStatus {
-}
-
 // Arg defines the specific syscall in seccomp.
 message Arg {
   // the index for syscall arguments in seccomp
@@ -208,6 +143,13 @@ message CollapseConfigurationSpec {
   // omitted/0-means-compiled-default semantics as NetworkIPGroupThreshold.
   // +optional
   optional int32 networkCIDRFloorBits = 5;
+
+  // ExecDynamicThreshold is the fallback threshold for AnalyzeExecs when no
+  // per-prefix entry matches the exec path. CollapseConfigs entries apply
+  // to exec paths as well as opens. Optional with the same
+  // omitted/0-means-compiled-default semantics as OpenDynamicThreshold.
+  // +optional
+  optional int32 execDynamicThreshold = 6;
 }
 
 message Component {
@@ -282,6 +224,46 @@ message ContainerProfile {
   optional ContainerProfileStatus status = 3;
 }
 
+// ContainerProfileContainer is one container's profile inside a user-authored
+// multi-container ContainerProfile document: the union of the legacy
+// ApplicationProfileContainer and NetworkNeighborhoodContainer shapes.
+message ContainerProfileContainer {
+  optional string name = 1;
+
+  repeated string capabilities = 2;
+
+  // +patchMergeKey=path
+  // +patchStrategy=merge
+  repeated ExecCalls execs = 3;
+
+  // +patchMergeKey=path
+  // +patchStrategy=merge
+  repeated OpenCalls opens = 4;
+
+  repeated string syscalls = 5;
+
+  optional SingleSeccompProfile seccompProfile = 6;
+
+  // +patchStrategy=merge
+  // +patchMergeKey=endpoint
+  repeated HTTPEndpoint endpoints = 7;
+
+  optional string imageID = 8;
+
+  optional string imageTag = 9;
+
+  // +patchStrategy=merge
+  // +patchMergeKey=ruleId
+  map<string, RulePolicy> rulePolicies = 10;
+
+  repeated IdentifiedCallStack identifiedCallStacks = 11;
+
+  // WARNING report the network fields here, increment proto IDs by 100
+  repeated NetworkNeighbor ingress = 102;
+
+  repeated NetworkNeighbor egress = 103;
+}
+
 message ContainerProfileList {
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
 
@@ -289,7 +271,7 @@ message ContainerProfileList {
 }
 
 message ContainerProfileSpec {
-  // WARNING report fields from ApplicationProfileContainer here
+  // WARNING report the execution/profile fields here
   repeated string architectures = 1;
 
   repeated string capabilities = 2;
@@ -320,12 +302,30 @@ message ContainerProfileSpec {
 
   repeated IdentifiedCallStack identifiedCallStacks = 11;
 
-  // WARNING report fields from NetworkNeighborhoodContainer here, increment proto IDs by 100
+  // WARNING report the network fields here, increment proto IDs by 100
   optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector labelSelector = 101;
 
   repeated NetworkNeighbor ingress = 102;
 
   repeated NetworkNeighbor egress = 103;
+
+  // Container subtype groups for user-authored multi-container documents.
+  // One authored ContainerProfile per pod can describe every container,
+  // keyed by name within its subtype group - the same contract the legacy
+  // ApplicationProfile/NetworkNeighborhood specs expressed. Learned
+  // (agent-written) profiles stay one object per container and leave these
+  // empty.
+  // +patchMergeKey=name
+  // +patchStrategy=merge
+  repeated ContainerProfileContainer containers = 201;
+
+  // +patchMergeKey=name
+  // +patchStrategy=merge
+  repeated ContainerProfileContainer initContainers = 202;
+
+  // +patchMergeKey=name
+  // +patchStrategy=merge
+  repeated ContainerProfileContainer ephemeralContainers = 203;
 }
 
 message ContainerProfileStatus {
@@ -610,6 +610,21 @@ message IgnoreRule {
   optional string fixstate = 2;
 
   optional IgnoreRulePackage package = 3;
+
+  // SourceKind, SourceName and SourceNamespace identify the object that
+  // caused this suppression (e.g. "SecurityException", its name, and
+  // namespace for a namespaced object).
+  optional string sourcekind = 4;
+
+  optional string sourcename = 5;
+
+  optional string sourcenamespace = 6;
+
+  // Justification and ImpactStatement carry the stated reason for the
+  // suppression, in VEX vocabulary.
+  optional string justification = 7;
+
+  optional string impactstatement = 8;
 }
 
 message IgnoreRulePackage {
@@ -963,38 +978,22 @@ message NetworkNeighbor {
   // Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
   // See pkg/registry/file/networkmatch for matcher semantics.
   repeated string ipAddresses = 9;
-}
 
-// NetworkNeighborhood represents a list of network communications for a specific workload.
-message NetworkNeighborhood {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
+  // ServiceRefNamespace and ServiceRefName reference a single Service; the
+  // resolver expands it to that Service's ClusterIP(s) and backing endpoint
+  // IPs. Portable (a name, resolved per-cluster) and narrow, unlike a
+  // serviceCIDR ipAddresses entry. See k8sstormcenter/node-agent#92.
+  optional string serviceRefNamespace = 10;
 
-  optional NetworkNeighborhoodSpec spec = 2;
-}
+  optional string serviceRefName = 11;
 
-message NetworkNeighborhoodContainer {
-  optional string name = 1;
+  // ServiceSelector selects Services by label, resolved like ServiceRef.
+  optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector serviceSelector = 12;
 
-  repeated NetworkNeighbor ingress = 2;
-
-  repeated NetworkNeighbor egress = 3;
-}
-
-// NetworkNeighborhoodList is a list of NetworkNeighborhoods.
-message NetworkNeighborhoodList {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
-
-  repeated NetworkNeighborhood items = 2;
-}
-
-message NetworkNeighborhoodSpec {
-  optional .k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector labelSelector = 3;
-
-  repeated NetworkNeighborhoodContainer containers = 4;
-
-  repeated NetworkNeighborhoodContainer initContainers = 5;
-
-  repeated NetworkNeighborhoodContainer ephemeralContainers = 6;
+  // Entity is a reserved peer identity not backed by a Service object.
+  // Supported value: "host" (node InternalIP + CNI gateway) — kubelet/health
+  // probes and node-sourced traffic.
+  optional string entity = 13;
 }
 
 message NetworkPolicy {
@@ -1247,6 +1246,11 @@ message SBOMSyftSpec {
 
 // SBOMSyftStatus is the status of a Syft SBOM.
 message SBOMSyftStatus {
+  optional string status = 1;
+
+  optional string statusReason = 2;
+
+  optional string limit = 3;
 }
 
 // SPDXMeta describes metadata about an SPDX-formatted SBOM
@@ -1772,6 +1776,12 @@ message WorkloadConfigurationScanList {
   repeated WorkloadConfigurationScan items = 2;
 }
 
+// WorkloadConfigurationScanMeta contains producer-supplied metadata about a
+// workload configuration scan report.
+message WorkloadConfigurationScanMeta {
+  optional ReportMeta report = 1;
+}
+
 message WorkloadConfigurationScanSeveritiesSummary {
   optional int64 critical = 1;
 
@@ -1788,6 +1798,12 @@ message WorkloadConfigurationScanSpec {
   map<string, ScannedControl> controls = 2;
 
   repeated WorkloadScanRelatedObject relatedObjects = 3;
+
+  // Metadata contains producer-supplied metadata about this scan report.
+  // +optional
+  // Field 4 preserves the existing wire layout: fields 2 and 3 are stable,
+  // while field 1 was unused when protobuf support was introduced.
+  optional WorkloadConfigurationScanMeta metadata = 4;
 }
 
 // WorkloadConfigurationScanSummary is a summary of a WorkloadConfigurationScan

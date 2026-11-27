@@ -1,0 +1,14 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "serviceaccount-default",
+      "namespace": "restricted"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RBAC_DENIED",
+    "message": "workloadconfigurationscans.spdx.softwarecomposition.kubescape.io \"serviceaccount-default\" is forbidden: User \"system:serviceaccount:kagent:agent\" cannot get resource \"workloadconfigurationscans\" in API group \"spdx.softwarecomposition.kubescape.io\" in the namespace \"restricted\""
+  }
+}

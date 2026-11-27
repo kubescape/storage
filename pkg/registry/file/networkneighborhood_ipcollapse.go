@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/registry/file/dynamicpathdetector"
 	"go4.org/netipx"
@@ -14,6 +15,39 @@ import (
 )
 
 const ipCollapseFieldSep = "\x00"
+
+// deflateNetworkNeighbors merges NetworkNeighbor entries on Identifier plus
+// the service/entity selector fields (DNSNames deduplicated, Ports merged on
+// Name), then collapses groups of entries differing only by IP into
+// CIDR-bearing entries once their count exceeds
+// settings.NetworkIPGroupThreshold (see collapseIPGroups). The second pass is a
+// fixpoint, so repeated saves are idempotent. Shared by the container profile
+// deflate path.
+func deflateNetworkNeighbors(in []softwarecomposition.NetworkNeighbor, settings dynamicpathdetector.CollapseSettings) []softwarecomposition.NetworkNeighbor {
+	if in == nil {
+		return nil
+	}
+	out := make([]softwarecomposition.NetworkNeighbor, 0)
+	seen := map[string]int{}
+	toDeflate := mapset.NewThreadUnsafeSet[int]()
+	for _, item := range in {
+		if index, ok := seen[neighborMergeKey(item)]; ok {
+			out[index].DNSNames = append(out[index].DNSNames, item.DNSNames...)
+			out[index].IPAddresses = append(out[index].IPAddresses, item.IPAddresses...)
+			out[index].Ports = append(out[index].Ports, item.Ports...)
+			toDeflate.Add(index)
+		} else {
+			out = append(out, item)
+			seen[neighborMergeKey(item)] = len(out) - 1 // index of the appended item
+		}
+	}
+	for _, i := range mapset.Sorted(toDeflate) {
+		out[i].DNSNames = DeflateSortString(out[i].DNSNames)
+		out[i].IPAddresses = DeflateSortString(out[i].IPAddresses)
+		out[i].Ports = DeflateStringer(out[i].Ports)
+	}
+	return collapseIPGroups(out, settings)
+}
 
 // collapseIPGroups aggregates NetworkNeighbor entries that differ only by IP
 // into a small number of CIDR-bearing entries. Entries are grouped by
@@ -32,6 +66,30 @@ const ipCollapseFieldSep = "\x00"
 func collapseIPGroups(entries []softwarecomposition.NetworkNeighbor, settings dynamicpathdetector.CollapseSettings) []softwarecomposition.NetworkNeighbor {
 	if entries == nil {
 		return nil
+	}
+
+	// serviceRef/serviceSelector/entity neighbors carry no aggregatable IPs and
+	// are keyed on none of the group fields; the group rebuild below re-emits
+	// only IP/DNS/selector fields, so collapsing one would silently drop its
+	// serviceRef/entity. Hold such neighbors out of the collapse entirely.
+	var held []softwarecomposition.NetworkNeighbor
+	hasServiceFields := false
+	for i := range entries {
+		if e := &entries[i]; e.ServiceRefNamespace != "" || e.ServiceRefName != "" || e.ServiceSelector != nil || e.Entity != "" {
+			hasServiceFields = true
+			break
+		}
+	}
+	if hasServiceFields {
+		var toCollapse []softwarecomposition.NetworkNeighbor
+		for _, e := range entries {
+			if e.ServiceRefNamespace != "" || e.ServiceRefName != "" || e.ServiceSelector != nil || e.Entity != "" {
+				held = append(held, e)
+			} else {
+				toCollapse = append(toCollapse, e)
+			}
+		}
+		entries = toCollapse
 	}
 
 	threshold := settings.NetworkIPGroupThreshold
@@ -124,7 +182,7 @@ func collapseIPGroups(entries []softwarecomposition.NetworkNeighbor, settings dy
 			})
 		}
 	}
-	return out
+	return append(out, held...)
 }
 
 // classifyGroupAddresses splits a group's address values into aggregatable IPv4
@@ -309,6 +367,32 @@ func splitToFloor(p netip.Prefix, floorBits int) []string {
 		child = netip.PrefixFrom(next, floorBits).Masked()
 	}
 	return out
+}
+
+// neighborMergeKey is the identity the Identifier-merge pass dedups on. The
+// agent's Identifier hash predates the service/entity selector fields and does
+// not cover them, so distinct serviceRef/serviceSelector/entity neighbors —
+// whose IP/DNS/selector hash inputs are all empty — collide on Identifier
+// alone; merging them would keep only the first entry's service fields and
+// silently graft the others' ports onto it.
+// neighborMergeKey says which neighbors are the same peer. The agent's
+// Identifier hashes Type, IPAddress, DNS and the selectors, so learned entries
+// with one Identifier agree on those anyway; a hand-written profile can leave
+// identifier empty or repeat it, so the key includes them too. Only DNSNames,
+// IPAddresses and Ports are merged.
+func neighborMergeKey(n softwarecomposition.NetworkNeighbor) string {
+	return strings.Join([]string{
+		n.Identifier,
+		string(n.Type),
+		n.IPAddress,
+		n.DNS,
+		metav1.FormatLabelSelector(n.NamespaceSelector),
+		metav1.FormatLabelSelector(n.PodSelector),
+		n.ServiceRefNamespace,
+		n.ServiceRefName,
+		metav1.FormatLabelSelector(n.ServiceSelector),
+		n.Entity,
+	}, ipCollapseFieldSep)
 }
 
 func neighborGroupKey(n softwarecomposition.NetworkNeighbor) string {

@@ -1,0 +1,16 @@
+{
+  "call": {
+    "name": "get_container_profile",
+    "arguments": {
+      "namespace": "kubescape"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "profile_name is required",
+    "details": {
+      "argument": "profile_name"
+    }
+  }
+}

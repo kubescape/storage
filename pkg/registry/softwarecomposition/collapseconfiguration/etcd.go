@@ -29,11 +29,11 @@ import (
 // NewREST returns a RESTStorage object that exposes CollapseConfiguration
 // resources. The CRD is cluster-scoped (NamespaceScoped() == false in
 // strategy.go) and is normally read by the storage server's deflate path
-// at deflateApplicationProfileContainer / DeflateContainerProfileSpec time.
+// at DeflateContainerProfileSpec time.
 func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter generic.RESTOptionsGetter) (*registry.REST, error) {
 	strategy := NewStrategy(scheme)
 
-	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: nil, Storage: storageImpl}
+	dryRunnableStorage := genericregistry.DryRunnableStorage{Codec: registry.NewCodec(scheme), Storage: storageImpl}
 
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &softwarecomposition.CollapseConfiguration{} },

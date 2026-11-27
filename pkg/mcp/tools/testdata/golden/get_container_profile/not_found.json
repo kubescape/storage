@@ -1,0 +1,13 @@
+{
+  "call": {
+    "name": "get_container_profile",
+    "arguments": {
+      "profile_name": "replicaset-operator-55df98fc6d"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "containerprofiles.spdx.softwarecomposition.kubescape.io \"replicaset-operator-55df98fc6d\" not found"
+  }
+}

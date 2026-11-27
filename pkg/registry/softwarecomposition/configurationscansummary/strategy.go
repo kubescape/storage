@@ -68,11 +68,11 @@ func (ConfigurationScanStrategy) WarningsOnCreate(_ context.Context, _ runtime.O
 	return nil
 }
 
-func (ConfigurationScanStrategy) AllowCreateOnUpdate() bool {
+func (ConfigurationScanStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (ConfigurationScanStrategy) AllowUnconditionalUpdate() bool {
+func (ConfigurationScanStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

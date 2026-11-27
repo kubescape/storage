@@ -1,0 +1,92 @@
+apiVersion: kubescape.io/v1alpha1
+kind: SandboxPolicy
+metadata:
+  name: agent-runner
+  namespace: agents
+spec:
+  selector:
+    podSelector:
+      matchLabels: {app: agent-runner}
+      matchExpressions: [{key: sandbox, operator: Exists}]
+  containers: ["*", init-tools]
+  mode: audit
+  rootRole: agent
+  sources:
+    - containerProfile: {name: agent-runner-6d9f}
+      include: [execs, opens, egress, syscalls, capabilities]
+  classes:
+    pathClasses: {agentConfig: ["/etc/agent/**"]}
+    destClasses: {approved: ["10.0.0.0/8", "api.example.com"]}
+  exec:
+    default: deny
+    rules:
+      - name: image-tools
+        actor:
+          path: ["/usr/bin/python*"]
+          fromImage: true
+          ancestor: {path: ["/opt/agent"], depth: 3}
+          role: [agent]
+          uid: [1000]
+          container: [runner]
+        target: {path: ["/opt/tool"], fromImage: true, setRole: tool}
+        action: allow
+        origin: catalog/A3
+      - name: bypass-tripwire
+        target:
+          argv: {contains: ["--yolo"], prefix: ["python"], stdinIsPipe: false}
+          fsType: [tmpfs, memfd, deleted]
+        action: deny
+        mode: audit
+        description: Audit a bypass attempt
+  file:
+    defaultByAccess: {read: allow, write: deny, create: deny, delete: deny, rename: deny, chmod: deny, execMap: allow}
+    rules:
+      - name: workspace-writes
+        target: {path: ["/workspace/**"], access: [write, create, delete, rename]}
+        action: allow
+      - name: self-modification
+        target: {pathClass: [agentConfig], fromImage: false, access: [write, chmod, execMap]}
+        action: deny
+  network:
+    default: {egress: deny, listen: deny}
+    rules:
+      - name: approved-egress
+        target:
+          cidr: ["10.0.0.0/8", "::1/128"]
+          ports: [443, "8000-8080"]
+          proto: [tcp, udp]
+          dnsName: ["api.example.com"]
+          destClass: [approved]
+          direction: egress
+        action: allow
+      - name: loopback-listen
+        target: {cidr: ["127.0.0.0/8"], direction: listen}
+        action: allow
+  privilege:
+    default: deny
+    rules:
+      - name: no-new-namespaces
+        target:
+          syscall: [unshare, setns, clone, clone3]
+          flags: [CLONE_NEWUSER, CLONE_NEWNS]
+        action: deny
+        mode: audit
+      - name: no-admin-capability
+        target: {capability: [SYS_ADMIN]}
+        action: deny
+        mode: audit
+      - name: no-host-mounts
+        target: {mountFsType: [proc, tmpfs]}
+        action: deny
+      - name: no-runtime-socket
+        target: {pathClass: [containerRuntimeSocket, hostDevices]}
+        action: deny
+  identity:
+    default: allow
+    rules:
+      - name: identity-no-imds
+        target: {imds: true}
+        action: deny
+      - name: no-environ-scrape
+        target: {envRead: true}
+        action: deny

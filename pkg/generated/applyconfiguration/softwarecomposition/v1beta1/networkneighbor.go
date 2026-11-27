@@ -41,7 +41,11 @@ type NetworkNeighborApplyConfiguration struct {
 	// IPAddresses is the v0.0.2 list-form replacement for IPAddress.
 	// Each entry MAY be a literal IP, a CIDR (a.b.c.d/n), or the "*" sentinel.
 	// See pkg/registry/file/networkmatch for matcher semantics.
-	IPAddresses []string `json:"ipAddresses,omitempty"`
+	IPAddresses         []string                            `json:"ipAddresses,omitempty"`
+	ServiceRefNamespace *string                             `json:"serviceRefNamespace,omitempty"`
+	ServiceRefName      *string                             `json:"serviceRefName,omitempty"`
+	ServiceSelector     *v1.LabelSelectorApplyConfiguration `json:"serviceSelector,omitempty"`
+	Entity              *string                             `json:"entity,omitempty"`
 }
 
 // NetworkNeighborApplyConfiguration constructs a declarative configuration of the NetworkNeighbor type for use with
@@ -128,5 +132,37 @@ func (b *NetworkNeighborApplyConfiguration) WithIPAddresses(values ...string) *N
 	for i := range values {
 		b.IPAddresses = append(b.IPAddresses, values[i])
 	}
+	return b
+}
+
+// WithServiceRefNamespace sets the ServiceRefNamespace field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceRefNamespace field is set to the value of the last call.
+func (b *NetworkNeighborApplyConfiguration) WithServiceRefNamespace(value string) *NetworkNeighborApplyConfiguration {
+	b.ServiceRefNamespace = &value
+	return b
+}
+
+// WithServiceRefName sets the ServiceRefName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceRefName field is set to the value of the last call.
+func (b *NetworkNeighborApplyConfiguration) WithServiceRefName(value string) *NetworkNeighborApplyConfiguration {
+	b.ServiceRefName = &value
+	return b
+}
+
+// WithServiceSelector sets the ServiceSelector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceSelector field is set to the value of the last call.
+func (b *NetworkNeighborApplyConfiguration) WithServiceSelector(value *v1.LabelSelectorApplyConfiguration) *NetworkNeighborApplyConfiguration {
+	b.ServiceSelector = value
+	return b
+}
+
+// WithEntity sets the Entity field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Entity field is set to the value of the last call.
+func (b *NetworkNeighborApplyConfiguration) WithEntity(value string) *NetworkNeighborApplyConfiguration {
+	b.Entity = &value
 	return b
 }

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strings"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/kubescape/go-logger"
 	loggerhelpers "github.com/kubescape/go-logger/helpers"
 	types "github.com/kubescape/storage/pkg/apis/softwarecomposition"
@@ -284,20 +284,19 @@ func buildEndpointKey(endpoint string, direction consts.NetworkDirection, intern
 }
 
 func mergeHeaders(existing, new *types.HTTPEndpoint) {
-	existingHeaders, err := existing.GetHeaders()
+	existingHeaders, err := endpointHeaders(existing)
 	if err != nil {
 		return
 	}
 
-	newHeaders, err := new.GetHeaders()
-	if err != nil {
+	newHeaders, err := endpointHeaders(new)
+	if err != nil || len(newHeaders) == 0 {
 		return
 	}
 
 	for k, v := range newHeaders {
 		if _, exists := existingHeaders[k]; exists {
-			set := mapset.NewSet[string](append(existingHeaders[k], v...)...)
-			existingHeaders[k] = set.ToSlice()
+			existingHeaders[k] = mergeHeaderValues(existingHeaders[k], v)
 		} else {
 			existingHeaders[k] = v
 		}
@@ -315,6 +314,34 @@ func mergeHeaders(existing, new *types.HTTPEndpoint) {
 	}
 
 	existing.Headers = rawJSON
+}
+
+// mergeHeaderValues returns the distinct values of both lists, sorted. The
+// merged headers are written into the stored profile, so their order must not
+// depend on map iteration: a set's slice would make the same merge serialize
+// differently every time, and an unchanged profile look changed on each save.
+func mergeHeaderValues(existing, added []string) []string {
+	merged := append(slices.Clone(existing), added...)
+	slices.Sort(merged)
+	return slices.Compact(merged)
+}
+
+// endpointHeaders returns the headers of an endpoint as a map that can be
+// added to. An endpoint without headers, or with JSON null as its headers,
+// has none: GetHeaders fails on the first and returns a nil map for the
+// second, which made the merge drop the other endpoint's headers or panic.
+func endpointHeaders(e *types.HTTPEndpoint) (map[string][]string, error) {
+	if len(e.Headers) == 0 {
+		return map[string][]string{}, nil
+	}
+	headers, err := e.GetHeaders()
+	if err != nil {
+		return nil, err
+	}
+	if headers == nil {
+		headers = map[string][]string{}
+	}
+	return headers, nil
 }
 
 func convertPointerToValueSlice(m []*types.HTTPEndpoint) []types.HTTPEndpoint {

@@ -1,0 +1,105 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "manifest_name": "deployment-web",
+      "min_severity": "High",
+      "namespace": "default",
+      "status": "failed"
+    }
+  },
+  "isError": false,
+  "response": {
+    "metadata": {
+      "name": "deployment-web",
+      "namespace": "default",
+      "labels": {
+        "kubescape.io/workload-api-group": "apps",
+        "kubescape.io/workload-api-version": "v1",
+        "kubescape.io/workload-kind": "Deployment",
+        "kubescape.io/workload-name": "web",
+        "kubescape.io/workload-namespace": "default"
+      },
+      "annotations": {
+        "kubescape.io/report-created-at": "2026-10-23T13:48:29.717251387Z",
+        "kubescape.io/wlid": "wlid://cluster-ks-dev/namespace-default/deployment-web"
+      }
+    },
+    "spec": {
+      "controls": {
+        "C-0270": {
+          "controlID": "C-0270",
+          "name": "Ensure CPU limits are set",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "resources-cpu-limits",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.cpu",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        },
+        "C-0271": {
+          "controlID": "C-0271",
+          "name": "Ensure memory limits are set",
+          "severity": {
+            "severity": "High",
+            "scoreFactor": 8
+          },
+          "status": {
+            "status": "failed",
+            "subStatus": "",
+            "info": ""
+          },
+          "rules": [
+            {
+              "name": "resources-memory-limits",
+              "status": {
+                "status": "failed",
+                "subStatus": ""
+              },
+              "controlConfigurations": null,
+              "paths": [
+                {
+                  "failedPath": "",
+                  "fixPath": "spec.template.spec.containers[0].resources.limits.memory",
+                  "fixPathValue": "YOUR_VALUE",
+                  "fixCommand": ""
+                }
+              ],
+              "appliedIgnoreRules": null,
+              "relatedResourcesIDs": null
+            }
+          ]
+        }
+      },
+      "relatedObjects": null,
+      "metadata": {
+        "report": {
+          "createdAt": "2026-10-23T13:48:29Z"
+        }
+      }
+    }
+  }
+}

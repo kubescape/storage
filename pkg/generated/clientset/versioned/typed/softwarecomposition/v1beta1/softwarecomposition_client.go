@@ -28,13 +28,11 @@ import (
 
 type SpdxV1beta1Interface interface {
 	RESTClient() rest.Interface
-	ApplicationProfilesGetter
 	CollapseConfigurationsGetter
 	ConfigurationScanSummariesGetter
 	ContainerProfilesGetter
 	GeneratedNetworkPoliciesGetter
 	KnownServersGetter
-	NetworkNeighborhoodsGetter
 	OpenVulnerabilityExchangeContainersGetter
 	SBOMSyftsGetter
 	SBOMSyftFilteredsGetter
@@ -49,10 +47,6 @@ type SpdxV1beta1Interface interface {
 // SpdxV1beta1Client is used to interact with features provided by the spdx.softwarecomposition.kubescape.io group.
 type SpdxV1beta1Client struct {
 	restClient rest.Interface
-}
-
-func (c *SpdxV1beta1Client) ApplicationProfiles(namespace string) ApplicationProfileInterface {
-	return newApplicationProfiles(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) CollapseConfigurations() CollapseConfigurationInterface {
@@ -73,10 +67,6 @@ func (c *SpdxV1beta1Client) GeneratedNetworkPolicies(namespace string) Generated
 
 func (c *SpdxV1beta1Client) KnownServers(namespace string) KnownServerInterface {
 	return newKnownServers(c, namespace)
-}
-
-func (c *SpdxV1beta1Client) NetworkNeighborhoods(namespace string) NetworkNeighborhoodInterface {
-	return newNetworkNeighborhoods(c, namespace)
 }
 
 func (c *SpdxV1beta1Client) OpenVulnerabilityExchangeContainers(namespace string) OpenVulnerabilityExchangeContainerInterface {

@@ -1,0 +1,58 @@
+{
+  "call": {
+    "name": "list_vulnerabilities_in_manifest",
+    "arguments": {
+      "limit": 3,
+      "manifest_name": "nginx-32fdf9",
+      "namespace": "kubescape",
+      "offset": 3
+    }
+  },
+  "isError": false,
+  "response": {
+    "total": 8,
+    "returned": 3,
+    "truncated": true,
+    "next_offset": 6,
+    "vulnerabilities": [
+      {
+        "id": "CVE-2017-1000408",
+        "severity": "High",
+        "package": "libc6",
+        "version": "2.24-11+deb9u3",
+        "package_type": "deb",
+        "purl": "pkg:deb/debian/libc6@2.24-11+deb9u3?arch=amd64\u0026upstream=glibc\u0026distro=debian-9",
+        "fix": {
+          "versions": [
+            "2.24-11+deb9u4"
+          ],
+          "state": "fixed"
+        }
+      },
+      {
+        "id": "CVE-2022-0891",
+        "severity": "High",
+        "package": "libtiff5",
+        "version": "4.0.8-2+deb9u2",
+        "package_type": "deb",
+        "purl": "pkg:deb/debian/libtiff5@4.0.8-2+deb9u2?arch=amd64\u0026upstream=tiff\u0026distro=debian-9",
+        "fix": {
+          "versions": [],
+          "state": "not-fixed"
+        }
+      },
+      {
+        "id": "CVE-2016-10739",
+        "severity": "Medium",
+        "package": "libc6",
+        "version": "2.24-11+deb9u3",
+        "package_type": "deb",
+        "purl": "pkg:deb/debian/libc6@2.24-11+deb9u3?arch=amd64\u0026upstream=glibc\u0026distro=debian-9",
+        "fix": {
+          "versions": [],
+          "state": "wont-fix"
+        }
+      }
+    ]
+  }
+}

@@ -18,14 +18,6 @@ limitations under the License.
 
 package v1beta1
 
-// ApplicationProfileListerExpansion allows custom methods to be added to
-// ApplicationProfileLister.
-type ApplicationProfileListerExpansion interface{}
-
-// ApplicationProfileNamespaceListerExpansion allows custom methods to be added to
-// ApplicationProfileNamespaceLister.
-type ApplicationProfileNamespaceListerExpansion interface{}
-
 // CollapseConfigurationListerExpansion allows custom methods to be added to
 // CollapseConfigurationLister.
 type CollapseConfigurationListerExpansion interface{}
@@ -61,14 +53,6 @@ type KnownServerListerExpansion interface{}
 // KnownServerNamespaceListerExpansion allows custom methods to be added to
 // KnownServerNamespaceLister.
 type KnownServerNamespaceListerExpansion interface{}
-
-// NetworkNeighborhoodListerExpansion allows custom methods to be added to
-// NetworkNeighborhoodLister.
-type NetworkNeighborhoodListerExpansion interface{}
-
-// NetworkNeighborhoodNamespaceListerExpansion allows custom methods to be added to
-// NetworkNeighborhoodNamespaceLister.
-type NetworkNeighborhoodNamespaceListerExpansion interface{}
 
 // OpenVulnerabilityExchangeContainerListerExpansion allows custom methods to be added to
 // OpenVulnerabilityExchangeContainerLister.
