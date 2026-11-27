@@ -24,12 +24,52 @@ type kindQueue struct {
 type QueueManager struct {
 	queues sync.Map
 	cfg    *config.Config
+	// served holds the resources that get a queue of their own. Anything else shares one queue, so request input cannot add queues.
+	served     atomic.Pointer[map[string]struct{}]
+	shared     *kindQueue
+	sharedOnce sync.Once
 }
+
+// sharedQueueKind names the shared queue in logs. It is not a key of queues.
+const sharedQueueKind = "other"
 
 func NewQueueManager(cfg *config.Config) *QueueManager {
 	return &QueueManager{
 		cfg: cfg,
 	}
+}
+
+// SetServedResources names the resources that the server serves. Keys of a REST storage map are accepted as they are, the subresource part is dropped.
+// Until it is called, only the kinds in cfg.KindQueues have a queue of their own.
+func (qm *QueueManager) SetServedResources(resources []string) {
+	served := make(map[string]struct{}, len(resources))
+	for _, resource := range resources {
+		resource, _, _ = strings.Cut(resource, "/")
+		served[resource] = struct{}{}
+	}
+	qm.served.Store(&served)
+}
+
+func (qm *QueueManager) hasOwnQueue(kind string) bool {
+	if _, configured := qm.cfg.KindQueues[kind]; configured {
+		return true
+	}
+	served := qm.served.Load()
+	if served == nil {
+		return false
+	}
+	_, ok := (*served)[kind]
+	return ok
+}
+
+func (qm *QueueManager) queueFor(kind string) *kindQueue {
+	if qm.hasOwnQueue(kind) {
+		return qm.getOrCreateQueue(kind)
+	}
+	qm.sharedOnce.Do(func() {
+		qm.shared = qm.newQueue(sharedQueueKind)
+	})
+	return qm.shared
 }
 
 func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
@@ -38,7 +78,17 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 		return q.(*kindQueue)
 	}
 
-	// Use a double-check pattern with sync.Map
+	// Store the new queue if it doesn't already exist
+	newQueue := qm.newQueue(kind)
+	actual, loaded := qm.queues.LoadOrStore(kind, newQueue)
+	if loaded {
+		// Another goroutine created the queue, discard the new one
+		return actual.(*kindQueue)
+	}
+	return newQueue
+}
+
+func (qm *QueueManager) newQueue(kind string) *kindQueue {
 	kcfg, ok := qm.cfg.KindQueues[kind]
 	queueLen := qm.cfg.DefaultQueueLength
 	workerCount := qm.cfg.DefaultWorkerCount
@@ -55,21 +105,12 @@ func (qm *QueueManager) getOrCreateQueue(kind string) *kindQueue {
 		}
 	}
 
-	newQueue := &kindQueue{
+	logger.L().Info("QueueManager - queue configuration", helpers.String("kind", kind), helpers.Int("queueLength", queueLen), helpers.Int("workerCount", workerCount), helpers.Int("maxObjectSize", maxObjectSize))
+	return &kindQueue{
 		maxObjectSize: maxObjectSize,
 		maxQueueLen:   uint64(queueLen),
 		workerSem:     make(chan struct{}, workerCount),
 	}
-
-	// Store the new queue if it doesn't already exist
-	actual, _ := qm.queues.LoadOrStore(kind, newQueue)
-	if actual != newQueue {
-		// Another goroutine created the queue, discard the new one
-		return actual.(*kindQueue)
-	}
-
-	logger.L().Info("QueueManager - queue configuration", helpers.String("kind", kind), helpers.Int("queueLength", queueLen), helpers.Int("workerCount", workerCount), helpers.Int("maxObjectSize", maxObjectSize))
-	return newQueue
 }
 
 func extractKindAndVerb(r *http.Request) (kind, verb string) {
@@ -142,7 +183,7 @@ func (qm *QueueManager) QueueHandler(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		q := qm.getOrCreateQueue(kind)
+		q := qm.queueFor(kind)
 		// Enforce max object size if applicable (Content-Length header)
 		if q.maxObjectSize > 0 && r.ContentLength > int64(q.maxObjectSize) {
 			logger.L().Warning("QueueManager - request entity too large", helpers.String("path", r.URL.Path),

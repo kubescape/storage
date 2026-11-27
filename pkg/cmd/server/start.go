@@ -83,6 +83,9 @@ type WardleServerOptions struct {
 	// WriteGate is the process's write gate (see apiserver.ExtraConfig); nil
 	// with ContainerProfileSqliteBackend off.
 	WriteGate *file.WriteGate
+
+	// queueManager is set by Config when the queue manager is enabled.
+	queueManager *queuemanager.QueueManager
 }
 
 func WardleVersionToKubeVersion(ver *version.Version) *version.Version {
@@ -288,19 +291,23 @@ func (o *WardleServerOptions) Config() (*apiserver.Config, error) {
 	serverConfig.FeatureGate = o.ComponentGlobalsRegistry.FeatureGateFor(basecompatibility.DefaultKubeComponent)
 	serverConfig.EffectiveVersion = o.ComponentGlobalsRegistry.EffectiveVersionFor(apiserver.WardleComponentName)
 
+	if o.StorageConfig.QueueManagerEnabled {
+		o.queueManager = queuemanager.NewQueueManager(&o.StorageConfig)
+	}
 	serverConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) http.Handler {
-		handler := genericapiserver.DefaultBuildHandlerChain(apiHandler, c) // Default handler chain
+		// These wrap apiHandler, inside the default chain, so that they only see requests that passed
+		// authentication and authorization and that carry a RequestInfo.
+		handler := apiHandler
 		if o.StorageConfig.QueueProcessingStatsPrint {
 			handler = stats.Handler(handler) // Attach stats collector
 		}
 		if o.StorageConfig.QueueTimeoutPrint {
 			handler = queuemanager.TimeoutLoggerMiddleware(handler, o.StorageConfig.QueueTimeout) // Attach timeout logger
 		}
-		if o.StorageConfig.QueueManagerEnabled {
-			queueManager := queuemanager.NewQueueManager(&o.StorageConfig) // Attach queue manager
-			handler = queueManager.QueueHandler(handler)                   // Attach queue manager
+		if o.queueManager != nil {
+			handler = o.queueManager.QueueHandler(handler) // Attach queue manager
 		}
-		return handler
+		return genericapiserver.DefaultBuildHandlerChain(handler, c) // Default handler chain
 	}
 
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
@@ -346,6 +353,10 @@ func (o WardleServerOptions) RunWardleServer(ctx context.Context) error {
 	server, err := c.Complete().New()
 	if err != nil {
 		return err
+	}
+
+	if o.queueManager != nil {
+		o.queueManager.SetServedResources(server.ServedResources)
 	}
 
 	fullHandlerChain := server.GenericAPIServer.Handler.FullHandlerChain
