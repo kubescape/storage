@@ -1183,7 +1183,19 @@ const (
 
 // get is a helper function for Get to allow calls without locks from other methods that already have them
 func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, opts storage.GetOptions, objPtr runtime.Object, lockState getLockState) error {
-	p := filepath.Join(s.root, key)
+	if strings.HasPrefix(key, sbomSyftKeyPrefix) {
+		_, _, _, _, namespace, name := K8sPathToKeys(key)
+		// A scoped alias can find the same SQLite row but points to a different
+		// payload and lock. Reject it before reading metadata or the payload.
+		if key != sbomSyftKey(namespace, name) || name == "" ||
+			utils.PathSegmentProblem(namespace) != "" || utils.PathSegmentProblem(name) != "" {
+			logger.L().Ctx(ctx).Warning("Get - invalid SBOMSyft key", helpers.String("key", key))
+			if opts.IgnoreNotFound {
+				return runtime.SetZeroValue(objPtr)
+			}
+			return storage.NewKeyNotFoundError(key, 0)
+		}
+	}
 	if opts.ResourceVersion == softwarecomposition.ResourceVersionMetadata {
 		// get metadata from SQLite
 		metadata, err := ReadMetadata(conn, key)
@@ -1228,6 +1240,7 @@ func (s *StorageImpl) get(ctx context.Context, conn *sqlite.Conn, key string, op
 		}()
 	}
 
+	p := filepath.Join(s.root, key)
 	payloadFile, err := s.openPayloadFileWithFallback(makePayloadPath(p), os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, afero.ErrFileNotFound) {
