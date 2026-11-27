@@ -7,6 +7,7 @@ import (
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
 	"github.com/kubescape/storage/pkg/metrics"
+	"github.com/kubescape/storage/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,8 +25,8 @@ type listGetter interface {
 }
 
 // reader implements tools.Reader on storage's REST storage, in process. Every
-// read is first checked against the caller's RBAC, with the same verb,
-// resource, namespace and name as the matching kubectl call.
+// read validates its namespace and checks the caller's RBAC with the same
+// verb, resource, namespace and name as the matching kubectl call.
 type reader struct {
 	authorizer             authorizer.Authorizer
 	scheme                 *runtime.Scheme
@@ -180,10 +181,12 @@ func readContext(ctx context.Context, verb, resource, namespace, name string) co
 	})
 }
 
-// authorize returns a Forbidden error unless the caller may do verb on
-// resource in namespace (and name, for a single object). It records the
+// authorize validates the namespace before checking RBAC and recording the
 // decision for the call's audit line.
 func (r *reader) authorize(ctx context.Context, verb, resource, namespace, name string) error {
+	if err := utils.ValidateNamespaceName(namespace); err != nil {
+		return err
+	}
 	u, ok := genericapirequest.UserFrom(ctx)
 	if !ok {
 		return apierrors.NewUnauthorized("no user in the request")
