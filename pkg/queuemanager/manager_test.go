@@ -181,7 +181,6 @@ func TestQueueHandler_NonResourceBypass(t *testing.T) {
 	release()
 }
 
-
 func queueCount(qm *QueueManager) int {
 	count := 0
 	qm.queues.Range(func(_, _ any) bool {
