@@ -18,6 +18,8 @@ package apiserver
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/kubescape/storage/pkg/apiauth"
@@ -115,6 +117,8 @@ type Config struct {
 // WardleServer contains state for a Kubernetes cluster master/api server.
 type WardleServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
+	// ServedResources are the keys of the installed REST storage map, subresources included.
+	ServedResources []string
 }
 
 type completedConfig struct {
@@ -420,6 +424,7 @@ func (c completedConfig) New() (*WardleServer, error) {
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err
 	}
+	s.ServedResources = slices.Sorted(maps.Keys(apiGroupInfo.VersionedResourcesStorageMap["v1beta1"]))
 
 	return s, nil
 }
