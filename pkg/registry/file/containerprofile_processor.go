@@ -296,18 +296,8 @@ func (a *ContainerProfileProcessor) PreSave(ctx context.Context, object runtime.
 	// get files from corresponding sbom
 	sbomName, err := names.ImageInfoToSlug(profile.Spec.ImageTag, profile.Spec.ImageID)
 	if err == nil {
-		id := armotypes.ProfileIdentifier{
-			ProfileScope: armotypes.ProfileScope{
-				HostType:               a.HostType,
-				Cluster:                profile.Annotations[helpers.ClusterMetadataKey],
-				Namespace:              a.DefaultNamespace, // sbom is stored in default namespace
-				CloudAccountIdentifier: profile.Annotations[helpers.CloudAccountIdentifierMetadataKey],
-				Region:                 profile.Annotations[helpers.RegionMetadataKey],
-				HostID:                 profile.Annotations[helpers.HostIDMetadataKey],
-			},
-			Name: sbomName,
-		}
-		key := BuildContainerProfileKey(id, "sbomsyfts")
+		// SBOMSyfts are keyed by image in the default namespace.
+		key := sbomSyftKey(a.DefaultNamespace, sbomName)
 		sbom, err := a.ContainerProfileStorage.GetSbom(ctx, key)
 		if err == nil {
 			// fill sbomSet

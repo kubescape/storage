@@ -288,6 +288,12 @@ func K8sKeysToPath(prefix, root, kind, cluster, namespace, name string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s/%s", prefix, root, kind, cluster, namespace, name)
 }
 
+const sbomSyftKeyPrefix = "/" + softwarecomposition.GroupName + "/sbomsyfts/"
+
+func sbomSyftKey(namespace, name string) string {
+	return sbomSyftKeyPrefix + namespace + "/" + name
+}
+
 // K8sClusterScopedKeysToPath builds the storage key for a cluster-scoped
 // resource. Unlike K8sKeysToPath it emits no namespace segment, matching the
 // genericregistry NoNamespaceKeyFunc (<prefix>/<root>/<kind>/<name>) the REST
