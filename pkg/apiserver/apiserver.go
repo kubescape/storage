@@ -247,6 +247,14 @@ func (c completedConfig) New() (*WardleServer, error) {
 		}
 	)
 
+	statusEndpoint := func(f func(*runtime.Scheme, storage.Interface, generic.RESTOptionsGetter) (*registry.StatusREST, error)) rest.Storage {
+		endpoint, err := f(Scheme, storageImpl, c.GenericConfig.RESTOptionsGetter)
+		if err != nil {
+			panic(fmt.Errorf("unable to create status REST storage: %w", err))
+		}
+		return endpoint
+	}
+
 	// Wire the CollapseConfiguration CRD into the live deflate path: both
 	// processors read effective thresholds from CollapseConfiguration/default
 	// (cluster-scoped) on every compaction, falling back to compiled-in
@@ -267,7 +275,9 @@ func (c completedConfig) New() (*WardleServer, error) {
 		"knownservers":                        ep(knownserver.NewREST),
 		"openvulnerabilityexchangecontainers": ep(openvulnerabilityexchange.NewREST),
 		"sbomsyftfiltereds":                   ep(sbomsyftfiltereds.NewREST),
+		"sbomsyftfiltereds/status":            statusEndpoint(sbomsyftfiltereds.NewStatusREST),
 		"sbomsyfts":                           ep(sbomsyfts.NewREST),
+		"sbomsyfts/status":                    statusEndpoint(sbomsyfts.NewStatusREST),
 		"seccompprofiles":                     ep(seccompprofiles.NewREST),
 		"vulnerabilitymanifests":              ep(vmstorage.NewREST),
 		"vulnerabilitymanifestsummaries":      ep(vmsumstorage.NewREST),

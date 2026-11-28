@@ -1246,6 +1246,11 @@ message SBOMSyftSpec {
 
 // SBOMSyftStatus is the status of a Syft SBOM.
 message SBOMSyftStatus {
+  optional string status = 1;
+
+  optional string statusReason = 2;
+
+  optional string limit = 3;
 }
 
 // SPDXMeta describes metadata about an SPDX-formatted SBOM

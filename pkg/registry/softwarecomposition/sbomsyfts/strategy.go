@@ -12,7 +12,9 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 
+	"github.com/kubescape/k8s-interface/instanceidhandler/v1/helpers"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
+	"github.com/kubescape/storage/pkg/utils"
 )
 
 // NewStrategy creates and returns a sbomSyftStrategy instance
@@ -53,10 +55,12 @@ func (SbomSyftStrategy) NamespaceScoped() bool {
 	return true
 }
 
-func (SbomSyftStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
+func (SbomSyftStrategy) PrepareForCreate(_ context.Context, obj runtime.Object) {
+	obj.(*softwarecomposition.SBOMSyft).Status = softwarecomposition.SBOMSyftStatus{}
 }
 
-func (SbomSyftStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
+func (SbomSyftStrategy) PrepareForUpdate(_ context.Context, obj, old runtime.Object) {
+	obj.(*softwarecomposition.SBOMSyft).Status = old.(*softwarecomposition.SBOMSyft).Status
 }
 
 func (SbomSyftStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
@@ -85,5 +89,36 @@ func (SbomSyftStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) f
 
 // WarningsOnUpdate returns warnings for the given update.
 func (SbomSyftStrategy) WarningsOnUpdate(_ context.Context, _, _ runtime.Object) []string {
+	return nil
+}
+
+// SbomSyftStatusStrategy implements behavior for Status subresource
+type SbomSyftStatusStrategy struct {
+	SbomSyftStrategy
+}
+
+// PrepareForUpdate clears fields that are not allowed to be set by end users on update of status
+func (SbomSyftStatusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+	newObj := obj.(*softwarecomposition.SBOMSyft)
+	oldObj := old.(*softwarecomposition.SBOMSyft)
+	// Update is only for status, keep spec unchanged
+	newObj.Spec = oldObj.Spec
+}
+
+// ValidateUpdate is the default update validation for an end user.
+func (SbomSyftStatusStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+	value := obj.(*softwarecomposition.SBOMSyft).Status.Status
+	if value == "" {
+		return nil
+	}
+	if err := utils.ValidateStatusAnnotation(map[string]string{helpers.StatusMetadataKey: value}); err != nil {
+		err.Field = field.NewPath("status", "status").String()
+		return field.ErrorList{err}
+	}
+	return nil
+}
+
+// WarningsOnUpdate returns warnings for the given update.
+func (SbomSyftStatusStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
 	return nil
 }

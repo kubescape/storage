@@ -54,3 +54,13 @@ func NewREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter g
 	}
 	return &registry.REST{Store: store}, nil
 }
+
+// NewStatusREST returns a RESTStorage object that will work against API services for the status subresource.
+func NewStatusREST(scheme *runtime.Scheme, storageImpl storage.Interface, optsGetter generic.RESTOptionsGetter) (*registry.StatusREST, error) {
+	main, err := NewREST(scheme, storageImpl, optsGetter)
+	if err != nil {
+		return nil, err
+	}
+	main.Store.UpdateStrategy = SbomSyftFilteredStatusStrategy{NewStrategy(scheme)}
+	return &registry.StatusREST{Store: main.Store}, nil
+}
