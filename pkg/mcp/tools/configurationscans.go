@@ -16,6 +16,13 @@ import (
 // list_configuration_security_scan_manifests, as in kubescape mcpserver.
 const configurationScansPageSize = 100
 
+// With summary, limit and offset page through the controls; with control_id,
+// through the paths of one control.
+const (
+	defaultControlPageLimit = 100
+	maxControlPageLimit     = 500
+)
+
 // controlStatusFilterValues are the control statuses
 // get_configuration_security_scan_manifest can filter on.
 var controlStatusFilterValues = []string{"failed", "passed", "skipped"}
@@ -29,11 +36,12 @@ var listConfigurationScansTool = readOnlyTool(
 	mcp.WithString("continue",
 		mcp.Description("Optional Kubernetes continuation token for pagination"),
 	),
+	listLimitOption("manifests", configurationScansPageSize),
 )
 
 var getConfigurationScanTool = readOnlyTool(
 	"get_configuration_security_scan_manifest",
-	mcp.WithDescription("Get details of a specific security configuration scan result. Most controls in a result usually passed; set status to \"failed\" to get only the controls that need fixing."),
+	mcp.WithDescription("Get details of a specific security configuration scan result. Most controls in a result usually passed; set status to \"failed\" to get only the controls that need fixing. If the answer is too large, set summary to list the controls without their rules, then set control_id to page through one control's failed paths."),
 	mcp.WithString("namespace",
 		mcp.Description("Namespace of the manifest, as returned by list_configuration_security_scan_manifests (optional, defaults to the namespace in the endpoint's URL)"),
 	),
@@ -47,6 +55,19 @@ var getConfigurationScanTool = readOnlyTool(
 	mcp.WithString("min_severity",
 		mcp.Description("Only return controls at or above this severity: Critical, High, Medium or Low (optional)"),
 	),
+	mcp.WithBoolean("summary",
+		mcp.Description("Return only each control's ID, name, severity and status, without its rules and paths, a page at a time (optional, default false); works with status and min_severity"),
+	),
+	mcp.WithString("control_id",
+		mcp.Description("Return one control, for example C-0017, and a page of its paths (what failed and how to fix it) instead of the whole result (optional; not with status, min_severity or summary)"),
+	),
+	mcp.WithNumber("limit",
+		mcp.Description("With summary: maximum number of controls to return; with control_id: maximum number of paths (optional, default 100, maximum 500)"),
+	),
+	mcp.WithNumber("offset",
+		mcp.Description("With summary or control_id: number of controls or paths to skip; pass the previous response's next_offset to get the next page (optional, default 0)"),
+	),
+	objectVersionOption("scan"),
 )
 
 // The response keeps the field names of kubescape mcpserver's tool. The
@@ -80,7 +101,12 @@ func listConfigurationScans(r Reader, o options) server.ToolHandlerFunc {
 			return toolErr, nil
 		}
 
-		list, err := r.ListWorkloadConfigurationScans(ctx, namespace, metav1.ListOptions{Limit: configurationScansPageSize, Continue: continueToken})
+		limit, toolErr := listLimit(args, configurationScansPageSize)
+		if toolErr != nil {
+			return toolErr, nil
+		}
+
+		list, err := r.ListWorkloadConfigurationScans(ctx, namespace, metav1.ListOptions{Limit: limit, Continue: continueToken})
 		if err != nil {
 			return readError(err)
 		}
@@ -114,11 +140,45 @@ func getConfigurationScan(r Reader) server.ToolHandlerFunc {
 		if toolErr != nil {
 			return toolErr, nil
 		}
+		summary, toolErr := boolArg(args, "summary")
+		if toolErr != nil {
+			return toolErr, nil
+		}
+		controlID, toolErr := stringArg(args, "control_id")
+		if toolErr != nil {
+			return toolErr, nil
+		}
+		version, toolErr := stringArg(args, "object_version")
+		if toolErr != nil {
+			return toolErr, nil
+		}
+		var p page
+		switch {
+		case controlID != "" && (filter.active() || summary):
+			return toolError(ErrCodeInvalidArgument, "control_id returns one control: leave out status, min_severity and summary",
+				map[string]any{"argument": "control_id"}), nil
+		case controlID != "" || summary:
+			if p, toolErr = parsePage(args, defaultControlPageLimit, maxControlPageLimit); toolErr != nil {
+				return toolErr, nil
+			}
+		case args["limit"] != nil || args["offset"] != nil:
+			return toolError(ErrCodeInvalidArgument, "limit and offset need summary or control_id",
+				map[string]any{"argument": "limit"}), nil
+		}
 		scan, err := r.GetWorkloadConfigurationScan(ctx, namespace, name)
 		if err != nil {
 			return readError(err)
 		}
+		if toolErr := checkObjectVersion(version, "configuration scan", scan); toolErr != nil {
+			return toolErr, nil
+		}
+		if controlID != "" {
+			return controlPathsPage(scan, controlID, p)
+		}
 		scan.Spec.Controls = filterScannedControls(scan.Spec.Controls, filter)
+		if summary {
+			return jsonResult(scannedControlsSummary(scan, p))
+		}
 		return jsonResult(scan)
 	}
 }
@@ -187,4 +247,116 @@ func filterScannedControls(controls map[string]v1beta1.ScannedControl, f scanned
 		out[id] = c
 	}
 	return out
+}
+
+// scannedControlSummary is one control of a scan without its rules.
+type scannedControlSummary struct {
+	ControlID string `json:"control_id"`
+	Name      string `json:"name"`
+	Severity  string `json:"severity"`
+	Status    string `json:"status"`
+}
+
+type scannedControlsSummaryResponse struct {
+	Namespace     string `json:"namespace"`
+	ManifestName  string `json:"manifest_name"`
+	ObjectVersion string `json:"object_version,omitempty"`
+	pageInfo
+	Controls []scannedControlSummary `json:"controls"`
+}
+
+// scannedControlsSummary returns a page of the scan's controls without their
+// rules, most severe first, then by control ID.
+func scannedControlsSummary(scan *v1beta1.WorkloadConfigurationScan, p page) scannedControlsSummaryResponse {
+	resp := scannedControlsSummaryResponse{
+		Namespace:     scan.Namespace,
+		ManifestName:  scan.Name,
+		ObjectVersion: objectVersion(scan),
+	}
+	controls := make([]scannedControlSummary, 0, len(scan.Spec.Controls))
+	for id, c := range scan.Spec.Controls {
+		controls = append(controls, scannedControlSummary{
+			ControlID: id,
+			Name:      c.Name,
+			Severity:  c.Severity.Severity,
+			Status:    c.Status.Status,
+		})
+	}
+	slices.SortFunc(controls, func(a, b scannedControlSummary) int {
+		if sa, sb := parseSeverity(a.Severity), parseSeverity(b.Severity); sa != sb {
+			return int(sb) - int(sa)
+		}
+		return strings.Compare(a.ControlID, b.ControlID)
+	})
+	resp.Controls, resp.pageInfo = paginate(controls, p)
+	return resp
+}
+
+// controlRuleSummary is one rule of a control without its paths.
+type controlRuleSummary struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// controlPathEntry is one path of a control: what failed and how to fix it,
+// with the rule that reported it.
+type controlPathEntry struct {
+	Rule string `json:"rule"`
+	v1beta1.RulePath
+}
+
+type controlPathsResponse struct {
+	Namespace     string               `json:"namespace"`
+	ManifestName  string               `json:"manifest_name"`
+	ObjectVersion string               `json:"object_version,omitempty"`
+	ControlID     string               `json:"control_id"`
+	Name          string               `json:"name"`
+	Severity      string               `json:"severity"`
+	Status        string               `json:"status"`
+	Rules         []controlRuleSummary `json:"rules"`
+	pageInfo
+	Paths []controlPathEntry `json:"paths"`
+}
+
+// controlPathsPage returns the control controlID of the scan with a page of
+// its paths, in the order of its rules and then of each rule's paths. The ID
+// is matched ignoring case; an ID not in the scan is RESOURCE_NOT_FOUND.
+func controlPathsPage(scan *v1beta1.WorkloadConfigurationScan, controlID string, p page) (*mcp.CallToolResult, error) {
+	id, c, ok := findScannedControl(scan.Spec.Controls, controlID)
+	if !ok {
+		return toolError(ErrCodeResourceNotFound,
+			fmt.Sprintf("control %q is not in configuration scan %s/%s", controlID, scan.Namespace, scan.Name),
+			map[string]any{"argument": "control_id"}), nil
+	}
+	resp := controlPathsResponse{
+		Namespace:     scan.Namespace,
+		ManifestName:  scan.Name,
+		ObjectVersion: objectVersion(scan),
+		ControlID:     id,
+		Name:          c.Name,
+		Severity:      c.Severity.Severity,
+		Status:        c.Status.Status,
+		Rules:         make([]controlRuleSummary, 0, len(c.Rules)),
+	}
+	var paths []controlPathEntry
+	for _, rule := range c.Rules {
+		resp.Rules = append(resp.Rules, controlRuleSummary{Name: rule.Name, Status: rule.Status.Status})
+		for _, path := range rule.Paths {
+			paths = append(paths, controlPathEntry{Rule: rule.Name, RulePath: path})
+		}
+	}
+	resp.Paths, resp.pageInfo = paginate(paths, p)
+	return jsonResult(resp)
+}
+
+func findScannedControl(controls map[string]v1beta1.ScannedControl, controlID string) (string, v1beta1.ScannedControl, bool) {
+	if c, ok := controls[controlID]; ok {
+		return controlID, c, true
+	}
+	for id, c := range controls {
+		if strings.EqualFold(id, controlID) {
+			return id, c, true
+		}
+	}
+	return "", v1beta1.ScannedControl{}, false
 }

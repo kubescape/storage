@@ -1,0 +1,28 @@
+{
+  "call": {
+    "name": "get_container_profile",
+    "arguments": {
+      "container": "operator",
+      "namespace": "kubescape",
+      "profile_name": "replicaset-operator-55df98fc6d"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "container needs a section",
+    "details": {
+      "argument": "section",
+      "supported_values": [
+        "execs",
+        "opens",
+        "syscalls",
+        "capabilities",
+        "endpoints",
+        "identifiedCallStacks",
+        "ingress",
+        "egress"
+      ]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "limit": 2,
+      "manifest_name": "deployment-web",
+      "namespace": "default",
+      "offset": 2,
+      "summary": true
+    }
+  },
+  "isError": false,
+  "response": {
+    "namespace": "default",
+    "manifest_name": "deployment-web",
+    "total": 15,
+    "returned": 2,
+    "truncated": true,
+    "next_offset": 4,
+    "controls": [
+      {
+        "control_id": "C-0041",
+        "name": "HostNetwork access",
+        "severity": "High",
+        "status": "passed"
+      },
+      {
+        "control_id": "C-0046",
+        "name": "Insecure capabilities",
+        "severity": "High",
+        "status": "passed"
+      }
+    ]
+  }
+}

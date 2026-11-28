@@ -38,7 +38,7 @@ var listVulnerabilitiesInManifestTool = readOnlyTool(
 		mcp.Description("Only return vulnerabilities that have a fixed version (optional, default false)"),
 	),
 	mcp.WithBoolean("include_details",
-		mcp.Description("Include description, CVSS, URLs, advisories and data source for each entry (optional, default false; makes the response much larger)"),
+		mcp.Description("Include description, CVSS, URLs, advisories and data source for each entry, and fix_data_source when the fixed version comes from another source (optional, default false; makes the response much larger)"),
 	),
 	mcp.WithNumber("limit",
 		mcp.Description("Maximum number of entries to return (optional, default 100, maximum 500)"),
@@ -46,6 +46,7 @@ var listVulnerabilitiesInManifestTool = readOnlyTool(
 	mcp.WithNumber("offset",
 		mcp.Description("Number of entries to skip; pass the previous response's next_offset to get the next page (optional, default 0)"),
 	),
+	objectVersionOption("manifest"),
 )
 
 var listVulnerabilityMatchesForCVETool = readOnlyTool(
@@ -68,6 +69,7 @@ var listVulnerabilityMatchesForCVETool = readOnlyTool(
 	mcp.WithNumber("offset",
 		mcp.Description("Number of matches to skip; pass the previous response's next_offset to get the next page (optional, default 0)"),
 	),
+	objectVersionOption("manifest"),
 )
 
 func listVulnerabilitiesInManifest(r Reader) server.ToolHandlerFunc {
@@ -81,11 +83,20 @@ func listVulnerabilitiesInManifest(r Reader) server.ToolHandlerFunc {
 		if toolErr != nil {
 			return toolErr, nil
 		}
+		version, toolErr := stringArg(args, "object_version")
+		if toolErr != nil {
+			return toolErr, nil
+		}
 		manifest, err := r.GetVulnerabilityManifest(ctx, namespace, name)
 		if err != nil {
 			return readError(err)
 		}
-		return jsonResult(listVulnerabilities(manifest.Spec.Payload.Matches, opts))
+		if toolErr := checkObjectVersion(version, "vulnerability manifest", manifest); toolErr != nil {
+			return toolErr, nil
+		}
+		resp := listVulnerabilities(manifest.Spec.Payload.Matches, opts)
+		resp.ObjectVersion = objectVersion(manifest)
+		return jsonResult(resp)
 	}
 }
 
@@ -104,16 +115,26 @@ func listVulnerabilityMatchesForCVE(r Reader) server.ToolHandlerFunc {
 		if toolErr != nil {
 			return toolErr, nil
 		}
+		version, toolErr := stringArg(args, "object_version")
+		if toolErr != nil {
+			return toolErr, nil
+		}
 		manifest, err := r.GetVulnerabilityManifest(ctx, namespace, name)
 		if err != nil {
 			return readError(err)
 		}
-		return jsonResult(matchesForCVE(manifest.Spec.Payload.Matches, cveID, p))
+		if toolErr := checkObjectVersion(version, "vulnerability manifest", manifest); toolErr != nil {
+			return toolErr, nil
+		}
+		resp := matchesForCVE(manifest.Spec.Payload.Matches, cveID, p)
+		resp.ObjectVersion = objectVersion(manifest)
+		return jsonResult(resp)
 	}
 }
 
 type cveMatchListResponse struct {
-	CVEID string `json:"cve_id"`
+	CVEID         string `json:"cve_id"`
+	ObjectVersion string `json:"object_version,omitempty"`
 	pageInfo
 	Matches []v1beta1.Match `json:"matches"`
 }
@@ -237,11 +258,15 @@ type vulnerabilityEntry struct {
 	URLs        []string           `json:"urls,omitempty"`
 	Advisories  []v1beta1.Advisory `json:"advisories,omitempty"`
 	DataSource  string             `json:"data_source,omitempty"`
+	// FixDataSource is the data source of the fix when it is not the one in
+	// DataSource: the entry's severity and its fix came from two records.
+	FixDataSource string `json:"fix_data_source,omitempty"`
 
 	severity severity
 }
 
 type vulnerabilityListResponse struct {
+	ObjectVersion   string               `json:"object_version,omitempty"`
 	Total           int                  `json:"total"`
 	Returned        int                  `json:"returned"`
 	Truncated       bool                 `json:"truncated"`
@@ -380,6 +405,9 @@ func listVulnerabilities(matches []v1beta1.Match, opts vulnerabilityListOptions)
 			entry.URLs = v.URLs
 			entry.Advisories = v.Advisories
 			entry.DataSource = v.DataSource
+			if fixSource := g.bestFixed.match.Vulnerability.DataSource; g.hasFixed && fixSource != v.DataSource {
+				entry.FixDataSource = fixSource
+			}
 		}
 		entries = append(entries, entry)
 	}

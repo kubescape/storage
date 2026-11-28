@@ -1,0 +1,21 @@
+{
+  "call": {
+    "name": "list_configuration_security_scan_manifests",
+    "arguments": {
+      "limit": 1,
+      "namespace": "default"
+    }
+  },
+  "isError": false,
+  "response": {
+    "configuration_manifests": {
+      "manifests": [
+        {
+          "namespace": "default",
+          "manifest_name": "deployment-web"
+        }
+      ]
+    },
+    "continue": "1"
+  }
+}

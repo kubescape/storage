@@ -1,0 +1,18 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "limit": 1,
+      "manifest_name": "deployment-web",
+      "namespace": "default"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "limit and offset need summary or control_id",
+    "details": {
+      "argument": "limit"
+    }
+  }
+}

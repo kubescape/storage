@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition"
 	"github.com/kubescape/storage/pkg/apis/softwarecomposition/v1beta1"
@@ -14,8 +15,9 @@ import (
 )
 
 // memReader is a Reader over fixed objects that answers like storage: a list
-// returns metadata only and honours the label selector, a missing object is
-// NotFound, and any read in the namespace "restricted" is Forbidden.
+// returns metadata only and honours the label selector, limit and continue, a
+// missing object is NotFound, and any read in the namespace "restricted" is
+// Forbidden.
 type memReader struct {
 	manifests []v1beta1.VulnerabilityManifest
 	sboms     []v1beta1.SBOMSyft
@@ -28,6 +30,27 @@ func newMemReader(manifests ...v1beta1.VulnerabilityManifest) *memReader {
 }
 
 const restrictedNamespace = "restricted"
+
+// listPage returns the page of items that opts asks for and the continue
+// token of the next page. The token is the index of the next item.
+func listPage[T any](items []T, opts metav1.ListOptions) ([]T, string, error) {
+	start := 0
+	if opts.Continue != "" {
+		var err error
+		if start, err = strconv.Atoi(opts.Continue); err != nil || start < 0 || start > len(items) {
+			return nil, "", apierrors.NewBadRequest("invalid continue token")
+		}
+	}
+	end := len(items)
+	if opts.Limit > 0 && start+int(opts.Limit) < end {
+		end = start + int(opts.Limit)
+	}
+	next := ""
+	if end < len(items) {
+		next = strconv.Itoa(end)
+	}
+	return items[start:end], next, nil
+}
 
 func forbidden(verb, resource, namespace, name string) error {
 	return responsewriters.ForbiddenStatusError(authorizer.AttributesRecord{
@@ -56,6 +79,9 @@ func (r *memReader) ListVulnerabilityManifests(_ context.Context, namespace stri
 			out.Items = append(out.Items, v1beta1.VulnerabilityManifest{ObjectMeta: m.ObjectMeta})
 		}
 	}
+	if out.Items, out.Continue, err = listPage(out.Items, opts); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -71,7 +97,7 @@ func (r *memReader) GetVulnerabilityManifest(_ context.Context, namespace, name 
 	return nil, apierrors.NewNotFound(v1beta1.Resource("vulnerabilitymanifests"), name)
 }
 
-func (r *memReader) ListSBOMSyfts(_ context.Context, namespace string, _ metav1.ListOptions) (*v1beta1.SBOMSyftList, error) {
+func (r *memReader) ListSBOMSyfts(_ context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.SBOMSyftList, error) {
 	if namespace == restrictedNamespace {
 		return nil, forbidden("list", "sbomsyfts", namespace, "")
 	}
@@ -80,6 +106,10 @@ func (r *memReader) ListSBOMSyfts(_ context.Context, namespace string, _ metav1.
 		if s.Namespace == namespace {
 			out.Items = append(out.Items, v1beta1.SBOMSyft{ObjectMeta: s.ObjectMeta})
 		}
+	}
+	var err error
+	if out.Items, out.Continue, err = listPage(out.Items, opts); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
@@ -96,7 +126,7 @@ func (r *memReader) GetSBOMSyft(_ context.Context, namespace, name string) (*v1b
 	return nil, apierrors.NewNotFound(v1beta1.Resource("sbomsyfts"), name)
 }
 
-func (r *memReader) ListWorkloadConfigurationScans(_ context.Context, namespace string, _ metav1.ListOptions) (*v1beta1.WorkloadConfigurationScanList, error) {
+func (r *memReader) ListWorkloadConfigurationScans(_ context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.WorkloadConfigurationScanList, error) {
 	if namespace == restrictedNamespace {
 		return nil, forbidden("list", "workloadconfigurationscans", namespace, "")
 	}
@@ -105,6 +135,10 @@ func (r *memReader) ListWorkloadConfigurationScans(_ context.Context, namespace 
 		if s.Namespace == namespace {
 			out.Items = append(out.Items, v1beta1.WorkloadConfigurationScan{ObjectMeta: s.ObjectMeta})
 		}
+	}
+	var err error
+	if out.Items, out.Continue, err = listPage(out.Items, opts); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
@@ -121,7 +155,7 @@ func (r *memReader) GetWorkloadConfigurationScan(_ context.Context, namespace, n
 	return nil, apierrors.NewNotFound(v1beta1.Resource("workloadconfigurationscans"), name)
 }
 
-func (r *memReader) ListContainerProfiles(_ context.Context, namespace string, _ metav1.ListOptions) (*v1beta1.ContainerProfileList, error) {
+func (r *memReader) ListContainerProfiles(_ context.Context, namespace string, opts metav1.ListOptions) (*v1beta1.ContainerProfileList, error) {
 	if namespace == restrictedNamespace {
 		return nil, forbidden("list", "containerprofiles", namespace, "")
 	}
@@ -130,6 +164,10 @@ func (r *memReader) ListContainerProfiles(_ context.Context, namespace string, _
 		if p.Namespace == namespace {
 			out.Items = append(out.Items, v1beta1.ContainerProfile{ObjectMeta: p.ObjectMeta})
 		}
+	}
+	var err error
+	if out.Items, out.Continue, err = listPage(out.Items, opts); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

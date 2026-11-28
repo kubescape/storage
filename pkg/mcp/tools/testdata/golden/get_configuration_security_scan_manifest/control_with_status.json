@@ -1,0 +1,19 @@
+{
+  "call": {
+    "name": "get_configuration_security_scan_manifest",
+    "arguments": {
+      "control_id": "C-0016",
+      "manifest_name": "deployment-web",
+      "namespace": "default",
+      "status": "failed"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "control_id returns one control: leave out status, min_severity and summary",
+    "details": {
+      "argument": "control_id"
+    }
+  }
+}

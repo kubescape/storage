@@ -109,15 +109,18 @@ func withNamespaceDescription(tool mcp.Tool, description string) mcp.Tool {
 }
 
 // sizeHints say how to ask each tool for less when its answer is above the
-// endpoint's size cap. Tools that only list names page with continue and are
-// not listed here.
+// endpoint's size cap. Each one must be a way to a smaller answer from where
+// the caller is, including the first page.
 var sizeHints = map[string]string{
-	"list_vulnerability_manifests":             "narrow it with level (image or workload) or page with continue",
-	"list_vulnerabilities_in_manifest":         "lower limit and page with offset, leave include_details off, or filter with min_severity or fixable_only",
-	"list_vulnerability_matches_for_cve":       "lower limit and page with offset",
-	"list_sbom_packages":                       "lower limit and page with offset, or filter with name or package_type",
-	"get_configuration_security_scan_manifest": "filter with status (for example failed) or min_severity",
-	"get_container_profile":                    "set section to get one list of the profile, and page it with limit and offset",
+	"list_vulnerability_manifests":               "narrow it with level (image or workload), or lower limit and page with continue",
+	"list_vulnerabilities_in_manifest":           "lower limit and page with offset, leave include_details off, or filter with min_severity or fixable_only",
+	"list_vulnerability_matches_for_cve":         "lower limit and page with offset",
+	"list_sboms":                                 "lower limit and page with continue",
+	"list_sbom_packages":                         "lower limit and page with offset, or filter with name or package_type",
+	"list_configuration_security_scan_manifests": "lower limit and page with continue",
+	"get_configuration_security_scan_manifest":   "filter with status (for example failed) or min_severity, set summary to page through the controls without their rules, or set control_id to page through one control's paths with limit and offset",
+	"list_container_profiles":                    "lower limit and page with continue",
+	"get_container_profile":                      "set section to get one list of the profile, and page it with limit and offset",
 }
 
 // SizeHint says how to ask tool for less, for an answer above the endpoint's

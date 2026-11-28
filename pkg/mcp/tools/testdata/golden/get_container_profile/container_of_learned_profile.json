@@ -1,0 +1,19 @@
+{
+  "call": {
+    "name": "get_container_profile",
+    "arguments": {
+      "container": "operator",
+      "namespace": "kubescape",
+      "profile_name": "replicaset-operator-55df98fc6d",
+      "section": "execs"
+    }
+  },
+  "isError": true,
+  "response": {
+    "code": "INVALID_ARGUMENT",
+    "message": "this profile describes one container: leave out container",
+    "details": {
+      "argument": "container"
+    }
+  }
+}
